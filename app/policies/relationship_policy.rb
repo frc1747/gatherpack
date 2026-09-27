@@ -21,6 +21,12 @@ class RelationshipPolicy < ApplicationPolicy
   end
 
   def destroy?
-    user.admin? || record.parent == user || record.child == user
+    # `person` is the acting user's Person; the edge connects two People, so
+    # compare against those, not the User. (Previously compared a Person to a
+    # User, so this was never true for a non-admin.)
+    user.admin? || record.parent == person || record.child == person
   end
+
+  # Reversing an edge changes its direction, so gate it like destroy.
+  alias_method :reverse?, :destroy?
 end
