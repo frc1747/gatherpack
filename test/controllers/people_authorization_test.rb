@@ -49,7 +49,7 @@ class PeopleAuthorizationTest < ActionDispatch::IntegrationTest
   test "a non-manager cannot grant themselves teams via mass assignment" do
     locked_team = Team.create!(name: "Admins Only", team_type: team_types(:one))
 
-    patch person_path(@attacker), params: { person: { team_ids: [locked_team.id] } }
+    patch person_path(@attacker), params: { person: { team_ids: [ locked_team.id ] } }
 
     assert_not_includes @attacker.reload.teams, locked_team,
       "non-manager granted themselves a team via mass assignment"
