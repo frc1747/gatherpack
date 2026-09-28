@@ -1,6 +1,15 @@
 class CheckinsController < InternalController
+  include SearchAndAdd
+
   before_action :set_event, except: [ :field_update, :rename_response ]
   before_action :set_checkin, only: %i[ show edit update destroy ]
+
+  # GET /events/1/checkins/candidates
+  def candidates
+    authorize Checkin.new(event: @event), :create?
+    people = policy_scope(Person).where.not(id: @event.checkins.select(:person_id)).order(:last_name, :first_name)
+    load_candidates(people, :first_name_or_last_name_or_display_name_cont)
+  end
 
   # GET /checkins/1
   def show
@@ -22,7 +31,10 @@ class CheckinsController < InternalController
     @checkin = authorize @event.checkins.build(checkin_params)
     @checkin.created_by = current_user.person
 
-    if @checkin.save
+    saved = @checkin.save
+    if inline_request?
+      render :create, status: saved ? :ok : :unprocessable_entity
+    elsif saved
       redirect_to @event, notice: "Checkin was successfully created."
     else
       render :new, status: :unprocessable_entity
