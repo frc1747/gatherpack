@@ -1,35 +1,54 @@
-<%= search_form_for q, url: event_url, data: {"controller": "turbo_search", "turbo-frame": "results"} do |f| %>
-<div class="card">
-  <div class="card-header">
-    <h3>Search People</h3>
-  </div>
-  <div class="card-body">
-      <div class="col">
-        <%= f.input :person_display_name_cont, label: "Name" %>
+<% can_check_in = policy(@checkin).create? %>
+<% col_class = can_check_in ? "col-6 col-md-4 col-xl-3" : "col-6 col-md-2" %>
+
+<div class="row g-3 mt-0">
+  <% if can_check_in %>
+    <div class="col-12 col-lg-4">
+      <div class="sticky-lg-top">
+        <%= render layout: "shared/add_panel", locals: {
+              title: "Check people in",
+              url: candidates_event_checkins_path(event),
+              placeholder: "Search people…"
+            } do %>
+          <%= turbo_frame_tag "candidates", src: candidates_event_checkins_path(event) do %>
+            <p class="text-body-secondary p-3 mb-0">Loading…</p>
+          <% end %>
+        <% end %>
       </div>
-  </div>
-  <div class="card-footer">
-    <% if policy(@checkin).create? %>
-      <%= link_to "Check Someone In", new_event_checkin_path(event), class: "btn btn-success" %>
-    <% else %>
-      <div class="btn btn-success disabled">Check In Locked</div>
+    </div>
+  <% end %>
+
+  <div class="col-12 <%= "col-lg-8" if can_check_in %>">
+    <%= search_form_for q, url: event_url, data: {"controller": "turbo_search", "turbo-frame": "results"} do |f| %>
+    <div class="card">
+      <div class="card-header">
+        <h3>Search Checkins</h3>
+      </div>
+      <div class="card-body">
+          <div class="col">
+            <%= f.input :person_display_name_cont, label: "Name" %>
+          </div>
+      </div>
+      <div class="card-footer">
+        <% unless can_check_in %>
+          <div class="btn btn-success disabled">Check In Locked</div>
+        <% end %>
+
+        <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+        <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+      </div>
+    </div>
     <% end %>
 
-    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
-    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+    <h2 class="mt-3">Checkins (<span id="checkins_count"><%= @event.checkins.count %></span><% if @event.checkin_limit.present? && @event.checkin_limit > 0 %>/<%= @event.checkin_limit %><% end %>)</h2>
+    <%= turbo_frame_tag "results" do %>
+      <div id="checkins" class="row">
+        <% checkins.each do |checkin| %>
+          <%= render "checkins/grid_checkin", checkin: checkin, col_class: col_class %>
+        <% end %>
+      </div>
+
+      <%= paginate checkins %>
+    <% end %>
   </div>
 </div>
-<% end %>
-
-<h2 class="mt-3">Checkins (<%= @event.checkins.count %><% if @event.checkin_limit.present? && @event.checkin_limit > 0 %>/<%= @event.checkin_limit %><% end %>)</h2>
-<%= turbo_frame_tag "results" do %>
-  <div id="checkins" class="row">
-    <% checkins.each do |checkin| %>
-      <div class="col-6 col-md-2">
-        <%= render checkin %>
-      </div>
-    <% end %>
-  </div>
-
-  <%= paginate checkins %>
-<% end %>
