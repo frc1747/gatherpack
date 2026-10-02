@@ -1,0 +1,39 @@
+name: HBR Upstream Drift
+
+# Daily: rebuild hbr/integration from the latest upstream/main (without pushing
+# it) and test the result. Opens an issue, or comments on the open one, when a
+# feature no longer merges or the tests break, so trouble surfaces while it is
+# one upstream commit old.
+
+on:
+  schedule:
+    - cron: "43 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    uses: ./.github/workflows/hbr-check.yml
+    with:
+      mode: rebuild
+
+  report:
+    needs: rebuild
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create hbr-drift --color B60205 --description "Upstream drift broke the fork rebuild" 2>/dev/null || true
+          body="The upstream drift check failed: ${RUN_URL}"
+          issue=$(gh issue list --label hbr-drift --state open --json number --jq '.[0].number')
+          if [ -n "${issue}" ]; then
+            gh issue comment "${issue}" --body "${body}"
+          else
+            gh issue create --label hbr-drift --title "Upstream drift: fork rebuild or tests failing" --body "${body}"
+          fi
