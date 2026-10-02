@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Regenerates hbr/integration from upstream/main + hbr/platform + every branch in
+# fork/features.txt, in manifest order. See fork/STRATEGY.md, "Rebuild Script".
+#
+# Refs are read from origin by default. Set REF_PREFIX= (empty) to build from
+# local branches instead, e.g. before they have been pushed:
+#   REF_PREFIX= bin/fork-rebuild
+set -euo pipefail
+
+INTEGRATION="hbr/integration"
+REF_PREFIX="${REF_PREFIX-origin/}"
+PLATFORM="${REF_PREFIX}hbr/platform"
+MANIFEST_PATH="fork/features.txt"
+
+git fetch upstream
+git fetch origin
+
+manifest="$(git show "${PLATFORM}:${MANIFEST_PATH}")"
+
+git checkout -B "${INTEGRATION}" upstream/main
+git merge --no-ff --no-edit -m "Integrate hbr/platform" "${PLATFORM}"
+
+while IFS= read -r branch; do
+  branch="${branch%%#*}"
+  branch="$(echo "${branch}" | xargs)"
+  [[ -z "${branch}" ]] && continue
+  echo "Merging ${branch}"
+  if ! git merge --no-ff --no-edit -m "Integrate ${branch}" "${REF_PREFIX}${branch}"; then
+    echo "Conflict merging ${branch}. Resolve it on the feature branch, not here." >&2
+    git merge --abort
+    exit 1
+  fi
+done <<< "${manifest}"
+
+echo "Integration branch rebuilt from upstream/main at $(git rev-parse --short upstream/main)"
