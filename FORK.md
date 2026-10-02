@@ -5,7 +5,7 @@ Status register for the HBR fork of GatherPack. The rules live in
 [`fork/features.txt`](fork/features.txt).
 
 - Upstream: https://github.com/GatherPack/gatherpack
-- Fork: https://github.com/seliger/gatherpack
+- Fork: https://github.com/frc1747/gatherpack
 - Upstream base at setup: `32e8023` (2026-10-02)
 
 ## Features
