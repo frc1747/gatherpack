@@ -1,0 +1,38 @@
+name: HBR Features
+
+# Tests each feature branch in fork/features.txt alone, merged with the latest
+# upstream/main. Proves each feature is self-contained and still upstreamable.
+# Feature branches carry no fork workflows, so this runs from the default
+# branch (hbr/platform) and checks each one out explicitly.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.read.outputs.branches }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Read fork/features.txt
+        id: read
+        run: |
+          branches=$(sed -e 's/#.*//' -e 's/[[:space:]]//g' fork/features.txt | grep -v '^$' | jq -Rnc '[inputs]')
+          echo "branches=${branches}" >> "$GITHUB_OUTPUT"
+
+  feature:
+    needs: manifest
+    if: needs.manifest.outputs.branches != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJSON(needs.manifest.outputs.branches) }}
+    uses: ./.github/workflows/hbr-check.yml
+    with:
+      ref: ${{ matrix.branch }}
+      mode: upstream
