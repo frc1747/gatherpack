@@ -9,4 +9,5 @@ feature/search-and-add
 feature/brakeman-8.1
 feature/enforce-authorization
 feature/calendar-birthday-team-filter
-# feature/person-fields  (wip: design spec only, no code yet)
+feature/people-ransack-auth-object
+feature/person-fields
