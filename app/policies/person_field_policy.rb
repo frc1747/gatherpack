@@ -19,6 +19,10 @@ class PersonFieldPolicy < AdminPolicy
     user&.admin
   end
 
+  def apply_recommended?
+    user&.admin
+  end
+
   # Open to everyone; the page only lists fields the user can read for
   # someone, and says so when there are none.
   def roster?
