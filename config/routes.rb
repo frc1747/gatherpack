@@ -39,6 +39,7 @@ Rails.application.routes.draw do
     collection do
       get :roster
       get :preview
+      post :apply_recommended
     end
     member do
       patch :move

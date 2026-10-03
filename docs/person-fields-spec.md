@@ -1231,8 +1231,18 @@ left open:
 - **Deleting a team** that a field applies to fails (the foreign key
   restricts it). Re-scope or delete the field first. Worth a friendlier
   error later.
-- **Phase 2 carry-overs:** the `apply_recommended` route, and making
-  `Person.ransackable_attributes` fail closed for a nil `auth_object` (§5).
+- **Phase 2** (done): `Person.ransackable_attributes` fails closed for a
+  nil `auth_object`, so ransack through an association only reaches details
+  everyone can see. Resubmitting a stored value is not a change, so legacy
+  data that wouldn't pass a field's validation (a free-text phone number,
+  say) never blocks saving a profile. "Person Fields" and "Person Field
+  Sections" moved to the always-on People setup section, because system
+  fields are enforced with the feature off. `db/seeds.rb` calls
+  `ensure_system_fields!`, since a fresh database loads the schema rather
+  than running the data migration.
+- **Pre-existing bug, not fixed here:** the calendar's team filter calls
+  `.uniq` on the birthday relation, turning it into an Array, so filtering
+  birthdays by team fails.
 
 Open questions:
 

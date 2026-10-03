@@ -72,6 +72,14 @@ class PersonFieldsController < InternalController
     redirect_to person_fields_path, notice: "Person field was restored.", status: :see_other
   end
 
+  # POST /person_fields/apply_recommended
+  def apply_recommended
+    authorize PersonField, :apply_recommended?
+    count = PersonField.recommended_privacy_changes.size
+    PersonField.apply_recommended_privacy!
+    redirect_to person_fields_path, notice: "Applied recommended privacy settings to #{helpers.pluralize(count, "field")}.", status: :see_other
+  end
+
   # GET /person_fields/preview
   def preview
     authorize PersonField, :preview?
