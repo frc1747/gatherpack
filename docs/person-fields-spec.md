@@ -1241,6 +1241,15 @@ left open:
   `ensure_system_fields!`, since a fresh database loads the schema rather
   than running the data migration.
 
+- **Phase 3** (done): a check-in field's link to a person field can only be
+  set when it's created, so linking never orphans collected responses, and a
+  person field used by a check-in field can't be deleted. The arrange page
+  leaves out linked fields (there's nothing to drag) and responses the
+  viewer can't see. The print sheet groups people whose value the viewer
+  can't see under "—". The check-in form hides responses the editor can't
+  see, even when they could write them. `PersonField.level_people` exposes a
+  level's audience for check-in field read levels.
+
 Open questions:
 
 1. ~~Who can delete a `minor` guardianship.~~ Resolved: managers and admins

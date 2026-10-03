@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_03_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_03_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -176,7 +176,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_120000) do
     t.string "name"
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.uuid "person_field_id"
+    t.integer "read_permission", default: 7, null: false
     t.index ["event_type_id"], name: "index_checkin_fields_on_event_type_id"
+    t.index ["person_field_id"], name: "index_checkin_fields_on_person_field_id"
   end
 
   create_table "checkins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -832,6 +835,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_03_120000) do
   add_foreign_key "checkin_field_responses", "checkin_fields"
   add_foreign_key "checkin_field_responses", "checkins"
   add_foreign_key "checkin_fields", "event_types"
+  add_foreign_key "checkin_fields", "person_fields"
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
   add_foreign_key "events", "event_types"
