@@ -35,6 +35,20 @@ Rails.application.routes.draw do
 
   resources :team_types
   resources :relationship_types
+  resources :person_fields do
+    collection do
+      get :roster
+      get :preview
+    end
+    member do
+      patch :move
+      patch :archive
+      patch :restore
+    end
+  end
+  resources :person_field_groups do
+    member { patch :move }
+  end
 
   resources :people do
     resources :memberships, only: %i[index new create destroy]
