@@ -184,12 +184,11 @@ class PersonField < ApplicationRecord
   AUDIENCE_ROLES = { subject: :subject, guardians: :guardian, leaders: :leaders, teammates: :teammates, everyone: :everyone }.freeze
 
   # Each audience's access to this field for one subject (:none, :read or
-  # :write), plus badge grants. Guardians are left out until a relationship
-  # type grants guardianship, so organizations without them never see the
-  # term.
+  # :write), plus badge grants. Guardians are only included when the subject
+  # has one, so nobody sees notes about guardians they don't have.
   def audience_for(subject)
     audience = AUDIENCE_ROLES.to_h { |role, component| [ role, role_access(component) ] }
-    audience.delete(:guardians) unless RelationshipType.guardianship_configured?
+    audience.delete(:guardians) unless subject.persisted? && subject.guardians.exists?
     audience[:subject] = :read if audience[:subject] == :write && system_read_only?
     audience[:badges] = person_field_badge_grants.to_h { |grant| [ grant.badge, grant.write? && !system_read_only? ? :write : :read ] }
     audience[:guardianship_ends_on] = subject.guardianship_ends_on if audience.fetch(:guardians, :none) != :none
