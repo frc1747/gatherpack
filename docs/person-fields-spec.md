@@ -645,7 +645,7 @@ This is the practical definition of "doesn't leak". Each row needs a test
 | `people/show.html.erb` | Replace the hard-coded email/phone/birthday/address/dietary/shirt/gender block with `render "people/fields", person: @person`, iterating `policy(@person).readable_person_fields.select(&:show_on_profile)` grouped by section. Empty values render as "—"; a section with no readable fields is omitted |
 | `people/_form.html.erb` | Render inputs for `writable_person_fields` by section; readable-only values as read-only text; base inputs only when `update_profile?` |
 | `PeopleController#person_params` | `permitted_attributes(@person)` (§4.2) |
-| **Ransack** (`Person`, `Membership`) | `ransackable_attributes(auth_object)` returns base columns plus system columns whose field is **not** restricted, or everything for admins. Pass `auth_object: current_user` at every `ransack` call (`people#index`, `search#*`, `calendar#calendar`, memberships). The "Age" sort link renders only when `birthday` is ransackable for the viewer. `person_field_values` is never ransackable |
+| **Ransack** (`Person`, `Membership`) | `ransackable_attributes(auth_object)` returns base columns plus system columns whose field is **not** restricted, or everything for admins. Pass `auth_object: current_user` at every `ransack` call (`people#index`, `search#*`, `calendar#calendar`, memberships). The "Age" sort link renders only when `birthday` is ransackable for the viewer. `person_field_values` is never ransackable. Ransack also reaches `Person` **through associations** (`person` on `Checkin`, `Question`, `Reply`, `TimeClockPunch`, `MembershipApplication`, e.g. `q[person_dietary_restrictions_cont]` on an event's checkins), and those call sites don't pass `auth_object`. So `Person.ransackable_attributes` **fails closed**: a nil `auth_object` gets the non-admin attribute set |
 | `CalendarController` birthdays | Restrict `@birthdays` to `birthday_field.readable_subjects_for(current_person)` |
 | `SearchController#combo` | Already exposes only `identifier_name`; add a regression test so it stays that way |
 | `Api::V1::UserInfoController` | No field values in v1, only base claims (email stays governed by the `user_email` OAuth scope, since it's the user's own data) |
@@ -1125,7 +1125,7 @@ once this slice is green (AGENTS.md).
 
 | Phase | Scope | Breaks anything? |
 |---|---|---|
-| **0: Read-surface prep** | `ransackable_attributes(auth_object)` plumbing on `Person`/`Membership` with `auth_object: current_user` at every call site (still returning today's attributes); `filter_parameters` additions; `verify_authorized`/`verify_policy_scoped` on `InternalController` | No |
+| **0: Read-surface prep** | `auth_object: current_user` at the `Person`/`Membership` ransack call sites (`ransackable_attributes(auth_object)` still returns today's attributes); `filter_parameters` additions. `verify_authorized`/`verify_policy_scoped` on `InternalController` was dropped from this phase: about 15 controllers have actions that never call `authorize` (some are real gaps, e.g. announcements `update`/`destroy`), so it belongs in its own hardening change | No |
 | **1: Model + UI** | `PersonField`, `PersonFieldValue`, `PersonFieldGroup`, `PersonFieldBadgeGrant` (scaffold, then hand-edit policies); the evaluator and scope form; `Person#readable_fields_for`/`writable_fields_for`/`field_value`/`assign_field_values`; **guardianship** (`relationship_types.guardianship`, `Relationship.active_guardianships`, `Person#guardians`/`#wards`, consent rule in `Relationship#permission_check`, age settings); `audience_for` and access messages; Setup index, form, sections, archive/restore; Preview as…; profile and form partials for custom fields; `PersonPolicy#update?` widening; Member Info roster; hooks (§8.1); feature registration | No. Feature flag off by default |
 | **2: System fields** | `ensure_system_fields!` migration (today's levels); switch `people/show`, `_form`, Ransack, calendar, and strong params to the field API; email as a read-only system field; "Apply recommended privacy settings" | No, by default (§6.1). Applying the recommended settings hides data from people who used to see it. That's the intended result, and the release notes should say so |
 | **3: Events integration** | §9: linked check-in fields, plus a read level on `CheckinField` | No (defaults preserve today) |
@@ -1153,7 +1153,7 @@ Existing upstream files touched (record in `FORK.md` while this is carried):
 `config/locales/en.yml` (access messages),
 `app/policies/person_policy.rb`, `app/controllers/people_controller.rb`,
 `app/controllers/calendar_controller.rb`, `app/controllers/search_controller.rb`
-(ransack `auth_object`), `app/controllers/internal_controller.rb`,
+(ransack `auth_object`), `app/controllers/memberships_controller.rb`,
 `app/views/people/show.html.erb`, `app/views/people/_form.html.erb`,
 `app/views/people/index.html.erb` (Age sort guard),
 `config/initializers/features.rb`,
