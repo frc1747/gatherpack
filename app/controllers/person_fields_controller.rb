@@ -1,5 +1,15 @@
 class PersonFieldsController < InternalController
-  Preview = Struct.new(:viewer_id, :subject_id)
+  # The Preview as… form. The people pickers show the selected person's name
+  # by calling #viewer and #subject.
+  Preview = Struct.new(:viewer_id, :subject_id) do
+    def viewer
+      Person.find_by(id: viewer_id) if viewer_id.present?
+    end
+
+    def subject
+      Person.find_by(id: subject_id) if subject_id.present?
+    end
+  end
 
   before_action :set_person_field, only: %i[ show edit update destroy move archive restore ]
   before_action :require_feature, only: %i[ new create roster ]
@@ -84,8 +94,8 @@ class PersonFieldsController < InternalController
   def preview
     authorize PersonField, :preview?
     @preview = Preview.new(params.dig(:preview, :viewer_id), params.dig(:preview, :subject_id))
-    @viewer = Person.find_by(id: @preview.viewer_id) if @preview.viewer_id.present?
-    @subject = Person.find_by(id: @preview.subject_id) if @preview.subject_id.present?
+    @viewer = @preview.viewer
+    @subject = @preview.subject
     return unless @viewer && @subject
 
     access = PersonFieldAccess.new(@viewer, @subject)
