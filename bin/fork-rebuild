@@ -15,6 +15,16 @@ MANIFEST_PATH="fork/features.txt"
 git fetch upstream
 git fetch origin
 
+# Let git resolve the one routine db/schema.rb conflict (both sides moved the
+# schema version) with bin/fork-merge-schema; anything else still stops the
+# rebuild. Registered in the repository's own config and info/attributes, so
+# no tracked file changes and feature-branch rebases get it too.
+git config merge.rails-schema.name "db/schema.rb version-line resolver"
+git config merge.rails-schema.driver "$(git rev-parse --show-toplevel)/bin/fork-merge-schema %A %O %B"
+attributes="$(git rev-parse --git-common-dir)/info/attributes"
+mkdir -p "$(dirname "${attributes}")"
+grep -qxF "db/schema.rb merge=rails-schema" "${attributes}" 2>/dev/null || echo "db/schema.rb merge=rails-schema" >> "${attributes}"
+
 manifest="$(git show "${PLATFORM}:${MANIFEST_PATH}")"
 
 git checkout -B "${INTEGRATION}" upstream/main
