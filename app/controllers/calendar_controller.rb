@@ -23,7 +23,8 @@ class CalendarController < ApplicationController
           @end_time_year = Date.parse(end_time).year
 
           ransacked_people = policy_scope(Person).ransack(
-            display_name_i_cont: params[:q][:name_i_cont]
+            { display_name_i_cont: params[:q][:name_i_cont] },
+            auth_object: current_user
           ).result(distinct: true)
           ransacked_people = ransacked_people.joins(:memberships).where(memberships: { person_id: (Team.find(params[:q][:team_id_eq]).all_people) }).uniq if params[:q][:team_id_eq].present?
           ransacked_people = ransacked_people.where(id: params[:person_id]) if params[:person_id]
