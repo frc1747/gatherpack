@@ -6,10 +6,10 @@ class MembershipsController < InternalController
   def index
     @q = false
     if @team
-      @q = policy_scope(Membership).where(team: @team).ransack(params[:q])
+      @q = policy_scope(Membership).where(team: @team).ransack(params[:q], auth_object: current_user)
       @memberships = @q.result(distinct: true).includes(:person, :team).order("person.last_name" => "desc", "team.name" => "asc").page(params[:page])
 
-      @people_q = @team.all_people.includes(:memberships).ransack(params[:people_q])
+      @people_q = @team.all_people.includes(:memberships).ransack(params[:people_q], auth_object: current_user)
       @people = @people_q.result(distinct: true)
       @people = case params[:member_type]
       when "direct"
@@ -23,7 +23,7 @@ class MembershipsController < InternalController
       end
       @people = @people.order(last_name: :asc, first_name: :asc).page(params[:people_page])
     elsif @person
-      @q = policy_scope(Membership).where(person: @person).ransack(params[:q])
+      @q = policy_scope(Membership).where(person: @person).ransack(params[:q], auth_object: current_user)
       @memberships = @q.result(distinct: true).includes(:person, :team).order("person.last_name" => "desc", "team.name" => "asc").page(params[:page])
     end
     if @team
