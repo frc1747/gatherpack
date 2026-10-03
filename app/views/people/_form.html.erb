@@ -1,6 +1,7 @@
 <%= f.error_notification %>
 <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
+<% if @person.new_record? || policy(@person).update_profile? %>
 <div class="row" data-controller="photo-capture">
   <div class="col-md-4">
     <div class="row mb-2">
@@ -77,3 +78,6 @@
     </div>
   </div>
 </div>
+<% end %>
+
+<%= render "people/field_inputs", f: f, person: @person %>

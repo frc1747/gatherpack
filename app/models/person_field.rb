@@ -106,6 +106,21 @@ class PersonField < ApplicationRecord
     !read_everyone?
   end
 
+  AUDIENCE_ROLES = { subject: :subject, guardians: :guardian, leaders: :leaders, teammates: :teammates, everyone: :everyone }.freeze
+
+  # Each audience's access to this field for one subject (:none, :read or
+  # :write), plus badge grants. Guardians are left out until a relationship
+  # type grants guardianship, so organizations without them never see the
+  # term.
+  def audience_for(subject)
+    audience = AUDIENCE_ROLES.to_h { |role, component| [ role, role_access(component) ] }
+    audience.delete(:guardians) unless RelationshipType.guardianship_configured?
+    audience[:subject] = :read if audience[:subject] == :write && system_read_only?
+    audience[:badges] = person_field_badge_grants.to_h { |grant| [ grant.badge, grant.write? && !system_read_only? ? :write : :read ] }
+    audience[:guardianship_ends_on] = subject.guardianship_ends_on if audience.fetch(:guardians, :none) != :none
+    audience
+  end
+
   def archived?
     archived_at.present?
   end
@@ -191,6 +206,17 @@ class PersonField < ApplicationRecord
   end
 
   private
+
+  def role_access(component)
+    reaches = ->(level) { PERMISSION_LEVELS.fetch(level).include?(component) || level == "everyone" }
+    if reaches.call(write_permission) && !system_read_only?
+      :write
+    elsif reaches.call(read_permission)
+      :read
+    else
+      :none
+    end
+  end
 
   def normalize_text(text, current)
     case data_type
