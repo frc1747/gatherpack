@@ -23,8 +23,16 @@ class Person < ApplicationRecord
   has_one_attached :avatar
   attr_accessor :email
 
+  BASE_RANSACKABLE_ATTRIBUTES = [ "created_at", "display_name", "first_name", "id", "last_name", "updated_at", "user_id" ].freeze
+  FIELD_RANSACKABLE_ATTRIBUTES = [ "address", "birthday", "dietary_restrictions", "gender", "phone_number", "shirt_size" ].freeze
+
+  # Built-in details are searchable and sortable only while everyone can see
+  # them, or by admins. Without an auth_object (ransack through an
+  # association), assume a non-admin.
   def self.ransackable_attributes(auth_object = nil)
-    [ "address", "birthday", "created_at", "dietary_restrictions", "display_name", "first_name", "gender", "id", "last_name", "phone_number", "shirt_size", "updated_at", "user_id" ]
+    return BASE_RANSACKABLE_ATTRIBUTES + FIELD_RANSACKABLE_ATTRIBUTES if auth_object.respond_to?(:admin?) && auth_object.admin?
+
+    BASE_RANSACKABLE_ATTRIBUTES + PersonField.system.active.read_everyone.where(system_source: FIELD_RANSACKABLE_ATTRIBUTES).pluck(:system_source)
   end
 
   def self.ransackable_associations(auth_object = nil)
@@ -212,6 +220,8 @@ class Person < ApplicationRecord
       next unless field && access.writable?(field)
 
       current = field_value(field)
+      next if field_input_unchanged?(field, input, current)
+
       value, error = field.normalize(input, current: current)
       next @person_field_input_errors << [ field.key, error ] if error
 
@@ -277,6 +287,17 @@ class Person < ApplicationRecord
       row.value = field.serialize(value)
       row.updated_by = acting
       row.acting = acting
+    end
+  end
+
+  # Resubmitting the stored value is not a change, even if it predates the
+  # field's validation (say, a free-text phone number).
+  def field_input_unchanged?(field, input, current)
+    case field.data_type
+    when "boolean" then ActiveModel::Type::Boolean.new.cast(input).present? == current.present?
+    when "multi_select" then Array(input).compact_blank.sort == Array(current).sort
+    when "date" then input.to_s.strip == (current.respond_to?(:iso8601) ? current.iso8601 : current.to_s)
+    else input.to_s.strip == current.to_s
     end
   end
 

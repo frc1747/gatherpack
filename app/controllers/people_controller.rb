@@ -110,7 +110,8 @@ class PeopleController < InternalController
     def person_params
       return {} if @person&.persisted? && !policy(@person).update_profile?
 
-      fields = [ :first_name, :last_name, :display_name, :gender, :shirt_size, :phone_number, :address, :birthday, :dietary_restrictions, :avatar, :bio, :email ]
+      # Built-in details (phone, birthday, ...) arrive as person_field_values.
+      fields = [ :first_name, :last_name, :display_name, :avatar, :bio, :email ]
       if current_user.admin?
         fields += [ :user_id, team_ids: [], badge_ids: [] ]
       elsif @person && current_user.person&.can_manage(@person)
