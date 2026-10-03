@@ -96,6 +96,25 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :person_fields,
+      label: "Custom Person Fields",
+      description: "Add your own fields to member profiles and control who can see them",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 25,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Member Info", path: :roster_person_fields_path, icon: "clipboard-list")
+      ],
+      setup_section: "People",
+      setup_items: [
+        GatherPack::Feature::SetupItem.new(label: "Person Fields", path: :person_fields_path),
+        GatherPack::Feature::SetupItem.new(label: "Person Field Sections", path: :person_field_groups_path)
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :tokens,
       label: "Tokens",
       description: "Manage RFID and access tokens for members",

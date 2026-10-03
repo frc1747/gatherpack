@@ -15,7 +15,10 @@ class Person < ApplicationRecord
   has_many :ledger_ownerships, dependent: :destroy, as: :owner
   has_many :time_clock_punches, dependent: :destroy
   has_many :calendar_notes, as: :noteable
+  has_many :person_field_values, dependent: :destroy, autosave: true
   before_save :check_display_name
+  validate :person_field_errors
+  after_save :run_person_field_hooks
   accepts_nested_attributes_for :user
   has_one_attached :avatar
   attr_accessor :email
@@ -154,6 +157,78 @@ class Person < ApplicationRecord
     matching_relatives.uniq
   end
 
+  # Person fields this viewer may see or edit on this person's record.
+  def readable_fields_for(viewer)
+    access = PersonFieldAccess.new(viewer, self)
+    person_fields_for_access.select { |field| access.readable?(field) }
+  end
+
+  def writable_fields_for(viewer)
+    access = PersonFieldAccess.new(viewer, self)
+    person_fields_for_access.select { |field| access.writable?(field) }
+  end
+
+  # Existing value rows for these fields, plus unsaved rows for the rest.
+  def field_values_for(fields)
+    fields.map do |field|
+      person_field_values.detect { |row| row.person_field_id == field.id } ||
+        PersonFieldValue.new(person: self, person_field: field)
+    end
+  end
+
+  # Trusted accessors for Hooks, Reports, jobs, and the console: no viewer
+  # check. Use readable_fields_for / assign_field_values for user requests.
+  def field_value(key)
+    field = key.is_a?(PersonField) ? key : PersonField.find_by!(key: key.to_s)
+    return field.system_value(self) if field.system?
+    field.cast(person_field_values.detect { |row| row.person_field_id == field.id }&.value)
+  end
+
+  def set_field_value(key, value)
+    field = key.is_a?(PersonField) ? key : PersonField.find_by!(key: key.to_s)
+    raise ArgumentError, "#{field.key} is managed by account settings" if field.system_read_only?
+    return update!(field.system_source => value) if field.system?
+
+    row = person_field_values.find_or_initialize_by(person_field: field)
+    if value.nil? || value == [] || value == ""
+      row.destroy! if row.persisted?
+      person_field_values.reset
+    else
+      row.update!(value: field.serialize(value))
+    end
+  end
+
+  # Applies person field input from a form on behalf of `acting`. Keys the
+  # actor can't write are ignored. Values are saved, and the "person_fields -
+  # value changed" hooks run, when the person is saved.
+  def assign_field_values(values, acting:)
+    access = PersonFieldAccess.new(acting, self)
+    fields = person_fields_for_access.index_by(&:key)
+    @person_field_input_errors = []
+    @person_field_changes = []
+
+    values.to_h.each do |key, input|
+      field = fields[key.to_s]
+      next unless field && access.writable?(field)
+
+      current = field_value(field)
+      value, error = field.normalize(input, current: current)
+      next @person_field_input_errors << [ field.key, error ] if error
+
+      new_value = field.cast(field.serialize(value))
+      next if new_value == current
+
+      stage_field_value(field, value, acting)
+      @person_field_changes << PersonFieldChange.new(person: self, field: field, old_value: current, new_value: new_value, changed_by: acting)
+    end
+
+    fields.each_value do |field|
+      next unless field.required? && access.writable?(field)
+      value = field_value_after_staging(field)
+      @person_field_input_errors << [ field.key, "can't be blank" ] if value.blank? && value != false
+    end
+  end
+
   def ledger_ids
     LedgerOwnership.where(owner: self).pluck(:ledger_id)
   end
@@ -185,6 +260,45 @@ class Person < ApplicationRecord
   end
 
   private
+
+  def person_fields_for_access
+    PersonField.in_use.applicable_to(self).ordered.includes(person_field_badge_grants: :badge).to_a
+  end
+
+  def stage_field_value(field, value, acting)
+    return self[field.system_source] = value if field.system?
+
+    row = person_field_values.detect { |existing| existing.person_field_id == field.id }
+    if value.nil?
+      return unless row
+      row.persisted? ? row.mark_for_destruction : person_field_values.delete(row)
+    else
+      row ||= person_field_values.build(person_field: field)
+      row.value = field.serialize(value)
+      row.updated_by = acting
+      row.acting = acting
+    end
+  end
+
+  def field_value_after_staging(field)
+    return field.system_value(self) if field.system?
+    row = person_field_values.detect { |existing| existing.person_field_id == field.id }
+    row.nil? || row.marked_for_destruction? ? field.cast(nil) : field.cast(row.value)
+  end
+
+  def person_field_errors
+    Array(@person_field_input_errors).each { |key, message| errors.add(key.to_sym, message) }
+  end
+
+  def run_person_field_hooks
+    changes = Array(@person_field_changes)
+    @person_field_changes = []
+    @person_field_input_errors = []
+    return if changes.empty?
+
+    hooks = Hook.where(event: "person_fields - value changed").to_a
+    changes.each { |change| hooks.each { |hook| hook.run(change) } }
+  end
 
   def check_display_name
     self.display_name = first_name + " " + last_name if display_name.blank? && !first_name.blank? && !last_name.blank?
