@@ -19,12 +19,13 @@ class PersonFieldPolicy < AdminPolicy
     user&.admin
   end
 
-  # Anyone who can read at least one field for someone.
+  # Open to everyone; the page only lists fields the user can read for
+  # someone, and says so when there are none.
   def roster?
-    return true if user&.admin
-    readable_fields.any?
+    true
   end
 
+  # Fields the user can read for at least one person.
   def readable_fields
     @readable_fields ||= PersonField.in_use.ordered.includes(person_field_badge_grants: :badge)
       .select { |field| field.readable_subjects_for(person).exists? }

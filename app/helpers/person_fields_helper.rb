@@ -135,6 +135,26 @@ module PersonFieldsHelper
     t("person_fields.access_notes.summary", audiences: parts.join(", "))
   end
 
+  # Explains an access reason from PersonFieldAccess#access, for Preview as….
+  def person_field_access_reason(reason, field, viewer, subject)
+    case reason
+    when :admin then "Site admin"
+    when :subject then "Their own profile"
+    when :guardian
+      types = Relationship.active_guardianships.where(parent_id: viewer.id, child_id: subject.id).map { |relationship| relationship.relationship_type.parent_label }
+      "Guardian (#{types.uniq.to_sentence})"
+    when :leaders
+      teams = Team.where(id: viewer.memberships.where(manager: true).select(:team_id)).where(id: subject.all_ancestor_teams.select(:id)).order(:name).pluck(:name)
+      "Leader of #{teams.to_sentence}"
+    when :teammates
+      "Shares #{(viewer.teams & subject.teams).map(&:name).sort.to_sentence}"
+    when :everyone then "Visible to anyone who can see the profile"
+    when Badge then "Holds the #{reason.name} badge"
+    else
+      field.read_admin? ? "Admins only" : "Not in the field's audience"
+    end
+  end
+
   def person_field_read_only_note(field)
     return t("person_fields.access_notes.managed_by_account") if field.system_read_only?
     level = field.write_admin? ? "admins" : person_field_level_label(field.write_permission).downcase_first
