@@ -1199,6 +1199,52 @@ Existing upstream files touched (record in `FORK.md` while this is carried):
 
 ---
 
+### 13.3 Implementation notes (phases 0 and 1)
+
+Where the build differs from the text above, or settles something the text
+left open:
+
+- **Evaluator.** `PersonFieldAccess` (one object per viewer and subject)
+  holds the logic from §3.3, so the guardian, leader, and teammate lookups
+  run once per pair rather than once per field. `PersonField#readable_by?`,
+  `#writable_by?`, and `#access_for` delegate to it. The §3.3 sketch returned
+  `:system_read_only` (truthy) for writes to email, and checked admins first;
+  the build returns nil for those writes, for admins too.
+- **Guardians can open their wards' profiles.** `PersonPolicy#show?` and its
+  scope now include `viewer.wards`. Without this, a parent who isn't on a
+  team couldn't open their child's profile at all, so `family` and
+  `guardians` fields were unreachable for them.
+- **Badge access on the field form** is one *None / Can see / Can see and
+  edit* select per admin-assigned badge (`PersonField#badge_access=`), not
+  add/remove rows. No JavaScript is needed, and the full set of badges that
+  could grant access is visible at a glance.
+- **Member Info** is open to every signed-in user and says "There are no
+  fields you can view for anyone" when that's true. `NavItem` has no
+  visibility hook, so the nav link shows whenever the feature is on.
+- **Messages** live in `config/locales/person_fields.en.yml` (a new file)
+  rather than `en.yml`. "Ends soon" means within 90 days. The field form
+  updates each level's description as it changes; there's no separate
+  summary-sentence preview.
+- **Booleans.** An unchecked box clears the value, so "never set" and "no"
+  are the same and show as "No".
+- **Deleting a team** that a field applies to fails (the foreign key
+  restricts it). Re-scope or delete the field first. Worth a friendlier
+  error later.
+- **Phase 2 carry-overs:** the `apply_recommended` route, and making
+  `Person.ransackable_attributes` fail closed for a nil `auth_object` (§5).
+
+Open questions:
+
+1. **Who can delete a `minor` guardianship.** §3.4 keeps the existing
+   deletion rules for `minor` relationships, and today
+   `RelationshipPolicy#destroy?` lets *either* side delete. So a minor can
+   remove their parent's guardianship (and with it the parent's access).
+   Should `minor` guardianships be deletable only by the parent side,
+   managers, and admins?
+2. **`verify_authorized` on `InternalController`** (dropped from phase 0).
+   Should it become its own hardening branch? It would also fix gaps like
+   announcements `update`/`destroy` never calling `authorize`.
+
 ## 14. Related: family registration (separate branch, in design)
 
 Not part of this feature. Recorded here because person-fields' guardianship
