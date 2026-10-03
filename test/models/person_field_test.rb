@@ -143,10 +143,12 @@ class PersonFieldTest < ActiveSupport::TestCase
     first = PersonField.create!(name: "Food Allergies")
     second = PersonField.create!(name: "Food allergies!")
     numbered = PersonField.create!(name: "3rd Contact")
+    hyphenated = PersonField.create!(name: "T-Shirt Size (adult)")
 
     assert_equal "food_allergies", first.key
     assert_equal "food_allergies_2", second.key
     assert_equal "rd_contact", numbered.key
+    assert_equal "t_shirt_size_adult", hyphenated.key
     assert_not first.update(key: "allergies")
     assert_includes first.errors[:key], "can't be changed once created"
   end

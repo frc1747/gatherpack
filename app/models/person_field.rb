@@ -145,6 +145,38 @@ class PersonField < ApplicationRecord
     archived? && !system?
   end
 
+  # Badge grants as { badge_id => "read" | "write" }, for the field form.
+  def badge_access
+    person_field_badge_grants.reject(&:marked_for_destruction?).to_h { |grant| [ grant.badge_id, grant.access ] }
+  end
+
+  # Sets grants from { badge_id => "none" | "read" | "write" }. Saved with
+  # the field.
+  def badge_access=(access)
+    access.to_h.each do |badge_id, level|
+      grant = person_field_badge_grants.detect { |existing| existing.badge_id == badge_id.to_s }
+      if level.blank? || level == "none"
+        grant&.mark_for_destruction
+      else
+        grant ||= person_field_badge_grants.build(badge_id: badge_id)
+        grant.access = level
+      end
+    end
+  end
+
+  # Swaps this field with its neighbour in the same section.
+  def move(direction)
+    siblings = PersonField.where(person_field_group_id: person_field_group_id).order(:position, :name).to_a
+    index = siblings.index(self)
+    other = direction.to_s == "up" ? index - 1 : index + 1
+    return if other.negative? || other >= siblings.size
+
+    siblings[index], siblings[other] = siblings[other], siblings[index]
+    transaction do
+      siblings.each_with_index { |field, position| field.update!(position: position) if field.position != position }
+    end
+  end
+
   def choice_list
     if choices_setting.present?
       Settings[choices_setting.to_sym].to_s.split(",").map(&:strip).reject(&:blank?)
@@ -302,7 +334,7 @@ class PersonField < ApplicationRecord
   def generate_key
     return if key.present? || name.blank?
 
-    base = name.parameterize(separator: "_").sub(/\A[^a-z]+/, "").presence || "field"
+    base = name.parameterize(separator: "_").gsub(/[^a-z0-9]+/, "_").sub(/\A[^a-z]+/, "").delete_suffix("_").presence || "field"
     candidate = base
     suffix = 1
     candidate = "#{base}_#{suffix += 1}" while PersonField.exists?(key: candidate)
