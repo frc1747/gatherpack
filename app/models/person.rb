@@ -101,6 +101,28 @@ class Person < ApplicationRecord
     Relationship.where(parent_id: id).or(Relationship.where(child_id: id))
   end
 
+  # People who are currently guardians of this person.
+  def guardians
+    Person.where(id: Relationship.active_guardianships.where(child_id: id).select(:parent_id))
+  end
+
+  # People this person is currently a guardian of.
+  def wards
+    Person.where(id: Relationship.active_guardianships.where(parent_id: id).select(:child_id))
+  end
+
+  # The date minor guardianships of this person end, when an age limit is set.
+  def guardianship_ends_on
+    limit = Relationship.guardianship_age_limit
+    birthday + limit.years if limit && birthday
+  end
+
+  def guardianship_expired?
+    limit = Relationship.guardianship_age_limit
+    return false unless limit
+    birthday ? birthday <= Date.current - limit.years : Relationship.guardianship_ends_without_birthday?
+  end
+
   def relatives(relationship_type = nil)
     r = relationships
     r = r.where(relationship_type: relationship_type) if relationship_type

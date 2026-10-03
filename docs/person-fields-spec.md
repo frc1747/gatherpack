@@ -395,7 +395,7 @@ default to doing nothing:
 | Setting | Type | Default | Effect |
 |---|---|---|---|
 | `guardianship_age_limit` | integer | blank (off) | When set (e.g. `18`), a `minor` relationship stops conferring guardianship once the child side's `birthday` shows they've reached this age. When blank, `minor` guardianship never expires on its own |
-| `guardianship_without_birthday` | string, `keep`/`end` | `keep` | Only used when the age limit is set. `keep`: guardianship continues for children with no birthday on file. `end`: it stops |
+| `guardianship_ends_without_birthday` | boolean | `false` | Only used when the age limit is set. `false`: guardianship continues for children with no birthday on file. `true`: it stops. (A boolean rather than a `keep`/`end` string because the Settings page renders booleans as a select and has no other choice input) |
 
 With both at their defaults, `minor` and `consented` behave identically. An
 organization that serves minors turns on the age limit when it wants the
@@ -422,7 +422,7 @@ end
 class Relationship
   # Guardianship types whose child side hasn't aged out, in SQL:
   # consented, or minor AND (limit blank OR birthday > today - limit years
-  #   OR (birthday IS NULL AND without_birthday = keep))
+  #   OR (birthday IS NULL AND NOT ends_without_birthday))
   scope :active_guardianships, -> { ... }
 end
 ```
@@ -1009,9 +1009,9 @@ section ungroups its fields (`dependent: :nullify`).
   the child-side person's profile." The `permission` validation error (§3.4)
   shows inline. The Relationship Types index shows a "Guardian" tag on these
   types.
-- **Settings → People**: the two age settings (§3.4) with descriptions. When
-  `guardianship_age_limit` is blank, the second setting is shown disabled with
-  "Only applies when an age limit is set".
+- **Settings → People**: the two age settings (§3.4) with descriptions. The
+  second setting's description says "Only applies when an age limit is set";
+  it isn't disabled, because the Settings page has no per-setting state.
 - **Relationships page** (`people/relationships`): an adult on the child side
   of a `minor` relationship whose guardianship has expired sees "No longer has
   access to your restricted fields" next to it, and an "Allow access" action
@@ -1089,7 +1089,7 @@ follow that. Minimum:
      by the child side or an admin, it succeeds; the child side can delete it.
    - Age settings: with the limit blank, an adult child's guardian keeps access;
      with the limit at 18, access ends on the 18th birthday, and missing
-     birthdays follow `guardianship_without_birthday`. `consented` ignores the
+     birthdays follow `guardianship_ends_without_birthday`. `consented` ignores the
      limit. `Person#guardians` and `Person#wards` agree with
      `Relationship.active_guardianships`.
    - With no guardianship types, the field form doesn't offer `guardians`.
