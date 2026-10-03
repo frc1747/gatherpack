@@ -34,6 +34,7 @@
         <div class="col-12 col-lg-4 mt-3 mt-lg-0 text-center text-lg-start">
           <%= link_to "Reverse", reverse_person_relationship_path(@person, relationship), class: "btn btn-warning", data: { turbo_method: :post, turbo_confirm: "Are you sure?" } if policy(relationship).update? %>
           <%= link_to "Delete", person_relationship_path(@person, relationship), class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(relationship).destroy? %>
+          <%= render "people/guardianship_status", relationship: relationship %>
         </div>
       </div>
     <% end %>

@@ -80,6 +80,7 @@ module PersonFieldsHelper
     when "multi_select"
       options.merge!(as: :check_boxes, collection: person_field_choices(field, value), checked: Array(value))
       options[:input_html][:name] = "#{name}[]"
+      options[:input_html].delete(:id)
       return hidden_field_tag("#{name}[]", "", id: nil) + form.input(field.key.to_sym, **options)
     end
 
