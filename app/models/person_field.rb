@@ -6,6 +6,7 @@ class PersonField < ApplicationRecord
   belongs_to :person_field_group, optional: true
   has_many :person_field_values, dependent: :destroy
   has_many :person_field_badge_grants, dependent: :destroy, inverse_of: :person_field
+  has_many :checkin_fields, dependent: :restrict_with_error
   accepts_nested_attributes_for :person_field_badge_grants, allow_destroy: true
 
   # Each level is a fixed set of audience components, relative to the person
@@ -97,6 +98,17 @@ class PersonField < ApplicationRecord
 
   def self.system_field(source)
     active.find_by(system_source: source)
+  end
+
+  # The people whose data a (non-admin) viewer reaches at this level, as one
+  # relation. Check-in field read levels use it too.
+  def self.level_people(level, viewer)
+    relations = level_relations(level, viewer)
+    relations.empty? ? Person.none : relations.map { |relation| Person.where(id: relation.select(:id)) }.reduce(:or)
+  end
+
+  def self.level_relations(level, viewer)
+    PERMISSION_LEVELS.fetch(level.to_s).map { |component| component_people(component, viewer) }
   end
 
   # The changes "Apply recommended privacy settings" would make, as
@@ -373,7 +385,7 @@ class PersonField < ApplicationRecord
     return applicable_people if viewer.admin?
 
     level = mode == :read ? read_permission : write_permission
-    relations = PERMISSION_LEVELS.fetch(level).map { |component| component_people(component, viewer) }
+    relations = self.class.level_relations(level, viewer)
     viewer_badge_ids = viewer.badge_ids
     person_field_badge_grants.each do |grant|
       relations << grant.covered_people if (mode == :read || grant.write?) && viewer_badge_ids.include?(grant.badge_id)
@@ -384,7 +396,7 @@ class PersonField < ApplicationRecord
       .where(id: applicable_people.select(:id))
   end
 
-  def component_people(component, viewer)
+  def self.component_people(component, viewer)
     case component
     when :subject then Person.where(id: viewer.id)
     when :guardian then viewer.wards
