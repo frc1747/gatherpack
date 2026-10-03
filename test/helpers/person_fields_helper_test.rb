@@ -33,13 +33,24 @@ class PersonFieldsHelperTest < ActionView::TestCase
     assert_equal({ subject: :write, guardians: :read, leaders: :write }, audience.slice(:subject, :guardians, :leaders))
   end
 
-  test "audience_for lists badge grants and leaves out guardians when none are configured" do
+  test "audience_for lists badge grants and leaves out guardians the person doesn't have" do
     field = create_world_field("Medical", read: "family")
     field.person_field_badge_grants.create!(badge: @health_officer_badge, access: :write)
     assert_equal({ @health_officer_badge => :write }, field.audience_for(person(:a1))[:badges])
+    assert field.audience_for(person(:a1)).key?(:guardians)
 
-    RelationshipType.update_all(guardianship: RelationshipType.guardianships[:none])
-    assert_not field.reload.audience_for(person(:a1)).key?(:guardians)
+    assert_not field.audience_for(person(:parent_a1)).key?(:guardians)
+    assert_not field.audience_for(person(:den_a_leader)).key?(:guardians)
+  end
+
+  test "people without guardians see no notes about guardians" do
+    shared = create_world_field("Shared", read: "family", write: "family")
+    private_field = create_world_field("Private", read: "leaders")
+
+    assert_empty access_notes(shared, person(:parent_a1), person(:parent_a1))
+    assert_empty access_notes(shared, person(:den_a_leader), person(:den_a_leader))
+    assert_equal [ "DenALeader World can't see this." ], access_notes(private_field, person(:den_a_leader), person(:pack_leader))
+    assert_equal [ "Visible to: ParentA1 World, ParentA1 World's leaders." ], access_notes(shared, person(:parent_a1), person(:admin))
   end
 
   test "audience_for reports when a minor guardianship ends" do
