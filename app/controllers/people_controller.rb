@@ -38,6 +38,7 @@ class PeopleController < InternalController
   # POST /people
   def create
     @person = authorize Person.new(person_params)
+    @person.assign_field_values(person_field_value_params, acting: current_user.person)
 
     if @person.save
       if @person.email
@@ -53,7 +54,9 @@ class PeopleController < InternalController
 
   # PATCH/PUT /people/1
   def update
-    if @person.update(person_params)
+    @person.assign_attributes(person_params)
+    @person.assign_field_values(person_field_value_params, acting: current_user.person)
+    if @person.save
       redirect_to @person, notice: "Person was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -105,6 +108,8 @@ class PeopleController < InternalController
     # admin-only. Managers may also assign teams and badges, but only ones they
     # control; memberships and badges outside that are left untouched.
     def person_params
+      return {} if @person&.persisted? && !policy(@person).update_profile?
+
       fields = [ :first_name, :last_name, :display_name, :gender, :shirt_size, :phone_number, :address, :birthday, :dietary_restrictions, :avatar, :bio, :email ]
       if current_user.admin?
         fields += [ :user_id, team_ids: [], badge_ids: [] ]
@@ -113,6 +118,13 @@ class PeopleController < InternalController
       end
       permitted = params.require(:person).permit(*fields)
       current_user.admin? ? permitted : limit_to_manageable(permitted)
+    end
+
+    # Only the person fields this user can write; anything else is dropped.
+    def person_field_value_params
+      keys = policy(@person).writable_person_fields.map { |field| field.type_multi_select? ? { field.key => [] } : field.key }
+      values = params.dig(:person, :person_field_values)
+      values.respond_to?(:permit) ? values.permit(*keys).to_h : {}
     end
 
     def limit_to_manageable(permitted)

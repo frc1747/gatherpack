@@ -28,6 +28,7 @@
         <p><b>Dietary Restrictions: </b><%= @person.dietary_restrictions %></p>
         <p><b>Shirt Size: </b><%= @person.shirt_size %></p>
         <p><b>Gender: </b><%= @person.gender %></p>
+        <%= render "people/fields", person: @person %>
       </div>
       <div class="col-12 col-sm-6 col-lg-4">
         <% if @teams.any? %>

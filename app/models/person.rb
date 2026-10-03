@@ -262,7 +262,7 @@ class Person < ApplicationRecord
   private
 
   def person_fields_for_access
-    PersonField.in_use.applicable_to(self).ordered.includes(person_field_badge_grants: :badge).to_a
+    PersonField.in_use.applicable_to(self).ordered.includes(:person_field_group, person_field_badge_grants: :badge).to_a
   end
 
   def stage_field_value(field, value, acting)
