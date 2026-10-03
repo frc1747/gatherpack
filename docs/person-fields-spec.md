@@ -706,9 +706,14 @@ action, audited, with a confirmation listing the changes):
 | Field | Read | Write |
 |---|---|---|
 | Dietary Restrictions | `family` | `family` |
-| Phone, Address, Birthday | `family` | `self_and_leaders` |
+| Phone, Address, Birthday | `family` | `family` |
 | Email | `team` | (account) |
-| Gender, Shirt Size | `team` | `self_and_leaders` |
+| Gender, Shirt Size | `team` | `family` |
+
+Guardians can edit every detail except email, since they often keep a
+child's details current. (An earlier revision left phone, address, birthday,
+gender, and shirt size at `self_and_leaders`; in practice guardians needed to
+edit them.)
 
 For HBR this is a single click after deploying Phase 2.
 

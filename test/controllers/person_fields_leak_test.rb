@@ -59,6 +59,22 @@ class PersonFieldsLeakTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "555-0199"
   end
 
+  test "the recommended settings let guardians edit every detail but email" do
+    PersonField.apply_recommended_privacy!
+    a1 = person(:a1)
+
+    %w[ phone_number address birthday dietary_restrictions shirt_size gender ].each do |source|
+      field = PersonField.find_by!(system_source: source)
+      assert field.writable_by?(person(:parent_a1), a1), "guardian can't edit #{source}"
+      assert field.writable_by?(a1, a1), "the person can't edit #{source}"
+      assert field.writable_by?(person(:den_a_leader), a1), "a leader can't edit #{source}"
+      assert_not field.writable_by?(person(:a2), a1), "a teammate can edit #{source}"
+    end
+    assert_not PersonField.find_by!(system_source: "user.email").writable_by?(person(:parent_a1), a1)
+    assert PersonField.find_by!(system_source: "shirt_size").readable_by?(person(:a2), a1)
+    assert_not PersonField.find_by!(system_source: "phone_number").readable_by?(person(:a2), a1)
+  end
+
   test "restricted details don't leak through search, sorting, the calendar, combo search, or the API" do
     PersonField.apply_recommended_privacy!
 
