@@ -93,7 +93,7 @@ Enable `git rerere` (`git config rerere.enabled true`) so repeated conflict reso
 
 ### Recurring conflict hotspots
 
-- **`db/schema.rb`**: never hand-merge. Take the upstream version, then regenerate by running migrations against a fresh database and commit the result.
+- **`db/schema.rb`**: never hand-merge. Take the upstream version, then regenerate by running migrations against a fresh database and commit the result. One conflict is routine and resolved automatically: two branches that both add migrations disagree only on the `define(version: ...)` line. `bin/fork-rebuild` registers `bin/fork-merge-schema` as a git merge driver for `db/schema.rb` (in the repository's own config and `info/attributes`, so no tracked file changes); it keeps the newer version and leaves any other schema conflict in place, so the rebuild still stops on it. The integration CI job's `db:migrate` from an empty database is the check that the merged schema is right.
 - **`Gemfile.lock`**: never hand-merge. Take the upstream version, then run `bundle lock` (or `bundle install`) and commit the result.
 - **Routes and shared initializers**: if these conflict repeatedly, that is a signal the feature needs a seam or an engine.
 
@@ -132,7 +132,7 @@ done <<< "${manifest}"
 echo "Integration branch rebuilt from upstream/main at $(git rev-parse --short upstream/main)"
 ```
 
-The script refuses to resolve conflicts itself on purpose. If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
+The script refuses to resolve conflicts itself on purpose. The one exception is the schema version line, which `bin/fork-merge-schema` resolves (see "Recurring conflict hotspots"); the reference implementation above predates it. If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
 
 After a successful rebuild and passing tests, push with `git push --force-with-lease origin hbr/integration`.
 
