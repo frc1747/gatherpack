@@ -68,14 +68,17 @@ class PersonField < ApplicationRecord
     { system_source: "gender", key: "gender", name: "Gender", data_type: "select", section: "Details", options: { "choices_setting" => "gender_options" } }
   ].freeze
 
+  # Family details are seen only by the person, their guardians, and their
+  # leaders; shirt size and gender by their team too. Guardians can edit all
+  # of them, since they often keep a child's details current.
   RECOMMENDED_PRIVACY = {
     "dietary_restrictions" => { read_permission: "family", write_permission: "family" },
-    "phone_number" => { read_permission: "family", write_permission: "self_and_leaders" },
-    "address" => { read_permission: "family", write_permission: "self_and_leaders" },
-    "birthday" => { read_permission: "family", write_permission: "self_and_leaders" },
+    "phone_number" => { read_permission: "family", write_permission: "family" },
+    "address" => { read_permission: "family", write_permission: "family" },
+    "birthday" => { read_permission: "family", write_permission: "family" },
     "user.email" => { read_permission: "team" },
-    "gender" => { read_permission: "team", write_permission: "self_and_leaders" },
-    "shirt_size" => { read_permission: "team", write_permission: "self_and_leaders" }
+    "gender" => { read_permission: "team", write_permission: "family" },
+    "shirt_size" => { read_permission: "team", write_permission: "family" }
   }.freeze
 
   # Creates any missing system fields (and their sections). Never changes a
