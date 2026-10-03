@@ -52,6 +52,28 @@ class RelationshipTest < ActiveSupport::TestCase
     assert_not RelationshipPolicy.new(@sibling.user, relationship).destroy?
   end
 
+  test "only managers and admins can delete a minor guardianship" do
+    team = Team.create!(name: "Den A", team_type: team_types(:one))
+    Membership.create!(person: @child, team: team)
+    leader = create_person("Lee", "Leader")
+    Membership.create!(person: leader, team: team, manager: true)
+    relationship = relate(@parent, @child, @parent_of)
+
+    assert_not RelationshipPolicy.new(@child.user, relationship).destroy?
+    assert_not RelationshipPolicy.new(@parent.user, relationship).destroy?
+    assert_not RelationshipPolicy.new(@child.user, relationship).reverse?
+    assert RelationshipPolicy.new(leader.user, relationship).destroy?
+    assert RelationshipPolicy.new(@admin.user, relationship).destroy?
+  end
+
+  test "either side can still delete an ordinary relationship" do
+    relationship = relate(@sibling, @child, @sibling_of)
+
+    assert RelationshipPolicy.new(@child.user, relationship).destroy?
+    assert RelationshipPolicy.new(@sibling.user, relationship).destroy?
+    assert_not RelationshipPolicy.new(@parent.user, relationship).destroy?
+  end
+
   test "with no age limit, guardianship of an adult continues" do
     @child.update!(birthday: 30.years.ago.to_date)
     relate(@parent, @child, @parent_of)

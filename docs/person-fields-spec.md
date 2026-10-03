@@ -384,8 +384,9 @@ else's data, so creation is tighter than for ordinary types:
   `consented` types: `created_by == child || created_by_admin?`, whatever the
   type's `permission`. The parent side can never self-declare consent.
 - Either side, or a manager or admin, can **delete** a `consented`
-  relationship, so an adult can revoke access they granted. `minor`
-  relationships keep the existing deletion rules.
+  relationship, so an adult can revoke access they granted. A `minor`
+  relationship can be deleted (or reversed) only by a manager of either side
+  or an admin, so a child can't cut off their guardian.
 
 #### Age settings (off by default)
 
@@ -1235,15 +1236,10 @@ left open:
 
 Open questions:
 
-1. **Who can delete a `minor` guardianship.** §3.4 keeps the existing
-   deletion rules for `minor` relationships, and today
-   `RelationshipPolicy#destroy?` lets *either* side delete. So a minor can
-   remove their parent's guardianship (and with it the parent's access).
-   Should `minor` guardianships be deletable only by the parent side,
-   managers, and admins?
-2. **`verify_authorized` on `InternalController`** (dropped from phase 0).
-   Should it become its own hardening branch? It would also fix gaps like
-   announcements `update`/`destroy` never calling `authorize`.
+1. ~~Who can delete a `minor` guardianship.~~ Resolved: managers and admins
+   only (§3.4).
+2. ~~`verify_authorized` on `InternalController`~~ Resolved: its own fix
+   branch, `feature/enforce-authorization`.
 
 ## 14. Related: family registration (separate branch, in design)
 

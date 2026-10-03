@@ -20,9 +20,19 @@ class RelationshipPolicy < ApplicationPolicy
     true
   end
 
+  # A minor guardianship can only be removed by a manager or admin, so a
+  # child can't cut off their guardian. Either side can remove a consented
+  # one, since the child side granted it.
   def destroy?
-    user.admin? || record.parent == person || record.child == person ||
-      (record.relationship_type.guardianship_consented? && (person.can_manage(record.parent) || person.can_manage(record.child)))
+    return true if user.admin?
+
+    participant = record.parent == person || record.child == person
+    manager = person.can_manage(record.parent) || person.can_manage(record.child)
+    case record.relationship_type.guardianship
+    when "minor" then manager
+    when "consented" then participant || manager
+    else participant
+    end
   end
 
   alias_method :reverse?, :destroy?
