@@ -53,6 +53,69 @@ class PersonField < ApplicationRecord
   scope :applicable_to, ->(person) { where(team_id: nil).or(where(team_id: person.all_ancestor_teams.select(:id))) }
   scope :ordered, -> { left_joins(:person_field_group).order(Arel.sql("person_field_groups.position ASC NULLS FIRST"), "person_field_groups.name", :position, :name) }
 
+  # The built-in profile data, brought under the same access control. Values
+  # stay in their own columns. Upgrades start at today's behaviour: everyone
+  # can see them, and the person and their leaders can edit them.
+  SYSTEM_SECTIONS = [ "Contact", "Details" ].freeze
+  SYSTEM_FIELDS = [
+    { system_source: "user.email", key: "email", name: "Email", data_type: "email", section: "Contact", write_permission: "admin" },
+    { system_source: "phone_number", key: "phone", name: "Phone", data_type: "phone", section: "Contact" },
+    { system_source: "address", key: "address", name: "Address", data_type: "string", section: "Contact" },
+    { system_source: "birthday", key: "birthday", name: "Birthday", data_type: "date", section: "Details" },
+    { system_source: "dietary_restrictions", key: "dietary_restrictions", name: "Dietary Restrictions", data_type: "string", section: "Details" },
+    { system_source: "shirt_size", key: "shirt_size", name: "Shirt Size", data_type: "select", section: "Details", options: { "choices_setting" => "shirt_sizes" } },
+    { system_source: "gender", key: "gender", name: "Gender", data_type: "select", section: "Details", options: { "choices_setting" => "gender_options" } }
+  ].freeze
+
+  RECOMMENDED_PRIVACY = {
+    "dietary_restrictions" => { read_permission: "family", write_permission: "family" },
+    "phone_number" => { read_permission: "family", write_permission: "self_and_leaders" },
+    "address" => { read_permission: "family", write_permission: "self_and_leaders" },
+    "birthday" => { read_permission: "family", write_permission: "self_and_leaders" },
+    "user.email" => { read_permission: "team" },
+    "gender" => { read_permission: "team", write_permission: "self_and_leaders" },
+    "shirt_size" => { read_permission: "team", write_permission: "self_and_leaders" }
+  }.freeze
+
+  # Creates any missing system fields (and their sections). Never changes a
+  # field that already exists, so admins' choices survive re-running it.
+  def self.ensure_system_fields!
+    sections = SYSTEM_SECTIONS.to_h do |name|
+      [ name, PersonFieldGroup.find_or_create_by!(name: name) { |group| group.position = (PersonFieldGroup.maximum(:position) || -1) + 1 } ]
+    end
+    SYSTEM_FIELDS.each_with_index do |definition, position|
+      next if exists?(system_source: definition[:system_source])
+
+      key = exists?(key: definition[:key]) ? "#{definition[:key]}_system" : definition[:key]
+      create!(
+        system_source: definition[:system_source], key: key, name: definition[:name], data_type: definition[:data_type],
+        options: definition.fetch(:options, {}), person_field_group: sections.fetch(definition[:section]), position: position,
+        read_permission: "everyone", write_permission: definition.fetch(:write_permission, "self_and_leaders")
+      )
+    end
+  end
+
+  def self.system_field(source)
+    active.find_by(system_source: source)
+  end
+
+  # The changes "Apply recommended privacy settings" would make, as
+  # [field, { attribute => [from, to] }] pairs.
+  def self.recommended_privacy_changes
+    system.where(system_source: RECOMMENDED_PRIVACY.keys).order(:position).filter_map do |field|
+      changes = RECOMMENDED_PRIVACY.fetch(field.system_source).filter_map do |attribute, level|
+        [ attribute, [ field.public_send(attribute), level ] ] if field.public_send(attribute) != level
+      end.to_h
+      [ field, changes ] if changes.any?
+    end
+  end
+
+  def self.apply_recommended_privacy!
+    transaction do
+      recommended_privacy_changes.each { |field, changes| field.update!(changes.transform_values(&:last)) }
+    end
+  end
+
   # Fields that take part in profiles and forms. The feature flag governs
   # custom fields only; system fields are always enforced.
   def self.in_use

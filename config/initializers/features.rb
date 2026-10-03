@@ -53,7 +53,11 @@ Rails.application.config.to_prepare do
       setup_section: "People",
       setup_items: [
         GatherPack::Feature::SetupItem.new(label: "Team Types", path: :team_types_path),
-        GatherPack::Feature::SetupItem.new(label: "Relationship Types", path: :relationship_types_path)
+        GatherPack::Feature::SetupItem.new(label: "Relationship Types", path: :relationship_types_path),
+        # Always available: built-in profile fields are access-controlled even
+        # with custom person fields turned off.
+        GatherPack::Feature::SetupItem.new(label: "Person Fields", path: :person_fields_path),
+        GatherPack::Feature::SetupItem.new(label: "Person Field Sections", path: :person_field_groups_path)
       ]
     )
   )
@@ -104,11 +108,6 @@ Rails.application.config.to_prepare do
       nav_position: 25,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Member Info", path: :roster_person_fields_path, icon: "clipboard-list")
-      ],
-      setup_section: "People",
-      setup_items: [
-        GatherPack::Feature::SetupItem.new(label: "Person Fields", path: :person_fields_path),
-        GatherPack::Feature::SetupItem.new(label: "Person Field Sections", path: :person_field_groups_path)
       ]
     )
   )

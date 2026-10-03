@@ -32,6 +32,19 @@ module PersonFieldsHelper
     PersonField::LEVEL_VALUES.keys.map(&:to_s).index_with { |level| person_field_level_description(level, guardianship) }
   end
 
+  # The confirmation for "Apply recommended privacy settings", listing every
+  # change. People who can see these details today may lose access.
+  def recommended_privacy_confirmation(changes)
+    lines = changes.map do |field, attributes|
+      parts = attributes.map do |attribute, (from, to)|
+        label = attribute == :read_permission ? "who can see" : "who can edit"
+        "#{label}: #{person_field_level_label(from).downcase_first} → #{person_field_level_label(to).downcase_first}"
+      end
+      "• #{field.name}: #{parts.join("; ")}"
+    end
+    "Apply recommended privacy settings?\n\n#{lines.join("\n")}\n\nPeople who can see these details today may no longer be able to."
+  end
+
   # A value formatted for the profile and roster.
   def person_field_display(field, value)
     return "—" if value.nil? || value == [] || value == ""

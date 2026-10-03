@@ -9,7 +9,7 @@
     <% end %>
     <% group_fields.each do |field| %>
       <p id="<%= dom_id field %>">
-        <b><%= field.name %>: </b><%= person_field_display(field, person_field_current_value(person, field, rows)) %>
+        <b><%= field.name %>: </b><%= field.system_read_only? && person.user.nil? ? "No account attached." : person_field_display(field, person_field_current_value(person, field, rows)) %>
         <% if field.restricted? %>
           <span class="text-muted" title="<%= person_field_lock_title(field, person) %>"><%= i "lock" %></span>
         <% end %>

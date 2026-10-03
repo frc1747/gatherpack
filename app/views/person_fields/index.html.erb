@@ -33,8 +33,8 @@
           </thead>
           <% @person_fields.group_by(&:person_field_group).each do |group, fields| %>
             <tbody>
-              <tr class="table-light">
-                <th colspan="9"><%= group&.name || "Top of profile" %></th>
+              <tr>
+                <td colspan="9" class="fw-bold"><%= group&.name || "Top of profile" %></td>
               </tr>
               <% fields.each do |field| %>
                 <tr id="<%= dom_id field %>">
@@ -82,6 +82,11 @@
       <%= link_to "New Field", new_person_field_path, class: "btn btn-success" %>
     <% end %>
     <%= link_to "Preview as…", preview_person_fields_path, class: "btn btn-primary" %>
+    <% recommended = PersonField.recommended_privacy_changes %>
+    <% if recommended.any? %>
+      <%= button_to "Apply recommended privacy settings", apply_recommended_person_fields_path, class: "btn btn-info", form_class: "d-inline",
+            data: { turbo_confirm: recommended_privacy_confirmation(recommended) } %>
+    <% end %>
     <%= link_to "Sections", person_field_groups_path, class: "btn btn-secondary" %>
     <% if params[:archived] == "1" %>
       <%= link_to "Hide archived", person_fields_path, class: "btn btn-dark" %>
