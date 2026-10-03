@@ -6,8 +6,8 @@
 #
 # A1's parent and A2's parent are guardians through a "Parent of" type
 # (minor guardianship). A1's sibling is related through "Sibling of", which
-# grants nothing. The assistant holds a Den A badge, the health officer an
-# org-wide badge, and neither is a manager.
+# grants nothing. The assistant holds a Den A badge, the health officer (a
+# direct member of Org) an org-wide badge, and neither is a manager.
 module PersonFieldsWorld
   PEOPLE = %i[ a1 a2 b1 parent_a1 parent_a2 sibling_a1 den_a_leader den_b_leader pack_leader assistant health_officer admin outsider ].freeze
 
@@ -29,7 +29,7 @@ module PersonFieldsWorld
     @people[:den_b_leader] = create_world_person("DenBLeader", @den_b, manager: true)
     @people[:pack_leader] = create_world_person("PackLeader", @pack, manager: true)
     @people[:assistant] = create_world_person("Assistant", @den_a)
-    @people[:health_officer] = create_world_person("HealthOfficer")
+    @people[:health_officer] = create_world_person("HealthOfficer", @org)
     @people[:admin] = create_world_person("Admin", admin: true)
     @people[:outsider] = create_world_person("Outsider", @other_org)
 

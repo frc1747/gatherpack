@@ -1,0 +1,113 @@
+<% field = f.object %>
+<% guardianship = RelationshipType.guardianship_configured? %>
+<% locked_type = field.persisted? && (field.system? || field.person_field_values.exists?) %>
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs" data-controller="person-field-form" data-person-field-form-descriptions-value="<%= person_field_level_descriptions.to_json %>">
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :name %>
+    </div>
+    <div class="col-md-6">
+      <% if field.persisted? %>
+        <%= f.input :key, disabled: true, hint: "Used by Hooks and Reports; can't be changed." %>
+      <% else %>
+        <%= f.input :key, required: false, hint: "Used by Hooks and Reports. Leave blank to generate it from the name. Can't be changed later." %>
+      <% end %>
+    </div>
+  </div>
+
+  <%= f.input :data_type, label: "Type", collection: PersonFieldsHelper::DATA_TYPE_LABELS.invert, include_blank: false, disabled: locked_type,
+        hint: (locked_type ? "Archive this field and create a new one to change its type." : nil),
+        input_html: { data: { person_field_form_target: "dataType", action: "person-field-form#update" } } %>
+
+  <% if field.choices_setting.present? %>
+    <div class="mb-3">
+      <div class="form-label">Choices</div>
+      <div class="form-control-plaintext"><%= field.choice_list.join(", ") %></div>
+      <div class="form-text">Set in <%= link_to "Settings → People", settings_path %>.</div>
+    </div>
+  <% elsif !field.system? %>
+    <div data-person-field-form-target="option" data-types="select multi_select">
+      <%= f.input :choices_text, as: :text, label: "Choices", hint: "One choice per line.", input_html: { rows: 5 } %>
+    </div>
+    <div class="row" data-person-field-form-target="option" data-types="integer date">
+      <div class="col-md-6"><%= f.input :min, label: "Minimum", hint: "For dates, use YYYY-MM-DD." %></div>
+      <div class="col-md-6"><%= f.input :max, label: "Maximum" %></div>
+    </div>
+    <div class="row" data-person-field-form-target="option" data-types="string">
+      <div class="col-md-6"><%= f.input :pattern, label: "Validation pattern", hint: "A regular expression the value must match. Optional." %></div>
+      <div class="col-md-6"><%= f.input :pattern_hint, label: "Pattern hint", hint: "Shown when a value doesn't match." %></div>
+    </div>
+  <% end %>
+
+  <%= f.input :help_text, as: :text, input_html: { rows: 2 }, hint: "Shown under the input on the edit form." %>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :person_field_group_id, label: "Section", collection: PersonFieldGroup.ordered, include_blank: "Top of profile" %>
+    </div>
+    <div class="col-md-6">
+      <%= f.input :team_id, label: "Applies to", collection: Team.order(:name), include_blank: "Everyone", disabled: field.system?,
+            hint: "Only people in this team or a team below it have this field." %>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-6"><%= f.input :required, hint: "Only enforced for people who can edit the field." %></div>
+    <div class="col-md-6"><%= f.input :show_on_profile, hint: "Off keeps the field on the edit form, the Member Info page, and in Hooks and Reports." %></div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :read_permission, label: "Who can see this", collection: person_field_level_options(guardianship), include_blank: false,
+            input_html: { data: { person_field_form_target: "readLevel", action: "person-field-form#update" } } %>
+      <div class="form-text mt-n2 mb-3" data-person-field-form-target="readDescription"><%= person_field_level_description(field.read_permission || "admin", guardianship) %></div>
+    </div>
+    <div class="col-md-6">
+      <% if field.system_read_only? %>
+        <div class="mb-3">
+          <div class="form-label">Who can edit this</div>
+          <div class="form-control-plaintext">Managed by account settings</div>
+        </div>
+      <% else %>
+        <%= f.input :write_permission, label: "Who can edit this", collection: person_field_level_options(guardianship), include_blank: false,
+              input_html: { data: { person_field_form_target: "writeLevel", action: "person-field-form#update" } } %>
+        <div class="form-text mt-n2 mb-3" data-person-field-form-target="writeDescription"><%= person_field_level_description(field.write_permission || "admin", guardianship) %></div>
+      <% end %>
+    </div>
+  </div>
+
+  <% badges = Badge.added_by_admin.includes(:team).order(:name) %>
+  <div class="mb-3">
+    <div class="form-label">Badge access</div>
+    <% if badges.empty? %>
+      <div class="form-text">No badges can grant access. Only badges that admins assign can.</div>
+    <% else %>
+      <div class="form-text mb-2">Holders of these badges can also see or edit this field, on top of the levels above.</div>
+      <% access = field.badge_access %>
+      <% badges.each do |badge| %>
+        <div class="row align-items-center mb-2">
+          <div class="col-md-6">
+            <%= badge.name %>
+            <% if badge.team %><small class="text-muted">Only for members of <%= badge.team.name %></small><% end %>
+          </div>
+          <div class="col-md-6">
+            <%= select_tag "person_field[badge_access][#{badge.id}]",
+                  options_for_select([ [ "None", "none" ], [ "Can see", "read" ], [ "Can see and edit", "write" ] ], access[badge.id] || "none"),
+                  class: "form-select", id: "person_field_badge_access_#{badge.id}" %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <% warnings = [] %>
+  <% warnings << "No relationship types grant guardianship yet, so guardians won't have access." if !guardianship && (%w[ guardians family team ] & [ field.read_permission, field.write_permission ]).any? %>
+  <% warnings << "Required, but only admins can edit it." if field.required? && field.write_admin? %>
+  <% if warnings.any? %>
+    <div class="alert alert-warning">
+      <% warnings.each do |warning| %><div><%= warning %></div><% end %>
+    </div>
+  <% end %>
+</div>
