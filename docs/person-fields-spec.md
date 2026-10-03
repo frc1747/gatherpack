@@ -588,8 +588,9 @@ PersonField#audience_for(subject)
 
 - Each role gets `:none`, `:read`, or `:write`, derived from the level
   components and badge grants with the write ⊆ read rule.
-- `guardians` is reported only when the subject currently has, or could have,
-  guardians: at least one guardianship-type relationship exists in the system.
+- `guardians` is reported only when the subject currently has a guardian, so
+  people without guardians (including guardians themselves) never see notes
+  about them.
 - `guardianship_ends_on` is set when the age limit applies to this subject
   (birthday + limit), so a guardian can be warned before access ends.
 - System-field specifics are included, e.g. email: "changed in account
