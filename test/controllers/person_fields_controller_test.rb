@@ -161,6 +161,15 @@ class PersonFieldsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "preview keeps the chosen people's names in the pickers" do
+    with_feature do
+      as(:admin) { get preview_person_fields_path(preview: { viewer_id: person(:parent_a1).id, subject_id: person(:a1).id }) }
+    end
+
+    assert_select "[data-hw-combobox-prefilled-display-value='ParentA1 World']"
+    assert_select "[data-hw-combobox-prefilled-display-value='A1 World']"
+  end
+
   test "preview is for admins only" do
     as(:den_a_leader) { get preview_person_fields_path }
 
