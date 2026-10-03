@@ -9,5 +9,6 @@ feature/search-and-add
 feature/brakeman-8.1
 feature/enforce-authorization
 feature/calendar-birthday-team-filter
+feature/user-display-name
 feature/people-ransack-auth-object
 feature/person-fields
