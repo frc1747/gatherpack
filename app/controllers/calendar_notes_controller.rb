@@ -3,7 +3,7 @@ class CalendarNotesController < InternalController
 
   # GET /calendar_notes
   def index
-    @q = policy_scope(CalendarNote).ransack(params[:q])
+    @q = policy_scope(CalendarNote).ransack(params[:q], auth_object: current_user)
     @q.sorts = "name asc" if @q.sorts.empty?
     @calendar_notes = @q.result(distinct: true).page(params[:page])
   end

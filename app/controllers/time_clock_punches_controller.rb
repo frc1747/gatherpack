@@ -4,7 +4,7 @@ class TimeClockPunchesController < InternalController
 
   # GET /time_clock_punches
   def index
-    @q = policy_scope(TimeClockPunch).ransack(params[:q])
+    @q = policy_scope(TimeClockPunch).ransack(params[:q], auth_object: current_user)
     @q.sorts = "start_time desc" if @q.sorts.empty?
     @time_clock_punches = @q.result(distinct: true).includes(:person).order(start_time: :desc, end_time: :desc).page(params[:page])
     @time_clock_punches.each do |punch|

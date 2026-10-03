@@ -3,7 +3,7 @@ class AuditLogsController < ApplicationController
   before_action :set_log, only: %i[ show revert ]
 
   def index
-    @q = policy_scope(AuditLog).ransack(params[:q])
+    @q = policy_scope(AuditLog).ransack(params[:q], auth_object: current_user)
     @q.sorts = "created_at desc" if @q.sorts.empty?
     @logs = authorize @q.result(distinct: true).order(created_at: :desc).page(params[:page])
   end

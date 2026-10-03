@@ -23,7 +23,8 @@ class CalendarController < ApplicationController
           @end_time_year = Date.parse(end_time).year
 
           ransacked_people = policy_scope(Person).ransack(
-            display_name_i_cont: params[:q][:name_i_cont]
+            { display_name_i_cont: params[:q][:name_i_cont] },
+            auth_object: current_user
           ).result(distinct: true)
           ransacked_people = ransacked_people.where(id: Team.find(params[:q][:team_id_eq]).all_people.select(:id)) if params[:q][:team_id_eq].present?
           ransacked_people = ransacked_people.where(id: params[:person_id]) if params[:person_id]
@@ -32,7 +33,7 @@ class CalendarController < ApplicationController
         end
 
         if params[:notes]
-          ransacked_notes = policy_scope(CalendarNote).ransack(params[:q]).result(distinct: true)
+          ransacked_notes = policy_scope(CalendarNote).ransack(params[:q], auth_object: current_user).result(distinct: true)
           ransacked_notes = ransacked_notes.where(noteable: params[:person_id]) if params[:person_id]
           @notes = ransacked_notes.where("start_time >= ? AND start_time <= ?", start_time, end_time)
             .or(ransacked_notes.where("start_time <= ? AND end_time >= ?", start_time, start_time))

@@ -4,7 +4,7 @@ class QuestionsController < InternalController
   def index
     params[:q] ||= {}
     params[:q][:closed_eq] ||= "0" unless params[:q].key?(:closed_eq)
-    @q = policy_scope(Question).ransack(params[:q])
+    @q = policy_scope(Question).ransack(params[:q], auth_object: current_user)
     @q.sorts = "created_at desc" if @q.sorts.empty?
     @questions = @q.result(distinct: true).includes(:team, :person, :replies).page(params[:page])
   end
