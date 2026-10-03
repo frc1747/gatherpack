@@ -1,4 +1,6 @@
-<% fields = policy(person).readable_person_fields.select(&:show_on_profile) %>
+<%# Pass `viewer` to render the fields as someone else sees them (Preview as…). %>
+<% readable = local_assigns[:viewer] ? person.readable_fields_for(viewer) : policy(person).readable_person_fields %>
+<% fields = readable.select(&:show_on_profile) %>
 <% if fields.any? %>
   <% rows = person.person_field_values.index_by(&:person_field_id) %>
   <% fields.group_by(&:person_field_group).each do |group, group_fields| %>
