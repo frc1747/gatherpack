@@ -1240,9 +1240,6 @@ left open:
   fields are enforced with the feature off. `db/seeds.rb` calls
   `ensure_system_fields!`, since a fresh database loads the schema rather
   than running the data migration.
-- **Pre-existing bug, not fixed here:** the calendar's team filter calls
-  `.uniq` on the birthday relation, turning it into an Array, so filtering
-  birthdays by team fails.
 
 Open questions:
 
