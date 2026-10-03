@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_02_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_02_200400) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -458,6 +458,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_200000) do
     t.index ["user_id"], name: "index_people_on_user_id"
   end
 
+  create_table "person_field_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_field_id", null: false
+    t.uuid "badge_id", null: false
+    t.integer "access", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_person_field_badge_grants_on_badge_id"
+    t.index ["person_field_id", "badge_id"], name: "idx_on_person_field_id_badge_id_1cbc5590b3", unique: true
+    t.index ["person_field_id"], name: "index_person_field_badge_grants_on_person_field_id"
+  end
+
+  create_table "person_field_groups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "person_field_values", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.uuid "person_field_id", null: false
+    t.text "value"
+    t.uuid "updated_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_field_id"], name: "index_person_field_values_on_person_field_id"
+    t.index ["person_id", "person_field_id"], name: "index_person_field_values_on_person_id_and_person_field_id", unique: true
+    t.index ["person_id"], name: "index_person_field_values_on_person_id"
+    t.index ["updated_by_id"], name: "index_person_field_values_on_updated_by_id"
+  end
+
+  create_table "person_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "key", null: false
+    t.integer "data_type", default: 0, null: false
+    t.jsonb "options", default: {}, null: false
+    t.text "help_text"
+    t.integer "read_permission", default: 0, null: false
+    t.integer "write_permission", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "person_field_group_id"
+    t.integer "position", default: 0, null: false
+    t.boolean "required", default: false, null: false
+    t.boolean "show_on_profile", default: true, null: false
+    t.datetime "archived_at"
+    t.string "system_source"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_person_fields_on_key", unique: true
+    t.index ["person_field_group_id"], name: "index_person_fields_on_person_field_group_id"
+    t.index ["system_source"], name: "index_person_fields_on_system_source", unique: true
+    t.index ["team_id"], name: "index_person_fields_on_team_id"
+  end
+
   create_table "questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "closed", default: false, null: false
     t.text "content", null: false
@@ -802,6 +856,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_200000) do
   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "users", column: "resource_owner_id"
+  add_foreign_key "person_field_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "person_field_badge_grants", "person_fields"
+  add_foreign_key "person_field_values", "people"
+  add_foreign_key "person_field_values", "people", column: "updated_by_id", on_delete: :nullify
+  add_foreign_key "person_field_values", "person_fields"
+  add_foreign_key "person_fields", "person_field_groups"
+  add_foreign_key "person_fields", "teams"
   add_foreign_key "questions", "people"
   add_foreign_key "questions", "teams"
   add_foreign_key "relationships", "people", column: "child_id"
