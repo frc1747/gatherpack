@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/app-version`, see `FORK.md`) |
 | Added | 2026-10-03 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/app-version` |
