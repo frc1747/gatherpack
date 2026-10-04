@@ -9,6 +9,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | ID | Title | Kind | Priority | Status | Added |
 |---|---|---|---|---|---|
 | [BL-001](BL-001-page-index-permissions.md) | Page list ignores the Viewer setting and leaks content previews | upstream bug (security) | high | waiting | 2026-10-03 |
+| [BL-002](BL-002-period-hours-date-bounds.md) | Period hours skip meetings near the period's last day | upstream bug | low | waiting | 2026-10-03 |
 
 ## Fields
 
