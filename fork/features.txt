@@ -1,0 +1,17 @@
+# Feature manifest: merged into hbr/integration in this order by bin/fork-rebuild.
+# One branch per line. Dependencies must come after the branches they depend on.
+# Comment a line out with # to disable that feature temporarily.
+feature/audit-log-nil-changes
+feature/membership-filters-fix
+feature/membership-create-policy
+feature/unique-assignments
+feature/search-and-add
+feature/brakeman-8.1
+feature/enforce-authorization
+feature/calendar-birthday-team-filter
+feature/user-display-name
+feature/people-ransack-auth-object
+feature/person-fields
+feature/team-page-qa-crash
+feature/team-page-parent-managers
+feature/app-version
