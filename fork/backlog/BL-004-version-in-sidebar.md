@@ -8,7 +8,7 @@
 | Added | 2026-10-03 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/app-version` |
-| Upstream issue / PR | none yet |
+| Upstream issue / PR | none yet (fork-only for now, per Corey 2026-10-04) |
 
 ## Summary
 
