@@ -14,3 +14,4 @@ feature/people-ransack-auth-object
 feature/person-fields
 feature/team-page-qa-crash
 feature/team-page-parent-managers
+feature/app-version
