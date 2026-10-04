@@ -2,7 +2,8 @@
 
 Status register for the HBR fork of GatherPack. The rules live in
 [`fork/STRATEGY.md`](fork/STRATEGY.md); the merge order lives in
-[`fork/features.txt`](fork/features.txt).
+[`fork/features.txt`](fork/features.txt). Work we've found but not started
+yet is in [`fork/backlog/`](fork/backlog/README.md).
 
 - Upstream: https://github.com/GatherPack/gatherpack
 - Fork: https://github.com/frc1747/gatherpack
