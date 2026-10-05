@@ -7,7 +7,7 @@ class CheckinField < ApplicationRecord
   enum :permission, added_by_admin: 0, added_by_manager: 1, added_by_team_member: 2, added_by_participant: 3, added_by_user: 4
   # Who can see responses, relative to the person checked in (PersonField's
   # levels). Fields linked to a person field use that field's rules instead.
-  enum :read_permission, PersonField::LEVEL_VALUES, prefix: :read, validate: true
+  enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: true
 
   validates :name, presence: true
   validate :person_field_fixed, on: :update
@@ -34,7 +34,7 @@ class CheckinField < ApplicationRecord
     return person_field.readable_subjects_for(viewer) if linked?
     return Person.all if viewer.admin? || read_everyone?
 
-    PersonField.level_people(read_permission, viewer)
+    AudienceLevels.people(read_permission, viewer)
   end
 
   def readable_by?(viewer, person)

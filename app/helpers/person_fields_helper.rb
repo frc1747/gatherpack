@@ -11,7 +11,7 @@ module PersonFieldsHelper
   # Level choices for the field form. Without any guardianship types, the
   # guardians-only level is hidden and the rest avoid mentioning guardians.
   def person_field_level_options(guardianship = RelationshipType.guardianship_configured?)
-    levels = PersonField::LEVEL_VALUES.keys.map(&:to_s)
+    levels = AudienceLevels::LEVEL_VALUES.keys.map(&:to_s)
     levels -= [ "guardians" ] unless guardianship
     levels.map { |level| [ person_field_level_label(level, guardianship), level ] }
   end
@@ -29,7 +29,7 @@ module PersonFieldsHelper
 
   def person_field_level_descriptions
     guardianship = RelationshipType.guardianship_configured?
-    PersonField::LEVEL_VALUES.keys.map(&:to_s).index_with { |level| person_field_level_description(level, guardianship) }
+    AudienceLevels::LEVEL_VALUES.keys.map(&:to_s).index_with { |level| person_field_level_description(level, guardianship) }
   end
 
   # The confirmation for "Apply recommended privacy settings", listing every
