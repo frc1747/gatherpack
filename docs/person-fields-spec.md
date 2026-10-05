@@ -1255,6 +1255,15 @@ left open:
   can't see under "—". The check-in form hides responses the editor can't
   see, even when they could write them. `PersonField.level_people` exposes a
   level's audience for check-in field read levels.
+- **Shared pieces (2026-10-05, forms phase 0).** So Forms
+  (`docs/forms-spec.md` on `feature/forms`) can reuse them, the levels and
+  field types moved out of `PersonField` with no behaviour change:
+  `AudienceLevels` (`PERMISSION_LEVELS`, `LEVEL_VALUES`, `.reaches?`,
+  `.within?`, `.people` (was `PersonField.level_people`), `.relations`,
+  `.component_people`, `.combine`); `AudienceAccess`, the per (viewer,
+  subject) component checks that `PersonFieldAccess` now subclasses; and the
+  `FieldValueType` concern (data type enum, options, `normalize`, `cast`,
+  `serialize`, `choice_list`, option validations).
 
 Open questions:
 
