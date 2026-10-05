@@ -65,7 +65,7 @@ into an order ("Jimmy John's: 4× Slim 4, 2× Big John") is done by hand.
 | Piece | Where | How Forms uses it |
 |---|---|---|
 | Permission levels `admin`, `self`, `leaders`, `self_and_leaders`, `guardians`, `family`, `team`, `everyone`, stored as explicit integers | `PersonField::PERMISSION_LEVELS`, `LEVEL_VALUES` | The same levels, the same integers, for who may answer and who may see (§5) |
-| Single-subject evaluator and list form | `PersonFieldAccess`, `PersonField.level_people`, `.component_people`, `#subjects_for` | The same audience components (`subject`, `guardian`, `leaders`, `teammates`, `everyone`) |
+| Single-subject evaluator and list form | `AudienceAccess`, `AudienceLevels.people`, `.component_people`, `PersonField#subjects_for` (§2.1) | The same audience components (`subject`, `guardian`, `leaders`, `teammates`, `everyone`) |
 | Badge grants (only admin-assigned badges; team badges scope the grant) | `PersonFieldBadgeGrant` | `FormBadgeGrant`, same rules (§5.3) |
 | Guardianship (typed, directed, age-limited) | `Relationship.active_guardianships`, `Person#guardians`, `#wards` | Who may answer for whom, and who must sign (§7) |
 | Field types, choice lists, normalization, casting | `PersonField` `data_type`, `options`, `#normalize`, `#cast`, `#serialize` | Form-only questions use the same types and code (§3.2) |
@@ -79,24 +79,22 @@ into an order ("Jimmy John's: 4× Slim 4, 2× Big John") is done by hand.
 | Feature registration | `GatherPack::Features.register_built_in` | `:forms`, off by default |
 | Check-ins as attendance | `Checkin`, `Event#checkins` | Read only, to compare intent with attendance. Forms never create one (§10) |
 
-### 2.1 Refactor in `feature/person-fields` first
+### 2.1 Shared pieces (phase 0, done)
 
-`PersonField` owns the level table and the component logic. Forms needs the
-same logic without a person field. Before Forms starts, extract it on
-`feature/person-fields` (still `wip`, so this is our code, not an upstream
-edit):
+Done on `feature/person-fields` in `5b2700a` (2026-10-05), with no behaviour
+change, so Forms reuses the same code rather than copying it:
 
-- `AudienceLevels` (`app/models/concerns/audience_levels.rb`):
-  `PERMISSION_LEVELS`, `LEVEL_VALUES`, `.level_people(level, viewer)`,
-  `.component_people(component, viewer)`,
-  `.component_includes?(component, viewer, subject)`, and
-  `.level_within?(inner, outer)` (the containment test behind
-  `write_within_read`).
-- `FieldValueType` (concern): the `data_type` enum, `options` accessors,
-  `normalize`, `cast`, `serialize`, `choice_list`, `options_make_sense`.
-
-`PersonField` includes both, and its constants stay as aliases so nothing
-else changes. The existing consistency test keeps passing unchanged.
+- `AudienceLevels` (`app/models/audience_levels.rb`, a module):
+  `PERMISSION_LEVELS`, `LEVEL_VALUES`, `.reaches?(level, component)`,
+  `.within?(inner, outer)` (the containment test), `.people(level, viewer)`
+  (formerly `PersonField.level_people`), `.relations`, `.component_people`,
+  and `.combine` (one `Person` relation from several).
+- `AudienceAccess` (`app/models/audience_access.rb`): one viewer's audience
+  components relative to one subject, with each lookup cached.
+  `PersonFieldAccess` subclasses it; `FormAccess` (§5.3) will too.
+- `FieldValueType` (`app/models/concerns/field_value_type.rb`): the
+  `data_type` enum, `options` accessors, `normalize`, `cast`, `serialize`,
+  `choice_list`, and the option validations. `FormQuestion` includes it.
 
 ---
 
@@ -363,7 +361,7 @@ person-fields access message ("Only leaders can change this").
 
 ### 5.3 Evaluator
 
-`FormAccess.new(viewer, subject, form)`, built on `AudienceLevels`:
+`FormAccess.new(viewer, subject, form)`, a subclass of `AudienceAccess`:
 
 ```ruby
 can_respond?               # respond level component or a respond badge grant
@@ -831,7 +829,7 @@ Seven `create_table` migrations, reversible, primary DB only (run
 
 | Phase | Scope | Replaces |
 |---|---|---|
-| **0: Extract** | `AudienceLevels` and `FieldValueType` on `feature/person-fields` (§2.1) | |
+| **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
 | **1: Core** | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
 | **2: Consent** | acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, Forms on file, the completed/incomplete hooks | Paper consent forms |
 | **3: Events** | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
