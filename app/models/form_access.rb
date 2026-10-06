@@ -99,19 +99,15 @@ class FormAccess < AudienceAccess
   #
   # guardian_if_minor goes by age: someone of age (the guardianship age
   # limit, or 18 when none is set) signs for themselves, and an active
-  # guardian still may; for a known minor only a guardian signs. With no
-  # birthday on file, a guardian signs if there is one, otherwise the person.
+  # guardian still may. Anyone else, including someone with no birthday on
+  # file, needs a guardian, and waits until one is linked.
   def self.signer_roles(question, subject)
     case question.signer
     when "subject" then [ :subject ]
     when "guardian" then [ :guardian ]
     when "leader" then [ :leader ]
     when "guardian_if_minor"
-      case of_age?(subject)
-      when true then [ :subject, :guardian ]
-      when false then [ :guardian ]
-      else subject.guardians.exists? ? [ :guardian ] : [ :subject ]
-      end
+      of_age?(subject) ? [ :subject, :guardian ] : [ :guardian ]
     else []
     end
   end

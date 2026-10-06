@@ -54,7 +54,7 @@ module FormsHelper
   }.freeze
 
   SIGNER_LABELS = {
-    "guardian_if_minor" => "A guardian; or the person themselves once they're of age",
+    "guardian_if_minor" => "A guardian; or the person themselves once their birthday on file shows they're of age",
     "guardian" => "A guardian", "subject" => "The person themselves", "leader" => "A leader, recording a paper form"
   }.freeze
 
@@ -92,6 +92,28 @@ module FormsHelper
       edit_form_response_path(entry.form, entry.subject)
     else
       form_response_path(entry.form, entry.subject)
+    end
+  end
+
+  LeaderTodo = Struct.new(:form, :people, keyword_init: true)
+
+  # For forms that ask for it (leader_todo), the submitted responses waiting
+  # on this person as a leader: an answer only they can give, or a paper
+  # signature. Their own and their children's forms are in the personal list.
+  def leader_todos(person)
+    own = [ person.id ] + person.wards.ids
+    Form.where(status: %i[ open closed ], leader_todo: true).includes(:form_questions, :form_badge_grants).order(:closes_at, :title).filter_map do |form|
+      next unless policy(form).show?
+
+      report = FormReport.new(form, viewer: person)
+      people = report.rows.filter_map do |row|
+        submission = row.response&.open_submission
+        next unless submission&.pending? && !own.include?(row.person.id)
+        waiting_on_viewer = submission.missing_questions.any? { |question| row.access.question_writable?(question) } ||
+          submission.missing_signatures.any? { |question| row.access.signing_role(question) == :leader }
+        row.person if waiting_on_viewer
+      end
+      LeaderTodo.new(form: form, people: people) if people.any?
     end
   end
 
