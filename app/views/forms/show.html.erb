@@ -5,7 +5,11 @@
 <div class="card">
   <div class="card-header">
     <h1><%= @form.title %> <%= form_state_badge(@form) %></h1>
-    <div class="text-muted"><%= @form.team.name %><% if @form.audience_badge %>, <%= @form.audience_badge.name %> badge holders<% end %> · <%= form_due(@form) %></div>
+    <div class="text-muted">
+      <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge %>, <%= @form.audience_badge.name %> badge holders only<% end %>
+      · <%= form_due(@form) %>
+      <% if @form.completion_badge %>· Completion badge: <%= @form.completion_badge.name %><% end %>
+    </div>
   </div>
   <div class="card-body">
     <% if @form.description.present? %>
@@ -39,6 +43,10 @@
                 <td>
                   <%= form_status_badge(row.status) %>
                   <% if row.response&.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
+                  <% if row.status == "no_longer_asked" %><span class="badge text-bg-light"><%= FormsHelper::STATUS_LABELS.fetch(row.response_status) %></span><% end %>
+                  <% if row.response_status == "waiting" && (pending = row.response.open_submission) %>
+                    <br><small class="text-muted">Waiting for <%= pending.waiting_for.to_sentence %></small>
+                  <% end %>
                 </td>
                 <td><%= row.submission ? "##{row.submission.number}" : "—" %></td>
                 <td><%= row.submission&.submitted_at ? "#{nice_datetime(row.submission.submitted_at)} by #{row.submission.submitted_by&.identifier_name}" : "—" %></td>
@@ -61,7 +69,7 @@
       <% end %>
       <% if @form.open? %>
         <%= button_to "Close", close_form_path(@form), class: "btn btn-dark", form_class: "d-inline", data: { turbo_confirm: "Close this form? People won't be able to respond#{@form.late_entry_leaders? ? " (leaders still can)" : ""}." } %>
-        <% waiting = @report.rows.count { |row| row.status != "complete" } %>
+        <% waiting = @report.rows.count { |row| !%w[ complete no_longer_asked ].include?(row.status) } %>
         <% if waiting.positive? %>
           <%= button_to "Remind (#{waiting})", remind_form_path(@form, team_id: @team&.id), class: "btn btn-warning", form_class: "d-inline",
                 data: { turbo_confirm: "Email the people who can respond for #{pluralize(waiting, "person", plural: "people")} who haven't completed this form?" } %>

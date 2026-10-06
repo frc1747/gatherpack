@@ -5,7 +5,7 @@ class Hook < ApplicationRecord
   validates :name, presence: true
 
   def self.catalog
-    targets = [ "announcements", "badges", "badge_assignments", "events", "checkins", "memberships", "people", "relationships", "relationship_types", "person_fields", "person_field_values", "person_field_badge_grants", "forms", "form_responses", "form_submissions", "teams", "users", "pages", "tokens", "ledgers", "ledger_entries", "ledger_ownerships", "ledger_taggings", "ledger_tags" ].map do |k|
+    targets = [ "announcements", "badges", "badge_assignments", "events", "checkins", "memberships", "people", "relationships", "relationship_types", "person_fields", "person_field_values", "person_field_badge_grants", "forms", "form_responses", "form_submissions", "form_signatures", "form_badge_grants", "form_audience_rules", "teams", "users", "pages", "tokens", "ledgers", "ledger_entries", "ledger_ownerships", "ledger_taggings", "ledger_tags" ].map do |k|
       [ "create", "update", "destroy" ].map { |e| [ k, e ].join(" - ") }
     end.flatten
 

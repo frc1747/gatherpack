@@ -14,11 +14,60 @@
     </div>
   </div>
   <div class="card-body">
+    <% if active && @response.needs_reconfirmation? %>
+      <div class="alert alert-warning">
+        <% if @response.reconfirmation_reason == :form %>
+          <strong>Needs re-confirmation.</strong> This form changed after version <%= active.number %> was submitted (it was on form version <%= active.form_version %>). Its answers still count until a new version replaces them.
+        <% else %>
+          <strong>Needs re-confirmation.</strong> Profile details have changed since this was signed. Its answers still count until a new version replaces them.
+        <% end %>
+      </div>
+    <% end %>
+    <% if active && (changes = @response.profile_changes.select { |question| access.question_readable?(question) }).any? %>
+      <div class="alert alert-info">
+        Changed on the profile since submitted <%= nice_date(active.submitted_at) %>:
+        <ul class="mb-0">
+          <% changes.each do |question| %>
+            <li><%= question.label %>: was <%= form_answer_display(question, active.answer(question)) %>, now <%= form_answer_display(question, @subject.field_value(question.person_field)) %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if open&.pending? && response_policy.sign? %>
+      <% open.missing_signatures.select { |question| access.can_sign?(question) }.each do |question| %>
+        <% role = access.signing_role(question) %>
+        <div class="card mb-3 border-primary" id="sign_<%= question.key %>">
+          <div class="card-header"><h2 class="h5 mb-0"><%= i "signature" %> <%= question.label %></h2></div>
+          <div class="card-body">
+            <% if question.body.present? %><div class="mb-3"><%= form_markdown(question.body) %></div><% end %>
+            <p class="mb-1">You're signing these answers for <strong><%= @subject.identifier_name %></strong> (version <%= open.number %>, submitted <%= nice_datetime(open.submitted_at) %><%= " by #{open.submitted_by.identifier_name}" if open.submitted_by %>):</p>
+            <div class="border rounded p-2 mb-3"><%= render "answers", submission: open, previous: nil, access: access %></div>
+            <%= form_with url: sign_form_response_path(@form, @subject), method: :post do %>
+              <%= hidden_field_tag :question_id, question.id %>
+              <label class="form-label" for="typed_name_<%= question.key %>">
+                <% if role == :leader %>
+                  To record a signed paper form, type your own full name (<%= current_user.person.first_name %> <%= current_user.person.last_name %>):
+                <% else %>
+                  Type your full name to sign<%= " as #{@subject.first_name}'s guardian" if role == :guardian %> (<%= current_user.person.first_name %> <%= current_user.person.last_name %>):
+                <% end %>
+              </label>
+              <div class="input-group" style="max-width: 32rem;">
+                <%= text_field_tag :typed_name, nil, id: "typed_name_#{question.key}", class: "form-control", autocomplete: "off", required: true %>
+                <%= submit_tag role == :leader ? "Record paper signature" : "Sign", class: "btn btn-primary", name: nil %>
+              </div>
+              <div class="form-text">Your name, the time, and this device are recorded with the signature. Changing the answers later needs a new signature.</div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+
     <% if open && active %>
       <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
         <span>
           <strong>Unsubmitted update</strong>, started <%= nice_datetime(open.created_at) %><%= " by #{open.created_by.identifier_name}" if open.created_by %>.
-          <% if open.pending? %>It's waiting for answers to: <%= open.missing_questions.map(&:label).to_sentence %>.<% end %>
+          <% if open.pending? %>It's waiting for <%= open.waiting_for.to_sentence %>.<% end %>
           The answers below stay in effect until it's submitted.
         </span>
         <span class="text-nowrap">
@@ -34,8 +83,10 @@
     <% if active %>
       <h2 class="h5">Submitted answers <small class="text-muted">(version <%= active.number %>, submitted <%= nice_datetime(active.submitted_at) %> by <%= active.submitted_by&.identifier_name || "someone no longer here" %>)</small></h2>
       <%= render "answers", submission: active, previous: nil, access: access %>
+      <%= render "signatures", submission: active %>
     <% elsif open&.pending? %>
-      <p>Submitted <%= nice_datetime(open.submitted_at) %>, and waiting for answers to: <%= open.missing_questions.map(&:label).to_sentence %>.</p>
+      <p>Submitted <%= nice_datetime(open.submitted_at) %>, and waiting for <%= open.waiting_for.to_sentence %>.</p>
+      <%= render "signatures", submission: open %>
     <% elsif open %>
       <p class="text-muted">Started, not submitted yet.</p>
     <% elsif @response.withdrawn? %>
@@ -87,7 +138,7 @@
       <% shown.each do |submission| %>
         <div class="mb-4" id="<%= dom_id submission %>">
           <h3 class="h6">
-            Version <%= submission.number %>
+            <%= link_to "Version #{submission.number}", form_response_submission_path(@form, @subject, submission) %>
             <span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(submission.status) %></span>
             <small class="text-muted">
               <% if submission.submitted_at %>
@@ -98,6 +149,7 @@
             </small>
           </h3>
           <%= render "answers", submission: submission, previous: by_id[submission.based_on_id], access: access %>
+          <%= render "signatures", submission: submission %>
         </div>
       <% end %>
     </div>

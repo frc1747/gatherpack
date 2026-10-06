@@ -45,6 +45,9 @@ class FormsController < InternalController
     authorize @form
 
     if @form.save
+      # Starts by asking the owning team, as before audience rules; the
+      # builder can change that.
+      @form.form_audience_rules.create!(effect: :include, target_type: :team, team: @form.team)
       redirect_to edit_form_path(@form), notice: "Form was created. Add its questions below."
     else
       render :new, status: :unprocessable_entity
@@ -70,8 +73,25 @@ class FormsController < InternalController
 
   # POST /forms/1/open
   def open
+    return redirect_to edit_form_path(@form, anchor: "audience"), alert: "Add someone to ask before opening the form.", status: :see_other unless @form.openable?
+
     @form.update!(status: :open)
     redirect_to form_path(@form), notice: "Form is open for responses.", status: :see_other
+  end
+
+  # POST /forms/1/publish
+  def publish
+    reconfirm = params[:reconfirm] == "1"
+    @form.publish!(reconfirm: reconfirm)
+    notice = reconfirm ? "Changes were published. Earlier responses need to be reviewed and signed again." : "Changes were published. Earlier responses stay complete."
+    redirect_to edit_form_path(@form), notice: notice, status: :see_other
+  end
+
+  # GET /forms/1/audience
+  # The people behind "Asks N people".
+  def audience
+    @people = @form.audience.order(:last_name, :first_name)
+    @former = @form.former_subjects.order(:last_name, :first_name)
   end
 
   # POST /forms/1/close
@@ -96,7 +116,7 @@ class FormsController < InternalController
   def remind
     team = Team.find_by(id: params[:team_id])
     report = FormReport.new(@form, viewer: current_user.person, team: team)
-    pending = report.rows.reject { |row| row.status == "complete" }.map(&:person)
+    pending = report.rows.reject { |row| %w[ complete no_longer_asked ].include?(row.status) }.map(&:person)
     sender = FormReminderSender.new(@form, pending)
     sender.send!(sent_by: current_user.person, filter: { team_id: team&.id }.compact)
     redirect_to form_path(@form, team_id: team&.id), notice: "Sent #{helpers.pluralize(sender.recipients.size, "reminder")} about #{helpers.pluralize(pending.size, "person", plural: "people")}.", status: :see_other
@@ -146,7 +166,9 @@ class FormsController < InternalController
 
     def form_params
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
-        :opens_at, :closes_at, :allow_updates, :late_entry ]
+        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change ]
+      # A completion badge marks people's status, so only admins set it.
+      permitted << :completion_badge_id if current_user.admin?
       permitted << :key if @form.nil? || @form.new_record?
       params.require(:form).permit(*permitted)
     end

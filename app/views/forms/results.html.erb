@@ -40,6 +40,7 @@
             <% questions.each do |question| %><th><%= question.label %></th><% end %>
             <% @selected_fields.each do |field| %><th class="table-info"><%= field.name %></th><% end %>
             <th>Version</th>
+            <% if @form.signature_questions.any? %><th>Signed</th><% end %>
           </tr>
         </thead>
         <tbody>
@@ -66,8 +67,14 @@
                 <% if row.submission %>
                   #<%= row.submission.number %>
                   <% unless row.submission.active? %><span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(row.submission.status) %></span><% end %>
+                  <% if row.submission.submitted_at && row.submission.form_version < @form.content_version %>
+                    <span class="badge text-bg-light" title="The form has changed since">Form version <%= row.submission.form_version %></span>
+                  <% end %>
                 <% end %>
               </td>
+              <% if @form.signature_questions.any? %>
+                <td><%= row.submission ? form_signed_summary(row.submission) : "" %></td>
+              <% end %>
             </tr>
           <% end %>
         </tbody>

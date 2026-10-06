@@ -321,6 +321,9 @@ class Person < ApplicationRecord
     @person_field_input_errors = []
     return if changes.empty?
 
+    # For code that follows profile changes, such as forms re-checking what
+    # was signed.
+    changes.each { |change| ActiveSupport::Notifications.instrument("person_field_changed.gatherpack", change: change) }
     hooks = Hook.where(event: "person_fields - value changed").to_a
     changes.each { |change| hooks.each { |hook| hook.run(change) } }
   end

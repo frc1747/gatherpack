@@ -18,12 +18,12 @@
 
   <div class="row">
     <div class="col-md-6">
-      <%= f.input :team_id, label: "Team", collection: policy(form).assignable_teams.order(:name), include_blank: false,
-            hint: "Everyone in this team or a team below it is asked to respond." %>
+      <%= f.input :team_id, label: "Owning team", collection: policy(form).assignable_teams.order(:name), include_blank: false,
+            hint: form.persisted? ? "Its managers, and those of teams above it, manage this form. Who is asked is set below." : "Its managers, and those of teams above it, manage this form. The form starts by asking everyone in it; you can change who is asked next." %>
     </div>
     <div class="col-md-6">
-      <%= f.input :audience_badge_id, label: "Only people with this badge", collection: Badge.order(:name), include_blank: "Everyone in the team",
-            hint: "Optional. Narrows who is asked." %>
+      <%= f.input :audience_badge_id, label: "Only people with this badge", collection: Badge.order(:name), include_blank: "Everyone the rules include",
+            hint: "Optional. Narrows who is asked, after the rules." %>
     </div>
   </div>
 
@@ -47,6 +47,25 @@
     <div class="col-md-6"><%= f.input :allow_updates, label: "Allow updates after submitting", hint: "People can submit a new version while the form is open. Leaders always can." %></div>
     <div class="col-md-6">
       <%= f.input :late_entry, label: "After the deadline", collection: { "No more responses" => "none", "Leaders can still enter responses" => "leaders" }, include_blank: false %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :reconfirm_on_profile_change, label: "Ask again when profile details change",
+            hint: "If a profile detail this form updated is changed later, the response needs to be reviewed and signed again." %>
+    </div>
+    <div class="col-md-6">
+      <% if policy(form).manage_badges? %>
+        <%= f.input :completion_badge_id, label: "Completion badge", collection: Badge.added_by_admin.order(:name), include_blank: "None",
+              hint: "Held while someone's response is complete, and removed when it isn't. Use a badge only this form gives out." %>
+      <% elsif form.completion_badge %>
+        <div class="mb-3">
+          <div class="form-label">Completion badge</div>
+          <div class="form-control-plaintext"><%= form.completion_badge.name %></div>
+          <div class="form-text">Only admins can change it.</div>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>
