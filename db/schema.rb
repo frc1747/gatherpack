@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_120300) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -364,9 +364,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_120300) do
     t.boolean "reconfirm_on_profile_change", default: false, null: false
     t.integer "published_version", default: 1, null: false
     t.integer "reconfirm_from_version", default: 1, null: false
+    t.uuid "event_id"
     t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
     t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
     t.index ["created_by_id"], name: "index_forms_on_created_by_id"
+    t.index ["event_id"], name: "index_forms_on_event_id"
     t.index ["key"], name: "index_forms_on_key", unique: true
     t.index ["status"], name: "index_forms_on_status"
     t.index ["team_id"], name: "index_forms_on_team_id"
@@ -1018,6 +1020,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_120300) do
   add_foreign_key "form_submissions", "people", column: "submitted_by_id", on_delete: :nullify
   add_foreign_key "forms", "badges", column: "audience_badge_id"
   add_foreign_key "forms", "badges", column: "completion_badge_id", on_delete: :nullify
+  add_foreign_key "forms", "events", on_delete: :nullify
   add_foreign_key "forms", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "forms", "teams"
   add_foreign_key "ledger_entries", "ledgers"

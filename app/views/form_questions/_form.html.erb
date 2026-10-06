@@ -24,6 +24,23 @@
           hint: "Shown above the signature box, for example \"I give permission for my child to take part.\" Markdown is supported." %>
     <%= f.input :signer, label: "Who signs", as: :radio_buttons, item_wrapper_tag: :div, collection: FormsHelper::SIGNER_LABELS.invert,
           hint: "Signatures are given after the answers are submitted, by typing a full name. Every new version needs signing again." %>
+  <% elsif question.intent? %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Question", hint: "Answered Yes, Maybe, or No." %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the question." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Help text", required: false, input_html: { rows: 2 } %>
+    <%= f.input :required %>
+    <p class="form-text">
+      This is a planning count for <%= question.form.event&.name || "the form's event" %>. It never checks anyone in: only a check-in counts as attending.
+      The event page compares the answers with who checks in.
+    </p>
   <% elsif question.acknowledgment? %>
     <div class="row">
       <div class="col-md-8"><%= f.input :label, label: "Acknowledgment", hint: "Shown next to the tick box, for example \"I have read the code of conduct\"." %></div>

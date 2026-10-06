@@ -12,7 +12,7 @@ class FormsController < InternalController
   end
 
   before_action :require_feature
-  before_action :set_form, except: %i[ index new create ]
+  before_action :set_form, except: %i[ index new create order_sheet ]
 
   # GET /forms
   def index
@@ -31,7 +31,11 @@ class FormsController < InternalController
 
   # GET /forms/new
   def new
-    @form = Form.new(team: policy(Form.new).assignable_teams.order(:name).first)
+    teams = policy(Form.new).assignable_teams
+    # From an event page: a form for that event, owned by the event's team.
+    event = policy_scope(Event).find_by(id: params[:event_id]) if params[:event_id]
+    event = nil unless event&.team && teams.where(id: event.team_id).exists?
+    @form = Form.new(team: event&.team || teams.order(:name).first, event: event)
     authorize @form, :new?
   end
 
@@ -49,7 +53,7 @@ class FormsController < InternalController
     if @form.save
       # Starts by asking the owning team, as before audience rules; the
       # builder can change that.
-      @form.form_audience_rules.create!(effect: :include, target_type: :team, team: @form.team)
+      @form.form_audience_rules.create!(effect: :include, target_type: :team, team: @form.event&.team || @form.team)
       redirect_to edit_form_path(@form, tab: "questions"), notice: "Form was created. Add its questions below."
     else
       render :new, status: :unprocessable_entity
@@ -142,11 +146,42 @@ class FormsController < InternalController
   end
 
   # GET /forms/1/tally
+  # With an event, the population can be the people who said they're coming
+  # or the people who checked in.
   def tally
     @teams = helpers.form_team_choices(@form)
     @team = @teams.detect { |team| team.id == params[:team_id] }
-    @report = FormReport.new(@form, viewer: current_user.person, team: @team)
+    @event = @form.event || policy_scope(Event).find_by(id: params[:event_id])
+    @basis = %w[ expected checked_in ].include?(params[:basis]) && @event ? params[:basis] : "asked"
+    only = nil
+    if @basis != "asked"
+      sheet = FormOrderSheet.new(form: @form, event: @event, viewer: current_user.person, basis: @basis)
+      only = sheet.population.map(&:id)
+      @basis_missing = !sheet.basis_available?
+    end
+    @report = FormReport.new(@form, viewer: current_user.person, team: @team, only: only)
     @questions = @report.questions.select { |question| helpers.form_tallyable?(question) }
+  end
+
+  # GET /forms/order_sheet?form_id=&event_id=&basis=&question_ids[]=&field_ids[]=
+  # One form's answers for an event's people: what to order, and for whom.
+  def order_sheet
+    authorize Form, :index?
+    viewer = current_user.person
+    @forms = Form.where(status: %i[ open closed ]).includes(:team).order(:title).select { |form| policy(form).show? }
+    @form = @forms.detect { |form| form.id == params[:form_id] }
+    @events = policy_scope(Event).where(start_time: 2.months.ago..4.months.from_now).order(:start_time).to_a
+    @event = policy_scope(Event).find_by(id: params[:event_id])
+    @events.unshift(@event) if @event && !@events.include?(@event)
+    @layout = params[:layout] == "labels" ? "labels" : "list"
+    return unless @form
+
+    @choices = @form.answerable_questions.reject(&:intent?)
+    @profile_fields = helpers.form_profile_field_choices(viewer)
+    questions = @choices.select { |question| Array(params[:question_ids]).include?(question.id) }
+    questions = @choices.select { |question| %w[ select multi_select ].include?(question.value_type.data_type) } if params[:question_ids].nil?
+    fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
+    @sheet = FormOrderSheet.new(form: @form, event: @event, viewer: viewer, basis: params[:basis], questions: questions, fields: fields)
   end
 
   # GET /forms/1/preview
@@ -169,7 +204,7 @@ class FormsController < InternalController
 
     def form_params
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
-        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change ]
+        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id ]
       # A completion badge marks people's status, so only admins set it.
       # Neither badge setting changes while Badges are turned off.
       badges = GatherPack::Features.enabled?(:badges)
