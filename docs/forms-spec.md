@@ -482,7 +482,7 @@ subject in the fixture world, as for person fields.
 | Set a completion badge or badge grants | Admins only (both widen access or status) |
 | Add a profile-backed question | Anyone who may edit the form. It grants nothing: each viewer still needs the person field's own levels (§5.2) |
 | Delete a form | Admins, and only with no submitted submissions; otherwise archive |
-| **Form creators** (rev. 5) | Holders of the badge named in the `forms_creator_badge` setting (admin-assigned only; off while Badges are off) create **event forms** for teams they belong to (their own and the teams above them), and ask those teams. They manage, see responses to, and can delete (before anyone submits) **only the forms they created**, acting as an admin of those responses and nothing else; profile fields still follow their own levels. They can't add signatures or questions linked to profile fields, or set completion badges or badge grants. Team managers still manage every form owned by their teams, including these. Losing the badge ends their access; meant for short-lived polls by student leaders |
+| **Form creators** (rev. 5) | Holders of the badge named in the `forms_creator_badge` setting (admin-assigned only; off while Badges are off) create **event forms** for, and ask, the teams they're directly in and the teams below those; plus the teams above their own up to the team named in the `forms_creator_highest_team` setting (HBR: Team 1747 - Students), never higher. They manage, see responses to, and can delete (before anyone submits) **only the forms they created**, acting as an admin of those responses and nothing else; profile fields still follow their own levels. They can't add signatures or questions linked to profile fields, or set completion badges or badge grants. Team managers still manage every form owned by their teams, including these. Losing the badge ends their access; meant for short-lived polls by student leaders |
 
 ---
 
@@ -575,7 +575,7 @@ Recent Activity, Calendar, Statistics) gets a **Forms** tab at
 |---|---|
 | `subject` | the subject |
 | `guardian` | an active guardian of the subject |
-| `guardian_if_minor` | Goes by age (rev. 5, `FormAccess.signer_roles`). Of age (birthday at least `Relationship.guardianship_age_limit` years ago, or 18 when no limit is set): the subject, or an active guardian if one remains. A known minor: an active guardian only, so a minor with no guardian linked waits until one is. No birthday on file: an active guardian if there is one, otherwise the subject. (Rev. 4 went by whether a guardian was linked, which with no age limit set kept adults from signing for themselves) |
+| `guardian_if_minor` | Goes by age (rev. 5, `FormAccess.signer_roles`). Of age (birthday at least `Relationship.guardianship_age_limit` years ago, or 18 when no limit is set): the subject, or an active guardian if one remains. Anyone else, including someone with **no birthday on file**: an active guardian only, so they wait until one is linked (decided 2026-10-06: no fallback to self-signing). (Rev. 4 went by whether a guardian was linked, which with no age limit set kept adults from signing for themselves) |
 | `leader` | a leader with respond access, recording a paper signature (`signer_role: leader`, shown as "Paper form recorded by …") |
 
 One signature per signature question per submission; the first valid one
@@ -977,7 +977,8 @@ extended to these events.
 
 `feature/forms`, branched from `feature/person-fields` (declared
 dependency). Upstream naming, no `Hbr` namespace: a general capability
-intended for upstream after person fields. Upstream issue first, framed
+intended for upstream after person fields. Decided 2026-10-06 (Corey): keep
+the upstream naming for the tables and classes even if Forms ends up carried. Upstream issue first, framed
 generally: "Forms: collect information and consent from members and
 guardians." Flag `feature_forms`, off by default.
 
@@ -1022,6 +1023,8 @@ Ditto:
   submissions.
 - Phase 3: `20261006130000_add_event_to_forms.rb` (`forms.event_id`,
   nullified if the event is deleted).
+- `20261006140000_add_sharing_options_to_forms.rb`: `totals_visibility`
+  and `leader_todo` on forms.
 
 ---
 
@@ -1037,14 +1040,19 @@ Ditto:
 
 ### 15.1 Open questions
 
-1. **Leaders on "Forms to complete".** v1 leaves leaders off unless they are
-   the subject or a guardian. Should a "Leader to-do" card show forms with
-   leader-only questions or paper signatures waiting?
-2. **Who can see tallies.** v1 shows tallies only to people who can read the
-   underlying answers. Should a form be able to publish aggregate counts more
-   widely ("12 pizza, 4 sub") without individual answers?
-3. **One guardian or all?** v1 accepts the first guardian's signature. Should
-   a signature question be able to require every active guardian?
+1. **Leaders on "Forms to complete".** Decided 2026-10-06: an option per
+   form, `leader_todo` ("Show leaders what's waiting on them", Responses
+   tab). Leaders who can see the form's results get a dashboard card,
+   "Waiting on You as a Leader", listing submitted responses waiting on an
+   answer only they can give or a paper signature.
+2. **Who can see tallies.** Decided 2026-10-06: an option per form,
+   `totals_visibility` (Permissions tab): only people who can see the
+   answers (default), everyone asked and their guardians, or everyone signed
+   in. Shared totals cover everyone asked, show no names, and leave out
+   questions with their own read level and profile-linked questions. Small
+   groups can still give away who chose what; the hint says so.
+3. **One guardian or all?** Left as is for now: the first guardian's
+   signature satisfies a question.
 4. **Conditional questions.** The meal form doesn't need them; trip forms
    might ("needs medication at camp? → which"). One-level "show if question X
    is Y" would cover most cases.

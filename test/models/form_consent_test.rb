@@ -70,9 +70,13 @@ class FormConsentTest < ActiveSupport::TestCase
     assert sign(@form, :a1, as: :a1).active?
   end
 
-  test "someone with no guardian signs for themselves" do
-    respond(@form, :b1, as: :b1, answers: { "photo_release" => "No" })
-    assert sign(@form, :b1, as: :b1).active?
+  test "with no birthday on file, only a guardian signs, so someone with none linked waits" do
+    submission = respond(@form, :b1, as: :b1, answers: { "photo_release" => "No" })
+    assert_not FormAccess.new(person(:b1), person(:b1), @form).can_sign?(@consent)
+    assert submission.pending?
+
+    person(:b1).update!(birthday: 19.years.ago.to_date)
+    assert sign(@form, :b1, as: :b1).active?, "once the birthday shows they're of age, they sign"
   end
 
   test "a leader can record a paper signature only where the question allows it" do

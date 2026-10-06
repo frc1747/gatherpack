@@ -28,16 +28,24 @@ class FormReport
   # :latest reads a draft or pending update instead where there is one.
   # only: limits the rows to these people (ids), such as an event's
   # expected or checked-in people.
-  def initialize(form, viewer:, team: nil, version: :active, only: nil)
+  # shared_totals: counts everyone asked, for a viewer who may see the totals
+  # but not the answers (Form#totals_visible_to?). Only
+  # Form#shared_totals_questions are counted; use it for #tally only.
+  def initialize(form, viewer:, team: nil, version: :active, only: nil, shared_totals: false)
     @form = form
     @viewer = viewer
     @team = team
     @version = version
     @only = only
+    @shared_totals = shared_totals
+  end
+
+  def shared_totals?
+    @shared_totals
   end
 
   def people
-    people = form.readable_subjects_for(viewer)
+    people = shared_totals? ? form.audience : form.readable_subjects_for(viewer)
     people = people.where(id: @team.descendant_people.select(:id)) if @team
     people = people.where(id: @only.to_a) if @only
     people.order(:last_name, :first_name)
@@ -58,7 +66,7 @@ class FormReport
   end
 
   def questions
-    form.answerable_questions
+    shared_totals? ? form.shared_totals_questions : form.answerable_questions
   end
 
   def question(key)
@@ -66,6 +74,7 @@ class FormReport
   end
 
   def readable?(row, question)
+    return form.shared_totals_questions.include?(question) if shared_totals?
     row.access.question_readable?(question)
   end
 

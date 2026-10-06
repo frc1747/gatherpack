@@ -71,7 +71,7 @@ class FormQuestion < ApplicationRecord
   def signer_description
     {
       "subject" => "the person themselves", "guardian" => "a guardian",
-      "guardian_if_minor" => "a guardian (or the person themselves once they're of age)", "leader" => "a leader, recording a paper signature"
+      "guardian_if_minor" => "a guardian (or the person themselves once their birthday shows they're of age)", "leader" => "a leader, recording a paper signature"
     }[signer]
   end
 
