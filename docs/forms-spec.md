@@ -555,7 +555,10 @@ Recent Activity, Calendar, Statistics) gets a **Forms** tab at
   so a teammate never sees someone else's answers; a viewer with nothing
   readable sees "No forms to show".
 - **Guardians:** a parent opening their child's profile sees the child's
-  forms and can fill them in from there, the same as from "My forms".
+  forms and can fill them in from there, the same as from "My forms". A
+  parent's own Forms tab also has a **For their children** section: each
+  ward's open forms, and earlier ones with a response, with Fill in /
+  Continue / Sign buttons where the viewer can act.
 - **Leaders:** the quickest way to answer "what does Avery still owe us?"
   without opening each form.
 - The tab replaces the "Forms on file" section once planned for the Overview
@@ -571,7 +574,7 @@ Recent Activity, Calendar, Statistics) gets a **Forms** tab at
 |---|---|
 | `subject` | the subject |
 | `guardian` | an active guardian of the subject |
-| `guardian_if_minor` | an active guardian if the subject has one (`subject.guardians.exists?`), otherwise the subject. Guardianship already ends at the configured age (`Relationship.guardianship_age_limit`), so an 18-year-old signs for themselves with no extra rule |
+| `guardian_if_minor` | Goes by age (rev. 5, `FormAccess.signer_roles`). Of age (birthday at least `Relationship.guardianship_age_limit` years ago, or 18 when no limit is set): the subject, or an active guardian if one remains. A known minor: an active guardian only, so a minor with no guardian linked waits until one is. No birthday on file: an active guardian if there is one, otherwise the subject. (Rev. 4 went by whether a guardian was linked, which with no age limit set kept adults from signing for themselves) |
 | `leader` | a leader with respond access, recording a paper signature (`signer_role: leader`, shown as "Paper form recorded by …") |
 
 One signature per signature question per submission; the first valid one

@@ -10,6 +10,7 @@ class PersonFormsController < InternalController
     return redirect_to person_path(@person), alert: "You can't see this person's forms.", status: :see_other unless helpers.person_forms_tab?(@person)
 
     @entries = helpers.person_form_entries(@person, current_user.person)
+    @ward_entries = helpers.ward_form_entries(@person, current_user.person)
   end
 
   private

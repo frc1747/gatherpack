@@ -41,7 +41,7 @@ module FormsHelper
   }.freeze
 
   SIGNER_LABELS = {
-    "guardian_if_minor" => "A guardian, or the person themselves if they have no guardian",
+    "guardian_if_minor" => "A guardian; or the person themselves once they're of age",
     "guardian" => "A guardian", "subject" => "The person themselves", "leader" => "A leader, recording a paper form"
   }.freeze
 
@@ -78,6 +78,26 @@ module FormsHelper
   def person_forms_tab?(person, viewer = current_user.person)
     return false unless GatherPack::Features.enabled?(:forms) && viewer
     viewer.id == person.id || viewer.admin? || viewer.wards.where(id: person.id).exists? || viewer.can_manage(person)
+  end
+
+  # The forms of the person's wards (their children) the viewer can see:
+  # open forms, and earlier ones with a response. For the "For their
+  # children" section of a parent's Forms tab.
+  def ward_form_entries(person, viewer)
+    wards = person.wards.order(:first_name, :last_name).to_a
+    return [] if wards.empty?
+
+    responses = FormResponse.where(subject_id: wards.map(&:id)).includes(form_submissions: :form_signatures).index_by { |response| [ response.form_id, response.subject_id ] }
+    Form.where(status: %i[ open closed ]).includes(:team, :form_badge_grants).order(:closes_at, :title).flat_map do |form|
+      wards.filter_map do |ward|
+        response = responses[[ form.id, ward.id ]]
+        next if form.closed? && response.nil?
+
+        access = FormAccess.new(viewer, ward, form, has_response: response.present?)
+        next unless access.can_read? && (access.in_audience? || response)
+        Entry.new(form: form, subject: ward, response: response, access: access)
+      end
+    end
   end
 
   # Every form about the person the viewer can see, in the profile tab's
