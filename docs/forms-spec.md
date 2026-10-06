@@ -2,7 +2,8 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-05 (rev. 3: audiences are built from rules (teams, badges,
+Date: 2026-10-05 (rev. 4: no form types; behaviour comes from what's on a
+form (§1.3). Rev. 3: audiences are built from rules (teams, badges,
 people, exclusions) instead of one team; a Forms tab on each profile. Rev. 2:
 every answer is kept on the form; responses are a history of submissions with
 one active, signed version; questions choose how they relate to the profile)
@@ -58,6 +59,30 @@ into an order ("Jimmy John's: 4× Slim 4, 2× Big John") is done by hand.
 - **Legal advice.** The signature design (§7) follows common e-signature
   practice (intent, attribution, record keeping). Whether it suffices for a
   given document is the organization's decision.
+
+### 1.3 Design rule: no form types
+
+A form has no type or category ("consent form", "event form", "survey"),
+and the code never branches on one. Every behaviour comes from what is on
+the form, so one set of building blocks serves any organization: a club's
+sign-up sheet, a volunteer roster, a t-shirt order, a waiver, a meal
+preference list.
+
+| Behaviour | Comes from |
+|---|---|
+| Signing, re-confirmation, completion badge | A signature or acknowledgment question; the form's re-confirm setting; a completion badge being set |
+| Updating the profile | A question linked to a person field in "updates profile" mode |
+| The event panel, the deadline defaulting to the event start | The form being attached to an event (`event_id`) |
+| Expected vs checked in | An intent question on a form attached to the event |
+| An order or packing list for an event | The order sheet (§9.4): the event, the questions chosen to show, from any form, and expected or checked-in people |
+
+New capabilities arrive as question types, settings, or attachments, never
+as a new kind of form. Nothing in the code names a particular
+organization's teams, roles, or vendors; those live in data (and in one-off
+import scripts kept outside the repository).
+
+Phase 1 shipped a `kind` column (`general`, `consent`, `event_intent`)
+that nothing reads. Phase 2 removes it (§15).
 
 ---
 
@@ -132,7 +157,6 @@ Terms used below:
 | `team_id` | uuid, FK, required | **Owning team**: its managers (and those of teams above it) manage the form (§5.4). It is not the audience; that comes from the audience rules (§3.9) |
 | `audience_badge_id` | uuid, FK, nullable | Optional filter applied after the rules: only people holding this badge are asked (for example "2027 Season Rookie") |
 | `event_id` | uuid, FK, nullable | An event form (§10). The event's team must be the owning team or inside it |
-| `kind` | integer enum | `general: 0, consent: 1, event_intent: 2`. Presentation and defaults only |
 | `respond_permission` | integer enum (`LEVEL_VALUES`) | Who may fill in and submit for a subject. Default `family` |
 | `read_permission` | integer enum (`LEVEL_VALUES`) | Who may see a subject's response. Default `family` |
 | `status` | integer enum | `draft: 0, open: 1, closed: 2, archived: 3` |
@@ -797,7 +821,7 @@ edit) for leaders and admins.
   Students (members only)", "Include Mentors", "Exclude Class of 2027"), with
   Add team / badge / person and a live count with the list of names. The
   audience badge filter sits under it.
-- Settings: title, key, description, owning team, event, kind,
+- Settings: title, key, description, owning team, event,
   respond and read levels (the same selects and audience explanations as the
   person field form), badge grants, dates, allow updates, late entry,
   re-confirm on profile change, completion badge.
@@ -928,7 +952,7 @@ Seven `create_table` migrations, reversible, primary DB only (run
 |---|---|---|
 | **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
 | **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
-| **2: Audiences, profile tab, and consent** | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
+| **2: Audiences, profile tab, and consent** | remove `kind` (§1.3: the column, enum, settings field, and permit; edit the unreleased `create_forms` migration and drop the column on Ditto by hand); audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
 | **3: Events** | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
 | **4: Later** | automatic reminders, digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link | |
 
@@ -959,7 +983,7 @@ Seven `create_table` migrations, reversible, primary DB only (run
   asked. (On Ditto the phase 1 form sits on the root team, which also asks
   every parent; harmless for preferences, because orders come from the
   order sheet's expected or checked-in people, §9.4, not from everyone who
-  answered.) Kind: general. Respond: `family`. Read:
+  answered.) Respond: `family`. Read:
   `family`, plus a read grant for a "Meal Coordinator" badge. Allow updates:
   yes.
 - Questions:
@@ -986,7 +1010,7 @@ Seven `create_table` migrations, reversible, primary DB only (run
 ### A.2 2027 Parent Consent (consent form)
 
 - Key `parent_consent_2027`. Audience: include "Team 1747 - Students" with
-  managers left out. Kind: consent. Respond and read: `family`. Completion badge "2027 Parent
+  managers left out. Respond and read: `family`. Completion badge "2027 Parent
   Consent Signed". Re-confirm on profile change: yes.
 - Questions: statement (the release text); Emergency Contact (a custom
   person field) and Phone, **updates profile**; Dietary Restrictions,
