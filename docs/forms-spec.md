@@ -2,7 +2,10 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-05 (rev. 4: no form types; behaviour comes from what's on a
+Date: 2026-10-06 (rev. 5: phase 2 built; content versions start on the
+first change and Publish only decides about earlier responses (§7.4);
+submissions keep a copy of the form's text (§3.5, §7.3); badge grants act as
+a leader (§5.3). Rev. 4: no form types; behaviour comes from what's on a
 form (§1.3). Rev. 3: audiences are built from rules (teams, badges,
 people, exclusions) instead of one team; a Forms tab on each profile. Rev. 2:
 every answer is kept on the form; responses are a history of submissions with
@@ -163,7 +166,9 @@ Terms used below:
 | `opens_at`, `closes_at` | datetime, nullable | Automatic transitions (§11.3). `closes_at` is the deadline shown everywhere |
 | `allow_updates` | boolean, default true | Respondents may submit a new version after their first one, while the form is open |
 | `late_entry` | integer enum | Who may still submit after close: `none: 0, leaders: 1` (default `leaders`, for paper forms handed in late) |
-| `content_version` | integer, default 1 | Form content version, bumped by Publish changes (§7.4). Not `version`: PaperTrail defines `version` on every tracked model |
+| `content_version` | integer, default 1 | The version of what respondents see now. The first content change on an answered form bumps it (§7.4). Not `version`: PaperTrail defines `version` on every tracked model |
+| `published_version` | integer, default 1 | The content version Publish changes last accepted. `content_version > published_version` means there are unpublished changes |
+| `reconfirm_from_version` | integer, default 1 | Active submissions on an earlier version need re-confirmation. Publish with "ask them to sign again" sets it to the current version |
 | `reconfirm_on_profile_change` | boolean, default false | A change to profile data this form updated sends the response back for re-confirmation (§8.2) |
 | `completion_badge_id` | uuid, FK, nullable | Held while the response is complete (§8.3). Admin-assigned badges only |
 | `created_by_id` | uuid → people | |
@@ -189,7 +194,7 @@ has a team, that team contains every team the audience rules include
 | `profile_mode` | integer enum, nullable | `prefill: 0, update_profile: 1`. Required when `person_field_id` is set, null otherwise |
 | `required` | boolean | |
 | `read_permission`, `write_permission` | integer enum, **nullable** | Per-question overrides (§5.2). Null = inherit the form's levels |
-| `signer` | integer enum | For `signature` only: `subject: 0, guardian: 1, guardian_if_minor: 2, leader: 3` (§7.1) |
+| `signer` | integer enum | For `signature` only: `subject: 0, guardian: 1, guardian_if_minor: 2, leader: 3` (§7.1). Signature questions are always required and have no per-question levels; the form's read level must reach the signer |
 
 | Kind | Answer | Use |
 |---|---|---|
@@ -246,6 +251,7 @@ Immutable once submitted, except for its status.
 | `submitted_at`, `activated_at` | datetime | |
 | `entered_late` | boolean | Submitted after close via `late_entry` |
 | `profile_skipped` | jsonb, default `[]` | "Updates profile" keys that couldn't be written on activation (§6.4) |
+| `content` | jsonb, default `{}` | A copy of the form as submitted: title, description, and each question's key, kind, label, body, type and choices, required, signer. Set on submit. Signatures cover it (§7.3) |
 | | | Partial unique indexes: one `active`, and one `draft`-or-`pending`, per response. GIN index on `answers` |
 
 Why jsonb rather than an EAV table like `person_field_values`: answers live
@@ -275,7 +281,12 @@ no query needs one row per value across forms; and tallies work with
 | `access` | integer enum | `read: 0, respond: 1`; `respond` implies read |
 
 Same rules as `PersonFieldBadgeGrant`: admin-assigned badges only; a team
-badge covers only subjects in that team's subtree. Use: a "Meal Coordinator"
+badge covers only subjects in that team's subtree. A holder acts as a leader
+of the people covered: `read` passes the form's read check, `respond` the
+respond check (and counts as a leader for late entries and paper
+signatures). Per-question levels apply to them when the question keeps the
+form's level or its level reaches leaders. Profile-backed questions still
+follow the person field's own levels. Use: a "Meal Coordinator"
 badge sees every meal response without being a team manager; a "Travel
 Coordinator" enters paper permission slips.
 
@@ -427,7 +438,7 @@ the student, their guardians, and their leaders. Admins pass every check.
 
 A form can have a student part and a parent part, or a leader-only part.
 
-- **Form-only questions, acknowledgments, signatures** may override
+- **Form-only questions and acknowledgments** may override
   `read_permission` (must be ⊆ the form's read level: a question can be more
   private than the form, never more public) and `write_permission` (must be ⊆
   the question's read level and ⊆ the form's respond level).
@@ -577,22 +588,31 @@ v1.
 
 ### 7.3 Signatures cover content, and never carry over
 
-The digest covers the form's text at the submission's `form_version` and the
-submission's answers. So:
+The digest is SHA-256 over the submission's `content` (the copy of the form
+taken on submit, §3.5) and its answers. So:
 
 - **Every new submission needs new signatures.** Updating a consent form
   means signing again, even if only one answer changed.
 - **Editing a pending submission revokes its signatures** (§4, step 6).
 - "What exactly did this parent sign on Oct 3?" is answered by opening
-  submission #1: its answers, the form text at its version (from
-  `form_questions`' paper trail), and the signature row.
+  submission #1 (`/forms/:id/responses/:subject_id/submissions/:id`): the
+  form text from its `content`, its answers, and the signature rows. (Rev. 5
+  stores the copy instead of rebuilding text from `form_questions`' paper
+  trail, which would break whenever a question is deleted. Submissions from
+  phase 1 have no copy and show the current questions.)
 
 ### 7.4 Form versions
 
 Changing an **open** form's statement, acknowledgment, or signature text,
 adding a required question, or changing a choice list goes through
-**Publish changes**, which bumps `forms.content_version` and asks how to treat
-existing active submissions:
+a new content version. Built (rev. 5): the first such change on a form
+anyone has submitted bumps `forms.content_version` at once, so later
+submissions and signatures record the version they saw; further changes stay
+in that version until **Publish changes**, which asks how to treat active
+submissions on earlier versions. Content means anything respondents see: the
+description, and a question's kind, label, body, type, choices, profile
+link, required flag, or signer, or adding or removing a question (moving one
+doesn't count). The two choices:
 
 - **Keep**: they stay complete (typo fixes).
 - **Require re-confirmation**: responses whose active submission is on an
@@ -603,7 +623,9 @@ existing active submissions:
   update draft starts from the active answers, with new questions blank.
 
 Drafts and pending submissions on an older version are moved to the new
-version; pending ones go back to draft with signatures revoked.
+version when it starts; pending ones go back to draft with signatures
+revoked ("The form changed after signing"). The edit page shows a banner with
+both choices until one is made.
 
 ---
 
@@ -636,7 +658,9 @@ was signed and the profile holds the current value. When they differ:
   Otherwise it's a flag only.
 
 Detected on `person_fields - value changed` (an internal subscriber, not a
-user Hook): re-sync responses whose active submission has an
+user Hook; `Person#run_person_field_hooks` also publishes
+`person_field_changed.gatherpack` through `ActiveSupport::Notifications`, and
+`config/initializers/forms.rb` subscribes): re-sync responses whose active submission has an
 `update_profile` question on that field. Note that this fires for changes
 from anywhere, including another form that updates the same field. That is
 correct: the first form's signed value is no longer current. "Filled in from
@@ -852,7 +876,7 @@ resources :forms do
 end
 
 # The profile Forms tab (§6.5), a new controller so PeopleController is untouched.
-get "people/:person_id/forms", to: "person_forms#index", as: :person_forms
+get "people/:person_id/forms", to: "person_forms#show", as: :person_forms  # show, not index: enforce-authorization requires a policy scope on every index
 ```
 
 ---
@@ -931,6 +955,7 @@ Almost everything is new files. Expected edits to existing upstream files:
 | `app/views/welcome/dashboard.html.erb`, `app/controllers/welcome_controller.rb` | Forms to complete card | **Dashboard card registry** on `GatherPack::Feature` |
 | `app/views/events/show.html.erb` | Event forms panel | **Event panel slot** |
 | `app/views/people/_show_shared.html.erb` | The Forms tab (§6.5): one `<li>` | **Profile tab registry** on `GatherPack::Feature` |
+| `app/models/person.rb` | `assign_field_values(only_given:)`; one `ActiveSupport::Notifications` line for profile changes (§8.2) | (already touched by person-fields) |
 | `app/models/infodump.rb` | Digest section | **Digest section registry** |
 | `app/views/pages/_form.html.erb` | `FormReport` note (§9.5) | Optional; can be documentation instead |
 | `config/initializers/filter_parameter_logging.rb` | Answers | (already touched) |
@@ -941,8 +966,21 @@ good seam PRs to offer upstream before Forms.
 
 ### 14.3 Migrations
 
-Seven `create_table` migrations, reversible, primary DB only (run
-`db:migrate:primary` and `db:migrate:versions` per AGENTS.md).
+Reversible, primary DB only (run `db:migrate:primary` and
+`db:migrate:versions` per AGENTS.md). Phase 1 (`20261005120000`–`120400`)
+created forms, questions, responses, submissions, and reminders. Phase 2
+adds migrations rather than editing those, since phase 1 already ran on
+Ditto:
+
+- `20261006120000_create_form_audience_rules.rb`, which also gives every
+  existing form one include rule for its team (managers included), so it
+  keeps the audience it had. Rolling back drops the rules.
+- `20261006120100_create_form_signatures.rb`
+- `20261006120200_create_form_badge_grants.rb`
+- `20261006120300_add_consent_columns_to_forms.rb`: `completion_badge_id`,
+  `reconfirm_on_profile_change`, `published_version`,
+  `reconfirm_from_version` on forms; `signer` on questions; `content` on
+  submissions.
 
 ---
 
@@ -952,7 +990,7 @@ Seven `create_table` migrations, reversible, primary DB only (run
 |---|---|---|
 | **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
 | **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
-| **2: Audiences, profile tab, and consent** | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
+| **2: Audiences, profile tab, and consent** (done 2026-10-06) | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
 | **3: Events** | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
 | **4: Later** | automatic reminders, digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link | |
 
