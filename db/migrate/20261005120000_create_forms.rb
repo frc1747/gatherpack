@@ -6,7 +6,6 @@ class CreateForms < ActiveRecord::Migration[8.1]
       t.text :description
       t.references :team, type: :uuid, null: false, foreign_key: true
       t.references :audience_badge, type: :uuid, foreign_key: { to_table: :badges }
-      t.integer :kind, null: false, default: 0
       t.integer :respond_permission, null: false, default: 5
       t.integer :read_permission, null: false, default: 5
       t.integer :status, null: false, default: 0
