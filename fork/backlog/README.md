@@ -14,6 +14,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-004](BL-004-version-in-sidebar.md) | Show the deployed version under "powered by GatherPack" | upstream feature | low | started | 2026-10-03 |
 | [BL-005](BL-005-event-delete-with-checkins.md) | Deleting an event that has check-ins crashes | upstream bug | medium | waiting | 2026-10-04 |
 | [BL-006](BL-006-team-less-events-hidden.md) | Events with no team are hidden from everyone but admins | upstream bug | medium | blocked | 2026-10-05 |
+| [BL-007](BL-007-seeds-badge-before-membership.md) | First boot on a fresh database crashes in db/seeds.rb | upstream bug | medium | waiting | 2026-10-05 |
 
 ## Fields
 
