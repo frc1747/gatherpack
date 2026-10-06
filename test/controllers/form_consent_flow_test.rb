@@ -102,6 +102,7 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
         assert_response :success
         assert_select "h2", text: "To do"
         assert_select "a", text: "Fill in"
+        assert_select "a[href=?]", edit_form_response_path(@form, person(:a1)), text: "Parent Consent"
       end
       as(:parent_a1) do
         get person_forms_path(person(:parent_a1))

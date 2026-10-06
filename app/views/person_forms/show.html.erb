@@ -15,7 +15,7 @@
           <% response = entry.response %>
           <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2" id="<%= dom_id entry.form %>_<%= dom_id entry.subject %>">
             <span>
-              <%= link_to entry.form.title, form_response_path(entry.form, entry.subject) %> for <strong><%= entry.subject.identifier_name %></strong>
+              <%= link_to entry.form.title, form_entry_path(entry) %> for <strong><%= entry.subject.identifier_name %></strong>
               <% if entry.needs_viewer_signature? %>
                 <span class="badge text-bg-primary">Needs your signature</span>
               <% else %>
@@ -50,7 +50,7 @@
             <% active = response&.active_submission %>
             <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2" id="<%= dom_id entry.form %>">
               <span>
-                <%= link_to entry.form.title, form_response_path(entry.form, @person) %>
+                <%= link_to entry.form.title, form_entry_path(entry) %>
                 <%= form_status_badge(entry.access.in_audience? ? entry.status : "no_longer_asked") %>
                 <% if response&.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
                 <br>
