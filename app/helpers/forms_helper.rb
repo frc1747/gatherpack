@@ -8,7 +8,20 @@ module FormsHelper
     # re-confirmation, or sign.
     def to_do?
       return needs_viewer_signature? if status == "waiting"
-      form.open? && access.in_audience? && access.can_respond? && status != "complete"
+      form.open? && access.in_audience? && access.can_respond? && status != "complete" && viewer_can_act?
+    end
+
+    # Whether there's anything on the form the viewer could fill in or
+    # sign. A student can't act on a form only their parent fills in.
+    def viewer_can_act?
+      questions = form.form_questions.to_a
+      return true if questions.none? { |question| question.answerable? || question.signature? }
+      questions.any? { |question| access.question_writable?(question) || (question.signature? && access.can_sign?(question)) }
+    end
+
+    # Left for someone else: open and asked, but nothing the viewer can do.
+    def for_someone_else?
+      form.open? && access.in_audience? && status != "complete" && !to_do? && !waiting_on_others?
     end
 
     def needs_viewer_signature?
@@ -113,7 +126,7 @@ module FormsHelper
 
       entry = Entry.new(form: form, subject: person, response: response, access: access)
       section = if entry.needs_viewer_signature? then :to_do
-      elsif entry.status == "waiting" then :waiting
+      elsif entry.status == "waiting" || entry.for_someone_else? then :waiting
       elsif !form.open? || !access.in_audience? then (response ? :earlier : nil)
       elsif entry.status == "complete" then :complete
       else :to_do
@@ -160,6 +173,7 @@ module FormsHelper
   end
 
   def form_answer_display(question, value)
+    return (value == true ? "#{i("square-check")} Ticked".html_safe : "Not ticked") if question.acknowledgment?
     person_field_display(question.value_type, value)
   end
 
@@ -179,8 +193,41 @@ module FormsHelper
     person_field_level_options
   end
 
+  # Who fills in a question someone can't, in words for the person reading.
+  def form_writer_phrase(level)
+    { "guardians" => "a parent or guardian", "leaders" => "a leader", "admin" => "an admin", "self" => "the person themselves" }.fetch(level.to_s, "someone else")
+  end
+
+  # Who an entry the viewer can't act on is left for.
+  def form_left_for(entry)
+    question = entry.form.form_questions.detect { |candidate| candidate.answerable? && !entry.access.question_writable?(candidate) }
+    question ? form_writer_phrase(question.effective_write_permission) : "someone else"
+  end
+
   def form_level_label(level)
     person_field_level_label(level)
+  end
+
+  # A tick box with its label beside it and any detail text indented under
+  # the label (a hanging indent). Read-only boxes are shown disabled. The
+  # app's stylesheet unfloats .form-check-input, so this uses flex rather
+  # than Bootstrap's .form-check.
+  def form_acknowledgment(question, value, writable:, error: nil)
+    name = "form_response[answers][#{question.key}]"
+    id = "form_question_#{question.key}"
+    checked = ActiveModel::Type::Boolean.new.cast(value) == true
+    box = check_box_tag(name, "1", checked, id: id, disabled: !writable, class: "form-check-input flex-shrink-0 mt-1#{" is-invalid" if error}")
+    box = hidden_field_tag(name, "0", id: nil) + box if writable
+
+    tag.div(class: "d-flex gap-2 mb-2 form-acknowledgment") do
+      box + tag.div do
+        safe_join([
+          label_tag(id, question.label, class: "form-check-label#{" text-body-secondary" unless writable}"),
+          (tag.div(form_markdown(question.body), class: "form-text mt-1 mb-0 form-acknowledgment-detail") if question.body.present?),
+          (tag.div(error, class: "invalid-feedback d-block") if error)
+        ].compact)
+      end
+    end
   end
 
   # A simple_form input for one question. Inputs post under
