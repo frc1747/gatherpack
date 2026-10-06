@@ -57,14 +57,36 @@ class FormResponse < ApplicationRecord
     end
   end
 
-  # Recomputes the status and runs the completed/incomplete hooks when the
-  # response starts or stops being complete.
+  # "Updates profile" questions whose profile value no longer matches what
+  # the active submission signed.
+  def profile_changes
+    return [] unless active_submission
+    form.answerable_questions.select { |question| active_submission.profile_changed?(question) }
+  end
+
+  # Why a response with an active submission needs re-confirmation: :form
+  # (the form changed and asked for it) or :profile, or nil.
+  def reconfirmation_reason
+    return nil unless active_submission
+    return :form if active_submission.form_version < form.reconfirm_from_version
+    :profile if form.reconfirm_on_profile_change? && profile_changes.any?
+  end
+
+  # Recomputes the status, keeps the completion badge in step with it, and
+  # runs the completed/incomplete hooks when the response starts or stops
+  # being complete. The one place that grants or removes the badge.
   def sync_status!
     form_submissions.reset
-    was_complete = complete?
+    # Profile values may have just been written through another copy of
+    # the subject.
+    subject.reload if form.reconfirm_on_profile_change? && form.answerable_questions.any?(&:update_profile?)
+    # From the database: a profile change during activation may already
+    # have re-synced this response through another copy.
+    was_complete = persisted? && FormResponse.where(id: id, status: :complete).exists?
     self.status = computed_status
     self.update_in_progress = active_submission.present? && open_submission.present?
     save! if changed?
+    sync_completion_badge!
 
     if complete? && !was_complete
       run_domain_hooks("form_responses - completed")
@@ -77,13 +99,26 @@ class FormResponse < ApplicationRecord
 
   def computed_status
     if active_submission&.active?
-      :complete
+      reconfirmation_reason ? :needs_reconfirmation : :complete
     elsif open_submission&.pending?
       :waiting
     elsif open_submission.nil? && form_submissions.any?(&:withdrawn?)
       :withdrawn
     else
       :draft
+    end
+  end
+
+  # A badge the subject can't hold (outside its team) is left off.
+  def sync_completion_badge!
+    badge = form.completion_badge
+    return unless badge
+
+    assignment = BadgeAssignment.find_by(badge: badge, person: subject)
+    if complete? && assignment.nil?
+      BadgeAssignment.create(badge: badge, person: subject)
+    elsif !complete? && assignment
+      assignment.destroy!
     end
   end
 

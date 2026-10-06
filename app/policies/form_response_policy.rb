@@ -34,6 +34,13 @@ class FormResponsePolicy < ApplicationPolicy
     access.can_respond? && record.active_submission.present? && record.open_submission.nil?
   end
 
+  # Signing happens on a submitted version, even after the form closes: a
+  # signature isn't a late entry.
+  def sign?
+    submission = record.open_submission
+    submission&.pending? && submission.missing_signatures.any? { |question| access.can_sign?(question) }
+  end
+
   def access
     @access ||= FormAccess.new(person, record.subject, record.form)
   end

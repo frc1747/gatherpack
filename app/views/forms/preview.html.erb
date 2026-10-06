@@ -24,11 +24,12 @@
       <h2><%= @viewer.identifier_name %> on <%= @subject.identifier_name %>'s response</h2>
     </div>
     <div class="card-body">
-      <% if !@access.in_audience? %>
+      <% if !@access.in_audience? && !@access.has_response? %>
         <p class="text-muted"><%= @subject.identifier_name %> isn't asked to fill in this form.</p>
       <% elsif !@access.can_read? %>
         <p class="text-muted"><%= @viewer.identifier_name %> can't see this response.</p>
       <% else %>
+        <% if @access.former? %><p class="text-muted"><%= @subject.identifier_name %> is no longer asked, but has a response that's kept.</p><% end %>
         <p>
           <%= @access.can_respond? ? "Can fill it in #{form_respondent_role(@access)}." : "Can see it but not fill it in." %>
           <% if @access.can_respond? && !@access.can_submit? %>(Not right now: the form is <%= @form.status %>.)<% end %>
@@ -43,6 +44,13 @@
                 <td><%= question.label %><% if question.profile_backed? %> <small class="text-muted">(<%= question.person_field.name %>)</small><% end %></td>
                 <td><%= @access.question_readable?(question) ? "✓" : "—" %></td>
                 <td><%= @access.question_writable?(question) ? "✓" : "—" %></td>
+              </tr>
+            <% end %>
+            <% @form.signature_questions.each do |question| %>
+              <tr>
+                <td><%= i "signature" %> <%= question.label %> <small class="text-muted">(signature)</small></td>
+                <td>✓</td>
+                <td><%= (role = @access.signing_role(question)) ? "Can sign (#{role == :leader ? "paper form" : role})" : "—" %></td>
               </tr>
             <% end %>
           </tbody>

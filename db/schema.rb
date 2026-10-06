@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_120300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -96,6 +96,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.datetime "created_at", null: false
     t.uuid "person_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["badge_id", "person_id"], name: "index_badge_assignments_on_badge_id_and_person_id", unique: true
     t.index ["badge_id"], name: "index_badge_assignments_on_badge_id"
     t.index ["person_id"], name: "index_badge_assignments_on_person_id"
   end
@@ -187,6 +188,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.string "notes"
     t.uuid "person_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["event_id", "person_id"], name: "index_checkins_on_event_id_and_person_id", unique: true
     t.index ["event_id"], name: "index_checkins_on_event_id"
     t.index ["person_id"], name: "index_checkins_on_person_id"
   end
@@ -215,6 +217,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.index ["time_clock_period_id"], name: "index_events_on_time_clock_period_id"
   end
 
+  create_table "form_audience_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.integer "effect", default: 0, null: false
+    t.integer "target_type", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "badge_id"
+    t.uuid "person_id"
+    t.boolean "include_managers", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_form_audience_rules_on_badge_id"
+    t.index ["form_id", "effect", "target_type", "team_id", "badge_id", "person_id"], name: "index_form_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["form_id"], name: "index_form_audience_rules_on_form_id"
+    t.index ["person_id"], name: "index_form_audience_rules_on_person_id"
+    t.index ["team_id"], name: "index_form_audience_rules_on_team_id"
+  end
+
+  create_table "form_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.uuid "badge_id", null: false
+    t.integer "access", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_form_badge_grants_on_badge_id"
+    t.index ["form_id", "badge_id"], name: "index_form_badge_grants_on_form_id_and_badge_id", unique: true
+    t.index ["form_id"], name: "index_form_badge_grants_on_form_id"
+  end
+
   create_table "form_questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "form_id", null: false
     t.integer "position", default: 0, null: false
@@ -231,6 +261,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.integer "write_permission"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "signer"
     t.index ["form_id", "key"], name: "index_form_questions_on_form_id_and_key", unique: true
     t.index ["form_id"], name: "index_form_questions_on_form_id"
     t.index ["person_field_id"], name: "index_form_questions_on_person_field_id"
@@ -263,6 +294,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.index ["subject_id"], name: "index_form_responses_on_subject_id"
   end
 
+  create_table "form_signatures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_submission_id", null: false
+    t.uuid "form_question_id", null: false
+    t.uuid "signer_id", null: false
+    t.integer "signer_role", null: false
+    t.string "typed_name", null: false
+    t.datetime "signed_at", null: false
+    t.string "content_digest", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "revoked_at"
+    t.uuid "revoked_by_id"
+    t.string "revoked_reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["form_question_id"], name: "index_form_signatures_on_form_question_id"
+    t.index ["form_submission_id", "form_question_id"], name: "index_form_signatures_one_standing", unique: true, where: "(revoked_at IS NULL)"
+    t.index ["form_submission_id"], name: "index_form_signatures_on_form_submission_id"
+    t.index ["revoked_by_id"], name: "index_form_signatures_on_revoked_by_id"
+    t.index ["signer_id"], name: "index_form_signatures_on_signer_id"
+  end
+
   create_table "form_submissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "form_response_id", null: false
     t.integer "number", null: false
@@ -278,6 +331,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.jsonb "profile_skipped", default: [], null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "content", default: {}, null: false
     t.index ["answers"], name: "index_form_submissions_on_answers", using: :gin
     t.index ["based_on_id"], name: "index_form_submissions_on_based_on_id"
     t.index ["created_by_id"], name: "index_form_submissions_on_created_by_id"
@@ -294,6 +348,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.text "description"
     t.uuid "team_id", null: false
     t.uuid "audience_badge_id"
+    t.integer "kind", default: 0, null: false
     t.integer "respond_permission", default: 5, null: false
     t.integer "read_permission", default: 5, null: false
     t.integer "status", default: 0, null: false
@@ -305,7 +360,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.uuid "created_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "completion_badge_id"
+    t.boolean "reconfirm_on_profile_change", default: false, null: false
+    t.integer "published_version", default: 1, null: false
+    t.integer "reconfirm_from_version", default: 1, null: false
     t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
+    t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
     t.index ["created_by_id"], name: "index_forms_on_created_by_id"
     t.index ["key"], name: "index_forms_on_key", unique: true
     t.index ["status"], name: "index_forms_on_status"
@@ -468,6 +528,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.datetime "updated_at", null: false
     t.index ["inherited_id"], name: "index_memberships_on_inherited_id"
     t.index ["person_id"], name: "index_memberships_on_person_id"
+    t.index ["team_id", "person_id"], name: "index_memberships_on_team_id_and_person_id", unique: true
     t.index ["team_id"], name: "index_memberships_on_team_id"
   end
 
@@ -934,6 +995,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
   add_foreign_key "checkins", "people"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
+  add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "forms", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "people", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "teams", on_delete: :cascade
+  add_foreign_key "form_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "form_badge_grants", "forms", on_delete: :cascade
   add_foreign_key "form_questions", "forms", on_delete: :cascade
   add_foreign_key "form_questions", "person_fields"
   add_foreign_key "form_reminders", "forms", on_delete: :cascade
@@ -941,11 +1008,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
   add_foreign_key "form_responses", "form_submissions", column: "active_submission_id", on_delete: :nullify
   add_foreign_key "form_responses", "forms", on_delete: :cascade
   add_foreign_key "form_responses", "people", column: "subject_id", on_delete: :cascade
+  add_foreign_key "form_signatures", "form_questions"
+  add_foreign_key "form_signatures", "form_submissions", on_delete: :cascade
+  add_foreign_key "form_signatures", "people", column: "revoked_by_id", on_delete: :nullify
+  add_foreign_key "form_signatures", "people", column: "signer_id"
   add_foreign_key "form_submissions", "form_responses", on_delete: :cascade
   add_foreign_key "form_submissions", "form_submissions", column: "based_on_id", on_delete: :nullify
   add_foreign_key "form_submissions", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "form_submissions", "people", column: "submitted_by_id", on_delete: :nullify
   add_foreign_key "forms", "badges", column: "audience_badge_id"
+  add_foreign_key "forms", "badges", column: "completion_badge_id", on_delete: :nullify
   add_foreign_key "forms", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "forms", "teams"
   add_foreign_key "ledger_entries", "ledgers"

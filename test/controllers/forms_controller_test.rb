@@ -186,10 +186,10 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
           get results_form_path(@form, format: :csv, field_ids: [ allergies.id ])
           assert_response :success
           csv = CSV.parse(response.body)
-          assert_equal [ "Last name", "First name", "Status", "Version", "Submitted by", "Submitted at", "Sandwich", "Food Allergies" ], csv.first
+          assert_equal [ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at", "Sandwich", "Food Allergies" ], csv.first
           a1_row = csv.detect { |row| row[1] == "A1" }
-          assert_equal [ "Complete", "1", "A1 World" ], a1_row[2..4]
-          assert_equal [ "Slim 4", "peanut" ], a1_row[6..7]
+          assert_equal [ "Complete", "1", "1", "A1 World" ], a1_row[2..5]
+          assert_equal [ "Slim 4", "peanut" ], a1_row[9..10]
           assert_nil csv.detect { |row| row[1] == "B1" }, "Den A's leader doesn't see Den B"
 
           get tally_form_path(@form)

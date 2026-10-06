@@ -1,4 +1,19 @@
 <% breadcrumb :edit_form, @form %>
+<% admin = policy(@form).manage_badges? %>
+
+<% if @form.unpublished_changes? %>
+  <div class="alert alert-warning">
+    <h2 class="h5">This form has changed since people responded</h2>
+    <p>
+      New responses use the changed form (version <%= @form.content_version %>). Unsubmitted drafts were moved to it, and any waiting for signatures need signing again.
+      What about responses already submitted on an earlier version?
+    </p>
+    <%= button_to "Keep them complete", publish_form_path(@form, reconfirm: "0"), class: "btn btn-secondary", form_class: "d-inline",
+          title: "For small fixes, such as typos" %>
+    <%= button_to "Ask them to review and sign again", publish_form_path(@form, reconfirm: "1"), class: "btn btn-warning", form_class: "d-inline",
+          data: { turbo_confirm: "Every response on an earlier version will need re-confirmation#{" and lose the #{@form.completion_badge.name} badge until it's signed again" if @form.completion_badge}. Their answers stay in effect meanwhile. Continue?" } %>
+  </div>
+<% end %>
 
 <%= simple_form_for(@form) do |f| %>
   <div class="card">
@@ -14,6 +29,108 @@
     </div>
   </div>
 <% end %>
+
+<div class="card mt-3" id="audience">
+  <div class="card-header">
+    <h2>Who is asked</h2>
+  </div>
+  <div class="card-body">
+    <% rules = @form.form_audience_rules.includes(:team, :badge, :person).to_a %>
+    <% if rules.none?(&:effect_include?) %>
+      <p class="text-warning-emphasis">Nobody yet. Add a team, badge, or person before opening the form.</p>
+    <% end %>
+    <% if rules.any? %>
+      <ul class="list-group mb-3">
+        <% rules.each do |rule| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id rule %>">
+            <span><%= i(rule.effect_include? ? "plus" : "minus") %> <%= rule.description %></span>
+            <%= button_to "Remove", form_audience_rule_path(@form, rule), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                  data: { turbo_confirm: "Remove this rule? Anyone no longer asked keeps the answers they gave." } %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+    <p>
+      <% count = @form.audience.count %>
+      Asks <%= link_to pluralize(count, "person", plural: "people"), audience_form_path(@form) %><%= ", narrowed to #{@form.audience_badge.name} badge holders" if @form.audience_badge %>.
+    </p>
+
+    <% teams = admin ? Team.order(:name) : current_user.person.all_managed_teams.order(:name) %>
+    <% badges = admin ? Badge.order(:name) : Badge.where(team_id: current_user.person.all_managed_teams.select(:id)).order(:name) %>
+    <% effects = [ [ "Include", "include" ], [ "Exclude", "exclude" ] ] %>
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <%= simple_form_for FormAudienceRule.new(target_type: :team), url: form_audience_rules_path(@form) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <div class="input-group mb-2">
+            <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+            <%= r.select :team_id, teams.map { |team| [ team.name, team.id ] }, { prompt: "Team…" }, class: "form-select", required: true %>
+          </div>
+          <%= r.input :include_managers, label: "Include its managers", hint: "Untick to leave out leaders, for a student form." %>
+          <%= r.button :submit, "Add team", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+      <div class="col-lg-4">
+        <%= simple_form_for FormAudienceRule.new(target_type: :badge), url: form_audience_rules_path(@form) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <div class="input-group mb-2">
+            <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+            <%= r.select :badge_id, badges.map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge holders…" }, class: "form-select", required: true %>
+          </div>
+          <%= r.button :submit, "Add badge", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+      <div class="col-lg-4">
+        <%= simple_form_for FormAudienceRule.new(target_type: :person), url: form_audience_rules_path(@form) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <%= r.input :effect, collection: effects, include_blank: false, label: false, wrapper_html: { class: "mb-2" } %>
+          <%= r.input :person_id, as: :searching_combobox, scope: "people", label: false %>
+          <%= r.button :submit, "Add person", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3" id="badge-grants">
+  <div class="card-header">
+    <h2>Access through badges</h2>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Holders of these badges can see (or also fill in) responses as if they led the people asked, without managing a team. A team badge covers only that team's people. Profile details still follow their own rules.</p>
+    <% grants = @form.form_badge_grants.includes(:badge).to_a %>
+    <% if grants.any? %>
+      <ul class="list-group mb-3">
+        <% grants.each do |grant| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id grant %>">
+            <span><%= grant.badge.name %>: <%= grant.read? ? "can see responses" : "can see and fill in responses" %></span>
+            <% if admin %>
+              <%= button_to "Remove", form_badge_grant_path(@form, grant), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline" %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% elsif !admin %>
+      <p>None.</p>
+    <% end %>
+    <% if admin %>
+      <% grantable = Badge.added_by_admin.where.not(id: grants.map(&:badge_id)).order(:name) %>
+      <% if grantable.any? %>
+        <%= simple_form_for FormBadgeGrant.new, url: form_badge_grants_path(@form) do |g| %>
+          <div class="input-group">
+            <%= g.select :badge_id, grantable.map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge…" }, class: "form-select", required: true %>
+            <%= g.select :access, [ [ "Can see responses", "read" ], [ "Can see and fill in", "respond" ] ], {}, class: "form-select" %>
+            <%= g.button :submit, "Add", class: "btn btn-secondary" %>
+          </div>
+        <% end %>
+      <% else %>
+        <div class="form-text">No badges can grant access. Only badges that admins assign can.</div>
+      <% end %>
+    <% else %>
+      <div class="form-text">Only admins can change these.</div>
+    <% end %>
+  </div>
+</div>
 
 <div class="card mt-3" id="questions">
   <div class="card-header">
@@ -45,12 +162,14 @@
                 <td>
                   <% if question.input? %>
                     <%= question.profile_backed? ? question.person_field.name : person_field_type_label(question) %>
+                  <% elsif question.signature? %>
+                    Signature<br><small class="text-muted"><%= FormsHelper::SIGNER_LABELS.fetch(question.signer) %></small>
                   <% else %>
                     <%= question.kind.humanize %>
                   <% end %>
                 </td>
                 <td><%= question.input? ? FormsHelper::PROFILE_MODE_LABELS.fetch(question.profile_mode) : "—" %></td>
-                <td><%= question.answerable? && question.required? ? "✓" : "—" %></td>
+                <td><%= (question.answerable? || question.signature?) && question.required? ? "✓" : "—" %></td>
                 <td>
                   <% if question.answerable? %>
                     <% if question.read_permission || question.write_permission %>
@@ -77,5 +196,7 @@
     <%= link_to "Add a question", new_form_question_path(@form, kind: "input"), class: "btn btn-primary" %>
     <%= link_to "Add a heading", new_form_question_path(@form, kind: "heading"), class: "btn btn-secondary" %>
     <%= link_to "Add text", new_form_question_path(@form, kind: "statement"), class: "btn btn-secondary" %>
+    <%= link_to "Add an acknowledgment", new_form_question_path(@form, kind: "acknowledgment"), class: "btn btn-secondary" %>
+    <%= link_to "Add a signature", new_form_question_path(@form, kind: "signature"), class: "btn btn-secondary" %>
   </div>
 </div>
