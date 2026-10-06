@@ -9,6 +9,46 @@
     <%= f.input :body, as: :text, label: "Text under the heading", required: false, input_html: { rows: 3 }, hint: "Optional. Markdown is supported." %>
   <% elsif question.statement? %>
     <%= f.input :body, as: :text, label: "Text", input_html: { rows: 8 }, hint: "Shown to the person filling in the form. Markdown is supported." %>
+  <% elsif question.signature? %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Signature", hint: "What is being signed, for example \"Parent or guardian consent\"." %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the label." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Statement", required: false, input_html: { rows: 4 },
+          hint: "Shown above the signature box, for example \"I give permission for my child to take part.\" Markdown is supported." %>
+    <%= f.input :signer, label: "Who signs", as: :radio_buttons, item_wrapper_tag: :div, collection: FormsHelper::SIGNER_LABELS.invert,
+          hint: "Signatures are given after the answers are submitted, by typing a full name. Every new version needs signing again." %>
+  <% elsif question.acknowledgment? %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Acknowledgment", hint: "Shown next to the tick box, for example \"I have read the code of conduct\"." %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks, Pages, and the CSV export." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the label." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Text to read first", required: false, input_html: { rows: 4 }, hint: "Optional. Markdown is supported." %>
+    <%= f.input :required, hint: "A required acknowledgment must be ticked before submitting." %>
+    <details class="mb-3" <%= "open" if question.read_permission || question.write_permission || question.errors[:read_permission].any? || question.errors[:write_permission].any? %>>
+      <summary>Advanced: who can see and tick this</summary>
+      <div class="row mt-2">
+        <div class="col-md-6">
+          <%= f.input :read_permission, label: "Who can see it", collection: form_level_options, include_blank: "As the form (#{form_level_label(question.form.read_permission).downcase_first})" %>
+        </div>
+        <div class="col-md-6">
+          <%= f.input :write_permission, label: "Who can tick it", collection: form_level_options, include_blank: "As the form (#{form_level_label(question.form.respond_permission).downcase_first})",
+                hint: "\"Self\" makes it something only the person themselves can tick." %>
+        </div>
+      </div>
+    </details>
   <% else %>
     <div class="row">
       <div class="col-md-8"><%= f.input :label, label: "Question" %></div>

@@ -3,6 +3,9 @@
 # a person field, in which case it's filled in from the profile (prefill) or
 # also saves the answer to the profile when a submission becomes active
 # (update_profile). Every answer is kept on the submission either way.
+# Acknowledgments are yes/no answers that must be ticked when required.
+# Signatures aren't answers: they're FormSignature rows, given after
+# submitting, by the person `signer` names.
 class FormQuestion < ApplicationRecord
   has_neat_id :frmq
   include FieldValueType
@@ -13,20 +16,31 @@ class FormQuestion < ApplicationRecord
 
   KEY_FORMAT = /\A[a-z][a-z0-9_]*\z/
 
+  # Changing any of these on an answered form changes what respondents see
+  # and sign, so it starts a new form content version (Form#content_changed!).
+  CONTENT_ATTRIBUTES = %w[ kind label body data_type options person_field_id profile_mode required signer ].freeze
+
   enum :kind, { input: 0, heading: 1, statement: 2, acknowledgment: 3, signature: 4, intent: 5 }, validate: true
   enum :profile_mode, { prefill: 0, update_profile: 1 }, validate: { allow_nil: true }
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: { allow_nil: true }
   enum :write_permission, AudienceLevels::LEVEL_VALUES, prefix: :write, validate: { allow_nil: true }
+  enum :signer, { subject: 0, guardian: 1, guardian_if_minor: 2, leader: 3 }, prefix: :signed_by, validate: { allow_nil: true }
 
-  validates :label, presence: true, if: :answerable?
+  validates :label, presence: true, if: -> { answerable? || signature? }
+  validates :signer, presence: true, if: :signature?
   validates :body, presence: true, if: -> { statement? || (heading? && label.blank?) }
   validates :key, presence: true, uniqueness: { scope: :form_id }, format: { with: KEY_FORMAT, message: "must start with a letter and use only lowercase letters, numbers, and underscores" }
   validate :key_unchanged, on: :update
   validate :profile_link_makes_sense
   validate :levels_within_form
+  validate :signer_can_see_form
 
   before_validation :generate_key, on: :create
   before_validation :clear_unused_attributes
+
+  # One callback: Rails keeps only the last of several *_commit callbacks
+  # naming the same method.
+  after_commit :note_content_change
 
   def self.ransackable_attributes(auth_object = nil)
     [ "label", "key", "updated_at" ]
@@ -46,6 +60,27 @@ class FormQuestion < ApplicationRecord
 
   def form_only?
     !profile_backed?
+  end
+
+  # Who signs, in words: "a guardian", "the person themselves".
+  def signer_description
+    {
+      "subject" => "the person themselves", "guardian" => "a guardian",
+      "guardian_if_minor" => "a guardian (or the person themselves if they have none)", "leader" => "a leader, recording a paper signature"
+    }[signer]
+  end
+
+  # What a signature or submission covers of this question.
+  def content_snapshot
+    snapshot = { "key" => key, "kind" => kind, "label" => label, "body" => body, "required" => required? }
+    snapshot["signer"] = signer if signature?
+    if input?
+      snapshot["type"] = value_type.data_type
+      snapshot["choices"] = value_type.choice_list if %w[ select multi_select ].include?(value_type.data_type)
+      snapshot["person_field"] = person_field.key if profile_backed?
+      snapshot["profile_mode"] = profile_mode if profile_backed?
+    end
+    snapshot.compact
   end
 
   # The type definition answers follow: the person field's, or the question's
@@ -111,6 +146,13 @@ class FormQuestion < ApplicationRecord
   end
 
   def clear_unused_attributes
+    self.signer = nil unless signature?
+    if signature?
+      # Signatures are always required, and who signs comes from `signer`.
+      self.required = true
+      self.read_permission = nil
+      self.write_permission = nil
+    end
     unless input?
       self.person_field_id = nil
       self.profile_mode = nil
@@ -127,6 +169,24 @@ class FormQuestion < ApplicationRecord
   # display-only questions have none of their own.
   def options_make_sense
     super if input? && form_only?
+  end
+
+  # Without this the signature could never be given: signers must be able
+  # to see the response they sign.
+  def signer_can_see_form
+    return unless signature? && signer && form&.read_permission
+
+    component = { "subject" => :subject, "guardian" => :guardian, "guardian_if_minor" => :guardian, "leader" => :leaders }.fetch(signer)
+    return if AudienceLevels.reaches?(form.read_permission, component) && (signer != "guardian_if_minor" || AudienceLevels.reaches?(form.read_permission, :subject))
+
+    errors.add(:signer, "can't see this form's responses; change who can see them first")
+  end
+
+  def note_content_change
+    return if destroyed_by_association
+    return unless destroyed? || previously_new_record? || (saved_changes.keys & CONTENT_ATTRIBUTES).any?
+
+    form&.content_changed!
   end
 
   def key_unchanged
