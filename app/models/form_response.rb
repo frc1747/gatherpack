@@ -41,11 +41,12 @@ class FormResponse < ApplicationRecord
     ).tap { sync_status! }
   end
 
-  # A new version starts from the active answers. Questions that update the
-  # profile start from the profile, which is their source of truth; questions
-  # filled in from the profile start there only the first time.
+  # A new version starts from the active answers (or, after a withdrawal,
+  # the withdrawn ones). Questions that update the profile start from the
+  # profile, which is their source of truth; questions filled in from the
+  # profile start there only the first time.
   def starting_answers
-    previous = active_submission&.answers || {}
+    previous = (active_submission || form_submissions.select(&:withdrawn?).max_by(&:number))&.answers || {}
     form.answerable_questions.each_with_object({}) do |question, answers|
       stored = if question.update_profile? || (question.prefill? && !previous.key?(question.key))
         question.store_answer(subject.field_value(question.person_field))

@@ -18,10 +18,11 @@
           Submitted, and waiting for answers to: <%= @submission.missing_questions.map(&:label).to_sentence %>.
           Changing an answer returns it to a draft until it's submitted again.
         </div>
-      <% elsif based_on %>
+      <% elsif based_on&.active? %>
         <div class="alert alert-info">
-          You're updating the response submitted <%= nice_datetime(based_on.submitted_at) if based_on.submitted_at %>.
-          It stays in effect until you submit this update.
+          You're updating the answers submitted <%= nice_datetime(based_on.submitted_at) if based_on.submitted_at %>.
+          They stay in effect until you submit this update.
+          <% if @submission.persisted? %>Your changes so far are saved as a draft.<% else %>Cancel leaves them exactly as they are.<% end %>
         </div>
       <% end %>
       <% unless @form.open? %>
@@ -65,7 +66,7 @@
       <% end %>
     </div>
     <div class="card-footer">
-      <%= link_to "Cancel", @response.persisted? ? form_response_path(@form, @subject) : forms_path, class: "btn btn-warning" %>
+      <%= link_to @submission.persisted? ? "Back" : "Cancel", @response.persisted? ? form_response_path(@form, @subject) : forms_path, class: "btn btn-warning" %>
       <%= f.button :submit, "Save for later", name: "save", class: "btn btn-secondary" %>
       <%= f.button :submit, "Submit", name: "submit", class: "btn btn-primary" %>
     </div>
@@ -74,7 +75,7 @@
 
 <% if @response.persisted? && @submission.persisted? && response_policy.discard? %>
   <div class="mt-2 text-end">
-    <%= button_to "Discard these changes", discard_form_response_path(@form, @subject), class: "btn btn-sm btn-danger", form_class: "d-inline",
-          data: { turbo_confirm: "Discard this unsubmitted #{based_on ? "update" : "response"}?" } %>
+    <%= button_to based_on&.active? ? "Discard this update" : "Discard this draft", discard_form_response_path(@form, @subject), class: "btn btn-sm btn-danger", form_class: "d-inline",
+          data: { turbo_confirm: based_on&.active? ? "Discard this unsubmitted update? The submitted answers stay as they are." : "Discard this unsubmitted draft?" } %>
   </div>
 <% end %>
