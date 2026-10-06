@@ -5,11 +5,12 @@ class FormAudienceRulesController < InternalController
   # POST /forms/1/audience_rules
   def create
     @rule = authorize @form.form_audience_rules.build(rule_params)
+    return redirect_to edit_form_path(@form, tab: "audience"), alert: "Badges are turned off.", status: :see_other if @rule.target_badge? && !Form.badges_enabled?
 
     if @rule.save
-      redirect_to edit_form_path(@form, anchor: "audience"), notice: "#{@rule.description}: added. The form now asks #{helpers.pluralize(@form.audience.count, "person", plural: "people")}.", status: :see_other
+      redirect_to edit_form_path(@form, tab: "audience"), notice: "#{@rule.description}: added. The form now asks #{helpers.pluralize(@form.audience.count, "person", plural: "people")}.", status: :see_other
     else
-      redirect_to edit_form_path(@form, anchor: "audience"), alert: "That rule couldn't be added: #{@rule.errors.full_messages.to_sentence}.", status: :see_other
+      redirect_to edit_form_path(@form, tab: "audience"), alert: "That rule couldn't be added: #{@rule.errors.full_messages.to_sentence}.", status: :see_other
     end
   end
 
@@ -17,7 +18,7 @@ class FormAudienceRulesController < InternalController
   def destroy
     @rule = authorize @form.form_audience_rules.find(params[:id])
     @rule.destroy!
-    redirect_to edit_form_path(@form, anchor: "audience"), notice: "#{@rule.description}: removed. Anyone no longer asked keeps the answers they gave.", status: :see_other
+    redirect_to edit_form_path(@form, tab: "audience"), notice: "#{@rule.description}: removed. Anyone no longer asked keeps the answers they gave.", status: :see_other
   end
 
   private

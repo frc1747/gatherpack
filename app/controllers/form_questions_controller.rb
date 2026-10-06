@@ -18,7 +18,7 @@ class FormQuestionsController < InternalController
     @question = authorize @form.form_questions.build(question_params.reverse_merge(position: next_position))
 
     if @question.save
-      redirect_to edit_form_path(@form, anchor: "questions"), notice: "Question was added."
+      redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was added."
     else
       render :new, status: :unprocessable_entity
     end
@@ -27,7 +27,7 @@ class FormQuestionsController < InternalController
   # PATCH/PUT /forms/1/questions/1
   def update
     if @question.update(question_params)
-      redirect_to edit_form_path(@form, anchor: "questions"), notice: "Question was saved.", status: :see_other
+      redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was saved.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
     end
@@ -36,13 +36,13 @@ class FormQuestionsController < InternalController
   # DELETE /forms/1/questions/1
   def destroy
     @question.destroy!
-    redirect_to edit_form_path(@form, anchor: "questions"), notice: "Question was removed. Answers already given stay in earlier submissions.", status: :see_other
+    redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was removed. Answers already given stay in earlier submissions.", status: :see_other
   end
 
   # PATCH /forms/1/questions/1/move
   def move
     @question.move(params[:direction])
-    redirect_to edit_form_path(@form, anchor: "questions"), status: :see_other
+    redirect_to edit_form_path(@form, tab: "questions"), status: :see_other
   end
 
   private
