@@ -1,0 +1,13 @@
+<% if GatherPack::Features.enabled?(:forms) %>
+  <% entries = forms_to_complete(current_user.person) %>
+  <% if entries.any? %>
+    <div class="card">
+      <div class="card-header">
+        <h2>Forms to Complete</h2>
+      </div>
+      <div class="card-body">
+        <%= render "forms/entries", entries: entries %>
+      </div>
+    </div>
+  <% end %>
+<% end %>

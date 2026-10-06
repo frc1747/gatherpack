@@ -138,7 +138,7 @@ Terms used below:
 | `opens_at`, `closes_at` | datetime, nullable | Automatic transitions (§11.3). `closes_at` is the deadline shown everywhere |
 | `allow_updates` | boolean, default true | Respondents may submit a new version after their first one, while the form is open |
 | `late_entry` | integer enum | Who may still submit after close: `none: 0, leaders: 1` (default `leaders`, for paper forms handed in late) |
-| `version` | integer, default 1 | Form content version, bumped by Publish changes (§7.4) |
+| `content_version` | integer, default 1 | Form content version, bumped by Publish changes (§7.4). Not `version`: PaperTrail defines `version` on every tracked model |
 | `reconfirm_on_profile_change` | boolean, default false | A change to profile data this form updated sends the response back for re-confirmation (§8.2) |
 | `completion_badge_id` | uuid, FK, nullable | Held while the response is complete (§8.3). Admin-assigned badges only |
 | `created_by_id` | uuid → people | |
@@ -479,7 +479,7 @@ submission's answers. So:
 
 Changing an **open** form's statement, acknowledgment, or signature text,
 adding a required question, or changing a choice list goes through
-**Publish changes**, which bumps `forms.version` and asks how to treat
+**Publish changes**, which bumps `forms.content_version` and asks how to treat
 existing active submissions:
 
 - **Keep**: they stay complete (typo fixes).
