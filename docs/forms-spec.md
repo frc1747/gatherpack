@@ -482,6 +482,7 @@ subject in the fixture world, as for person fields.
 | Set a completion badge or badge grants | Admins only (both widen access or status) |
 | Add a profile-backed question | Anyone who may edit the form. It grants nothing: each viewer still needs the person field's own levels (§5.2) |
 | Delete a form | Admins, and only with no submitted submissions; otherwise archive |
+| **Form creators** (rev. 5) | Holders of the badge named in the `forms_creator_badge` setting (admin-assigned only; off while Badges are off) create **event forms** for teams they belong to (their own and the teams above them), and ask those teams. They manage, see responses to, and can delete (before anyone submits) **only the forms they created**, acting as an admin of those responses and nothing else; profile fields still follow their own levels. They can't add signatures or questions linked to profile fields, or set completion badges or badge grants. Team managers still manage every form owned by their teams, including these. Losing the badge ends their access; meant for short-lived polls by student leaders |
 
 ---
 
@@ -997,6 +998,7 @@ Almost everything is new files. Expected edits to existing upstream files:
 | `app/views/pages/_form.html.erb` | `FormReport` note (§9.5) | Optional; can be documentation instead |
 | `config/initializers/filter_parameter_logging.rb` | Answers | (already touched) |
 | `config/recurring.yml` | Open/close job | |
+| `lib/settings.rb` | The `forms_creator_badge` setting (§5.4) | (already touched by person-fields) |
 
 The registries are small, generic, and useful to any plugin, so they are
 good seam PRs to offer upstream before Forms.

@@ -178,6 +178,7 @@ module FormsHelper
     return "yourself" if access.viewer.id == access.subject.id
     return "as their guardian" if access.component?(:guardian)
     return "as their leader" if access.component?(:leaders)
+    return "as the form's organizer" if access.creator?
     access.admin? ? "as an admin" : "for them"
   end
 

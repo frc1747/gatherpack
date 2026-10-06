@@ -62,7 +62,9 @@
     <%= link_to "Add a heading", new_form_question_path(@form, kind: "heading"), class: "btn btn-secondary" %>
     <%= link_to "Add text", new_form_question_path(@form, kind: "statement"), class: "btn btn-secondary" %>
     <%= link_to "Add an acknowledgment", new_form_question_path(@form, kind: "acknowledgment"), class: "btn btn-secondary" %>
-    <%= link_to "Add a signature", new_form_question_path(@form, kind: "signature"), class: "btn btn-secondary" %>
+    <% unless policy(@form).creator_only? %>
+      <%= link_to "Add a signature", new_form_question_path(@form, kind: "signature"), class: "btn btn-secondary" %>
+    <% end %>
     <% if @form.event && !@form.intent_question %>
       <%= link_to "Add \"Are you coming?\"", new_form_question_path(@form, kind: "intent"), class: "btn btn-secondary", title: "A planning count for #{@form.event.name}. It's never attendance." %>
     <% end %>
