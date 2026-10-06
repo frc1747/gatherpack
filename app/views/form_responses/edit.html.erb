@@ -3,6 +3,7 @@
 <% submitted = @errors.any? ? (params.dig(:form_response, :answers)&.to_unsafe_h || {}) : {} %>
 <% based_on = @submission.based_on || @response.active_submission %>
 <% response_policy = policy(@response) %>
+<% writable_count = @form.answerable_questions.count { |question| access.question_writable?(question) } %>
 
 <%= simple_form_for @response, url: form_response_path(@form, @subject), method: :patch do |f| %>
   <div class="card">
@@ -45,6 +46,17 @@
 
       <%= f.error_notification message: "Please check the answers marked below." if @errors.any? %>
 
+      <% read_only = @form.answerable_questions.select { |question| access.question_readable?(question) && !access.question_writable?(question) } %>
+      <% if read_only.any? %>
+        <div class="alert alert-light border">
+          <% if writable_count.zero? %>
+            <%= i "circle-info" %> This form is for <%= form_writer_phrase(read_only.first.effective_write_permission) %> to fill in<%= " and sign" if @form.signature_questions.any? %>. You can read it here; they'll see it on their dashboard.
+          <% else %>
+            <%= i "circle-info" %> Greyed-out items are for someone else to fill in.
+          <% end %>
+        </div>
+      <% end %>
+
       <% @form.form_questions.includes(:person_field).each do |question| %>
         <% if question.heading? %>
           <h2 class="h4 mt-4"><%= question.label %></h2>
@@ -59,17 +71,21 @@
               <div class="form-text">Signed after submitting, by <%= question.signer_description %>.</div>
             </div>
           </div>
+        <% elsif question.acknowledgment? && access.question_readable?(question) %>
+          <% value = submitted.key?(question.key) ? submitted[question.key] : @submission.answer(question) %>
+          <div id="<%= dom_id question %>">
+            <%= form_acknowledgment(question, value, writable: access.question_writable?(question), error: @errors[question.key]) %>
+          </div>
         <% elsif question.answerable? && access.question_readable?(question) %>
           <% value = submitted.key?(question.key) ? submitted[question.key] : @submission.answer(question) %>
           <div id="<%= dom_id question %>">
-            <% if question.acknowledgment? && question.body.present? %><div class="mb-2"><%= form_markdown(question.body) %></div><% end %>
             <% if access.question_writable?(question) %>
               <%= form_question_input(f, question, value, error: @errors[question.key]) %>
             <% else %>
               <div class="mb-3">
                 <div class="form-label"><%= question.label %><%= " *" if question.required? %></div>
                 <div class="form-control-plaintext"><%= form_answer_display(question, @submission.answer(question)) %></div>
-                <div class="form-text">You can't change this answer<%= "; it's for someone else to fill in" if question.required? && !@submission.answered?(question) %>.</div>
+                <div class="form-text">Filled in by <%= form_writer_phrase(question.effective_write_permission) %>.</div>
               </div>
             <% end %>
             <% if question.update_profile? %>
@@ -86,8 +102,10 @@
     </div>
     <div class="card-footer">
       <%= link_to @submission.persisted? ? "Back" : "Cancel", @response.persisted? ? form_response_path(@form, @subject) : forms_path, class: "btn btn-warning" %>
-      <%= f.button :submit, "Save for later", name: "save", class: "btn btn-secondary" %>
-      <%= f.button :submit, "Submit", name: "submit", class: "btn btn-primary" %>
+      <% if writable_count.positive? || @form.answerable_questions.empty? %>
+        <%= f.button :submit, "Save for later", name: "save", class: "btn btn-secondary" %>
+        <%= f.button :submit, "Submit", name: "submit", class: "btn btn-primary" %>
+      <% end %>
     </div>
   </div>
 <% end %>
