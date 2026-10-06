@@ -50,6 +50,15 @@
     </div>
     <div class="card-footer">
       <%= link_to "New Form", new_form_path, class: "btn btn-primary" %>
+      <% if current_user.admin? && GatherPack::Features.enabled?(:badges) %>
+        <div class="form-text mt-2">
+          <% if (creator_badge = Form.creator_badge) %>
+            Holders of the <%= creator_badge.name %> badge can also create event forms for their own teams, and run only the forms they created.
+          <% else %>
+            Only admins and team managers create forms. To let others (say, student leaders) create event forms, set a Form Creator Badge in Settings.
+          <% end %>
+        </div>
+      <% end %>
       <%= link_to "Order sheet", order_sheet_forms_path, class: "btn btn-secondary" %>
     </div>
   </div>

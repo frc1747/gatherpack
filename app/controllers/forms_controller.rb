@@ -63,10 +63,16 @@ class FormsController < InternalController
   # PATCH/PUT /forms/1
   def update
     @form.assign_attributes(form_params)
-    if policy(@form).manage? && @form.save
+    form_policy = policy(@form)
+    # A form run only by its creator stays an event form of one of their teams.
+    allowed = form_policy.creator_only? ? form_policy.create? : form_policy.manage?
+    if allowed && @form.save
       redirect_to edit_form_path(@form, tab: @tab), notice: "Form was saved.", status: :see_other
     else
-      @form.errors.add(:team, "must be one you manage") unless policy(@form).manage?
+      unless allowed
+        message = form_policy.creator_only? ? "must be an event of a team you belong to" : "must be one you manage"
+        @form.errors.add(form_policy.creator_only? ? :event : :team, message)
+      end
       render :edit, status: :unprocessable_entity
     end
   end

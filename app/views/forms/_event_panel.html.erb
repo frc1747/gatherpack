@@ -3,7 +3,7 @@
     intent compares with check-ins. Intent is never attendance. %>
 <% if GatherPack::Features.enabled?(:forms) %>
   <% event_forms = EventForms.new(event, viewer: current_user.person) %>
-  <% can_add = event.team && policy(Form.new(team: event.team)).create? %>
+  <% can_add = event.team && policy(Form.new(team: event.team, event: event)).create? %>
   <% if event_forms.forms.empty? && can_add %>
     <div class="card mt-3 no-print" id="event-forms">
       <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">

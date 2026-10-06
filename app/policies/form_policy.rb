@@ -26,11 +26,14 @@ class FormPolicy < ApplicationPolicy
   end
 
   def new?
-    user.admin || person.all_managed_teams.exists?
+    user.admin || person.all_managed_teams.exists? || Form.creator?(person)
   end
 
+  # Team managers create forms for their teams. Form creators (the creator
+  # badge) create event forms for teams they belong to.
   def create?
-    manage?
+    return true if team_manager?
+    Form.creator?(person) && record.event.present? && member_team_ids.include?(record.team_id)
   end
 
   def update?
@@ -38,7 +41,7 @@ class FormPolicy < ApplicationPolicy
   end
 
   def destroy?
-    user.admin && !record.form_submissions.where.not(submitted_at: nil).exists?
+    (user.admin || creator_only?) && !record.form_submissions.where.not(submitted_at: nil).exists?
   end
 
   %i[ open? close? archive? duplicate? remind? preview? publish? audience? ].each { |action| alias_method action, :update? }
@@ -48,26 +51,47 @@ class FormPolicy < ApplicationPolicy
     user.admin
   end
 
-  # Admins, and managers of the form's team or a team above it.
+  # Admins, managers of the form's team or a team above it, and the form's
+  # creator while they hold the creator badge.
   def manage?
-    user.admin || (record.team.present? && person.all_managed_teams.where(id: record.team_id).exists?)
+    team_manager? || record.run_by_creator?(person)
+  end
+
+  # Runs this form only as its creator: limited to event forms, with no
+  # signatures or questions linked to profile fields.
+  def creator_only?
+    !team_manager? && record.run_by_creator?(person)
   end
 
   # Teams a form can belong to, for the settings form.
   def assignable_teams
-    user.admin ? Team.all : person.all_managed_teams
+    return Team.all if user.admin
+    return person.all_managed_teams unless Form.creator?(person)
+    Team.where(id: person.all_managed_teams.ids + member_team_ids)
   end
 
   private
+
+  def team_manager?
+    user.admin || (record.respond_to?(:team_id) && record.team_id.present? && person.all_managed_teams.where(id: record.team_id).exists?)
+  end
+
+  # The teams someone belongs to: their own and the teams above them.
+  def member_team_ids
+    @member_team_ids ||= person.all_ancestor_teams.ids
+  end
 
   def own_subject_ids
     [ person.id ] + person.wards.ids
   end
 
   class Scope < ApplicationPolicy::Scope
-    # The forms the user manages.
+    # The forms the user manages, and those they run as their creator.
     def resolve
-      user.admin ? scope.all : scope.where(team_id: person.all_managed_teams.select(:id))
+      return scope.all if user.admin
+
+      managed = scope.where(team_id: person.all_managed_teams.select(:id))
+      Form.creator?(person) ? managed.or(scope.where(created_by_id: person.id)) : managed
     end
   end
 end

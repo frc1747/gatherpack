@@ -27,7 +27,9 @@ class FormQuestionsController < InternalController
 
   # PATCH/PUT /forms/1/questions/1
   def update
-    if @question.update(question_params)
+    @question.assign_attributes(question_params)
+    authorize @question
+    if @question.save
       redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was saved.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
