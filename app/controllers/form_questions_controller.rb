@@ -5,8 +5,9 @@ class FormQuestionsController < InternalController
 
   # GET /forms/1/questions/new
   def new
-    kind = params[:kind].presence_in(%w[ input heading statement acknowledgment signature ]) || "input"
-    @question = authorize @form.form_questions.build(kind: kind, position: next_position, signer: kind == "signature" ? "guardian_if_minor" : nil)
+    kind = params[:kind].presence_in(%w[ input heading statement acknowledgment signature intent ]) || "input"
+    @question = authorize @form.form_questions.build(kind: kind, position: next_position, signer: kind == "signature" ? "guardian_if_minor" : nil,
+      label: kind == "intent" ? "Are you coming?" : nil, required: kind == "intent")
   end
 
   # GET /forms/1/questions/1/edit

@@ -25,6 +25,8 @@
                 <td>
                   <% if question.input? %>
                     <%= question.profile_backed? ? question.person_field.name : person_field_type_label(question) %>
+                  <% elsif question.intent? %>
+                    Coming? (Yes / Maybe / No)
                   <% elsif question.signature? %>
                     Signature<br><small class="text-muted"><%= FormsHelper::SIGNER_LABELS.fetch(question.signer) %></small>
                   <% else %>
@@ -61,5 +63,8 @@
     <%= link_to "Add text", new_form_question_path(@form, kind: "statement"), class: "btn btn-secondary" %>
     <%= link_to "Add an acknowledgment", new_form_question_path(@form, kind: "acknowledgment"), class: "btn btn-secondary" %>
     <%= link_to "Add a signature", new_form_question_path(@form, kind: "signature"), class: "btn btn-secondary" %>
+    <% if @form.event && !@form.intent_question %>
+      <%= link_to "Add \"Are you coming?\"", new_form_question_path(@form, kind: "intent"), class: "btn btn-secondary", title: "A planning count for #{@form.event.name}. It's never attendance." %>
+    <% end %>
   </div>
 </div>

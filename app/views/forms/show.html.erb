@@ -7,6 +7,7 @@
     <h1><%= @form.title %> <%= form_state_badge(@form) %></h1>
     <div class="text-muted">
       <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge && Form.badges_enabled? %>, <%= @form.audience_badge.name %> badge holders only<% end %>
+      <% if @form.event %>· For <%= GatherPack::Features.enabled?(:events) ? link_to(@form.event.name, event_path(@form.event)) : @form.event.name %><% end %>
       · <%= form_due(@form) %>
       <% if @form.completion_badge && Form.badges_enabled? %>· Completion badge: <%= @form.completion_badge.name %><% end %>
     </div>
@@ -61,6 +62,7 @@
   <div class="card-footer">
     <%= link_to "Results", results_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
     <%= link_to "Tally", tally_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
+    <%= link_to "Order sheet", order_sheet_forms_path(form_id: @form.id, event_id: @form.event_id), class: "btn btn-primary" %>
     <% if manage %>
       <%= link_to "Edit", edit_form_path(@form), class: "btn btn-secondary" %>
       <%= link_to "Preview as…", preview_form_path(@form), class: "btn btn-secondary" %>

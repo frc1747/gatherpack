@@ -724,6 +724,15 @@ population:
 
 ### 9.4 Order sheet
 
+Built (rev. 5) as `/forms/order_sheet` (`FormOrderSheet`), not a member
+route, since it picks its form: any form the viewer can see results for. It
+can also be based on everyone the form asks, with no event. Questions
+default to the form's choice questions. People are split three ways:
+listed (an active answer the viewer can read), no choice on file (no
+response, or nothing submitted), and a count of people whose answers the
+viewer can't see. The tally page takes the same "said they're coming" or
+"checked in" population for event forms.
+
 Pick an event and one or more questions (e.g. "Jimmy John's", "Please
 Remove"), plus profile fields to show alongside (Dietary Restrictions). The
 sheet lists each person with their active choices and profile data, then the
@@ -763,6 +772,17 @@ can read, with its status, active version, and who submitted and signed it.
 ## 10. Events
 
 ### 10.1 Event forms
+
+Built (rev. 5): the event is picked on the Details tab (events of the owning
+team or a team below it, from a month ago on), or by **New form for this
+event** on the event page, which also makes the event's team the first
+audience rule. The deadline defaults to the event's start. The intent
+question has fixed choices (Yes, Maybe, No), at most one per form, and the
+builder offers it only on event forms. The event page's Forms panel shows
+status counts, intent, and the two lists only to people who can see the
+form's results (`FormPolicy#show?`); everyone else sees their own and their
+children's entries for the event's forms. All counts cover only people
+whose intent answer the viewer can read (`EventForms`).
 
 A form with `event_id` is an **event form** (a trip permission slip, a
 "coming Saturday?" poll). Its audience defaults to the event's team, its
@@ -970,7 +990,7 @@ Almost everything is new files. Expected edits to existing upstream files:
 | `config/initializers/features.rb` | Registration | (already touched by person-fields) |
 | `app/models/hook.rb` | Catalog entries | A catalog registration API |
 | `app/views/welcome/dashboard.html.erb`, `app/controllers/welcome_controller.rb` | Forms to complete card | **Dashboard card registry** on `GatherPack::Feature` |
-| `app/views/events/show.html.erb` | Event forms panel | **Event panel slot** |
+| `app/views/events/show.html.erb` | Event forms panel: one `render` line | **Event panel slot** |
 | `app/views/people/_show_shared.html.erb` | The Forms tab (§6.5): one `<li>` | **Profile tab registry** on `GatherPack::Feature` |
 | `app/models/person.rb` | `assign_field_values(only_given:)`; one `ActiveSupport::Notifications` line for profile changes (§8.2) | (already touched by person-fields) |
 | `app/models/infodump.rb` | Digest section | **Digest section registry** |
@@ -998,6 +1018,8 @@ Ditto:
   `reconfirm_on_profile_change`, `published_version`,
   `reconfirm_from_version` on forms; `signer` on questions; `content` on
   submissions.
+- Phase 3: `20261006130000_add_event_to_forms.rb` (`forms.event_id`,
+  nullified if the event is deleted).
 
 ---
 
@@ -1008,8 +1030,8 @@ Ditto:
 | **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
 | **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
 | **2: Audiences, profile tab, and consent** (done 2026-10-06) | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
-| **3: Events** | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
-| **4: Later** | automatic reminders, digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link | |
+| **3: Events** (done 2026-10-06) | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
+| **4: Later** | automatic reminders, reminders at clock-in (when someone clocks in at the time kiosk, remind them of forms they still owe), digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link. Other event-driven reminders are out of scope for now | |
 
 ### 15.1 Open questions
 

@@ -50,6 +50,7 @@ Rails.application.routes.draw do
     member { patch :move }
   end
   resources :forms do
+    collection { get :order_sheet }
     member do
       post :open
       post :close

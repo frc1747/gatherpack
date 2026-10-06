@@ -63,6 +63,8 @@ module FormsHelper
     "withdrawn" => "Withdrawn", "discarded" => "Discarded"
   }.freeze
 
+  BASIS_LABELS = { "asked" => "Everyone asked", "expected" => "Said they're coming", "checked_in" => "Checked in" }.freeze
+
   PROFILE_MODE_LABELS = {
     nil => "Form only", "prefill" => "Filled in from profile", "update_profile" => "Updates profile"
   }.freeze
@@ -270,6 +272,11 @@ module FormsHelper
       # The Bootstrap boolean wrapper has no error slot, so show it here.
       return form.input(question.key.to_sym, **options) + (error ? tag.div(error, class: "invalid-feedback d-block mt-n2 mb-3") : "".html_safe)
     when "select"
+      if question.intent?
+        options.merge!(as: :radio_buttons, collection: FormQuestion::INTENT_CHOICES, checked: value.to_s, item_wrapper_class: "form-check form-check-inline")
+        options[:input_html].delete(:id)
+        return form.input(question.key.to_sym, **options)
+      end
       options.merge!(as: :select, collection: person_field_choices(type, value), selected: value, include_blank: true)
     when "multi_select"
       options.merge!(as: :check_boxes, collection: person_field_choices(type, value), checked: Array(value))

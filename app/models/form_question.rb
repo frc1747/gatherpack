@@ -20,6 +20,10 @@ class FormQuestion < ApplicationRecord
   # and sign, so it starts a new form content version (Form#content_changed!).
   CONTENT_ATTRIBUTES = %w[ kind label body data_type options person_field_id profile_mode required signer ].freeze
 
+  # An intent question ("Are you coming?") is a planning count, never
+  # attendance: answers never create or change a check-in.
+  INTENT_CHOICES = %w[ Yes Maybe No ].freeze
+
   enum :kind, { input: 0, heading: 1, statement: 2, acknowledgment: 3, signature: 4, intent: 5 }, validate: true
   enum :profile_mode, { prefill: 0, update_profile: 1 }, validate: { allow_nil: true }
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: { allow_nil: true }
@@ -34,6 +38,7 @@ class FormQuestion < ApplicationRecord
   validate :profile_link_makes_sense
   validate :levels_within_form
   validate :signer_can_see_form
+  validate :one_intent_per_form, if: :intent?
 
   before_validation :generate_key, on: :create
   before_validation :clear_unused_attributes
@@ -74,7 +79,7 @@ class FormQuestion < ApplicationRecord
   def content_snapshot
     snapshot = { "key" => key, "kind" => kind, "label" => label, "body" => body, "required" => required? }
     snapshot["signer"] = signer if signature?
-    if input?
+    if input? || intent?
       snapshot["type"] = value_type.data_type
       snapshot["choices"] = value_type.choice_list if %w[ select multi_select ].include?(value_type.data_type)
       snapshot["person_field"] = person_field.key if profile_backed?
@@ -159,8 +164,12 @@ class FormQuestion < ApplicationRecord
     end
     self.profile_mode = nil if person_field_id.blank?
     self.data_type = "boolean" if acknowledgment?
+    if intent?
+      self.data_type = "select"
+      self.options = { "choices" => INTENT_CHOICES }
+    end
     # Profile-backed questions take their type from the person field.
-    self.options = {} if profile_backed? || !input?
+    self.options = {} if profile_backed? || !(input? || intent?)
     self.read_permission = nil if heading? || statement?
     self.write_permission = nil if heading? || statement?
   end
@@ -180,6 +189,11 @@ class FormQuestion < ApplicationRecord
     return if AudienceLevels.reaches?(form.read_permission, component) && (signer != "guardian_if_minor" || AudienceLevels.reaches?(form.read_permission, :subject))
 
     errors.add(:signer, "can't see this form's responses; change who can see them first")
+  end
+
+  def one_intent_per_form
+    others = form ? form.form_questions.reject { |question| question.equal?(self) || question.id == id } : []
+    errors.add(:kind, "can only be used once per form: this form already asks whether people are coming") if others.any?(&:intent?)
   end
 
   def note_content_change

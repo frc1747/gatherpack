@@ -11,6 +11,9 @@ class Form < ApplicationRecord
   belongs_to :team
   belongs_to :audience_badge, class_name: "Badge", optional: true
   belongs_to :completion_badge, class_name: "Badge", optional: true
+  # An event form (a trip permission slip, a "coming Saturday?" poll). Its
+  # deadline defaults to the event's start.
+  belongs_to :event, optional: true
   belongs_to :created_by, class_name: "Person", optional: true
   has_many :form_questions, -> { order(:position, :created_at) }, dependent: :destroy, inverse_of: :form
   has_many :form_responses, dependent: :destroy
@@ -32,8 +35,10 @@ class Form < ApplicationRecord
   validate :respond_within_read
   validate :closes_after_opens
   validate :completion_badge_reaches_audience
+  validate :event_within_team
 
   before_validation :generate_key, on: :create
+  before_validation -> { self.closes_at ||= event.start_time if event }, if: :will_save_change_to_event_id?
   # The description is part of what respondents read and sign.
   after_update_commit -> { content_changed! }, if: :saved_change_to_description?
 
@@ -132,6 +137,10 @@ class Form < ApplicationRecord
 
   def signature_questions
     form_questions.select(&:signature?)
+  end
+
+  def intent_question
+    form_questions.detect(&:intent?)
   end
 
   # A form asks nobody until it has an include rule.
@@ -233,6 +242,18 @@ class Form < ApplicationRecord
 
   def closes_after_opens
     errors.add(:closes_at, "must be after the opening time") if opens_at && closes_at && closes_at <= opens_at
+  end
+
+  # Its managers must manage the event's people, so the event belongs to the
+  # owning team or a team below it.
+  def event_within_team
+    return unless event && team
+
+    if event.team.nil?
+      errors.add(:event, "must belong to a team")
+    elsif event.team_id != team_id && !team.all_descendant_ids.include?(event.team_id)
+      errors.add(:event, "belongs to #{event.team.name}, which isn't #{team.name} or a team below it")
+    end
   end
 
   # Only admins assign the badge, and a team badge can only be held by

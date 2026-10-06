@@ -3,10 +3,23 @@
 <div class="card">
   <div class="card-header">
     <h1><%= @form.title %>: Tally</h1>
-    <div class="text-muted">Counts from each person's active (submitted) answers that you can see.</div>
+    <div class="text-muted">
+      Counts from each person's active (submitted) answers that you can see<%= ", for #{FormsHelper::BASIS_LABELS.fetch(@basis).downcase_first} at #{@event.name}" if @basis != "asked" %>.
+    </div>
   </div>
   <div class="card-body">
-    <%= render "team_filter", teams: @teams, team: @team, url: tally_form_path(@form), keep: {} %>
+    <%= render "team_filter", teams: @teams, team: @team, url: tally_form_path(@form), keep: { basis: @basis } %>
+    <% if @event %>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <% FormsHelper::BASIS_LABELS.each do |basis, label| %>
+          <%= link_to label, tally_form_path(@form, team_id: @team&.id, basis: basis, event_id: (@event.id unless @form.event)),
+                class: "btn btn-sm #{@basis == basis ? "btn-secondary" : "btn-outline-secondary"}" %>
+        <% end %>
+      </div>
+      <% if @basis_missing %>
+        <p class="text-warning-emphasis">No form on <%= @event.name %> asks who's coming, so nobody counts as expected yet.</p>
+      <% end %>
+    <% end %>
 
     <% if @questions.empty? %>
       <p class="text-muted">This form has no choice or yes/no questions to count.</p>
