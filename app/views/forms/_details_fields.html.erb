@@ -1,0 +1,16 @@
+<% form = f.object %>
+<div class="row">
+  <div class="col-md-8"><%= f.input :title %></div>
+  <div class="col-md-4">
+    <% if form.persisted? %>
+      <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages; can't be changed." %>
+    <% else %>
+      <%= f.input :key, required: false, hint: "Used by Hooks and Pages. Leave blank to generate it from the title." %>
+    <% end %>
+  </div>
+</div>
+
+<%= f.input :description, as: :text, input_html: { rows: 4 }, hint: "Shown at the top of the form. Markdown is supported." %>
+
+<%= f.input :team_id, label: "Owning team", collection: policy(form).assignable_teams.order(:name), include_blank: false,
+      hint: form.persisted? ? "Its managers, and those of teams above it, manage this form. Who is asked is on its own tab." : "Its managers, and those of teams above it, manage this form. The form starts by asking everyone in it; you can change who is asked next." %>

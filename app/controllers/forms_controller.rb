@@ -35,7 +35,9 @@ class FormsController < InternalController
     authorize @form, :new?
   end
 
-  # GET /forms/1/edit
+  EDIT_TABS = %w[ details questions audience permissions responses ].freeze
+
+  # GET /forms/1/edit?tab=questions
   def edit
   end
 
@@ -48,7 +50,7 @@ class FormsController < InternalController
       # Starts by asking the owning team, as before audience rules; the
       # builder can change that.
       @form.form_audience_rules.create!(effect: :include, target_type: :team, team: @form.team)
-      redirect_to edit_form_path(@form), notice: "Form was created. Add its questions below."
+      redirect_to edit_form_path(@form, tab: "questions"), notice: "Form was created. Add its questions below."
     else
       render :new, status: :unprocessable_entity
     end
@@ -58,7 +60,7 @@ class FormsController < InternalController
   def update
     @form.assign_attributes(form_params)
     if policy(@form).manage? && @form.save
-      redirect_to edit_form_path(@form), notice: "Form was saved.", status: :see_other
+      redirect_to edit_form_path(@form, tab: @tab), notice: "Form was saved.", status: :see_other
     else
       @form.errors.add(:team, "must be one you manage") unless policy(@form).manage?
       render :edit, status: :unprocessable_entity
@@ -73,7 +75,7 @@ class FormsController < InternalController
 
   # POST /forms/1/open
   def open
-    return redirect_to edit_form_path(@form, anchor: "audience"), alert: "Add someone to ask before opening the form.", status: :see_other unless @form.openable?
+    return redirect_to edit_form_path(@form, tab: "audience"), alert: "Add someone to ask before opening the form.", status: :see_other unless @form.openable?
 
     @form.update!(status: :open)
     redirect_to form_path(@form), notice: "Form is open for responses.", status: :see_other
@@ -109,7 +111,7 @@ class FormsController < InternalController
   # POST /forms/1/duplicate
   def duplicate
     copy = @form.duplicate!(title: "#{@form.title} (copy)", created_by: current_user.person)
-    redirect_to edit_form_path(copy), notice: "Form was duplicated. Its responses weren't copied.", status: :see_other
+    redirect_to edit_form_path(copy, tab: "details"), notice: "Form was duplicated. Its responses weren't copied.", status: :see_other
   end
 
   # POST /forms/1/remind
@@ -158,6 +160,7 @@ class FormsController < InternalController
   private
     def set_form
       @form = authorize Form.find(params[:id])
+      @tab = params[:tab].presence_in(EDIT_TABS) || "details"
     end
 
     def require_feature
@@ -168,7 +171,10 @@ class FormsController < InternalController
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
         :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change ]
       # A completion badge marks people's status, so only admins set it.
-      permitted << :completion_badge_id if current_user.admin?
+      # Neither badge setting changes while Badges are turned off.
+      badges = GatherPack::Features.enabled?(:badges)
+      permitted << :completion_badge_id if current_user.admin? && badges
+      permitted.delete(:audience_badge_id) unless badges
       permitted << :key if @form.nil? || @form.new_record?
       params.require(:form).permit(*permitted)
     end

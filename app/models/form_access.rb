@@ -160,6 +160,7 @@ class FormAccess < AudienceAccess
   def grant(mode)
     @grants ||= {}
     return @grants[mode] if @grants.key?(mode)
+    return @grants[mode] = nil unless Form.badges_enabled?
 
     @grants[mode] = form.form_badge_grants.find do |candidate|
       (mode == :read || candidate.respond?) && viewer_badge_ids.include?(candidate.badge_id) && candidate.covers?(subject_team_ids)

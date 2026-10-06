@@ -28,11 +28,11 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
 
         post forms_path, params: { form: { title: "Den A Campout", team_id: @den_a.id, respond_permission: "family", read_permission: "family" } }
         form = Form.find_by!(key: "den_a_campout")
-        assert_redirected_to edit_form_path(form)
+        assert_redirected_to edit_form_path(form, tab: "questions")
         assert_equal person(:den_a_leader), form.created_by
 
         post form_questions_path(form), params: { form_question: { kind: "input", label: "Tent buddy", data_type: "string" } }
-        assert_redirected_to edit_form_path(form, anchor: "questions")
+        assert_redirected_to edit_form_path(form, tab: "questions")
         assert_equal [ "tent_buddy" ], form.form_questions.map(&:key)
       end
     end

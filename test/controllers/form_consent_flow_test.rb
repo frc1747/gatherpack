@@ -95,6 +95,44 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "every edit tab renders, and badge settings disappear while Badges are off" do
+    @form.form_badge_grants.create!(badge: @health_officer_badge, access: :read)
+    with_feature do
+      as(:admin) do
+        %w[ details questions audience permissions responses ].each do |tab|
+          get edit_form_path(@form, tab: tab)
+          assert_response :success, tab
+          assert_select "a.nav-link.active[href=?]", edit_form_path(@form, tab: tab)
+        end
+        get edit_form_path(@form, tab: "responses")
+        assert_select "select[name=?]", "form[completion_badge_id]"
+        get edit_form_path(@form, tab: "permissions")
+        assert_select "h2", text: "Access through badges"
+      end
+
+      with_settings(feature_badges: "false") do
+        as(:admin) do
+          get edit_form_path(@form, tab: "responses")
+          assert_select "select[name=?]", "form[completion_badge_id]", count: 0
+          assert_match "Badges are turned off", response.body
+          get edit_form_path(@form, tab: "permissions")
+          assert_select "h2", text: "Access through badges", count: 0
+          get edit_form_path(@form, tab: "audience")
+          assert_select "input[type=submit][value=?]", "Add badge", count: 0
+          assert_select "select[name=?]", "form[audience_badge_id]", count: 0
+
+          patch form_path(@form), params: { tab: "responses", form: { completion_badge_id: "" } }
+          assert_equal @badge, @form.reload.completion_badge, "badge settings don't change while Badges are off"
+        end
+        respond(@form, :b1, as: :b1, answers: { "photo_release" => "Yes", "i_have_read_the_code_of_conduct" => true })
+        sign(@form, :b1, as: :b1)
+        assert @form.response_for(person(:b1)).complete?
+        assert_not BadgeAssignment.exists?(badge: @badge, person: person(:b1)), "no badges handed out while Badges are off"
+        assert_not FormAccess.new(person(:health_officer), person(:a1), @form).can_read?, "badge grants wait too"
+      end
+    end
+  end
+
   test "the profile Forms tab shows the person's forms to them, guardians, and leaders" do
     with_feature do
       as(:parent_a1) do
@@ -130,7 +168,7 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
 
     with_feature do
       as(:pack_leader) do
-        get edit_form_path(@form)
+        get edit_form_path(@form, tab: "audience")
         assert_response :success
         assert_select "#audience li", text: /Include Pack/
 
