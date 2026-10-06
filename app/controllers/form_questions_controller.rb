@@ -5,7 +5,8 @@ class FormQuestionsController < InternalController
 
   # GET /forms/1/questions/new
   def new
-    @question = authorize @form.form_questions.build(kind: params[:kind].presence_in(FormQuestion.kinds.keys) || "input", position: next_position)
+    kind = params[:kind].presence_in(%w[ input heading statement acknowledgment signature ]) || "input"
+    @question = authorize @form.form_questions.build(kind: kind, position: next_position, signer: kind == "signature" ? "guardian_if_minor" : nil)
   end
 
   # GET /forms/1/questions/1/edit
@@ -63,7 +64,7 @@ class FormQuestionsController < InternalController
 
     def question_params
       permitted = [ :kind, :label, :body, :required, :person_field_id, :profile_mode, :read_permission, :write_permission,
-        :choices_text, :min, :max, :pattern, :pattern_hint ]
+        :choices_text, :min, :max, :pattern, :pattern_hint, :signer ]
       permitted += [ :key ] if @question.nil? || @question.new_record?
       permitted += [ :data_type ] if @question.nil? || @question.new_record? || !answered?
       attributes = params.require(:form_question).permit(*permitted)

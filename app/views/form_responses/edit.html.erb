@@ -13,10 +13,20 @@
       </div>
     </div>
     <div class="card-body">
+      <% if @response.needs_reconfirmation? && based_on&.active? %>
+        <div class="alert alert-warning">
+          <% if @response.reconfirmation_reason == :form %>
+            This form changed after it was signed. Please review the answers and submit them again.
+          <% else %>
+            Profile details this form recorded have changed since it was signed (<%= @response.profile_changes.map(&:label).to_sentence %>). Please review and submit again.
+          <% end %>
+          <%= "It will need signing again." if @form.signature_questions.any? %>
+        </div>
+      <% end %>
       <% if @submission.pending? %>
         <div class="alert alert-warning">
-          Submitted, and waiting for answers to: <%= @submission.missing_questions.map(&:label).to_sentence %>.
-          Changing an answer returns it to a draft until it's submitted again.
+          Submitted, and waiting for <%= @submission.waiting_for.to_sentence %>.
+          Changing an answer returns it to a draft until it's submitted again<%= ", and any signatures already given are removed" if @submission.standing_signatures.any? %>.
         </div>
       <% elsif based_on&.active? %>
         <div class="alert alert-info">
@@ -41,9 +51,18 @@
           <% if question.body.present? %><div class="mb-3"><%= form_markdown(question.body) %></div><% end %>
         <% elsif question.statement? %>
           <div class="mb-3"><%= form_markdown(question.body) %></div>
+        <% elsif question.signature? %>
+          <div class="card mb-3 border-secondary-subtle" id="<%= dom_id question %>">
+            <div class="card-body">
+              <div class="fw-semibold"><%= i "signature" %> <%= question.label %></div>
+              <% if question.body.present? %><div class="mt-2"><%= form_markdown(question.body) %></div><% end %>
+              <div class="form-text">Signed after submitting, by <%= question.signer_description %>.</div>
+            </div>
+          </div>
         <% elsif question.answerable? && access.question_readable?(question) %>
           <% value = submitted.key?(question.key) ? submitted[question.key] : @submission.answer(question) %>
           <div id="<%= dom_id question %>">
+            <% if question.acknowledgment? && question.body.present? %><div class="mb-2"><%= form_markdown(question.body) %></div><% end %>
             <% if access.question_writable?(question) %>
               <%= form_question_input(f, question, value, error: @errors[question.key]) %>
             <% else %>

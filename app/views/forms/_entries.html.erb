@@ -1,13 +1,18 @@
 <div class="list-group mb-2">
   <% entries.each do |entry| %>
-    <% target = entry.to_do? ? edit_form_response_path(entry.form, entry.subject) : form_response_path(entry.form, entry.subject) %>
+    <% signing = entry.needs_viewer_signature? %>
+    <% target = entry.to_do? && !signing ? edit_form_response_path(entry.form, entry.subject) : form_response_path(entry.form, entry.subject) %>
     <%= link_to target, class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
       <span>
         <strong><%= entry.form.title %></strong>
         <% unless entry.subject == current_user.person %> for <%= entry.subject.identifier_name %><% end %>
         <br><small class="text-muted"><%= form_due(entry.form) %></small>
       </span>
-      <%= form_status_badge(entry.status) %>
+      <% if signing %>
+        <span class="badge text-bg-primary">Needs your signature</span>
+      <% else %>
+        <%= form_status_badge(entry.status) %>
+      <% end %>
     <% end %>
   <% end %>
 </div>

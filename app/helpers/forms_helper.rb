@@ -4,19 +4,45 @@ module FormsHelper
       response&.status || "not_started"
     end
 
+    # Something for the viewer to do: fill in, continue, update for a
+    # re-confirmation, or sign.
     def to_do?
-      form.open? && access.can_respond? && !%w[ complete waiting ].include?(status)
+      return needs_viewer_signature? if status == "waiting"
+      form.open? && access.in_audience? && access.can_respond? && status != "complete"
+    end
+
+    def needs_viewer_signature?
+      submission = response&.open_submission
+      submission&.pending? && submission.missing_signatures.any? { |question| access.can_sign?(question) }
+    end
+
+    # Waiting for an answer or signature from someone other than the viewer.
+    def waiting_on_others?
+      status == "waiting" && !needs_viewer_signature?
+    end
+  end
+
+  PersonFormSections = Struct.new(:to_do, :waiting, :complete, :earlier, keyword_init: true) do
+    def empty?
+      to_h.values.all?(&:empty?)
     end
   end
 
   STATUS_LABELS = {
     "not_started" => "Not started", "draft" => "In progress", "waiting" => "Waiting",
-    "complete" => "Complete", "needs_reconfirmation" => "Needs re-confirmation", "withdrawn" => "Withdrawn"
+    "complete" => "Complete", "needs_reconfirmation" => "Needs re-confirmation", "withdrawn" => "Withdrawn",
+    "no_longer_asked" => "No longer asked"
   }.freeze
 
   STATUS_CLASSES = {
     "not_started" => "text-bg-secondary", "draft" => "text-bg-info", "waiting" => "text-bg-warning",
-    "complete" => "text-bg-success", "needs_reconfirmation" => "text-bg-warning", "withdrawn" => "text-bg-dark"
+    "complete" => "text-bg-success", "needs_reconfirmation" => "text-bg-warning", "withdrawn" => "text-bg-dark",
+    "no_longer_asked" => "text-bg-light"
+  }.freeze
+
+  SIGNER_LABELS = {
+    "guardian_if_minor" => "A guardian, or the person themselves if they have no guardian",
+    "guardian" => "A guardian", "subject" => "The person themselves", "leader" => "A leader, recording a paper form"
   }.freeze
 
   SUBMISSION_STATUS_LABELS = {
@@ -45,6 +71,36 @@ module FormsHelper
 
   def forms_to_complete(person)
     form_entries_for(person).select(&:to_do?)
+  end
+
+  # Whether the viewer gets the Forms tab on someone's profile: themselves,
+  # a guardian, a leader of theirs, or an admin.
+  def person_forms_tab?(person, viewer = current_user.person)
+    return false unless GatherPack::Features.enabled?(:forms) && viewer
+    viewer.id == person.id || viewer.admin? || viewer.wards.where(id: person.id).exists? || viewer.can_manage(person)
+  end
+
+  # Every form about the person the viewer can see, in the profile tab's
+  # sections.
+  def person_form_entries(person, viewer)
+    responses = FormResponse.where(subject: person).includes(form_submissions: :form_signatures).index_by(&:form_id)
+    sections = PersonFormSections.new(to_do: [], waiting: [], complete: [], earlier: [])
+    Form.where.not(status: :draft).includes(:team, :form_badge_grants).order(:closes_at, :title).each do |form|
+      response = responses[form.id]
+      access = FormAccess.new(viewer, person, form, has_response: response.present?)
+      next unless access.can_read?
+      next if form.archived? && response.nil?
+
+      entry = Entry.new(form: form, subject: person, response: response, access: access)
+      section = if entry.needs_viewer_signature? then :to_do
+      elsif entry.status == "waiting" then :waiting
+      elsif !form.open? || !access.in_audience? then (response ? :earlier : nil)
+      elsif entry.status == "complete" then :complete
+      else :to_do
+      end
+      sections[section] << entry if section
+    end
+    sections
   end
 
   def form_status_badge(status)
@@ -112,7 +168,8 @@ module FormsHelper
   def form_question_input(form, question, value, error: nil)
     type = question.value_type
     name = "form_response[answers][#{question.key}]"
-    options = { label: question.label, hint: question.body.presence, required: question.required?,
+    # An acknowledgment's text is shown above its tick box instead.
+    options = { label: question.label, hint: (question.body.presence unless question.acknowledgment?), required: question.required?,
       input_html: { name: name, id: "form_question_#{question.key}" }, error: error }
     options[:wrapper_html] = { class: "is-invalid" } if error
 
@@ -144,14 +201,23 @@ module FormsHelper
     form.input question.key.to_sym, **options
   end
 
+  # "Jo Parent (guardian), Oct 3"
+  def form_signed_summary(submission)
+    submission.standing_signatures.sort_by(&:signed_at).map do |signature|
+      "#{signature.signer.identifier_name}#{" (paper)" if signature.signed_as_leader?}, #{nice_date(signature.signed_at)}"
+    end.join("; ")
+  end
+
   def form_results_csv(report, fields)
     require "csv"
     questions = report.questions
     CSV.generate do |csv|
-      csv << [ "Last name", "First name", "Status", "Version", "Submitted by", "Submitted at" ] + questions.map(&:label) + fields.map(&:name)
+      csv << [ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name)
       report.rows.each do |row|
         submission = row.submission
-        csv << [ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601 ] +
+        signatures = submission ? submission.standing_signatures.sort_by(&:signed_at) : []
+        csv << [ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
+          signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] +
           questions.map { |question| form_csv_value(report.answer(row, question)) } +
           fields.map { |field| form_csv_value(report.profile(row, field)) }
       end

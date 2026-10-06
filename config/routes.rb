@@ -56,9 +56,11 @@ Rails.application.routes.draw do
       post :archive
       post :duplicate
       post :remind
+      post :publish
       get :results
       get :tally
       get :preview
+      get :audience
     end
     resources :questions, controller: "form_questions", except: %i[index show] do
       member { patch :move }
@@ -68,9 +70,14 @@ Rails.application.routes.draw do
         post :submit
         post :discard
         post :withdraw
+        post :sign
       end
+      resources :submissions, controller: "form_submissions", only: %i[show]
     end
+    resources :audience_rules, controller: "form_audience_rules", only: %i[create destroy]
+    resources :badge_grants, controller: "form_badge_grants", only: %i[create destroy]
   end
+  get "people/:person_id/forms", to: "person_forms#show", as: :person_forms
 
   resources :people do
     resources :memberships, only: %i[index new create destroy]

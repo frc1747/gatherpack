@@ -9,12 +9,18 @@
 #   end
 class FormReport
   Row = Struct.new(:person, :response, :submission, :access) do
+    # People no longer asked keep their response, listed apart.
     def status
+      return "no_longer_asked" unless access.in_audience?
+      response_status
+    end
+
+    def response_status
       response&.status || "not_started"
     end
   end
 
-  STATUSES = %w[ not_started draft waiting complete needs_reconfirmation withdrawn ].freeze
+  STATUSES = %w[ not_started draft waiting complete needs_reconfirmation withdrawn no_longer_asked ].freeze
 
   attr_reader :form, :viewer, :version
 
@@ -36,11 +42,13 @@ class FormReport
   def rows
     @rows ||= begin
       list = people.to_a
-      responses = form.form_responses.where(subject_id: list.map(&:id)).includes(:form_submissions).index_by(&:subject_id)
+      asked = form.audience.where(id: list.map(&:id)).ids.to_set
+      responses = form.form_responses.where(subject_id: list.map(&:id)).includes(form_submissions: { form_signatures: :signer }).index_by(&:subject_id)
       list.map do |person|
         response = responses[person.id]
         submission = response && (version == :latest ? response.open_submission || response.active_submission : response.active_submission)
-        Row.new(person, response, submission, FormAccess.new(viewer, person, form, in_audience: true))
+        access = FormAccess.new(viewer, person, form, in_audience: asked.include?(person.id), has_response: response.present?)
+        Row.new(person, response, submission, access)
       end
     end
   end
@@ -71,8 +79,8 @@ class FormReport
   # An "updates profile" answer that no longer matches the profile.
   def changed_since_signed?(row, key)
     question = key.is_a?(FormQuestion) ? key : question(key)
-    return false unless question.update_profile? && row.submission&.active? && readable?(row, question)
-    row.submission.answer(question) != row.person.field_value(question.person_field)
+    return false unless row.submission && readable?(row, question)
+    row.submission.profile_changed?(question)
   end
 
   def status_counts
