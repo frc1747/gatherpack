@@ -64,6 +64,19 @@ class FormSubmissionTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], response.form_submissions.map(&:number)
   end
 
+  test "discarding the only draft leaves the response not started" do
+    response = @form.form_responses.create!(subject: person(:a1))
+    draft = response.start_submission!(person(:a1))
+    assert response.reload.draft?
+
+    draft.discard!(by: person(:a1))
+    assert response.reload.not_started?
+    assert_equal "not_started", FormReport.new(@form, viewer: person(:den_a_leader)).rows.detect { |row| row.person == person(:a1) }.status
+
+    response.start_submission!(person(:a1))
+    assert response.reload.draft?, "starting again is in progress"
+  end
+
   test "a required question someone else answers leaves the submission waiting" do
     notes = add_choice(@form, "Leader check", %w[ OK ], required: true, read_permission: "family", write_permission: "leaders")
     submission = respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 1" })
