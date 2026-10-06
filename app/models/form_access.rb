@@ -85,21 +85,44 @@ class FormAccess < AudienceAccess
     question.update_profile? ? field_access.writable?(question.person_field) : true
   end
 
-  # The role the viewer may sign this signature question in, or nil:
-  # :subject, :guardian, or :leader (recording a paper signature).
+  # Who may sign a signature question for this subject: :subject,
+  # :guardian, and/or :leader (recording a paper signature).
+  #
+  # guardian_if_minor goes by age: someone of age (the guardianship age
+  # limit, or 18 when none is set) signs for themselves, and an active
+  # guardian still may; for a known minor only a guardian signs. With no
+  # birthday on file, a guardian signs if there is one, otherwise the person.
+  def self.signer_roles(question, subject)
+    case question.signer
+    when "subject" then [ :subject ]
+    when "guardian" then [ :guardian ]
+    when "leader" then [ :leader ]
+    when "guardian_if_minor"
+      case of_age?(subject)
+      when true then [ :subject, :guardian ]
+      when false then [ :guardian ]
+      else subject.guardians.exists? ? [ :guardian ] : [ :subject ]
+      end
+    else []
+    end
+  end
+
+  # true, false, or nil when the birthday isn't known.
+  def self.of_age?(person)
+    return nil unless person.birthday
+    person.birthday <= Date.current - (Relationship.guardianship_age_limit || 18).years
+  end
+
+  # The role the viewer may sign this signature question in, or nil.
   def signing_role(question)
     return nil unless question.signature? && can_read?
 
-    case question.signer
-    when "subject" then :subject if self?
-    when "guardian" then :guardian if component?(:guardian)
-    when "guardian_if_minor"
-      if subject.guardians.exists?
-        :guardian if component?(:guardian)
-      elsif self?
-        :subject
+    self.class.signer_roles(question, subject).find do |role|
+      case role
+      when :subject then self?
+      when :guardian then component?(:guardian)
+      when :leader then subject_leader? && can_respond?
       end
-    when "leader" then :leader if subject_leader? && can_respond?
     end
   end
 
