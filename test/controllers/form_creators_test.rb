@@ -84,9 +84,16 @@ class FormCreatorsTest < ActionDispatch::IntegrationTest
         end
 
         post form_audience_rules_path(own), params: { form_audience_rule: { effect: "include", target_type: "team", team_id: @pack.id } }
-        assert own.form_audience_rules.exists?(team: @pack), "a team above their own is one they belong to"
-        post form_audience_rules_path(own), params: { form_audience_rule: { effect: "include", target_type: "team", team_id: @den_b.id } }
-        assert_not own.form_audience_rules.exists?(team: @den_b)
+        assert_not own.form_audience_rules.exists?(team: @pack), "with no highest team set, not the team above their own"
+
+        with_settings(forms_creator_highest_team: "Pack") do
+          post form_audience_rules_path(own), params: { form_audience_rule: { effect: "include", target_type: "team", team_id: @pack.id } }
+          assert own.form_audience_rules.exists?(team: @pack), "up to the highest team allowed"
+          post form_audience_rules_path(own), params: { form_audience_rule: { effect: "include", target_type: "team", team_id: @org.id } }
+          assert_not own.form_audience_rules.exists?(team: @org), "never above it"
+          post form_audience_rules_path(own), params: { form_audience_rule: { effect: "include", target_type: "team", team_id: @den_b.id } }
+          assert_not own.form_audience_rules.exists?(team: @den_b), "nor a team they don't belong to"
+        end
       end
     end
   end

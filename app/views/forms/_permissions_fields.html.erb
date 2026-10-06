@@ -8,3 +8,12 @@
           hint: "Must include everyone who can fill it in. Questions can be made more private." %>
   </div>
 </div>
+<% if f.object.persisted? %>
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :totals_visibility, label: "Who can see the totals", include_blank: false,
+            collection: { "Only people who can see the answers" => "answers", "Everyone asked, and their guardians" => "audience", "Everyone signed in" => "everyone" },
+            hint: "Totals are counts per choice (\"12 pizza, 4 sub\"), with no names. Shared totals leave out questions with their own privacy setting and questions linked to profile fields. With only a few answers, a total can still give away who chose what." %>
+    </div>
+  </div>
+<% end %>

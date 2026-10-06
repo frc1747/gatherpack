@@ -155,6 +155,14 @@ class FormsController < InternalController
   # With an event, the population can be the people who said they're coming
   # or the people who checked in.
   def tally
+    unless policy(@form).show?
+      # Shared totals only: everyone asked, no names, no filters.
+      @shared = true
+      @report = FormReport.new(@form, viewer: current_user.person, shared_totals: true)
+      @questions = @report.questions
+      return
+    end
+
     @teams = helpers.form_team_choices(@form)
     @team = @teams.detect { |team| team.id == params[:team_id] }
     @event = @form.event || policy_scope(Event).find_by(id: params[:event_id])
@@ -210,7 +218,7 @@ class FormsController < InternalController
 
     def form_params
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
-        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id ]
+        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id, :totals_visibility, :leader_todo ]
       # A completion badge marks people's status, so only admins set it.
       # Neither badge setting changes while Badges are turned off.
       badges = GatherPack::Features.enabled?(:badges)

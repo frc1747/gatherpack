@@ -15,8 +15,9 @@ class FormPolicy < ApplicationPolicy
     show?
   end
 
+  # Also people the form shares its totals with, without the answers.
   def tally?
-    show?
+    show? || record.totals_visible_to?(person)
   end
 
   # The order sheet page picks its form itself, among those the viewer can
@@ -30,7 +31,8 @@ class FormPolicy < ApplicationPolicy
   end
 
   # Team managers create forms for their teams. Form creators (the creator
-  # badge) create event forms for teams they belong to.
+  # badge) create event forms for teams they belong to, up to the highest
+  # team the settings allow.
   def create?
     return true if team_manager?
     Form.creator?(person) && record.event.present? && member_team_ids.include?(record.team_id)
@@ -76,9 +78,9 @@ class FormPolicy < ApplicationPolicy
     user.admin || (record.respond_to?(:team_id) && record.team_id.present? && person.all_managed_teams.where(id: record.team_id).exists?)
   end
 
-  # The teams someone belongs to: their own and the teams above them.
+  # The teams a form creator may use (Form.creator_team_ids).
   def member_team_ids
-    @member_team_ids ||= person.all_ancestor_teams.ids
+    @member_team_ids ||= Form.creator_team_ids(person)
   end
 
   def own_subject_ids
