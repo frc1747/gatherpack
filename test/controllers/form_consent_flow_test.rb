@@ -15,6 +15,7 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
     add_choice(@form, "Photo release", %w[ Yes No ], required: true)
     @form.form_questions.create!(kind: :acknowledgment, label: "I have read the code of conduct", required: true, write_permission: "self")
     @consent = add_signature(@form, "Parent consent", body: "I give permission.")
+    person(:b1).update!(birthday: 19.years.ago.to_date) # of age, so B1 signs for themselves
   end
 
   test "the student submits, the parent signs, and the badge is granted" do

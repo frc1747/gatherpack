@@ -112,6 +112,8 @@
     <% end %>
     <% if policy(@form).show? %>
       <%= link_to "All responses", form_path(@form), class: "btn btn-secondary" %>
+    <% elsif policy(@form).tally? %>
+      <%= link_to "See totals", tally_form_path(@form), class: "btn btn-secondary" %>
     <% end %>
   </div>
 </div>

@@ -28,6 +28,8 @@ class Form < ApplicationRecord
   enum :respond_permission, AudienceLevels::LEVEL_VALUES, prefix: :respond, validate: true
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: true
   enum :late_entry, { none: 0, leaders: 1 }, prefix: :late_entry, validate: true
+  # Who sees totals without seeing anyone's answers (see #totals_visible_to?).
+  enum :totals_visibility, { answers: 0, audience: 1, everyone: 2 }, prefix: :totals, validate: true
 
   validates :title, presence: true
   validates :key, presence: true, uniqueness: true, format: { with: KEY_FORMAT, message: "must start with a letter and use only lowercase letters, numbers, and underscores" }
@@ -83,6 +85,20 @@ class Form < ApplicationRecord
   def self.creator?(person)
     badge = creator_badge
     badge.present? && person.present? && BadgeAssignment.exists?(badge: badge, person: person)
+  end
+
+  # The teams a form creator may own forms for and ask: teams they belong
+  # to (their own and those above) at or below the forms_creator_highest_team
+  # setting, plus the teams below their own. With no setting, only their own
+  # teams and those below.
+  def self.creator_team_ids(person)
+    direct = person.teams.ids
+    below = direct + Team.where(id: direct).flat_map(&:all_descendant_ids)
+    cap = Team.find_by(name: Settings[:forms_creator_highest_team].to_s.strip)
+    return below.uniq unless cap
+
+    within = [ cap.id ] + cap.all_descendant_ids
+    ((person.all_ancestor_teams.ids + below) & within).uniq
   end
 
   # Whether this person runs the form as its creator (holding the creator
@@ -161,6 +177,27 @@ class Form < ApplicationRecord
 
   def intent_question
     form_questions.detect(&:intent?)
+  end
+
+  # Whether this person may see the form's totals even if they can't see
+  # anyone's answers: everyone asked (and their guardians), or everyone
+  # signed in, as the form allows. Never for a draft.
+  def totals_visible_to?(person)
+    return false if person.nil? || draft? || totals_answers?
+    return true if totals_everyone?
+
+    asked = audience
+    asked.where(id: person.id).exists? || asked.where(id: person.wards.select(:id)).exists?
+  end
+
+  # The questions whose totals can be shared that way: choice, yes/no, and
+  # intent questions with no privacy setting of their own and no link to a
+  # profile field.
+  def shared_totals_questions
+    answerable_questions.select do |question|
+      question.read_permission.nil? && !question.profile_backed? &&
+        (question.intent? || %w[ select multi_select boolean ].include?(question.value_type.data_type))
+    end
   end
 
   # A form asks nobody until it has an include rule.
