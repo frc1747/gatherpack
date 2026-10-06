@@ -69,6 +69,32 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a student sees parent-only items greyed out, without a to-do or a Submit button" do
+    form = create_world_form("Travel")
+    form.form_questions.create!(kind: :acknowledgment, label: "Dues are paid", body: "Examples include: checks", required: true, write_permission: "guardians")
+    add_signature(form, "Parent", signer: "guardian")
+    with_feature do
+      as(:a1) do
+        get edit_form_response_path(form, person(:a1))
+        assert_response :success
+        assert_select "input[type=checkbox][disabled]"
+        assert_match "for a parent or guardian to fill in", response.body
+        assert_select "input[type=submit][name=submit]", count: 0
+        get forms_path
+        assert_select "a[href=?]", edit_form_response_path(form, person(:a1)), count: 0
+        get person_forms_path(person(:a1))
+        assert_select "h2", text: "Waiting on someone else"
+      end
+      as(:parent_a1) do
+        get edit_form_response_path(form, person(:a1))
+        assert_select ".form-acknowledgment input[type=checkbox]:not([disabled])"
+        assert_select ".form-acknowledgment-detail", text: /Examples include/
+        patch form_response_path(form, person(:a1)), params: { submit: "1", form_response: { answers: { dues_are_paid: "0" } } }
+        assert_select ".invalid-feedback", text: "must be ticked"
+      end
+    end
+  end
+
   test "the profile Forms tab shows the person's forms to them, guardians, and leaders" do
     with_feature do
       as(:parent_a1) do

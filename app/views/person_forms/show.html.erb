@@ -60,7 +60,13 @@
                     · Version <%= active.number %>, submitted <%= nice_date(active.submitted_at) %><%= " by #{active.submitted_by.identifier_name}" if active.submitted_by %>
                     <% if (signed = active.standing_signatures.map { |signature| signature.signer&.identifier_name }.compact).any? %>· Signed by <%= signed.to_sentence %><% end %>
                   <% end %>
-                  <% if section == :waiting %>· Waiting for <%= response.open_submission.waiting_for.to_sentence %><% end %>
+                  <% if section == :waiting %>
+                    <% if response&.open_submission %>
+                      · Waiting for <%= response.open_submission.waiting_for.to_sentence %>
+                    <% else %>
+                      · For <%= form_left_for(entry) %> to fill in
+                    <% end %>
+                  <% end %>
                 </small>
               </span>
               <span>
