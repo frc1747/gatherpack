@@ -16,7 +16,9 @@
   <% team_ids = form.persisted? ? [ form.team_id ] + form.team.all_descendant_ids : policy(form).assignable_teams.ids %>
   <% events = Event.where(team_id: team_ids).where("start_time >= ?", 1.month.ago).order(:start_time).to_a %>
   <% events.unshift(form.event) if form.event && !events.include?(form.event) %>
-  <%= f.input :event_id, label: "Event", collection: events.map { |event| [ event.to_combobox_display, event.id ] }, include_blank: "None: not for a particular event",
+  <%# Form creators (the creator badge) only make event forms. %>
+  <% creator_only = form.persisted? ? policy(form).creator_only? : !(current_user.admin? || current_user.person.all_managed_teams.exists?) %>
+  <%= f.input :event_id, label: "Event", collection: events.map { |event| [ event.to_combobox_display, event.id ] }, include_blank: (creator_only ? false : "None: not for a particular event"),
         hint: "For a trip permission slip or a \"coming Saturday?\" form. The event page shows this form, and the deadline defaults to the event's start. Events of the owning team or a team below it.#{" A new event form asks the event's team." unless form.persisted?}" %>
 <% end %>
 

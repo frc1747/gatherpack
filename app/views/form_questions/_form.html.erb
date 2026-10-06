@@ -79,7 +79,8 @@
     </div>
     <%= f.input :body, as: :text, label: "Help text", required: false, input_html: { rows: 2 } %>
 
-    <div class="row">
+    <%# Forms run only by their creator can't link profile fields. %>
+    <div class="row" <%= "hidden" if policy(question.form).creator_only? %>>
       <div class="col-md-6">
         <%= f.input :person_field_id, label: "Profile field", collection: PersonField.in_use.ordered,
               include_blank: "None: the answer stays on this form",

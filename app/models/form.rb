@@ -65,10 +65,30 @@ class Form < ApplicationRecord
     "file-signature"
   end
 
-  # Badge rules, the badge filter, badge grants, and the completion badge
-  # all wait while Badges are turned off.
+  # Badge rules, the badge filter, badge grants, the completion badge, and
+  # the form creator badge all wait while Badges are turned off.
   def self.badges_enabled?
     GatherPack::Features.enabled?(:badges)
+  end
+
+  # The badge (setting forms_creator_badge, by name) whose holders may create
+  # event forms for their own teams and run the forms they created. Only an
+  # admin-assigned badge counts.
+  def self.creator_badge
+    name = Settings[:forms_creator_badge].to_s.strip
+    return nil if name.blank? || !badges_enabled?
+    Badge.added_by_admin.find_by("LOWER(name) = ?", name.downcase)
+  end
+
+  def self.creator?(person)
+    badge = creator_badge
+    badge.present? && person.present? && BadgeAssignment.exists?(badge: badge, person: person)
+  end
+
+  # Whether this person runs the form as its creator (holding the creator
+  # badge), which makes them a leader for its responses only.
+  def run_by_creator?(person)
+    person.present? && created_by_id == person.id && Form.creator?(person)
   end
 
   # Everyone the form asks: everyone an include rule covers, less everyone an
@@ -107,7 +127,7 @@ class Form < ApplicationRecord
   # agree with FormAccess#can_read? for every subject.
   def readable_subjects_for(viewer)
     return Person.none if viewer.nil?
-    return reachable_subjects if viewer.admin?
+    return reachable_subjects if viewer.admin? || run_by_creator?(viewer)
 
     covered = AudienceLevels.combine([ AudienceLevels.people(read_permission, viewer) ] + granted_people(viewer, form_badge_grants))
     covered.where(id: reachable_subjects.select(:id))
@@ -118,7 +138,7 @@ class Form < ApplicationRecord
   # answered for by their leaders.
   def respondable_subjects_for(viewer)
     return Person.none if viewer.nil?
-    return reachable_subjects if viewer.admin?
+    return reachable_subjects if viewer.admin? || run_by_creator?(viewer)
 
     level = AudienceLevels.people(respond_permission, viewer)
     grants = granted_people(viewer, form_badge_grants.select(&:respond?))
