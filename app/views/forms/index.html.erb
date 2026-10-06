@@ -1,0 +1,55 @@
+<% breadcrumb :forms %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>My Forms</h1>
+  </div>
+  <div class="card-body">
+    <% to_do, other = @entries.partition(&:to_do?) %>
+    <h2 class="h5">To do</h2>
+    <% if to_do.empty? %>
+      <p class="text-muted">Nothing to fill in right now.</p>
+    <% else %>
+      <%= render "entries", entries: to_do %>
+    <% end %>
+
+    <% if other.any? %>
+      <h2 class="h5 mt-4">Submitted and closed</h2>
+      <%= render "entries", entries: other %>
+    <% end %>
+  </div>
+</div>
+
+<% if policy(Form.new).new? %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <h2>Manage Forms</h2>
+    </div>
+    <div class="card-body">
+      <% if @managed.empty? %>
+        <p class="text-muted">No forms yet.</p>
+      <% else %>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead>
+              <tr><th>Form</th><th>Team</th><th>Status</th><th>Deadline</th></tr>
+            </thead>
+            <tbody>
+              <% @managed.each do |form| %>
+                <tr id="<%= dom_id form %>">
+                  <td><%= link_to form.title, form_path(form) %></td>
+                  <td><%= form.team.name %></td>
+                  <td><%= form_state_badge(form) %></td>
+                  <td><%= form.closes_at ? nice_datetime(form.closes_at) : "—" %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "New Form", new_form_path, class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>

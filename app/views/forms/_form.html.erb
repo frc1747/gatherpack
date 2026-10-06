@@ -1,0 +1,55 @@
+<% form = f.object %>
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs">
+  <div class="row">
+    <div class="col-md-8"><%= f.input :title %></div>
+    <div class="col-md-4">
+      <% if form.persisted? %>
+        <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages; can't be changed." %>
+      <% else %>
+        <%= f.input :key, required: false, hint: "Used by Hooks and Pages. Leave blank to generate it from the title." %>
+      <% end %>
+    </div>
+  </div>
+
+  <%= f.input :description, as: :text, input_html: { rows: 4 }, hint: "Shown at the top of the form. Markdown is supported." %>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :team_id, label: "Team", collection: policy(form).assignable_teams.order(:name), include_blank: false,
+            hint: "Everyone in this team or a team below it is asked to respond." %>
+    </div>
+    <div class="col-md-6">
+      <%= f.input :audience_badge_id, label: "Only people with this badge", collection: Badge.order(:name), include_blank: "Everyone in the team",
+            hint: "Optional. Narrows who is asked." %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :respond_permission, label: "Who can fill this in for someone", collection: form_level_options, include_blank: false,
+            hint: "Relative to the person the response is about." %>
+    </div>
+    <div class="col-md-6">
+      <%= f.input :read_permission, label: "Who can see someone's answers", collection: form_level_options, include_blank: false,
+            hint: "Must include everyone who can fill it in. Questions can be made more private." %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form opens itself at this time." %></div>
+    <div class="col-md-4"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form closes itself at this time." %></div>
+    <div class="col-md-4">
+      <%= f.input :kind, collection: { "General" => "general", "Consent" => "consent", "Event" => "event_intent" }, include_blank: false %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6"><%= f.input :allow_updates, label: "Allow updates after submitting", hint: "People can submit a new version while the form is open. Leaders always can." %></div>
+    <div class="col-md-6">
+      <%= f.input :late_entry, label: "After the deadline", collection: { "No more responses" => "none", "Leaders can still enter responses" => "leaders" }, include_blank: false %>
+    </div>
+  </div>
+</div>
