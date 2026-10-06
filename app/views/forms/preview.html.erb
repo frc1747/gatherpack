@@ -1,0 +1,53 @@
+<% breadcrumb :form_preview, @form %>
+
+<%= simple_form_for @preview, as: :preview, url: preview_form_path(@form), method: :get do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>Preview as…</h1>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">See which questions one person can see and answer on another person's response to <%= @form.title %>.</p>
+      <div class="row">
+        <div class="col-md-6"><%= f.input :viewer_id, as: :searching_combobox, scope: "people", label: "Viewer" %></div>
+        <div class="col-md-6"><%= f.input :subject_id, as: :searching_combobox, scope: "people", label: "Response for" %></div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= f.button :submit, "Preview", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
+
+<% if @access %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <h2><%= @viewer.identifier_name %> on <%= @subject.identifier_name %>'s response</h2>
+    </div>
+    <div class="card-body">
+      <% if !@access.in_audience? %>
+        <p class="text-muted"><%= @subject.identifier_name %> isn't asked to fill in this form.</p>
+      <% elsif !@access.can_read? %>
+        <p class="text-muted"><%= @viewer.identifier_name %> can't see this response.</p>
+      <% else %>
+        <p>
+          <%= @access.can_respond? ? "Can fill it in #{form_respondent_role(@access)}." : "Can see it but not fill it in." %>
+          <% if @access.can_respond? && !@access.can_submit? %>(Not right now: the form is <%= @form.status %>.)<% end %>
+        </p>
+        <table class="table table-striped">
+          <thead>
+            <tr><th>Question</th><th>Can see</th><th>Can answer</th></tr>
+          </thead>
+          <tbody>
+            <% @form.answerable_questions.each do |question| %>
+              <tr>
+                <td><%= question.label %><% if question.profile_backed? %> <small class="text-muted">(<%= question.person_field.name %>)</small><% end %></td>
+                <td><%= @access.question_readable?(question) ? "✓" : "—" %></td>
+                <td><%= @access.question_writable?(question) ? "✓" : "—" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+<% end %>

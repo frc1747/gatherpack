@@ -1,0 +1,74 @@
+<% breadcrumb :form_response, @response %>
+<% access = FormAccess.new(current_user.person, @subject, @form) %>
+<% response_policy = policy(@response) %>
+<% active = @response.active_submission %>
+<% open = @response.open_submission %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %>: <%= @subject.identifier_name %></h1>
+    <div>
+      <%= form_status_badge(@response.persisted? ? @response.status : "not_started") %>
+      <% if @response.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
+      <span class="text-muted ms-2"><%= form_due(@form) %></span>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if active %>
+      <h2 class="h5">Current answers <small class="text-muted">(version <%= active.number %>, submitted <%= nice_datetime(active.submitted_at) %> by <%= active.submitted_by&.identifier_name || "someone no longer here" %>)</small></h2>
+      <%= render "answers", submission: active, previous: nil, access: access %>
+    <% elsif open&.pending? %>
+      <p>Submitted <%= nice_datetime(open.submitted_at) %>, and waiting for answers to: <%= open.missing_questions.map(&:label).to_sentence %>.</p>
+    <% elsif open %>
+      <p class="text-muted">Started, not submitted yet.</p>
+    <% else %>
+      <p class="text-muted">No response yet.</p>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <% if open && response_policy.edit? %>
+      <%= link_to open.pending? ? "Review answers" : "Continue", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
+    <% elsif !active && response_policy.edit? %>
+      <%= link_to "Fill in", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
+    <% end %>
+    <% if open&.pending? && response_policy.submit? && open.ready? %>
+      <%= button_to "Submit", submit_form_response_path(@form, @subject), class: "btn btn-primary", form_class: "d-inline" %>
+    <% end %>
+    <% if response_policy.start_update? %>
+      <%= button_to "Update", start_update_form_response_path(@form, @subject), class: "btn btn-primary", form_class: "d-inline" %>
+    <% end %>
+    <% if response_policy.withdraw? %>
+      <%= button_to "Withdraw", withdraw_form_response_path(@form, @subject), class: "btn btn-outline-danger", form_class: "d-inline",
+            data: { turbo_confirm: "Withdraw this response? It stops counting as complete. Profile details it updated stay as they are." } %>
+    <% end %>
+    <% if policy(@form).show? %>
+      <%= link_to "All responses", form_path(@form), class: "btn btn-secondary" %>
+    <% end %>
+  </div>
+</div>
+
+<% shown = @submissions.reject(&:discarded?) %>
+<% if shown.size > (active ? 1 : 0) %>
+  <div class="card mt-3">
+    <div class="card-header"><h2>History</h2></div>
+    <div class="card-body">
+      <% by_id = @submissions.index_by(&:id) %>
+      <% shown.each do |submission| %>
+        <div class="mb-4" id="<%= dom_id submission %>">
+          <h3 class="h6">
+            Version <%= submission.number %>
+            <span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(submission.status) %></span>
+            <small class="text-muted">
+              <% if submission.submitted_at %>
+                submitted <%= nice_datetime(submission.submitted_at) %> by <%= submission.submitted_by&.identifier_name || "someone no longer here" %><%= " (entered late)" if submission.entered_late? %>
+              <% else %>
+                started <%= nice_datetime(submission.created_at) %> by <%= submission.created_by&.identifier_name || "someone no longer here" %>
+              <% end %>
+            </small>
+          </h3>
+          <%= render "answers", submission: submission, previous: by_id[submission.based_on_id], access: access %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

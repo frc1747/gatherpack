@@ -1,0 +1,16 @@
+<% breadcrumb :form_question, @question %>
+
+<%= simple_form_for(@question, url: @question.persisted? ? form_question_path(@form, @question) : form_questions_path(@form)) do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1><%= @question.persisted? ? "Editing" : "New" %> <%= { "heading" => "heading", "statement" => "text" }.fetch(@question.kind, "question") %> on <%= @form.title %></h1>
+    </div>
+    <div class="card-body">
+      <%= render "form", f: f %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", edit_form_path(@form, anchor: "questions"), class: "btn btn-warning" %>
+      <%= f.button :submit, "Save", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
