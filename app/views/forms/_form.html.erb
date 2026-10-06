@@ -39,11 +39,8 @@
   </div>
 
   <div class="row">
-    <div class="col-md-4"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form opens itself at this time." %></div>
-    <div class="col-md-4"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form closes itself at this time." %></div>
-    <div class="col-md-4">
-      <%= f.input :kind, collection: { "General" => "general", "Consent" => "consent", "Event" => "event_intent" }, include_blank: false %>
-    </div>
+    <div class="col-md-6"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form opens itself at this time." %></div>
+    <div class="col-md-6"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form closes itself at this time." %></div>
   </div>
 
   <div class="row">

@@ -145,7 +145,7 @@ class FormsController < InternalController
     end
 
     def form_params
-      permitted = [ :title, :description, :team_id, :audience_badge_id, :kind, :respond_permission, :read_permission,
+      permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
         :opens_at, :closes_at, :allow_updates, :late_entry ]
       permitted << :key if @form.nil? || @form.new_record?
       params.require(:form).permit(*permitted)
