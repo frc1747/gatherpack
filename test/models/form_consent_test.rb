@@ -48,6 +48,28 @@ class FormConsentTest < ActiveSupport::TestCase
     assert_nil submission.sign!(@consent, signer: person(:parent_a1), typed_name: "  parenta1   WORLD ", access: access)
   end
 
+  test "guardian_if_minor goes by age when the birthday is known" do
+    respond(@form, :a1, as: :a1, answers: { "photo_release" => "Yes" })
+    a1 = FormAccess.new(person(:a1), person(:a1), @form)
+    parent = FormAccess.new(person(:parent_a1), person(:a1), @form)
+
+    person(:a1).update!(birthday: 17.years.ago.to_date)
+    assert_not a1.can_sign?(@consent), "a minor doesn't sign for themselves"
+    assert parent.can_sign?(@consent)
+
+    person(:a1).update!(birthday: 18.years.ago.to_date)
+    assert_equal :subject, FormAccess.new(person(:a1), person(:a1), @form).signing_role(@consent), "of age, even with a guardian linked"
+    assert_equal :guardian, FormAccess.new(person(:parent_a1), person(:a1), @form).signing_role(@consent), "a guardian still may"
+
+    with_settings(guardianship_age_limit: "21") do
+      assert_not FormAccess.new(person(:a1), person(:a1), @form).can_sign?(@consent), "the guardianship age limit sets the age"
+    end
+
+    person(:b1).update!(birthday: 15.years.ago.to_date)
+    assert_not FormAccess.new(person(:b1), person(:b1), @form).can_sign?(@consent), "a minor with no guardian linked waits for one"
+    assert sign(@form, :a1, as: :a1).active?
+  end
+
   test "someone with no guardian signs for themselves" do
     respond(@form, :b1, as: :b1, answers: { "photo_release" => "No" })
     assert sign(@form, :b1, as: :b1).active?

@@ -38,14 +38,7 @@ class FormReminderSender
     submission = form.response_for(subject)&.open_submission
     return [] unless submission&.pending?
 
-    submission.missing_signatures.flat_map do |question|
-      case question.signer
-      when "subject" then [ :subject ]
-      when "guardian" then [ :guardian ]
-      when "guardian_if_minor" then subject.guardians.exists? ? [ :guardian ] : [ :subject ]
-      else []
-      end
-    end.uniq
+    submission.missing_signatures.flat_map { |question| FormAccess.signer_roles(question, subject) - [ :leader ] }.uniq
   end
 
   def email_subject
