@@ -11,8 +11,8 @@ class FormResponse < ApplicationRecord
   has_many :form_submissions, -> { order(:number) }, dependent: :destroy, inverse_of: :form_response
 
   # A cached summary, recomputed by #sync_status!. "Not started" is the
-  # absence of a response.
-  enum :status, { draft: 0, waiting: 1, complete: 2, needs_reconfirmation: 3, withdrawn: 4 }, validate: true
+  # absence of a response, or a response whose every version was discarded.
+  enum :status, { draft: 0, waiting: 1, complete: 2, needs_reconfirmation: 3, withdrawn: 4, not_started: 5 }, validate: true
 
   validates :subject_id, uniqueness: { scope: :form_id }
 
@@ -104,8 +104,10 @@ class FormResponse < ApplicationRecord
       :waiting
     elsif open_submission.nil? && form_submissions.any?(&:withdrawn?)
       :withdrawn
-    else
+    elsif open_submission
       :draft
+    else
+      :not_started
     end
   end
 
