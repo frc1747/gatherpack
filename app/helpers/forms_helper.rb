@@ -82,6 +82,17 @@ module FormsHelper
     end
   end
 
+  # Where clicking an entry goes: straight to the form when there's
+  # something to fill in, otherwise the response page (to sign, or to see
+  # what was submitted).
+  def form_entry_path(entry)
+    if entry.to_do? && !entry.needs_viewer_signature?
+      edit_form_response_path(entry.form, entry.subject)
+    else
+      form_response_path(entry.form, entry.subject)
+    end
+  end
+
   def forms_to_complete(person)
     form_entries_for(person).select(&:to_do?)
   end
