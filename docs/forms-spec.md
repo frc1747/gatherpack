@@ -2,9 +2,10 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-05 (rev. 2: every answer is kept on the form; responses are a
-history of submissions with one active, signed version; questions choose how
-they relate to the profile)
+Date: 2026-10-05 (rev. 3: audiences are built from rules (teams, badges,
+people, exclusions) instead of one team; a Forms tab on each profile. Rev. 2:
+every answer is kept on the form; responses are a history of submissions with
+one active, signed version; questions choose how they relate to the profile)
 
 ## 1. Goal
 
@@ -128,9 +129,9 @@ Terms used below:
 | `title` | string, required | |
 | `key` | string, required, unique, `\A[a-z][a-z0-9_]*\z` | Stable name for reports, hooks, and Pages (`meal_choices_2027`). Generated from the title, immutable after create |
 | `description` | text | Markdown, shown at the top (Redcarpet, as announcements) |
-| `team_id` | uuid, FK, required | Owning team. **Audience** is people with a direct membership in this team or a descendant (`team.descendant_people`) |
-| `audience_badge_id` | uuid, FK, nullable | Narrows the audience to holders of this badge |
-| `event_id` | uuid, FK, nullable | An event form (§10). The event's team must be the form's team or inside it |
+| `team_id` | uuid, FK, required | **Owning team**: its managers (and those of teams above it) manage the form (§5.4). It is not the audience; that comes from the audience rules (§3.9) |
+| `audience_badge_id` | uuid, FK, nullable | Optional filter applied after the rules: only people holding this badge are asked (for example "2027 Season Rookie") |
+| `event_id` | uuid, FK, nullable | An event form (§10). The event's team must be the owning team or inside it |
 | `kind` | integer enum | `general: 0, consent: 1, event_intent: 2`. Presentation and defaults only |
 | `respond_permission` | integer enum (`LEVEL_VALUES`) | Who may fill in and submit for a subject. Default `family` |
 | `read_permission` | integer enum (`LEVEL_VALUES`) | Who may see a subject's response. Default `family` |
@@ -145,9 +146,9 @@ Terms used below:
 
 Validations: `respond_permission` ⊆ `read_permission` (as person fields);
 `closes_at > opens_at`; the completion badge is `added_by_admin?`, and if it
-has a team, that team contains the form's team (otherwise some of the
-audience could never hold it, since `BadgeAssignment#team_membership`
-refuses).
+has a team, that team contains every team the audience rules include
+(otherwise some of the audience could never hold it, since
+`BadgeAssignment#team_membership` refuses).
 
 ### 3.2 `form_questions`, prefix `frmq`
 
@@ -260,6 +261,63 @@ Coordinator" enters paper permission slips.
 log of Remind presses (§11.1), so leaders can see when the last nudge went
 out.
 
+### 3.9 `form_audience_rules`, prefix `frmar`
+
+Who a form asks. Forms are not assigned person by person: the audience is
+computed from these rules every time it's needed, so someone who joins a
+team later is asked automatically, and someone who leaves stops being asked.
+A rule can still name one person, for the cases that need it.
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_id` | uuid, FK, required | |
+| `effect` | integer enum | `include: 0, exclude: 1` |
+| `target_type` | integer enum | `team: 0, badge: 1, person: 2` |
+| `team_id`, `badge_id`, `person_id` | uuid, FK | Exactly the one matching `target_type` |
+| `include_managers` | boolean, default true | Team rules only. False leaves out people whose only membership in that team's subtree is as a manager, so leaders aren't asked to fill in a student form |
+| | | Unique index on `(form_id, effect, target_type, team_id, badge_id, person_id)` |
+
+What each target covers:
+
+| Target | People |
+|---|---|
+| Team | Direct members of the team or any team below it (`team.descendant_people`), less its managers when `include_managers` is false |
+| Badge | Holders of the badge (a team badge only reaches that team, as now) |
+| Person | That person |
+
+**The audience** is everyone covered by an include rule, minus everyone
+covered by an exclude rule, then narrowed to holders of `audience_badge_id`
+if it's set. One relation, built in SQL (`Form#audience`); `FormAccess` and
+the list form both use it, and the consistency test covers it.
+
+Examples:
+
+- Meal choices: include "Team 1747 - Students", include "Mentors". One form,
+  so the data is in one place (Appendix A.1).
+- Student consent: include "Team 1747 - Students" with managers left out.
+- Rookies only: include the Students team, audience badge "2027 Season
+  Rookie".
+- A one-off: include three named people.
+- Everyone but the seniors: include Students, exclude "Class of 2027".
+
+Rules:
+
+- A form needs at least one include rule to open. The builder shows a live
+  count ("Asks 58 people", with the list).
+- Non-admins can only target what they manage: teams within their managed
+  teams, badges scoped to those teams, and people in `all_managed_people`.
+  Admins can target anything. Changing rules on an open form is allowed and
+  is audited.
+- **Leaving the audience keeps the answers.** A person with a response who is
+  no longer covered (they left the team, or a rule changed) keeps their
+  response, readable at the same levels. Results list them as "No longer
+  asked"; they are not reminded, not counted as "Not started", and not shown
+  in anyone's to-do. They can't start new submissions unless they're added
+  back. A leader can still enter a late or corrected response for them.
+- **Upgrade from phase 1:** a migration creates one include rule (managers
+  included) for each existing form's `team_id`, so every existing form keeps
+  exactly the audience it had.
+
 ---
 
 ## 4. Lifecycle of a response
@@ -361,7 +419,10 @@ person-fields access message ("Only leaders can change this").
 
 ### 5.3 Evaluator
 
-`FormAccess.new(viewer, subject, form)`, a subclass of `AudienceAccess`:
+`FormAccess.new(viewer, subject, form)`, a subclass of `AudienceAccess`.
+"In the audience" means covered by the audience rules (§3.9); reading also
+works for a former member who has a response.
+
 
 ```ruby
 can_respond?               # respond level component or a respond badge grant
@@ -400,7 +461,9 @@ entries (they work from the results page). Shown:
 
 - On the dashboard, as a card ("3 forms to complete · Meal Choices for Avery,
   due Oct 12 · Consent for Jordan: needs your signature").
-- At `/forms` ("My forms"): To do, Submitted, Closed.
+- At `/forms` ("My forms"): To do, Submitted, Closed, across the person and
+  their wards.
+- On each person's profile, in a Forms tab (§6.5).
 - In the weekly digest (§11.2).
 
 ### 6.2 The fill page
@@ -437,6 +500,31 @@ example, guardianship ended in between), the key is recorded in
 `profile_skipped`, the profile is left alone, and the response shows "Not
 copied to profile: Dietary Restrictions". The `person_fields - value changed`
 hook fires for each field written, as for any other profile edit.
+
+### 6.5 The profile Forms tab
+
+Each profile (`people/show` and its tabs: Overview, Teams, Relationships,
+Recent Activity, Calendar, Statistics) gets a **Forms** tab at
+`/people/:person_id/forms`, about that one person:
+
+| Section | What's in it |
+|---|---|
+| To do | Open forms that ask this person and aren't complete: Not started, In progress, Needs re-confirmation. Each with its deadline and a Fill in / Continue / Review button for viewers who can respond |
+| Waiting on someone else | Submitted but waiting for an answer or signature someone else must give, and who that is ("Waiting for: parent signature") |
+| Complete | Forms with an active version: version number, submitted on and by, signed by, and a link to the response and its history. "Update in progress" when there is one |
+| Closed and earlier | Closed and archived forms they responded to, and forms they're no longer asked (§3.9) |
+
+- **Who sees the tab:** it shows when Forms is on and the viewer is the
+  person, a guardian, a leader of theirs, or an admin. Each row shows only if
+  the viewer can read that form's response for this person (`FormAccess`),
+  so a teammate never sees someone else's answers; a viewer with nothing
+  readable sees "No forms to show".
+- **Guardians:** a parent opening their child's profile sees the child's
+  forms and can fill them in from there, the same as from "My forms".
+- **Leaders:** the quickest way to answer "what does Avery still owe us?"
+  without opening each form.
+- The tab replaces the "Forms on file" section once planned for the Overview
+  (§9.6).
 
 ---
 
@@ -616,9 +704,8 @@ editor shows that note when the feature is on.
 
 ### 9.6 On the profile
 
-A **Forms on file** section on `people/show` lists forms with an active
-submission the viewer can read: form, status, signed on and by, and a link
-to the response. Phase 2 (it edits an upstream view; see §14.2).
+The profile's Forms tab (§6.5) lists every form for that person the viewer
+can read, with its status, active version, and who submitted and signed it.
 
 ---
 
@@ -706,7 +793,11 @@ edit) for leaders and admins.
 
 ### 12.2 Form builder
 
-- Settings: title, key, description, team, audience badge, event, kind,
+- **Who is asked**: the audience rules (§3.9) as a list ("Include Team 1747 -
+  Students (members only)", "Include Mentors", "Exclude Class of 2027"), with
+  Add team / badge / person and a live count with the list of names. The
+  audience badge filter sits under it.
+- Settings: title, key, description, owning team, event, kind,
   respond and read levels (the same selects and audience explanations as the
   person field form), badge grants, dates, allow updates, late entry,
   re-confirm on profile change, completion badge.
@@ -732,7 +823,12 @@ resources :forms do
     resources :submissions, controller: "form_submissions", only: [ :show ]
   end
   resources :badge_grants, controller: "form_badge_grants", only: [ :create, :update, :destroy ]
+  resources :audience_rules, controller: "form_audience_rules", only: [ :create, :update, :destroy ]
+  member { get :audience }  # the live list behind "Asks 58 people"
 end
+
+# The profile Forms tab (§6.5), a new controller so PeopleController is untouched.
+get "people/:person_id/forms", to: "person_forms#index", as: :person_forms
 ```
 
 ---
@@ -757,6 +853,7 @@ end
 | `form_submissions` | Core data, as `checkin_field_responses` and `person_field_values` |
 | `form_signatures` | Consent is what integrations care about most; create and revoke (update) |
 | `form_badge_grants` | Changes who can see responses, as `person_field_badge_grants` |
+| `form_audience_rules` | Changes who is asked, the same vein as `memberships` (an integration might announce a form to newly included people) |
 
 **Not hooked:** `form_questions` (structure; Publish shows up as
 `forms - update`) and `form_reminders` (a log).
@@ -809,7 +906,7 @@ Almost everything is new files. Expected edits to existing upstream files:
 | `app/models/hook.rb` | Catalog entries | A catalog registration API |
 | `app/views/welcome/dashboard.html.erb`, `app/controllers/welcome_controller.rb` | Forms to complete card | **Dashboard card registry** on `GatherPack::Feature` |
 | `app/views/events/show.html.erb` | Event forms panel | **Event panel slot** |
-| `app/views/people/show.html.erb` | Forms on file (§9.6) | **Profile section slot** (already touched by person-fields) |
+| `app/views/people/_show_shared.html.erb` | The Forms tab (§6.5): one `<li>` | **Profile tab registry** on `GatherPack::Feature` |
 | `app/models/infodump.rb` | Digest section | **Digest section registry** |
 | `app/views/pages/_form.html.erb` | `FormReport` note (§9.5) | Optional; can be documentation instead |
 | `config/initializers/filter_parameter_logging.rb` | Answers | (already touched) |
@@ -830,8 +927,8 @@ Seven `create_table` migrations, reversible, primary DB only (run
 | Phase | Scope | Replaces |
 |---|---|---|
 | **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
-| **1: Core** | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
-| **2: Consent** | acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, Forms on file, the completed/incomplete hooks | Paper consent forms |
+| **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
+| **2: Audiences, profile tab, and consent** | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
 | **3: Events** | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
 | **4: Later** | automatic reminders, digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link | |
 
@@ -855,9 +952,11 @@ Seven `create_table` migrations, reversible, primary DB only (run
 
 ### A.1 2026-27 Meal Choices (season form)
 
-- Key `meal_choices_2027`. Team: Students. Kind: general. Respond: `family`.
-  Read: `family`, plus a read grant for a "Meal Coordinator" badge. Closes
-  Oct 12. Allow updates: yes.
+- Key `meal_choices_2027`. Owning team: the root team. Audience: include
+  "Team 1747 - Students", include "Mentors": one form, so students' and
+  mentors' orders are in one place. Kind: general. Respond: `family`. Read:
+  `family`, plus a read grant for a "Meal Coordinator" badge. Allow updates:
+  yes.
 - Questions:
   - heading "5 Guys"; select "5 Guys" (Cheeseburger, Grilled Cheese, Hot
     Dog, …)
@@ -881,8 +980,8 @@ Seven `create_table` migrations, reversible, primary DB only (run
 
 ### A.2 2027 Parent Consent (consent form)
 
-- Key `parent_consent_2027`. Team: root team, audience badge "Student".
-  Kind: consent. Respond and read: `family`. Completion badge "2027 Parent
+- Key `parent_consent_2027`. Audience: include "Team 1747 - Students" with
+  managers left out. Kind: consent. Respond and read: `family`. Completion badge "2027 Parent
   Consent Signed". Re-confirm on profile change: yes.
 - Questions: statement (the release text); Emergency Contact (a custom
   person field) and Phone, **updates profile**; Dietary Restrictions,
