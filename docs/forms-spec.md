@@ -953,8 +953,13 @@ Seven `create_table` migrations, reversible, primary DB only (run
 ### A.1 2026-27 Meal Choices (season form)
 
 - Key `meal_choices_2027`. Owning team: the root team. Audience: include
-  "Team 1747 - Students", include "Mentors": one form, so students' and
-  mentors' orders are in one place. Kind: general. Respond: `family`. Read:
+  "Team 1747 - Students", include "Mentors", include "Parent Board" (a team
+  in the hierarchy, to be created): one form, so everyone who eats team
+  meals has their order in one place, and the rest of the Parents team isn't
+  asked. (On Ditto the phase 1 form sits on the root team, which also asks
+  every parent; harmless for preferences, because orders come from the
+  order sheet's expected or checked-in people, §9.4, not from everyone who
+  answered.) Kind: general. Respond: `family`. Read:
   `family`, plus a read grant for a "Meal Coordinator" badge. Allow updates:
   yes.
 - Questions:
