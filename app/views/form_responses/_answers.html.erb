@@ -1,0 +1,16 @@
+<% access ||= FormAccess.new(current_user.person, submission.subject, submission.form) %>
+<dl class="row mb-0">
+  <% submission.form.answerable_questions.each do |question| %>
+    <% next unless access.question_readable?(question) %>
+    <dt class="col-sm-4"><%= question.label %></dt>
+    <dd class="col-sm-8">
+      <%= form_answer_display(question, submission.answer(question)) %>
+      <% if previous && previous.answers[question.key] != submission.answers[question.key] %>
+        <span class="badge text-bg-light" title="Was: <%= form_csv_value(previous.answer(question)) %>">changed</span>
+      <% end %>
+      <% if submission.profile_skipped.include?(question.key) %>
+        <span class="badge text-bg-warning">Not copied to profile</span>
+      <% end %>
+    </dd>
+  <% end %>
+</dl>

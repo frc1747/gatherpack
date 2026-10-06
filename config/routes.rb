@@ -49,6 +49,29 @@ Rails.application.routes.draw do
   resources :person_field_groups do
     member { patch :move }
   end
+  resources :forms do
+    member do
+      post :open
+      post :close
+      post :archive
+      post :duplicate
+      post :remind
+      get :results
+      get :tally
+      get :preview
+    end
+    resources :questions, controller: "form_questions", except: %i[index show] do
+      member { patch :move }
+    end
+    resources :responses, controller: "form_responses", param: :subject_id, only: %i[show edit update] do
+      member do
+        post :submit
+        post :start_update
+        post :discard
+        post :withdraw
+      end
+    end
+  end
 
   resources :people do
     resources :memberships, only: %i[index new create destroy]
