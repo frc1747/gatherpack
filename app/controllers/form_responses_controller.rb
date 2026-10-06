@@ -60,7 +60,8 @@ class FormResponsesController < InternalController
   def discard
     authorize @response
     @response.open_submission.discard!(by: current_person)
-    redirect_to form_response_path(@form, @subject), notice: "The unsubmitted update was discarded. The submitted answers are unchanged.", status: :see_other
+    notice = @response.active_submission ? "The unsubmitted update was discarded. The submitted answers are unchanged." : "The draft was discarded."
+    redirect_to form_response_path(@form, @subject), notice: notice, status: :see_other
   end
 
   # POST /forms/1/responses/:subject_id/withdraw
