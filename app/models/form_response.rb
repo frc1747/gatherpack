@@ -111,10 +111,12 @@ class FormResponse < ApplicationRecord
     end
   end
 
-  # A badge the subject can't hold (outside its team) is left off.
+  # A badge the subject can't hold (outside its team) is left off. Nothing
+  # changes while Badges are turned off; the next sync after they're back
+  # catches up.
   def sync_completion_badge!
     badge = form.completion_badge
-    return unless badge
+    return unless badge && Form.badges_enabled?
 
     assignment = BadgeAssignment.find_by(badge: badge, person: subject)
     if complete? && assignment.nil?

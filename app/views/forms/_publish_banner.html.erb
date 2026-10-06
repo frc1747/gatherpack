@@ -1,0 +1,14 @@
+<% if @form.unpublished_changes? %>
+  <div class="alert alert-warning">
+    <h2 class="h5">This form has changed since people responded</h2>
+    <p>
+      New responses use the changed form (version <%= @form.content_version %>). Unsubmitted drafts were moved to it, and any waiting for signatures need signing again.
+      What about responses already submitted on an earlier version?
+    </p>
+    <%= button_to "Keep them complete", publish_form_path(@form, reconfirm: "0"), class: "btn btn-secondary", form_class: "d-inline",
+          title: "For small fixes, such as typos" %>
+    <%= button_to "Ask them to review and sign again", publish_form_path(@form, reconfirm: "1"), class: "btn btn-warning", form_class: "d-inline",
+          data: { turbo_confirm: "Every response on an earlier version will need re-confirmation#{" and lose the #{@form.completion_badge.name} badge until it's signed again" if @form.completion_badge}. Their answers stay in effect meanwhile. Continue?" } %>
+  </div>
+<% end %>
+

@@ -844,6 +844,20 @@ edit) for leaders and admins.
 
 ### 12.2 Form builder
 
+Built (rev. 5) as tabs on the edit page (`/forms/:id/edit?tab=`), grouped by
+what the settings are about: **Details** (title, key, description, owning
+team), **Questions**, **Who is asked** (audience rules, badge filter),
+**Permissions** (who can fill in and see, access through badges), and
+**Responses** (opens, deadline, updates, late entry, asking again on
+profile changes, completion badge). Phase 3's event attachment adds to
+Details or gets its own tab.
+
+While the Badges feature is off, every badge setting is hidden and ignored:
+badge rules and the badge filter don't narrow the audience, badge grants give
+no access, and completion badges are neither given nor removed (the next
+status sync after Badges return catches up). The edit page says which badge
+settings a form has that are being ignored.
+
 - **Who is asked**: the audience rules (§3.9) as a list ("Include Team 1747 -
   Students (members only)", "Include Mentors", "Exclude Class of 2027"), with
   Add team / badge / person and a live count with the list of names. The
