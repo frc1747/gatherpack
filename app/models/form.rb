@@ -48,7 +48,7 @@ class Form < ApplicationRecord
   # Opens and closes forms whose dates have passed. Run by FormScheduleJob.
   # A form with no include rule asks nobody, so it stays a draft.
   def self.apply_schedule!
-    due_to_open.find_each(&:open!)
+    due_to_open.find_each { |form| form.open! if form.openable? }
     due_to_close.find_each(&:closed!)
   end
 
@@ -60,18 +60,26 @@ class Form < ApplicationRecord
     "file-signature"
   end
 
+  # Badge rules, the badge filter, badge grants, and the completion badge
+  # all wait while Badges are turned off.
+  def self.badges_enabled?
+    GatherPack::Features.enabled?(:badges)
+  end
+
   # Everyone the form asks: everyone an include rule covers, less everyone an
   # exclude rule covers, narrowed to holders of the audience badge when one
   # is set.
   def audience
+    badges = Form.badges_enabled?
     rules = form_audience_rules.to_a
+    rules = rules.reject(&:target_badge?) unless badges
     included = rules.select(&:effect_include?)
     return Person.none if included.empty?
 
     people = AudienceLevels.combine(included.map(&:people))
     excluded = rules.select(&:effect_exclude?)
     people = people.where.not(id: AudienceLevels.combine(excluded.map(&:people)).select(:id)) if excluded.any?
-    people = people.where(id: BadgeAssignment.where(badge_id: audience_badge_id).select(:person_id)) if audience_badge_id
+    people = people.where(id: BadgeAssignment.where(badge_id: audience_badge_id).select(:person_id)) if audience_badge_id && badges
     people
   end
 
@@ -128,7 +136,7 @@ class Form < ApplicationRecord
 
   # A form asks nobody until it has an include rule.
   def openable?
-    form_audience_rules.any?(&:effect_include?)
+    form_audience_rules.any? { |rule| rule.effect_include? && (!rule.target_badge? || Form.badges_enabled?) }
   end
 
   # Whether anyone has submitted answers to this form.
@@ -196,6 +204,8 @@ class Form < ApplicationRecord
 
   # The people covered by the grants whose badges the viewer holds.
   def granted_people(viewer, grants)
+    return [] unless Form.badges_enabled?
+
     badge_ids = viewer.badge_ids
     grants.select { |grant| badge_ids.include?(grant.badge_id) }.map(&:covered_people)
   end

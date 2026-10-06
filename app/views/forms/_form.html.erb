@@ -1,71 +1,7 @@
-<% form = f.object %>
 <%= f.error_notification %>
 <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
 <div class="form-inputs">
-  <div class="row">
-    <div class="col-md-8"><%= f.input :title %></div>
-    <div class="col-md-4">
-      <% if form.persisted? %>
-        <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages; can't be changed." %>
-      <% else %>
-        <%= f.input :key, required: false, hint: "Used by Hooks and Pages. Leave blank to generate it from the title." %>
-      <% end %>
-    </div>
-  </div>
-
-  <%= f.input :description, as: :text, input_html: { rows: 4 }, hint: "Shown at the top of the form. Markdown is supported." %>
-
-  <div class="row">
-    <div class="col-md-6">
-      <%= f.input :team_id, label: "Owning team", collection: policy(form).assignable_teams.order(:name), include_blank: false,
-            hint: form.persisted? ? "Its managers, and those of teams above it, manage this form. Who is asked is set below." : "Its managers, and those of teams above it, manage this form. The form starts by asking everyone in it; you can change who is asked next." %>
-    </div>
-    <div class="col-md-6">
-      <%= f.input :audience_badge_id, label: "Only people with this badge", collection: Badge.order(:name), include_blank: "Everyone the rules include",
-            hint: "Optional. Narrows who is asked, after the rules." %>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="col-md-6">
-      <%= f.input :respond_permission, label: "Who can fill this in for someone", collection: form_level_options, include_blank: false,
-            hint: "Relative to the person the response is about." %>
-    </div>
-    <div class="col-md-6">
-      <%= f.input :read_permission, label: "Who can see someone's answers", collection: form_level_options, include_blank: false,
-            hint: "Must include everyone who can fill it in. Questions can be made more private." %>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="col-md-6"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form opens itself at this time." %></div>
-    <div class="col-md-6"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form closes itself at this time." %></div>
-  </div>
-
-  <div class="row">
-    <div class="col-md-6"><%= f.input :allow_updates, label: "Allow updates after submitting", hint: "People can submit a new version while the form is open. Leaders always can." %></div>
-    <div class="col-md-6">
-      <%= f.input :late_entry, label: "After the deadline", collection: { "No more responses" => "none", "Leaders can still enter responses" => "leaders" }, include_blank: false %>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="col-md-6">
-      <%= f.input :reconfirm_on_profile_change, label: "Ask again when profile details change",
-            hint: "If a profile detail this form updated is changed later, the response needs to be reviewed and signed again." %>
-    </div>
-    <div class="col-md-6">
-      <% if policy(form).manage_badges? %>
-        <%= f.input :completion_badge_id, label: "Completion badge", collection: Badge.added_by_admin.order(:name), include_blank: "None",
-              hint: "Held while someone's response is complete, and removed when it isn't. Use a badge only this form gives out." %>
-      <% elsif form.completion_badge %>
-        <div class="mb-3">
-          <div class="form-label">Completion badge</div>
-          <div class="form-control-plaintext"><%= form.completion_badge.name %></div>
-          <div class="form-text">Only admins can change it.</div>
-        </div>
-      <% end %>
-    </div>
-  </div>
+  <%= render "details_fields", f: f %>
+  <%= render "permissions_fields", f: f %>
 </div>

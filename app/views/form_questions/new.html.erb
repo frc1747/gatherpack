@@ -9,7 +9,7 @@
       <%= render "form", f: f %>
     </div>
     <div class="card-footer">
-      <%= link_to "Cancel", edit_form_path(@form, anchor: "questions"), class: "btn btn-warning" %>
+      <%= link_to "Cancel", edit_form_path(@form, tab: "questions"), class: "btn btn-warning" %>
       <%= f.button :submit, "Save", class: "btn btn-primary" %>
     </div>
   </div>

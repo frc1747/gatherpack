@@ -6,9 +6,9 @@
   <div class="card-header">
     <h1><%= @form.title %> <%= form_state_badge(@form) %></h1>
     <div class="text-muted">
-      <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge %>, <%= @form.audience_badge.name %> badge holders only<% end %>
+      <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge && Form.badges_enabled? %>, <%= @form.audience_badge.name %> badge holders only<% end %>
       · <%= form_due(@form) %>
-      <% if @form.completion_badge %>· Completion badge: <%= @form.completion_badge.name %><% end %>
+      <% if @form.completion_badge && Form.badges_enabled? %>· Completion badge: <%= @form.completion_badge.name %><% end %>
     </div>
   </div>
   <div class="card-body">
