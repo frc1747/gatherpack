@@ -17,7 +17,6 @@ class Form < ApplicationRecord
 
   KEY_FORMAT = /\A[a-z][a-z0-9_]*\z/
 
-  enum :kind, { general: 0, consent: 1, event_intent: 2 }, validate: true
   enum :status, { draft: 0, open: 1, closed: 2, archived: 3 }, validate: true
   enum :respond_permission, AudienceLevels::LEVEL_VALUES, prefix: :respond, validate: true
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: true
