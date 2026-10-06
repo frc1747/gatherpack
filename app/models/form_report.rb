@@ -26,16 +26,20 @@ class FormReport
 
   # version: :active (the default) reads each person's active submission;
   # :latest reads a draft or pending update instead where there is one.
-  def initialize(form, viewer:, team: nil, version: :active)
+  # only: limits the rows to these people (ids), such as an event's
+  # expected or checked-in people.
+  def initialize(form, viewer:, team: nil, version: :active, only: nil)
     @form = form
     @viewer = viewer
     @team = team
     @version = version
+    @only = only
   end
 
   def people
     people = form.readable_subjects_for(viewer)
     people = people.where(id: @team.descendant_people.select(:id)) if @team
+    people = people.where(id: @only.to_a) if @only
     people.order(:last_name, :first_name)
   end
 

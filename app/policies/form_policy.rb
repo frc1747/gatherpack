@@ -19,6 +19,12 @@ class FormPolicy < ApplicationPolicy
     show?
   end
 
+  # The order sheet page picks its form itself, among those the viewer can
+  # show.
+  def order_sheet?
+    true
+  end
+
   def new?
     user.admin || person.all_managed_teams.exists?
   end
