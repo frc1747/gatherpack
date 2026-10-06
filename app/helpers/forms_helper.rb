@@ -189,6 +189,8 @@ module FormsHelper
     when "boolean"
       options[:as] = :boolean
       options[:input_html][:checked] = ActiveModel::Type::Boolean.new.cast(value) == true
+      # The Bootstrap boolean wrapper has no error slot, so show it here.
+      return form.input(question.key.to_sym, **options) + (error ? tag.div(error, class: "invalid-feedback d-block mt-n2 mb-3") : "".html_safe)
     when "select"
       options.merge!(as: :select, collection: person_field_choices(type, value), selected: value, include_blank: true)
     when "multi_select"
