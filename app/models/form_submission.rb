@@ -152,7 +152,7 @@ class FormSubmission < ApplicationRecord
   # answered; others are left for someone who can, and the submission waits.
   # Returns { key => error } when it can't be submitted.
   def submit!(acting, access)
-    errors = missing_questions.select { |question| access.question_writable?(question) }.to_h { |question| [ question.key, "can't be blank" ] }
+    errors = missing_questions.select { |question| access.question_writable?(question) }.to_h { |question| [ question.key, question.acknowledgment? ? "must be ticked" : "can't be blank" ] }
     return errors if errors.any?
 
     transaction do
