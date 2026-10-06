@@ -294,7 +294,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_05_120400) do
     t.text "description"
     t.uuid "team_id", null: false
     t.uuid "audience_badge_id"
-    t.integer "kind", default: 0, null: false
     t.integer "respond_permission", default: 5, null: false
     t.integer "read_permission", default: 5, null: false
     t.integer "status", default: 0, null: false

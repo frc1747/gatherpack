@@ -81,8 +81,8 @@ as a new kind of form. Nothing in the code names a particular
 organization's teams, roles, or vendors; those live in data (and in one-off
 import scripts kept outside the repository).
 
-Phase 1 shipped a `kind` column (`general`, `consent`, `event_intent`)
-that nothing reads. Phase 2 removes it (§15).
+Phase 1 briefly had a `kind` column (`general`, `consent`, `event_intent`)
+that nothing read; it was removed before release.
 
 ---
 
@@ -952,7 +952,7 @@ Seven `create_table` migrations, reversible, primary DB only (run
 |---|---|---|
 | **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
 | **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
-| **2: Audiences, profile tab, and consent** | remove `kind` (§1.3: the column, enum, settings field, and permit; edit the unreleased `create_forms` migration and drop the column on Ditto by hand); audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
+| **2: Audiences, profile tab, and consent** | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
 | **3: Events** | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
 | **4: Later** | automatic reminders, digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link | |
 
