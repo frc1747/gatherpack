@@ -1,7 +1,7 @@
 <div class="list-group mb-2">
   <% entries.each do |entry| %>
     <% signing = entry.needs_viewer_signature? %>
-    <% target = entry.to_do? && !signing ? edit_form_response_path(entry.form, entry.subject) : form_response_path(entry.form, entry.subject) %>
+    <% target = form_entry_path(entry) %>
     <%= link_to target, class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
       <span>
         <strong><%= entry.form.title %></strong>
