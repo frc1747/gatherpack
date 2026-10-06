@@ -24,11 +24,21 @@ class FormTest < ActiveSupport::TestCase
     later = create_world_form("Later", status: :draft, opens_at: 1.day.from_now)
     to_close = create_world_form("Closes", status: :open, closes_at: 1.minute.ago)
 
-    FormScheduleJob.perform_now
+    with_settings(feature_forms: "true") { FormScheduleJob.perform_now }
 
     assert to_open.reload.open?
     assert later.reload.draft?
     assert to_close.reload.closed?
+  end
+
+  test "the schedule waits while forms are off" do
+    to_open = create_world_form("Opens", status: :draft, opens_at: 1.minute.ago)
+    to_close = create_world_form("Closes", status: :open, closes_at: 1.minute.ago)
+
+    FormScheduleJob.perform_now
+
+    assert to_open.reload.draft?
+    assert to_close.reload.open?
   end
 
   test "duplicating copies settings and questions, not responses" do
