@@ -26,6 +26,7 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
 
         patch form_response_path(@form, person(:a1)), params: { submit: "1", form_response: { answers: { photo_release: "Yes", i_have_read_the_code_of_conduct: "0" } } }
         assert_response :unprocessable_entity, "the acknowledgment must be ticked"
+        assert_match "must be ticked", response.body
 
         patch form_response_path(@form, person(:a1)), params: { submit: "1", form_response: { answers: { photo_release: "Yes", i_have_read_the_code_of_conduct: "1" } } }
         assert_redirected_to form_response_path(@form, person(:a1))
