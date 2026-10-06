@@ -8,6 +8,10 @@
 #
 # People with a response who are no longer asked keep it: it stays readable
 # at the same levels, and only their leaders can still enter a response.
+#
+# A form's creator who holds the form creator badge (Form.creator_badge)
+# runs that form like an admin of its responses, and has no access to
+# anything else about the people it asks.
 class FormAccess < AudienceAccess
   attr_reader :form
 
@@ -21,7 +25,12 @@ class FormAccess < AudienceAccess
   end
 
   def admin?
-    viewer&.admin? || false
+    viewer&.admin? || creator?
+  end
+
+  def creator?
+    return @creator if defined?(@creator)
+    @creator = form.run_by_creator?(viewer)
   end
 
   def in_audience?

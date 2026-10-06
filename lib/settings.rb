@@ -120,6 +120,7 @@ class Settings
     add_setting(:shirt_sizes, :string, "Shirt Sizes", "Youth S, Youth M, Youth L, S, M, L, XL, XXL, 3XL, 4XL", "People", "Comma-separated list of valid shirt sizes")
     add_setting(:gender_options, :string, "Gender Options", "M, F, X", "People", "Comma-separated list of valid gender options")
     add_setting(:guardianship_age_limit, :integer, "Guardianship Age Limit", "", "People", "Guardianship from a 'minor' relationship type ends when the child reaches this age. Leave blank for no limit")
+    add_setting(:forms_creator_badge, :string, "Form Creator Badge", "", "Forms", "Name of a badge only admins assign. Holders can create event forms for teams they belong to, and manage and see responses to the forms they created, nothing more. Leave blank for none")
     add_setting(:guardianship_ends_without_birthday, :boolean, "End Guardianship Without a Birthday", "false", "People", "When an age limit is set, also end 'minor' guardianship for people with no birthday on file. Only applies when an age limit is set")
   end
 end
