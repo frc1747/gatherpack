@@ -20,7 +20,7 @@ module FormsHelper
   }.freeze
 
   SUBMISSION_STATUS_LABELS = {
-    "draft" => "Draft", "pending" => "Submitted, waiting", "active" => "Active", "superseded" => "Replaced",
+    "draft" => "Draft (not submitted)", "pending" => "Submitted, waiting", "active" => "In effect", "superseded" => "Replaced",
     "withdrawn" => "Withdrawn", "discarded" => "Discarded"
   }.freeze
 

@@ -11,9 +11,9 @@ class FormResponsesController < InternalController
   # GET /forms/1/responses/:subject_id/edit
   def edit
     authorize @response
-    return redirect_to form_response_path(@form, @subject) if @response.active_submission && @response.open_submission.nil?
-
-    @submission = @response.open_submission || @response.form_submissions.build(answers: @response.starting_answers, form_version: @form.content_version)
+    # Nothing is saved until Save or Submit, so Cancel leaves no draft behind.
+    @submission = @response.open_submission ||
+      FormSubmission.new(form_response: @response, answers: @response.starting_answers, form_version: @form.content_version, based_on: @response.active_submission)
     @errors = {}
   end
 
@@ -56,25 +56,18 @@ class FormResponsesController < InternalController
     end
   end
 
-  # POST /forms/1/responses/:subject_id/start_update
-  def start_update
-    authorize @response
-    @response.start_submission!(current_person)
-    redirect_to edit_form_response_path(@form, @subject), status: :see_other
-  end
-
   # POST /forms/1/responses/:subject_id/discard
   def discard
     authorize @response
     @response.open_submission.discard!
-    redirect_to form_response_path(@form, @subject), notice: "The unsubmitted changes were discarded.", status: :see_other
+    redirect_to form_response_path(@form, @subject), notice: "The unsubmitted update was discarded. The submitted answers are unchanged.", status: :see_other
   end
 
   # POST /forms/1/responses/:subject_id/withdraw
   def withdraw
     authorize @response
     @response.active_submission.withdraw!
-    redirect_to form_response_path(@form, @subject), notice: "The response was withdrawn. Profile details it updated were left as they are.", status: :see_other
+    redirect_to form_response_path(@form, @subject), notice: "The response was withdrawn. Fill in the form again to replace it; it starts from the withdrawn answers.", status: :see_other
   end
 
   private

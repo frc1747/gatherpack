@@ -5,14 +5,14 @@ class FormResponsePolicy < ApplicationPolicy
     access.can_read?
   end
 
+  # Filling in, or updating submitted answers. An update only creates a
+  # draft when it's saved, so opening the form and cancelling changes nothing.
   def edit?
-    access.can_submit?
+    updating? ? access.can_update? : access.can_submit?
   end
 
-  # Saving answers needs a draft or pending submission, or nothing yet. A
-  # complete response is changed by starting an update first.
   def update?
-    access.can_submit? && (record.open_submission.present? || record.active_submission.nil?)
+    edit?
   end
 
   def submit?
@@ -20,7 +20,7 @@ class FormResponsePolicy < ApplicationPolicy
   end
 
   def start_update?
-    access.can_update? && record.active_submission.present? && record.open_submission.nil?
+    updating? && access.can_update?
   end
 
   def discard?
@@ -28,11 +28,19 @@ class FormResponsePolicy < ApplicationPolicy
     access.can_respond? && submission.present? && (submission.created_by_id == person.id || access.subject_leader?)
   end
 
+  # Not while an update is in progress, so it's never unclear which version
+  # a withdrawal applies to.
   def withdraw?
-    access.can_respond? && record.active_submission.present?
+    access.can_respond? && record.active_submission.present? && record.open_submission.nil?
   end
 
   def access
     @access ||= FormAccess.new(person, record.subject, record.form)
+  end
+
+  private
+
+  def updating?
+    record.active_submission.present? && record.open_submission.nil?
   end
 end

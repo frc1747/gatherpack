@@ -14,38 +14,69 @@
     </div>
   </div>
   <div class="card-body">
+    <% if open && active %>
+      <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>
+          <strong>Unsubmitted update</strong>, started <%= nice_datetime(open.created_at) %><%= " by #{open.created_by.identifier_name}" if open.created_by %>.
+          <% if open.pending? %>It's waiting for answers to: <%= open.missing_questions.map(&:label).to_sentence %>.<% end %>
+          The answers below stay in effect until it's submitted.
+        </span>
+        <span class="text-nowrap">
+          <% if response_policy.edit? %><%= link_to "Continue update", edit_form_response_path(@form, @subject), class: "btn btn-sm btn-primary" %><% end %>
+          <% if response_policy.discard? %>
+            <%= button_to "Discard update", discard_form_response_path(@form, @subject), class: "btn btn-sm btn-outline-dark", form_class: "d-inline",
+                  data: { turbo_confirm: "Discard this unsubmitted update? The submitted answers stay as they are." } %>
+          <% end %>
+        </span>
+      </div>
+    <% end %>
+
     <% if active %>
-      <h2 class="h5">Current answers <small class="text-muted">(version <%= active.number %>, submitted <%= nice_datetime(active.submitted_at) %> by <%= active.submitted_by&.identifier_name || "someone no longer here" %>)</small></h2>
+      <h2 class="h5">Submitted answers <small class="text-muted">(version <%= active.number %>, submitted <%= nice_datetime(active.submitted_at) %> by <%= active.submitted_by&.identifier_name || "someone no longer here" %>)</small></h2>
       <%= render "answers", submission: active, previous: nil, access: access %>
     <% elsif open&.pending? %>
       <p>Submitted <%= nice_datetime(open.submitted_at) %>, and waiting for answers to: <%= open.missing_questions.map(&:label).to_sentence %>.</p>
     <% elsif open %>
       <p class="text-muted">Started, not submitted yet.</p>
+    <% elsif @response.withdrawn? %>
+      <p class="text-muted">This response was withdrawn. Filling the form in again starts from the withdrawn answers.</p>
     <% else %>
       <p class="text-muted">No response yet.</p>
     <% end %>
   </div>
   <div class="card-footer">
-    <% if open && response_policy.edit? %>
+    <% if response_policy.start_update? %>
+      <%= link_to "Update answers", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
+    <% elsif open && !active && response_policy.edit? %>
       <%= link_to open.pending? ? "Review answers" : "Continue", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
-    <% elsif !active && response_policy.edit? %>
+    <% elsif !active && !open && response_policy.edit? %>
       <%= link_to "Fill in", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
     <% end %>
-    <% if open&.pending? && response_policy.submit? && open.ready? %>
+    <% if open && !active && open.pending? && response_policy.submit? && open.ready? %>
       <%= button_to "Submit", submit_form_response_path(@form, @subject), class: "btn btn-primary", form_class: "d-inline" %>
     <% end %>
-    <% if response_policy.start_update? %>
-      <%= button_to "Update", start_update_form_response_path(@form, @subject), class: "btn btn-primary", form_class: "d-inline" %>
-    <% end %>
-    <% if response_policy.withdraw? %>
-      <%= button_to "Withdraw", withdraw_form_response_path(@form, @subject), class: "btn btn-outline-danger", form_class: "d-inline",
-            data: { turbo_confirm: "Withdraw this response? It stops counting as complete. Profile details it updated stay as they are." } %>
+    <% if open && !active && response_policy.discard? %>
+      <%= button_to "Discard draft", discard_form_response_path(@form, @subject), class: "btn btn-outline-dark", form_class: "d-inline",
+            data: { turbo_confirm: "Discard this unsubmitted draft?" } %>
     <% end %>
     <% if policy(@form).show? %>
       <%= link_to "All responses", form_path(@form), class: "btn btn-secondary" %>
     <% end %>
   </div>
 </div>
+
+<% if response_policy.withdraw? %>
+  <div class="card mt-3 border-danger">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span>
+        <strong>Withdraw this response.</strong>
+        The submitted answers stop counting and leaders see it as withdrawn. It isn't deleted: filling the form in again starts from these answers.
+      </span>
+      <%= button_to "Withdraw response", withdraw_form_response_path(@form, @subject), class: "btn btn-outline-danger", form_class: "d-inline",
+            data: { turbo_confirm: "Withdraw #{@subject == current_user.person ? "your" : "#{@subject.first_name}'s"} submitted answers to #{@form.title}? They'll stop counting until the form is filled in again." } %>
+    </div>
+  </div>
+<% end %>
 
 <% shown = @submissions.reject(&:discarded?) %>
 <% if shown.size > (active ? 1 : 0) %>

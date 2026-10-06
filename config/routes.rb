@@ -66,7 +66,6 @@ Rails.application.routes.draw do
     resources :responses, controller: "form_responses", param: :subject_id, only: %i[show edit update] do
       member do
         post :submit
-        post :start_update
         post :discard
         post :withdraw
       end

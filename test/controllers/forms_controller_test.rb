@@ -79,7 +79,7 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
         get form_response_path(@form, person(:a1))
         assert_response :success
         assert_select "dd", text: /Big John/
-        assert_select "button", text: "Update"
+        assert_select "a", text: "Update answers"
       end
     end
   end
@@ -98,9 +98,23 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
     respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 1" })
     with_feature do
       as(:a1) do
-        post start_update_form_response_path(@form, person(:a1))
-        assert_redirected_to edit_form_response_path(@form, person(:a1))
+        get form_response_path(@form, person(:a1))
+        assert_select "a", text: "Update answers"
+        assert_select "button", text: "Withdraw response"
+
+        assert_no_difference -> { FormSubmission.count } do
+          get edit_form_response_path(@form, person(:a1))
+        end
+        assert_response :success
+        assert_select ".alert", text: /Cancel leaves them exactly as they are/
+
         patch form_response_path(@form, person(:a1)), params: { form_response: { answers: { sandwich: "Slim 4" } }, save: "1" }
+        get form_response_path(@form, person(:a1))
+        assert_select ".alert", text: /Unsubmitted update/
+        assert_select "button", text: "Discard update"
+        assert_select "button", text: "Withdraw response", count: 0
+        post withdraw_form_response_path(@form, person(:a1))
+        assert @form.response_for(person(:a1)).reload.complete?, "can't withdraw while an update is in progress"
 
         get results_form_path(@form)
         assert_redirected_to root_path, "students can't see everyone's results"
@@ -110,6 +124,20 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
         assert_select "tr#person_#{person(:a1).id} td", text: "Slim 1"
         get results_form_path(@form, version: "latest")
         assert_select "tr#person_#{person(:a1).id} td", text: /Slim 4/
+      end
+    end
+  end
+
+  test "after withdrawing, filling in again starts from the withdrawn answers" do
+    respond(@form, :a1, as: :a1, answers: { "sandwich" => "Big John" })
+    with_feature do
+      as(:a1) do
+        post withdraw_form_response_path(@form, person(:a1))
+        assert @form.response_for(person(:a1)).withdrawn?
+        get edit_form_response_path(@form, person(:a1))
+        assert_select "select[name='form_response[answers][sandwich]'] option[selected]", text: "Big John"
+        patch form_response_path(@form, person(:a1)), params: { form_response: { answers: { sandwich: "Big John" } }, submit: "1" }
+        assert @form.response_for(person(:a1)).reload.complete?
       end
     end
   end
