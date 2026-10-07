@@ -27,7 +27,7 @@ Examples this must handle:
 | Pages with optional ERB | `Page`, `PagesHelper#format_page_content` | Same content model: Markdown by default, ERB when `dynamic` is on. Same rule: only architects can turn ERB on. |
 | Page viewer levels | `Page::PERMISSION_LEVELS`, `PagePolicy#show?` | Same visibility levels and team, minus `public` (the dashboard needs sign-in). |
 | Theme | `Theme#css_variables`, `Theme#custom_css`, `layouts/_theme_styles` | Widgets inherit it by default. CSS variables still reach widgets that replace the stylesheet (see 4.3). |
-| Feature registry | `GatherPack::Features`, `config/initializers/features.rb` | Register `:widgets` as a toggleable feature with a Setup link. The toggle is the runtime flag, stored in `Settings`, default off. |
+| Feature registry | `GatherPack::Features`, `config/initializers/features.rb` | Register `:widgets` as a toggleable feature with a "Widgets" link in the side nav's Content section, like Pages. The toggle is the runtime flag, stored in `Settings`, default off. |
 | Hooks | `CanBeHooked`, `Hook.catalog` | `widgets - create/update/destroy`. |
 | Code editor | `app/javascript/code_editor.js` | Used for the content, CSS and JavaScript fields. It has no CSS or JavaScript mode, so those fall back to its Ruby highlighting, which reads well enough. |
 | Dashboard | `welcome/dashboard.html.erb` | Two columns (`col-lg-6`). Widgets render at the top or at the end of either column. |
@@ -118,6 +118,7 @@ The JavaScript is stored on the widget and sent in a data attribute on the body,
 | Action | Who |
 |---|---|
 | See a widget | Signed-in users who pass its `viewer` level and team, same rules as `PagePolicy#show?`. Admins see all. Disabled widgets are hidden from everyone on the dashboard; admins can still preview them. |
+| List widgets, open a widget's page | Like Pages: everyone signed in, limited to the widgets they can see. |
 | Create, edit, delete, reorder | Admins. |
 | Set `dynamic` or `javascript`, or change the content of a dynamic widget | Architects only. The fields are dropped from params for everyone else, and are shown as read-only text to admins who aren't architects. (The code editor ignores Rails' `readonly`, so a locked field is a `<pre>`, not an editor.) |
 | Set `stylesheet` | Admins (they can already edit the theme's custom CSS). |
@@ -128,7 +129,7 @@ ERB runs Ruby on the server and JavaScript runs in every viewer's session, so bo
 
 ## 6. Managing widgets
 
-Setup → Content → **Dashboard Widgets** (`/widgets`). Index lists widgets grouped by placement in display order, with Enabled, Viewer, Team and a Preview link. The form, top to bottom:
+Side nav → Content → **Widgets** (`/widgets`), next to Pages (changed from a Setup link on 2026-10-06: Corey wants it to flow like Pages). The index lists the widgets the viewer can see, grouped by placement in display order, with who can see each one, its team and whether it's shown. Each title opens the widget's page, which previews it. Admins also get New, Edit and Delete. The form, top to bottom:
 
 - Title, Show title
 - Where on the dashboard (Top / Left column / Right column), Order
@@ -152,8 +153,9 @@ GatherPack::Features.register_built_in(
     label: "Dashboard Widgets",
     description: "Custom sections on the dashboard",
     default_enabled: false,
-    setup_section: "Content",
-    setup_items: [ GatherPack::Feature::SetupItem.new(label: "Dashboard Widgets", path: :widgets_path) ]
+    nav_section: "Content",
+    nav_position: 30,
+    nav_items: [ GatherPack::Feature::NavItem.new(label: "Widgets", path: :widgets_path, icon: "table-cells-large") ]
   )
 )
 ```
