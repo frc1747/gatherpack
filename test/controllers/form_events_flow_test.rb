@@ -47,17 +47,20 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the order sheet and the event tally" do
+  test "the printable list and the event tally" do
     with_feature do
       as(:pack_leader) do
-        get order_sheet_forms_path(form_id: @meals.id, event_id: @event.id, basis: "expected", question_ids: [ @sandwich.id ])
+        get print_list_forms_path(form_id: @meals.id, event_id: @event.id, basis: "expected", question_ids: [ @sandwich.id ])
         assert_response :success
         assert_select "td", text: "A1 World"
         assert_select "td", text: "Slim 4"
+        assert_select ".form-text", text: /"Are you coming\?" on Coming Saturday\?/
+        assert_select ".card-header div", text: /said they're coming \(Coming Saturday\?\)/
+        assert_select ".card-header div", text: /Answers: Meal Choices/
 
-        get order_sheet_forms_path(form_id: @meals.id, event_id: @event.id, basis: "checked_in", layout: "labels")
+        get print_list_forms_path(form_id: @meals.id, event_id: @event.id, basis: "checked_in", layout: "labels")
         assert_response :success
-        assert_select "h3", text: /No choice on file: 1/
+        assert_select "h3", text: /Haven.t answered \(1\)/
 
         get tally_form_path(@poll, basis: "checked_in")
         assert_response :success

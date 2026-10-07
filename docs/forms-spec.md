@@ -77,7 +77,7 @@ preference list.
 | Updating the profile | A question linked to a person field in "updates profile" mode |
 | The event panel, the deadline defaulting to the event start | The form being attached to an event (`event_id`) |
 | Expected vs checked in | An intent question on a form attached to the event |
-| An order or packing list for an event | The order sheet (§9.4): the event, the questions chosen to show, from any form, and expected or checked-in people |
+| An order or packing list for an event | The printable list (§9.4): the event, the questions chosen to show, from any form, and expected or checked-in people |
 
 New capabilities arrive as question types, settings, or attachments, never
 as a new kind of form. Nothing in the code names a particular
@@ -390,7 +390,7 @@ Rules:
    submission (`based_on_id`), with starting values per §3.3, **and no
    signatures**. Submitting it requires fresh signatures. Until it
    activates, the previous submission stays active: reports, badges, and
-   order sheets keep using it, and the response shows "Update in progress".
+   printable lists keep using it, and the response shows "Update in progress".
 6. **Edit while pending.** Changing a pending submission's answers returns it
    to `draft` and revokes any signatures already on it ("Answers changed
    after signing"), because they signed different content.
@@ -723,28 +723,35 @@ population:
 - an event's people: those who answered intent **yes** (expected) or those
   **checked in** (actual) (§10).
 
-### 9.4 Order sheet
+### 9.4 Printable list
 
-Built (rev. 5) as `/forms/order_sheet` (`FormOrderSheet`), not a member
-route, since it picks its form: any form the viewer can see results for. It
-can also be based on everyone the form asks, with no event. Questions
-default to the form's choice questions. People are split three ways:
-listed (an active answer the viewer can read), no choice on file (no
-response, or nothing submitted), and a count of people whose answers the
-viewer can't see. The tally page takes the same "said they're coming" or
-"checked in" population for event forms.
+Built (rev. 5) as `/forms/print_list` (`FormPrintList`), not a member route,
+since it picks its form: any form the viewer can see results for. Renamed
+from "order sheet" (rev. 6): the tool isn't only for orders, and the old
+name hid what it does.
 
-Pick an event and one or more questions (e.g. "Jimmy John's", "Please
-Remove"), plus profile fields to show alongside (Dietary Restrictions). The
-sheet lists each person with their active choices and profile data, then the
-tally. It can be based on **expected** (intent yes, for ordering ahead) or
-**checked in** (for handing out), and prints as bag labels or a list. People
-with no active meal submission are listed separately ("No choice on file:
-3"), so no one is silently left out.
+Who is on the list and what's shown for them can come from different forms,
+and the page is laid out in those steps:
 
-The order sheet can use the event's attached forms (§10) or any open season
-form the viewer can read; the meal form doesn't have to be attached to every
-event.
+1. **Who's on the list**: an event (optional) and who to include. "Said
+   they're coming" comes from the event's "are you coming?" question, on
+   whichever form is attached to the event, and the page names that form;
+   "Checked in" comes from check-ins (for handing out). With no event, the
+   list is everyone the chosen form asks.
+2. **What's on the list**: the form the answers come from (the event's
+   attached forms or any open season form the viewer can read, so a meal
+   form doesn't have to be attached to every event), its questions as
+   columns (default: its choice questions), and profile details as columns
+   (Dietary Restrictions).
+3. **Print as**: a table or labels, one per person.
+
+The printout names both sources, for example "People: 18 said they're
+coming (Build Day RSVP)" and "Answers: Season Meal Choices · 15 answered,
+3 haven't". People are split three ways: listed (an active answer the viewer
+can read), "Haven't answered" (no response, or nothing submitted), and a
+count of people whose answers the viewer can't see, so no one is silently
+left out. The tally page takes the same "said they're coming" or "checked
+in" population for event forms.
 
 ### 9.5 Custom reports (Pages)
 
@@ -808,7 +815,7 @@ only when checked in.**
 ### 10.3 Season forms used at events
 
 The meal form is a season form, not an event form. Events reach it through
-the order sheet (§9.4). Nothing about a season form changes when an event
+the printable list (§9.4). Nothing about a season form changes when an event
 uses it.
 
 ---
@@ -1033,9 +1040,9 @@ Ditto:
 | Phase | Scope | Replaces |
 |---|---|---|
 | **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
-| **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the order sheet |
+| **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the printable list |
 | **2: Audiences, profile tab, and consent** (done 2026-10-06) | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
-| **3: Events** (done 2026-10-06) | `event_id`, the intent question, event panel, expected vs checked in, order sheet | The Attending column and the hand-built order |
+| **3: Events** (done 2026-10-06) | `event_id`, the intent question, event panel, expected vs checked in, printable list (was order sheet) | The Attending column and the hand-built order |
 | **4: Later** | automatic reminders, reminders at clock-in (when someone clocks in at the time kiosk, remind them of forms they still owe), digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link. Other event-driven reminders are out of scope for now | |
 
 ### 15.1 Open questions
@@ -1069,7 +1076,7 @@ Ditto:
   meals has their order in one place, and the rest of the Parents team isn't
   asked. (On Ditto the phase 1 form sits on the root team, which also asks
   every parent; harmless for preferences, because orders come from the
-  order sheet's expected or checked-in people, §9.4, not from everyone who
+  printable list's expected or checked-in people, §9.4, not from everyone who
   answered.) Respond: `family`. Read:
   `family`, plus a read grant for a "Meal Coordinator" badge. Allow updates:
   yes.
@@ -1122,7 +1129,7 @@ Ditto:
 
 - Event form on the Saturday event, closes at the event start. Respond:
   `self_and_leaders`. Questions: intent "Are you coming?".
-- Friday: the event panel shows "Expected: 18 yes, 4 maybe". The order sheet
+- Friday: the event panel shows "Expected: 18 yes, 4 maybe". The printable list
   (expected) from `meal_choices_2027` gives the Jimmy John's order.
   Saturday: 21 check in; the panel lists the 3 who came without saying yes.
   Attendance and hours come from the 21 check-ins only.

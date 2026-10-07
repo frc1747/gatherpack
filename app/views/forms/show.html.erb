@@ -62,7 +62,7 @@
   <div class="card-footer">
     <%= link_to "Results", results_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
     <%= link_to "Tally", tally_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
-    <%= link_to "Order sheet", order_sheet_forms_path(form_id: @form.id, event_id: @form.event_id), class: "btn btn-primary" %>
+    <%= link_to "Printable list", print_list_forms_path(form_id: @form.id, event_id: @form.event_id), class: "btn btn-primary" %>
     <% if manage %>
       <%= link_to "Edit", edit_form_path(@form), class: "btn btn-secondary" %>
       <%= link_to "Preview as…", preview_form_path(@form), class: "btn btn-secondary" %>

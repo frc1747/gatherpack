@@ -53,7 +53,7 @@ crumb :form_submission do |submission|
   parent :form_response, submission.form_response
 end
 
-crumb :form_order_sheet do
-  link "Order sheet", order_sheet_forms_path
+crumb :form_print_list do
+  link "Printable list", print_list_forms_path
   parent :forms
 end
