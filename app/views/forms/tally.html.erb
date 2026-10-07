@@ -7,23 +7,24 @@
       <% if @shared %>
         Totals from everyone's submitted answers. Nobody's individual answers are shown.
       <% else %>
-        Counts from each person's active (submitted) answers that you can see<%= ", for #{FormsHelper::BASIS_LABELS.fetch(@basis).downcase_first} at #{@event.name}" if @basis != "asked" %>.
+        Counts from each person's active (submitted) answers that you can see.
       <% end %>
     </div>
   </div>
   <div class="card-body">
   <% unless @shared %>
-    <%= render "team_filter", teams: @teams, team: @team, url: tally_form_path(@form), keep: { basis: @basis } %>
-    <% if @event %>
-      <div class="d-flex flex-wrap gap-2 mb-3">
-        <% FormsHelper::BASIS_LABELS.each do |basis, label| %>
-          <%= link_to label, tally_form_path(@form, team_id: @team&.id, basis: basis, event_id: (@event.id unless @form.event)),
-                class: "btn btn-sm #{@basis == basis ? "btn-secondary" : "btn-outline-secondary"}" %>
-        <% end %>
-      </div>
-      <% if @basis_missing %>
-        <p class="text-warning-emphasis">No form on <%= @event.name %> asks who's coming, so nobody counts as expected yet.</p>
+    <%= form_with url: tally_form_path(@form), method: :get, class: "mb-3" do %>
+      <h2 class="h6">Who's counted</h2>
+      <div class="mb-2"><%= render "population_fields", population: @population, forms: @source_forms %></div>
+      <%= submit_tag "Count", class: "btn btn-secondary", name: nil %>
+    <% end %>
+    <% if @population.ready? %>
+      <p>People: <%= @population.description %></p>
+      <% if @population.hidden_count.positive? %>
+        <p class="text-muted">Not counted: <%= pluralize(@population.hidden_count, "person", plural: "people") %> whose answer to "<%= @population.question.label %>" you can't see.</p>
       <% end %>
+    <% else %>
+      <p class="text-warning-emphasis"><%= @population.missing %></p>
     <% end %>
   <% end %>
 
@@ -49,6 +50,6 @@
     </div>
   </div>
   <div class="card-footer">
-    <%= link_to "Back", @shared ? forms_path : form_path(@form, team_id: @team&.id), class: "btn btn-warning" %>
+    <%= link_to "Back", @shared ? forms_path : form_path(@form, team_id: @population&.team&.id), class: "btn btn-warning" %>
   </div>
 </div>
