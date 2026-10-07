@@ -1,0 +1,54 @@
+<% breadcrumb :form_tally, @form %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %>: Tally</h1>
+    <div class="text-muted">
+      <% if @shared %>
+        Totals from everyone's submitted answers. Nobody's individual answers are shown.
+      <% else %>
+        Counts from each person's active (submitted) answers that you can see<%= ", for #{FormsHelper::BASIS_LABELS.fetch(@basis).downcase_first} at #{@event.name}" if @basis != "asked" %>.
+      <% end %>
+    </div>
+  </div>
+  <div class="card-body">
+  <% unless @shared %>
+    <%= render "team_filter", teams: @teams, team: @team, url: tally_form_path(@form), keep: { basis: @basis } %>
+    <% if @event %>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <% FormsHelper::BASIS_LABELS.each do |basis, label| %>
+          <%= link_to label, tally_form_path(@form, team_id: @team&.id, basis: basis, event_id: (@event.id unless @form.event)),
+                class: "btn btn-sm #{@basis == basis ? "btn-secondary" : "btn-outline-secondary"}" %>
+        <% end %>
+      </div>
+      <% if @basis_missing %>
+        <p class="text-warning-emphasis">No form on <%= @event.name %> asks who's coming, so nobody counts as expected yet.</p>
+      <% end %>
+    <% end %>
+  <% end %>
+
+    <% if @questions.empty? %>
+      <p class="text-muted">This form has no choice or yes/no questions to count.</p>
+    <% end %>
+    <div class="row">
+      <% @questions.each do |question| %>
+        <div class="col-12 col-md-6 col-xl-4 mb-3">
+          <h2 class="h6"><%= question.label %></h2>
+          <table class="table table-sm">
+            <tbody>
+              <% @report.tally(question).each do |value, count| %>
+                <tr class="<%= "text-muted" if value.nil? %>">
+                  <td><%= form_tally_label(value) %></td>
+                  <td class="text-end"><%= count %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Back", @shared ? forms_path : form_path(@form, team_id: @team&.id), class: "btn btn-warning" %>
+  </div>
+</div>
