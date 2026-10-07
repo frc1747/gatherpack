@@ -1,6 +1,6 @@
 # Spec: Dashboard Widgets
 
-Status: draft, 2026-10-06. Branch `feature/widgets`, based on `upstream/main`.
+Status: built 2026-10-06 (v1). Branch `feature/widgets`, based on `upstream/main`.
 
 ## 1. Goal
 
@@ -29,7 +29,7 @@ Examples this must handle:
 | Theme | `Theme#css_variables`, `Theme#custom_css`, `layouts/_theme_styles` | Widgets inherit it by default. CSS variables still reach widgets that replace the stylesheet (see 4.3). |
 | Feature registry | `GatherPack::Features`, `config/initializers/features.rb` | Register `:widgets` as a toggleable feature with a Setup link. The toggle is the runtime flag, stored in `Settings`, default off. |
 | Hooks | `CanBeHooked`, `Hook.catalog` | `widgets - create/update/destroy`. |
-| Code editor | `app/javascript/code_editor.js` | Content field uses it today. CSS and JavaScript fields need two more CodeMirror language modes (see 8). |
+| Code editor | `app/javascript/code_editor.js` | Used for the content, CSS and JavaScript fields. It has no CSS or JavaScript mode, so those fall back to its Ruby highlighting, which reads well enough. |
 | Dashboard | `welcome/dashboard.html.erb` | Two columns (`col-lg-6`). Widgets render at the top or at the end of either column. |
 
 Upstream has no dashboard extension point, so this branch is also the "dashboard card slot" seam we wanted to offer upstream.
@@ -72,18 +72,18 @@ Why a new table and not a flag on `pages`: a widget needs fields a Page doesn't 
 ```erb
 <div class="card widget" id="<%= dom_id widget %>">
   <div class="card-header"><h2><%= widget.title %></h2></div>   <%# omitted when show_title is off %>
-  <%= turbo_frame_tag widget, src: widget_path(widget) %>
+  <%= turbo_frame_tag widget, src: body_widget_path(widget) %>
 </div>
 ```
 
-`WidgetsController#show` renders just the body, with no layout. Loading the body separately gives us:
+`WidgetsController#body` (`GET /widgets/:id/body`) renders just the body, with no layout. `show` is an admin preview page that renders the same card. The card starts hidden and appears once its body loads with something in it. Loading the body separately gives us:
 
 - **Isolation.** A widget whose ERB raises shows "This widget couldn't be shown" (and the error, to admins) instead of breaking the dashboard. Pages today only rescue `SyntaxError`; widgets rescue `StandardError`.
 - **Speed.** A slow ERB widget doesn't hold up the dashboard.
 - **Refresh.** `refresh_seconds` reloads the frame, only while the tab is visible, instead of reloading the whole page as the clocked-in Page does now.
-- **Preview.** The same URL lets an admin see a widget alone.
+- **Preview.** The widget's page shows the same card, so an admin sees it alone.
 
-**Hiding itself.** If a widget's body renders blank (after stripping whitespace), the card is removed. ERB can then decide visibility beyond the viewer levels. The clocked-in widget needs this: "managers of Students, or members of Student Leadership" can't be expressed as one level and team.
+**Hiding itself.** If a dynamic widget's ERB renders nothing but whitespace, or a widget has no content and no JavaScript, the card stays hidden. ERB can then decide visibility beyond the viewer levels. The clocked-in widget needs this: "managers of Students, or members of Student Leadership" can't be expressed as one level and team.
 
 ### 4.3 Styles
 
@@ -101,7 +101,7 @@ The shadow root is attached by the Stimulus controller (4.4), not with declarati
 
 ### 4.4 JavaScript
 
-A new Stimulus controller, `widget_controller.js`, sits on each widget body. On connect it:
+Two new Stimulus controllers. `widget_card_controller.js` sits on the card: it unhides the card when the body loads with content and runs the refresh timer. `widget_controller.js` sits on each widget body. On connect it:
 
 1. Attaches the shadow root and moves the body into it, for `replace` mode.
 2. Runs the widget's JavaScript as the body of a function: `new Function("root", "widget", code)`. `root` is the element (or shadow root) holding the widget body, so code finds its own elements with `root.querySelector(...)` and never collides with another widget. `widget` gives `{ id, title, refresh() }`.
@@ -119,12 +119,12 @@ The JavaScript is stored on the widget and sent in a data attribute on the body,
 |---|---|
 | See a widget | Signed-in users who pass its `viewer` level and team, same rules as `PagePolicy#show?`. Admins see all. Disabled widgets are hidden from everyone on the dashboard; admins can still preview them. |
 | Create, edit, delete, reorder | Admins. |
-| Set `dynamic` or `javascript` | Architects only. The fields are dropped from params for everyone else, and are shown read-only to admins who aren't architects. |
+| Set `dynamic` or `javascript`, or change the content of a dynamic widget | Architects only. The fields are dropped from params for everyone else, and are shown as read-only text to admins who aren't architects. (The code editor ignores Rails' `readonly`, so a locked field is a `<pre>`, not an editor.) |
 | Set `stylesheet` | Admins (they can already edit the theme's custom CSS). |
 
-ERB runs Ruby on the server and JavaScript runs in every viewer's session, so both stay with architects, matching how Pages treat ERB.
+ERB runs Ruby on the server and JavaScript runs in every viewer's session, so both stay with architects. This is stricter than Pages, where any admin can edit the content of a dynamic page. It isn't a hard wall: Markdown passes raw HTML through, so an admin can still put markup (and a `<script>`) in a non-dynamic widget, as they already can in a Page or the theme's custom CSS.
 
-`WidgetsController#show` checks the policy itself, so a widget's body can't be fetched by someone who couldn't see the card.
+`WidgetsController#body` checks the policy itself, so a widget's body can't be fetched by someone who couldn't see the card.
 
 ## 6. Managing widgets
 
@@ -158,11 +158,11 @@ GatherPack::Features.register_built_in(
 )
 ```
 
-Toggleable, default off. When off the dashboard renders as before and `/widgets` returns not found.
+Toggleable, default off. When off the dashboard renders as before and `/widgets` redirects home with "Dashboard widgets are turned off". The routes are always drawn (as Forms does), so tests can switch the feature on with `with_settings`.
 
 ## 8. Upstream files touched
 
-New files: model, migration, policy, controller, views, helper, Stimulus controller, tests, vendored CodeMirror CSS and JavaScript modes.
+New files: model, migration, policy, controller, views, helper, breadcrumbs, two Stimulus controllers, tests, and `test/support/settings_test_helper.rb` (byte-identical to the copy on `feature/person-fields`, so the two merge cleanly).
 
 Edited upstream files:
 
@@ -172,7 +172,9 @@ Edited upstream files:
 | `config/routes.rb` | `resources :widgets` |
 | `config/initializers/features.rb` | The registration above. |
 | `app/models/hook.rb` | `"widgets"` in the catalog list. Feature/forms and person-fields edit the same line, so this conflicts on every rebuild until one lands; resolve by rebasing. |
-| `config/importmap.rb`, `app/javascript/code_editor.js` | Pin and register `@codemirror/lang-css` and `@codemirror/lang-javascript`. Small and generally useful; could go upstream on its own first. |
+| `db/schema.rb` | The `widgets` table and version line. |
+
+Not done: CodeMirror CSS and JavaScript modes (`config/importmap.rb`, `app/javascript/code_editor.js`). Worth offering upstream on its own later.
 
 ## 9. Hooks
 
@@ -185,7 +187,7 @@ Edited upstream files:
 - Policy: each viewer level for a member, a manager, a non-member and an admin; only admins manage.
 - Controller: non-architect admins can't set `dynamic` or `javascript`; `show` refuses someone who can't see the widget; an ERB error renders the fallback, with the message for admins only; a blank body renders blank.
 - Dashboard: widgets appear in the right placement and order, hidden ones don't, nothing renders with the feature off.
-- Stimulus behavior (cleanup on disconnect, shadow root in replace mode) checked by hand in the browser; GatherPack has no JS test runner.
+- Stimulus behavior checked by hand in Chrome on 2026-10-06 against a copy of the dev data: replace mode renders in a shadow root using `var(--bs-primary)`; theme-mode CSS stays inside its widget; the countdown's timer stops when Turbo leaves the dashboard and doesn't stack on return or Back; a 15-second refresh reloads only that card; a manager sees the manager widget, doesn't receive the admin-only one, and the ERB-gated card stays hidden. GatherPack has no JS test runner.
 
 ## 11. Examples
 

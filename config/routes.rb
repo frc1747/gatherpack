@@ -141,6 +141,10 @@ Rails.application.routes.draw do
     resources :pages
   end
 
+  resources :widgets do
+    get :body, on: :member
+  end
+
   if GatherPack::Features.enabled?(:oauth_provider)
     use_doorkeeper do
       skip_controllers :applications, :authorized_applications
