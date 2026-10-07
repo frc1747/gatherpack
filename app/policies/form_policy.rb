@@ -20,9 +20,9 @@ class FormPolicy < ApplicationPolicy
     show? || record.totals_visible_to?(person)
   end
 
-  # The order sheet page picks its form itself, among those the viewer can
+  # The printable list page picks its form itself, among those the viewer can
   # show.
-  def order_sheet?
+  def print_list?
     true
   end
 

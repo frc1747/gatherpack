@@ -75,7 +75,7 @@
         <% end %>
 
         <% if managed.any? %>
-          <%= link_to "Order sheet", order_sheet_forms_path(event_id: event.id), class: "btn btn-sm btn-secondary" %>
+          <%= link_to "Printable list for this event", print_list_forms_path(event_id: event.id), class: "btn btn-sm btn-secondary" %>
         <% end %>
         <% if can_add %>
           <%= link_to "New form for this event", new_form_path(event_id: event.id), class: "btn btn-sm btn-outline-secondary" %>

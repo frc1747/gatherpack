@@ -12,7 +12,7 @@ class FormsController < InternalController
   end
 
   before_action :require_feature
-  before_action :set_form, except: %i[ index new create order_sheet ]
+  before_action :set_form, except: %i[ index new create print_list ]
 
   # GET /forms
   def index
@@ -169,7 +169,7 @@ class FormsController < InternalController
     @basis = %w[ expected checked_in ].include?(params[:basis]) && @event ? params[:basis] : "asked"
     only = nil
     if @basis != "asked"
-      sheet = FormOrderSheet.new(form: @form, event: @event, viewer: current_user.person, basis: @basis)
+      sheet = FormPrintList.new(form: @form, event: @event, viewer: current_user.person, basis: @basis)
       only = sheet.population.map(&:id)
       @basis_missing = !sheet.basis_available?
     end
@@ -177,9 +177,9 @@ class FormsController < InternalController
     @questions = @report.questions.select { |question| helpers.form_tallyable?(question) }
   end
 
-  # GET /forms/order_sheet?form_id=&event_id=&basis=&question_ids[]=&field_ids[]=
-  # One form's answers for an event's people: what to order, and for whom.
-  def order_sheet
+  # GET /forms/print_list?form_id=&event_id=&basis=&question_ids[]=&field_ids[]=
+  # People from an event (or everyone a form asks), with one form's answers.
+  def print_list
     authorize Form, :index?
     viewer = current_user.person
     @forms = Form.where(status: %i[ open closed ]).includes(:team).order(:title).select { |form| policy(form).show? }
@@ -188,6 +188,7 @@ class FormsController < InternalController
     @event = policy_scope(Event).find_by(id: params[:event_id])
     @events.unshift(@event) if @event && !@events.include?(@event)
     @layout = params[:layout] == "labels" ? "labels" : "list"
+    @intent_form = @event && EventForms.new(@event, viewer: viewer).intent_form
     return unless @form
 
     @choices = @form.answerable_questions.reject(&:intent?)
@@ -195,7 +196,7 @@ class FormsController < InternalController
     questions = @choices.select { |question| Array(params[:question_ids]).include?(question.id) }
     questions = @choices.select { |question| %w[ select multi_select ].include?(question.value_type.data_type) } if params[:question_ids].nil?
     fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
-    @sheet = FormOrderSheet.new(form: @form, event: @event, viewer: viewer, basis: params[:basis], questions: questions, fields: fields)
+    @list = FormPrintList.new(form: @form, event: @event, viewer: viewer, basis: params[:basis], questions: questions, fields: fields)
   end
 
   # GET /forms/1/preview
