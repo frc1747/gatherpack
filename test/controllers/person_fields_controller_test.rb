@@ -176,63 +176,6 @@ class PersonFieldsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
-  test "the roster shows each person's value only to those who can read it" do
-    @allergies.person_field_badge_grants.create!(badge: @health_officer_badge, access: :read)
-
-    with_feature do
-      as(:den_a_leader) { get roster_person_fields_path(field_ids: [ @allergies.id ]) }
-      assert_includes response.body, "peanut"
-      assert_not_includes response.body, "shellfish"
-
-      as(:parent_a1) { get roster_person_fields_path(field_ids: [ @allergies.id ]) }
-      assert_includes response.body, "peanut"
-      assert_not_includes response.body, "shellfish"
-      assert_not_includes response.body, "B1 World"
-
-      as(:health_officer) { get roster_person_fields_path(field_ids: [ @allergies.id ]) }
-      assert_includes response.body, "shellfish"
-
-      as(:den_b_leader) { get roster_person_fields_path(field_ids: [ @allergies.id ]) }
-      assert_includes response.body, "shellfish"
-      assert_not_includes response.body, "peanut"
-
-      as(:a2) { get roster_person_fields_path(field_ids: [ @allergies.id ]) }
-      assert_includes response.body, "A2 World"
-      assert_not_includes response.body, "peanut"
-    end
-  end
-
-  test "the roster says so when there is nothing to show" do
-    @allergies.archive!
-    create_world_field("Leader Notes", read: "leaders")
-
-    with_feature do
-      as(:a2) { get roster_person_fields_path }
-    end
-
-    assert_response :success
-    assert_includes response.body, "There are no fields you can view for anyone."
-  end
-
-  test "the roster can be narrowed to a team" do
-    with_feature do
-      as(:pack_leader) { get roster_person_fields_path(field_ids: [ @allergies.id ], team_id: @den_b.id) }
-    end
-
-    assert_includes response.body, "shellfish"
-    assert_not_includes response.body, "peanut"
-  end
-
-  test "the roster and its nav link follow the feature flag" do
-    as(:den_a_leader) { get roster_person_fields_path }
-    assert_redirected_to root_path
-
-    with_feature do
-      as(:den_a_leader) { get person_path(person(:den_a_leader)) }
-      assert_select "a[href='#{roster_person_fields_path}']", text: /Member Info/
-    end
-  end
-
   test "sections can be created, reordered, and deleted" do
     with_feature do
       as(:admin) do

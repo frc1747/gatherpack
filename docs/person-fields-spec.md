@@ -33,8 +33,9 @@ The motivating case:
   regardless of that; tightening record-level visibility is a separate change.
 - **Confidential-at-rest encryption** and **read-access logging** (§7, §8).
 - **Badge-refined narrowing** ("only YPT-certified leaders"), §13.1.
-- **Bulk import/export** of field values. The roster page (§10.6) prints; CSV
-  is not in v1.
+- **Bulk import/export** of field values, and a **bulk people × fields page**.
+  A roster screen ("Member Info") was built and then removed (§10.6): a
+  bulk view of fields across many people belongs in a report, not a screen.
 - **Name, display name, bio, and avatar** stay outside the field system. They
   are always visible to anyone who can see the profile, as today.
 
@@ -140,7 +141,7 @@ badges ──< person_field_badge_grants >── person_fields ──< person_fi
 | `person_field_group_id` | uuid, FK, nullable | Profile section. Null = the default (top) section |
 | `position` | integer, default 0 | Order within the section |
 | `required` | boolean, default false | Enforced only when the editor can write the field (§4.4) |
-| `show_on_profile` | boolean, default true | Whether readable values appear on `people/show`. When false, the field is still on the edit form (for writers), on the roster page, and in Hooks/Reports. For internal fields like "Background check date" |
+| `show_on_profile` | boolean, default true | Whether readable values appear on `people/show`. When false, the field is still on the edit form (for writers) and in Hooks/Reports. For internal fields like "Background check date" |
 | `archived_at` | datetime | Soft delete. Hidden from the profile and forms; values kept; restorable |
 | `system_source` | string, nullable, unique | For built-in data (§6), e.g. `"dietary_restrictions"` or `"user.email"`. Never user-editable |
 
@@ -316,7 +317,7 @@ Parent of"). Everything else uses the boolean readers.
 
 #### Scope form (for lists)
 
-The roster page, the calendar, and events print sheets show a field across many
+The calendar and events print sheets show a field across many
 people. They use `PersonField#readable_subjects_for(viewer)` (and
 `#writable_subjects_for`), which returns a `Person` relation built once instead
 of calling `readable_by?` per row:
@@ -531,8 +532,7 @@ Admin-only policies for the definitions: `PersonFieldPolicy`,
 `PersonFieldGroupPolicy`, and `PersonFieldBadgeGrantPolicy` inherit from
 **`AdminPolicy`**, like `CheckinFieldPolicy`. The custom scaffold generator
 produces a permissive policy (AGENTS.md), so this is a hand edit after
-generating. Exception: `PersonFieldPolicy#roster?` (§10.6) is
-`user.admin? || record.readable_subjects_for(person).exists?`.
+generating.
 
 ### 4.3 Where enforcement lives
 
@@ -651,7 +651,6 @@ This is the practical definition of "doesn't leak". Each row needs a test
 | `CalendarController` birthdays | Restrict `@birthdays` to `birthday_field.readable_subjects_for(current_person)` |
 | `SearchController#combo` | Already exposes only `identifier_name`; add a regression test so it stays that way |
 | `Api::V1::UserInfoController` | No field values in v1, only base claims (email stays governed by the `user_email` OAuth scope, since it's the user's own data) |
-| Roster page (§10.6) | Rows restricted to `readable_subjects_for` |
 | Events `print` / `arrange`, `checkins/show` | See §9 |
 | Hooks | See §8.1. Hooks receive unfiltered values; hook code is architect-trusted |
 | PaperTrail / AuditLog views | Audit-log views are admin-only today; confirm with a test that a non-admin can't open the versions of a `PersonFieldValue` |
@@ -866,9 +865,6 @@ GatherPack::Features.register_built_in(
     label: "Custom Person Fields",
     description: "Add your own fields to member profiles and control who can see them",
     default_enabled: false,
-    nav_section: "People",
-    nav_position: 30,
-    nav_items: [ GatherPack::Feature::NavItem.new(label: "Member Info", path: :roster_person_fields_path, icon: "clipboard-list") ],
     setup_section: "People",
     setup_items: [
       GatherPack::Feature::SetupItem.new(label: "Person Fields", path: :person_fields_path),
@@ -878,8 +874,8 @@ GatherPack::Features.register_built_in(
 )
 ```
 
-**What the flag gates.** The toggle controls *custom* fields: creating them,
-showing them, and the Member Info nav. Access control on the **system fields is
+**What the flag gates.** The toggle controls *custom* fields: creating them
+and showing them. Access control on the **system fields is
 always enforced**, so turning the feature off never re-exposes a field an admin
 restricted. The Person Fields setup page is therefore always routed. With the
 feature off it lists only system fields and hides "New field". Because system
@@ -990,18 +986,16 @@ recommended settings.
   "Edit" button on their child's profile (via `PersonPolicy#edit?`), and the
   form contains only those fields.
 
-### 10.6 Member Info (roster)
+### 10.6 Member Info (removed)
 
-`GET /person_fields/roster`: pick one or more fields the viewer can read for
-someone, and optionally a team. It renders a table of people × selected fields,
-restricted per field to `readable_subjects_for(viewer)` and intersected with
-`policy_scope(Person)`. Cells for subjects the viewer can't read for a given
-field show "—", and rows with no readable cells are omitted.
-
-- Includes a print stylesheet (campout allergy sheet).
-- This is how a health officer, or a den leader, gets "all my kids' allergies"
-  without opening each profile.
-- `PersonFieldPolicy#roster?` gates access (§4.2).
+An earlier version had a "Member Info" page (`GET /person_fields/roster`): a
+printable table of people × selected fields, open to every signed-in user, with
+each cell limited by the field's read level. It was removed before the feature
+went upstream. Even with per-cell filtering it let any member list every
+teammate's email, gender and shirt size at once, and a bulk view of this kind
+is better served as a report with its own audience than as a screen in the
+nav. A report that needs field values across people should use
+`PersonField#readable_subjects_for(viewer)` (§3.3) so it honours read levels.
 
 ### 10.7 Setup → Person Field Sections
 
@@ -1031,7 +1025,7 @@ section ungroups its fields (`dependent: :nullify`).
 
 ```ruby
 resources :person_fields do
-  collection { get :roster; get :preview; post :apply_recommended }
+  collection { get :preview; post :apply_recommended }
   member     { patch :move; patch :archive; patch :restore }
 end
 resources :person_field_groups do
@@ -1041,7 +1035,7 @@ end
 
 Routed unconditionally (§10.1). The controllers check
 `GatherPack::Features.enabled?(:person_fields)` for custom-field-only actions
-(`new`, `create`, `roster`).
+(`new`, `create`).
 
 ---
 
@@ -1078,7 +1072,7 @@ follow that. Minimum:
    `people/show`, `people/edit`,
    `GET /people?q[dietary_restrictions_cont]=…`, the "Age" sort,
    `memberships` ransack on `person.birthday`, the calendar JSON, `search/combo`,
-   the API `userinfo` endpoint, the roster page, and the audit log.
+   the API `userinfo` endpoint, and the audit log.
 3. **Write tests**:
    - A crafted `PATCH /people/:id` with a `person_field_values` key the viewer
      can't write is dropped by strong params, and calling `assign_field_values`
@@ -1133,10 +1127,10 @@ once this slice is green (AGENTS.md).
 | Phase | Scope | Breaks anything? |
 |---|---|---|
 | **0: Read-surface prep** | `auth_object: current_user` at the `Person`/`Membership` ransack call sites (`ransackable_attributes(auth_object)` still returns today's attributes); `filter_parameters` additions. `verify_authorized`/`verify_policy_scoped` on `InternalController` was dropped from this phase: about 15 controllers have actions that never call `authorize` (some are real gaps, e.g. announcements `update`/`destroy`), so it belongs in its own hardening change | No |
-| **1: Model + UI** | `PersonField`, `PersonFieldValue`, `PersonFieldGroup`, `PersonFieldBadgeGrant` (scaffold, then hand-edit policies); the evaluator and scope form; `Person#readable_fields_for`/`writable_fields_for`/`field_value`/`assign_field_values`; **guardianship** (`relationship_types.guardianship`, `Relationship.active_guardianships`, `Person#guardians`/`#wards`, consent rule in `Relationship#permission_check`, age settings); `audience_for` and access messages; Setup index, form, sections, archive/restore; Preview as…; profile and form partials for custom fields; `PersonPolicy#update?` widening; Member Info roster; hooks (§8.1); feature registration | No. Feature flag off by default |
+| **1: Model + UI** | `PersonField`, `PersonFieldValue`, `PersonFieldGroup`, `PersonFieldBadgeGrant` (scaffold, then hand-edit policies); the evaluator and scope form; `Person#readable_fields_for`/`writable_fields_for`/`field_value`/`assign_field_values`; **guardianship** (`relationship_types.guardianship`, `Relationship.active_guardianships`, `Person#guardians`/`#wards`, consent rule in `Relationship#permission_check`, age settings); `audience_for` and access messages; Setup index, form, sections, archive/restore; Preview as…; profile and form partials for custom fields; `PersonPolicy#update?` widening; hooks (§8.1); feature registration | No. Feature flag off by default |
 | **2: System fields** | `ensure_system_fields!` migration (today's levels); switch `people/show`, `_form`, Ransack, calendar, and strong params to the field API; email as a read-only system field; "Apply recommended privacy settings" | No, by default (§6.1). Applying the recommended settings hides data from people who used to see it. That's the intended result, and the release notes should say so |
 | **3: Events integration** | §9: linked check-in fields, plus a read level on `CheckinField` | No (defaults preserve today) |
-| **4: Later, if wanted** | Badge-refined narrowing (§13.1), moving columns into the value table, confidential-at-rest (§7), read-access logging, CSV export from the roster | No |
+| **4: Later, if wanted** | Badge-refined narrowing (§13.1), moving columns into the value table, confidential-at-rest (§7), read-access logging, CSV export | No |
 
 Migrations in phases 1–3 touch the **primary** DB only. Per AGENTS.md, run both
 `db:migrate:primary` and `db:migrate:versions` even so (the audit DB is
@@ -1190,7 +1184,7 @@ Existing upstream files touched (record in `FORK.md` while this is carried):
 |---|---|
 | Does this change existing profile fields? | Yes. All seven built-ins (including email) become system fields (§6), defaulting to today's behavior, with a one-click recommended preset |
 | Can fields be added to the profile? | Yes, by section and position; `show_on_profile` allows internal-only fields |
-| Admin UX | Fully specified (§10): index/matrix, form with type options and badge access, sections, archive/restore/delete, Preview as…, recommended preset, roster |
+| Admin UX | Fully specified (§10): index/matrix, form with type options and badge access, sections, archive/restore/delete, Preview as…, recommended preset |
 | Security groups? | No new group concept. Relative audiences (self, guardians, leaders, direct teammates) plus **admin-assigned badge grants** as fixed audiences, scoped by the badge's team |
 | Which relationships grant access? | Only types an admin marks `guardianship: minor` or `consented`, parent side → child side (§3.4). Any other relationship grants nothing |
 | Adult students | `minor` guardianship can expire at a configurable age (off by default); an adult grants access back with a `consented` relationship they create |
@@ -1225,9 +1219,7 @@ left open:
   edit* select per admin-assigned badge (`PersonField#badge_access=`), not
   add/remove rows. No JavaScript is needed, and the full set of badges that
   could grant access is visible at a glance.
-- **Member Info** is open to every signed-in user and says "There are no
-  fields you can view for anyone" when that's true. `NavItem` has no
-  visibility hook, so the nav link shows whenever the feature is on.
+- **Member Info** (a bulk roster page) was built and then removed (§10.6).
 - **Messages** live in `config/locales/person_fields.en.yml` (a new file)
   rather than `en.yml`. "Ends soon" means within 90 days. The field form
   updates each level's description as it changes; there's no separate

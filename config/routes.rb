@@ -37,7 +37,6 @@ Rails.application.routes.draw do
   resources :relationship_types
   resources :person_fields do
     collection do
-      get :roster
       get :preview
       post :apply_recommended
     end

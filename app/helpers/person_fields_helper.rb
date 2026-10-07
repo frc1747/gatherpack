@@ -45,7 +45,7 @@ module PersonFieldsHelper
     "Apply recommended privacy settings?\n\n#{lines.join("\n")}\n\nPeople who can see these details today may no longer be able to."
   end
 
-  # A value formatted for the profile and roster.
+  # A value formatted for the profile.
   def person_field_display(field, value)
     return "—" if value.nil? || value == [] || value == ""
 
