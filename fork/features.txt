@@ -12,6 +12,7 @@ feature/calendar-birthday-team-filter
 feature/user-display-name
 feature/people-ransack-auth-object
 feature/person-fields
+feature/forms
 feature/team-page-qa-crash
 feature/team-page-parent-managers
 feature/app-version
