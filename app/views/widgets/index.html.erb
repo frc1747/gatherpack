@@ -1,0 +1,44 @@
+<% breadcrumb :widgets %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Dashboard Widgets</h1>
+  </div>
+  <div class="card-body">
+    <p>Widgets are sections on everyone's dashboard. They show in order within each place, lowest number first.</p>
+
+    <% Widget::PLACEMENTS.each do |placement| %>
+      <h2 class="h5 mt-4"><%= widget_placement_label(placement) %></h2>
+      <% widgets = @widgets.fetch(placement, []) %>
+      <% if widgets.any? %>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Title</th>
+              <th>Who can see it</th>
+              <th>Team</th>
+              <th>Shown</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% widgets.each do |widget| %>
+              <tr id="<%= dom_id widget %>">
+                <td><%= widget.position %></td>
+                <td><%= link_to widget.title, widget %></td>
+                <td><%= widget_viewer_label(widget.viewer) %></td>
+                <td><%= widget.team&.name %></td>
+                <td><%= widget.enabled ? "Yes" : "No" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="text-muted">None.</p>
+      <% end %>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "New Widget", new_widget_path, class: "btn btn-success" if policy(Widget).new? %>
+  </div>
+</div>
