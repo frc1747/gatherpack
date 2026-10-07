@@ -4,11 +4,17 @@
 |---|---|
 | Kind | upstream feature (amends our `feature/person-fields`) |
 | Priority | high |
-| Status | waiting |
+| Status | dropped (2026-10-06) |
 | Added | 2026-10-05 |
 | Branch checked | `feature/person-fields` at `5b2700a` (in release `v0.0.0-hbr.6`) |
 | Planned branch | none: this goes on `feature/person-fields` itself, which is still `wip` |
 | Upstream issue / PR | belongs with issue [#489](https://github.com/GatherPack/gatherpack/issues/489) (person fields) |
+
+## Resolution (2026-10-06)
+
+Dropped. Corey decided Member Info should not be a screen at all: "That's a report we should write, not an entire screen." Instead of restricting the page, it was removed from `feature/person-fields` in `2d77442` (route, action, view, policy check, nav item, breadcrumb, tests; spec §10.6 records the decision). Nothing below needs building. If the bulk people × fields view is wanted, write it as a report, use `PersonField#readable_subjects_for(viewer)` so it honours read levels, and decide its audience up front.
+
+Production (`hbr.6`) still serves the page until a release with `2d77442` is deployed. Until then, turning off Settings → Features → "Custom Person Fields" hides it (production has no custom fields as of 2026-10-06).
 
 ## Summary
 
