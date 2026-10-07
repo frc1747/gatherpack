@@ -5,7 +5,7 @@ class WidgetsController < InternalController
   # GET /widgets
   def index
     authorize Widget
-    @widgets = Widget.includes(:team).in_order.group_by(&:placement)
+    @widgets = policy_scope(Widget).includes(:team).in_order.group_by(&:placement)
   end
 
   # GET /widgets/1 (a preview of the widget alone)
