@@ -1,0 +1,159 @@
+<% breadcrumb :form_response, @response %>
+<% access = FormAccess.new(current_user.person, @subject, @form) %>
+<% response_policy = policy(@response) %>
+<% active = @response.active_submission %>
+<% open = @response.open_submission %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %>: <%= @subject.identifier_name %></h1>
+    <div>
+      <%= form_status_badge(@response.persisted? ? @response.status : "not_started") %>
+      <% if @response.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
+      <span class="text-muted ms-2"><%= form_due(@form) %></span>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if active && @response.needs_reconfirmation? %>
+      <div class="alert alert-warning">
+        <% if @response.reconfirmation_reason == :form %>
+          <strong>Needs re-confirmation.</strong> This form changed after version <%= active.number %> was submitted (it was on form version <%= active.form_version %>). Its answers still count until a new version replaces them.
+        <% else %>
+          <strong>Needs re-confirmation.</strong> Profile details have changed since this was signed. Its answers still count until a new version replaces them.
+        <% end %>
+      </div>
+    <% end %>
+    <% if active && (changes = @response.profile_changes.select { |question| access.question_readable?(question) }).any? %>
+      <div class="alert alert-info">
+        Changed on the profile since submitted <%= nice_date(active.submitted_at) %>:
+        <ul class="mb-0">
+          <% changes.each do |question| %>
+            <li><%= question.label %>: was <%= form_answer_display(question, active.answer(question)) %>, now <%= form_answer_display(question, @subject.field_value(question.person_field)) %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if open&.pending? && response_policy.sign? %>
+      <% open.missing_signatures.select { |question| access.can_sign?(question) }.each do |question| %>
+        <% role = access.signing_role(question) %>
+        <div class="card mb-3 border-primary" id="sign_<%= question.key %>">
+          <div class="card-header"><h2 class="h5 mb-0"><%= i "signature" %> <%= question.label %></h2></div>
+          <div class="card-body">
+            <% if question.body.present? %><div class="mb-3"><%= form_markdown(question.body) %></div><% end %>
+            <p class="mb-1">You're signing these answers for <strong><%= @subject.identifier_name %></strong> (version <%= open.number %>, submitted <%= nice_datetime(open.submitted_at) %><%= " by #{open.submitted_by.identifier_name}" if open.submitted_by %>):</p>
+            <div class="border rounded p-2 mb-3"><%= render "answers", submission: open, previous: nil, access: access %></div>
+            <%= form_with url: sign_form_response_path(@form, @subject), method: :post do %>
+              <%= hidden_field_tag :question_id, question.id %>
+              <label class="form-label" for="typed_name_<%= question.key %>">
+                <% if role == :leader %>
+                  To record a signed paper form, type your own full name (<%= current_user.person.first_name %> <%= current_user.person.last_name %>):
+                <% else %>
+                  Type your full name to sign<%= " as #{@subject.first_name}'s guardian" if role == :guardian %> (<%= current_user.person.first_name %> <%= current_user.person.last_name %>):
+                <% end %>
+              </label>
+              <div class="input-group" style="max-width: 32rem;">
+                <%= text_field_tag :typed_name, nil, id: "typed_name_#{question.key}", class: "form-control", autocomplete: "off", required: true %>
+                <%= submit_tag role == :leader ? "Record paper signature" : "Sign", class: "btn btn-primary", name: nil %>
+              </div>
+              <div class="form-text">Your name, the time, and this device are recorded with the signature. Changing the answers later needs a new signature.</div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+
+    <% if open && active %>
+      <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>
+          <strong>Unsubmitted update</strong>, started <%= nice_datetime(open.created_at) %><%= " by #{open.created_by.identifier_name}" if open.created_by %>.
+          <% if open.pending? %>It's waiting for <%= open.waiting_for.to_sentence %>.<% end %>
+          The answers below stay in effect until it's submitted.
+        </span>
+        <span class="text-nowrap">
+          <% if response_policy.edit? %><%= link_to "Continue update", edit_form_response_path(@form, @subject), class: "btn btn-sm btn-primary" %><% end %>
+          <% if response_policy.discard? %>
+            <%= button_to "Discard update", discard_form_response_path(@form, @subject), class: "btn btn-sm btn-outline-dark", form_class: "d-inline",
+                  data: { turbo_confirm: "Discard this unsubmitted update? The submitted answers stay as they are." } %>
+          <% end %>
+        </span>
+      </div>
+    <% end %>
+
+    <% if active %>
+      <h2 class="h5">Submitted answers <small class="text-muted">(version <%= active.number %>, submitted <%= nice_datetime(active.submitted_at) %> by <%= active.submitted_by&.identifier_name || "someone no longer here" %>)</small></h2>
+      <%= render "answers", submission: active, previous: nil, access: access %>
+      <%= render "signatures", submission: active %>
+    <% elsif open&.pending? %>
+      <p>Submitted <%= nice_datetime(open.submitted_at) %>, and waiting for <%= open.waiting_for.to_sentence %>.</p>
+      <%= render "signatures", submission: open %>
+    <% elsif open %>
+      <p class="text-muted">Started, not submitted yet.</p>
+    <% elsif @response.withdrawn? %>
+      <p class="text-muted">This response was withdrawn. Filling the form in again starts from the withdrawn answers.</p>
+    <% else %>
+      <p class="text-muted">No response yet.</p>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <% if response_policy.start_update? %>
+      <%= link_to "Update answers", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
+    <% elsif open && !active && response_policy.edit? %>
+      <%= link_to open.pending? ? "Review answers" : "Continue", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
+    <% elsif !active && !open && response_policy.edit? %>
+      <%= link_to "Fill in", edit_form_response_path(@form, @subject), class: "btn btn-primary" %>
+    <% end %>
+    <% if open && !active && open.pending? && response_policy.submit? && open.ready? %>
+      <%= button_to "Submit", submit_form_response_path(@form, @subject), class: "btn btn-primary", form_class: "d-inline" %>
+    <% end %>
+    <% if open && !active && response_policy.discard? %>
+      <%= button_to "Discard draft", discard_form_response_path(@form, @subject), class: "btn btn-outline-dark", form_class: "d-inline",
+            data: { turbo_confirm: "Discard this unsubmitted draft?" } %>
+    <% end %>
+    <% if policy(@form).show? %>
+      <%= link_to "All responses", form_path(@form), class: "btn btn-secondary" %>
+    <% elsif policy(@form).tally? %>
+      <%= link_to "See totals", tally_form_path(@form), class: "btn btn-secondary" %>
+    <% end %>
+  </div>
+</div>
+
+<% if response_policy.withdraw? %>
+  <div class="card mt-3 border-danger">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span>
+        <strong>Withdraw this response.</strong>
+        The submitted answers stop counting and leaders see it as withdrawn. It isn't deleted: filling the form in again starts from these answers.
+      </span>
+      <%= button_to "Withdraw response", withdraw_form_response_path(@form, @subject), class: "btn btn-outline-danger", form_class: "d-inline",
+            data: { turbo_confirm: "Withdraw #{@subject == current_user.person ? "your" : "#{@subject.first_name}'s"} submitted answers to #{@form.title}? They'll stop counting until the form is filled in again." } %>
+    </div>
+  </div>
+<% end %>
+
+<% shown = @submissions.reject(&:discarded?) %>
+<% if shown.size > (active ? 1 : 0) %>
+  <div class="card mt-3">
+    <div class="card-header"><h2>History</h2></div>
+    <div class="card-body">
+      <% by_id = @submissions.index_by(&:id) %>
+      <% shown.each do |submission| %>
+        <div class="mb-4" id="<%= dom_id submission %>">
+          <h3 class="h6">
+            <%= link_to "Version #{submission.number}", form_response_submission_path(@form, @subject, submission) %>
+            <span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(submission.status) %></span>
+            <small class="text-muted">
+              <% if submission.submitted_at %>
+                submitted <%= nice_datetime(submission.submitted_at) %> by <%= submission.submitted_by&.identifier_name || "someone no longer here" %><%= " (entered late)" if submission.entered_late? %>
+              <% else %>
+                started <%= nice_datetime(submission.created_at) %> by <%= submission.created_by&.identifier_name || "someone no longer here" %>
+              <% end %>
+            </small>
+          </h3>
+          <%= render "answers", submission: submission, previous: by_id[submission.based_on_id], access: access %>
+          <%= render "signatures", submission: submission %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>
