@@ -11,6 +11,31 @@ class Relationship < ApplicationRecord
 
   attr_accessor :start_node, :node_occupant, :node_occupant_id, :other_occupant, :other_occupant_id, :created_by
 
+  # Relationships whose parent side is currently a guardian of the child side:
+  # every consented guardianship, plus minor guardianships whose child hasn't
+  # reached the age limit (when one is set).
+  scope :active_guardianships, -> {
+    guardianships = joins(:relationship_type).where.not(relationship_types: { guardianship: RelationshipType.guardianships[:none] })
+    limit = guardianship_age_limit
+    if limit
+      minors = Person.where("people.birthday > ?", Date.current - limit.years)
+      minors = minors.or(Person.where(birthday: nil)) unless guardianship_ends_without_birthday?
+      guardianships.where(relationship_types: { guardianship: RelationshipType.guardianships[:consented] })
+        .or(guardianships.where(child_id: minors.select(:id)))
+    else
+      guardianships
+    end
+  }
+
+  def self.guardianship_age_limit
+    limit = Settings[:guardianship_age_limit].to_s.strip
+    limit.match?(/\A\d+\z/) && limit.to_i.positive? ? limit.to_i : nil
+  end
+
+  def self.guardianship_ends_without_birthday?
+    Settings[:guardianship_ends_without_birthday] == true
+  end
+
   def reify
     raise ArgumentError unless start_node.present? && node_occupant.present?
 
@@ -50,6 +75,8 @@ class Relationship < ApplicationRecord
   end
 
   def permission_check
+    return consent_check if relationship_type.guardianship_consented?
+
     errors.tap do |t|
        t.add(:parent, "does not meet relationship requirements")
        t.add(:child, "does not meet relationship requirements")
@@ -65,6 +92,13 @@ class Relationship < ApplicationRecord
                when "added_by_user"
       true
                end
+  end
+
+  # Consent can only come from the person whose data it opens up.
+  def consent_check
+    unless created_by == child || created_by_admin?
+      errors.add(:base, "Only #{child&.identifier_name || "the #{relationship_type.child_label.downcase}"} or an admin can add this relationship")
+    end
   end
 
   def created_by_participant?
