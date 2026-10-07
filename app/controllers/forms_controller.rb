@@ -152,8 +152,8 @@ class FormsController < InternalController
   end
 
   # GET /forms/1/tally
-  # With an event, the population can be the people who said they're coming
-  # or the people who checked in.
+  # Counts everyone the form asks by default, or the people chosen as on the
+  # printable list (FormPopulation).
   def tally
     unless policy(@form).show?
       # Shared totals only: everyone asked, no names, no filters.
@@ -163,40 +163,40 @@ class FormsController < InternalController
       return
     end
 
-    @teams = helpers.form_team_choices(@form)
-    @team = @teams.detect { |team| team.id == params[:team_id] }
-    @event = @form.event || policy_scope(Event).find_by(id: params[:event_id])
-    @basis = %w[ expected checked_in ].include?(params[:basis]) && @event ? params[:basis] : "asked"
-    only = nil
-    if @basis != "asked"
-      sheet = FormPrintList.new(form: @form, event: @event, viewer: current_user.person, basis: @basis)
-      only = sheet.population.map(&:id)
-      @basis_missing = !sheet.basis_available?
+    load_population_choices
+    @population = FormPopulation.from_params(params, viewer: current_user.person, form: @form, forms: @source_forms, events: policy_scope(Event))
+    @report = if @population.source == "asked"
+      FormReport.new(@form, viewer: current_user.person, team: @population.team)
+    else
+      FormReport.new(@form, viewer: current_user.person, only: @population.ids)
     end
-    @report = FormReport.new(@form, viewer: current_user.person, team: @team, only: only)
     @questions = @report.questions.select { |question| helpers.form_tallyable?(question) }
   end
 
-  # GET /forms/print_list?form_id=&event_id=&basis=&question_ids[]=&field_ids[]=
-  # People from an event (or everyone a form asks), with one form's answers.
+  # GET /forms/print_list?form_id=&who=&team_id=&question_id=&answers[question_id][]=&question_ids[]=&field_ids[]=
+  # People (FormPopulation) with one form's answers.
   def print_list
     authorize Form, :index?
     viewer = current_user.person
-    @forms = Form.where(status: %i[ open closed ]).includes(:team).order(:title).select { |form| policy(form).show? }
+    load_population_choices
+    @forms = @source_forms
     @form = @forms.detect { |form| form.id == params[:form_id] }
-    @events = policy_scope(Event).where(start_time: 2.months.ago..4.months.from_now).order(:start_time).to_a
-    @event = policy_scope(Event).find_by(id: params[:event_id])
-    @events.unshift(@event) if @event && !@events.include?(@event)
     @layout = params[:layout] == "labels" ? "labels" : "list"
-    @intent_form = @event && EventForms.new(@event, viewer: viewer).intent_form
+    @population = FormPopulation.from_params(params, viewer: viewer, form: @form, forms: @source_forms, events: policy_scope(Event))
     return unless @form
 
     @choices = @form.answerable_questions.reject(&:intent?)
     @profile_fields = helpers.form_profile_field_choices(viewer)
-    questions = @choices.select { |question| Array(params[:question_ids]).include?(question.id) }
-    questions = @choices.select { |question| %w[ select multi_select ].include?(question.value_type.data_type) } if params[:question_ids].nil?
-    fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
-    @list = FormPrintList.new(form: @form, event: @event, viewer: viewer, basis: params[:basis], questions: questions, fields: fields)
+    # Columns ticked for another form (before "Answers from" changed) don't
+    # carry over; the new form starts from its choice and yes/no questions.
+    if params[:columns_for] == @form.id
+      questions = @choices.select { |question| Array(params[:question_ids]).include?(question.id) }
+      fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
+    else
+      questions = @choices.select { |question| %w[ select multi_select boolean ].include?(question.value_type.data_type) }
+      fields = []
+    end
+    @list = FormPrintList.new(form: @form, viewer: viewer, source: @population, questions: questions, fields: fields)
   end
 
   # GET /forms/1/preview
@@ -208,6 +208,10 @@ class FormsController < InternalController
   end
 
   private
+    def load_population_choices
+      @source_forms = Form.where(status: %i[ open closed ]).includes(:team, :event, :form_questions).order(:title).select { |form| policy(form).show? }
+    end
+
     def set_form
       @form = authorize Form.find(params[:id])
       @tab = params[:tab].presence_in(EDIT_TABS) || "details"

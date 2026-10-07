@@ -63,8 +63,6 @@ module FormsHelper
     "withdrawn" => "Withdrawn", "discarded" => "Discarded"
   }.freeze
 
-  BASIS_LABELS = { "asked" => "Everyone asked", "expected" => "Said they're coming", "checked_in" => "Checked in" }.freeze
-
   PROFILE_MODE_LABELS = {
     nil => "Form only", "prefill" => "Filled in from profile", "update_profile" => "Updates profile"
   }.freeze
