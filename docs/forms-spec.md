@@ -2,7 +2,8 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-06 (rev. 7: the printable list picks its people from general
+Date: 2026-10-07 (rev. 8: the printable list starts from the form; people are everyone it
+asks or people who answered a question on any form (§9.4). Rev. 7: the printable list picks its people from general
 sources, not three groups taken from the meal order (§9.4). Rev. 6: the order
 sheet is renamed the printable list. Rev. 5: phase 2 built; content versions start on the
 first change and Publish only decides about earlier responses (§7.4);
@@ -744,69 +745,82 @@ special case of "people who answered Yes to one question". It left out
 Maybe without saying so, and it gave nothing to a t-shirt order, a volunteer
 roster, or a carpool list.
 
-People and answers can come from different forms. The page has three steps:
+Rev. 8: the form comes first, and who's on the list is one of two plain
+choices under it. Rev. 7's first build put an abstract "People" source
+before the form, with a second form picker that pointed ahead to "the form
+in step 2", and answers that appeared only after a reload; it was harder to
+follow than rev. 5. A "People at an event" choice (Said Yes, Said Maybe,
+Checked in) was tried and dropped: "People who answered a question" covers
+Said Yes and Maybe more generally and shows where the answers come from.
 
-1. **Who's on the list.** One source:
+The page, top to bottom:
 
-   | Source | People | Choose |
-   |---|---|---|
-   | Everyone a form asks | The form's audience | A form; optionally a team below its audience (the results page's team filter) |
-   | Checked in to an event | The event's check-ins, read only (§10.2) | An event |
-   | Gave an answer | People whose active answer to one question is one of the chosen answers | A question, then one or more of its answers |
+1. **Answers from**: the form whose answers are shown (any open or closed
+   form the viewer can see results for, so a season form doesn't have to be
+   attached to every event). Choosing it reloads the page with the rest.
+2. **Who's on the list**: one of two radio choices. Changing a choice's
+   setting selects it.
+   - **Everyone the form asks** (default), optionally narrowed to a team
+     below the form's team.
+   - **People who answered a question**, in two steps: choose a form (any
+     form the viewer can see results for; event forms are labelled with
+     their event), then one of its questions, then tick the answers that
+     count. Yes/no and "Are you coming?" questions are listed first, then
+     choice and multiple choice questions. The people and the answers can
+     come from different forms: people who said Yes or Maybe on the event's
+     RSVP, with their answers from the season meal form; or people who
+     ticked "Can you drive?" on a trip form, with their phone numbers.
+     Nothing is ticked by default, so whether Maybe counts is up to the
+     person making the list. A `multi_select` answer matches if it includes
+     any ticked answer. An unticked yes/no is stored as no answer, so on a
+     submitted response it counts as No. Only answers the viewer can read
+     count; the rest are counted (below).
 
-   "Gave an answer" offers every `select`, `multi_select`, `boolean`, and
-   `intent` question on a form the viewer can see results for. Questions are
-   grouped by form, and event forms are labelled with their event. A
-   `multi_select` answer matches if it includes any chosen answer. Only
-   answers the viewer can read count. People whose answer to that question
-   the viewer can't read are counted, not silently dropped (below). No
-   answer is picked by default: whether Maybe counts is up to the person
-   making the list.
+   **Printable list for this event** (event panel) opens a finished list:
+   answers from the event's first form with something to show besides
+   "Are you coming?" (or its only form), and people from "People who
+   answered a question" with the event's "Are you coming?" question and Yes
+   ticked, or everyone asked if no form on the event asks. With no columns
+   ticked, the list is just names.
+3. **Columns**: tick boxes for the form's questions (default: its choice
+   and yes/no questions) and any profile fields the viewer can read.
+   Changing "Answers from" starts the columns over from the new form's
+   defaults.
+4. **Print as**: a table or labels, one per person.
 
-   The default source is "Everyone a form asks", using the answers form
-   from step 2. **Printable list for this event** (event panel) presets the
-   source. If a form on the event has an intent question, the source is
-   "Gave an answer" with that question and Yes. Otherwise it is "Checked in
-   to an event". A preset is only a starting choice: no source is specific
-   to events or intent.
-2. **What's on the list**: the form the answers come from (the event's
-   attached forms or any open form the viewer can read results for, so a
-   season form doesn't have to be attached to every event), its questions
-   as columns (default: its choice questions), and any profile fields the
-   viewer can read as columns.
-3. **Print as**: a table or labels, one per person.
+The tally page has the same "Who's counted" choices for its own form.
 
-The printout names both sources, for example:
+The printout names who and what, for example:
 
-- "People: 22 answered Yes or Maybe to "Are you coming?" (Build Day RSVP)"
-- "People: 21 checked in at Build Day"
+- "People: 22 who answered Yes or Maybe to "Are you coming?" (Build Day RSVP)"
+- "People: 6 who answered Yes to "Can you drive?" (Spring Trip)"
 - "People: 40 asked by Season Meal Choices (Programming)"
 
 followed by "Answers: Season Meal Choices · 15 answered, 3 haven't". People
 are split three ways: listed (an active answer the viewer can read),
 "Haven't answered" (no response, or nothing submitted), and a count of
-people whose answers the viewer can't see. A "Gave an answer" source adds
-its own count: "Not shown: 2 people whose answer to "Are you coming?" you
-can't see". No one is silently left out.
+people whose answers the viewer can't see. "People who answered a question"
+adds its own count: "Not shown: 2 people whose answer to "Are you coming?"
+you can't see". No one is silently left out.
 
-Page directions stay short and generic (§12): "Choose who's on the list,
-then which answers to show. The people and the answers can come from
-different forms." No example from one organization's use case.
+Page directions stay short and generic (§12): "A list of people with their
+answers to one form, as a table or labels."
 
 #### Implementation
 
-- **`FormPopulation`** (new file) turns the source params and the viewer
-  into people, sorted by last and first name, plus a hidden count and a
-  description for the printout. `FormPrintList` and the tally page both use
-  it, replacing `FormPrintList::BASES` and `FormsHelper::BASIS_LABELS`.
-- **Params**: `source` (`asked`, `checked_in`, `answered`),
-  `source_form_id`, `team_id`, `event_id`, `question_id`, `answers[]`.
-  Links that still use `basis` keep working: `basis=expected` becomes
-  `answered` with the event's intent question and Yes, `checked_in` maps
-  directly, and anything else becomes `asked`.
+- **`FormPopulation`** turns the choice and the viewer into people, sorted
+  by last and first name, plus a hidden count, a description for the
+  printout, and what's still to choose. `FormPrintList` and the tally page
+  both use it, replacing `FormPrintList::BASES` and
+  `FormsHelper::BASIS_LABELS`.
+- **Params**: `who` (`asked`, `answered`), `team_id`, `question_form_id`
+  (the page's first step only), `question_id`, `answers[<question id>][]`.
+  The page sends only the chosen form's question list. Links that still use
+  `basis=expected` start from Said Yes; other `basis` values start from
+  everyone asked.
 - **Matching** reads answers through `FormReport` (`readable?`, `answer`),
   never `FormSubmission` directly, so it follows the same permissions as the
-  results page. Chosen answers are cast through the question's value type
+  results page. Ticked answers are cast through the question's value type
   (choice strings; `true`/`false` for booleans) before comparing.
 - **`EventForms#expected_people`** stays for the event panel. That panel's
   numbers are about intent (§10.2); the printable list no longer uses it.
@@ -821,9 +835,11 @@ and no domain events. Hooks on `form_submissions` and `form_responses`
 
 - **"Was asked but hasn't answered"** as a source, for chasing answers. The
   status page's filters and Remind (§11.1) already cover that.
-- **Combining sources** (answered Yes *and* checked in). The event panel
-  already lists the two differences (§10.2). Add combining only if someone
-  needs it on paper.
+- **Checked in to an event** as a choice. It went with "People at an
+  event" in rev. 8. The event panel already lists who checked in against who
+  said yes (§10.2). Add it back if someone needs a handout list on paper.
+- **Combining choices** (said Yes *and* ticked "Can you drive?"). Add only
+  if someone needs it.
 
 ### 9.5 Custom reports (Pages)
 
@@ -1115,7 +1131,7 @@ Ditto:
 | **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the printable list |
 | **2: Audiences, profile tab, and consent** (done 2026-10-06) | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
 | **3: Events** (done 2026-10-06) | `event_id`, the intent question, event panel, expected vs checked in, printable list (was order sheet) | The Attending column and the hand-built order |
-| **3a: General list sources** (planned, rev. 7) | `FormPopulation`; the printable list's three sources (§9.4), shared with the tally page; `basis` links mapped | Three fixed groups (said yes, checked in, everyone asked) |
+| **3a: General list choices** (done 2026-10-07, rev. 8) | `FormPopulation`; the printable list's form-first layout and two choices of who's on it (§9.4), shared with the tally page; `basis` links mapped | Three fixed groups (said yes, checked in, everyone asked) |
 | **4: Later** | automatic reminders, reminders at clock-in (when someone clocks in at the time kiosk, remind them of forms they still owe), digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link. Other event-driven reminders are out of scope for now | |
 
 ### 15.1 Open questions

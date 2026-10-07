@@ -75,7 +75,9 @@
         <% end %>
 
         <% if managed.any? %>
-          <%= link_to "Printable list for this event", print_list_forms_path(event_id: event.id), class: "btn btn-sm btn-secondary" %>
+          <%# Answers from the event's first form with something to show besides "Are you coming?"; people start from who said Yes. %>
+          <% answers_form = managed.detect { |form| form.answerable_questions.any? { |question| !question.intent? } } || managed.first %>
+          <%= link_to "Printable list for this event", print_list_forms_path(event_id: event.id, form_id: answers_form.id), class: "btn btn-sm btn-secondary" %>
         <% end %>
         <% if can_add %>
           <%= link_to "New form for this event", new_form_path(event_id: event.id), class: "btn btn-sm btn-outline-secondary" %>
