@@ -1,0 +1,163 @@
+<% breadcrumb :form_print_list %>
+<% list = @list %>
+
+<div class="card no-print">
+  <div class="card-header">
+    <h1>Printable List</h1>
+    <div class="text-muted">Pick who's on the list, then which form's answers to show. They can come from different forms: for example, people who said they're coming to Saturday's build, with their meal choices from the season meal form.</div>
+  </div>
+  <div class="card-body">
+    <%= form_with url: print_list_forms_path, method: :get do %>
+      <h2 class="h6">1. Who's on the list</h2>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <%= label_tag :event_id, "Event (optional)", class: "form-label" %>
+          <%= select_tag :event_id, options_for_select(@events.map { |event| [ event.to_combobox_display, event.id ] }, @event&.id), include_blank: "No event", class: "form-select" %>
+          <div class="form-text">With no event, the list is everyone the form below asks.</div>
+        </div>
+        <div class="col-md-6">
+          <%= label_tag :basis, "Include", class: "form-label" %>
+          <%= select_tag :basis, options_for_select([ [ "Said they're coming", "expected" ], [ "Checked in", "checked_in" ], [ "Everyone the form asks", "asked" ] ], list&.basis || params[:basis]), class: "form-select" %>
+          <% if @intent_form %>
+            <div class="form-text">"Said they're coming" is from "<%= @intent_form.intent_question.label %>" on <%= @intent_form.title %>.</div>
+          <% end %>
+        </div>
+      </div>
+
+      <h2 class="h6">2. What's on the list</h2>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <%= label_tag :form_id, "Answers from", class: "form-label" %>
+          <%= select_tag :form_id, options_for_select(@forms.map { |form| [ form.title, form.id ] }, @form&.id), include_blank: "Choose a form…", class: "form-select" %>
+        </div>
+        <% if @form %>
+          <div class="col-md-6"></div>
+          <div class="col-md-6">
+            <%= label_tag "question_ids[]", "Columns from that form", class: "form-label" %>
+            <%= select_tag "question_ids[]", options_for_select(@choices.map { |question| [ question.label, question.id ] }, list.questions.map(&:id)), multiple: true, class: "form-select", size: [ @choices.size, 6 ].min %>
+          </div>
+          <div class="col-md-6">
+            <%= label_tag "field_ids[]", "Columns from profiles", class: "form-label" %>
+            <%= select_tag "field_ids[]", options_for_select(@profile_fields.map { |field| [ field.name, field.id ] }, list.fields.map(&:id)), multiple: true, class: "form-select", size: [ [ @profile_fields.size, 1 ].max, 6 ].min %>
+          </div>
+        <% end %>
+      </div>
+
+      <% if @form %>
+        <h2 class="h6">3. Print as</h2>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <%= select_tag :layout, options_for_select([ [ "Table", "list" ], [ "Labels (one per person)", "labels" ] ], @layout), class: "form-select", "aria-label": "Print as" %>
+          </div>
+        </div>
+      <% end %>
+
+      <div>
+        <%= submit_tag "Make list", class: "btn btn-primary", name: nil %>
+        <% if list %><button type="button" class="btn btn-secondary" onclick="window.print()">Print</button><% end %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<% if list %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <h2><%= @event ? "#{@event.name}, #{nice_date(@event.start_time)}" : @form.title %></h2>
+      <div>
+        People: <%= list.population.size %>
+        <%= { "expected" => "said they're coming", "checked_in" => "checked in", "asked" => "asked by the form" }.fetch(list.basis) %><%= " (#{@intent_form.title})" if list.basis == "expected" && @intent_form %>
+      </div>
+      <div>Answers: <%= @form.title %> · <%= list.listed.size %> answered, <%= list.no_choice.size %> haven't</div>
+    </div>
+    <div class="card-body">
+      <% unless list.basis_available? %>
+        <div class="alert alert-warning no-print">Nobody can say whether they're coming to <%= @event.name %> yet. Add an "Are you coming?" question to a form on this event, or include who checked in instead.</div>
+      <% end %>
+
+      <% if list.questions.empty? && list.fields.empty? %>
+        <p class="text-muted">Choose at least one column.</p>
+      <% elsif @layout == "labels" %>
+        <div class="row g-2">
+          <% list.listed.each do |line| %>
+            <div class="col-6 col-lg-4">
+              <div class="border rounded p-2 h-100" style="page-break-inside: avoid;">
+                <div class="fw-bold"><%= line.person.identifier_name %></div>
+                <% list.questions.each do |question| %>
+                  <% value = list.answer(line, question) %>
+                  <% next if value.blank? %>
+                  <div><small class="text-muted"><%= question.label %>:</small> <%= form_csv_value(value) %></div>
+                <% end %>
+                <% list.fields.each do |field| %>
+                  <% value = list.profile(line, field) %>
+                  <% next if value.blank? %>
+                  <div><small class="text-muted"><%= field.name %>:</small> <%= form_csv_value(value) %></div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle">
+            <thead>
+              <tr>
+                <th>Person</th>
+                <% list.questions.each do |question| %><th><%= question.label %></th><% end %>
+                <% list.fields.each do |field| %><th class="table-info"><%= field.name %></th><% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% list.listed.each do |line| %>
+                <tr id="<%= dom_id line.person %>">
+                  <td><%= line.person.identifier_name %></td>
+                  <% list.questions.each do |question| %>
+                    <td><%= list.report.readable?(line.row, question) ? form_csv_value(list.answer(line, question)) : "·" %></td>
+                  <% end %>
+                  <% list.fields.each do |field| %>
+                    <td class="table-info"><%= list.profile_readable?(line, field) ? form_csv_value(list.profile(line, field)) : "·" %></td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+
+      <% if list.no_choice.any? %>
+        <h3 class="h6 mt-3">Haven't answered (<%= list.no_choice.size %>)</h3>
+        <ul class="mb-2">
+          <% list.no_choice.each do |line| %>
+            <li>
+              <%= line.person.identifier_name %>
+              <% details = list.fields.filter_map { |field| (value = list.profile(line, field)).present? ? "#{field.name}: #{form_csv_value(value)}" : nil } %>
+              <% if details.any? %><small class="text-muted">(<%= details.join("; ") %>)</small><% end %>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if list.hidden.any? %>
+        <p class="text-muted mt-2">Not shown: <%= pluralize(list.hidden.size, "person", plural: "people") %> whose answers you can't see.</p>
+      <% end %>
+
+      <% if list.questions.any? && list.listed.any? %>
+        <h3 class="h5 mt-4">Totals</h3>
+        <div class="row">
+          <% list.questions.select { |question| form_tallyable?(question) }.each do |question| %>
+            <div class="col-12 col-md-6 col-xl-4 mb-3" style="page-break-inside: avoid;">
+              <h4 class="h6"><%= question.label %></h4>
+              <table class="table table-sm">
+                <tbody>
+                  <% list.tally(question).each do |value, count| %>
+                    <% next if count.zero? %>
+                    <tr class="<%= "text-muted" if value.nil? %>"><td><%= form_tally_label(value) %></td><td class="text-end"><%= count %></td></tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>
