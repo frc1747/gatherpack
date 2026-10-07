@@ -22,10 +22,24 @@ class WidgetsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "members can't manage widgets" do
+  test "members see the widgets they can see, but can't manage them" do
     with_feature do
+      Widget.create!(title: "Shop hours")
+      Widget.create!(title: "Den A notes", viewer: "team", team: @team)
+      secret = Widget.create!(title: "Admins only", viewer: "admin")
+
       sign_in @member
       get widgets_path
+      assert_response :success
+      assert_match "Shop hours", response.body
+      assert_match "Den A notes", response.body
+      assert_no_match "Admins only", response.body
+      assert_select "a[href=?]", new_widget_path, 0
+
+      get widget_path(secret)
+      assert_redirected_to root_path
+
+      get new_widget_path
       assert_redirected_to root_path
 
       assert_no_difference -> { Widget.count } do
