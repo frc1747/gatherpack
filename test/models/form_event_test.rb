@@ -72,31 +72,31 @@ class FormEventTest < ActiveSupport::TestCase
     assert_equal [ person(:a1) ], forms.expected_people
   end
 
-  test "the order sheet lists expected people's choices, and who has none" do
+  test "the printable list lists expected people's choices, and who has none" do
     say(@poll, :a1, "Yes")
     say(@poll, :a2, "Yes")
     say(@poll, :den_a_leader, "Yes")
     respond(@meals, :a1, as: :a1, answers: { "sandwich" => "Slim 4" })
     respond(@meals, :den_a_leader, as: :den_a_leader, answers: { "sandwich" => "Slim 4" })
 
-    sheet = FormOrderSheet.new(form: @meals, event: @event, viewer: person(:pack_leader), basis: "expected", questions: [ @sandwich ])
+    sheet = FormPrintList.new(form: @meals, event: @event, viewer: person(:pack_leader), basis: "expected", questions: [ @sandwich ])
     assert_equal [ "A1", "DenALeader" ], sheet.listed.map { |line| line.person.first_name }.sort
     assert_equal [ person(:a2) ], sheet.no_choice.map(&:person)
     assert_equal 2, sheet.tally(@sandwich)["Slim 4"]
 
     check_in(:a2)
-    by_check_in = FormOrderSheet.new(form: @meals, event: @event, viewer: person(:pack_leader), basis: "checked_in", questions: [ @sandwich ])
+    by_check_in = FormPrintList.new(form: @meals, event: @event, viewer: person(:pack_leader), basis: "checked_in", questions: [ @sandwich ])
     assert_empty by_check_in.listed
     assert_equal [ person(:a2) ], by_check_in.no_choice.map(&:person)
   end
 
-  test "the order sheet counts people whose answers the viewer can't see without showing them" do
+  test "the printable list counts people whose answers the viewer can't see without showing them" do
     say(@poll, :a1, "Yes")
     private_meals = create_world_form("Private Meals", include: [ @pack ], respond: "self", read: "self_and_leaders")
     add_choice(private_meals, "Sandwich", [ "Slim 1" ])
     respond(private_meals, :a1, as: :a1, answers: { "sandwich" => "Slim 1" })
 
-    sheet = FormOrderSheet.new(form: private_meals, event: @event, viewer: person(:parent_a1), basis: "expected")
+    sheet = FormPrintList.new(form: private_meals, event: @event, viewer: person(:parent_a1), basis: "expected")
     assert_equal [ person(:a1) ], sheet.population, "the parent sees A1 said yes"
     assert_empty sheet.listed
     assert_equal [ person(:a1) ], sheet.hidden.map(&:person), "but not A1's meal answers"
@@ -104,7 +104,7 @@ class FormEventTest < ActiveSupport::TestCase
 
   test "expected needs a form asking who's coming" do
     @coming.destroy!
-    sheet = FormOrderSheet.new(form: @meals, event: @event, viewer: person(:pack_leader), basis: "expected")
+    sheet = FormPrintList.new(form: @meals, event: @event, viewer: person(:pack_leader), basis: "expected")
     assert_not sheet.basis_available?
     assert_empty sheet.population
   end

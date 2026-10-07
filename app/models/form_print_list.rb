@@ -1,10 +1,12 @@
-# An order or packing list: one form's active answers to chosen questions,
-# for an event's people, with chosen profile details alongside. Based on
-# who said they're coming (expected, for ordering ahead), who checked in
-# (for handing out), or everyone the form asks. Nobody is silently left
-# out: people with no answer on file, and people whose answers the viewer
-# can't see, are listed or counted separately.
-class FormOrderSheet
+# A printable list of people with one form's answers. Who is on the list
+# and what's shown for them can come from different forms: the people are
+# those who said they're coming to an event (from the event's "are you
+# coming?" question, for ordering ahead), who checked in (for handing out),
+# or everyone the chosen form asks; the columns are that form's answers and
+# chosen profile details. Nobody is silently left out: people who haven't
+# answered, and people whose answers the viewer can't see, are listed or
+# counted separately.
+class FormPrintList
   BASES = %w[ expected checked_in asked ].freeze
 
   Line = Struct.new(:person, :row, keyword_init: true)
