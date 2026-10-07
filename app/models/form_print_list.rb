@@ -1,43 +1,23 @@
 # A printable list of people with one form's answers. Who is on the list
-# and what's shown for them can come from different forms: the people are
-# those who said they're coming to an event (from the event's "are you
-# coming?" question, for ordering ahead), who checked in (for handing out),
-# or everyone the chosen form asks; the columns are that form's answers and
-# chosen profile details. Nobody is silently left out: people who haven't
-# answered, and people whose answers the viewer can't see, are listed or
-# counted separately.
+# (a FormPopulation) and what's shown for them can come from different
+# forms: the columns are this form's answers and chosen profile details.
+# Nobody is silently left out: people who haven't answered, and people
+# whose answers the viewer can't see, are listed or counted separately.
 class FormPrintList
-  BASES = %w[ expected checked_in asked ].freeze
-
   Line = Struct.new(:person, :row, keyword_init: true)
 
-  attr_reader :form, :event, :viewer, :basis, :questions, :fields
+  attr_reader :form, :viewer, :source, :questions, :fields
 
-  def initialize(form:, viewer:, event: nil, basis: "expected", questions: [], fields: [])
+  def initialize(form:, viewer:, source:, questions: [], fields: [])
     @form = form
-    @event = event
     @viewer = viewer
-    @basis = BASES.include?(basis.to_s) ? basis.to_s : "expected"
-    @basis = "asked" if event.nil?
+    @source = source
     @questions = questions
     @fields = fields
   end
 
-  def event_forms
-    @event_forms ||= event && EventForms.new(event, viewer: viewer)
-  end
-
-  # Expected needs a form on the event that asks who's coming.
-  def basis_available?
-    basis != "expected" || event_forms&.intent_form.present?
-  end
-
   def population
-    @population ||= case basis
-    when "expected" then basis_available? ? event_forms.expected_people : []
-    when "checked_in" then event_forms.checked_in_people
-    else report_for(nil).rows.select { |row| row.access.in_audience? }.map(&:person)
-    end.sort_by { |person| [ person.last_name.to_s.downcase, person.first_name.to_s.downcase ] }
+    source.people
   end
 
   def report
