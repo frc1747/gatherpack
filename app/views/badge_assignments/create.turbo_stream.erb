@@ -1,0 +1,14 @@
+<% person = @badge_assignment.person %>
+<% if @badge_assignment.persisted? %>
+  <%= turbo_stream.replace dom_id(person, :candidate), partial: "shared/add_candidate", locals: { record: person, state: :added } %>
+  <%= turbo_stream.remove "no_holders" %>
+  <%= turbo_stream.prepend "badge_assignments", partial: "holder", locals: { badge_assignment: @badge_assignment, can_remove: policy(@badge_assignment).destroy? } %>
+  <%= turbo_stream.update "badge_assignments_count", @badge.badge_assignments.count %>
+<% elsif person %>
+  <%= turbo_stream.replace dom_id(person, :candidate), partial: "shared/add_candidate", locals: {
+        record: person,
+        add_url: badge_badge_assignments_path(@badge, format: :turbo_stream),
+        add_params: { badge_assignment: { person_id: person.id } },
+        errors: @badge_assignment.errors.full_messages
+      } %>
+<% end %>
