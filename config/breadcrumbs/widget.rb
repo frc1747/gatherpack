@@ -1,5 +1,5 @@
 crumb :widgets do
-  link "Dashboard Widgets", widgets_path
+  link "Widgets", widgets_path
 end
 
 crumb :widget do |widget|

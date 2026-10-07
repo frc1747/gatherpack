@@ -13,10 +13,12 @@ class WidgetPolicyTest < ActiveSupport::TestCase
     @disabled = Widget.create!(title: "Off", enabled: false)
   end
 
-  test "only admins manage widgets" do
-    assert WidgetPolicy.new(@admin, Widget).index?
+  test "everyone signed in can list and view widgets they can see; only admins manage them" do
+    assert WidgetPolicy.new(@member, Widget).index?
+    assert_not WidgetPolicy.new(nil, Widget).index?
+    assert WidgetPolicy.new(@member, @team_only).show?
+    assert_not WidgetPolicy.new(@member, @admin_only).show?
     assert WidgetPolicy.new(@admin, @everyone).update?
-    assert_not WidgetPolicy.new(@member, Widget).index?
     assert_not WidgetPolicy.new(@member, Widget.new).create?
     assert_not WidgetPolicy.new(@member, @everyone).update?
     assert_not WidgetPolicy.new(@member, @everyone).destroy?

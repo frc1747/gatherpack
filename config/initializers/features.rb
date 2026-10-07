@@ -207,9 +207,10 @@ Rails.application.config.to_prepare do
       label: "Dashboard Widgets",
       description: "Custom sections on the dashboard",
       default_enabled: false,
-      setup_section: "Content",
-      setup_items: [
-        GatherPack::Feature::SetupItem.new(label: "Dashboard Widgets", path: :widgets_path, policy_check: ->(view) { view.admin? })
+      nav_section: "Content",
+      nav_position: 30,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Widgets", path: :widgets_path, icon: "table-cells-large")
       ]
     )
   )
