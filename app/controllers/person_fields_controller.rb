@@ -12,7 +12,7 @@ class PersonFieldsController < InternalController
   end
 
   before_action :set_person_field, only: %i[ show edit update destroy move archive restore ]
-  before_action :require_feature, only: %i[ new create roster ]
+  before_action :require_feature, only: %i[ new create ]
 
   # GET /person_fields
   def index
@@ -103,22 +103,6 @@ class PersonFieldsController < InternalController
       next unless access.applies?(field)
       { field: field, read: access.access(field, :read), write: access.access(field, :write) }
     end
-  end
-
-  # GET /person_fields/roster
-  def roster
-    authorize PersonField, :roster?
-    viewer = current_user.person
-    @fields = policy(PersonField).readable_fields
-    @teams = policy_scope(Team).order(:name)
-    @selected = @fields.select { |field| Array(params[:field_ids]).include?(field.id) }
-    return if @selected.empty?
-
-    people = policy_scope(Person)
-    people = people.where(id: Team.find(params[:team_id]).descendant_people.select(:id)) if params[:team_id].present?
-    @readable = @selected.to_h { |field| [ field.id, field.readable_subjects_for(viewer).where(id: people.select(:id)).ids.to_set ] }
-    @people = Person.where(id: @readable.values.reduce(:|).to_a).order(:last_name, :first_name)
-    @rows = PersonFieldValue.where(person_id: @people.select(:id), person_field_id: @selected.map(&:id)).index_by { |row| [ row.person_id, row.person_field_id ] }
   end
 
   private

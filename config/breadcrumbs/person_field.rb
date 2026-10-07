@@ -12,8 +12,3 @@ crumb :person_field_preview do
   link "Preview as…", preview_person_fields_path
   parent :person_fields
 end
-
-crumb :person_field_roster do
-  link "Member Info", roster_person_fields_path
-  parent :root
-end
