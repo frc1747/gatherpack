@@ -103,12 +103,7 @@ Rails.application.config.to_prepare do
       key: :person_fields,
       label: "Custom Person Fields",
       description: "Add your own fields to member profiles and control who can see them",
-      default_enabled: false,
-      nav_section: "People",
-      nav_position: 25,
-      nav_items: [
-        GatherPack::Feature::NavItem.new(label: "Member Info", path: :roster_person_fields_path, icon: "clipboard-list")
-      ]
+      default_enabled: false
     )
   )
 
