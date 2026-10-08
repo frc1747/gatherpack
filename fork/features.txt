@@ -17,3 +17,4 @@ feature/team-page-qa-crash
 feature/team-page-parent-managers
 feature/app-version
 feature/widgets
+feature/signup-link-guard
