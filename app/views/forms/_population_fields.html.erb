@@ -1,0 +1,49 @@
+<%# Who's on a form's printable list or counted on its tally (FormPopulation). Shared by both pages. %>
+<% teams = FormPopulation.team_choices(population.form) %>
+<% by_form = forms.map { |form| [ form, FormPopulation.questions_for(form) ] }.reject { |_, questions| questions.empty? } %>
+<% chosen_form = population.question&.form %>
+<div data-controller="form-population">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <div class="form-check mb-0">
+      <%= radio_button_tag :who, "asked", population.source == "asked", class: "form-check-input" %>
+      <%= label_tag :who_asked, "Everyone the form asks#{", filtered by:" if teams.size > 1}", class: "form-check-label" %>
+    </div>
+    <% if teams.size > 1 %>
+      <%= select_tag :team_id, options_from_collection_for_select(teams, :id, :name, population.team&.id), include_blank: "All of #{teams.first.name}",
+            class: "form-select form-select-sm w-auto", "aria-label": "Team", data: { who: "asked", action: "form-population#choose" } %>
+    <% end %>
+  </div>
+
+  <% if by_form.any? %>
+    <div class="mb-2">
+      <div class="form-check mb-1">
+        <%= radio_button_tag :who, "answered", population.source == "answered", class: "form-check-input" %>
+        <%= label_tag :who_answered, "People who answered a question", class: "form-check-label" %>
+      </div>
+      <div class="ms-4 d-flex flex-wrap align-items-center gap-2">
+        <%= select_tag :question_form_id, options_for_select(by_form.map { |form, _| [ form.event ? "#{form.title} (#{form.event.name})" : form.title, form.id ] }, chosen_form&.id),
+              include_blank: "Choose a form…", class: "form-select form-select-sm w-auto", "aria-label": "Form with the question",
+              data: { who: "answered", action: "form-population#choose form-population#showQuestions", form_population_target: "form" } %>
+        <% by_form.each do |form, questions| %>
+          <%= select_tag :question_id, options_for_select(questions.map { |question| [ question.label, question.id ] }, population.question&.id),
+                include_blank: "Choose a question…", id: "question_id_#{form.id}", class: "form-select form-select-sm w-auto", "aria-label": "Question",
+                hidden: chosen_form != form, disabled: chosen_form != form,
+                data: { who: "answered", form: form.id, action: "form-population#choose form-population#showAnswers", form_population_target: "question" } %>
+        <% end %>
+      </div>
+      <% by_form.each do |_, questions| %>
+        <% questions.each do |question| %>
+          <div class="ms-4 mt-1" data-form-population-target="answers" data-question="<%= question.id %>" <%= "hidden" unless population.question == question %>>
+            <% FormPopulation.answer_choices(question).each_with_index do |(label, value), index| %>
+              <div class="form-check form-check-inline">
+                <%= check_box_tag "answers[#{question.id}][]", value, population.question == question && population.answers.include?(value),
+                      id: "answers_#{question.id}_#{index}", class: "form-check-input", data: { who: "answered", action: "form-population#choose" } %>
+                <%= label_tag "answers_#{question.id}_#{index}", label, class: "form-check-label" %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

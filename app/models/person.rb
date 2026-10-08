@@ -208,8 +208,10 @@ class Person < ApplicationRecord
 
   # Applies person field input from a form on behalf of `acting`. Keys the
   # actor can't write are ignored. Values are saved, and the "person_fields -
-  # value changed" hooks run, when the person is saved.
-  def assign_field_values(values, acting:)
+  # value changed" hooks run, when the person is saved. With `only_given`,
+  # required fields are checked only among the keys given, so a form that
+  # updates one field isn't blocked by another field left blank.
+  def assign_field_values(values, acting:, only_given: false)
     access = PersonFieldAccess.new(acting, self)
     fields = person_fields_for_access.index_by(&:key)
     @person_field_input_errors = []
@@ -232,8 +234,10 @@ class Person < ApplicationRecord
       @person_field_changes << PersonFieldChange.new(person: self, field: field, old_value: current, new_value: new_value, changed_by: acting)
     end
 
+    given = values.to_h.keys.map(&:to_s)
     fields.each_value do |field|
       next unless field.required? && access.writable?(field)
+      next if only_given && !given.include?(field.key)
       value = field_value_after_staging(field)
       @person_field_input_errors << [ field.key, "can't be blank" ] if value.blank? && value != false
     end
@@ -317,6 +321,9 @@ class Person < ApplicationRecord
     @person_field_input_errors = []
     return if changes.empty?
 
+    # For code that follows profile changes, such as forms re-checking what
+    # was signed.
+    changes.each { |change| ActiveSupport::Notifications.instrument("person_field_changed.gatherpack", change: change) }
     hooks = Hook.where(event: "person_fields - value changed").to_a
     changes.each { |change| hooks.each { |hook| hook.run(change) } }
   end
