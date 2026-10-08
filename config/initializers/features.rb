@@ -53,7 +53,11 @@ Rails.application.config.to_prepare do
       setup_section: "People",
       setup_items: [
         GatherPack::Feature::SetupItem.new(label: "Team Types", path: :team_types_path),
-        GatherPack::Feature::SetupItem.new(label: "Relationship Types", path: :relationship_types_path)
+        GatherPack::Feature::SetupItem.new(label: "Relationship Types", path: :relationship_types_path),
+        # Always available: built-in profile fields are access-controlled even
+        # with custom person fields turned off.
+        GatherPack::Feature::SetupItem.new(label: "Person Fields", path: :person_fields_path),
+        GatherPack::Feature::SetupItem.new(label: "Person Field Sections", path: :person_field_groups_path)
       ]
     )
   )
@@ -91,6 +95,15 @@ Rails.application.config.to_prepare do
       setup_items: [
         GatherPack::Feature::SetupItem.new(label: "Badge Types", path: :badge_types_path)
       ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
+      key: :person_fields,
+      label: "Custom Person Fields",
+      description: "Add your own fields to member profiles and control who can see them",
+      default_enabled: false
     )
   )
 

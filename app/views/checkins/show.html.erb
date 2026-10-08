@@ -14,11 +14,7 @@
       </div>
       <div class="col">
         <h2>Field Responses:</h2>
-        <% @checkin.checkin_field_responses.each do |response| %>
-          <div>
-            <strong><%= response.checkin_field.name %></strong>: <%= response.response %>
-          </div>
-        <% end %>
+        <%= render "checkins/field_values", checkin: @checkin %>
       </div>
     </div>
   </div>

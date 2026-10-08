@@ -28,7 +28,7 @@ class Checkin < ApplicationRecord
   end
 
   def refresh_fields
-    event.event_type.checkin_fields.each do |field|
+    event.event_type.checkin_fields.reject(&:linked?).each do |field|
       unless checkin_field_responses.any? { |r| r.checkin_field_id == field.id }
         response = checkin_field_responses.build(checkin: self, checkin_field: field)
         response.save unless self.new_record?
