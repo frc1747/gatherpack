@@ -5,6 +5,7 @@
     <h1><%= @relationship_type.identifier_name %></h1>
   </div>
   <div class="card-body">
+    <p><b>Guardianship:</b> <%= RelationshipType::GUARDIANSHIP_LABELS[@relationship_type.guardianship] %></p>
     <table class="table table-striped">
       <thead>
         <tr>

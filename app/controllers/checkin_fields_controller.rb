@@ -54,6 +54,8 @@ class CheckinFieldsController < InternalController
 
     # Only allow a list of trusted parameters through.
     def checkin_field_params
-      params.require(:checkin_field).permit(:event_type_id, :name, :permission)
+      permitted = [ :event_type_id, :name, :permission, :read_permission ]
+      permitted << :person_field_id if @checkin_field.nil? || @checkin_field.new_record?
+      params.require(:checkin_field).permit(*permitted)
     end
 end
