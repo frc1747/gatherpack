@@ -82,9 +82,9 @@ Every line we change in an upstream file is a line that can conflict forever. Ru
 1. `git fetch upstream origin`
 2. Fast-forward `main` to `upstream/main` and push. If it can't fast-forward, someone committed to `main`. Stop and report.
 3. Rebase `hbr/platform` onto `upstream/main`.
-4. For each branch in the manifest, in order, rebase onto its base (`upstream/main` or its declared dependency). Resolve conflicts *on the feature branch*, where the context is clearest, not later during integration. Run that branch's tests and RuboCop after each rebase.
+4. For each branch in the manifest, in order, rebase onto its base (`upstream/main` or its declared dependency). Resolve conflicts *on the feature branch*, where the context is clearest, not later during integration. Run that branch's tests and RuboCop after each rebase. **Skip any branch behind an open upstream PR** (`gh pr list -R GatherPack/gatherpack --author @me --state open`): leave it on its old base and let the rebuild merge it as-is. Pushing a rebase updates the public PR with a force-push notice, which is noise for maintainers even when the code is unchanged. If such a branch starts to conflict in the rebuild, stop and ask before rebasing it.
 5. Check each `proposed` feature for upstream acceptance and update the lifecycle.
-6. Force-push rebased feature branches with `--force-with-lease`.
+6. Force-push rebased feature branches with `--force-with-lease`. Never push a branch behind an open upstream PR as part of a sync (see step 4).
 7. Run `bin/fork-rebuild` to regenerate `hbr/integration`.
 8. Run the full test suite and RuboCop on `hbr/integration`.
 9. Update `FORK.md` with anything that changed.
@@ -160,7 +160,7 @@ Fork tooling (`FORK.md`, `fork/`, `bin/fork-*`, `.github/workflows/hbr-*.yml`) e
 1. Open an issue upstream describing the need before the PR. Keep it brief and framed as a general capability, not an HBR-specific requirement. Wait for a signal that maintainers want it before polishing.
 2. Rebase the feature branch onto the latest `upstream/main`, run tests and RuboCop, and push.
 3. Open a cross-fork PR from `origin:feature/<name>` into `upstream:main`. Check "Allow edits by maintainers." Before submitting, confirm the "Files changed" tab contains no fork tooling and no references to HBR or our deployment.
-4. Make all review changes on the same feature branch. The PR and the next rebuild both pick them up. If maintainers prefer no force-pushes during review, add fixup commits and rebase only when asked.
+4. Make all review changes on the same feature branch. The PR and the next rebuild both pick them up. Add them as new commits; never force-push while a PR is open unless the maintainers ask for a rebase.
 5. If a feature is too large to be accepted, split it: propose the seam first, keep the HBR-specific behavior as a carried feature on top of it.
 
 ### After upstream merges
@@ -177,7 +177,7 @@ If a feature ran in production before upstream merged it, our migration is alrea
 2. Never branch a feature from `hbr/integration` or `hbr/platform`.
 3. One feature per branch. If a change serves two features, it's a third branch.
 4. Resolve conflicts on feature branches, never during the integration merge.
-5. Use `--force-with-lease`, never plain `--force`.
+5. Use `--force-with-lease`, never plain `--force`. Never rebase or force-push a branch behind an open upstream PR unless maintainers ask for it.
 6. Keep `FORK.md` current in the same work session as any feature status change.
 7. Before modifying any existing upstream file, check whether a seam, hook, new file, or engine could achieve the same result. If you still need to edit it, record the file in `FORK.md`.
 8. Confirm behavior against actual GatherPack source before assuming a Rails convention or API.
