@@ -1,0 +1,55 @@
+<% breadcrumb :edit_form, @form %>
+<% admin = policy(@form).manage_badges? %>
+<% badges = GatherPack::Features.enabled?(:badges) %>
+<% tabs = { "details" => "Details", "questions" => "Questions (#{@form.form_questions.count { |question| question.answerable? || question.signature? }})",
+  "audience" => "Who is asked (#{@form.audience.count})", "permissions" => "Permissions", "responses" => "Responses" } %>
+
+<div class="card navtab">
+  <div class="card-header">
+    <h1>Editing <%= @form.title %> <%= form_state_badge(@form) %></h1>
+  </div>
+  <ul class="nav nav-underline px-3">
+    <% tabs.each do |key, label| %>
+      <li class="nav-item">
+        <%= link_to label, edit_form_path(@form, tab: key), class: "nav-link #{"active" if @tab == key}", aria: { current: (@tab == key ? "page" : nil) } %>
+      </li>
+    <% end %>
+  </ul>
+</div>
+
+<%= render "publish_banner" %>
+
+<% if !badges && (@form.completion_badge || @form.audience_badge || @form.form_badge_grants.any? || @form.form_audience_rules.any?(&:target_badge?)) %>
+  <div class="alert alert-secondary">
+    <%= i "circle-info" %> Badges are turned off, so this form's badge settings
+    (<%= [ ("completion badge" if @form.completion_badge), ("badge filter" if @form.audience_badge), ("access through badges" if @form.form_badge_grants.any?), ("badge rules in who is asked" if @form.form_audience_rules.any?(&:target_badge?)) ].compact.to_sentence %>)
+    are ignored until they're turned back on.
+  </div>
+<% end %>
+
+<% case @tab %>
+<% when "details", "permissions", "responses" %>
+  <%= simple_form_for(@form) do |f| %>
+    <%= hidden_field_tag :tab, @tab %>
+    <div class="card">
+      <div class="card-body">
+        <%= f.error_notification %>
+        <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+        <div class="form-inputs">
+          <%= render "#{@tab}_fields", f: f %>
+        </div>
+      </div>
+      <div class="card-footer">
+        <%= link_to "Back", form_path(@form), class: "btn btn-warning" %>
+        <%= f.button :submit, "Save", class: "btn btn-primary" %>
+      </div>
+    </div>
+  <% end %>
+  <% if @tab == "permissions" && badges %>
+    <%= render "edit_badge_grants", admin: admin %>
+  <% end %>
+<% when "audience" %>
+  <%= render "edit_audience", admin: admin, badges: badges %>
+<% when "questions" %>
+  <%= render "edit_questions" %>
+<% end %>
