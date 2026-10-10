@@ -52,13 +52,13 @@
     <% if @paged %><div class="page"><% end %>
       <div class="card">
         <div class="card-header">
-          <h2><%= @event.identifier_name %> -  <%= v.presence || "unassigned" %> [<%= @responses.where(response: v).count %>]</h2>
+          <h2><%= @event.identifier_name %> -  <%= v.presence || "unassigned" %> [<%= @groups[v].size %>]</h2>
         </div>
         <div class="card-body" id="responseContainer">
           <div class="row align-items-center">
-            <% @responses.where(response: v).order("person.last_name ASC, person.first_name ASC").each do |r| %>
+            <% @groups[v].sort_by { |checkin| [ checkin.person.last_name.to_s, checkin.person.first_name.to_s ] }.each do |checkin| %>
               <div class="col-2 fs-6">
-                <%= render "people/person", person: r.checkin.person, footer: (r.checkin.notes if @notes) %>
+                <%= render "people/person", person: checkin.person, footer: (checkin.notes if @notes) %>
               </div>
             <% end %>
           </div>
