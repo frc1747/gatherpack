@@ -132,7 +132,18 @@ done <<< "${manifest}"
 echo "Integration branch rebuilt from upstream/main at $(git rev-parse --short upstream/main)"
 ```
 
-The script refuses to resolve conflicts itself on purpose. The one exception is the schema version line, which `bin/fork-merge-schema` resolves (see "Recurring conflict hotspots"); the reference implementation above predates it. If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
+The script refuses to resolve conflicts itself on purpose. The one exception is the schema version line, which `bin/fork-merge-schema` resolves (see "Recurring conflict hotspots"); the reference implementation above predates it and the changelog step below. If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
+
+### The HBR changelog
+
+After the last merge, `bin/fork-rebuild` runs `bin/fork-changelog`, which writes `HBR-CHANGELOG.md` at the root of the integration branch, and commits it as `Update HBR changelog`. That generated commit is the only commit on `hbr/integration` that isn't a merge; the script makes it, so the script is still the only writer of the branch. The file is a catalog of the build: the release it will be, the upstream base, a Mermaid diagram of the merge order and dependencies, one card per manifest feature, what's new since the previous `v*-hbr.*` tag, and the disabled and retired features.
+
+- **Inputs.** The manifest, `fork/catalog.yml` and `FORK.md` are read from the platform ref the rebuild used. Status, shipped release, upstream links and dependencies come from `FORK.md`; branch heads and migrations come from the build's merges. `fork/catalog.yml` holds the plain-language part (title, emoji, description, audience, settings), keyed by branch. Add an entry when a branch joins the manifest. A branch without one still builds, with a "No description yet" marker and a warning.
+- **Deterministic.** Every commit the rebuild makes is dated with the newest commit date among its inputs (`upstream/main`, the platform ref and every manifest branch), not the clock. The same inputs give the same commits and a byte-identical changelog. Release tags are inputs too: once the build is tagged, regenerating it names that tag as its release.
+- **Only on `hbr/integration`.** Never commit `HBR-CHANGELOG.md` to `hbr/platform` or a feature branch; it could then conflict in the rebuild. `bin/fork-changelog` refuses to run if any input branch carries it.
+- **Failure stops the rebuild.** If generation fails, the script exits non-zero after the merges, leaving the branch without its changelog commit. Fix the cause and rebuild; don't push that branch.
+
+To preview the file for a build without rebuilding, run `bin/fork-changelog --stdout` in a checkout of that build (for example a detached worktree of `origin/hbr/integration`). Tests: `ruby test/fork/fork_changelog_test.rb` (no database needed).
 
 After a successful rebuild and passing tests, push with `git push --force-with-lease origin hbr/integration`.
 
@@ -149,7 +160,7 @@ The workflows should cover:
 ## Releases and Deployment
 
 1. Tag releases on `hbr/integration` as `v<upstream-version>-hbr.<n>` (for example `v1.8.0-hbr.3`), so it's always obvious which upstream version a release is based on.
-2. Generate release notes listing the upstream base commit and every feature branch and head commit included.
+2. Generate release notes listing the upstream base commit and every feature branch and head commit included. `HBR-CHANGELOG.md` on the tagged commit has all of these (see "The HBR changelog"); its "What's new" section is the starting point for the notes. Tag the rebuild's last commit, the changelog commit, so the file in the release is the one that describes it.
 3. Deploy only from tags. Rollback means redeploying the previous tag.
 4. Before tagging, confirm migrations run cleanly from the previous release's database state, not just from empty.
 
