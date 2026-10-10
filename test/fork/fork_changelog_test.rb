@@ -178,6 +178,26 @@ class ForkChangelogTest < Minitest::Test
     assert_match "HBR-CHANGELOG.md is committed on hbr/platform", error.message
   end
 
+  def test_no_sample_data_section_or_warning_before_the_loader_exists
+    text, warnings = generate
+
+    refute_includes text, "Try this build"
+    refute(warnings.any? { |warning| warning.include?("sample data") })
+  end
+
+  def test_sample_data_section_and_missing_file_warning
+    git "checkout", "--quiet", "hbr/platform"
+    write "fork/sample_data/sample_data.rb", "# loader\n"
+    commit "fork/sample_data/features/alpha.rb", "# alpha data\n", "Add sample data"
+    text, warnings = generate
+
+    assert_includes text, "[Try this build](#try)"
+    assert_includes text, "## 🧪 Try this build"
+    assert_includes text, "bin/rails hbr:sample_data"
+    assert_includes warnings, "feature/beta has no sample data in fork/sample_data/features/"
+    refute_includes warnings, "feature/alpha has no sample data in fork/sample_data/features/"
+  end
+
   private
 
   def generate
