@@ -35,6 +35,19 @@ class TimeKioskAutoClockInTest < ActionDispatch::IntegrationTest
     assert_nil punch.end_time
   end
 
+  test "with unassigned off and one period, a scan over GET clocks no one in" do
+    without_unassigned do
+      assert_no_punch_created do
+        get time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: @member_token.value } }
+      end
+    end
+
+    assert_response :success
+    assert_select "h3", text: @member.identifier_name
+    assert_select "a", text: /Build Season/
+    assert_select ".alert", count: 0
+  end
+
   test "with unassigned off, a scan after clocking out today creates nothing" do
     TimeClockPunch.create!(person: @member, time_clock_period: @period, start_time: 2.hours.ago, end_time: 1.hour.ago, created_by: "kiosk")
 
