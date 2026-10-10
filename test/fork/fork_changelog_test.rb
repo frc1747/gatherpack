@@ -24,6 +24,7 @@ class ForkChangelogTest < Minitest::Test
     feature/alpha
     feature/beta # depends on alpha
     # feature/gamma
+    # feature/delta # waits on #530
   TEXT
 
   CATALOG = <<~YAML
@@ -90,7 +91,7 @@ class ForkChangelogTest < Minitest::Test
   def test_parses_active_and_disabled_manifest_lines
     entries = ForkChangelog.parse_manifest(MANIFEST)
 
-    assert_equal [ [ "feature/alpha", true ], [ "feature/beta", true ], [ "feature/gamma", false ] ],
+    assert_equal [ [ "feature/alpha", true ], [ "feature/beta", true ], [ "feature/gamma", false ], [ "feature/delta", false ] ],
       entries.map { |entry| [ entry.branch, entry.active ] }
   end
 
@@ -118,6 +119,7 @@ class ForkChangelogTest < Minitest::Test
     disabled = text[/## 💤 Disabled and retired.*/m]
 
     assert_includes disabled, "- `feature/gamma`"
+    assert_includes disabled, "- `feature/delta`"
     assert_includes disabled, "| `feature/old` | hbr.1 | PR [#2](https://example.com/2) |"
     refute_includes text, "f3[" # only the two active features are drawn
   end
@@ -154,6 +156,18 @@ class ForkChangelogTest < Minitest::Test
 
   def test_same_inputs_give_the_same_file
     assert_equal generate.first, generate.first
+  end
+
+  def test_escapes_awkward_titles_for_each_context
+    git "checkout", "--quiet", "hbr/platform"
+    commit "fork/catalog.yml", CATALOG.sub("title: Alpha screens", %(title: '[A|b] "c" <d> #e *f*_')), "Awkward title"
+    integrate "feature/alpha", "feature/beta"
+    text, = generate
+
+    assert_includes text, %(f1["🅰️ [A|b] #quot;c#quot; #lt;d#gt; #35;e *f*_<br/>feature/alpha"])
+    assert_includes text, "| [🅰️ \\[A\\|b\\] \"c\" &lt;d&gt; #e \\*f\\*\\_](#feature-alpha) |"
+    assert_includes text, "### 🅰️ \\[A|b\\] \"c\" &lt;d&gt; #e \\*f\\*\\_\n"
+    assert_includes text, "[🅰️ \\[A|b\\] \"c\" &lt;d&gt; #e \\*f\\*\\_](#feature-alpha)"
   end
 
   def test_refuses_when_an_input_branch_carries_the_changelog

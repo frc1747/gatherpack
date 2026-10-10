@@ -133,8 +133,10 @@ feature/kiosk-auto-clock-in:
   description: >-
     Admins can have a scan clock the person in right away when only one time
     period applies to them, send the kiosk back to the welcome screen after a
-    few seconds, and choose a team whose members may open the kiosk. With the
-    default settings the kiosk works as before.
+    few seconds, and choose a team whose members may open the kiosk. When a
+    scan can clock people in, the button reads Clock In. An unrecognized card
+    shows "Card not recognized" on the welcome screen. With the default
+    settings the kiosk otherwise works as before.
   audience: People clocking in at the kiosk; admins set it up
   settings:
     - name: "Kiosk: Allow Unassigned Punches"

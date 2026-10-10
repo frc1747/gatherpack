@@ -15,6 +15,9 @@ MANIFEST_PATH="fork/features.txt"
 
 git fetch upstream
 git fetch origin
+# Release tags decide what HBR-CHANGELOG.md compares against, so every clone
+# needs the same ones; --force replaces local tags that differ from origin's.
+git fetch --tags --force origin
 
 # Let git resolve the one routine db/schema.rb conflict (both sides moved the
 # schema version) with bin/fork-merge-schema; anything else still stops the

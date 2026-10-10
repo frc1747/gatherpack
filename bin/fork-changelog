@@ -30,6 +30,8 @@ module ForkChangelog
   BRANCH_PATTERN = %r{\A[\w.-]+/[\w./-]+\z}
   INTEGRATE_PATTERN = /\AIntegrate (?<branch>\S+)\z/
 
+  MERMAID_ENTITIES = { "#" => "#35;", '"' => "#quot;", "<" => "#lt;", ">" => "#gt;" }.freeze
+
   STATUS_LABELS = {
     "wip" => "🚧 wip",
     "proposed" => "📬 proposed",
@@ -82,7 +84,7 @@ module ForkChangelog
       active = line.sub(/#.*/, "").strip
       next ManifestEntry.new(branch: active, active: true) unless active.empty?
 
-      disabled = line.strip.sub(/\A#+/, "").strip
+      disabled = line.strip.sub(/\A#+/, "").sub(/#.*/, "").strip
       ManifestEntry.new(branch: disabled, active: false) if line.strip.start_with?("#") && disabled.match?(BRANCH_PATTERN)
     end
   end
@@ -274,7 +276,7 @@ module ForkChangelog
       lines << %(  platform["🛠️ hbr/platform<br/>#{short(build.platform&.head || @ref_commit)}"])
       build.features.each_with_index do |merge, index|
         ids[merge.branch] = "f#{index + 1}"
-        lines << %(  #{ids[merge.branch]}["#{mermaid(emoji(merge.branch))} #{mermaid(title(merge.branch))}<br/>#{merge.branch}"])
+        lines << %(  #{ids[merge.branch]}["#{mermaid(name(merge.branch))}<br/>#{merge.branch}"])
       end
       chain = [ "upstream", "platform", *build.features.map { |merge| ids[merge.branch] } ]
       chain.each_cons(2) { |from, to| lines << "  #{from} --> #{to}" }
@@ -301,7 +303,7 @@ module ForkChangelog
 
     def catalog_section
       rows = active_branches.map do |branch|
-        "| [#{emoji(branch)} #{cell(title(branch))}](##{anchor(branch)}) | #{status_label(branch)} | #{cell(setting_summary(branch))} | #{shipped(branch)} |"
+        "| [#{cell(name(branch))}](##{anchor(branch)}) | #{status_label(branch)} | #{setting_summary(branch).gsub("|", "\\|")} | #{shipped(branch)} |"
       end
 
       <<~MD
@@ -324,7 +326,7 @@ module ForkChangelog
       row = register[branch]
       merge = build.feature(branch)
       migrations = merge ? migrations(merge) : []
-      lines = [ "<a id=\"#{anchor(branch)}\"></a>", "", "### #{emoji(branch)} #{title(branch)}", "" ]
+      lines = [ "<a id=\"#{anchor(branch)}\"></a>", "", "### #{text(name(branch))}", "" ]
 
       if entry["description"]
         lines << entry["description"].to_s.strip
@@ -333,14 +335,14 @@ module ForkChangelog
       end
       lines << ""
 
-      lines << "- 👥 **Who uses it:** #{entry["audience"] || "—"}"
+      lines << "- 👥 **Who uses it:** #{entry["audience"] ? text(entry["audience"]) : "—"}"
       settings = Array(entry["settings"])
       if settings.empty?
         lines << "- ⚙️ **Settings:** none; always on"
       else
         lines << "- ⚙️ **Settings:**"
         settings.each do |setting|
-          lines << "  - #{setting["name"]} (`#{setting["key"]}`): default #{setting["default"]}"
+          lines << "  - #{text(setting["name"])} (#{code(setting["key"])}): default #{text(setting["default"])}"
         end
       end
       upstream = blank_cell(row&.fetch("upstream link", nil))
@@ -365,7 +367,7 @@ module ForkChangelog
     end
 
     def dependency_link(branch)
-      build.feature(branch) ? "[#{emoji(branch)} #{title(branch)}](##{anchor(branch)})" : "`#{branch}`"
+      build.feature(branch) ? "[#{text(name(branch))}](##{anchor(branch)})" : "`#{branch}`"
     end
 
     # Migration files the feature's merge added to the build.
@@ -378,7 +380,7 @@ module ForkChangelog
       settings = Array(catalog.dig(branch, "settings"))
       return "always on" if settings.empty?
 
-      first = "`#{settings.first["key"]}`"
+      first = code(settings.first["key"])
       settings.size > 1 ? "#{first} +#{settings.size - 1}" : first
     end
 
@@ -408,11 +410,11 @@ module ForkChangelog
       build.features.each do |merge|
         commits = new_commits(merge)
         if new_feature?(merge.branch)
-          lines.push("### #{emoji(merge.branch)} #{title(merge.branch)} · 🆕 new in this build", "")
+          lines.push("### #{text(name(merge.branch))} · 🆕 new in this build", "")
         elsif commits.any?
-          lines.push("### #{emoji(merge.branch)} #{title(merge.branch)} · ✏️ #{count(commits.size, "change")}", "")
+          lines.push("### #{text(name(merge.branch))} · ✏️ #{count(commits.size, "change")}", "")
         else
-          unchanged << "#{emoji(merge.branch)} #{title(merge.branch)}"
+          unchanged << text(name(merge.branch))
           next
         end
         lines.concat(commit_list(commits))
@@ -507,7 +509,7 @@ module ForkChangelog
         lines << "- None"
       else
         disabled_branches.each do |branch|
-          lines << "- `#{branch}`#{catalog[branch] ? ": #{emoji(branch)} #{title(branch)}" : ""}"
+          lines << "- `#{branch}`#{catalog[branch] ? ": #{text(name(branch))}" : ""}"
         end
       end
       lines << ""
@@ -535,15 +537,21 @@ module ForkChangelog
 
     def title(branch) = catalog.dig(branch, "title") || branch
     def emoji(branch) = catalog.dig(branch, "emoji") || "❔"
+    def name(branch) = "#{emoji(branch)} #{title(branch)}"
     def anchor(branch) = "feature-#{branch.sub(%r{\Afeature/}, "").downcase.gsub(/[^a-z0-9]+/, "-")}"
     def blank_cell(value) = ForkChangelog.blank_cell(value)
     def short(sha) = sha.to_s[0, 7]
     def subject(commit) = git.run("show", "-s", "--format=%s", commit).strip
     def date(commit) = git.run("show", "-s", "--format=%cs", commit).strip
     def count(number, noun) = "#{number} #{noun}#{number == 1 ? "" : "s"}"
-    def inline(text) = text.to_s.gsub("<", "&lt;").gsub(">", "&gt;")
-    def cell(text) = inline(text).gsub("|", "\\|")
-    def mermaid(text) = text.to_s.gsub('"', "#quot;")
+    def inline(value) = value.to_s.gsub("<", "&lt;").gsub(">", "&gt;")
+
+    # Catalog text, escaped for where it goes: Markdown text (headings, list
+    # items, link text), a table cell, or a Mermaid node label.
+    def text(value) = inline(value.to_s.gsub("&", "&amp;").gsub(/[\\`*_\[\]]/) { |char| "\\#{char}" })
+    def code(value) = "`#{value.to_s.delete("`")}`"
+    def cell(value) = text(value).gsub("|", "\\|")
+    def mermaid(value) = value.to_s.gsub(/[#"<>]/, MERMAID_ENTITIES)
   end
 
   def main(argv)
