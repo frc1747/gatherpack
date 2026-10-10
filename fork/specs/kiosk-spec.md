@@ -70,8 +70,8 @@ Phase 1 fixes 1, 2 and 4. Phase 2's kiosk users setting fixes 3. Step 0 reduces 
 | Phase | Branch | Base | Upstream intent | Contents |
 |---|---|---|---|---|
 | 0 | none | | | Sign the kiosk in with a plain account: no admin, no manager, and not on any roster team, so it stays out of the reports. Done by hand on the shop computer. This *reduces* problem 5. The account can still reach a basic member's dashboard through the logo. |
-| 1 | `feature/kiosk-scanned-person` | `upstream/main` | Candidate (bug fix), only once Corey confirms | §4 |
-| 2 | `feature/kiosk-auto-clock-in` | `feature/kiosk-scanned-person` | Undecided; written to upstream standards and naming | §5 |
+| 1 | `feature/kiosk-scanned-person` | `upstream/main` | Yes, as a bug fix; Corey confirms the timing (§3.1) | §4 |
+| 2 | `feature/kiosk-auto-clock-in` | `feature/kiosk-scanned-person` | Yes, after Phase 1 (§3.1) | §5 |
 | 3 | `feature/widgets` (existing) | `upstream/main` | Fork-only, like widgets | §6, then the content in §7 |
 | 4 | `feature/kiosk-devices` | `feature/kiosk-auto-clock-in` | Undecided | On hold (§8) |
 
@@ -83,6 +83,24 @@ Phase 1 fixes 1, 2 and 4. Phase 2's kiosk users setting fixes 3. Step 0 reduces 
 - **Upstream.** Phase 2 can be offered upstream only after Phase 1 lands, then rebased onto `upstream/main`.
 
 `FORK.md` gets a row for each of Phases 1 and 2 when their branches get their first commit.
+
+### 3.1 Handoff to upstream (decided 2026-10-09)
+
+Corey considers Phases 1 and 2 a good feature for upstream and wants them ready to show Brad. Phases 1 and 2 stay upstream-compatible: upstream naming, no HBR references, no fork tooling, and every setting's default leaves the kiosk as upstream ships it.
+
+**Checkpoint tag.** When Phase 2 is done and reviewed, and before any fork-only work is built on the kiosk branches, tag Phase 2's head on `origin`:
+
+- `upstream-candidate/kiosk-1`, an annotated tag listing the two branches and their head commits. It contains Phase 1, since Phase 2 is built on it.
+- Don't use a `v` prefix. `ci.yml` builds and publishes an image for `v*.*.*` tags.
+- If the work later diverges, the tag still marks the last upstream-ready state. A later upstream-ready revision gets `kiosk-2`; never move an existing tag (STRATEGY, rule 9).
+
+**Brad packet.** Write it alongside the tag, as a local draft in `~/dev/gatherpack/upstream-drafts/` (nothing posted; Corey confirms the topic and wording before any upstream issue or PR):
+- The problem, framed generally: the kiosk trusts ids from the browser (§2.2), and clocking in takes extra taps.
+- What each phase changes, with screenshots from Ditto.
+- The upstream files touched (§4.5, §5.5), and the order in which to merge: Phase 1 as a bug fix first, then Phase 2 as a feature.
+- Open choices for Brad: whether to keep "Start Unassigned" (with BL-012), the setting names, and the kiosk users stopgap versus kiosk devices (§8).
+
+**Diverging afterwards.** Anything HBR-specific goes in its own branch on top (STRATEGY, Contributing Upstream, step 5), never into Phase 1 or 2. Phase 3 already lives on `feature/widgets` and doesn't affect them.
 
 ## 4. Phase 1: Act only for the scanned card
 
@@ -433,8 +451,8 @@ From then on the browser opens only the kiosk. It has no user session, so there'
 8. (Rev. 3) Periods are optionally team-scoped, so the kiosk isn't locked to one period. The setting is "Allow unassigned punches", on by default to match upstream. Auto clock-in happens only when it's off and exactly one period applies to the scanned person. In production today both periods belong to the root team and don't overlap, so everyone has exactly one.
 9. (Rev. 3) With unassigned off and no period applying, the profile says so. It never falls back to an unassigned punch.
 10. (Rev. 3) Settings are global (no kiosk records exist). Per-kiosk settings wait for Phase 4.
+11. (Rev. 3) Phases 1 and 2 are meant for upstream. When Phase 2 is done, tag the checkpoint and prepare a packet for Brad (§3.1).
 
 ## 12. Open questions
 
-1. Is Phase 2 meant for upstream? It's written to upstream standards either way, and this changes only the timing of any issue, which Corey raises.
-2. Should the kiosk nag about FIRST registration while the Eligibility Report treats it as informational (§7)? The default here is yes.
+1. Should the kiosk nag about FIRST registration while the Eligibility Report treats it as informational (§7)? The default here is yes.
