@@ -22,7 +22,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-012](BL-012-kiosk-period-less-punch.md) | Time kiosk crashes for anyone with a punch that has no period | upstream bug | medium | waiting | 2026-10-08 |
 | [BL-013](BL-013-settings-cached-per-process.md) | Saved settings reach only one server process until a restart | upstream bug | medium | waiting | 2026-10-09 |
 | [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | waiting | 2026-10-09 |
-| [BL-015](BL-015-kiosk-button-and-unknown-card.md) | Kiosk: "Clock In" button, and an alert for an unknown card | upstream feature | medium | waiting | 2026-10-09 |
+| [BL-015](BL-015-kiosk-button-and-unknown-card.md) | Kiosk: "Clock In" button, and an alert for an unknown card | upstream feature | medium | started | 2026-10-09 |
 
 ## Fields
 
