@@ -1,6 +1,8 @@
 # Spec: Time Kiosk Improvements
 
-Status: draft rev. 3, 2026-10-09. Phases 1–3 are planned. Phase 4 (kiosk devices) is recorded here but on hold until Corey starts it.
+Status: draft rev. 4, 2026-10-10. Phases 1–3 are planned. Phase 4 (kiosk devices) is recorded here but on hold until Corey starts it.
+
+Rev. 4 states what Phase 1 does and doesn't protect against (§1, §1.1, §2.2): it ties kiosk actions to a card lookup, so edited URLs and links can't act; it doesn't stop someone who has a person's card number. No design change.
 
 Rev. 3 replaces Phase 2's "lock the kiosk to one period" dropdown with a single on/off setting, **Allow unassigned punches** (decisions 8–10). Phase 2 now depends on Phase 1.
 
@@ -15,7 +17,7 @@ Make the time kiosk faster to use, safe to leave unattended, and able to remind 
 1. **Auto clock-in.** An admin can turn off the "unassigned" bucket (a punch with no period). When it's off and only one period applies to the person, scanning a card clocks them in to it right away and shows their profile as confirmation, with no extra click. The bucket stays on by default, so the kiosk behaves as upstream's does.
 2. **Return to Welcome.** The profile clears itself after a configurable number of seconds. Off by default.
 3. **Reminders at the kiosk.** A widget can appear on the profile that pops up after a scan, showing that person's reminders and alerts (for example, items from the Eligibility Report).
-4. **Safety.** The kiosk acts only for the person whose card was just scanned, and only chosen accounts can open it. Later (Phase 4), the kiosk becomes a registered device instead of a signed-in person.
+4. **Safety.** The kiosk acts only for a person whose card number was just looked up, and only within what that person may do, never on ids the browser sends. Only chosen accounts can open it. Later (Phase 4), the kiosk becomes a registered device instead of a signed-in person.
 
 ### 1.1 Non-goals
 
@@ -23,6 +25,7 @@ Make the time kiosk faster to use, safe to leave unattended, and able to remind 
 - Clocking out on a second scan. A second scan shows the profile. Clocking out stays a button press, so a double scan never ends a shift.
 - Reminder content in code. Reminders are a widget that admins write and change (Phase 3).
 - Fixing kiosk crashes for punches with no period. That is BL-012, its own upstream bug branch.
+- Stopping someone who has a person's card number from acting for them. The card number is the credential, as with any barcode or RFID card; typing it and scanning it look the same to the kiosk. Phase 2's kiosk users setting limits which accounts can open the kiosk (set to a team holding only the kiosk account, that keeps it off students' phones), and the profile photo shown after each scan is the check at the screen.
 
 ## 2. How the kiosk works today (upstream `86ab397`)
 
@@ -52,18 +55,18 @@ Checked in production on 2026-10-09: all 48 punches made at the kiosk in the pre
 
 ### 2.2 Problems
 
-1. **The browser decides who the kiosk acts for** (`time_kiosk_params` permits `person_id`, `time_clock_punch_id`, `time_clock_period_id`).
+1. **The card is checked only at lookup; the buttons' ids are trusted.** A card lookup (`find_token`) shows the person's screen, whose buttons are plain URLs carrying ids (`time_kiosk_params` permits `person_id`, `time_clock_punch_id`, `time_clock_period_id`). The punch tools act on whatever ids arrive, without checking that a card was looked up or that the ids belong to that person, so an edited or hand-built URL acts with no card at all (parameter tampering, an insecure direct object reference). Clock Out sends only a punch id; mass clock-out sends only the manager's person id.
    - `punch_in` clocks any `person_id` into any period, including other teams' periods and `added_by_admin` periods, because `created_by: "kiosk"` skips the permission check. Repeating the request stacks open punches.
    - `punch_out` closes any punch by id. Sent for a punch that is already closed, it moves the `end_time` to now, which rewrites finished history.
    - `punch_out_period` checks edit rights on the period, but for whatever `person_id` it's sent. Sending an admin's person id closes every open punch in any team period. For a person with no login it raises a 500.
    - `punch_out_all` has no check at all. Sending an admin's person id closes every open punch in every team period.
-   - **All of these also work over GET,** which has no CSRF protection, so a link or image on another page can trigger them in a signed-in browser.
-2. **`tool` from the browser is passed to `render`.** Any string reaches `render @time_kiosk.tool`. Unknown names are a 500, and a name with a `/` renders other partials. Scanning a Hook's token sets `tool = "found_hook"`, which has no partial, so it is also a 500.
+   - **All of these also work over GET,** which has no CSRF protection, so a link or image on another page can trigger them in a signed-in browser (cross-site request forgery).
+2. **`tool` from the browser is passed to `render`.** `tool` names the step a request runs (`find_token`, `punch_in`, `punch_out`, `punch_out_period`, `punch_out_all`); the controller then sets it to the screen to show (`welcome`, `found_person`, `not_found`) and renders the partial of that name. Any string reaches `render @time_kiosk.tool`. Unknown names are a 500, and a name with a `/` renders other partials. Scanning a Hook's token sets `tool = "found_hook"`, which has no partial, so it is also a 500.
 3. **Anyone signed in can open the kiosk.** A student can open `/time_kiosk` on a phone.
-4. **There's no limit on card lookups.** Cards are `1747` plus 8 random digits.
+4. **There's no limit on card lookups.** HBR's cards are `1747` plus 8 random digits. That format is only how the tokens were created (a one-off script; the Scan Cards page, `~/dev/gatherpack/pages/scan-cards.html.erb`, prints them); nothing in the application knows it, and no security depends on the prefix, which is printed on every card. Token pages show only the last 8 characters (upstream `Token#pretty_value`, `b81ce50`), so the prefix is hidden there.
 5. **An admin session sits on a shared screen.** The header logo links to `/`.
 
-Phase 1 fixes 1, 2 and 4. Phase 2's kiosk users setting fixes 3. Step 0 reduces 5, and Phase 4 removes it.
+Phase 1 fixes 1, 2 and 4. Phase 2's kiosk users setting fixes 3. Step 0 reduces 5, and Phase 4 removes it. None of them stops someone who has a person's card number (§1.1).
 
 ## 3. Phases and branches
 
@@ -102,7 +105,7 @@ Corey considers Phases 1 and 2 a good feature for upstream and wants them ready 
 
 **Diverging afterwards.** Anything HBR-specific goes in its own branch on top (STRATEGY, Contributing Upstream, step 5), never into Phase 1 or 2. Phase 3 already lives on `feature/widgets` and doesn't affect them.
 
-## 4. Phase 1: Act only for the scanned card
+## 4. Phase 1: Tie kiosk actions to a card lookup
 
 ### 4.1 Signed reference
 
