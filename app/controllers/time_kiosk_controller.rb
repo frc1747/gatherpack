@@ -1,5 +1,6 @@
 class TimeKioskController < ApplicationController
   layout "kiosk"
+  before_action :require_kiosk_user
   TOOLS = %w[ find_token punch_in punch_out punch_out_period punch_out_all ].freeze
   PUNCH_TOOLS = TOOLS - %w[ find_token ]
   TEST_STORE = ActiveSupport::Cache::MemoryStore.new
@@ -106,5 +107,12 @@ class TimeKioskController < ApplicationController
 
   def time_kiosk_params
     params.require(:time_kiosk).permit(:tool, :token_value, :time_clock_period_id, :time_clock_punch_id, :person_ref) if params[:time_kiosk]
+  end
+
+  def require_kiosk_user
+    team = TimeKiosk::Config.users_team
+    return if team.nil? || current_user.admin || current_user.person&.teams&.exists?(id: team.id)
+
+    redirect_to root_path, alert: "The time kiosk is for kiosk accounts only."
   end
 end
