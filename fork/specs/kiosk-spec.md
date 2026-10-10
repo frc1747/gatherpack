@@ -37,7 +37,7 @@ Make the time kiosk faster to use, safe to leave unattended, and able to remind 
 
 After a scan, `_found_person` shows:
 - The person's photo and their hours per period.
-- A Clock In button for each period the person can use and that is current. The rule is the query at `time_kiosk_controller.rb:17`: the period's team is one of `person.all_teams`, or it has no team, and `start_time <= now AND end_time >= now`. Both columns are dates, so a period stops being current at midnight at the start of its last day.
+- A Clock In button for each period the person can use and that is current. The rule is the query at `time_kiosk_controller.rb:17`: the period's team is one of `person.all_teams`, or it has no team, and `start_time <= now AND end_time >= now`. Both columns are dates. Postgres casts the compared timestamp (in UTC) to a date, so a period stays current through its last day; in a time zone behind UTC that day ends at UTC midnight, in the evening locally. (Rev. 3 correction; the earlier note said it stopped at the start of the last day.)
 - "Start Unassigned", which does nothing: `time_clock_period_id` is nil, and `punch_in` only creates a punch when a period is found.
 - The person's open punches, each with Clock Out.
 - For managers (`@person.manager?`, the **scanned** person), a **Manager** button that opens Time Management: mass clock-out per managed period, and across all of them.
@@ -276,7 +276,7 @@ New files:
   - A value saved in the PStore by "another process" (written straight to the store) applies to the next scan without a restart.
   - Kiosk users: direct members and admins get in. A member of a child team, a manager of a parent team, and an unrelated user are turned away. A blank setting lets everyone in.
 - `TeamSelectInput`: the stored value renders as selected, "Anyone signed in" is selected when the value is blank, and there is exactly one blank option.
-- By hand on Ditto with a USB scanner:
+- Checked by hand in Chrome against the dev data on 2026-10-09: auto clock-in banner, focus back in the token box, already-in on a second scan, two periods offer both buttons and no Start Unassigned, the missed clock-out warning, the timer returning to Welcome without stacking, the Manager window pausing and the 60-second cap closing it cleanly, and no stale profile preview on a second return (found by review, fixed in `aa5e726`). Still to do on Ditto with the USB scanner:
   - Focus is back in the token box after the auto clock-in screen. The fact check expects this: Turbo 8 refocuses the stream's `[autofocus]` element when focus fell to `<body>`, and also restores focus to the same id.
   - The timer returns to Welcome, restarts on a tap, pauses while the Manager window is open, and gives up after the cap.
 
