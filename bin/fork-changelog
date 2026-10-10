@@ -276,22 +276,46 @@ module ForkChangelog
 
     # --- Try this build -----------------------------------------------------
 
+    # Docker steps for the release image: this build's tag, or the latest
+    # release while the build isn't tagged yet (its image doesn't exist).
     def try_this_build
       return "" unless sample_data?
 
-      <<~MD
-        <a id="try"></a>
+      tag = release || previous
+      lines = [ "<a id=\"try\"></a>", "", "## 🧪 Try this build", "" ]
+      if tag
+        lines << "Run it in Docker with the Northwind sample data loaded. You need Git, Docker with Compose v2, and `openssl`; it runs as its own stack, named `hbr-demo`."
+        lines.push("", "> [!NOTE]", "> This build isn't a release yet, so these steps run the latest release, `#{tag.name}`.") unless release
+        lines.push("", "```bash", *demo_commands(tag.name), "```", "")
+        lines << "Then open `http://localhost:3000` and sign in as `admin@example.com` with the password `password123`. " \
+          "To remove it and all of its data: `docker compose -f docker-compose.production.yml down -v`."
+      else
+        lines << "In a checkout of this build with its database migrated, run `bin/rails hbr:sample_data`, then sign in as `admin@example.com` with the password `password123`."
+      end
+      lines.push("", "[`#{SAMPLE_DATA_README}`](#{SAMPLE_DATA_README}) has every step explained, the other logins, what to try in each feature, and how to load the data into a copy you already run.", "")
+      lines.join("\n")
+    end
 
-        ## 🧪 Try this build
-
-        Load the Northwind sample data into an empty database, then sign in as `admin@example.com` with the password `password123`:
-
-        ```bash
-        bin/rails hbr:sample_data
-        ```
-
-        [`#{SAMPLE_DATA_README}`](#{SAMPLE_DATA_README}) lists every login, what to try in each feature, and how to load the data from the release image.
-      MD
+    def demo_commands(tag_name)
+      compose = "docker compose -f docker-compose.production.yml"
+      [
+        "git clone https://github.com/frc1747/gatherpack.git hbr-gatherpack-demo",
+        "cd hbr-gatherpack-demo",
+        "git checkout #{tag_name}",
+        "cat > .env <<SETTINGS",
+        "COMPOSE_PROJECT_NAME=hbr-demo",
+        "GATHERPACK_IMAGE=ghcr.io/frc1747/gatherpack",
+        "GATHERPACK_TAG=#{tag_name.delete_prefix("v")}",
+        "ROOT_URL=http://localhost:3000",
+        "SECRET_KEY_BASE=$(openssl rand -hex 64)",
+        "DATABASE_PASSWORD=$(openssl rand -hex 16)",
+        "JOBS_DASHBOARD_PASSWORD=$(openssl rand -hex 16)",
+        "SETTINGS",
+        "#{compose} up -d db",
+        "#{compose} run --rm web ./bin/rails db:create db:schema:load",
+        "#{compose} run --rm web ./bin/rails hbr:sample_data",
+        "#{compose} up -d"
+      ]
     end
 
     def release_line

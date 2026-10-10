@@ -2,9 +2,59 @@
 
 Every HBR build can load the same sample organization, the **Northwind Community**, with data for each feature in that build: forms with deadlines still ahead, custom fields at different privacy levels, parents and their children, dashboard widgets, and time kiosk cards. Every date is set relative to when you load it, so a release loaded months from now still has upcoming events and open forms.
 
-Use it on a test copy only. It refuses to load into a database that has real people in it (see [Safety](#safety)).
+Use it on a test copy only. It refuses to load into a database that has real people in it (see [Safety](#safety)). To just look around, [try it in a container](#try-it-in-a-container).
 
-## Load it
+## Try it in a container
+
+The quickest way to see what HBR has built: run a release in Docker with the sample data loaded. You need Git, Docker with Compose v2, and `openssl`. It runs as its own stack, so it can't touch any other GatherPack you run.
+
+**1. Get the release.** The image comes from GitHub's registry; the repository supplies the compose file. Pick a release from the [tags](https://github.com/frc1747/gatherpack/tags):
+
+```bash
+git clone https://github.com/frc1747/gatherpack.git hbr-gatherpack-demo
+cd hbr-gatherpack-demo
+git checkout v0.0.0-hbr.13
+```
+
+**2. Write its settings.** This makes random secrets, serves it at `http://localhost:3000`, and names the stack `hbr-demo` so its containers and data stay separate. Set `GATHERPACK_TAG` to the tag you checked out, without the leading `v`:
+
+```bash
+cat > .env <<SETTINGS
+COMPOSE_PROJECT_NAME=hbr-demo
+GATHERPACK_IMAGE=ghcr.io/frc1747/gatherpack
+GATHERPACK_TAG=0.0.0-hbr.13
+ROOT_URL=http://localhost:3000
+SECRET_KEY_BASE=$(openssl rand -hex 64)
+DATABASE_PASSWORD=$(openssl rand -hex 16)
+JOBS_DASHBOARD_PASSWORD=$(openssl rand -hex 16)
+SETTINGS
+```
+
+If something else already uses port 3000, add `GATHERPACK_PORT=3001` and change `ROOT_URL` to match.
+
+**3. Start it with the sample data.** The first command downloads the images, which takes a few minutes the first time:
+
+```bash
+docker compose -f docker-compose.production.yml up -d db
+docker compose -f docker-compose.production.yml run --rm web ./bin/rails db:create db:schema:load
+docker compose -f docker-compose.production.yml run --rm web ./bin/rails hbr:sample_data
+docker compose -f docker-compose.production.yml up -d
+```
+
+Why not just `up -d`? On an empty database the web container runs `db/seeds.rb`, which currently crashes (BL-007). Loading the schema first skips it, and after that `up -d` only migrates.
+
+**4. Open it.** Go to `http://localhost:3000` (allow a minute on the first start) and sign in as `admin@example.com` with the password `password123`. [Logins](#logins) lists the other people to sign in as, and [Things to try](#things-to-try) walks through each feature.
+
+**Stop it, or remove it:**
+
+```bash
+docker compose -f docker-compose.production.yml stop      # start it again with: up -d
+docker compose -f docker-compose.production.yml down -v   # remove its containers and all of its data
+```
+
+To try a newer release, remove the old one with `down -v`, check out the new tag, change `GATHERPACK_TAG` in `.env`, and repeat step 3.
+
+## Load it into an existing copy
 
 ### From a checkout
 
@@ -18,25 +68,12 @@ Restart the app afterwards (or start it now). It turns features on in Settings, 
 
 Settings live in that checkout's `storage/settings.pstore`, and some tests read that file rather than a temporary copy. After loading sample data into a checkout, tests that expect a feature to be off fail there. Copy `storage/settings.pstore` aside before loading and put it back before running tests, or load into a different checkout.
 
-### Into a running stack from a release image
+### Into a running stack
 
 ```bash
 docker compose -f docker-compose.production.yml exec web ./bin/rails hbr:sample_data
 docker compose -f docker-compose.production.yml restart web worker
 ```
-
-### A brand-new stack from a release image
-
-Set `GATHERPACK_IMAGE=ghcr.io/frc1747/gatherpack` and `GATHERPACK_TAG` to the release (for example `0.0.0-hbr.13`) in `.env`, then:
-
-```bash
-docker compose -f docker-compose.production.yml up -d db
-docker compose -f docker-compose.production.yml run --rm web ./bin/rails db:create db:schema:load
-docker compose -f docker-compose.production.yml run --rm web ./bin/rails hbr:sample_data
-docker compose -f docker-compose.production.yml up -d
-```
-
-Why not just `up -d`? On an empty database the web container runs `db:prepare`, which runs `db/seeds.rb`, and that currently crashes (BL-007). Loading the schema first skips the seed file. Once the schema is loaded, `up -d` only migrates.
 
 ### Running it again
 
