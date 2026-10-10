@@ -1,0 +1,7 @@
+<%= render "shared/add_candidates",
+      candidates: @candidates,
+      more: @more_candidates,
+      add_url: badge_badge_assignments_path(@badge, format: :turbo_stream),
+      param_key: :badge_assignment,
+      attribute: :person_id,
+      empty_message: "Everyone eligible already has this badge." %>
