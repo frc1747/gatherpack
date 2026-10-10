@@ -16,7 +16,14 @@ class ForkChangelogTest < Minitest::Test
     "GIT_COMMITTER_NAME" => "Test",
     "GIT_COMMITTER_EMAIL" => "test@example.com",
     "GIT_CONFIG_GLOBAL" => File::NULL,
-    "GIT_CONFIG_NOSYSTEM" => "1"
+    "GIT_CONFIG_NOSYSTEM" => "1",
+    # No background maintenance: it can still hold files in the repository
+    # while teardown deletes it, which fails the test.
+    "GIT_CONFIG_COUNT" => "2",
+    "GIT_CONFIG_KEY_0" => "gc.auto",
+    "GIT_CONFIG_VALUE_0" => "0",
+    "GIT_CONFIG_KEY_1" => "maintenance.auto",
+    "GIT_CONFIG_VALUE_1" => "false"
   }.freeze
 
   MANIFEST = <<~TEXT
