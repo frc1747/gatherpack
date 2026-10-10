@@ -1,6 +1,6 @@
 # Spec: Sample data in every build
 
-Status: draft rev. 1, 2026-10-10. Not started.
+Status: draft rev. 2, 2026-10-10. Not started. Rev. 2 records the decisions in §13.
 
 This spec lives on `hbr/platform`. Everything it adds is fork tooling and stays on `hbr/platform`; no feature branch and no upstream file changes.
 
@@ -139,7 +139,7 @@ All on `hbr/platform`:
 
 Changes to scripts and CI on `hbr/platform` need Corey's OK before pushing.
 
-## 13. Open questions
+## 13. Decisions (2026-10-10)
 
-1. Should a missing feature file fail the rebuild itself, or only CI and the changelog warning? The default here: warn in the rebuild, fail in CI.
-2. Should the loader also refresh dates on a schedule for long-lived test copies (Ditto), or only when someone re-runs it? The default here: only when re-run.
+1. A missing feature file is a warning in the rebuild and a failure in CI. The rebuild never stops over sample data, so syncs, hotfixes and the drift check still produce a build; the integration CI run fails, and releases are tagged only on a green run, so a gap can't reach a release.
+2. No scheduled refresh. The loader refreshes dates only when someone runs it. Anyone who wants a long-lived copy (such as Ditto) refreshed on a schedule sets that up themselves.
