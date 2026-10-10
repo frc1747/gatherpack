@@ -32,6 +32,10 @@ We found this in production on 2026-10-08. A mentor's card crashed the kiosk on 
   - `app/controllers/people_controller.rb`, lines 18–22 build the same hash for the person page, and `app/helpers/people_helper.rb`, line 43 (`person_time_clock_as_badge`) checks `if time_clock_period`.
   - `app/helpers/time_clock_punches_helper.rb`, line 3 and `app/views/calendar/calendar.json.jbuilder`, line 48 use `punch&.time_clock_period&.name || ""`.
 
+### Related: "Start Unassigned" does nothing (found 2026-10-09, upstream `86ab397`)
+
+The kiosk's "Start Unassigned" button (`_found_person.html.erb:81`) sends `time_clock_period_id: nil`, and `punch_in` creates a punch only `if @time_kiosk.time_clock_period` (`time_kiosk_controller.rb:33-36`), so it silently goes back to Welcome. If it did create the punch, the person's next scan would hit the crash above. Decide both together: either make the button work (and the view nil-safe), or remove it. The kiosk spec (`fork/specs/kiosk-spec.md` §4.4) leaves it to this item.
+
 ## Proposed fix
 
 Kiosk only, matching how the person page and calendar already treat these punches:
@@ -57,6 +61,7 @@ No hook changes. The fix is view-only and doesn't create, update or destroy reco
 
 - `TimeKioskControllerTest`: a person whose token finds them, with one punch in a period and one with `time_clock_period: nil`. `find_token` returns 200 and shows the period's total.
 - Same, with an open (`end_time: nil`) period-less punch: 200, and the open punch is listed.
+- Put these in a new file (for example `test/controllers/time_kiosk_period_less_punch_test.rb`), not the empty `time_kiosk_controller_test.rb` placeholder, which the kiosk spec's Phase 1 fills. Two upstream-bound branches filling the same placeholder would conflict.
 - Fixtures: add a period-less punch fixture if none exists (`git grep 'time_clock_period: nil' test` was empty at `32e8023`).
 
 ## Fork strategy notes
