@@ -20,6 +20,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-010](BL-010-long-tick-box-lists.md) | Keep long tick-box lists short on the printable list | fork-only | medium | waiting | 2026-10-07 |
 | [BL-011](BL-011-accounting-integration.md) | Accounting integration (QuickBooks Online first) | fork-only | medium | waiting | 2026-10-07 |
 | [BL-012](BL-012-kiosk-period-less-punch.md) | Time kiosk crashes for anyone with a punch that has no period | upstream bug | medium | waiting | 2026-10-08 |
+| [BL-013](BL-013-settings-cached-per-process.md) | Saved settings reach only one server process until a restart | upstream bug | medium | waiting | 2026-10-09 |
+| [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | waiting | 2026-10-09 |
 
 ## Fields
 
