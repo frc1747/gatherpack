@@ -5,7 +5,7 @@ import { Turbo } from "@hotwired/turbo-rails"
 // without a tap or key press. While a modal is open the countdown pauses, but
 // only for so long, so a manager window can't be left open on a shared screen.
 export default class extends Controller {
-  static targets = ["count"]
+  static targets = ["message"]
   static values = { seconds: Number, url: String }
 
   connect() {
@@ -43,6 +43,8 @@ export default class extends Controller {
       if (now - this.lastInput >= this.modalLimit * 1000) {
         window.bootstrap?.Modal.getInstance(modal)?.hide()
         this.goHome()
+      } else {
+        this.render(true)
       }
       return
     }
@@ -55,14 +57,20 @@ export default class extends Controller {
     }
   }
 
+  // Scans arrive as Turbo Streams, so the kiosk URL's cached snapshot is an
+  // earlier person's profile. Drop it and keep this one out of the cache, or
+  // the visit would preview someone else's screen. Replace, so returns don't
+  // pile up history entries.
   goHome() {
     this.disconnect()
-    Turbo.visit(this.urlValue)
+    Turbo.cache.clear()
+    Turbo.cache.exemptPageFromCache()
+    Turbo.visit(this.urlValue, { action: "replace" })
   }
 
-  render() {
-    if (this.hasCountTarget) {
-      this.countTarget.textContent = Math.max(Math.ceil(this.remaining / 1000), 0)
+  render(paused = false) {
+    if (this.hasMessageTarget) {
+      this.messageTarget.textContent = paused ? "Paused" : `Returning in ${Math.max(Math.ceil(this.remaining / 1000), 0)}s`
     }
   }
 

@@ -89,8 +89,7 @@ class TimeKioskReturnTimerTest < ActionDispatch::IntegrationTest
     assert_select "#kiosk-content [data-controller=kiosk-return]", count: 1 do |timer|
       assert_equal seconds.to_s, timer.first["data-kiosk-return-seconds-value"]
       assert_equal time_kiosk_path, timer.first["data-kiosk-return-url-value"]
-      assert_select "[data-kiosk-return-target=count]", text: seconds.to_s
+      assert_select "[data-kiosk-return-target=message]", text: "Returning in #{seconds}s"
     end
-    assert_select "#kiosk-return-timer", text: /Returning in\s+#{seconds}s/
   end
 end
