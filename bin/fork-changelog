@@ -24,6 +24,8 @@ module ForkChangelog
   MANIFEST_PATH = "fork/features.txt"
   CATALOG_PATH = "fork/catalog.yml"
   REGISTER_PATH = "FORK.md"
+  SAMPLE_DATA_LOADER = "fork/sample_data/sample_data.rb"
+  SAMPLE_DATA_README = "fork/sample_data/README.md"
   MIGRATION_DIRS = %w[db/migrate db/versions_migrate].freeze
 
   TAG_PATTERN = /\Av(?<version>.+)-hbr\.(?<number>\d+)\z/
@@ -180,6 +182,7 @@ module ForkChangelog
       check_changelog_absent
       [
         header,
+        try_this_build,
         diagram,
         catalog_section,
         whats_new,
@@ -207,6 +210,7 @@ module ForkChangelog
         warn("#{branch} has no entry in #{CATALOG_PATH}") unless catalog[branch]
         warn("#{branch} has no row in #{REGISTER_PATH}") unless register[branch]
         warn("#{branch} is in the manifest but not merged in this build") unless build.feature(branch)
+        warn("#{branch} has no sample data in fork/sample_data/features/") if sample_data? && !git.file?(@ref_commit, sample_data_path(branch))
       end
       build.features.each do |merge|
         warn("#{merge.branch} is merged in this build but not active in the manifest") unless active_branches.include?(merge.branch)
@@ -233,6 +237,16 @@ module ForkChangelog
       @warnings << message
     end
 
+    # Platform refs from before the sample data loader have nothing to check.
+    def sample_data?
+      return @sample_data if defined?(@sample_data)
+      @sample_data = git.file?(@ref_commit, SAMPLE_DATA_LOADER)
+    end
+
+    def sample_data_path(branch)
+      "fork/sample_data/features/#{branch.delete_prefix("feature/")}.rb"
+    end
+
     def active_branches
       @active_branches ||= manifest.select(&:active).map(&:branch)
     end
@@ -256,7 +270,27 @@ module ForkChangelog
         - 🧩 **Features:** #{build.features.size} merged#{disabled_branches.empty? ? "" : ", #{disabled_branches.size} disabled"}
         - ⏮️ **Previous release:** #{previous ? "`#{previous.name}` (`#{short(previous.commit)}`, #{date(previous.commit)})" : "none"}
 
-        **Contents:** [How it's built](#build) · [Features](#catalog) · [What's new](#whats-new) · [Disabled and retired](#disabled)
+        **Contents:** #{"[Try this build](#try) · " if sample_data?}[How it's built](#build) · [Features](#catalog) · [What's new](#whats-new) · [Disabled and retired](#disabled)
+      MD
+    end
+
+    # --- Try this build -----------------------------------------------------
+
+    def try_this_build
+      return "" unless sample_data?
+
+      <<~MD
+        <a id="try"></a>
+
+        ## 🧪 Try this build
+
+        Load the Northwind sample data into an empty database, then sign in as `admin@example.com` with the password `password123`:
+
+        ```bash
+        bin/rails hbr:sample_data
+        ```
+
+        [`#{SAMPLE_DATA_README}`](#{SAMPLE_DATA_README}) lists every login, what to try in each feature, and how to load the data from the release image.
       MD
     end
 
