@@ -16,7 +16,7 @@ class TimeKioskController < ApplicationController
       if @time_kiosk.token
         if @time_kiosk.person
           @person = @time_kiosk.person
-          if (auto_clock_in = TimeKiosk::AutoClockIn.call(@person))
+          if request.post? && (auto_clock_in = TimeKiosk::AutoClockIn.call(@person))
             flash.now[auto_clock_in.flash_type] = auto_clock_in.message
           end
           @time_clocks = @person.time_clock_punches.order(time_clock_period_id: :asc).map do |punch|
