@@ -1,6 +1,6 @@
 # Spec: Sample data in every build
 
-Status: rev. 3, 2026-10-10. Built. Rev. 3 matches the spec to what was built (§3, §4, §6, §8, §9). Rev. 2 recorded the decisions in §13.
+Status: rev. 4, 2026-10-10. Built. Rev. 4 adds the container walkthrough (§8). Rev. 3 matches the spec to what was built (§3, §4, §6, §8, §9). Rev. 2 recorded the decisions in §13.
 
 This spec lives on `hbr/platform`. Everything it adds is fork tooling and stays on `hbr/platform`; no feature branch and no upstream file changes.
 
@@ -97,7 +97,8 @@ The published image runs in the `production` environment, so the guard can't be 
 The build writes or updates these; none is an upstream file.
 
 - **`fork/sample_data/README.md`** (new): how to load from a checkout and from a tagged image (§3), including the restart and BL-007 (below); the logins and what each is for; the team tree; scan card numbers; a short "things to try" list per feature; how to add data for a new feature. Replaces `~/dev/gatherpack-dev-data/README.md`, which then points here.
-- **`HBR-CHANGELOG.md`**: `bin/fork-changelog` adds a short "Try this build" section with the load command, the admin login and a link to the README.
+- **`HBR-CHANGELOG.md`**: `bin/fork-changelog` adds a "Try this build" section at the root of every build: the complete Docker steps for the release image (this build's tag, or the latest release with a note while it's untagged), the admin login, and a link to the README.
+- **Try it in a container** (rev. 4): the README's first section runs a release image as its own Compose project (`COMPOSE_PROJECT_NAME=hbr-demo` in a generated `.env`, so it can't share containers or volumes with a real install from the same compose file), loads the sample data, and removes everything with `down -v`. Followed word for word against the published `0.0.0-hbr.13` image on 2026-10-10.
 - **`FORK.md`**: one line under the intro linking the README.
 - **`fork/STRATEGY.md`**: the manifest rule in §7.
 
