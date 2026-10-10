@@ -1,0 +1,148 @@
+# Feature catalog: the plain-language entries bin/fork-changelog puts in
+# HBR-CHANGELOG.md on hbr/integration. One entry per feature branch, keyed by
+# branch name. Write for team mentors, not developers: what people see and
+# who uses it.
+#
+#   title:       short name for what the feature does
+#   emoji:       one emoji shown beside the title
+#   description: one to three sentences about what people see
+#   audience:    who uses it
+#   settings:    runtime settings that control it (leave out if none)
+#     - name:    the label on the Settings page
+#       key:     the Settings key (or environment variable)
+#       default: the value it ships with
+#
+# Status, shipped release, dependencies and migrations come from FORK.md and
+# git, so don't repeat them here.
+
+feature/search-and-add:
+  title: Add people from a search
+  emoji: "🔎"
+  description: >-
+    Badge holders, team members, a person's teams and event check-ins each get
+    a search panel beside the list. Type a name and press Add; the list updates
+    in place, and only people or teams that can still be added are shown.
+  audience: Team managers and admins
+
+feature/enforce-authorization:
+  title: Permission checks on every page
+  emoji: "🔒"
+  description: >-
+    Every page now checks who may see or change it. Members can no longer
+    delete their team, edit its announcements, change other people's check-ins
+    or edit badge types. People who were already allowed to do these things
+    see no change.
+  audience: Everyone (behind the scenes)
+
+feature/people-ransack-auth-object:
+  title: People searches know who is searching
+  emoji: "🧭"
+  description: >-
+    Every search over people (the directory, person search, team members,
+    birthdays on the calendar) now knows who is asking. Nothing changes on
+    screen; it lets Custom person fields keep hidden details out of search
+    results.
+  audience: Everyone (behind the scenes)
+
+feature/person-fields:
+  title: Custom person fields
+  emoji: "🗂️"
+  description: >-
+    Admins add their own profile fields, such as medical notes or an emergency
+    contact, and choose who can see and change each one: the person, their
+    guardians, their team's leaders, or holders of a badge. Built-in details
+    like phone, address and birthday follow the same rules, even with the
+    setting off.
+  audience: Admins set fields up; everyone who views profiles
+  settings:
+    - name: Custom Person Fields
+      key: feature_person_fields
+      default: "off"
+
+feature/forms:
+  title: Forms
+  emoji: "📝"
+  description: >-
+    Leaders ask a group of people for information by a deadline: meal choices,
+    permission slips, or who is coming to an event. People find their forms on
+    the dashboard and their profile, guardians can answer and sign for their
+    students, and leaders see who still owes an answer and print lists of the
+    answers.
+  audience: Members and families answer; leaders and form creators ask
+  settings:
+    - name: Forms
+      key: feature_forms
+      default: "off"
+    - name: Form Creator Badge
+      key: forms_creator_badge
+      default: blank (no form creators)
+    - name: Highest Team for Form Creators
+      key: forms_creator_highest_team
+      default: blank (only their own teams and the teams below)
+
+feature/app-version:
+  title: Version in the sidebar
+  emoji: "🏷️"
+  description: >-
+    The sidebar shows which release is running, under "powered by GatherPack".
+    Point at it to see the exact build. Use it when reporting a problem.
+  audience: Everyone signed in
+  settings:
+    - name: Release number, set when the image is built
+      key: GATHERPACK_VERSION
+      default: blank (nothing shown)
+
+feature/widgets:
+  title: Dashboard widgets
+  emoji: "🧱"
+  description: >-
+    Admins add titled sections to the dashboard, such as a kickoff countdown,
+    shop hours for the week, or who is clocked in right now. Each widget can be
+    shown to everyone or only to some people, and can refresh itself.
+  audience: Admins write them; everyone sees the ones meant for them
+  settings:
+    - name: Dashboard Widgets
+      key: feature_widgets
+      default: "off"
+
+feature/signup-link-guard:
+  title: Forgot Password works with sign-up off
+  emoji: "🔑"
+  description: >-
+    With local sign-up turned off, the Forgot Password page used to crash. It
+    now opens normally and hides the sign-up link, like the sign-in page does.
+  audience: Anyone who signs in with an email and password
+  settings:
+    - name: Enable Creating Local Accounts, an existing setting
+      key: local_signup
+      default: "on"
+
+feature/kiosk-scanned-person:
+  title: Kiosk acts only for the card just scanned
+  emoji: "🪪"
+  description: >-
+    The time kiosk's buttons work only for the person whose card was just
+    scanned, and only for a few minutes. No one can clock someone else in or
+    out from a link or by changing the page, and rapid card guessing is
+    blocked.
+  audience: People clocking in at the kiosk
+
+feature/kiosk-auto-clock-in:
+  title: Kiosk quick clock-in
+  emoji: "⏱️"
+  description: >-
+    Admins can have a scan clock the person in right away when only one time
+    period applies to them, send the kiosk back to the welcome screen after a
+    few seconds, and choose a team whose members may open the kiosk. With the
+    default settings the kiosk works as before.
+  audience: People clocking in at the kiosk; admins set it up
+  settings:
+    - name: "Kiosk: Allow Unassigned Punches"
+      key: time_kiosk_allow_unassigned
+      default: "on"
+    - name: "Kiosk: Return to Welcome After (seconds)"
+      key: time_kiosk_return_seconds
+      default: 0 (stays on the person's screen)
+    - name: "Kiosk: Who Can Open the Kiosk"
+      key: time_kiosk_users_team
+      default: blank (anyone signed in)

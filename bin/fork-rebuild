@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Regenerates hbr/integration from upstream/main + hbr/platform + every branch in
-# fork/features.txt, in manifest order. See fork/STRATEGY.md, "Rebuild Script".
+# fork/features.txt, in manifest order, then commits HBR-CHANGELOG.md on top
+# (written by bin/fork-changelog). See fork/STRATEGY.md, "Rebuild Script".
 #
 # Refs are read from origin by default. Set REF_PREFIX= (empty) to build from
 # local branches instead, e.g. before they have been pushed:
@@ -27,19 +28,46 @@ grep -qxF "db/schema.rb merge=rails-schema" "${attributes}" 2>/dev/null || echo 
 
 manifest="$(git show "${PLATFORM}:${MANIFEST_PATH}")"
 
-git checkout -B "${INTEGRATION}" upstream/main
-git merge --no-ff --no-edit -m "Integrate hbr/platform" "${PLATFORM}"
-
+branches=()
 while IFS= read -r branch; do
   branch="${branch%%#*}"
   branch="$(echo "${branch}" | xargs)"
   [[ -z "${branch}" ]] && continue
+  branches+=("${branch}")
+done <<< "${manifest}"
+
+# Date every commit the rebuild makes with the newest of its inputs, not the
+# clock, so the same inputs always give the same commits and the same
+# HBR-CHANGELOG.md.
+inputs=(upstream/main "${PLATFORM}")
+for branch in "${branches[@]}"; do
+  inputs+=("${REF_PREFIX}${branch}")
+done
+build_time="$(git show -s --format=%ct "${inputs[@]}" | sort -n | tail -n 1)"
+export GIT_AUTHOR_DATE="${build_time} +0000"
+export GIT_COMMITTER_DATE="${build_time} +0000"
+
+git checkout -B "${INTEGRATION}" upstream/main
+git merge --no-ff --no-edit -m "Integrate hbr/platform" "${PLATFORM}"
+
+for branch in "${branches[@]}"; do
   echo "Merging ${branch}"
   if ! git merge --no-ff --no-edit -m "Integrate ${branch}" "${REF_PREFIX}${branch}"; then
     echo "Conflict merging ${branch}. Resolve it on the feature branch, not here." >&2
     git merge --abort
     exit 1
   fi
-done <<< "${manifest}"
+done
+
+# The catalog of this build. It is generated here and committed only on
+# hbr/integration, so no input branch ever carries it.
+toplevel="$(git rev-parse --show-toplevel)"
+changelog="${toplevel}/HBR-CHANGELOG.md"
+if ! "${toplevel}/bin/fork-changelog" --ref "${PLATFORM}" --output "${changelog}"; then
+  echo "Generating HBR-CHANGELOG.md failed; ${INTEGRATION} has every merge but no changelog." >&2
+  exit 1
+fi
+git add "${changelog}"
+git commit --quiet --no-verify -m "Update HBR changelog"
 
 echo "Integration branch rebuilt from upstream/main at $(git rev-parse --short upstream/main)"
