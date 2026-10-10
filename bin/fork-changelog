@@ -1,0 +1,618 @@
+#!/usr/bin/env ruby
+# Writes HBR-CHANGELOG.md, the catalog of fork features in an hbr/integration
+# build. bin/fork-rebuild runs it after the last merge and commits the result.
+# See fork/STRATEGY.md, "Rebuild Script".
+#
+#   bin/fork-changelog [--ref REF] [--output PATH | --stdout]
+#
+# The manifest (fork/features.txt), the catalog (fork/catalog.yml) and FORK.md
+# are read from REF (default origin/hbr/platform). Everything else comes from
+# the current checkout: the build is the run of "Integrate <branch>" merges at
+# HEAD, and the release tags are the v*-hbr.<n> tags. The output depends only
+# on git objects, so the same inputs always give the same file.
+#
+# Stdlib only: runs on system Ruby without Bundler.
+require "open3"
+require "optparse"
+require "set"
+require "yaml"
+
+module ForkChangelog
+  OUTPUT = "HBR-CHANGELOG.md"
+  DEFAULT_REF = "origin/hbr/platform"
+  PLATFORM_BRANCH = "hbr/platform"
+  MANIFEST_PATH = "fork/features.txt"
+  CATALOG_PATH = "fork/catalog.yml"
+  REGISTER_PATH = "FORK.md"
+  SAMPLE_DATA_LOADER = "fork/sample_data/sample_data.rb"
+  SAMPLE_DATA_README = "fork/sample_data/README.md"
+  MIGRATION_DIRS = %w[db/migrate db/versions_migrate].freeze
+
+  TAG_PATTERN = /\Av(?<version>.+)-hbr\.(?<number>\d+)\z/
+  BRANCH_PATTERN = %r{\A[\w.-]+/[\w./-]+\z}
+  INTEGRATE_PATTERN = /\AIntegrate (?<branch>\S+)\z/
+
+  MERMAID_ENTITIES = { "#" => "#35;", '"' => "#quot;", "<" => "#lt;", ">" => "#gt;" }.freeze
+
+  STATUS_LABELS = {
+    "wip" => "🚧 wip",
+    "proposed" => "📬 proposed",
+    "accepted" => "✅ accepted",
+    "carried" => "📦 carried",
+    "retired" => "🗄️ retired"
+  }.freeze
+
+  class Error < StandardError; end
+
+  ManifestEntry = Struct.new(:branch, :active, keyword_init: true)
+  Merge = Struct.new(:branch, :commit, :head, keyword_init: true)
+  Build = Struct.new(:tip, :head, :base, :merges, :top, keyword_init: true) do
+    def platform = merges.find { |merge| merge.branch == PLATFORM_BRANCH }
+    def features = merges.reject { |merge| merge.branch == PLATFORM_BRANCH }
+    def feature(branch) = features.find { |merge| merge.branch == branch }
+  end
+  Tag = Struct.new(:name, :version, :number, :commit, keyword_init: true)
+  Commit = Struct.new(:sha, :subject, :key, keyword_init: true)
+
+  class Git
+    def initialize(dir = Dir.pwd)
+      @dir = dir
+    end
+
+    def run(*args)
+      out, err, status = Open3.capture3("git", *args, chdir: @dir)
+      raise Error, "git #{args.join(" ")} failed: #{err.strip}" unless status.success?
+
+      out.force_encoding(Encoding::UTF_8)
+    end
+
+    def lines(*args) = run(*args).lines(chomp: true)
+
+    def show(ref, path) = run("show", "#{ref}:#{path}")
+
+    def file?(ref, path)
+      _out, _err, status = Open3.capture3("git", "cat-file", "-e", "#{ref}:#{path}", chdir: @dir)
+      status.success?
+    end
+  end
+
+  module_function
+
+  # Active lines are branches (anything after # is a comment). A commented-out
+  # line that is just a branch name is a disabled feature; other comments are
+  # ignored.
+  def parse_manifest(text)
+    text.lines(chomp: true).filter_map do |line|
+      active = line.sub(/#.*/, "").strip
+      next ManifestEntry.new(branch: active, active: true) unless active.empty?
+
+      disabled = line.strip.sub(/\A#+/, "").sub(/#.*/, "").strip
+      ManifestEntry.new(branch: disabled, active: false) if line.strip.start_with?("#") && disabled.match?(BRANCH_PATTERN)
+    end
+  end
+
+  # FORK.md's feature table, keyed by branch. Each row is a Hash keyed by the
+  # lowercased column header.
+  def parse_register(text)
+    rows = {}
+    header = nil
+    text.each_line(chomp: true) do |line|
+      unless line.start_with?("|")
+        header = nil
+        next
+      end
+
+      cells = split_row(line)
+      if header.nil?
+        header = cells.map(&:downcase) if cells.first&.casecmp?("Branch")
+        next
+      end
+      next if cells.all? { |cell| cell.match?(/\A:?-+:?\z/) }
+
+      row = header.zip(cells).to_h
+      branch = row["branch"].to_s.delete("`")
+      rows[branch] = row if branch.match?(BRANCH_PATTERN)
+    end
+    rows
+  end
+
+  def split_row(line)
+    line.strip.delete_prefix("|").delete_suffix("|").split(/(?<!\\)\|/).map(&:strip)
+  end
+
+  def parse_catalog(text)
+    catalog = YAML.safe_load(text) || {}
+    raise Error, "#{CATALOG_PATH} must be a mapping of branch names to entries" unless catalog.is_a?(Hash)
+
+    catalog
+  rescue Psych::SyntaxError => e
+    raise Error, "#{CATALOG_PATH}: #{e.message}"
+  end
+
+  def blank_cell(value)
+    value.nil? || value.strip.empty? || value.strip.match?(/\A[—–-]\z/) ? nil : value.strip
+  end
+
+  def dependencies(row)
+    blank_cell(row&.fetch("depends on", nil)).to_s.scan(/`([^`]+)`/).flatten
+  end
+
+  # Walks the first-parent chain from rev: generated commits on top (such as
+  # the changelog commit), then the "Integrate <branch>" merges, down to the
+  # upstream commit the build started from.
+  def read_build(git, rev)
+    tip = git.run("rev-parse", "#{rev}^{commit}").strip
+    top = []
+    merges = []
+    git.lines("log", "--first-parent", "--format=%H %P%x09%s", tip).each do |line|
+      ids, subject = line.split("\t", 2)
+      commit, *parents = ids.split(" ")
+      match = INTEGRATE_PATTERN.match(subject.to_s)
+      if match && parents.size == 2
+        merges << Merge.new(branch: match[:branch], commit: commit, head: parents[1])
+      elsif merges.empty?
+        top << commit
+      else
+        return Build.new(tip: tip, head: merges.first.commit, base: commit, merges: merges.reverse, top: top + [ merges.first.commit ])
+      end
+    end
+    raise Error, "#{rev} is not an hbr/integration build: no \"Integrate <branch>\" merges on top of an upstream commit"
+  end
+
+  def release_tags(git)
+    git.lines("for-each-ref", "--format=%(refname:short) %(objectname) %(*objectname)", "refs/tags").filter_map do |line|
+      name, object, peeled = line.split(" ")
+      match = TAG_PATTERN.match(name) or next
+      Tag.new(name: name, version: match[:version], number: match[:number].to_i, commit: peeled || object)
+    end.sort_by { |tag| [ tag.number, tag.name ] }
+  end
+
+  class Generator
+    attr_reader :warnings
+
+    def initialize(git:, ref: DEFAULT_REF, rev: "HEAD")
+      @git = git
+      @ref = ref
+      @rev = rev
+      @warnings = []
+    end
+
+    def generate
+      load_inputs
+      check_changelog_absent
+      [
+        header,
+        try_this_build,
+        diagram,
+        catalog_section,
+        whats_new,
+        disabled_and_retired,
+        footer
+      ].join("\n").gsub(/\n{3,}/, "\n\n")
+    end
+
+    private
+
+    attr_reader :git, :build, :manifest, :catalog, :register, :tags, :release, :previous, :previous_build
+
+    def load_inputs
+      @manifest = ForkChangelog.parse_manifest(git.show(@ref, MANIFEST_PATH))
+      @catalog = ForkChangelog.parse_catalog(git.show(@ref, CATALOG_PATH))
+      @register = ForkChangelog.parse_register(git.show(@ref, REGISTER_PATH))
+      @ref_commit = git.run("rev-parse", "#{@ref}^{commit}").strip
+      @build = ForkChangelog.read_build(git, @rev)
+      @tags = ForkChangelog.release_tags(git)
+      @release = tags.select { |tag| tagged_build?(tag) }.max_by(&:number)
+      @previous = release ? tags.select { |tag| tag.number < release.number }.max_by(&:number) : tags.max_by(&:number)
+      @previous_build = previous && ForkChangelog.read_build(git, previous.commit)
+
+      active_branches.each do |branch|
+        warn("#{branch} has no entry in #{CATALOG_PATH}") unless catalog[branch]
+        warn("#{branch} has no row in #{REGISTER_PATH}") unless register[branch]
+        warn("#{branch} is in the manifest but not merged in this build") unless build.feature(branch)
+        warn("#{branch} has no sample data in fork/sample_data/features/") if sample_data? && !git.file?(@ref_commit, sample_data_path(branch))
+      end
+      build.features.each do |merge|
+        warn("#{merge.branch} is merged in this build but not active in the manifest") unless active_branches.include?(merge.branch)
+      end
+    end
+
+    # A tag names this build if it points at the build's last merge or at a
+    # generated commit on top of it, such as the changelog commit.
+    def tagged_build?(tag)
+      build.top.include?(tag.commit) ||
+        git.lines("rev-list", "--first-parent", "--max-count=3", tag.commit).include?(build.head)
+    end
+
+    # The file is generated on hbr/integration only. If an input branch carried
+    # it, every rebuild would conflict with it.
+    def check_changelog_absent
+      sources = [ [ @ref, @ref_commit ], *build.merges.map { |merge| [ merge.branch, merge.head ] } ]
+      sources.each do |name, commit|
+        raise Error, "#{OUTPUT} is committed on #{name}; it belongs on hbr/integration only" if git.file?(commit, OUTPUT)
+      end
+    end
+
+    def warn(message)
+      @warnings << message
+    end
+
+    # Platform refs from before the sample data loader have nothing to check.
+    def sample_data?
+      return @sample_data if defined?(@sample_data)
+      @sample_data = git.file?(@ref_commit, SAMPLE_DATA_LOADER)
+    end
+
+    def sample_data_path(branch)
+      "fork/sample_data/features/#{branch.delete_prefix("feature/")}.rb"
+    end
+
+    def active_branches
+      @active_branches ||= manifest.select(&:active).map(&:branch)
+    end
+
+    def disabled_branches
+      manifest.reject(&:active).map(&:branch)
+    end
+
+    # --- Header -------------------------------------------------------------
+
+    def header
+      <<~MD
+        # 📦 HBR build catalog
+
+        > [!NOTE]
+        > Generated by `bin/fork-changelog` each time `bin/fork-rebuild` runs. Don't edit it here: change `fork/catalog.yml` or `FORK.md` on `hbr/platform`, then rebuild.
+
+        - 🏷️ **Release:** #{release_line}
+        - 🔨 **Build:** `#{short(build.head)}` on `hbr/integration`, #{date(build.head)}
+        - ⬆️ **Upstream base:** `#{short(build.base)}` #{inline(subject(build.base))} (#{date(build.base)})
+        - 🧩 **Features:** #{build.features.size} merged#{disabled_branches.empty? ? "" : ", #{disabled_branches.size} disabled"}
+        - ⏮️ **Previous release:** #{previous ? "`#{previous.name}` (`#{short(previous.commit)}`, #{date(previous.commit)})" : "none"}
+
+        **Contents:** #{"[Try this build](#try) · " if sample_data?}[How it's built](#build) · [Features](#catalog) · [What's new](#whats-new) · [Disabled and retired](#disabled)
+      MD
+    end
+
+    # --- Try this build -----------------------------------------------------
+
+    def try_this_build
+      return "" unless sample_data?
+
+      <<~MD
+        <a id="try"></a>
+
+        ## 🧪 Try this build
+
+        Load the Northwind sample data into an empty database, then sign in as `admin@example.com` with the password `password123`:
+
+        ```bash
+        bin/rails hbr:sample_data
+        ```
+
+        [`#{SAMPLE_DATA_README}`](#{SAMPLE_DATA_README}) lists every login, what to try in each feature, and how to load the data from the release image.
+      MD
+    end
+
+    def release_line
+      return "`#{release.name}`" if release
+      return "not tagged yet (no earlier release)" unless previous
+
+      "`v#{previous.version}-hbr.#{previous.number + 1}` when tagged (not tagged yet)"
+    end
+
+    # --- Diagram ------------------------------------------------------------
+
+    def diagram
+      ids = {}
+      lines = [ "flowchart TB" ]
+      lines << %(  upstream["⬆️ upstream/main<br/>#{short(build.base)}"])
+      lines << %(  platform["🛠️ hbr/platform<br/>#{short(build.platform&.head || @ref_commit)}"])
+      build.features.each_with_index do |merge, index|
+        ids[merge.branch] = "f#{index + 1}"
+        lines << %(  #{ids[merge.branch]}["#{mermaid(name(merge.branch))}<br/>#{merge.branch}"])
+      end
+      chain = [ "upstream", "platform", *build.features.map { |merge| ids[merge.branch] } ]
+      chain.each_cons(2) { |from, to| lines << "  #{from} --> #{to}" }
+      build.features.each do |merge|
+        ForkChangelog.dependencies(register[merge.branch]).each do |dependency|
+          lines << "  #{ids[merge.branch]} -. needs .-> #{ids[dependency]}" if ids[dependency]
+        end
+      end
+
+      <<~MD
+        <a id="build"></a>
+
+        ## 🧬 How this build is made
+
+        Each box is merged on top of the one before it, top to bottom. Dotted arrows point from a feature to a feature it needs.
+
+        ```mermaid
+        #{lines.join("\n")}
+        ```
+      MD
+    end
+
+    # --- Catalog ------------------------------------------------------------
+
+    def catalog_section
+      rows = active_branches.map do |branch|
+        "| [#{cell(name(branch))}](##{anchor(branch)}) | #{status_label(branch)} | #{setting_summary(branch).gsub("|", "\\|")} | #{shipped(branch)} |"
+      end
+
+      <<~MD
+        <a id="catalog"></a>
+
+        ## 🗂️ Features in this build
+
+        In merge order. **Status** is where the feature stands with upstream GatherPack: 🚧 wip means it hasn't been offered upstream (yet, or ever), 📬 proposed means a pull request is open.
+
+        | Feature | Status | Turned on by | Shipped |
+        |---|---|---|---|
+        #{rows.join("\n")}
+
+        #{active_branches.map { |branch| card(branch) }.join("\n")}
+      MD
+    end
+
+    def card(branch)
+      entry = catalog[branch] || {}
+      row = register[branch]
+      merge = build.feature(branch)
+      migrations = merge ? migrations(merge) : []
+      lines = [ "<a id=\"#{anchor(branch)}\"></a>", "", "### #{text(name(branch))}", "" ]
+
+      if entry["description"]
+        lines << entry["description"].to_s.strip
+      else
+        lines.push("> [!WARNING]", "> No description yet. Add `#{branch}` to `#{CATALOG_PATH}` on `hbr/platform`.")
+      end
+      lines << ""
+
+      lines << "- 👥 **Who uses it:** #{entry["audience"] ? text(entry["audience"]) : "—"}"
+      settings = Array(entry["settings"])
+      if settings.empty?
+        lines << "- ⚙️ **Settings:** none; always on"
+      else
+        lines << "- ⚙️ **Settings:**"
+        settings.each do |setting|
+          lines << "  - #{text(setting["name"])} (#{code(setting["key"])}): default #{text(setting["default"])}"
+        end
+      end
+      upstream = blank_cell(row&.fetch("upstream link", nil))
+      lines << "- 🔄 **Upstream:** #{status_label(branch)}#{upstream ? " · #{upstream}" : ""}"
+      lines << "- 🚀 **Shipped in:** #{shipped(branch)}"
+      lines << "- 🌿 **Branch:** `#{branch}`#{merge ? " at `#{short(merge.head)}`" : " (not in this build)"}"
+      needs = ForkChangelog.dependencies(row)
+      lines << "- 🔗 **Needs:** #{needs.map { |dependency| dependency_link(dependency) }.join(", ")}" unless needs.empty?
+      lines << "- 🗃️ **Migrations:** #{migrations.empty? ? "none" : migrations.size}"
+      lines << ""
+
+      missing = needs.reject { |dependency| build.feature(dependency) }
+      unless missing.empty?
+        lines.push("> [!WARNING]", "> Needs #{missing.map { |dependency| "`#{dependency}`" }.join(", ")}, which #{missing.size == 1 ? "isn't" : "aren't"} in this build.", "")
+      end
+      unless migrations.empty?
+        lines.push("<details><summary>Migrations</summary>", "")
+        migrations.each { |migration| lines << "- `#{migration}`" }
+        lines.push("", "</details>", "")
+      end
+      lines.join("\n")
+    end
+
+    def dependency_link(branch)
+      build.feature(branch) ? "[#{text(name(branch))}](##{anchor(branch)})" : "`#{branch}`"
+    end
+
+    # Migration files the feature's merge added to the build.
+    def migrations(merge)
+      git.lines("diff", "--name-only", "--diff-filter=A", "#{merge.commit}^1", merge.commit, "--", *MIGRATION_DIRS)
+        .map { |path| File.basename(path) }.sort
+    end
+
+    def setting_summary(branch)
+      settings = Array(catalog.dig(branch, "settings"))
+      return "always on" if settings.empty?
+
+      first = code(settings.first["key"])
+      settings.size > 1 ? "#{first} +#{settings.size - 1}" : first
+    end
+
+    def shipped(branch)
+      blank_cell(register.dig(branch, "shipped")) || (new_feature?(branch) ? "🆕 this build" : "—")
+    end
+
+    def status_label(branch)
+      status = blank_cell(register.dig(branch, "status"))
+      return "❔ not in FORK.md" unless status
+
+      STATUS_LABELS.fetch(status, "❔ #{status}")
+    end
+
+    # --- What's new ---------------------------------------------------------
+
+    def whats_new
+      lines = [ "<a id=\"whats-new\"></a>", "" ]
+      if previous
+        lines.push("## 🆕 What's new since #{previous.name}", "")
+        lines.push("Commits in this build that weren't in `#{previous.name}`, oldest first. A commit that was rebased or cherry-picked (same author, date and subject) counts as already released.", "")
+      else
+        lines.push("## 🆕 What's new", "", "> [!NOTE]", "> There is no earlier `v*-hbr.*` release tag, so everything here is new.", "")
+      end
+
+      unchanged = []
+      build.features.each do |merge|
+        commits = new_commits(merge)
+        if new_feature?(merge.branch)
+          lines.push("### #{text(name(merge.branch))} · 🆕 new in this build", "")
+        elsif commits.any?
+          lines.push("### #{text(name(merge.branch))} · ✏️ #{count(commits.size, "change")}", "")
+        else
+          unchanged << text(name(merge.branch))
+          next
+        end
+        lines.concat(commit_list(commits))
+      end
+      lines.push("**No changes:** #{unchanged.join(", ")}", "") unless unchanged.empty?
+
+      removed = previous_build ? previous_build.features.map(&:branch) - build.features.map(&:branch) : []
+      unless removed.empty?
+        lines.push("### ➖ Removed since #{previous.name}", "")
+        removed.each do |branch|
+          details = [ status_label(branch), blank_cell(register.dig(branch, "upstream link")) ].compact.join(" · ")
+          lines << "- `#{branch}`: #{details}"
+        end
+        lines << ""
+      end
+
+      lines.concat(upstream_changes)
+      lines.concat(platform_changes)
+      lines.join("\n")
+    end
+
+    def upstream_changes
+      lines = [ "### ⬆️ Upstream" ]
+      lines << ""
+      unless previous_build
+        lines.push("Based on upstream `#{short(build.base)}`.", "")
+        return lines
+      end
+      if previous_build.base == build.base
+        lines.push("No new upstream commits (still on `#{short(build.base)}`).", "")
+        return lines
+      end
+
+      commits = log("--no-merges", build.base, "^#{previous_build.base}")
+      lines.push("#{count(commits.size, "new upstream commit")} (`#{short(previous_build.base)}` → `#{short(build.base)}`).", "")
+      return lines if commits.empty?
+
+      lines.push("<details><summary>Show upstream commits</summary>", "")
+      lines.concat(commit_list(commits))
+      lines.push("</details>", "")
+    end
+
+    def platform_changes
+      return [] unless build.platform
+
+      commits = new_commits(build.platform)
+      return [] if commits.empty?
+
+      [ "### 🛠️ Fork tooling (`hbr/platform`)", "",
+        "<details><summary>#{count(commits.size, "change")}</summary>", "",
+        *commit_list(commits), "</details>", "" ]
+    end
+
+    def new_feature?(branch)
+      return false unless previous
+      return true unless previous_build
+
+      previous_build.features.none? { |merge| merge.branch == branch }
+    end
+
+    # Commits the merge brought into the build that the previous release lacks.
+    def new_commits(merge)
+      log("--no-merges", merge.head, "^#{merge.commit}^1").reject do |commit|
+        released_shas.include?(commit.sha) || released_keys.include?(commit.key)
+      end
+    end
+
+    def released_commits
+      @released_commits ||= previous_build ? log("--no-merges", previous_build.head, "^#{previous_build.base}") : []
+    end
+
+    def released_shas = @released_shas ||= released_commits.map(&:sha).to_set
+    def released_keys = @released_keys ||= released_commits.map(&:key).to_set
+
+    def log(*range)
+      git.lines("log", "--topo-order", "--reverse", "--format=%H%x09%aI%x09%ae%x09%s", *range).map do |line|
+        sha, author_date, author_email, subject = line.split("\t", 4)
+        Commit.new(sha: sha, subject: subject.to_s, key: [ author_date, author_email, subject ].join("\t"))
+      end
+    end
+
+    def commit_list(commits)
+      commits.map { |commit| "- #{inline(commit.subject)} (`#{short(commit.sha)}`)" } + [ "" ]
+    end
+
+    # --- Disabled and retired -----------------------------------------------
+
+    def disabled_and_retired
+      lines = [ "<a id=\"disabled\"></a>", "", "## 💤 Disabled and retired", "" ]
+      lines.push("**Disabled in the manifest** (commented out in `#{MANIFEST_PATH}`, so not in this build):", "")
+      if disabled_branches.empty?
+        lines << "- None"
+      else
+        disabled_branches.each do |branch|
+          lines << "- `#{branch}`#{catalog[branch] ? ": #{text(name(branch))}" : ""}"
+        end
+      end
+      lines << ""
+
+      retired = register.select { |_branch, row| blank_cell(row["status"]) == "retired" }
+      lines.push("**Retired** (marked `retired` in `FORK.md`; no longer merged):", "")
+      if retired.empty?
+        lines.push("- None", "")
+      else
+        lines.push("<details><summary>#{count(retired.size, "retired feature")}</summary>", "")
+        lines.push("| Branch | Shipped | Upstream |", "|---|---|---|")
+        retired.each do |branch, row|
+          lines << "| `#{branch}` | #{blank_cell(row["shipped"]) || "—"} | #{blank_cell(row["upstream link"]) || "—"} |"
+        end
+        lines.push("", "</details>", "")
+      end
+      lines.join("\n")
+    end
+
+    def footer
+      "---\n\n<sub>Made by `bin/fork-changelog` from `#{MANIFEST_PATH}`, `#{CATALOG_PATH}` and `#{REGISTER_PATH}` at `#{short(@ref_commit)}`.</sub>\n"
+    end
+
+    # --- Helpers ------------------------------------------------------------
+
+    def title(branch) = catalog.dig(branch, "title") || branch
+    def emoji(branch) = catalog.dig(branch, "emoji") || "❔"
+    def name(branch) = "#{emoji(branch)} #{title(branch)}"
+    def anchor(branch) = "feature-#{branch.sub(%r{\Afeature/}, "").downcase.gsub(/[^a-z0-9]+/, "-")}"
+    def blank_cell(value) = ForkChangelog.blank_cell(value)
+    def short(sha) = sha.to_s[0, 7]
+    def subject(commit) = git.run("show", "-s", "--format=%s", commit).strip
+    def date(commit) = git.run("show", "-s", "--format=%cs", commit).strip
+    def count(number, noun) = "#{number} #{noun}#{number == 1 ? "" : "s"}"
+    def inline(value) = value.to_s.gsub("<", "&lt;").gsub(">", "&gt;")
+
+    # Catalog text, escaped for where it goes: Markdown text (headings, list
+    # items, link text), a table cell, or a Mermaid node label.
+    def text(value) = inline(value.to_s.gsub("&", "&amp;").gsub(/[\\`*_\[\]]/) { |char| "\\#{char}" })
+    def code(value) = "`#{value.to_s.delete("`")}`"
+    def cell(value) = text(value).gsub("|", "\\|")
+    def mermaid(value) = value.to_s.gsub(/[#"<>]/, MERMAID_ENTITIES)
+  end
+
+  def main(argv)
+    git = Git.new
+    options = { ref: DEFAULT_REF, output: nil, stdout: false }
+    OptionParser.new do |parser|
+      parser.banner = "usage: bin/fork-changelog [--ref REF] [--output PATH | --stdout]"
+      parser.on("--ref REF", "Where to read #{MANIFEST_PATH}, #{CATALOG_PATH} and #{REGISTER_PATH} (default #{DEFAULT_REF})") { |value| options[:ref] = value }
+      parser.on("--output PATH", "Where to write the file (default #{OUTPUT} at the top of the checkout)") { |value| options[:output] = value }
+      parser.on("--stdout", "Print the file instead of writing it") { options[:stdout] = true }
+    end.parse!(argv)
+
+    generator = Generator.new(git: git, ref: options[:ref])
+    text = generator.generate
+    generator.warnings.each { |message| $stderr.puts "warning: #{message}" }
+    if options[:stdout]
+      $stdout.write(text)
+    else
+      path = options[:output] || File.join(git.run("rev-parse", "--show-toplevel").strip, OUTPUT)
+      File.write(path, text, encoding: Encoding::UTF_8)
+      $stderr.puts "Wrote #{path}"
+    end
+    0
+  rescue Error, OptionParser::ParseError => e
+    $stderr.puts "fork-changelog: #{e.message}"
+    1
+  end
+end
+
+exit ForkChangelog.main(ARGV) if $PROGRAM_NAME == __FILE__
