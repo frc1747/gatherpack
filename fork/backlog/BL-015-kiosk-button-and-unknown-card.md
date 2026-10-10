@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | waiting |
+| Status | started (built on `feature/kiosk-auto-clock-in` at `b756cf5`, 2026-10-10; on Ditto in `hbr.12-rc-678c6d9`) |
 | Added | 2026-10-09 |
 | Upstream base checked | `86ab397` (with `feature/kiosk-auto-clock-in` at `5f512ab`) |
 | Planned branch | `feature/kiosk-auto-clock-in` (new commits; it isn't behind an upstream PR yet) |
@@ -16,6 +16,12 @@ Corey asked for two changes after kiosk Phase 2 went to Ditto (2026-10-09):
 
 1. **Rename the "Search" button to "Clock In".** It's the submit button beside the card box: `app/views/time_kiosk/_kiosk.html.erb:15`, `f.submit "Search"`.
 2. **An unknown card number shows an alert.** Today a scan that matches no token silently shows Welcome again (`time_kiosk_controller.rb`, `find_token`: `@time_kiosk.token` is nil, so the tool becomes `welcome`, around line 35). It should show a banner that floats over the Welcome screen, like the auto clock-in banners ("You're clocked in…", "You're already clocked in…"). Use `flash.now[:warning]` (or `danger`) in the same place, for example "Card not recognized. Try again or see a mentor."
+
+## Decisions (2026-10-10)
+
+- The label follows the setting: "Clock In" when `time_kiosk_allow_unassigned` is off, upstream's "Search" otherwise.
+- A token with no person gets the same banner as an unknown number; the `not_found` partial is gone.
+- A blank submission shows Welcome with no banner.
 
 ## Notes
 
