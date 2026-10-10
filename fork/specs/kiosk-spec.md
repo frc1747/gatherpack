@@ -1,6 +1,8 @@
 # Spec: Time Kiosk Improvements
 
-Status: draft rev. 2, 2026-10-09. Phases 1–3 are planned. Phase 4 (kiosk devices) is recorded here but on hold until Corey starts it.
+Status: draft rev. 3, 2026-10-09. Phases 1–3 are planned. Phase 4 (kiosk devices) is recorded here but on hold until Corey starts it.
+
+Rev. 3 replaces Phase 2's "lock the kiosk to one period" dropdown with a single on/off setting, **Allow unassigned punches** (decisions 8–10). Phase 2 now depends on Phase 1.
 
 This spec lives on `hbr/platform`, not on a feature branch. It covers several branches, and some of them may go upstream, where a spec that mentions HBR must not appear.
 
@@ -10,7 +12,7 @@ Rev. 2 includes a code review and a fact check against the installed gems (Rails
 
 Make the time kiosk faster to use, safe to leave unattended, and able to remind people of things when they scan in.
 
-1. **Auto clock-in.** An admin can lock the kiosk to one time clock period. Scanning a card clocks the person in right away and shows their profile as confirmation, with no extra click. Off by default.
+1. **Auto clock-in.** An admin can turn off the "unassigned" bucket (a punch with no period). When it's off and only one period applies to the person, scanning a card clocks them in to it right away and shows their profile as confirmation, with no extra click. The bucket stays on by default, so the kiosk behaves as upstream's does.
 2. **Return to Welcome.** The profile clears itself after a configurable number of seconds. Off by default.
 3. **Reminders at the kiosk.** A widget can appear on the profile that pops up after a scan, showing that person's reminders and alerts (for example, items from the Eligibility Report).
 4. **Safety.** The kiosk acts only for the person whose card was just scanned, and only chosen accounts can open it. Later (Phase 4), the kiosk becomes a registered device instead of a signed-in person.
@@ -69,19 +71,16 @@ Phase 1 fixes 1, 2 and 4. Phase 2's kiosk users setting fixes 3. Step 0 reduces 
 |---|---|---|---|---|
 | 0 | none | | | Sign the kiosk in with a plain account: no admin, no manager, and not on any roster team, so it stays out of the reports. Done by hand on the shop computer. This *reduces* problem 5. The account can still reach a basic member's dashboard through the logo. |
 | 1 | `feature/kiosk-scanned-person` | `upstream/main` | Candidate (bug fix), only once Corey confirms | §4 |
-| 2 | `feature/kiosk-auto-clock-in` | `upstream/main` | Undecided; written to upstream standards and naming | §5 |
+| 2 | `feature/kiosk-auto-clock-in` | `feature/kiosk-scanned-person` | Undecided; written to upstream standards and naming | §5 |
 | 3 | `feature/widgets` (existing) | `upstream/main` | Fork-only, like widgets | §6, then the content in §7 |
 | 4 | `feature/kiosk-devices` | `feature/kiosk-auto-clock-in` | Undecided | On hold (§8) |
 
-**Keeping Phases 1 and 2 independent.** Both edit `time_kiosk_controller.rb`. To keep the rebuild clean:
+**Phase 2 depends on Phase 1 (rev. 3).** Phase 2 hides "Start Unassigned" (`_found_person.html.erb:81`) and refuses period-less `punch_in`, the same line and tool Phase 1 changes. Edits that touch can't be kept apart, so Phase 2 branches from `feature/kiosk-scanned-person` and declares the dependency in `fork/features.txt`. Consequences:
 
-- **Phase 1** edits only the punch tools, the param list and the access checks at the top of the class (§4.5). Its class-level lines (`rate_limit`, the POST-only check) go directly after `layout "kiosk"` (line 2).
-- **Phase 2** adds one call inside `find_token` and one `before_action` line. The `before_action` goes directly before `def index` (line 4), so the existing blank line 3 separates it from Phase 1's lines. Git conflicts on edits that touch each other, so a different line is not enough: at least one unchanged line must sit between the two branches' edits. The same applies in `_kiosk.html.erb` (§5.5).
-- **The period rule.** Phase 1 doesn't extract the "current and can use it" query. `TimeKiosk::AutoClockIn` keeps its own copy in its new file.
-- **Tests.** Phase 1's tests go in the existing placeholder `test/controllers/time_kiosk_controller_test.rb`. Phase 2's go in new files only.
-- **Signed reference.** Phase 1 creates it in `TimeKiosk` or the view, never in `find_token`.
-
-If they still conflict in a trial rebuild, rebase Phase 2 onto Phase 1 and declare the dependency. While Phase 1 sits behind an open upstream PR it can't be rebased (STRATEGY, Sync step 4), so Phase 2 would stay on Phase 1's old base.
+- Phase 2 builds on Phase 1's signed reference and tool rules directly. It doesn't need its own copy of anything Phase 1 adds. It still keeps its own copy of the period rule in `TimeKiosk::AutoClockIn` (Phase 1 doesn't extract it).
+- **Tests.** Phase 1's tests go in the existing placeholder `test/controllers/time_kiosk_controller_test.rb`. Phase 2's go in new files only, so a Phase 1 review change doesn't conflict with them.
+- **While Phase 1 sits behind an open upstream PR** it can't be rebased (STRATEGY, Sync step 4), so Phase 2 stays on Phase 1's old base too. Review commits added to Phase 1 reach Phase 2 by a merge or a rebase done outside a sync, after asking.
+- **Upstream.** Phase 2 can be offered upstream only after Phase 1 lands, then rebased onto `upstream/main`.
 
 `FORK.md` gets a row for each of Phases 1 and 2 when their branches get their first commit.
 
@@ -171,38 +170,48 @@ Three settings go in the existing "Time Clock" group in `lib/settings.rb`, place
 
 | Key | Type | Label | Default | Description on the Settings page |
 |---|---|---|---|---|
-| `time_kiosk_auto_period` | `time_clock_period_select` | Kiosk: clock in automatically to | `""` (off) | When set, scanning a card at the kiosk clocks the person in to this period right away. Leave as Off to have people choose. |
+| `time_kiosk_allow_unassigned` | `boolean` | Kiosk: allow unassigned punches | `"true"` | Offer "Start Unassigned" at the kiosk for time that isn't part of a period. Turn off to require a period: if only one period applies, scanning a card clocks the person in to it right away. |
 | `time_kiosk_return_seconds` | `integer` | Kiosk: return to Welcome after (seconds) | `0` | After a scan, go back to the Welcome screen after this many seconds. 0 keeps the person's screen up until the next scan. |
 | `time_kiosk_users_team` | `team_select` | Kiosk: who can open the kiosk | `""` (anyone signed in) | Only admins and direct members of this team can open the time kiosk. Leave blank to let anyone signed in open it. |
 
-**Inputs.** Two new simple_form inputs in `app/inputs/` provide the dropdowns. simple_form finds `TimeClockPeriodSelectInput` and `TeamSelectInput` from the `as:` type, the same way `CurrencyInput` and the others work, so `settings/index.html.erb` doesn't change. Both subclass `SimpleForm::Inputs::CollectionSelectInput`. Because the settings form has no object:
-- Before calling `super`, set `options[:selected]` from `input_html_options.delete(:value)`. Removing `value` also stops it rendering as a stray attribute on the `<select>`.
-- Provide the "off" choice as the first collection entry, `["Off", ""]` or `["Anyone signed in", ""]`, with `include_blank: false`. Otherwise simple_form adds a second, unlabeled blank option.
-- The period list shows periods that haven't ended, plus the currently stored one even if it has ended, so the page shows what is set.
+The settings are global. GatherPack has no kiosk records: `TimeKiosk` has no table, and every browser on `/time_kiosk` is the same kiosk, so there is nothing to attach a per-kiosk setting to until Phase 4 (§8).
 
-**Values.** The stored value is the record id as a string. Read it with `.presence`. A setting pointing to a deleted period or team counts as off.
+**Inputs.** `boolean` and `integer` already render on the Settings page. One new simple_form input in `app/inputs/`, `TeamSelectInput`, provides the team dropdown. simple_form finds it from the `as:` type, the same way `CurrencyInput` and the others work, so `settings/index.html.erb` doesn't change. It subclasses `SimpleForm::Inputs::CollectionSelectInput`. Because the settings form has no object:
+- Before calling `super`, set `options[:selected]` from `input_html_options.delete(:value)`. Removing `value` also stops it rendering as a stray attribute on the `<select>`.
+- Provide the "off" choice as the first collection entry, `["Anyone signed in", ""]`, with `include_blank: false`. Otherwise simple_form adds a second, unlabeled blank option.
+
+**Values.** `time_kiosk_allow_unassigned` is off only when the stored string is `"false"`; anything else, including a missing key, counts as on. The team setting stores the record id as a string. Read it with `.presence`. A setting pointing to a deleted team counts as blank.
 
 **Reading settings fresh.** Upstream's `Settings` caches each value per process at boot, and saving updates only the process that handled the save. Production runs 2 Puma workers (`WEB_CONCURRENCY` defaults to 2), so a change would reach about half the scans until a restart. The kiosk code reads these three keys straight from the file on each request, in a small `TimeKiosk::Config`. It uses its own `PStore.new("storage/settings.pstore", true)`, not `Settings.instance.store`. Upstream's store is not thread-safe, so a second Puma thread entering a transaction raises "nested transaction" instead of waiting. The thread-safe flag adds a mutex, and the PStore file lock still covers other processes. Test: two threads reading at once don't raise. The upstream bug itself is BL-013.
 
 **Flag.** The settings are the feature flag: blank or 0 means off. No `GatherPack::Features` entry is needed.
 
-### 5.2 Auto clock-in
+### 5.2 Auto clock-in and the unassigned bucket
 
-`TimeKiosk::AutoClockIn` (`app/models/time_kiosk/auto_clock_in.rb`) takes the scanned person and returns a result: the period, the punch (created or found) and a banner. `TimeKioskController#index` calls it in `find_token`, after the person is found and before the profile's periods and open punches are loaded, so the profile shows the new punch.
+The rule: **if the person has exactly one choice, clock them in. Otherwise show the buttons.** "Start Unassigned" counts as a choice while it's allowed, so with the default setting nobody is ever clocked in automatically.
 
-The period must pass the profile's rule (§2), checked with AutoClockIn's own copy of the query (§3). "Today" is the site's time zone (`set_time_zone` is an `around_action`).
+**The person's periods** are those passing the profile's rule (§2), before the profile removes periods with an open punch. AutoClockIn has its own copy of the query (§3). "Today" is the site's time zone (`set_time_zone` is an `around_action`).
+
+| Unassigned allowed? | Periods that apply | Profile | Auto clock-in |
+|---|---|---|---|
+| Yes (default) | any | As today: a Clock In button per period, plus "Start Unassigned" | Never |
+| No | none | No Clock In buttons. `warning` banner: "No time period is open for you. See a mentor." | Never |
+| No | one | The period's Clock In button, if the person has no open punch in it | The table below |
+| No | two or more | A Clock In button per period, without "Start Unassigned" | Never |
+
+When unassigned punches aren't allowed, the server refuses them too: `punch_in` with no period does nothing and shows Welcome with "Choose a time period." This holds even after BL-012 makes "Start Unassigned" work while allowed.
+
+`TimeKiosk::AutoClockIn` (`app/models/time_kiosk/auto_clock_in.rb`) takes the scanned person and returns a result: the period, the punch (created or found) and a banner. `TimeKioskController#index` calls it in `find_token`, after the person is found and before the profile's periods and open punches are loaded, so the profile shows the new punch. With exactly one period and unassigned punches off:
 
 | Situation | Result | Banner (`flash.now` key) |
 |---|---|---|
-| Setting off, or the period deleted | Nothing. Profile as today. | none |
-| Period not current, or the person can't use it | Nothing. Profile as today, with its buttons. | none |
 | Open punch in the period that started today | No new punch. | `notice` (blue): "You're already clocked in to *Period* (since 6:02 PM)." |
 | Punch in the period that started today and is closed | No new punch. The person can still press Clock In. | `notice`: "You clocked out of *Period* at 8:00 PM. Use Clock In below to clock back in." |
 | Open punch in the period from an earlier day (missed clock-out) | No new punch, matching the manual rule (§4.2). The person clocks the old punch out on the profile, then presses Clock In. | `warning` (yellow): "You're still clocked in to *Period* from Thu, Oct 8. Clock out below, then clock in, and tell a mentor so they can fix the old punch." |
 | No punch in the period today | Create the punch as the Clock In button does (`start_time: Time.current`, `created_by: "kiosk"`). | `success`: as above |
 | The punch fails validation | Nothing. | `danger` (red): "Couldn't clock you in. Please use the buttons below." |
 
-`_kiosk.html.erb` already shows `flash.now` in the Turbo Stream response, and `flash_to_class`/`flash_to_icon` already know `notice`, `success` and `danger`, so no view change is needed.
+`_kiosk.html.erb` already shows `flash.now` in the Turbo Stream response, and `flash_to_class`/`flash_to_icon` already know `notice`, `success` and `danger`, so the banners need no view change. (Check `warning` when building; add it to the helper only if it's missing.) Hiding "Start Unassigned" is the one view edit: an `if` around `_found_person.html.erb:81`.
 
 **Mentors** are treated like everyone else (decision 2). A mentor on the period's team who scans to reach the Manager button is clocked in if they have no punch in the period today, and their mass clock-out then closes it with everyone else's. A mentor who already clocked in or out that day gets no new punch.
 
@@ -229,24 +238,26 @@ This is the stopgap until Phase 4. Setup: a top-level "Kiosk" team whose only me
 ### 5.5 Upstream files touched
 
 - `lib/settings.rb`: three lines after `time_clock_max_hours`
-- `app/controllers/time_kiosk_controller.rb`: the `AutoClockIn` call in `find_token`, and the `before_action` line
-- `app/views/time_kiosk/_kiosk.html.erb`: one render line after line 33, separated from Phase 1's edit to line 32
+- `app/controllers/time_kiosk_controller.rb`: the `AutoClockIn` call in `find_token`, the unassigned check in `punch_in`, and the `before_action` line
+- `app/views/time_kiosk/_found_person.html.erb`: an `if` around "Start Unassigned", and the no-period message
+- `app/views/time_kiosk/_kiosk.html.erb`: one render line after line 33
 
 New files:
-- the two inputs
+- `TeamSelectInput`
 - `TimeKiosk::Config` and `TimeKiosk::AutoClockIn`
 - the timer partial and Stimulus controller
 - `test/models/time_kiosk/auto_clock_in_test.rb`, `test/controllers/time_kiosk_auto_clock_in_test.rb`, and `test/inputs/` tests (none go in Phase 1's test file)
 
 ### 5.6 Tests
 
-- `AutoClockIn`: every row of the table in 5.2, including clocked out earlier today, a missed clock-out from yesterday, a period whose last day is today (not current, as on the profile), and a deleted period.
+- `AutoClockIn`: every row of both tables in 5.2, including clocked out earlier today, a missed clock-out from yesterday, a period whose last day is today (not current, as on the profile), two periods (no auto clock-in), and none.
 - Controller:
-  - A scan with the setting on creates one punch and shows the banner. A second scan creates nothing more. A scan after clocking out creates nothing. A scan with yesterday's punch still open creates nothing and shows the warning.
-  - With the setting off, the kiosk behaves as today.
+  - With unassigned off and one period, a scan creates one punch and shows the banner. A second scan creates nothing more. A scan after clocking out creates nothing. A scan with yesterday's punch still open creates nothing and shows the warning.
+  - With unassigned off, "Start Unassigned" isn't shown, and a `punch_in` with no period creates nothing. With no period, the profile shows the no-period message.
+  - With unassigned allowed (the default, and with the key missing), the kiosk behaves as today: no auto clock-in, the button is shown.
   - A value saved in the PStore by "another process" (written straight to the store) applies to the next scan without a restart.
   - Kiosk users: direct members and admins get in. A member of a child team, a manager of a parent team, and an unrelated user are turned away. A blank setting lets everyone in.
-- Inputs: the stored value renders as selected, "Off" is selected when the value is blank, there is exactly one blank option, and an ended but stored period still appears.
+- `TeamSelectInput`: the stored value renders as selected, "Anyone signed in" is selected when the value is blank, and there is exactly one blank option.
 - By hand on Ditto with a USB scanner:
   - Focus is back in the token box after the auto clock-in screen. The fact check expects this: Turbo 8 refocuses the stream's `[autofocus]` element when focus fell to `<body>`, and also restores focus to the same id.
   - The timer returns to Welcome, restarts on a tap, pauses while the Manager window is open, and gives up after the cap.
@@ -376,7 +387,7 @@ From then on the browser opens only the kiosk. It has no user session, so there'
 
 **Access.** Kiosk routes accept a paired device, or an admin for testing. This replaces `time_kiosk_users_team` and step 0. The kiosk layout needs a header with no user and no link to `/`.
 
-**Per-kiosk settings.** The auto clock-in period and the return seconds move from global settings onto `Kiosk`, so the shop kiosk and an outreach-event laptop can lock to different periods. The first kiosk paired copies the current global values, and the global settings are then removed. Reading per request from the record also ends the per-process settings problem for these keys.
+**Per-kiosk settings.** Allow unassigned and the return seconds move from global settings onto `Kiosk`. A kiosk could also be limited to chosen periods, so the shop kiosk and an outreach-event laptop offer different ones. The first kiosk paired copies the current global values, and the global settings are then removed. Reading per request from the record also ends the per-process settings problem for these keys.
 
 **Manager actions** keep Phase 1's signed reference. Rate limiting becomes per device.
 
@@ -419,6 +430,9 @@ From then on the browser opens only the kiosk. It has no user session, so there'
 5. Kiosk widget bodies render inline for the scanned person, never through a URL that takes a person id.
 6. Kiosk devices are a separate, later phase (Phase 4), started only when Corey asks.
 7. (Rev. 2) A scan after clocking out earlier the same day does not clock the person back in. They press Clock In if they're back. This stops a scan to check hours, or a mentor's end-of-night scan, from creating a new punch.
+8. (Rev. 3) Periods are optionally team-scoped, so the kiosk isn't locked to one period. The setting is "Allow unassigned punches", on by default to match upstream. Auto clock-in happens only when it's off and exactly one period applies to the scanned person. In production today both periods belong to the root team and don't overlap, so everyone has exactly one.
+9. (Rev. 3) With unassigned off and no period applying, the profile says so. It never falls back to an unassigned punch.
+10. (Rev. 3) Settings are global (no kiosk records exist). Per-kiosk settings wait for Phase 4.
 
 ## 12. Open questions
 
