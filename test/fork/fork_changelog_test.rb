@@ -196,6 +196,23 @@ class ForkChangelogTest < Minitest::Test
     assert_includes text, "bin/rails hbr:sample_data"
     assert_includes warnings, "feature/beta has no sample data in fork/sample_data/features/"
     refute_includes warnings, "feature/alpha has no sample data in fork/sample_data/features/"
+
+    # Not tagged yet: the steps run the latest release, and say so.
+    assert_includes text, "This build isn't a release yet, so these steps run the latest release, `v1.0.0-hbr.1`."
+    assert_includes text, "git checkout v1.0.0-hbr.1\n"
+    assert_includes text, "GATHERPACK_TAG=1.0.0-hbr.1\n"
+    assert_includes text, "COMPOSE_PROJECT_NAME=hbr-demo\n"
+  end
+
+  def test_sample_data_steps_use_the_builds_own_tag_once_tagged
+    git "checkout", "--quiet", "hbr/platform"
+    commit "fork/sample_data/sample_data.rb", "# loader\n", "Add sample data"
+    git "tag", "-a", "v1.0.0-hbr.2", "-m", "Release 2", "hbr/integration"
+    text, = generate
+
+    assert_includes text, "git checkout v1.0.0-hbr.2\n"
+    assert_includes text, "GATHERPACK_TAG=1.0.0-hbr.2\n"
+    refute_includes text, "isn't a release yet"
   end
 
   private
