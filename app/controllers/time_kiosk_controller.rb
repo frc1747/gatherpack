@@ -16,12 +16,15 @@ class TimeKioskController < ApplicationController
       if @time_kiosk.token
         if @time_kiosk.person
           @person = @time_kiosk.person
+          if (auto_clock_in = TimeKiosk::AutoClockIn.call(@person))
+            flash.now[auto_clock_in.flash_type] = auto_clock_in.message
+          end
           @time_clocks = @person.time_clock_punches.order(time_clock_period_id: :asc).map do |punch|
             Hash[TimeClockPeriod.find_by_id(punch.time_clock_period_id), punch.hours]
           end.reduce do |a, b|
             a.merge(b) { |_, c, d| c + d }
           end
-          @time_clock_periods = TimeClockPeriod.where(team: @person.all_teams).or(TimeClockPeriod.where(team: nil)).where("start_time <= ? AND end_time >= ?", Time.current, Time.current)
+          @time_clock_periods = TimeKiosk::AutoClockIn.periods_for(@person)
           @open_punches = TimeClockPunch.all.where(person: @person, end_time: nil)
           @time_clock_periods -= @open_punches.map(&:time_clock_period).compact.uniq
           @time_kiosk.tool = "found_person"
@@ -40,8 +43,10 @@ class TimeKioskController < ApplicationController
 
     if @time_kiosk.tool == "punch_in"
       person = @time_kiosk.signed_person
-      period = TimeClockPeriod.where(team: person.all_teams).or(TimeClockPeriod.where(team: nil)).where("start_time <= ? AND end_time >= ?", Time.current, Time.current).find_by(id: @time_kiosk.time_clock_period_id)
-      if period && !TimeClockPunch.exists?(person: person, time_clock_period: period, end_time: nil)
+      period = TimeKiosk::AutoClockIn.periods_for(person).find_by(id: @time_kiosk.time_clock_period_id)
+      if @time_kiosk.time_clock_period_id.blank? && !TimeKiosk::Config.allow_unassigned?
+        flash.now[:warning] = "Choose a time period."
+      elsif period && !TimeClockPunch.exists?(person: person, time_clock_period: period, end_time: nil)
         TimeClockPunch.create(person: person, start_time: Time.current, time_clock_period: period, created_by: "kiosk")
       end
       @time_kiosk.tool = "welcome"
