@@ -1,0 +1,13 @@
+# Feature manifest: merged into hbr/integration in this order by bin/fork-rebuild.
+# One branch per line. Dependencies must come after the branches they depend on.
+# Comment a line out with # to disable that feature temporarily.
+feature/search-and-add
+feature/enforce-authorization
+feature/people-ransack-auth-object
+feature/person-fields
+feature/forms
+feature/app-version
+feature/widgets
+feature/signup-link-guard
+feature/kiosk-scanned-person
+feature/kiosk-auto-clock-in
