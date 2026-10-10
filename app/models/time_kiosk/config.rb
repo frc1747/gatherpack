@@ -25,7 +25,17 @@ class TimeKiosk::Config
     # A thread-safe store of our own: Settings' store isn't, and a second thread
     # entering its transaction raises instead of waiting.
     def store
-      @store ||= PStore.new(Settings.instance.store.path, true)
+      @store = nil unless @store_pid == Process.pid
+      @store_pid = Process.pid
+      @store ||= PStore.new(store_path, true)
+    end
+
+    # Tests get an empty file per process, so parallel test workers and a
+    # developer's own kiosk settings can't leak into each other.
+    def store_path
+      return Settings.instance.store.path unless Rails.env.test?
+
+      Rails.root.join("tmp", "time_kiosk_settings_#{Process.pid}.pstore").to_s
     end
   end
 end
