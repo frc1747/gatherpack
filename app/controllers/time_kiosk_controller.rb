@@ -13,7 +13,9 @@ class TimeKioskController < ApplicationController
     @time_kiosk.tool = "welcome" unless TOOLS.include?(@time_kiosk.tool)
 
     if @time_kiosk.tool == "find_token"
-      if @time_kiosk.token
+      if @time_kiosk.token_value.blank?
+        @time_kiosk.tool = "welcome"
+      elsif @time_kiosk.token
         if @time_kiosk.person
           @person = @time_kiosk.person
           if request.post? && (auto_clock_in = TimeKiosk::AutoClockIn.call(@person))
@@ -29,10 +31,10 @@ class TimeKioskController < ApplicationController
           @time_clock_periods -= @open_punches.map(&:time_clock_period).compact.uniq
           @time_kiosk.tool = "found_person"
         else
-          @time_kiosk.tool = "not_found"
+          card_not_recognized
         end
       else
-        @time_kiosk.tool = "welcome"
+        card_not_recognized
       end
     end
 
@@ -102,6 +104,11 @@ class TimeKioskController < ApplicationController
       format.turbo_stream { render turbo_stream: turbo_stream.replace("kiosk-content", partial: "time_kiosk/kiosk") }
       format.html { render :index }
     end
+  end
+
+  def card_not_recognized
+    flash.now[:warning] = "Card not recognized. Try again or see a mentor."
+    @time_kiosk.tool = "welcome"
   end
 
   def show_welcome(message = nil)

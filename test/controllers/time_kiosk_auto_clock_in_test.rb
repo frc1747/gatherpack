@@ -110,6 +110,40 @@ class TimeKioskAutoClockInTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an unknown card shows Welcome with a banner and creates no punch" do
+    assert_no_punch_created { kiosk tool: "find_token", token_value: "999999999" }
+
+    assert_response :success
+    assert_select "h2", text: "Welcome to the Time Kiosk"
+    assert_select ".alert-warning", text: /Card not recognized. Try again or see a mentor./
+  end
+
+  test "a token with no person shows the same banner" do
+    token = Token.create!(value: "200000002", tokenable: hooks(:one))
+
+    assert_no_punch_created { kiosk tool: "find_token", token_value: token.value }
+
+    assert_select "h2", text: "Welcome to the Time Kiosk"
+    assert_select ".alert-warning", text: /Card not recognized. Try again or see a mentor./
+  end
+
+  test "a blank submission shows Welcome without the banner" do
+    kiosk tool: "find_token", token_value: ""
+
+    assert_select "h2", text: "Welcome to the Time Kiosk"
+    assert_select ".alert", count: 0
+  end
+
+  test "the button says Clock In when unassigned is off and Search by default" do
+    without_unassigned do
+      get time_kiosk_path
+      assert_select "input[type=submit][value='Clock In']"
+    end
+
+    get time_kiosk_path
+    assert_select "input[type=submit][value=Search]"
+  end
+
   private
 
   def scan

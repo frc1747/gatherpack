@@ -24,14 +24,14 @@ class TimeKioskReturnTimerTest < ActionDispatch::IntegrationTest
     assert_timer 12
   end
 
-  test "the not found screen shows the timer" do
+  test "a bad card shows Welcome, which needs no timer" do
     with_return_seconds(30) do
       kiosk tool: "find_token", token_value: @unassigned_token.value
     end
 
     assert_response :success
-    assert_select "#kiosk-content", text: /not found/i
-    assert_timer 30
+    assert_select "#kiosk-content .alert-warning", text: /Card not recognized/
+    assert_select "[data-controller=kiosk-return]", count: 0
   end
 
   test "the timer is shown in a Turbo Stream response" do
