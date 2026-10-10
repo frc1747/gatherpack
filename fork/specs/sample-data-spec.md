@@ -1,6 +1,6 @@
 # Spec: Sample data in every build
 
-Status: draft rev. 2, 2026-10-10. Not started. Rev. 2 records the decisions in §13.
+Status: rev. 3, 2026-10-10. Built. Rev. 3 matches the spec to what was built (§3, §4, §6, §8, §9). Rev. 2 recorded the decisions in §13.
 
 This spec lives on `hbr/platform`. Everything it adds is fork tooling and stays on `hbr/platform`; no feature branch and no upstream file changes.
 
@@ -41,12 +41,12 @@ Anyone who checks out or pulls a tagged release can load one set of sample data,
 # From a checkout of a build (for example the integration worktree):
 bin/rails hbr:sample_data
 
-# From a tagged image, with the stack running:
-docker compose exec web bin/rails hbr:sample_data
-docker compose restart web worker   # so the app sees the feature flags (BL-013)
+# From a release image, with the stack running:
+docker compose -f docker-compose.production.yml exec web ./bin/rails hbr:sample_data
+docker compose -f docker-compose.production.yml restart web worker   # so the app sees the feature flags (BL-013)
 ```
 
-It prints one line per layer ("base: 7 teams, 32 people…", "feature/forms: 4 forms, 19 responses") and any warnings. Running it again is safe: it updates the same records and resets their dates (§5).
+It prints one line per layer ("base: 7 teams, 32 people…", "feature/forms: 4 forms, 29 responses…") and any warnings. Running it again is safe: it updates the same records and resets their dates (§5).
 
 ## 4. Layout
 
@@ -66,6 +66,8 @@ lib/tasks/hbr_sample_data.rake   the hbr:sample_data task: requires fork/sample_
 - **Which features load.** The runner reads `fork/features.txt` from the working tree (it's present in every build and image), skips commented lines, and loads `features/<name>.rb` for each branch, in manifest order, after `base.rb`. A manifest branch with no file is a warning in the output, and the load continues.
 - **Each feature file is a block** registered with the runner: `Hbr::SampleData.feature "feature/forms" do |s| ... end`. `s` gives the helpers and the base records (`s.person("Ben")`, `s.team(:youth)`, `s.login(:admin)`).
 - **A feature with nothing to add still has a file**, containing one `s.note "..."` line saying what in the base layer exercises it. That keeps the coverage check simple and documents the decision.
+- **No outer transaction.** Records commit as they're saved, as in the app. Form questions note content changes in `after_commit`; inside one transaction those would fire after the responses exist, bump the form's version and revoke the signatures. Every step is find-or-create, so a failed load is fixed by running it again.
+- **Forms are answered through a freshly loaded `Form`.** Building a form memoizes its question list and audience before every question and audience rule exists.
 
 ## 5. Data rules
 
@@ -81,6 +83,7 @@ The published image runs in the `production` environment, so the guard can't be 
 
 - **Refuse** if any `User` has an email outside `@example.com`, or any `Person` exists that `db/seeds.rb` or the loader didn't create ("Test First Name …" or a sample name). The message names the first few records it found.
 - `SAMPLE_DATA_FORCE=1` overrides, for a copy someone deliberately wants mixed.
+- A database filled by the old `populate_dev.rb` passes: the names and logins are the same, so it upgrades in place. The first run adopts the open punches that script left for Ben and Grace instead of adding second ones.
 - Turning on feature flags is part of the load. A feature's flag is set to on only for features in the build.
 
 ## 7. Keeping it complete
@@ -100,7 +103,7 @@ The build writes or updates these; none is an upstream file.
 
 `docs/self-hosting.md` is upstream's file and stays untouched.
 
-**BL-007 note.** Until BL-007 is fixed, `db:prepare` on an empty database crashes in `db/seeds.rb`, so a brand-new stack from a tagged image doesn't start. The README gives the workaround that works today, verified when building this (expected: start once with `SKIP_DB_PREPARE=true`, run `bin/rails db:create db:schema:load`, then load the sample data).
+**BL-007 note.** Until BL-007 is fixed, `db:prepare` on an empty database crashes in `db/seeds.rb` (rechecked 2026-10-10), so a brand-new stack from a release image doesn't start. The README's sequence avoids it: `run --rm web ./bin/rails db:create db:schema:load`, then `run --rm web ./bin/rails hbr:sample_data`, then `up -d`. The entrypoint prepares the database only for `./bin/rails server`, so the `run` commands skip it, and once the schema is loaded `db:prepare` only migrates. Schema load followed by the loader was checked with `bin/rails` locally; the Docker sequence itself runs the same commands.
 
 ## 9. What each feature's file adds
 
@@ -111,13 +114,13 @@ Base layer, from `populate_dev.rb`: logins `admin@example.com` (Adam Admin) and 
 | `search-and-add` | Note only. Base has candidates for every panel: people not yet on a crew, a badge few people hold, an upcoming event with spare places |
 | `enforce-authorization` | Note only. Exercised by signing in as the member login (below) |
 | `people-ransack-auth-object` | Note only |
-| `person-fields` | A guardianship relationship type ("Parent of"); two parent logins (`parent1@`, `parent2@`) linked to three Youth Program members, one of them 17 and turning 18 within a month; a member login (`member@`, Ella); fields at each read level: Medical Notes (self, guardians, leaders, plus a "Health Officer" badge grant held by Grace), Emergency Contact (self and leaders), Allergies (everyone), Photo Release (yes/no, guardians write); sections "Health" and "Contact"; values filled for some people and empty for others |
-| `forms` | Season form "Meal Choices" (open, due in 14 days, linked allergies question, responses from half the audience); "Parent Consent" (guardian signature, completion badge "Consent Signed", one signed, one waiting for a guardian, one needing re-confirmation after a profile change); an event form on Youth Campout with an intent question (yes, no and unanswered); one overdue form; one closed form; a badge for student form creators held by Chloe |
+| `person-fields` | A guardianship type (Parent/Child, minor) and Guardianship Age Limit 18; two parent logins, `parent1@` (Paula Miller: Grace, 16, and Kate, 14) and `parent2@` (Owen Walker: Olive, turning 18 within a month); a member login (`member@`, Ella Brown); fields at several read levels: Medical Notes (family, guardians write, plus a read grant for the admin-assigned Health Officer badge, held by Isla), Emergency Contact (self and leaders), Allergies (everyone, family write), Photo Release (yes/no, family read, guardians write); sections "Health" and "Contact"; values filled for some people and empty for others |
+| `forms` | "Meal Choices" (open, due in 14 days, totals shared with everyone asked, an Allergies question that updates the profile, about half answered); "Parent Consent" for Youth Program (guardian signature, completion badge "Consent Signed", leader to-dos; Grace complete, Kate waiting for a guardian, Olive needing re-confirmation after her medical notes changed); "Youth Campout: Are You Coming?" on the campout, with Yes, Maybe, No and unanswered; "Volunteer T-Shirt Order", closed two days ago with answers missing and late entry for leaders; the Form Creator badge (held by Chloe) named in the Form Creator Badge setting |
 | `app-version` | Note only. Set by the image build (`GATHERPACK_VERSION`) |
-| `widgets` | A Markdown widget at the top for everyone ("Welcome to Northwind"); a dynamic widget on the right for managers listing their teams' open punches; a CSS-styled widget on the left |
+| `widgets` | A Markdown widget at the top for everyone ("Welcome to Northwind"); a dynamic (ERB) widget on the right for Programs managers listing open punches in Programs; a widget with its own CSS on the left for Youth Program members |
 | `signup-link-guard` | Note only. Exercised by turning off "Enable Creating Local Accounts" |
 | `kiosk-scanned-person` | Note only. Uses base cards and periods |
-| `kiosk-auto-clock-in` | A "Kiosk" team with one plain login (`kiosk@`); a second, Youth-only period so Youth members have two periods; Ben clocked in an hour ago; Grace with an open punch from yesterday evening; Henry clocked in and out earlier today. Leaves the three kiosk settings at their defaults; the README says which to change to try auto clock-in |
+| `kiosk-auto-clock-in` | A top-level "Kiosk" team with one plain login (`kiosk@`); a second, Youth-only period so Youth members have two periods; Ben clocked in an hour ago; Grace with an open punch from yesterday evening; Henry clocked in and out earlier today. Punches are made as the kiosk makes them and carry the note "Sample data". Leaves the three kiosk settings at their defaults; the README says which to change to try auto clock-in |
 
 ## 10. Hooks
 

@@ -39,6 +39,8 @@ If feature B genuinely requires feature A (for example, custom fields building o
 
 `fork/features.txt` on `hbr/platform` lists the branches merged into `hbr/integration`, one per line, in merge order. Dependencies must appear after the branches they depend on. Lines beginning with `#` are ignored, which is how a feature is temporarily disabled.
 
+A branch joining the manifest needs two more things on `hbr/platform`: an entry in `fork/catalog.yml` (see "The HBR changelog") and a sample data file, `fork/sample_data/features/<name>.rb` (see "Sample data"). When a feature gains a state or a screen, update its sample data in the same work session.
+
 `FORK.md` on `hbr/platform` is the human-readable status register. One row per feature:
 
 | Column | Meaning |
@@ -147,6 +149,14 @@ To preview the file for a build without rebuilding, run `bin/fork-changelog --st
 
 After a successful rebuild and passing tests, push with `git push --force-with-lease origin hbr/integration`.
 
+### Sample data
+
+`bin/rails hbr:sample_data` loads the Northwind sample organization into any build, with data for every feature in its manifest, dated relative to the moment it's loaded. It lives on `hbr/platform` (`fork/sample_data/`, `lib/tasks/hbr_sample_data.rake`), so every integration build and release image carries it. [`fork/sample_data/README.md`](sample_data/README.md) says how to load it, lists the logins, and shows how to add a feature's data; the design is `fork/specs/sample-data-spec.md`.
+
+- **One file per manifest branch.** A branch with no file is a warning in the rebuild and the changelog, and a failure in the integration CI job.
+- **Test copies only.** It refuses a database with real logins or people unless forced.
+- Tests: `ruby test/fork/sample_data_test.rb` (no database needed); CI loads it twice into the freshly migrated database.
+
 ## Continuous Integration
 
 GitHub Actions workflows live on `hbr/platform` (so they ride along into integration). Set the fork's default branch on GitHub to `hbr/platform`. Actions reads workflow files from the pushed branch for push events, and feature branches deliberately don't contain fork workflows, so feature-branch checks must run as scheduled or manually triggered jobs from the default branch that check out each feature branch explicitly. Name fork workflow files `hbr-*.yml`.
@@ -154,7 +164,7 @@ GitHub Actions workflows live on `hbr/platform` (so they ride along into integra
 The workflows should cover:
 
 1. **Each feature branch alone against `upstream/main`.** Proves the feature is upstreamable and self-contained.
-2. **`hbr/integration`.** Proves the combination is cohesive. Full test suite, RuboCop, and `db:migrate` from an empty database.
+2. **`hbr/integration`.** Proves the combination is cohesive. Full test suite, RuboCop, `db:migrate` from an empty database, and loading the sample data into it twice.
 3. **Scheduled upstream drift check.** Daily job that fetches upstream, attempts the rebuild, and opens an issue if any feature fails to merge or tests break. This surfaces trouble when it's one commit old instead of fifty.
 
 ## Releases and Deployment

@@ -1,7 +1,7 @@
 name: HBR Check
 
-# Reusable fork check: RuboCop, the full test suite, and migrations from an
-# empty database. Environment setup mirrors the `test` job in upstream's ci.yml.
+# Reusable fork check: RuboCop, the full test suite, migrations from an
+# empty database, and (where the build has it) loading the sample data. Environment setup mirrors the `test` job in upstream's ci.yml.
 # See fork/STRATEGY.md, "Continuous Integration".
 #
 # mode:
@@ -91,6 +91,20 @@ jobs:
         run: |
           bin/rails db:create db:migrate
           git diff --exit-code db/schema.rb db/versions_schema.rb
+
+      # Builds with the sample data loader (hbr/integration, a rebuild) load it
+      # twice into the database just migrated: the second run proves it can be
+      # re-run. Fails on any error, a failed check, or a manifest branch with
+      # no sample data. Feature branches don't carry the loader, so they skip
+      # this. See fork/specs/sample-data-spec.md.
+      - name: Load the sample data
+        if: hashFiles('fork/sample_data/sample_data.rb') != ''
+        env:
+          RAILS_ENV: development
+          SAMPLE_DATA_STRICT: "1"
+        run: |
+          bin/rails hbr:sample_data
+          bin/rails hbr:sample_data
 
       - name: Name the screenshots artifact
         if: failure()
