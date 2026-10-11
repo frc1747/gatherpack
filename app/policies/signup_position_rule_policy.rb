@@ -1,0 +1,2 @@
+class SignupPositionRulePolicy < SignupSheetPartPolicy
+end
