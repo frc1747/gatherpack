@@ -3,7 +3,11 @@
 # build. bin/fork-rebuild runs it after the last merge and commits the result.
 # See fork/STRATEGY.md, "Rebuild Script".
 #
-#   bin/fork-changelog [--ref REF] [--output PATH | --stdout]
+#   bin/fork-changelog [--ref REF] [--release TAG] [--output PATH | --stdout]
+#
+# --release names the tag this build is about to get (the next v*-hbr.<n>), so
+# the file in the release already calls itself that release. Without it, an
+# untagged build is described as "vX-hbr.<n> when tagged".
 #
 # The manifest (fork/features.txt), the catalog (fork/catalog.yml) and FORK.md
 # are read from REF (default origin/hbr/platform). Everything else comes from
@@ -170,10 +174,11 @@ module ForkChangelog
   class Generator
     attr_reader :warnings
 
-    def initialize(git:, ref: DEFAULT_REF, rev: "HEAD")
+    def initialize(git:, ref: DEFAULT_REF, rev: "HEAD", release: nil)
       @git = git
       @ref = ref
       @rev = rev
+      @release_name = release
       @warnings = []
     end
 
@@ -202,7 +207,7 @@ module ForkChangelog
       @ref_commit = git.run("rev-parse", "#{@ref}^{commit}").strip
       @build = ForkChangelog.read_build(git, @rev)
       @tags = ForkChangelog.release_tags(git)
-      @release = tags.select { |tag| tagged_build?(tag) }.max_by(&:number)
+      @release = @release_name ? planned_release : tags.select { |tag| tagged_build?(tag) }.max_by(&:number)
       @previous = release ? tags.select { |tag| tag.number < release.number }.max_by(&:number) : tags.max_by(&:number)
       @previous_build = previous && ForkChangelog.read_build(git, previous.commit)
 
@@ -219,6 +224,21 @@ module ForkChangelog
 
     # A tag names this build if it points at the build's last merge or at a
     # generated commit on top of it, such as the changelog commit.
+    # The release named with --release: an existing tag must already be this
+    # build, and a new one must come after every earlier release.
+    def planned_release
+      match = TAG_PATTERN.match(@release_name) or raise Error, "--release #{@release_name} is not a v<version>-hbr.<n> tag"
+      if (existing = tags.find { |tag| tag.name == @release_name })
+        raise Error, "#{@release_name} already tags another build" unless tagged_build?(existing)
+        return existing
+      end
+      latest = tags.max_by(&:number)
+      if latest && match[:number].to_i <= latest.number
+        raise Error, "--release #{@release_name} must come after the latest release, #{latest.name}"
+      end
+      Tag.new(name: @release_name, version: match[:version], number: match[:number].to_i, commit: nil)
+    end
+
     def tagged_build?(tag)
       build.top.include?(tag.commit) ||
         git.lines("rev-list", "--first-parent", "--max-count=3", tag.commit).include?(build.head)
@@ -614,15 +634,16 @@ module ForkChangelog
 
   def main(argv)
     git = Git.new
-    options = { ref: DEFAULT_REF, output: nil, stdout: false }
+    options = { ref: DEFAULT_REF, release: nil, output: nil, stdout: false }
     OptionParser.new do |parser|
-      parser.banner = "usage: bin/fork-changelog [--ref REF] [--output PATH | --stdout]"
+      parser.banner = "usage: bin/fork-changelog [--ref REF] [--release TAG] [--output PATH | --stdout]"
       parser.on("--ref REF", "Where to read #{MANIFEST_PATH}, #{CATALOG_PATH} and #{REGISTER_PATH} (default #{DEFAULT_REF})") { |value| options[:ref] = value }
+      parser.on("--release TAG", "The tag this build will be released as, e.g. v0.0.0-hbr.14") { |value| options[:release] = value }
       parser.on("--output PATH", "Where to write the file (default #{OUTPUT} at the top of the checkout)") { |value| options[:output] = value }
       parser.on("--stdout", "Print the file instead of writing it") { options[:stdout] = true }
     end.parse!(argv)
 
-    generator = Generator.new(git: git, ref: options[:ref])
+    generator = Generator.new(git: git, ref: options[:ref], release: options[:release])
     text = generator.generate
     generator.warnings.each { |message| $stderr.puts "warning: #{message}" }
     if options[:stdout]
