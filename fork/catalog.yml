@@ -148,3 +148,34 @@ feature/kiosk-auto-clock-in:
     - name: "Kiosk: Who Can Open the Kiosk"
       key: time_kiosk_users_team
       default: blank (anyone signed in)
+
+feature/extension-registries:
+  title: Features can add their own settings and hook events
+  emoji: "🧩"
+  description: >-
+    Infrastructure, nothing to see on its own. It lets a feature register its
+    own settings and Hook events from its own code, so features no longer edit
+    the shared lists and conflict with each other. Sign-up sheets use it.
+  audience: Developers; no one will notice a change
+
+feature/signups:
+  title: Sign-up sheets
+  emoji: "📋"
+  description: >-
+    Sheets where people sign up to work or bring things at events, such as
+    greeters, a first aid table, or the pizza for a lunch. A position asks for
+    people (a number of places) or items (a quantity, like 6 pizzas), and can
+    ask one question. Rules say who may take it: a badge, an age range, or
+    being on any of a list of teams. Each place is one sign-up for one person,
+    so two people working together are two sign-ups, and a sign-up can be made
+    on behalf of another person. Organizers hold a badge you choose, run their
+    own sheets without managing a team, and mark who showed up or brought
+    their items. It is on for everyone as soon as it is added.
+  audience: Everyone signs up; organizers run the sheets; admins choose the organizer badge
+  settings:
+    - name: Sign-up Sheets
+      key: feature_signups
+      default: "on"
+    - name: Sign-up Sheet Organizers
+      key: signups_organizers
+      default: blank (only admins and team managers run sheets)
