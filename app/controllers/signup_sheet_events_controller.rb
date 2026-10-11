@@ -11,8 +11,12 @@ class SignupSheetEventsController < InternalController
   # Attaches the ticked events (event_ids[]).
   def create
     authorize @signup_sheet.signup_sheet_events.build
-    events = attachable_events.where(id: Array(params[:event_ids]).compact_blank)
-    return redirect_to new_signup_sheet_signup_sheet_event_path(@signup_sheet), alert: "Tick at least one event.", status: :see_other if events.empty?
+    ids = Array(params[:event_ids]).compact_blank.uniq
+    events = attachable_events.where(id: ids).to_a
+    return redirect_to new_signup_sheet_signup_sheet_event_path(@signup_sheet), alert: "Tick at least one event.", status: :see_other if ids.empty?
+    if events.size < ids.size
+      return redirect_to new_signup_sheet_signup_sheet_event_path(@signup_sheet), alert: "Only events listed here can be added. Nothing was added.", status: :see_other
+    end
 
     SignupSheetEvent.transaction do
       events.each { |event| @signup_sheet.signup_sheet_events.create!(event: event) }
@@ -37,11 +41,11 @@ class SignupSheetEventsController < InternalController
       @signup_sheet = SignupSheet.find(params[:signup_sheet_id])
     end
 
-    # Upcoming events of the sheet's team and the teams below it that
-    # aren't on the sheet yet.
+    # Upcoming events of the sheet's team and the teams below it that the
+    # organizer can already see and that aren't on the sheet yet.
     def attachable_events
       team = @signup_sheet.team
-      Event.where(team_id: [ team.id ] + team.all_descendant_ids)
+      policy_scope(Event).where(team_id: [ team.id ] + team.all_descendant_ids)
         .where(start_time: Time.current.beginning_of_day..)
         .where.not(id: @signup_sheet.signup_sheet_events.select(:event_id))
         .order(:start_time)

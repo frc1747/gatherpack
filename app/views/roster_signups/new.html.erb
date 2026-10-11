@@ -32,12 +32,16 @@
       </div>
       <%= render "details_fields", f: f %>
 
-      <div class="form-check mb-3">
-        <%= check_box_tag "signup[override_rules]", "1", @override_rules, id: "signup_override_rules", class: "form-check-input" %>
-        <%= label_tag "signup_override_rules", class: "form-check-label" do %>
-          Place even though they don't meet: <%= failures.any? ? failures.to_sentence : "the position's rules" %>
-        <% end %>
-      </div>
+      <% if @signup.person.nil? || policy(@signup).override? %>
+        <div class="form-check mb-3">
+          <%= check_box_tag "signup[override_rules]", "1", @override_rules, id: "signup_override_rules", class: "form-check-input" %>
+          <%= label_tag "signup_override_rules", class: "form-check-label" do %>
+            Place even though they don't meet: <%= failures.any? ? failures.to_sentence : "the position's rules" %>
+          <% end %>
+        </div>
+      <% elsif failures.any? %>
+        <p class="text-body-secondary"><%= policy(@signup).self_approval_reason %></p>
+      <% end %>
 
       <%= link_to "Cancel", roster_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
       <%= f.button :submit, "Place", class: "btn btn-primary" %>

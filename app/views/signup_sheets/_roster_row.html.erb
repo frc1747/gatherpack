@@ -13,7 +13,7 @@
   <td><%= roster_status_label(signup) %></td>
   <td>
     <% if failures.any? %>
-      <span class="badge text-bg-warning text-wrap">Placed without: <%= failures.to_sentence %></span>
+      <span class="badge text-bg-warning text-wrap">Doesn't meet: <%= failures.to_sentence %></span>
     <% end %>
   </td>
   <td class="no-print text-nowrap">
