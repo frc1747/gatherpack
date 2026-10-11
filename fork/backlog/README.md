@@ -23,6 +23,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-013](BL-013-settings-cached-per-process.md) | Saved settings reach only one server process until a restart | upstream bug | medium | waiting | 2026-10-09 |
 | [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | waiting | 2026-10-09 |
 | [BL-015](BL-015-kiosk-button-and-unknown-card.md) | Kiosk: "Clock In" button, and an alert for an unknown card | upstream feature | medium | started | 2026-10-09 |
+| [BL-016](BL-016-inline-code-blanked.md) | Inline code in Markdown shows up as an empty code editor | upstream bug | low | waiting | 2026-10-10 |
 
 ## Fields
 
