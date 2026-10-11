@@ -78,7 +78,9 @@
           <% @time_clock_periods.each do |p| %>
             <%= tool_button "clock", p.name, "btn-primary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_ref: @time_kiosk.person_ref, time_clock_period_id: p.id }), method: :post %>
           <% end %>
-          <%= tool_button "clock", "Start Unassigned", "btn-secondary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_ref: @time_kiosk.person_ref, time_clock_period_id: nil }), method: :post %>
+          <% if TimeKiosk::Config.allow_unassigned? %>
+            <%= tool_button "clock", "Start Unassigned", "btn-secondary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_ref: @time_kiosk.person_ref, time_clock_period_id: nil }), method: :post %>
+          <% end %>
         </div>
       </div>
       <div class="col-8 text-end">
