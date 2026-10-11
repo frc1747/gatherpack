@@ -1,0 +1,17 @@
+<% position = f.object.signup_position %>
+<% if position.items? %>
+  <%= f.input :quantity, label: "How many #{position.unit_label}", input_html: { min: 1 } %>
+<% else %>
+  <div class="row">
+    <div class="col-12 col-md-4">
+      <%= f.input :extra_people, label: "Extra people with them", input_html: { min: 0 } %>
+    </div>
+    <div class="col-12 col-md-8">
+      <%= f.input :extra_names, as: :string, label: "Their names" %>
+    </div>
+  </div>
+<% end %>
+<% if position.question.present? %>
+  <%= f.input :answer, as: :string, label: position.question, required: position.question_required? %>
+<% end %>
+<%= f.input :note, as: :string, hint: "Only organizers see notes." %>
