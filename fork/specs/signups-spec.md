@@ -1,6 +1,8 @@
 # Spec: Sign-up Sheets and Commitments
 
-Status: draft rev. 6, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+Status: draft rev. 7, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+
+Rev. 7: a position has one rule per kind, and badge and team rules are "any of" lists (§3.3). Phase 1 is built on `feature/signups`.
 
 Rev. 6 scopes in item sign-ups (potluck and supply lists). A position is either people to work or items to bring, so one sheet can ask for both, as a lunch that needs food brought and servers does (§3.1, §3.5, decisions 15–16). This changes the Position concept, per §1.1.
 
@@ -94,7 +96,9 @@ A position has a list of rules, all of which must pass. Rule kinds in v1:
 |---|---|---|
 | Badge | One or more badges | The person holds any of them |
 | Age | Minimum and/or maximum | The person's age on the event date is in range. No birthday on file fails. |
-| Team | A team | The person is in that team or one below it |
+| Team | One or more teams | The person is in any of them or a team below one |
+
+A position has at most one rule of each kind, and a rule's list means any of it. "A person must pass every rule; within a rule, any one ticked badge or team is enough." The setup screen edits the existing rule of a kind rather than adding a second, so it can't build a combination nobody passes (rev. 7: two team rules for Parents and Friends were ANDed on staging).
 
 Rules apply to **who takes the place**, not the signer. A person who fails sees why ("Needs the Alcohol License badge") and can't take the slot. Organizers can place anyone; the roster flags a placement that fails a rule (decision 4). Organizers see pass or fail, never the underlying data (a birthday, for example).
 
@@ -170,7 +174,7 @@ New tables (upstream naming):
 | `signup_audience_rules` | Same columns as `form_audience_rules`, keyed to `signup_sheet_id`. This branch doesn't depend on forms, so it has its own table. |
 | `signup_sheet_events` | `signup_sheet_id`, `event_id`, `created_by_sheet` |
 | `signup_positions` | `signup_sheet_id`, `name`, `description`, `kind` (`people`, `items`), `unit`, `capacity` (null = no cap), `question`, `question_required`, `position` |
-| `signup_position_rules` | `signup_position_id`, `kind` (`badge`, `age`, `team`), `badge_ids` (array), `min_age`, `max_age`, `team_id` |
+| `signup_position_rules` | `signup_position_id`, `kind` (`badge`, `age`, `team`; one per position), `badge_ids` (array), `min_age`, `max_age`, `team_ids` (array) |
 | `signup_slots` | `signup_position_id`, `event_id`, `capacity` (null = position default), `disabled` |
 | `signups` | `signup_slot_id`, `person_id`, `signed_up_by_id`, `on_behalf_of_id`, `extra_people`, `extra_names`, `quantity`, `answer`, `note`, `status` |
 
