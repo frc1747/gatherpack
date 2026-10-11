@@ -32,6 +32,28 @@ class FormEventTest < ActiveSupport::TestCase
     assert form.errors.key?(:event)
 
     assert Form.new(title: "Pack form", team: @pack, event: @event).valid?, "an event of a team below the owning team is fine"
+    assert_not Form.new(title: "Den B form", team: @den_b, event: @event).valid?, "a sibling team's event isn't"
+  end
+
+  test "moving a form to another team moves who is asked, unless it was changed by hand" do
+    form = create_world_form("Den A dues", team: @den_a)
+    form.update!(team: @den_b)
+    assert_equal [ @den_b ], form.form_audience_rules.map(&:team)
+
+    add_rule(form, person(:a1))
+    form.update!(team: @pack)
+    assert_equal [ @den_b, nil ], form.form_audience_rules.includes_first.map(&:team), "a hand-made audience stays"
+  end
+
+  test "a form for one team can be for an event of a team above it, and asks only that team" do
+    pack_event = Event.create!(name: "Pack Picnic", event_type: event_types(:one), team: @pack, start_time: 5.days.from_now)
+    form = create_world_form("Den A going?", team: @den_a, event: pack_event)
+    assert form.valid?
+    assert_equal @den_a, form.default_audience_team
+
+    pack_event.update!(team: @org)
+    assert_equal [ @den_a ], form.reload.form_audience_rules.map(&:team), "moving the event leaves the form alone"
+    assert_equal @den_a, form.team
   end
 
   test "an intent question answers yes, maybe, or no, once per form" do

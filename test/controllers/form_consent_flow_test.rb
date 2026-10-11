@@ -183,12 +183,14 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
         assert_equal "You are not allowed to do that", flash[:notice]
         assert_not @form.form_audience_rules.exists?(team: @other_org)
 
-        patch form_question_path(@form, @consent), params: { form_question: { body: "I give permission, overnight too." } }
         get edit_form_path(@form)
-        assert_select "h2", text: /changed since people responded/
+        assert_select "#change_choice", count: 1
+        get edit_form_question_path(@form, @consent)
+        assert_select "#change_choice input[name=reconfirm]", count: 2
 
-        post publish_form_path(@form, reconfirm: "1")
-        assert_match "signed again", flash[:notice]
+        patch form_question_path(@form, @consent), params: { form_question: { body: "I give permission, overnight too." }, reconfirm: "1" }
+        assert_match "sign again", flash[:notice]
+        assert_not @form.reload.unpublished_changes?
       end
     end
     assert @form.response_for(person(:b1)).reload.needs_reconfirmation?

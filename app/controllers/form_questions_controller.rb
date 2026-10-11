@@ -19,7 +19,7 @@ class FormQuestionsController < InternalController
     @question = authorize @form.form_questions.build(question_params.reverse_merge(position: next_position))
 
     if @question.save
-      redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was added."
+      redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was added.#{publish_changes}"
     else
       render :new, status: :unprocessable_entity
     end
@@ -30,7 +30,7 @@ class FormQuestionsController < InternalController
     @question.assign_attributes(question_params)
     authorize @question
     if @question.save
-      redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was saved.", status: :see_other
+      redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was saved.#{publish_changes}", status: :see_other
     else
       render :edit, status: :unprocessable_entity
     end
@@ -39,6 +39,7 @@ class FormQuestionsController < InternalController
   # DELETE /forms/1/questions/1
   def destroy
     @question.destroy!
+    @form.reload.publish_changes!(reconfirm: false)
     redirect_to edit_form_path(@form, tab: "questions"), notice: "Question was removed. Answers already given stay in earlier submissions.", status: :see_other
   end
 
@@ -55,6 +56,13 @@ class FormQuestionsController < InternalController
 
     def set_question
       @question = authorize @form.form_questions.find(params[:id])
+    end
+
+    # Applies the choice made by the Save button to a content change on an
+    # answered form, and returns the sentence for the notice.
+    def publish_changes
+      reconfirm = params[:reconfirm] == "1"
+      helpers.form_published_notice(reconfirm) if @form.reload.publish_changes!(reconfirm: reconfirm)
     end
 
     def next_position

@@ -162,6 +162,29 @@ class FormConsentTest < ActiveSupport::TestCase
     assert holds_badge?(:a1)
   end
 
+  test "saving text a browser sent with CRLF line breaks isn't a change" do
+    @form.update!(description: "Read this.\n\nThen sign.")
+    @consent.update!(body: "I agree.\nTo all of it.")
+    respond(@form, :a1, as: :a1, answers: { "photo_release" => "Yes" })
+    sign(@form, :a1, as: :parent_a1)
+
+    @form.update!(description: "Read this.\r\n\r\nThen sign.")
+    @consent.update!(body: "I agree.\r\nTo all of it.")
+    assert_not @form.reload.unpublished_changes?
+    assert_equal "Read this.\n\nThen sign.", @form.description
+  end
+
+  test "publish_changes! publishes only when a save started a new version" do
+    respond(@form, :a1, as: :a1, answers: { "photo_release" => "Yes" })
+    sign(@form, :a1, as: :parent_a1)
+    assert_not @form.publish_changes!(reconfirm: true)
+
+    @form.update!(description: "New text.")
+    assert @form.publish_changes!(reconfirm: true)
+    assert_not @form.reload.unpublished_changes?
+    assert @form.response_for(person(:a1)).reload.needs_reconfirmation?
+  end
+
   test "a profile change sends a response back for re-confirmation when the form asks for it" do
     with_settings(feature_person_fields: "true") do
       contact = create_world_field("Emergency Contact", read: "family", write: "family")

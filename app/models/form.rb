@@ -39,8 +39,13 @@ class Form < ApplicationRecord
   validate :completion_badge_reaches_audience
   validate :event_within_team
 
+  # Browsers send textarea line breaks as CRLF. Without this, saving the
+  # Details tab unchanged would count as a description change.
+  normalizes :description, with: ->(text) { text.gsub("\r\n", "\n") }
+
   before_validation :generate_key, on: :create
   before_validation -> { self.closes_at ||= event.start_time if event }, if: :will_save_change_to_event_id?
+  after_update :follow_team_change, if: -> { saved_change_to_team_id? || saved_change_to_event_id? }
   # The description is part of what respondents read and sign.
   after_update_commit -> { content_changed! }, if: :saved_change_to_description?
 
@@ -215,7 +220,8 @@ class Form < ApplicationRecord
   # version they saw. Drafts move to the new version; submissions waiting
   # for signatures go back to draft, and their signatures are revoked,
   # because the text being signed changed. One version covers every change
-  # until Publish changes.
+  # until it's published, which the save that made the change does
+  # (#publish_changes!).
   def content_changed!
     return unless persisted? && answered?
 
@@ -229,6 +235,41 @@ class Form < ApplicationRecord
 
   def unpublished_changes?
     content_version > published_version
+  end
+
+  # The team a new form asks: the narrower of the event's team and the
+  # owning team. A Students form for a whole-team event asks Students.
+  def default_audience_team
+    return team unless event&.team && team
+
+    team.all_descendant_ids.include?(event.team_id) ? event.team : team
+  end
+
+  # Whether the audience is still the one rule a new form starts with
+  # (FormsController#create), asking the given team.
+  def default_audience?(for_team = default_audience_team)
+    rules = form_audience_rules.to_a
+    rules.one? && rules.first.effect_include? && rules.first.target_team? && rules.first.team_id == for_team&.id
+  end
+
+  # Points the default audience rule at another team, if the audience is
+  # still the default for one of the old teams. A rule the new team makes
+  # invalid (a completion badge limited to the old team) stays as it was.
+  def move_default_audience(from:, to:)
+    return unless to && from.compact.any? { |old| default_audience?(old) }
+
+    rule = form_audience_rules.first
+    rule.update(team: to) unless rule.team_id == to.id
+    form_audience_rules.reset
+  end
+
+  # Publishes a content change the last save started, if there is one, and
+  # says whether it did.
+  def publish_changes!(reconfirm:)
+    return false unless unpublished_changes?
+
+    publish!(reconfirm: reconfirm)
+    true
   end
 
   # Accepts the current content version. With reconfirm, responses whose
@@ -276,6 +317,13 @@ class Form < ApplicationRecord
     grants.select { |grant| badge_ids.include?(grant.badge_id) }.map(&:covered_people)
   end
 
+  # Moving a form to another team (or event) moves who is asked along with
+  # it, unless the audience was changed by hand: then it's left alone.
+  def follow_team_change
+    old_event = Event.find_by(id: event_id_before_last_save)
+    move_default_audience(from: [ Team.find_by(id: team_id_before_last_save), old_event&.team ], to: default_audience_team)
+  end
+
   def generate_key
     return if key.present? || title.blank?
 
@@ -301,15 +349,16 @@ class Form < ApplicationRecord
     errors.add(:closes_at, "must be after the opening time") if opens_at && closes_at && closes_at <= opens_at
   end
 
-  # Its managers must manage the event's people, so the event belongs to the
-  # owning team or a team below it.
+  # The event and the owning team are on one branch: the event's team is the
+  # owning team, a team below it, or a team above it (a whole-team event
+  # with a form for one part of it).
   def event_within_team
     return unless event && team
 
     if event.team.nil?
       errors.add(:event, "must belong to a team")
-    elsif event.team_id != team_id && !team.all_descendant_ids.include?(event.team_id)
-      errors.add(:event, "belongs to #{event.team.name}, which isn't #{team.name} or a team below it")
+    elsif event.team_id != team_id && !team.all_descendant_ids.include?(event.team_id) && !team.all_ancestor_ids.include?(event.team_id)
+      errors.add(:event, "belongs to #{event.team.name}, which isn't #{team.name} or a team above or below it")
     end
   end
 

@@ -67,6 +67,11 @@ module FormsHelper
     nil => "Form only", "prefill" => "Filled in from profile", "update_profile" => "Updates profile"
   }.freeze
 
+  # The notice sentence after a save published a content change.
+  def form_published_notice(reconfirm)
+    reconfirm ? " People who already responded need to review and sign again." : " Responses already submitted stay complete."
+  end
+
   # The forms a person answers for themselves and their wards: open forms,
   # and closed ones they have a response to.
   def form_entries_for(person)
