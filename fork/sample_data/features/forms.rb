@@ -1,7 +1,8 @@
 # Forms in each state: an open season form half answered, a consent form
 # with a guardian signature (complete, waiting for a guardian, and needing
 # re-confirmation after a profile change), an event form with an intent
-# question, and a closed form with answers still missing. Responses go
+# question, an event form for one team of a whole-community event, and a
+# closed form with answers still missing. Responses go
 # through the same steps as the fill page, so statuses and signatures are
 # what real use produces. Needs the person fields layer (guardians, fields).
 Hbr::SampleData.feature "feature/forms" do |s|
@@ -103,6 +104,18 @@ Hbr::SampleData.feature "feature/forms" do |s|
   respond.call(rsvp, s.person("Chloe"), admin, { "coming" => "Maybe" })
   respond.call(rsvp, s.person("Sam"), admin, { "coming" => "No" })
 
+  # The workday is on everyone's calendar, but this form asks only Youth
+  # Program: a form can belong to a team below its event's team.
+  workday = Event.find_by!(name: "Spring Workday")
+  helpers = form.call("spring_workday_youth_helpers", {
+    title: "Spring Workday: Youth Helpers", team: s.team(:youth), status: "open", event: workday,
+    opens_at: s.clock.days_ago(2), closes_at: workday.start_time
+  }, [ s.team(:youth) ])
+  question.call(helpers, "coming", 0, kind: "intent", label: "Are you coming?", required: true)
+  question.call(helpers, "station", 1, kind: "input", label: "Which station would you like?", data_type: "select", options: { "choices" => [ "Painting", "Gardening", "Food" ] })
+  respond.call(helpers, grace, paula, { "coming" => "Yes", "station" => "Gardening" })
+  respond.call(helpers, olive, owen, { "coming" => "Maybe" })
+
   # Closed past its deadline with answers still missing; leaders can still
   # enter late answers.
   shirts = form.call("tshirt_order", {
@@ -127,4 +140,7 @@ Hbr::SampleData.feature "feature/forms" do |s|
   s.expect("Kate's consent waits for a guardian") { status.call(consent, kate) == "waiting" }
   s.expect("Olive's consent needs re-confirmation") { status.call(consent, olive) == "needs_reconfirmation" }
   s.expect("Grace has the Consent Signed badge") { grace.badges.include?(consent_badge) }
+  s.expect("Youth Helpers asks only Youth Program, for a whole-community event") do
+    helpers.reload.audience.pluck(:id).sort == s.team(:youth).descendant_people.pluck(:id).sort && helpers.event.team == s.team(:root)
+  end
 end

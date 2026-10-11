@@ -132,6 +132,7 @@ Cards `10000001` to `10000032`, one per Northwind person in last-name order. Typ
 - *Meal Choices*: open for everyone, due in two weeks, about half answered. Totals are shared with everyone asked. Its Allergies question updates the profile.
 - *Parent Consent* (Youth Program): Grace's is complete and signed by Paula, which awarded her the Consent Signed badge. Kate's waits for a guardian's signature. Olive's needs re-confirmation, because her medical notes changed after Owen signed. Sign in as `parent1@` to sign Kate's.
 - *Youth Campout: Are You Coming?*: attached to the campout, with Yes, Maybe and No answers. Open the event to see expected against checked in.
+- *Spring Workday: Youth Helpers*: Spring Workday is for the whole community, but this form belongs to Youth Program and asks only its members. Grace and Olive have answered, so editing its description shows a warning by Save: keep their responses complete, or ask them to review and sign again.
 - *Volunteer T-Shirt Order*: closed two days ago with answers still missing; leaders can enter late answers.
 - Chloe holds the Form Creator badge, so she could create event polls for Youth Program.
 
