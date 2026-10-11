@@ -53,7 +53,7 @@ class FormsController < InternalController
     if @form.save
       # Starts by asking the owning team, as before audience rules; the
       # builder can change that.
-      @form.form_audience_rules.create!(effect: :include, target_type: :team, team: @form.event&.team || @form.team)
+      @form.form_audience_rules.create!(effect: :include, target_type: :team, team: @form.default_audience_team)
       redirect_to edit_form_path(@form, tab: "questions"), notice: "Form was created. Add its questions below."
     else
       render :new, status: :unprocessable_entity
@@ -67,7 +67,9 @@ class FormsController < InternalController
     # A form run only by its creator stays an event form of one of their teams.
     allowed = form_policy.creator_only? ? form_policy.create? : form_policy.manage?
     if allowed && @form.save
-      redirect_to edit_form_path(@form, tab: @tab), notice: "Form was saved.", status: :see_other
+      notice = "Form was saved."
+      notice += helpers.form_published_notice(params[:reconfirm] == "1") if @form.publish_changes!(reconfirm: params[:reconfirm] == "1")
+      redirect_to edit_form_path(@form, tab: @tab), notice: notice, status: :see_other
     else
       unless allowed
         message = form_policy.creator_only? ? "must be an event of a team you belong to" : "must be one you manage"
@@ -89,14 +91,6 @@ class FormsController < InternalController
 
     @form.update!(status: :open)
     redirect_to form_path(@form), notice: "Form is open for responses.", status: :see_other
-  end
-
-  # POST /forms/1/publish
-  def publish
-    reconfirm = params[:reconfirm] == "1"
-    @form.publish!(reconfirm: reconfirm)
-    notice = reconfirm ? "Changes were published. Earlier responses need to be reviewed and signed again." : "Changes were published. Earlier responses stay complete."
-    redirect_to edit_form_path(@form), notice: notice, status: :see_other
   end
 
   # GET /forms/1/audience

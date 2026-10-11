@@ -17,8 +17,6 @@
   </ul>
 </div>
 
-<%= render "publish_banner" %>
-
 <% if !badges && (@form.completion_badge || @form.audience_badge || @form.form_badge_grants.any? || @form.form_audience_rules.any?(&:target_badge?)) %>
   <div class="alert alert-secondary">
     <%= i "circle-info" %> Badges are turned off, so this form's badge settings
@@ -40,6 +38,7 @@
         </div>
       </div>
       <div class="card-footer">
+        <%= render "change_choice", form: @form if @tab == "details" %>
         <%= link_to "Back", form_path(@form), class: "btn btn-warning" %>
         <%= f.button :submit, "Save", class: "btn btn-primary" %>
       </div>

@@ -57,7 +57,6 @@ Rails.application.routes.draw do
       post :archive
       post :duplicate
       post :remind
-      post :publish
       get :results
       get :tally
       get :preview
