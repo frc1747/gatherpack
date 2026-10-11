@@ -1,57 +1,59 @@
-<% rules = @signup_position.signup_position_rules.to_a %>
-<% rule_path = signup_sheet_signup_position_signup_position_rules_path(@signup_sheet, @signup_position) %>
+<% rules = @signup_position.signup_position_rules.index_by(&:kind) %>
+<% kinds = { "badge" => "Needs a badge", "age" => "Age on the event date", "team" => "In a team" } %>
+<% kinds.delete("badge") unless GatherPack::Features.enabled?(:badges) || rules["badge"] %>
 <div class="card mt-3" id="rules">
   <div class="card-header">
     <h2 class="h5 mb-0">Who can take this position</h2>
   </div>
   <div class="card-body">
-    <p>Add rules if only some people can take it. A person must pass every rule. Organizers can still place someone who doesn't, from the roster.</p>
-    <% if rules.any? %>
-      <ul class="list-group mb-3">
-        <% rules.each do |rule| %>
-          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id rule %>">
-            <span><%= rule.description %></span>
-            <%= button_to "Remove", signup_sheet_signup_position_signup_position_rule_path(@signup_sheet, @signup_position, rule), method: :delete,
-                  class: "btn btn-sm btn-outline-danger", form_class: "d-inline" %>
-          </li>
-        <% end %>
-      </ul>
-    <% else %>
+    <p>
+      Add rules if only some people can take it. A person must pass every rule. Within a rule, any one of the ticked badges or teams is enough.
+      Organizers can still place someone who doesn't, from the roster.
+    </p>
+    <% if rules.empty? %>
       <p class="text-body-secondary">No rules: anyone who can sign up can take it.</p>
     <% end %>
 
-    <div class="row g-4">
-      <% if GatherPack::Features.enabled?(:badges) %>
+    <div class="row g-3">
+      <% kinds.each do |kind, title| %>
+        <% rule = rules[kind] || SignupPositionRule.new(kind: kind) %>
+        <% form_id = "#{kind}_rule_form" %>
         <div class="col-lg-4">
-          <h3 class="h6">Needs a badge</h3>
-          <%= simple_form_for SignupPositionRule.new(kind: :badge), url: rule_path do |r| %>
-            <%= r.input :kind, as: :hidden %>
-            <%= r.input :badge_ids, as: :check_boxes, label: "Any of these badges", collection: Badge.order(:name), label_method: :name, value_method: :id %>
-            <%= r.button :submit, "Add badge rule", class: "btn btn-sm btn-secondary" %>
-          <% end %>
+          <div class="card h-100" id="<%= rule.persisted? ? dom_id(rule) : "new_#{kind}_rule" %>">
+            <div class="card-body">
+              <h3 class="h6"><%= title %></h3>
+              <% if rule.persisted? %>
+                <p class="small mb-2">Now: <%= rule.description %></p>
+              <% end %>
+              <% url = rule.persisted? ? signup_sheet_signup_position_signup_position_rule_path(@signup_sheet, @signup_position, rule) :
+                       signup_sheet_signup_position_signup_position_rules_path(@signup_sheet, @signup_position) %>
+              <%= simple_form_for rule, url: url, html: { id: form_id } do |r| %>
+                <%= r.input :kind, as: :hidden %>
+                <% case kind %>
+                <% when "badge" %>
+                  <%= r.input :badge_ids, as: :check_boxes, label: "Any of these badges", collection: Badge.order(:name), label_method: :name, value_method: :id %>
+                <% when "age" %>
+                  <div class="row g-2">
+                    <div class="col"><%= r.input :min_age, label: "At least" %></div>
+                    <div class="col"><%= r.input :max_age, label: "At most" %></div>
+                  </div>
+                  <div class="form-text mb-2">Fill in one or both. People with no birthday on file don't pass.</div>
+                <% when "team" %>
+                  <%= r.input :team_ids, as: :check_boxes, label: "Any of these teams", hint: "Or a team below one of them.",
+                        collection: Team.where(id: [ @signup_sheet.team_id ] + @signup_sheet.team.all_descendant_ids).order(:name),
+                        label_method: :name, value_method: :id %>
+                <% end %>
+              <% end %>
+              <div class="d-flex gap-2">
+                <%= button_tag "#{rule.persisted? ? "Save" : "Add"} #{kind} rule", type: "submit", form: form_id, class: "btn btn-sm btn-secondary" %>
+                <% if rule.persisted? %>
+                  <%= button_to "Remove", url, method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline" %>
+                <% end %>
+              </div>
+            </div>
+          </div>
         </div>
       <% end %>
-      <div class="col-lg-4">
-        <h3 class="h6">Age on the event date</h3>
-        <%= simple_form_for SignupPositionRule.new(kind: :age), url: rule_path do |r| %>
-          <%= r.input :kind, as: :hidden %>
-          <div class="row g-2">
-            <div class="col"><%= r.input :min_age, label: "At least" %></div>
-            <div class="col"><%= r.input :max_age, label: "At most" %></div>
-          </div>
-          <div class="form-text mb-2">Fill in one or both. People with no birthday on file don't pass.</div>
-          <%= r.button :submit, "Add age rule", class: "btn btn-sm btn-secondary" %>
-        <% end %>
-      </div>
-      <div class="col-lg-4">
-        <h3 class="h6">In a team</h3>
-        <%= simple_form_for SignupPositionRule.new(kind: :team), url: rule_path do |r| %>
-          <%= r.input :kind, as: :hidden %>
-          <%= r.input :team_id, label: "Member of", collection: Team.where(id: [ @signup_sheet.team_id ] + @signup_sheet.team.all_descendant_ids).order(:name),
-                label_method: :name, value_method: :id, prompt: "Team…", hint: "Or a team below it." %>
-          <%= r.button :submit, "Add team rule", class: "btn btn-sm btn-secondary" %>
-        <% end %>
-      </div>
     </div>
   </div>
 </div>

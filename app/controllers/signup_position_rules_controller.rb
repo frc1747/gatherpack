@@ -4,14 +4,25 @@ class SignupPositionRulesController < InternalController
   # POST /signup_sheets/1/signup_positions/1/signup_position_rules
   def create
     @rule = authorize @signup_position.signup_position_rules.build(rule_params)
-    if @rule.team_id && !team_choice_ids.include?(@rule.team_id)
-      return redirect_to edit_path, alert: "Pick #{@signup_sheet.team.name} or a team below it.", status: :see_other
-    end
+    return refuse_teams if teams_out_of_reach?
 
     if @rule.save
       redirect_to edit_path, notice: "Rule added: #{@rule.description}.", status: :see_other
     else
-      redirect_to edit_path, alert: "That rule couldn't be added: #{@rule.errors.full_messages.to_sentence}.", status: :see_other
+      redirect_to edit_path, alert: "That rule couldn't be added: #{error_text}.", status: :see_other
+    end
+  end
+
+  # PATCH /signup_sheets/1/signup_positions/1/signup_position_rules/1
+  def update
+    @rule = authorize @signup_position.signup_position_rules.find(params[:id])
+    @rule.assign_attributes(rule_params.except(:kind))
+    return refuse_teams if teams_out_of_reach?
+
+    if @rule.save
+      redirect_to edit_path, notice: "Rule saved: #{@rule.description}.", status: :see_other
+    else
+      redirect_to edit_path, alert: "That rule couldn't be saved: #{error_text}.", status: :see_other
     end
   end
 
@@ -36,7 +47,20 @@ class SignupPositionRulesController < InternalController
       [ @signup_sheet.team_id ] + @signup_sheet.team.all_descendant_ids
     end
 
+    def teams_out_of_reach?
+      @rule.team? && (@rule.team_ids - team_choice_ids).any?
+    end
+
+    def refuse_teams
+      redirect_to edit_path, alert: "Pick #{@signup_sheet.team.name} or teams below it.", status: :see_other
+    end
+
+    # The "one rule of each kind" message reads as a sentence by itself.
+    def error_text
+      @rule.errors.map { |error| error.attribute == :kind ? error.message : error.full_message }.to_sentence
+    end
+
     def rule_params
-      params.require(:signup_position_rule).permit(:kind, :min_age, :max_age, :team_id, badge_ids: [])
+      params.require(:signup_position_rule).permit(:kind, :min_age, :max_age, badge_ids: [], team_ids: [])
     end
 end
