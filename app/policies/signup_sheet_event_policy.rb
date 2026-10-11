@@ -1,0 +1,2 @@
+class SignupSheetEventPolicy < SignupSheetPartPolicy
+end

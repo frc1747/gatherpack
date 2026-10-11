@@ -1,0 +1,32 @@
+<% breadcrumb @signup_sheet %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @signup_sheet.title %></h1>
+    <span class="badge text-bg-secondary"><%= @signup_sheet.status.humanize %></span>
+    <%= @signup_sheet.team.name %>
+  </div>
+  <div class="card-body">
+    <%= md @signup_sheet.description if @signup_sheet.description.present? %>
+    <% if @signup_sheet.contact.present? %>
+      <p><strong>Contact:</strong> <%= @signup_sheet.contact %></p>
+    <% end %>
+
+    <h2 class="h5">Dates</h2>
+    <% if @events.any? %>
+      <ul>
+        <% @events.each do |event| %>
+          <li><%= event.name %>, <%= event.start_time.strftime("%a %b %-d, %-l:%M %p") %><%= ", #{event.location}" if event.location.present? %></li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p>No dates yet.</p>
+    <% end %>
+  </div>
+  <% if policy(@signup_sheet).update? %>
+    <div class="card-footer">
+      <%= link_to "Edit", edit_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= link_to policy(@signup_sheet).destroy? ? "Delete" : "Archive", @signup_sheet, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } unless @signup_sheet.archived? %>
+    </div>
+  <% end %>
+</div>
