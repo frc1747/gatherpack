@@ -5,9 +5,9 @@ Hbr::SampleData.feature "feature/widgets" do |s|
 
   s.upsert!(Widget, { title: "Welcome to Northwind" },
     placement: "top", position: 0, viewer: "user", team: nil, dynamic: false, enabled: true, content: <<~MARKDOWN)
-      This site holds **sample data**. Sign in as any of the `@example.com` logins
-      (password `password123`) to see it from that person's side. The README in
-      `fork/sample_data/` lists them all.
+      This site holds **sample data**. Sign in as any of the **@example.com** logins
+      (password **password123**) to see it from that person's side. The README in
+      **fork/sample_data/** lists them all.
     MARKDOWN
 
   s.upsert!(Widget, { title: "Clocked In Now: Programs" },
