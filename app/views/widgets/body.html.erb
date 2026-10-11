@@ -1,0 +1,14 @@
+<% html = render_widget_content(@widget) %>
+<%= turbo_frame_tag @widget do %><% unless widget_blank?(@widget, html) %><% replace = @widget.style_mode == "replace" %>
+  <div class="card-body widget-body" data-widget="<%= @widget.neat_id %>" data-controller="widget"
+    data-widget-id-value="<%= @widget.neat_id %>" data-widget-title-value="<%= @widget.title %>"
+    data-widget-mode-value="<%= @widget.style_mode %>" data-widget-stylesheet-value="<%= @widget.stylesheet if replace %>"
+    data-widget-code-value="<%= @widget.javascript %>">
+    <% if replace %>
+      <template data-widget-target="content"><%= html %></template>
+    <% else %>
+      <%= scoped_widget_stylesheet(@widget) %>
+      <%= html %>
+    <% end %>
+  </div>
+<% end %><% end %>
