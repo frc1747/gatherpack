@@ -8,14 +8,12 @@ module RosterSignupsHelper
     end
   end
 
-  # "2 extra: Sam, Alex" for people, "3 pizzas" for items.
+  # "3 pizzas" for items; nothing for people.
   def roster_amount(signup)
     position = signup.signup_position
-    if position.items?
-      "#{signup.quantity} #{signup.quantity == 1 ? position.unit_label.singularize : position.unit_label}"
-    elsif signup.extra_people.positive?
-      [ "#{signup.extra_people} extra", signup.extra_names.presence ].compact.join(": ")
-    end
+    return unless position.items?
+
+    "#{signup.quantity} #{signup.quantity == 1 ? position.unit_label.singularize : position.unit_label}"
   end
 
   # "Game Day, Sat Oct 24 10:00 AM: Cashier"
