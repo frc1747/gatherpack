@@ -1,0 +1,8 @@
+<div class="card widget" id="<%= dom_id widget, :card %>" hidden data-controller="widget-card" data-widget-card-refresh-value="<%= widget.refresh_seconds %>">
+  <% if widget.show_title %>
+    <div class="card-header">
+      <h2><%= widget.title %></h2>
+    </div>
+  <% end %>
+  <%= turbo_frame_tag widget, src: body_widget_path(widget), data: { widget_card_target: "frame" } %>
+</div>
