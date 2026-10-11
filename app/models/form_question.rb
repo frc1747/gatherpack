@@ -40,6 +40,9 @@ class FormQuestion < ApplicationRecord
   validate :signer_can_see_form
   validate :one_intent_per_form, if: :intent?
 
+  # Browsers send textarea line breaks as CRLF; see Form.
+  normalizes :label, :body, with: ->(text) { text.gsub("\r\n", "\n") }
+
   before_validation :generate_key, on: :create
   before_validation :clear_unused_attributes
 

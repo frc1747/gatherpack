@@ -48,7 +48,7 @@
                   <%= button_to i("arrow-up"), move_form_question_path(@form, question, direction: "up"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move up" %>
                   <%= button_to i("arrow-down"), move_form_question_path(@form, question, direction: "down"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move down" %>
                   <%= button_to "Remove", form_question_path(@form, question), method: :delete, class: "btn btn-sm btn-danger", form_class: "d-inline",
-                        data: { turbo_confirm: "Remove this question? Answers already given stay in earlier submissions." } %>
+                        data: { turbo_confirm: "Remove this question? Answers already given stay in earlier submissions#{", and responses already submitted stay complete" if @form.answered?}." } %>
                 </td>
               </tr>
             <% end %>

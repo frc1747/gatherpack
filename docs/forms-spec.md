@@ -2,7 +2,9 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-07 (rev. 8: the printable list starts from the form; people are everyone it
+Date: 2026-10-11 (rev. 9: the choice about earlier responses is made by the Save
+button, not a banner (§7.4); a form's default audience follows its owning team, and
+a form can be for an event of a team above it (§3.9, §10). Rev. 8: the printable list starts from the form; people are everyone it
 asks or people who answered a question on any form (§9.4). Rev. 7: the printable list picks its people from general
 sources, not three groups taken from the meal order (§9.4). Rev. 6: the order
 sheet is renamed the printable list. Rev. 5: phase 2 built; content versions start on the
@@ -162,7 +164,7 @@ Terms used below:
 | `description` | text | Markdown, shown at the top (Redcarpet, as announcements) |
 | `team_id` | uuid, FK, required | **Owning team**: its managers (and those of teams above it) manage the form (§5.4). It is not the audience; that comes from the audience rules (§3.9) |
 | `audience_badge_id` | uuid, FK, nullable | Optional filter applied after the rules: only people holding this badge are asked (for example "2027 Season Rookie") |
-| `event_id` | uuid, FK, nullable | An event form (§10). The event's team must be the owning team or inside it |
+| `event_id` | uuid, FK, nullable | An event form (§10). The event's team must be the owning team, a team inside it, or (rev. 9) a team above it |
 | `respond_permission` | integer enum (`LEVEL_VALUES`) | Who may fill in and submit for a subject. Default `family` |
 | `read_permission` | integer enum (`LEVEL_VALUES`) | Who may see a subject's response. Default `family` |
 | `status` | integer enum | `draft: 0, open: 1, closed: 2, archived: 3` |
@@ -340,6 +342,13 @@ Examples:
 
 Rules:
 
+- A new form starts with one rule: include the narrower of its owning team
+  and its event's team. While that's still the only rule, it follows the
+  form: changing the owning team or the event points it at the new team
+  (rev. 9). Once the audience has been changed by hand it's left alone.
+- Moving an event to another team doesn't change its forms. B3 is the
+  case: the event is on the calendar for the whole team, and its "Who's
+  going" form is owned by and asks only Students.
 - A form needs at least one include rule to open. The builder shows a live
   count ("Asks 58 people", with the list).
 - Non-admins can only target what they manage: teams within their managed
@@ -615,8 +624,14 @@ adding a required question, or changing a choice list goes through
 a new content version. Built (rev. 5): the first such change on a form
 anyone has submitted bumps `forms.content_version` at once, so later
 submissions and signatures record the version they saw; further changes stay
-in that version until **Publish changes**, which asks how to treat active
-submissions on earlier versions. Content means anything respondents see: the
+in that version until it's published. Rev. 9: on a form anyone has
+submitted, the Save button on the Details tab and on question pages has a
+warning and two choices for responses already submitted (default: keep);
+the save that changes content publishes with that choice. Removing a
+question keeps them complete. (Rev. 5 showed a banner at the top of the
+edit page with buttons that published at once, which looked like an alarm
+and acted without a save.) Textarea line breaks are stored as LF, so saving
+unchanged text a browser sent with CRLF isn't a change. Content means anything respondents see: the
 description, and a question's kind, label, body, type, choices, profile
 link, required flag, or signer, or adding or removing a question (moving one
 doesn't count). The two choices:
@@ -631,8 +646,7 @@ doesn't count). The two choices:
 
 Drafts and pending submissions on an older version are moved to the new
 version when it starts; pending ones go back to draft with signatures
-revoked ("The form changed after signing"). The edit page shows a banner with
-both choices until one is made.
+revoked ("The form changed after signing").
 
 ---
 
@@ -881,7 +895,8 @@ children's entries for the event's forms. All counts cover only people
 whose intent answer the viewer can read (`EventForms`).
 
 A form with `event_id` is an **event form** (a trip permission slip, a
-"coming Saturday?" poll). Its audience defaults to the event's team, its
+"coming Saturday?" poll). Its audience defaults to the event's team (or the
+owning team, when the event is for a team above it), its
 `closes_at` to the event start, and the event page shows a Forms panel: each
 attached form with its status counts and a link to its results.
 
@@ -987,7 +1002,7 @@ settings a form has that are being ignored.
   *Updates profile* + field), per-question levels under "Advanced".
 - **Preview as…** (the person-fields component): pick a viewer and subject,
   see what that viewer sees and can change.
-- **Publish changes** on an open form with responses (§7.4).
+- The keep / sign again choice by Save on an answered form (§7.4).
 - **Duplicate**: copies settings and questions, not responses. "2027-28 Meal
   Choices" is a duplicate with new dates and key.
 
@@ -995,7 +1010,7 @@ settings a form has that are being ignored.
 
 ```ruby
 resources :forms do
-  member { post :open; post :close; post :publish; post :duplicate; post :remind; get :results; get :tally; get :order_sheet }
+  member { post :open; post :close; post :duplicate; post :remind; get :results; get :tally; get :order_sheet }
   resources :questions, controller: "form_questions", except: [ :index, :show ] do
     member { post :move }
   end
@@ -1036,7 +1051,7 @@ get "people/:person_id/forms", to: "person_forms#show", as: :person_forms  # sho
 | `form_badge_grants` | Changes who can see responses, as `person_field_badge_grants` |
 | `form_audience_rules` | Changes who is asked, the same vein as `memberships` (an integration might announce a form to newly included people) |
 
-**Not hooked:** `form_questions` (structure; Publish shows up as
+**Not hooked:** `form_questions` (structure; publishing a change shows up as
 `forms - update`) and `form_reminders` (a log).
 
 #### Domain events
