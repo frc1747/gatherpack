@@ -1,0 +1,51 @@
+<% breadcrumb :commitments %>
+
+<h1 class="mb-3">Commitments</h1>
+
+<h2 class="h4">What you owe</h2>
+<% if @owed.any? %>
+  <% @owed.each do |commitment| %>
+    <%= render "commitments/progress", progress: commitment.progress_for(@person) %>
+  <% end %>
+<% else %>
+  <p>You don't owe anything right now.</p>
+<% end %>
+
+<% if @run.any? || policy(Commitment).new? %>
+  <div class="card mt-4">
+    <div class="card-header">
+      <h2 class="h4 mb-0">Commitments you run</h2>
+    </div>
+    <div class="card-body">
+      <% if @run.any? %>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Commitment</th>
+              <th>Team</th>
+              <th>Who owes</th>
+              <th>Period</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @run.each do |commitment| %>
+              <tr id="<%= dom_id commitment %>">
+                <td><%= link_to commitment.title, commitment %></td>
+                <td><%= commitment.team.name %></td>
+                <td><%= commitment.owing_team.name %><%= " with #{commitment.owing_badge.name}" if commitment.owing_badge %></td>
+                <td><%= commitment_period(commitment) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="mb-0">You don't run any commitments yet.</p>
+      <% end %>
+    </div>
+    <% if policy(Commitment).new? %>
+      <div class="card-footer">
+        <%= link_to "New Commitment", new_commitment_path, class: "btn btn-success" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

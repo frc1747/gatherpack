@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_27_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_120300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -188,6 +188,63 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_140000) do
     t.index ["event_id", "person_id"], name: "index_checkins_on_event_id_and_person_id", unique: true
     t.index ["event_id"], name: "index_checkins_on_event_id"
     t.index ["person_id"], name: "index_checkins_on_person_id"
+  end
+
+  create_table "commitment_adjustments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.uuid "person_id", null: false
+    t.integer "credits", null: false
+    t.text "reason", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id"], name: "index_commitment_adjustments_on_commitment_id"
+    t.index ["created_by_id"], name: "index_commitment_adjustments_on_created_by_id"
+    t.index ["person_id"], name: "index_commitment_adjustments_on_person_id"
+  end
+
+  create_table "commitment_organizers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id", "person_id"], name: "index_commitment_organizers_on_commitment_id_and_person_id", unique: true
+    t.index ["person_id"], name: "index_commitment_organizers_on_person_id"
+  end
+
+  create_table "commitment_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.string "kind", null: false
+    t.string "subject_type"
+    t.uuid "subject_id"
+    t.integer "per", default: 1, null: false
+    t.integer "credits", default: 1, null: false
+    t.integer "max_credits"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id"], name: "index_commitment_sources_on_commitment_id"
+    t.index ["subject_type", "subject_id"], name: "index_commitment_sources_on_subject"
+  end
+
+  create_table "commitments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.uuid "owing_team_id", null: false
+    t.uuid "owing_badge_id"
+    t.integer "base_amount", default: 1, null: false
+    t.string "unit", default: "", null: false
+    t.integer "counts_when", default: 0, null: false
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_commitments_on_created_by_id"
+    t.index ["owing_badge_id"], name: "index_commitments_on_owing_badge_id"
+    t.index ["owing_team_id"], name: "index_commitments_on_owing_team_id"
+    t.index ["team_id"], name: "index_commitments_on_team_id"
   end
 
   create_table "event_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -779,6 +836,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_140000) do
   add_foreign_key "checkin_fields", "event_types"
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
+  add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
+  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
+  add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
+  add_foreign_key "commitment_organizers", "people", on_delete: :cascade
+  add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
+  add_foreign_key "commitments", "badges", column: "owing_badge_id"
+  add_foreign_key "commitments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitments", "teams"
+  add_foreign_key "commitments", "teams", column: "owing_team_id"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "ledger_entries", "ledgers"
