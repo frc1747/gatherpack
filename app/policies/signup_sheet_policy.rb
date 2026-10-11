@@ -6,7 +6,9 @@ class SignupSheetPolicy < ApplicationPolicy
       return scope.all if user.admin
       return scope.none if person.nil?
 
-      run = scope.where(id: SignupSheetOrganizer.where(person_id: person.id).select(:signup_sheet_id))
+      # Must agree with SignupSheet#organizer?.
+      listed = SignupSheetOrganizer.where(person_id: person.id).select(:signup_sheet_id)
+      run = scope.where(id: listed, team_id: SignupSheet.creatable_team_ids(person))
         .or(scope.where(team_id: person.all_managed_teams.select(:id)))
       offered = scope.where(status: %i[ open closed ]).where.not(id: run.select(:id)).includes(:team, :signup_audience_rules)
         .select { |sheet| sheet.takers_for(person).exists? }
