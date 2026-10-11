@@ -144,6 +144,24 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the add dates page filters by event type" do
+    practice = create_world_event("Practice", 1.week.from_now, team: @concessions)
+    social = create_world_event("Social", 1.week.from_now, team: @concessions)
+    event_types(:two).update!(name: "Socials")
+    social.update!(event_type: event_types(:two))
+    sign_in person(:worker).user
+
+    get new_signup_sheet_signup_sheet_event_path(@sheet)
+    assert_select "select#event_type_id option", text: "Socials"
+    assert_select "label", text: /Practice/
+    assert_select "label", text: /Social/
+
+    get new_signup_sheet_signup_sheet_event_path(@sheet, event_type_id: event_types(:two).id)
+    assert_response :success
+    assert_select "label", text: /Social/
+    assert_select "label", text: /Practice/, count: 0
+  end
+
   test "a badge organizer can only attach events they can already see" do
     # worker is in Concessions, not Students, so can't see Students' events.
     hidden = create_world_event("Students Meeting", 1.week.from_now, team: @students)

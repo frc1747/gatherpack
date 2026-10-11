@@ -4,7 +4,9 @@ class SignupSheetEventsController < InternalController
   # GET /signup_sheets/1/signup_sheet_events/new
   def new
     authorize @signup_sheet.signup_sheet_events.build
-    @events = attachable_events
+    events = attachable_events
+    @event_types = EventType.where(id: events.select(:event_type_id)).order(:name)
+    @events = params[:event_type_id].present? ? events.where(event_type_id: params[:event_type_id]) : events
   end
 
   # POST /signup_sheets/1/signup_sheet_events
