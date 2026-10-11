@@ -5,21 +5,24 @@
 # - badge: holds any of the badges
 # - age: age on the event's date is within min_age and max_age; no birthday
 #   on file fails
-# - team: is a member of the team or a team below it
+# - team: is a member of any of the teams or a team below one
+#
+# A position has at most one rule of each kind; a person must pass every
+# rule, and within a badge or team rule any one listed is enough.
 class SignupPositionRule < ApplicationRecord
   has_neat_id :suru
   include CanBeHooked
   has_paper_trail versions: { class_name: "AuditLog" }
 
   belongs_to :signup_position
-  belongs_to :team, optional: true
 
   enum :kind, { badge: 0, age: 1, team: 2 }, validate: true
 
-  normalizes :badge_ids, with: ->(ids) { Array(ids).compact_blank.uniq }
+  normalizes :badge_ids, :team_ids, with: ->(ids) { Array(ids).compact_blank.uniq }
 
+  validates :kind, uniqueness: { scope: :signup_position_id, message: ->(rule, _) { "This position already has #{rule.kind == "age" ? "an" : "a"} #{rule.kind} rule; change it instead" } }
   validates :badge_ids, presence: { message: "needs at least one badge" }, if: :badge?
-  validates :team, presence: true, if: :team?
+  validates :team_ids, presence: { message: "needs at least one team" }, if: :team?
   validates :min_age, :max_age, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validate :age_range, if: :age?
 
@@ -35,12 +38,16 @@ class SignupPositionRule < ApplicationRecord
     Badge.where(id: badge_ids)
   end
 
-  # "Needs the Alcohol License badge", "Age 14 to 17", "In Concessions"
+  def teams
+    Team.where(id: team_ids)
+  end
+
+  # "Needs the Alcohol License badge", "Age 14 to 17", "In Concessions or Grill"
   def description
     case kind
     when "badge" then badge_requirement
     when "age" then "Age #{age_range_text}"
-    when "team" then "In #{team&.name}"
+    when "team" then team_names.present? ? "In #{team_names}" : "In a team that no longer exists"
     end
   end
 
@@ -77,10 +84,12 @@ class SignupPositionRule < ApplicationRecord
     "Must be #{age_range_text} on #{date.strftime("%b %-d")}"
   end
 
+  # Deleted teams are left out; if none is left, nobody passes.
   def check_team(person)
-    return if Membership.where(person_id: person.id, team_id: [ team_id ] + team.all_descendant_ids).exists?
+    team_ids = teams.flat_map { |team| [ team.id ] + team.all_descendant_ids }
+    return if team_ids.any? && Membership.where(person_id: person.id, team_id: team_ids).exists?
 
-    "Must be in #{team.name}"
+    team_names.present? ? "Must be in #{team_names}" : "Must be in a team that no longer exists"
   end
 
   def age_on(birthday, date)
@@ -95,13 +104,21 @@ class SignupPositionRule < ApplicationRecord
   end
 
   def badge_names
-    badges.order(:name).pluck(:name).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
+    either_of(badges)
+  end
+
+  def team_names
+    either_of(teams)
+  end
+
+  def either_of(records)
+    records.order(:name).pluck(:name).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
   end
 
   def clear_other_settings
     self.badge_ids = [] unless badge?
     self.min_age = self.max_age = nil unless age?
-    self.team_id = nil unless team?
+    self.team_ids = [] unless team?
   end
 
   def age_range

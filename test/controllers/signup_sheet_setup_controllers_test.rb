@@ -94,8 +94,8 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
 
     post rules_path, params: { signup_position_rule: { kind: "badge", badge_ids: [ "", @license_badge.id ] } }
     post rules_path, params: { signup_position_rule: { kind: "age", min_age: "18", max_age: "" } }
-    post rules_path, params: { signup_position_rule: { kind: "team", team_id: @concessions.id } }
-    assert_equal [ "Needs the Alcohol License badge", "Age 18 or older", "In Concessions" ], @position.signup_position_rules.reload.map(&:description)
+    post rules_path, params: { signup_position_rule: { kind: "team", team_ids: [ "", @concessions.id, @students.id ] } }
+    assert_equal [ "Needs the Alcohol License badge", "Age 18 or older", "In Concessions or Students" ], @position.signup_position_rules.reload.map(&:description)
 
     get edit_signup_sheet_path(@sheet)
     assert_select "#positions li", text: /Needs the Alcohol License badge/
@@ -106,12 +106,48 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an organizer edits a rule in place" do
+    sign_in person(:worker).user
+    rule = @position.signup_position_rules.create!(kind: :team, team_ids: [ @concessions.id ])
+
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(rule)}" do
+      assert_select "input[type=checkbox][name=?][value=?][checked]", "signup_position_rule[team_ids][]", @concessions.id
+      assert_select "button", text: "Save team rule"
+      assert_select "button", text: "Remove"
+    end
+    assert_select "button", text: "Add age rule"
+
+    patch signup_sheet_signup_position_signup_position_rule_path(@sheet, @position, rule),
+      params: { signup_position_rule: { team_ids: [ "", @students.id, @club.id ] } }
+    assert_redirected_to edit_signup_sheet_signup_position_path(@sheet, @position, anchor: "rules")
+    assert_equal [ @club.id, @students.id ].sort, rule.reload.team_ids.sort
+    assert_equal "Rule saved: In Club or Students.", flash[:notice]
+  end
+
+  test "a position takes one rule of each kind" do
+    sign_in person(:worker).user
+    @position.signup_position_rules.create!(kind: :team, team_ids: [ @concessions.id ])
+
+    assert_no_difference "SignupPositionRule.count" do
+      post signup_sheet_signup_position_signup_position_rules_path(@sheet, @position), params: { signup_position_rule: { kind: "team", team_ids: [ @students.id ] } }
+    end
+    assert_redirected_to edit_signup_sheet_signup_position_path(@sheet, @position, anchor: "rules")
+    assert_equal "That rule couldn't be added: This position already has a team rule; change it instead.", flash[:alert]
+  end
+
   test "a team rule must be the sheet's team or below it" do
     sign_in person(:worker).user
 
     assert_no_difference "SignupPositionRule.count" do
-      post signup_sheet_signup_position_signup_position_rules_path(@sheet, @position), params: { signup_position_rule: { kind: "team", team_id: @other_org.id } }
+      post signup_sheet_signup_position_signup_position_rules_path(@sheet, @position), params: { signup_position_rule: { kind: "team", team_ids: [ @students.id, @other_org.id ] } }
     end
+    assert_match "Pick Club or teams below it", flash[:alert]
+
+    rule = @position.signup_position_rules.create!(kind: :team, team_ids: [ @students.id ])
+    patch signup_sheet_signup_position_signup_position_rule_path(@sheet, @position, rule), params: { signup_position_rule: { team_ids: [ @students.id, @other_org.id ] } }
+    assert_match "Pick Club or teams below it", flash[:alert]
+    assert_equal [ @students.id ], rule.reload.team_ids
   end
 
   test "an organizer attaches upcoming events and detaches one" do

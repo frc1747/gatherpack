@@ -95,7 +95,7 @@ Rails.application.routes.draw do
     resources :signup_sheets do
       member { get :roster }
       resources :signup_positions, except: %i[index show] do
-        resources :signup_position_rules, only: %i[create destroy]
+        resources :signup_position_rules, only: %i[create update destroy]
       end
       resources :signup_sheet_organizers, only: %i[create destroy]
       resources :signup_audience_rules, only: %i[create destroy]
