@@ -1,0 +1,61 @@
+<% breadcrumb @signup_sheet %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h1 class="mb-0">Roster: <%= @signup_sheet.title %></h1>
+    <div class="no-print">
+      <%= link_to "Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), class: "btn btn-success" unless @signup_sheet.archived? %>
+      <button type="button" class="btn btn-secondary" onclick="window.print()">Print</button>
+      <%= link_to "Set up", edit_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+    </div>
+  </div>
+  <div class="card-body">
+    <%= form_with url: roster_signup_sheet_path(@signup_sheet), method: :get, class: "row g-2 align-items-end mb-3 no-print" do |f| %>
+      <div class="col-md-3">
+        <%= f.label :event_id, "Date", class: "form-label" %>
+        <%= f.select :event_id, @events.map { |event| [ "#{event.start_time.strftime("%b %-d")} #{event.name}", event.id ] },
+              { include_blank: "All dates", selected: params[:event_id] }, class: "form-select" %>
+      </div>
+      <div class="col-md-3">
+        <%= f.label :signup_position_id, "Position", class: "form-label" %>
+        <%= f.select :signup_position_id, @positions.map { |position| [ position.name, position.id ] },
+              { include_blank: "All positions", selected: params[:signup_position_id] }, class: "form-select" %>
+      </div>
+      <div class="col-md-3">
+        <%= f.label :status, "Status", class: "form-label" %>
+        <%= f.select :status, [ [ "Signed up", "active" ], [ "Fulfilled or brought", "fulfilled" ], [ "No-show or not brought", "no_show" ], [ "Cancelled", "cancelled" ] ],
+              { include_blank: "Any status", selected: params[:status] }, class: "form-select" %>
+      </div>
+      <div class="col-auto">
+        <%= f.submit "Filter", name: nil, class: "btn btn-secondary" %>
+        <%= link_to "Clear", roster_signup_sheet_path(@signup_sheet), class: "btn btn-link" %>
+      </div>
+    <% end %>
+
+    <% if @signups.any? %>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle" id="roster">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Position</th>
+              <th>Person</th>
+              <th>Extra people or quantity</th>
+              <th>Answer</th>
+              <th>On behalf of</th>
+              <th>Note</th>
+              <th>Status</th>
+              <th>Flags</th>
+              <th class="no-print"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= render partial: "roster_row", collection: @signups, as: :signup %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p>No sign-ups<%= " match these filters" if params.values_at(:event_id, :signup_position_id, :status).any?(&:present?) %>.</p>
+    <% end %>
+  </div>
+</div>
