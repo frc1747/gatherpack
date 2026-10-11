@@ -20,7 +20,7 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 |---|---|
 | Cashier needs an alcohol license | Badge rule: "Alcohol License" |
 | Stockers 18+, Students 16/17 | Age rules: min 18; min 16, max 17 |
-| A couple fills 2 cashier places | One sign-up with 1 extra person |
+| A couple fills 2 cashier places | Two sign-ups, one each |
 | "Working for [another student]" | Sign-up on behalf of that student |
 | Concession shift = 1 | Sign-up source: Concessions sheet, 1 per 1 |
 | 3 stocking = 1 shift | Sign-up source: Stocking → Student Stocker, 1 per 3, no cap |
@@ -63,8 +63,8 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 A one-off script in `~/dev/gatherpack-import`, like the enrollment import; not part of any branch. One transaction with before/after counts, after confirming with the fork owner.
 
 1. Create both sheets and attach the existing 16 events. Set real start and end times (all noon with no end today); 11/7 and 11/21 get 00:00–23:59 until kickoff is announced.
-2. Import the SignUpGenius sign-ups (CSV export): who takes the place, extra people, and on behalf of parsed from notes ("working for [student]"), matching names to people by hand where needed.
-3. Turn each 2026-10-04 Concessions and Stocking check-in (meaning "credited to this student") into a sign-up on behalf of that student, unless step 2 covers it. Use the Concessions check-in fields: **Shifts** (places filled: extra people = Shifts − 1) and **Worked by** (who worked, when not the student). Delete the check-ins on events that haven't happened. Keep check-ins on past events; they mark those sign-ups fulfilled (decision 4).
+2. Import the SignUpGenius sign-ups (CSV export): one sign-up per person who works, and on behalf of parsed from notes ("working for [student]"), matching names to people by hand where needed.
+3. Turn each 2026-10-04 Concessions and Stocking check-in (meaning "credited to this student") into a sign-up on behalf of that student, unless step 2 covers it. Use the Concessions check-in fields: **Shifts** (places filled) and **Worked by** (who worked, when not the student): one sign-up per worker. Where Shifts is more than the known workers, ask the coordinators who the others were. Delete the check-ins on events that haven't happened. Keep check-ins on past events; they mark those sign-ups fulfilled (decision 4).
 4. Outreach check-ins stay as they are; the check-in source counts them.
 5. Concessions 9/8 and 10/3 aren't on the SignUpGenius sheet. Ask the coordinators what they were before importing their check-ins.
 
