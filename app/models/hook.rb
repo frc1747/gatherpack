@@ -5,11 +5,13 @@ class Hook < ApplicationRecord
   validates :name, presence: true
 
   def self.catalog
-    targets = [ "announcements", "badges", "badge_assignments", "events", "checkins", "memberships", "people", "relationships", "teams", "users", "pages", "tokens", "ledgers", "ledger_entries", "ledger_ownerships", "ledger_taggings", "ledger_tags" ].map do |k|
+    targets = [ "announcements", "badges", "badge_assignments", "events", "checkins", "memberships", "people", "relationships", "teams", "users", "pages", "tokens", "ledgers", "ledger_entries", "ledger_ownerships", "ledger_taggings", "ledger_tags", "signup_sheets", "signup_sheet_organizers", "signup_audience_rules", "signup_sheet_events", "signup_positions", "signup_position_rules", "signup_slots", "signups" ].map do |k|
       [ "create", "update", "destroy" ].map { |e| [ k, e ].join(" - ") }
     end.flatten
 
     targets << "token - activate"
+    targets << "signups - fulfilled"
+    targets << "signups - cancelled"
 
     (targets + GatherPack::HookCatalog.entries).uniq.sort
   end
