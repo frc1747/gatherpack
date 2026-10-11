@@ -1,0 +1,77 @@
+<div class="card" id="audience">
+  <div class="card-body">
+    <% rules = @form.form_audience_rules.includes(:team, :badge, :person).to_a %>
+    <% if rules.none?(&:effect_include?) %>
+      <p class="text-warning-emphasis">Nobody yet. Add a team<%= ", badge," if badges %> or person before opening the form.</p>
+    <% end %>
+    <% if rules.any? %>
+      <ul class="list-group mb-3">
+        <% rules.each do |rule| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id rule %>">
+            <span>
+              <%= i(rule.effect_include? ? "plus" : "minus") %> <%= rule.description %>
+              <% if rule.target_badge? && !badges %><span class="badge text-bg-light">Ignored while Badges are turned off</span><% end %>
+            </span>
+            <%= button_to "Remove", form_audience_rule_path(@form, rule), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                  data: { turbo_confirm: "Remove this rule? Anyone no longer asked keeps the answers they gave." } %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+    <p>
+      <% count = @form.audience.count %>
+      Asks <%= link_to pluralize(count, "person", plural: "people"), audience_form_path(@form) %><%= ", narrowed to #{@form.audience_badge.name} badge holders" if badges && @form.audience_badge %>.
+    </p>
+
+    <% if badges %>
+      <%= simple_form_for @form, html: { class: "mb-4" } do |f| %>
+        <%= hidden_field_tag :tab, "audience" %>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-6">
+            <%= f.input :audience_badge_id, label: "Only people with this badge", collection: Badge.order(:name), include_blank: "Everyone the rules include",
+                  hint: "Optional. Narrows who is asked, after the rules.", wrapper_html: { class: "mb-0" } %>
+          </div>
+          <div class="col-auto"><%= f.button :submit, "Save", class: "btn btn-secondary" %></div>
+        </div>
+      <% end %>
+    <% end %>
+
+    <% teams = admin ? Team.order(:name) : current_user.person.all_managed_teams.order(:name) %>
+    <% badge_choices = admin ? Badge.order(:name) : Badge.where(team_id: current_user.person.all_managed_teams.select(:id)).order(:name) %>
+    <% effects = [ [ "Include", "include" ], [ "Exclude", "exclude" ] ] %>
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <%= simple_form_for FormAudienceRule.new(target_type: :team), url: form_audience_rules_path(@form) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <div class="input-group mb-2">
+            <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+            <%= r.select :team_id, teams.map { |team| [ team.name, team.id ] }, { prompt: "Team…" }, class: "form-select", required: true %>
+          </div>
+          <%= r.input :include_managers, label: "Include its managers", hint: "Untick to leave out leaders, for a student form." %>
+          <%= r.button :submit, "Add team", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+      <% if badges %>
+      <div class="col-lg-4">
+        <%= simple_form_for FormAudienceRule.new(target_type: :badge), url: form_audience_rules_path(@form) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <div class="input-group mb-2">
+            <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+            <%= r.select :badge_id, badge_choices.map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge holders…" }, class: "form-select", required: true %>
+          </div>
+          <%= r.button :submit, "Add badge", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+      <% end %>
+      <div class="col-lg-4">
+        <%= simple_form_for FormAudienceRule.new(target_type: :person), url: form_audience_rules_path(@form) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <%= r.input :effect, collection: effects, include_blank: false, label: false, wrapper_html: { class: "mb-2" } %>
+          <%= r.input :person_id, as: :searching_combobox, scope: "people", label: false %>
+          <%= r.button :submit, "Add person", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+

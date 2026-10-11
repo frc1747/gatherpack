@@ -1,0 +1,169 @@
+<% breadcrumb :form_print_list %>
+<% list = @list %>
+
+<div class="card no-print">
+  <div class="card-header">
+    <h1>Printable List</h1>
+    <div class="text-muted">A list of people with their answers to one form, as a table or labels.</div>
+  </div>
+  <div class="card-body">
+    <%= form_with url: print_list_forms_path, method: :get do %>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <%= label_tag :form_id, "Answers from", class: "form-label" %>
+          <%= select_tag :form_id, options_for_select(@forms.map { |form| [ form.title, form.id ] }, @form&.id), include_blank: "Choose a form…", class: "form-select", onchange: "this.form.requestSubmit()" %>
+        </div>
+      </div>
+
+      <% if @form %>
+        <h2 class="h6">Who's on the list</h2>
+        <div class="mb-3">
+          <%= render "population_fields", population: @population, forms: @source_forms %>
+        </div>
+
+        <h2 class="h6">Columns</h2>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="form-label">Answers</div>
+            <%= hidden_field_tag :columns_for, @form.id %>
+            <% @choices.each do |question| %>
+              <div class="form-check">
+                <%= check_box_tag "question_ids[]", question.id, list.questions.include?(question), id: "question_ids_#{question.id}", class: "form-check-input" %>
+                <%= label_tag "question_ids_#{question.id}", question.label, class: "form-check-label" %>
+              </div>
+            <% end %>
+            <% if @choices.empty? %><div class="form-text">This form has no questions to show.</div><% end %>
+          </div>
+          <div class="col-md-6">
+            <div class="form-label">Profile details</div>
+            <% @profile_fields.each do |field| %>
+              <div class="form-check">
+                <%= check_box_tag "field_ids[]", field.id, list.fields.include?(field), id: "field_ids_#{field.id}", class: "form-check-input" %>
+                <%= label_tag "field_ids_#{field.id}", field.name, class: "form-check-label" %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <%= hidden_field_tag :event_id, params[:event_id] if params[:event_id].present? %>
+      <% end %>
+
+      <% if @form %>
+        <h2 class="h6">Print as</h2>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <%= select_tag :layout, options_for_select([ [ "Table", "list" ], [ "Labels (one per person)", "labels" ] ], @layout), class: "form-select", "aria-label": "Print as" %>
+          </div>
+        </div>
+      <% end %>
+
+      <div>
+        <%= submit_tag @form ? "Make list" : "Next", class: "btn btn-primary", name: nil %>
+        <% if list %><button type="button" class="btn btn-secondary" onclick="window.print()">Print</button><% end %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<% if list %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <% event = @population.question&.form&.event if @population.source == "answered" %>
+      <h2><%= event ? "#{event.name}, #{nice_date(event.start_time)}" : @form.title %></h2>
+      <% if @population.ready? %>
+        <div>People: <%= @population.description %></div>
+      <% end %>
+      <div>Answers: <%= @form.title %> · <%= list.listed.size %> answered, <%= list.no_choice.size %> haven't</div>
+    </div>
+    <div class="card-body">
+      <% unless @population.ready? %>
+        <div class="alert alert-warning no-print"><%= @population.missing %></div>
+      <% end %>
+
+      <% if @layout == "labels" %>
+        <div class="row g-2">
+          <% list.listed.each do |line| %>
+            <div class="col-6 col-lg-4">
+              <div class="border rounded p-2 h-100" style="page-break-inside: avoid;">
+                <div class="fw-bold"><%= line.person.identifier_name %></div>
+                <% list.questions.each do |question| %>
+                  <% value = list.answer(line, question) %>
+                  <% next if value.blank? %>
+                  <div><small class="text-muted"><%= question.label %>:</small> <%= form_csv_value(value) %></div>
+                <% end %>
+                <% list.fields.each do |field| %>
+                  <% value = list.profile(line, field) %>
+                  <% next if value.blank? %>
+                  <div><small class="text-muted"><%= field.name %>:</small> <%= form_csv_value(value) %></div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle">
+            <thead>
+              <tr>
+                <th>Person</th>
+                <% list.questions.each do |question| %><th><%= question.label %></th><% end %>
+                <% list.fields.each do |field| %><th class="table-info"><%= field.name %></th><% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% list.listed.each do |line| %>
+                <tr id="<%= dom_id line.person %>">
+                  <td><%= line.person.identifier_name %></td>
+                  <% list.questions.each do |question| %>
+                    <td><%= list.report.readable?(line.row, question) ? form_csv_value(list.answer(line, question)) : "·" %></td>
+                  <% end %>
+                  <% list.fields.each do |field| %>
+                    <td class="table-info"><%= list.profile_readable?(line, field) ? form_csv_value(list.profile(line, field)) : "·" %></td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+
+      <% if list.no_choice.any? %>
+        <h3 class="h6 mt-3">Haven't answered (<%= list.no_choice.size %>)</h3>
+        <ul class="mb-2">
+          <% list.no_choice.each do |line| %>
+            <li>
+              <%= line.person.identifier_name %>
+              <% details = list.fields.filter_map { |field| (value = list.profile(line, field)).present? ? "#{field.name}: #{form_csv_value(value)}" : nil } %>
+              <% if details.any? %><small class="text-muted">(<%= details.join("; ") %>)</small><% end %>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if @population.hidden_count.positive? %>
+        <p class="text-muted mt-2">Not shown: <%= pluralize(@population.hidden_count, "person", plural: "people") %> whose answer to "<%= @population.question.label %>" you can't see.</p>
+      <% end %>
+      <% if list.hidden.any? %>
+        <p class="text-muted mt-2">Not shown: <%= pluralize(list.hidden.size, "person", plural: "people") %> whose answers you can't see.</p>
+      <% end %>
+
+      <% if list.questions.any? && list.listed.any? %>
+        <h3 class="h5 mt-4">Totals</h3>
+        <div class="row">
+          <% list.questions.select { |question| form_tallyable?(question) }.each do |question| %>
+            <div class="col-12 col-md-6 col-xl-4 mb-3" style="page-break-inside: avoid;">
+              <h4 class="h6"><%= question.label %></h4>
+              <table class="table table-sm">
+                <tbody>
+                  <% list.tally(question).each do |value, count| %>
+                    <% next if count.zero? %>
+                    <tr class="<%= "text-muted" if value.nil? %>"><td><%= form_tally_label(value) %></td><td class="text-end"><%= count %></td></tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

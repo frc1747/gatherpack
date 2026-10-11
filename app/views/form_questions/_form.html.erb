@@ -1,0 +1,130 @@
+<% question = f.object %>
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+<%= f.input :kind, as: :hidden %>
+
+<div class="form-inputs" data-controller="person-field-form form-question-form">
+  <% if question.heading? %>
+    <%= f.input :label, label: "Heading" %>
+    <%= f.input :body, as: :text, label: "Text under the heading", required: false, input_html: { rows: 3 }, hint: "Optional. Markdown is supported." %>
+  <% elsif question.statement? %>
+    <%= f.input :body, as: :text, label: "Text", input_html: { rows: 8 }, hint: "Shown to the person filling in the form. Markdown is supported." %>
+  <% elsif question.signature? %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Signature", hint: "What is being signed, for example \"Parent or guardian consent\"." %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the label." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Statement", required: false, input_html: { rows: 4 },
+          hint: "Shown above the signature box, for example \"I give permission for my child to take part.\" Markdown is supported." %>
+    <%= f.input :signer, label: "Who signs", as: :radio_buttons, item_wrapper_tag: :div, collection: FormsHelper::SIGNER_LABELS.invert,
+          hint: "Signatures are given after the answers are submitted, by typing a full name. Every new version needs signing again." %>
+  <% elsif question.intent? %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Question", hint: "Answered Yes, Maybe, or No." %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks and Pages." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the question." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Help text", required: false, input_html: { rows: 2 } %>
+    <%= f.input :required %>
+    <p class="form-text">
+      This is a planning count for <%= question.form.event&.name || "the form's event" %>. It never checks anyone in: only a check-in counts as attending.
+      The event page compares the answers with who checks in.
+    </p>
+  <% elsif question.acknowledgment? %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Acknowledgment", hint: "Shown next to the tick box, for example \"I have read the code of conduct\"." %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks, Pages, and the CSV export." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the label." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Text to read first", required: false, input_html: { rows: 4 }, hint: "Optional. Markdown is supported." %>
+    <%= f.input :required, hint: "A required acknowledgment must be ticked before submitting." %>
+    <details class="mb-3" <%= "open" if question.read_permission || question.write_permission || question.errors[:read_permission].any? || question.errors[:write_permission].any? %>>
+      <summary>Advanced: who can see and tick this</summary>
+      <div class="row mt-2">
+        <div class="col-md-6">
+          <%= f.input :read_permission, label: "Who can see it", collection: form_level_options, include_blank: "As the form (#{form_level_label(question.form.read_permission).downcase_first})" %>
+        </div>
+        <div class="col-md-6">
+          <%= f.input :write_permission, label: "Who can tick it", collection: form_level_options, include_blank: "As the form (#{form_level_label(question.form.respond_permission).downcase_first})",
+                hint: "\"Self\" makes it something only the person themselves can tick." %>
+        </div>
+      </div>
+    </details>
+  <% else %>
+    <div class="row">
+      <div class="col-md-8"><%= f.input :label, label: "Question" %></div>
+      <div class="col-md-4">
+        <% if question.persisted? %>
+          <%= f.input :key, disabled: true, hint: "Used by Hooks, Pages, and the CSV export." %>
+        <% else %>
+          <%= f.input :key, required: false, hint: "Leave blank to generate it from the question." %>
+        <% end %>
+      </div>
+    </div>
+    <%= f.input :body, as: :text, label: "Help text", required: false, input_html: { rows: 2 } %>
+
+    <%# Forms run only by their creator can't link profile fields. %>
+    <div class="row" <%= "hidden" if policy(question.form).creator_only? %>>
+      <div class="col-md-6">
+        <%= f.input :person_field_id, label: "Profile field", collection: PersonField.in_use.ordered,
+              include_blank: "None: the answer stays on this form",
+              hint: "Link a profile field to fill this in from the profile, or to update the profile.",
+              input_html: { data: { form_question_form_target: "personField", action: "form-question-form#update" } } %>
+      </div>
+      <div class="col-md-6" data-form-question-form-target="profileMode">
+        <%= f.input :profile_mode, label: "When submitted", as: :radio_buttons, item_wrapper_tag: :div,
+              collection: [ [ "Keep the answer on this form only (starts from the profile)", "prefill" ], [ "Also update the profile", "update_profile" ] ],
+              hint: "The answer is always kept on the form. Profile updates happen once the response is fully submitted." %>
+      </div>
+    </div>
+
+    <div data-form-question-form-target="ownType">
+      <%= f.input :data_type, label: "Type", collection: PersonFieldsHelper::DATA_TYPE_LABELS.invert, include_blank: false,
+            input_html: { data: { person_field_form_target: "dataType", action: "person-field-form#update" } } %>
+      <div data-person-field-form-target="option" data-types="select multi_select">
+        <%= f.input :choices_text, as: :text, label: "Choices", hint: "One choice per line.", input_html: { rows: 6 } %>
+      </div>
+      <div class="row" data-person-field-form-target="option" data-types="integer date">
+        <div class="col-md-6"><%= f.input :min, label: "Minimum", hint: "For dates, use YYYY-MM-DD." %></div>
+        <div class="col-md-6"><%= f.input :max, label: "Maximum" %></div>
+      </div>
+      <div class="row" data-person-field-form-target="option" data-types="string">
+        <div class="col-md-6"><%= f.input :pattern, label: "Validation pattern", hint: "A regular expression the answer must match. Optional." %></div>
+        <div class="col-md-6"><%= f.input :pattern_hint, label: "Pattern hint", hint: "Shown when an answer doesn't match." %></div>
+      </div>
+    </div>
+
+    <%= f.input :required %>
+
+    <details class="mb-3" <%= "open" if question.read_permission || question.write_permission || question.errors[:read_permission].any? || question.errors[:write_permission].any? %>>
+      <summary>Advanced: who can see and answer this question</summary>
+      <div class="row mt-2">
+        <div class="col-md-6">
+          <%= f.input :read_permission, label: "Who can see the answer", collection: form_level_options, include_blank: "As the form (#{form_level_label(question.form.read_permission).downcase_first})",
+                hint: "Can be more private than the form, never more public." %>
+        </div>
+        <div class="col-md-6">
+          <%= f.input :write_permission, label: "Who can answer", collection: form_level_options, include_blank: "As the form (#{form_level_label(question.form.respond_permission).downcase_first})",
+                hint: "For a part only the student, a guardian, or a leader fills in." %>
+        </div>
+      </div>
+      <p class="form-text">Linked profile fields also follow the profile field's own rules.</p>
+    </details>
+  <% end %>
+</div>

@@ -1,0 +1,40 @@
+<div class="card mt-3" id="badge-grants">
+  <div class="card-header">
+    <h2>Access through badges</h2>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Holders of these badges can see (or also fill in) responses as if they led the people asked, without managing a team. A team badge covers only that team's people. Profile details still follow their own rules.</p>
+    <% grants = @form.form_badge_grants.includes(:badge).to_a %>
+    <% if grants.any? %>
+      <ul class="list-group mb-3">
+        <% grants.each do |grant| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id grant %>">
+            <span><%= grant.badge.name %>: <%= grant.read? ? "can see responses" : "can see and fill in responses" %></span>
+            <% if admin %>
+              <%= button_to "Remove", form_badge_grant_path(@form, grant), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline" %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% elsif !admin %>
+      <p>None.</p>
+    <% end %>
+    <% if admin %>
+      <% grantable = Badge.added_by_admin.where.not(id: grants.map(&:badge_id)).order(:name) %>
+      <% if grantable.any? %>
+        <%= simple_form_for FormBadgeGrant.new, url: form_badge_grants_path(@form) do |g| %>
+          <div class="input-group">
+            <%= g.select :badge_id, grantable.map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge…" }, class: "form-select", required: true %>
+            <%= g.select :access, [ [ "Can see responses", "read" ], [ "Can see and fill in", "respond" ] ], {}, class: "form-select" %>
+            <%= g.button :submit, "Add", class: "btn btn-secondary" %>
+          </div>
+        <% end %>
+      <% else %>
+        <div class="form-text">No badges can grant access. Only badges that admins assign can.</div>
+      <% end %>
+    <% else %>
+      <div class="form-text">Only admins can change these.</div>
+    <% end %>
+  </div>
+</div>
+
