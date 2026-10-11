@@ -30,11 +30,20 @@ class RosterSignupsController < InternalController
     @override_rules = values[:override_rules] == "1"
     @signup = Signup.new(signup_slot: slot, person: person, on_behalf_of: on_behalf_of, **values.slice(*DETAILS).to_h.symbolize_keys)
     authorize @signup, :place?
-    authorize @signup, :override? if @override_rules && person
 
     if person.nil?
       @signup.errors.add(:person, "must be someone the sheet is open to")
       return render :new, status: :unprocessable_entity
+    end
+
+    # The box only matters when a rule fails; then the no-self rule applies.
+    if @override_rules
+      if slot.signup_position.eligible?(person, slot.event)
+        @override_rules = false
+      elsif !policy(@signup).override?
+        @signup.errors.add(:base, policy(@signup).self_approval_reason || "You can't place someone against a rule")
+        return render :new, status: :unprocessable_entity
+      end
     end
 
     begin
