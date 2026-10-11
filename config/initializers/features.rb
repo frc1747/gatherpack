@@ -109,6 +109,20 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :forms,
+      label: "Forms",
+      description: "Collect information, consent, and event plans from members and their families",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 27,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Forms", path: :forms_path, icon: "file-signature")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :tokens,
       label: "Tokens",
       description: "Manage RFID and access tokens for members",
