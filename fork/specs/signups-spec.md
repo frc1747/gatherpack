@@ -1,6 +1,8 @@
 # Spec: Sign-up Sheets and Commitments
 
-Status: draft rev. 7, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+Status: draft rev. 8, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+
+Rev. 8: no extra people. Every place is one sign-up for one person in GatherPack; someone who isn't in GatherPack joins before they can work. Two people working together are two sign-ups, and the signer can make the second for the other person when the sheet allows it (decision 3).
 
 Rev. 7: a position has one rule per kind, and badge and team rules are "any of" lists (§3.3). Phase 1 is built on `feature/signups`.
 
@@ -27,7 +29,7 @@ Adding a use case is configuration, or an additive extension: a new eligibility 
 
 | Use case | Verdict | How |
 |---|---|---|
-| Staffing a stand at a series of games: positions with caps, a license badge, age bands, couples taking two places, working on another family's behalf | Fits | Positions, badge and age rules, extra people, on behalf of |
+| Staffing a stand at a series of games: positions with caps, a license badge, age bands, couples taking two places, working on another family's behalf | Fits | Positions, badge and age rules, one sign-up per person, on behalf of |
 | Supervised work sessions where 3 sessions are worth 1 shift, optionally only up to a limit | Fits | Sign-up source with a ratio and an optional cap |
 | A quota met by attending events, many of which have no sign-up | Fits | Check-in source |
 | Household quotas (2 for the first child, 1 for each sibling) | Fits | Grouping and base + per-member amounts |
@@ -53,7 +55,7 @@ Adding a use case is configuration, or an additive extension: a new eligibility 
 | Sheet | Sign-ups | A set of positions offered at a set of Events, with an audience, organizers and settings |
 | Position | Sign-ups | Something a sheet asks for: people to work ("Cashier") or items to bring ("Main dish"), with a default cap and eligibility rules |
 | Slot | Sign-ups | One position at one event. The thing people take. |
-| Sign-up | Sign-ups | A person in a slot, plus any extra people with them, possibly on behalf of someone else |
+| Sign-up | Sign-ups | One person in a slot, possibly on behalf of someone else |
 | Eligibility rule | Sign-ups | A test a person must pass to take a position |
 | Organizer | Both | A person who runs a particular sheet or commitment without being an admin or team manager |
 | Commitment | Commitments | Who owes, how much, over what period, and which sources count |
@@ -75,9 +77,9 @@ The badge as output matters: the Eligibility Report, the kiosk reminders widget 
 
   A position with no cap takes any number.
 - **Slot.** One position at one event. Created for every position × event on the sheet. A slot can override the cap or be turned off for one event.
-- **Sign-up.** Fields: `person` (who takes the place, or brings the items), `signed_up_by`, `on_behalf_of` (§3.2), `extra_people` (count) and `extra_names` (text) for people positions, `quantity` for item positions, `answer` (to the position's question), `note`, `status` (`active`, `cancelled`, `fulfilled`, `no_show`). For items, `fulfilled` reads "Brought" and `no_show` reads "Not brought".
+- **Sign-up.** Fields: `person` (who takes the place, or brings the items), `signed_up_by`, `on_behalf_of` (§3.2), `quantity` for item positions, `answer` (to the position's question), `note`, `status` (`active`, `cancelled`, `fulfilled`, `no_show`). For items, `fulfilled` reads "Brought" and `no_show` reads "Not brought".
 
-A sign-up uses `1 + extra_people` places, or `quantity` units, of its slot. A slot is full when its active and fulfilled sign-ups use its whole cap.
+A sign-up uses one place, or `quantity` units, of its slot. A slot is full when its active and fulfilled sign-ups use its whole cap.
 
 ### 3.2 Who a sign-up is for
 
@@ -117,7 +119,7 @@ Sheets staff Events. Every slot is at an Event; sign-ups with no event are a non
 - **Add dates** on a sheet creates Events in bulk for the sheet's team: a list of dates, each with start and end time, name, location, and one event type chosen for the sheet. It can also attach existing Events.
 - **Unknown times.** `events.start_time` is required. A date whose time isn't known yet is entered as 00:00–23:59 and given its real time later; changing it notifies everyone signed up (§3.7). Sign-ups has no TBA of its own (decision 11).
 - **Event page panel.** The event page shows a Sign-ups panel: positions, places or quantities filled, and names (to people allowed to see them).
-- **Check-in means showed up.** When someone checks in to an event, their active sign-ups to people positions at that event become `fulfilled`. Extra people have no record to check in, so an organizer marks the sign-up fulfilled from the roster. After the event ends, an organizer can mark any sign-up `no_show`. A check-in never creates a sign-up.
+- **Check-in means showed up.** When someone checks in to an event, their active sign-ups to people positions at that event become `fulfilled`. After the event ends, an organizer can mark any sign-up `no_show`. A check-in never creates a sign-up.
 - **Items are marked by an organizer.** Bringing food doesn't mean staying, so a check-in doesn't fulfil item sign-ups. The roster has **Mark all brought** for an event's items, then the organizer marks the exceptions Not brought (decision 16) Mark all brought skips the organizer's own and their relatives' sign-ups, which another organizer marks (§3.6).
 
 ### 3.6 Organizers
@@ -145,14 +147,14 @@ Reuse the mailer and the forms reminders pattern: confirmation on sign-up (to th
 **Member: take a place.**
 1. **Sheets** (under Events in the menu) lists open sheets the person can sign up for, with their own sign-ups first.
 2. The **sheet page** lists dates; each date lists positions with "n of m filled" (people) or "4 of 6 pizzas" (items), names and answers ("Cheese, 2") if visible, and **Sign up**. A position the person can't take says why instead. **My sign-ups** is at the top, with **Change** and **Cancel**.
-3. The **sign up dialog** asks who takes the place (if the sheet allows others), on behalf of (if allowed), then extra people with names (people positions) or how many, up to what's still needed (item positions), the position's question if it has one, and a note. Other features can add hints here (§3.9).
+3. The **sign up dialog** asks who takes the place (if the sheet allows others), on behalf of (if allowed), then how many, up to what's still needed (item positions), the position's question if it has one, and a note. Other features can add hints here (§3.9).
 4. Members can cancel until the sheet's cut-off (default: the event's start). After that only organizers can.
 
 **Organizer: run a sheet.**
 1. Create the sheet: team, audience, description, contact.
 2. Add positions and their rules, then Add dates. Slots appear for every position × date; adjust caps or turn slots off in a grid.
-3. Open it. Watch the **roster**: one table per sheet (date, position, person, extra people or quantity, answer, on behalf of, note, status) with filters and print (shared report print CSS). Add, move and cancel sign-ups; send notices.
-4. After each event: check-ins fulfil people sign-ups automatically; mark extra-people sign-ups fulfilled and absences no-show; Mark all brought for items, then mark what didn't come.
+3. Open it. Watch the **roster**: one table per sheet (date, position, person, quantity, answer, on behalf of, note, status) with filters and print (shared report print CSS). Add, move and cancel sign-ups; send notices.
+4. After each event: check-ins fulfil people sign-ups automatically; mark absences no-show; Mark all brought for items, then mark what didn't come.
 5. Close, then archive.
 
 ### 3.9 Seams this layer offers
@@ -176,7 +178,7 @@ New tables (upstream naming):
 | `signup_positions` | `signup_sheet_id`, `name`, `description`, `kind` (`people`, `items`), `unit`, `capacity` (null = no cap), `question`, `question_required`, `position` |
 | `signup_position_rules` | `signup_position_id`, `kind` (`badge`, `age`, `team`; one per position), `badge_ids` (array), `min_age`, `max_age`, `team_ids` (array) |
 | `signup_slots` | `signup_position_id`, `event_id`, `capacity` (null = position default), `disabled` |
-| `signups` | `signup_slot_id`, `person_id`, `signed_up_by_id`, `on_behalf_of_id`, `extra_people`, `extra_names`, `quantity`, `answer`, `note`, `status` |
+| `signups` | `signup_slot_id`, `person_id`, `signed_up_by_id`, `on_behalf_of_id`, `quantity`, `answer`, `note`, `status` |
 
 Slot fill is checked inside a row lock on the slot, so two people can't take the last place at once.
 
@@ -217,7 +219,7 @@ Kinds in v1:
 | Kind | Branch | Subject | Records |
 |---|---|---|---|
 | Check-ins | `feature/commitments` | An event type, on events of the commitment's team or below | One per check-in, confirmed, quantity 1, to the person checked in. Dedupe key: the event. |
-| Sign-ups | `feature/signup-credit` | A sheet, or one position on it | One per sign-up, to the on-behalf-of person. Quantity: places used (`1 + extra_people`) for people positions; 1 for item positions, since bringing 3 pizzas is one contribution. Active is planned, fulfilled is confirmed; cancelled and no-show produce nothing. Dedupe key: the event. |
+| Sign-ups | `feature/signup-credit` | A sheet, or one position on it | One per sign-up, to the on-behalf-of person. Quantity: 1 for people positions, and 1 for item positions, since bringing 3 pizzas is one contribution. Active is planned, fulfilled is confirmed; cancelled and no-show produce nothing. Dedupe key: the event. |
 
 Adjustments aren't a source kind; they're added after sources and don't count toward source caps.
 
@@ -280,7 +282,7 @@ The hardcoded catalog is BL-014's drift problem; these follow the current patter
 
 ## 6. Sample data and tests
 
-- `fork/sample_data/features/signups.rb`: a Northwind sheet with a few events, positions with a badge rule and an age rule, sign-ups with extra people, one on behalf of another person, one full slot, one fulfilled by check-in, one event at 00:00–23:59 whose time is set later. A lunch with item positions (one capped in a unit, one uncapped, one with a required question) and a people position for servers, with items brought and not brought.
+- `fork/sample_data/features/signups.rb`: a Northwind sheet with a few events, positions with a badge rule and an age rule, a couple as two sign-ups, one on behalf of another person, one full slot, one fulfilled by check-in, one event at 00:00–23:59 whose time is set later. A lunch with item positions (one capped in a unit, one uncapped, one with a required question) and a people position for servers, with items brought and not brought.
 - `fork/sample_data/features/commitments.rb`: a grouped commitment with a capped check-in source and an adjustment; groups met, partial and empty. A per-person commitment counted from check-ins.
 - `fork/sample_data/features/signup-credit.rb`: a sheet feeding the grouped commitment above a check-in source, showing dedupe.
 - Model tests: slot fill under concurrency, for places and for quantities; each rule kind on the event date; ratio and cap arithmetic; dedupe across sources; group formation (direct, chain, single); badge grant and removal; an unregistered kind. System test for the sign up dialog.
@@ -301,12 +303,12 @@ Settled 2026-10-11 unless marked otherwise. Decisions about one organization's s
 
 1. **Two layers.** `feature/signups` from `upstream/main`, upstreamable, upstream naming, no `Hbr::`.
 2. **Three branches.** Commitments doesn't depend on sign-ups; `feature/signup-credit` joins them (§4.8). Replaces "commitments depends on signups".
-3. **No public sign-ups.** Only people in GatherPack sign up; they can add extra people by name. Organizers can add a named outsider to a sign-up they make.
+3. **No public sign-ups, no extra people.** Only people in GatherPack take places, one sign-up each, so rules and badges are checked for everyone who works. Someone not in GatherPack joins first. A person signs up someone else through the sheet's sign up others setting (§3.2) or an organizer does it (rev. 8; replaces extra people and named outsiders).
 4. **Rules block members, organizers override**, with the roster flagging the override.
 5. **On behalf of** is a sign-up field with its own meaning (§3.2); commitments credit it.
 6. **Paired positions** (default). When one role must also take a place in another, the instruction goes in the position description and the person signs up twice. Add an "also takes a place in" option only if this proves a problem.
 7. **Check-in callback from an initializer** (default), not an edit to upstream `checkin.rb`.
-8. **Extra people don't check in** (default). Organizers mark the sign-up fulfilled.
+8. *(Removed in rev. 8: there are no extra people.)*
 9. **Organizers are specific people with a badge**, never team managers created for the purpose.
 10. **Organizers see only their own sheets' and commitments' people**: names, pass/fail on rules, and progress. No profiles, birthdays or contact details.
 11. **No Time TBA in sign-ups.** Events with no known time are entered as 00:00–23:59 for now. TBA and all-day events belong to Events, not sign-ups, and are backlog item BL-017.
