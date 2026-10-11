@@ -1,0 +1,34 @@
+<div class="card mb-3" id="sources">
+  <div class="card-header">
+    <h3 class="h5 mb-0">What counts</h3>
+  </div>
+  <div class="card-body">
+    <p>Credit comes from these sources, in this order. When two sources credit someone for the same event, only the first counts.</p>
+    <% sources = @commitment.commitment_sources.includes(:subject).to_a %>
+    <% if sources.any? %>
+      <ul class="list-group mb-3">
+        <% sources.each do |source| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2" id="<%= dom_id source %>">
+            <span>
+              <%= source.position %>. <%= source.label %>
+              <span class="small text-body-secondary">
+                · <%= source.ratio_text %><%= " · at most #{source.max_credits} each" if source.max_credits %>
+                <%= " · this kind isn't installed, so it counts nothing" unless source.available? %>
+              </span>
+            </span>
+            <span>
+              <%= link_to "Edit", edit_commitment_commitment_source_path(@commitment, source), class: "btn btn-sm btn-warning" if source.available? %>
+              <%= button_to "Remove", commitment_commitment_source_path(@commitment, source), method: :delete,
+                    class: "btn btn-sm btn-outline-danger", form_class: "d-inline", data: { turbo_confirm: "Remove this source?" } %>
+            </span>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-body-secondary">Nothing counts yet.</p>
+    <% end %>
+    <% Commitments.source_kinds.each do |kind, klass| %>
+      <%= link_to "Add #{klass.label.downcase}", new_commitment_commitment_source_path(@commitment, kind: kind), class: "btn btn-secondary" %>
+    <% end %>
+  </div>
+</div>
