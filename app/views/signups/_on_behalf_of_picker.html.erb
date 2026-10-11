@@ -1,0 +1,37 @@
+<%# Type-to-search for sheets open to anyone, so the page never lists the
+    whole audience. Without JavaScript, Find shows the matches as choices. %>
+<% picked = signup.on_behalf_of unless signup.on_behalf_of_id == signup.person_id %>
+<fieldset class="mb-3" id="on_behalf_of_picker">
+  <legend class="form-label fs-6">Who is it on behalf of?</legend>
+  <%# Starts empty when the sign-up is for whoever takes the place. %>
+  <%= fields_for :signup, Struct.new(:on_behalf_of_id, :on_behalf_of).new(picked&.id, picked) do |picker| %>
+    <%= picker.combobox :on_behalf_of_id, new_signup_sheet_signup_path(@signup_sheet, slot_id: slot.id),
+          placeholder: "Type a name", aria: { label: "Who is it on behalf of?" } %>
+  <% end %>
+  <div class="form-text">Leave empty unless you're taking the place for someone else.</div>
+
+  <noscript>
+    <div class="input-group mt-2">
+      <%= text_field_tag :on_behalf_of_search, params[:on_behalf_of_search], class: "form-control", autocomplete: "off",
+            placeholder: "Type at least 2 letters of a name", aria: { label: "Search for who it's on behalf of" } %>
+      <%= button_tag "Find", name: "find", value: "1", class: "btn btn-outline-secondary" %>
+    </div>
+    <% if @on_behalf_of_matches %>
+      <div class="mt-2">
+        <div class="form-check form-check-inline">
+          <%= radio_button_tag "signup[on_behalf_of_id]", "", picked.nil?, class: "form-check-input", id: "on_behalf_of_whoever" %>
+          <%= label_tag "on_behalf_of_whoever", "Whoever takes the place", class: "form-check-label" %>
+        </div>
+        <% ([ picked ].compact + @on_behalf_of_matches).uniq.each do |someone| %>
+          <div class="form-check form-check-inline">
+            <%= radio_button_tag "signup[on_behalf_of_id]", someone.id, someone == picked, class: "form-check-input", id: "on_behalf_of_#{someone.id}" %>
+            <%= label_tag "on_behalf_of_#{someone.id}", someone.identifier_name, class: "form-check-label" %>
+          </div>
+        <% end %>
+        <% if @on_behalf_of_matches.empty? %>
+          <div class="form-text">No one found. Type at least 2 letters of a name.</div>
+        <% end %>
+      </div>
+    <% end %>
+  </noscript>
+</fieldset>

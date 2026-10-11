@@ -12,15 +12,25 @@ class SignupsController < InternalController
     @slot = find_slot(params[:slot_id])
     @signup = Signup.new(signup_slot: @slot, person: default_taker, signed_up_by: signer)
     authorize @signup, :create?
+
+    respond_to do |format|
+      format.html
+      # The on-behalf-of picker's type-to-search results.
+      format.turbo_stream { @on_behalf_of_matches = on_behalf_of_matches(params[:q], @signup.person) }
+    end
   end
 
   # POST /signup_sheets/1/signups
   def create
     @slot = find_slot(params.dig(:signup, :signup_slot_id))
     taker = chosen_person(:person_id) || default_taker
-    authorize Signup.new(signup_slot: @slot, person: taker, signed_up_by: signer), :create?
+    on_behalf_of = chosen_person(:on_behalf_of_id) || taker
+    @signup = authorize Signup.new(signup_slot: @slot, person: taker, signed_up_by: signer, on_behalf_of: on_behalf_of, **detail_params), :create?
+    return render_search(:new) if params[:find].present?
 
-    @signup = Signup.place!(slot: @slot, person: taker, signed_up_by: signer, on_behalf_of: chosen_person(:on_behalf_of_id), **detail_params)
+    check_choices!(@signup)
+
+    @signup = Signup.place!(slot: @slot, person: taker, signed_up_by: signer, on_behalf_of: on_behalf_of, **detail_params)
     redirect_to signup_sheet_path(@signup_sheet), notice: "You're signed up for #{@slot.signup_position.name}.", status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     @signup = e.record
@@ -35,8 +45,16 @@ class SignupsController < InternalController
   def update
     changes = detail_params
     changes[:person] = chosen_person(:person_id) if signup_params[:person_id].present?
-    changes[:on_behalf_of] = chosen_person(:on_behalf_of_id) if signup_params.key?(:on_behalf_of_id)
+    if signup_params.key?(:on_behalf_of_id)
+      changes[:on_behalf_of] = chosen_person(:on_behalf_of_id) || changes[:person] || @signup.person
+    elsif changes[:person] && changes[:person] != @signup.person
+      changes[:on_behalf_of] = changes[:person]
+    end
 
+    @signup.assign_attributes(changes)
+    return render_search(:edit) if params[:find].present?
+
+    check_choices!(@signup)
     @signup.change!(by: signer, **changes)
     redirect_to signup_sheet_path(@signup_sheet), notice: "Your sign-up was changed.", status: :see_other
   rescue ActiveRecord::RecordInvalid
@@ -87,6 +105,39 @@ class SignupsController < InternalController
         ids = taker_choices.flat_map { |taker| @signup_sheet.on_behalf_of_choices_for(signer, taker).ids }
         Person.where(id: ids).order(:last_name, :first_name).to_a
       end
+    end
+
+    # The member pages only take people the signer could sign up themselves,
+    # organizers included (Signup.place! lets organizers place anyone; they
+    # do that from the roster). Raises ActiveRecord::RecordInvalid with the
+    # reason.
+    def check_choices!(signup)
+      new_taker = signup.new_record? || signup.person_id_changed?
+      problems = []
+      problems << "You can't sign up #{signup.person.identifier_name} on this sheet" if new_taker && taker_choices.exclude?(signup.person)
+      if (new_taker || signup.on_behalf_of_id_changed?) && !@signup_sheet.on_behalf_of_choices_for(signer, signup.person).exists?(id: signup.on_behalf_of_id)
+        problems << "You can't sign up on behalf of #{signup.on_behalf_of.identifier_name}"
+      end
+      problems.each { |problem| signup.errors.add(:base, problem) }
+      raise ActiveRecord::RecordInvalid, signup if problems.any?
+    end
+
+    # People the sign-up could be on behalf of whose names match what was
+    # typed, a few letters at least, for the picker on sheets open to anyone.
+    def on_behalf_of_matches(query, taker)
+      query = query.to_s.strip
+      return Person.none if query.length < 2
+
+      @signup_sheet.on_behalf_of_choices_for(signer, taker)
+        .ransack(first_name_or_last_name_or_display_name_cont: query).result
+        .order(:last_name, :first_name).limit(10)
+    end
+
+    # Without JavaScript the picker is a plain search: Find shows the form
+    # again with the matches to choose from, saving nothing.
+    def render_search(template)
+      @on_behalf_of_matches = on_behalf_of_matches(params[:on_behalf_of_search], @signup.person).to_a
+      render template
     end
 
     def chosen_person(key)
