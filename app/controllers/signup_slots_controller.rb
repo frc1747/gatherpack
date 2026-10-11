@@ -5,6 +5,8 @@ class SignupSlotsController < InternalController
   # The grid: a row per date, a column per position.
   def index
     authorize @signup_sheet, :manage?
+    # One sheet's slots, covered by the sheet check above; nothing to scope.
+    skip_policy_scope
     @events = @signup_sheet.events.order(:start_time)
     @positions = @signup_sheet.signup_positions.to_a
     @slots = sheet_slots.index_by { |slot| [ slot.event_id, slot.signup_position_id ] }
