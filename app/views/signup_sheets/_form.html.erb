@@ -13,7 +13,9 @@
   </div>
 
   <%= f.input :description, label: "Instructions", input_html: { rows: 4 }, hint: "Shown at the top of the sheet. Markdown works." %>
-  <%= f.input :contact, hint: "Who to ask about this sheet, for example a name and email." %>
+  <%# Not a login: keep password managers from offering credentials here. %>
+  <%= f.input :contact, hint: "Who to ask about this sheet, for example a name and email.",
+        input_html: { autocomplete: "off", data: { bwignore: true } } %>
 
   <div class="row">
     <div class="col-12 col-md-4">

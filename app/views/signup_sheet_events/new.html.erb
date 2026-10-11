@@ -1,6 +1,5 @@
 <% breadcrumb @signup_sheet %>
 
-<%= form_with url: signup_sheet_signup_sheet_events_path(@signup_sheet) do |f| %>
 <div class="card">
   <div class="card-header">
     <h1>Add dates to <%= @signup_sheet.title %></h1>
@@ -10,24 +9,42 @@
       Tick the events people should sign up for. These are the upcoming events of <%= @signup_sheet.team.name %> and the teams below it.
       To add a date that isn't listed, make the event on the <%= link_to "Events", events_path %> page first.
     </p>
-    <% if @events.any? %>
-      <% @events.each do |event| %>
-        <div class="form-check">
-          <%= check_box_tag "event_ids[]", event.id, false, id: dom_id(event, :attach), class: "form-check-input" %>
-          <%= label_tag dom_id(event, :attach), class: "form-check-label" do %>
-            <%= event.start_time.strftime("%a %b %-d, %Y %-l:%M %p") %>
-            <strong><%= event.name %></strong><%= ", #{event.location}" if event.location.present? %>
-            <span class="text-body-secondary">(<%= event.team&.name %>)</span>
-          <% end %>
+    <% if @event_types.many? %>
+      <%= form_with url: new_signup_sheet_signup_sheet_event_path(@signup_sheet), method: :get, class: "row g-2 align-items-end mb-3" do |f| %>
+        <div class="col-md-4">
+          <%= f.label :event_type_id, "Event type", class: "form-label" %>
+          <%= f.select :event_type_id, @event_types.map { |type| [ type.name, type.id ] },
+                { include_blank: "All event types", selected: params[:event_type_id] }, class: "form-select" %>
+        </div>
+        <div class="col-auto">
+          <%= f.submit "Filter", name: nil, class: "btn btn-secondary" %>
+          <%= link_to "Clear", new_signup_sheet_signup_sheet_event_path(@signup_sheet), class: "btn btn-link" if params[:event_type_id].present? %>
         </div>
       <% end %>
-    <% else %>
-      <p class="text-warning-emphasis">No upcoming events to add.</p>
     <% end %>
   </div>
-  <div class="card-footer">
-    <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, anchor: "dates"), class: "btn btn-warning" %>
-    <%= f.submit "Add dates", class: "btn btn-primary" if @events.any? %>
-  </div>
+  <%= form_with url: signup_sheet_signup_sheet_events_path(@signup_sheet) do |f| %>
+    <div class="card-body pt-0">
+      <% if @events.any? %>
+        <% @events.each do |event| %>
+          <div class="form-check">
+            <%= check_box_tag "event_ids[]", event.id, false, id: dom_id(event, :attach), class: "form-check-input" %>
+            <%= label_tag dom_id(event, :attach), class: "form-check-label" do %>
+              <%= event.start_time.strftime("%a %b %-d, %Y %-l:%M %p") %>
+              <strong><%= event.name %></strong><%= ", #{event.location}" if event.location.present? %>
+              <span class="text-body-secondary">(<%= [ event.event_type&.name, event.team&.name ].compact.join(", ") %>)</span>
+            <% end %>
+          </div>
+        <% end %>
+      <% elsif params[:event_type_id].present? %>
+        <p class="text-warning-emphasis">No upcoming events of this type to add.</p>
+      <% else %>
+        <p class="text-warning-emphasis">No upcoming events to add.</p>
+      <% end %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, anchor: "dates"), class: "btn btn-warning" %>
+      <%= f.submit "Add dates", class: "btn btn-primary" if @events.any? %>
+    </div>
+  <% end %>
 </div>
-<% end %>
