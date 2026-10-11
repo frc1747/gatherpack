@@ -125,7 +125,5 @@ class Settings
 
     add_setting(:shirt_sizes, :string, "Shirt Sizes", "Youth S, Youth M, Youth L, S, M, L, XL, XXL, 3XL, 4XL", "People", "Comma-separated list of valid shirt sizes")
     add_setting(:gender_options, :string, "Gender Options", "M, F, X", "People", "Comma-separated list of valid gender options")
-
-    add_setting(:signups_organizers, :text, "Sign-up Sheet Organizers", "", "Sign-ups", "Who may create and run sign-up sheets without managing a team. One per line, as Badge name > Highest team name. Holders of the badge (one only admins assign) can run sheets for the teams they belong to at or below that team, and the teams below their own. Leave out \"> Highest team name\" to allow only the teams they're directly in and the teams below those")
   end
 end
