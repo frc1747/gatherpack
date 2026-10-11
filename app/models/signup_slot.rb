@@ -28,12 +28,12 @@ class SignupSlot < ApplicationRecord
     capacity || signup_position.capacity
   end
 
-  # Places (1 + extra people) or quantity used by active and fulfilled
+  # Places or quantity used by active and fulfilled
   # sign-ups, leaving out one sign-up (the one being changed) if given.
   def used(excluding: nil)
     counted = signups.counted
     counted = counted.where.not(id: excluding.id) if excluding&.persisted?
-    items? ? counted.sum(:quantity) : counted.sum("1 + extra_people")
+    items? ? counted.sum(:quantity) : counted.count
   end
 
   def remaining(excluding: nil)

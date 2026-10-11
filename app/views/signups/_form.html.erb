@@ -32,16 +32,6 @@
         <%= f.input :quantity, label: "How many #{position.unit_label}?", required: true,
               input_html: { min: 1, max: remaining },
               hint: remaining ? "#{remaining} still needed." : nil %>
-      <% else %>
-        <div class="row">
-          <div class="col-12 col-md-4">
-            <%= f.input :extra_people, label: "Anyone coming with you?", input_html: { min: 0, max: remaining && [ remaining - 1, 0 ].max },
-                  required: false, hint: "How many people besides the person taking the place." %>
-          </div>
-          <div class="col-12 col-md-8">
-            <%= f.input :extra_names, label: "Their names", required: false %>
-          </div>
-        </div>
       <% end %>
 
       <% if position.question.present? %>

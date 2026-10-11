@@ -56,16 +56,16 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name='signup[on_behalf_of_id]']", count: 0
 
     assert_difference "Signup.count" do
-      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, extra_people: 1, extra_names: "Sam", note: "Late" } }
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, note: "Late" } }
     end
     assert_redirected_to signup_sheet_path(@sheet)
     signup = Signup.find_by!(signup_slot: @slot, person: person(:student))
     assert_equal [ person(:student) ] * 3, [ signup.person, signup.signed_up_by, signup.on_behalf_of ]
-    assert_equal [ 1, "Sam", "Late" ], [ signup.extra_people, signup.extra_names, signup.note ]
+    assert_equal "Late", signup.note
 
     get signup_sheet_path(@sheet)
     assert_select "#my_signups", text: /Cashier/
-    assert_select "##{ActionView::RecordIdentifier.dom_id(@slot)}", text: /2 of 3 filled.*Student World \(\+1\)/m
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@slot)}", text: /1 of 3 filled.*Student World/m
   end
 
   test "a parent signs up their child when the sheet allows it, and not otherwise" do
@@ -210,10 +210,11 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     signup = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:student))
     sign_in person(:student).user
 
-    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { extra_people: 5 } }, headers: TURBO_ACCEPT
+    @slot.signup_position.update!(question: "Shirt size?", question_required: true)
+    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { answer: "" } }, headers: TURBO_ACCEPT
     assert_response :unprocessable_entity
     assert_equal "text/html", response.media_type
-    assert_select ".alert", text: /Only 3 places left/
+    assert_select ".alert", text: /Shirt size/
   end
 
   test "a member changes their sign-up" do
@@ -222,14 +223,9 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
 
     get edit_signup_sheet_signup_path(@sheet, signup)
     assert_response :success
-    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { extra_people: 1, extra_names: "Sam", note: "Bringing a friend" } }
+    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { note: "Running late" } }
     assert_redirected_to signup_sheet_path(@sheet)
-    assert_equal [ 1, "Sam", "Bringing a friend" ], signup.reload.slice(:extra_people, :extra_names, :note).values
-
-    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { extra_people: 5 } }
-    assert_response :unprocessable_entity
-    assert_select ".alert", text: /Only 3 places left/
-    assert_equal 1, signup.reload.extra_people
+    assert_equal "Running late", signup.reload.note
   end
 
   test "a member cancels before the cutoff, and not after" do

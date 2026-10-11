@@ -26,7 +26,7 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
   test "an organizer sees the roster with names, details and filters" do
     second = create_world_event("Second Game", Time.zone.parse("2026-10-31 10:00"))
     @sheet.signup_sheet_events.create!(event: second)
-    place(@cashier, :student, extra_people: 2, extra_names: "Sam, Alex", note: "Leaves early", answer: "Yes")
+    place(@cashier, :student, note: "Leaves early", answer: "Yes")
     place(@cashier, :student2, event: second)
     cancelled = place(@cashier, :parent)
     cancelled.cancel!
@@ -35,7 +35,6 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
     get roster_signup_sheet_path(@sheet)
     assert_response :success
     assert_select "#roster tbody tr", count: 3
-    assert_select "td", text: "2 extra: Sam, Alex"
     assert_select "td", text: "Leaves early"
     assert_select "button[data-controller=print][data-action=?]", "print#print", text: "Print"
     assert_select "td", text: person(:student).birthday.to_s, count: 0
@@ -147,9 +146,9 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
 
     get edit_signup_sheet_roster_signup_path(@sheet, signup)
     assert_response :success
-    patch signup_sheet_roster_signup_path(@sheet, signup), params: { signup: { extra_people: "1", extra_names: "Sam", note: "Late" } }
+    patch signup_sheet_roster_signup_path(@sheet, signup), params: { signup: { note: "Late" } }
     assert_redirected_to roster_signup_sheet_path(@sheet)
-    assert_equal [ 1, "Sam", "Late" ], signup.reload.values_at(:extra_people, :extra_names, :note)
+    assert_equal "Late", signup.reload.note
 
     patch move_signup_sheet_roster_signup_path(@sheet, signup), params: { signup: { signup_slot_id: slot_for(@bar).id } }
     assert_response :unprocessable_entity

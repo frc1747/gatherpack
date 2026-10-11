@@ -11,16 +11,14 @@ class SignupTest < ActiveSupport::TestCase
     @pizza = @sheet.signup_positions.create!(name: "Pizza", kind: :items, unit: "pizzas", capacity: 6)
   end
 
-  test "a people sign-up uses 1 + extra people places" do
+  test "each people sign-up uses one place" do
     slot = slot_for(@cashier)
-    Signup.place!(slot: slot, person: person(:student), signed_up_by: person(:student), extra_people: 1, extra_names: "Grandma")
+    slot.update!(capacity: 2)
+    Signup.place!(slot: slot, person: person(:student), signed_up_by: person(:student))
 
-    assert_equal 2, slot.used
+    assert_equal 1, slot.used
     assert_equal 1, slot.remaining
     assert_not slot.full?
-
-    error = assert_raises(ActiveRecord::RecordInvalid) { place(slot, :student2, extra_people: 1) }
-    assert_match "Only 1 place left", error.message
 
     place(slot, :student2)
     assert slot.full?
@@ -37,8 +35,6 @@ class SignupTest < ActiveSupport::TestCase
 
     error = assert_raises(ActiveRecord::RecordInvalid) { place(slot, :student2) }
     assert_match "Quantity is needed", error.message
-    error = assert_raises(ActiveRecord::RecordInvalid) { place(slot, :student2, quantity: 1, extra_people: 1) }
-    assert_match "only for people positions", error.message
     error = assert_raises(ActiveRecord::RecordInvalid) { place(slot_for(@cashier), :student2, quantity: 1) }
     assert_match "only for item positions", error.message
 
@@ -48,7 +44,8 @@ class SignupTest < ActiveSupport::TestCase
 
   test "cancelled and no-show sign-ups don't use the slot" do
     slot = slot_for(@cashier)
-    first = place(slot, :student, extra_people: 2)
+    slot.update!(capacity: 1)
+    first = place(slot, :student)
     assert slot.full?
 
     first.cancel!
@@ -61,7 +58,9 @@ class SignupTest < ActiveSupport::TestCase
   test "a position with no cap takes any number" do
     @cashier.update!(capacity: nil)
     slot = slot_for(@cashier)
-    place(slot, :student, extra_people: 50)
+    place(slot, :student)
+    place(slot, :student2)
+    place(slot, :worker)
 
     assert_nil slot.capacity_value
     assert_nil slot.remaining
@@ -81,13 +80,12 @@ class SignupTest < ActiveSupport::TestCase
 
   test "an edit leaves out the sign-up's own usage" do
     slot = slot_for(@cashier)
-    signup = place(slot, :student, extra_people: 1)
+    slot.update!(capacity: 2)
+    signup = place(slot, :student)
     place(slot, :student2)
 
-    signup.change!(by: person(:student), extra_people: 1, note: "Same size")
-    assert_equal "Same size", signup.reload.note
-    error = assert_raises(ActiveRecord::RecordInvalid) { signup.change!(by: person(:student), extra_people: 2) }
-    assert_match "Only 2 places left", error.message
+    signup.change!(by: person(:student), note: "Same place")
+    assert_equal "Same place", signup.reload.note
 
     item = place(slot_for(@pizza), :student, quantity: 6)
     item.change!(by: person(:student), quantity: 5)
@@ -97,7 +95,8 @@ class SignupTest < ActiveSupport::TestCase
 
   test "an edit that doesn't grow a sign-up works on a slot over its cap" do
     slot = slot_for(@cashier)
-    signup = place(slot, :student, extra_people: 2)
+    signup = place(slot, :student)
+    place(slot, :student2)
     slot.update!(capacity: 1)
 
     signup.change!(by: person(:student), note: "Running late")
@@ -160,7 +159,8 @@ class SignupTest < ActiveSupport::TestCase
     second = create_world_event("Second Game", Time.zone.parse("2026-10-31 10:00"))
     @sheet.signup_sheet_events.create!(event: second)
     signup = place(slot_for(@cashier), :student)
-    place(slot_for(@cashier, second), :student2, extra_people: 2)
+    slot_for(@cashier, second).update!(capacity: 1)
+    place(slot_for(@cashier, second), :student2)
 
     error = assert_raises(ActiveRecord::RecordInvalid) { signup.change!(by: person(:admin), slot: slot_for(@cashier, second)) }
     assert_match "This slot is full", error.message
