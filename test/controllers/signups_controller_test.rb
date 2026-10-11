@@ -279,6 +279,21 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal person(:student), signup.on_behalf_of
   end
 
+  test "changing a sign-up keeps an on behalf of the editor couldn't have picked" do
+    @sheet.update!(others_relationship_type_ids: [ @parent_of.id, @sibling_of.id ], on_behalf_of_mode: :related_people)
+    Relationship.create!(parent: person(:student), child: person(:student2), relationship_type: @sibling_of, created_by: person(:admin))
+    signup = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:student), on_behalf_of: person(:student2))
+    sign_in person(:parent).user
+
+    get edit_signup_sheet_signup_path(@sheet, signup)
+    assert_select "input[type=radio][name='signup[on_behalf_of_id]'][value=?][checked]", person(:student2).id
+
+    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { on_behalf_of_id: person(:student2).id, note: "Running late" } }
+    assert_redirected_to signup_sheet_path(@sheet)
+    signup.reload
+    assert_equal [ person(:student2), "Running late" ], [ signup.on_behalf_of, signup.note ]
+  end
+
   test "changing who takes the place moves on behalf of to them too" do
     Membership.create!(person: person(:parent), team: @students)
     @sheet.update!(others_relationship_type_ids: [ @parent_of.id ])
