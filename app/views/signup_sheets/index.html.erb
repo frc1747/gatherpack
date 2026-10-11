@@ -11,17 +11,12 @@
           <tr>
             <th>Sheet</th>
             <th>Team</th>
-            <th>Status</th>
+            <th>Next date</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          <% @signup_sheets.each do |signup_sheet| %>
-            <tr id="<%= dom_id signup_sheet %>">
-              <td><%= link_to signup_sheet.title, signup_sheet %></td>
-              <td><%= signup_sheet.team.name %></td>
-              <td><%= signup_sheet.status.humanize %></td>
-            </tr>
-          <% end %>
+          <%= render partial: "sheet_row", collection: @signup_sheets, as: :signup_sheet %>
         </tbody>
       </table>
     <% else %>
