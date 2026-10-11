@@ -2,7 +2,7 @@
 # Organizers can't mark, move or place against a rule for themselves or a
 # relative (SignupPolicy).
 class RosterSignupsController < InternalController
-  DETAILS = %w[ extra_people extra_names quantity answer note ].freeze
+  DETAILS = %w[ quantity answer note ].freeze
 
   before_action :set_signup_sheet
   before_action :set_signup, only: %i[ edit update destroy mark move ]

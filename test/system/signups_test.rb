@@ -12,21 +12,19 @@ class SignupsTest < ApplicationSystemTestCase
     @sheet.signup_positions.create!(name: "Cashier", capacity: 3)
   end
 
-  test "a member signs up with an extra person, then cancels" do
+  test "a member signs up, then cancels" do
     sign_in person(:student).user
     visit signup_sheet_path(@sheet)
 
     click_on "Sign up"
-    fill_in "Anyone coming with you?", with: 1
-    fill_in "Their names", with: "Sam"
-    click_on "Sign up"
+    fill_in "Anything the organizers should know?", with: "Running late"
+    click_button "Sign up"
 
     assert_text "You're signed up for Cashier."
     within "#my_signups" do
       assert_text "Cashier"
-      assert_text "(+1)"
     end
-    assert_text "2 of 3 filled"
+    assert_text "1 of 3 filled"
 
     accept_confirm { click_on "Cancel" }
 

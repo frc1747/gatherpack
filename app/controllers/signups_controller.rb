@@ -145,20 +145,14 @@ class SignupsController < InternalController
       Person.find(id) if id.present?
     end
 
-    # The fields that fit the position's kind: extra people for people
-    # positions, a quantity for items.
+    # The fields that fit the position's kind: a quantity for items.
     def detail_params
       details = signup_params.slice(:answer, :note).to_h.symbolize_keys
-      if @slot.items?
-        details[:quantity] = signup_params[:quantity]
-      else
-        details[:extra_people] = signup_params[:extra_people].presence || 0
-        details[:extra_names] = details[:extra_people].to_i.positive? ? signup_params[:extra_names] : nil
-      end
+      details[:quantity] = signup_params[:quantity] if @slot.items?
       details
     end
 
     def signup_params
-      params.fetch(:signup, {}).permit(:signup_slot_id, :person_id, :on_behalf_of_id, :extra_people, :extra_names, :quantity, :answer, :note)
+      params.fetch(:signup, {}).permit(:signup_slot_id, :person_id, :on_behalf_of_id, :quantity, :answer, :note)
     end
 end

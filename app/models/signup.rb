@@ -1,5 +1,5 @@
-# A person in a slot. A people sign-up uses 1 + extra_people places; an item
-# sign-up uses its quantity. person takes the place (or brings the items),
+# A person in a slot. A people sign-up uses one place; an item sign-up uses
+# its quantity. person takes the place (or brings the items),
 # signed_up_by made the sign-up, and on_behalf_of is whose sign-up it counts
 # as (usually the person; see SignupSheet#on_behalf_of_choices_for).
 #
@@ -24,16 +24,15 @@ class Signup < ApplicationRecord
   # Sign-ups that still matter: everything but cancelled.
   scope :live, -> { where.not(status: :cancelled) }
 
-  validates :extra_people, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :quantity, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
-  validate :fits_position_kind, if: -> { new_record? || will_save_change_to_signup_slot_id? || will_save_change_to_quantity? || will_save_change_to_extra_people? }
+  validate :fits_position_kind, if: -> { new_record? || will_save_change_to_signup_slot_id? || will_save_change_to_quantity? }
 
   before_validation -> { self.on_behalf_of ||= person }
   after_update :run_status_hooks, if: :saved_change_to_status?
 
   delegate :signup_position, :signup_sheet, :event, to: :signup_slot
 
-  CHANGEABLE = %i[ person on_behalf_of extra_people extra_names quantity answer note ].freeze
+  CHANGEABLE = %i[ person on_behalf_of quantity answer note ].freeze
 
   def identifier_name
     "#{person&.display_name}: #{signup_slot&.identifier_name}"
@@ -41,16 +40,16 @@ class Signup < ApplicationRecord
 
   # Places or units this sign-up uses of its slot.
   def usage
-    signup_position.items? ? quantity.to_i : 1 + extra_people.to_i
+    signup_position.items? ? quantity.to_i : 1
   end
 
   # Signs a person up for a slot, or raises ActiveRecord::RecordInvalid with
   # the reasons it can't (the slot is full, a rule fails, ...). Organizers
   # may place anyone on a sheet that isn't archived, and with override_rules
   # against a failing rule, unless the person is themselves or a relative.
-  def self.place!(slot:, person:, signed_up_by:, on_behalf_of: nil, extra_people: 0, extra_names: nil, quantity: nil, answer: nil, note: nil, override_rules: false)
+  def self.place!(slot:, person:, signed_up_by:, on_behalf_of: nil, quantity: nil, answer: nil, note: nil, override_rules: false)
     signup = new(signup_slot: slot, person: person, signed_up_by: signed_up_by, on_behalf_of: on_behalf_of || person,
-      extra_people: extra_people.presence || 0, extra_names: extra_names, quantity: quantity.presence, answer: answer, note: note)
+      quantity: quantity.presence, answer: answer, note: note)
 
     transaction do
       slot.lock!
@@ -71,7 +70,6 @@ class Signup < ApplicationRecord
       self.signup_slot = slot
       assign_attributes(attributes)
       self.on_behalf_of ||= person
-      self.extra_people = 0 if extra_people.blank?
       self.quantity = quantity.presence
       check_placement!(by: by, override_rules: override_rules)
       save!
@@ -149,7 +147,7 @@ class Signup < ApplicationRecord
   end
 
   def previous_usage
-    signup_position.items? ? quantity_was.to_i : 1 + extra_people_was.to_i
+    signup_position.items? ? quantity_was.to_i : 1
   end
 
   def fits_position_kind
@@ -157,7 +155,6 @@ class Signup < ApplicationRecord
 
     if signup_position.items?
       errors.add(:quantity, "is needed") if quantity.nil?
-      errors.add(:extra_people, "are only for people positions") if extra_people.to_i.positive?
     elsif !quantity.nil?
       errors.add(:quantity, "is only for item positions")
     end
