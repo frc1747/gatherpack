@@ -17,11 +17,13 @@
               label_method: :identifier_name, value_method: :id, include_blank: false, wrapper: :vertical_collection_inline %>
       <% end %>
 
-      <% unless @signup_sheet.on_behalf_of_nobody_else? %>
+      <% if @signup_sheet.on_behalf_of_related_people? %>
         <%= f.input :on_behalf_of_id, as: :radio_buttons, label: "Who is it on behalf of?",
               collection: [ [ "Whoever takes the place", "" ] ] + on_behalf_of_choices.map { |someone| [ someone.identifier_name, someone.id ] },
               checked: signup.on_behalf_of_id == signup.person_id ? "" : signup.on_behalf_of_id, include_blank: false, required: false,
               wrapper: :vertical_collection_inline, hint: "Pick someone when you're taking the place for them." %>
+      <% elsif @signup_sheet.on_behalf_of_anyone? %>
+        <%= render "on_behalf_of_picker", signup: signup, slot: slot %>
       <% end %>
 
       <% if position.items? %>
