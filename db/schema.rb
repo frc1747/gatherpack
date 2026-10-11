@@ -932,7 +932,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
   add_foreign_key "signup_audience_rules", "signup_sheets", on_delete: :cascade
   add_foreign_key "signup_audience_rules", "teams", on_delete: :cascade
   add_foreign_key "signup_position_rules", "signup_positions", on_delete: :cascade
-  add_foreign_key "signup_position_rules", "teams", on_delete: :cascade
+  add_foreign_key "signup_position_rules", "teams"
   add_foreign_key "signup_positions", "signup_sheets", on_delete: :cascade
   add_foreign_key "signup_sheet_events", "events"
   add_foreign_key "signup_sheet_events", "signup_sheets", on_delete: :cascade

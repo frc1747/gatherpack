@@ -40,6 +40,27 @@ class SignupSheetTest < ActiveSupport::TestCase
     assert_not Signup.exists?(signup.id)
   end
 
+  test "an event with sign-ups can't be deleted until they're all cancelled" do
+    cashier = @sheet.signup_positions.create!(name: "Cashier")
+    first = Signup.place!(slot: slot_for(cashier), person: person(:student), signed_up_by: person(:student))
+    second = Signup.place!(slot: slot_for(cashier), person: person(:student2), signed_up_by: person(:student2))
+    second.fulfilled!
+
+    assert_not @event.reload.destroy
+    # EventsController#destroy uses destroy!.
+    assert_raises(ActiveRecord::RecordNotDestroyed) { @event.reload.destroy! }
+    assert Event.exists?(@event.id)
+
+    first.cancel!
+    assert_raises(ActiveRecord::RecordNotDestroyed) { @event.reload.destroy! }
+
+    second.cancel!
+    @event.reload.destroy!
+    assert_not Event.exists?(@event.id)
+    assert_equal 0, SignupSlot.where(event_id: @event.id).count
+    assert_not Signup.exists?(first.id)
+  end
+
   test "the audience with no rules is the sheet's team and every team below it" do
     assert @sheet.open_to?(person(:student))
     assert @sheet.open_to?(person(:worker))

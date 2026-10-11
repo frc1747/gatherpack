@@ -1,5 +1,6 @@
-# Members: create?, update? and destroy? (cancel) for their own sign-ups and
-# those of people they can sign up. Organizers: place?, mark? (fulfilled or
+# Members: create?, update? and destroy? (cancel) for sign-ups they take or
+# made, and those of people they could sign up themselves. The on-behalf-of
+# person only sees a sign-up taken for them. Organizers: place?, mark? (fulfilled or
 # no-show), move? and override? (place against a rule). No one can mark,
 # move or override for themselves or a relative (SignupSheet#self_or_relative?);
 # #self_approval_reason says why.
@@ -54,7 +55,7 @@ class SignupPolicy < ApplicationPolicy
 
   def mine?
     return false if person.nil?
-    return true if [ record.person_id, record.signed_up_by_id, record.on_behalf_of_id ].include?(person.id)
+    return true if [ record.person_id, record.signed_up_by_id ].include?(person.id)
 
     sheet.takers_for(person).exists?(id: record.person_id)
   end

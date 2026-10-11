@@ -54,6 +54,37 @@ class SignupSheetPolicyTest < ActiveSupport::TestCase
     assert_equal [], SignupSheetPolicy::Scope.new(person(:outsider).user, SignupSheet).resolve.to_a
   end
 
+  test "a listed organizer loses the sheet when their badge goes" do
+    with_organizer_grants("Sheet Organizer > Club") do
+      @sheet.signup_sheet_organizers.create!(person: person(:worker))
+      assert policy(:worker, @sheet).manage?
+      assert_includes organizer_view(:worker), @sheet
+
+      BadgeAssignment.find_by!(badge: @organizer_badge, person: person(:worker)).destroy!
+      assert_not policy(:worker, @sheet).manage?
+      assert_not_includes organizer_view(:worker), @sheet
+    end
+  end
+
+  test "a listed organizer loses the sheet when it moves out of their reach" do
+    with_organizer_grants("Sheet Organizer > Club") do
+      @sheet.signup_sheet_organizers.create!(person: person(:worker))
+      @sheet.update!(team: @other_org)
+
+      assert_not policy(:worker, @sheet).manage?
+      assert_not_includes organizer_view(:worker), @sheet
+    end
+  end
+
+  test "a creator who managed the team loses the sheet when they stop managing it" do
+    sheet = SignupSheet.create!(title: "Bake Sale", team: @concessions, created_by: person(:concessions_manager), status: :draft)
+    assert policy(:concessions_manager, sheet).manage?
+
+    Membership.find_by!(person: person(:concessions_manager), team: @concessions).update!(manager: false)
+    assert_not policy(:concessions_manager, sheet).manage?
+    assert_not_includes organizer_view(:concessions_manager), sheet
+  end
+
   test "destroy only while there are no sign-ups" do
     assert policy(:admin, @sheet).destroy?
 
@@ -74,6 +105,12 @@ class SignupSheetPolicyTest < ActiveSupport::TestCase
   end
 
   private
+
+  # Drafts are only visible to organizers.
+  def organizer_view(name)
+    SignupSheet.where(id: @sheet.id).update_all(status: SignupSheet.statuses[:draft])
+    SignupSheetPolicy::Scope.new(person(name).user, SignupSheet).resolve.to_a
+  end
 
   def policy(name, record)
     SignupSheetPolicy.new(person(name).user, record)
