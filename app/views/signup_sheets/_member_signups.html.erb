@@ -1,0 +1,42 @@
+<div class="card mb-3" id="my_signups">
+  <div class="card-header">
+    <h2 class="h5 mb-0">My sign-ups</h2>
+  </div>
+  <ul class="list-group list-group-flush">
+    <% signups.each do |signup| %>
+      <% signup_policy = policy(signup) %>
+      <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2" id="<%= dom_id signup %>">
+        <div>
+          <strong><%= signup.signup_position.name %></strong>,
+          <%= signup.event.name %>, <%= signup.event.start_time.strftime("%a %b %-d, %-l:%M %p") %>
+          <%= render "sheet_signup_details", signup: signup %>
+          <% unless signup.active? %>
+            <% items_label = { "fulfilled" => "Brought", "no_show" => "Not brought" }[signup.status] if signup.signup_position.items? %>
+            <span class="badge text-bg-secondary"><%= items_label || signup.status.humanize %></span>
+          <% end %>
+          <div class="small text-body-secondary">
+            <% if signup.person_id != @viewer.id && signup.on_behalf_of_id == @viewer.id %>
+              Taken for you by <%= signup.person.identifier_name %>
+            <% elsif signup.person_id != @viewer.id %>
+              For <%= signup.person.identifier_name %>
+            <% end %>
+            <% if signup.on_behalf_of_id != signup.person_id && signup.on_behalf_of_id != @viewer.id %>
+              on behalf of <%= signup.on_behalf_of.identifier_name %>
+            <% end %>
+          </div>
+        </div>
+        <div>
+          <% if signup_policy.update? %>
+            <%= link_to "Change", edit_signup_sheet_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-outline-primary" %>
+          <% end %>
+          <% if signup_policy.destroy? %>
+            <%= button_to "Cancel", signup_sheet_signup_path(@signup_sheet, signup), method: :delete, class: "btn btn-sm btn-outline-danger",
+                  form_class: "d-inline", data: { turbo_confirm: "Cancel this sign-up?" } %>
+          <% elsif signup.active? && [ signup.person_id, signup.signed_up_by_id ].include?(@viewer.id) %>
+            <span class="small text-body-secondary">Ask an organizer to cancel</span>
+          <% end %>
+        </div>
+      </li>
+    <% end %>
+  </ul>
+</div>

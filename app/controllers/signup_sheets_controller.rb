@@ -3,14 +3,36 @@ class SignupSheetsController < InternalController
   before_action :set_team_choices, only: %i[ new create edit update ]
 
   # GET /signup_sheets
+  # Open sheets, plus any the person runs; those with their sign-ups first,
+  # then by next date.
   def index
     authorize SignupSheet
-    @signup_sheets = policy_scope(SignupSheet).visible.includes(:team).order(:title)
+    person = current_user.person
+    sheets = policy_scope(SignupSheet).visible.includes(:team).to_a
+    @organized_ids = sheets.select { |sheet| sheet.organizer?(person) }.map(&:id)
+    @signup_sheets = sheets.select { |sheet| sheet.open? || @organized_ids.include?(sheet.id) }
+
+    ids = @signup_sheets.map(&:id)
+    @my_counts = signups_involving(Signup.live, person).joins(signup_slot: :signup_position)
+      .where(signup_positions: { signup_sheet_id: ids }).group("signup_positions.signup_sheet_id").count
+    @next_dates = SignupSheetEvent.joins(:event).where(signup_sheet_id: ids, events: { start_time: Time.current.. })
+      .group(:signup_sheet_id).minimum("events.start_time")
+    @signup_sheets.sort_by! do |sheet|
+      [ @my_counts[sheet.id].to_i.positive? ? 0 : 1, @next_dates[sheet.id]&.to_f || Float::INFINITY, sheet.title.downcase ]
+    end
   end
 
   # GET /signup_sheets/1
   def show
-    @events = @signup_sheet.events.order(:start_time)
+    @viewer = current_user.person
+    @events = @signup_sheet.events.order(:start_time).to_a
+    @slots_by_event = @signup_sheet.signup_slots.where(disabled: false).includes(signup_position: :signup_position_rules, signups: :person)
+      .sort_by { |slot| [ slot.signup_position.position, slot.signup_position.created_at ] }.group_by(&:event_id)
+    @my_signups = signups_involving(@signup_sheet.signups.live, @viewer)
+      .includes(:person, :signed_up_by, :on_behalf_of, signup_slot: %i[ event signup_position ])
+      .sort_by { |signup| [ signup.event.start_time, signup.signup_position.position ] }
+    @takers = @signup_sheet.takers_for(@viewer).to_a
+    @names_visible = @signup_sheet.names_visible_to?(@viewer)
   end
 
   # GET /signup_sheets/1/roster
@@ -85,6 +107,13 @@ class SignupSheetsController < InternalController
       ids = SignupSheet.creatable_team_ids(current_user.person)
       ids |= [ @signup_sheet.team_id ] if @signup_sheet&.persisted?
       @team_choices = Team.where(id: ids).order(:name).to_a
+    end
+
+    # Sign-ups the person takes, made, or that are on their behalf.
+    def signups_involving(signups, person)
+      return signups.none if person.nil?
+
+      signups.where(person_id: person.id).or(signups.where(signed_up_by_id: person.id)).or(signups.where(on_behalf_of_id: person.id))
     end
 
     def signup_sheet_params

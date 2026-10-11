@@ -1,0 +1,15 @@
+<% slots = @slots_by_event.fetch(event.id, []) %>
+<div class="card mb-3" id="<%= dom_id event %>">
+  <div class="card-header">
+    <h2 class="h5 mb-0">
+      <%= event.name %>, <%= event.start_time.strftime("%a %b %-d, %-l:%M %p") %><%= ", #{event.location}" if event.location.present? %>
+    </h2>
+  </div>
+  <% if slots.any? %>
+    <ul class="list-group list-group-flush">
+      <%= render partial: "sheet_slot", collection: slots, as: :slot, locals: { event: event } %>
+    </ul>
+  <% else %>
+    <div class="card-body">Nothing needed for this date yet.</div>
+  <% end %>
+</div>
