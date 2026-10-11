@@ -222,10 +222,32 @@ class ForkChangelogTest < Minitest::Test
     refute_includes text, "isn't a release yet"
   end
 
+  def test_release_option_names_the_build_before_it_is_tagged
+    git "checkout", "--quiet", "hbr/platform"
+    commit "fork/sample_data/sample_data.rb", "# loader\n", "Add sample data"
+    text, = generate(release: "v1.0.0-hbr.2")
+
+    assert_includes text, "- 🏷️ **Release:** `v1.0.0-hbr.2`\n"
+    assert_includes text, "## 🆕 What's new since v1.0.0-hbr.1"
+    assert_includes text, "git checkout v1.0.0-hbr.2\n"
+    refute_includes text, "when tagged"
+    refute_includes text, "isn't a release yet"
+
+    # Tagging the build afterwards gives the same file.
+    git "tag", "v1.0.0-hbr.2", "hbr/integration"
+    assert_equal text, generate.first
+  end
+
+  def test_release_option_refuses_a_bad_or_used_tag
+    [ "1.0.0-hbr.2", "v1.0.0-hbr.1" ].each do |name|
+      assert_raises(ForkChangelog::Error) { generate(release: name) }
+    end
+  end
+
   private
 
-  def generate
-    generator = ForkChangelog::Generator.new(git: ForkChangelog::Git.new(@dir), ref: "hbr/platform", rev: "hbr/integration")
+  def generate(release: nil)
+    generator = ForkChangelog::Generator.new(git: ForkChangelog::Git.new(@dir), ref: "hbr/platform", rev: "hbr/integration", release: release)
     [ generator.generate, generator.warnings ]
   end
 
