@@ -2,7 +2,7 @@
 <% counted = slot.signups.select { |signup| signup.active? || signup.fulfilled? } %>
 <% used = counted.sum(&:usage) %>
 <% cap = slot.capacity_value %>
-<li class="list-group-item d-flex flex-wrap justify-content-between align-items-start gap-2" id="<%= dom_id slot %>">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 px-3 py-2 border-bottom" id="<%= dom_id slot %>">
   <div>
     <strong><%= position.name %></strong>
     <span class="text-body-secondary">
@@ -35,4 +35,4 @@
       <% end %>
     <% end %>
   </div>
-</li>
+</div>

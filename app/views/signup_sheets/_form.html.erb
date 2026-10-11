@@ -29,9 +29,17 @@
     </div>
   </div>
 
-  <%= f.input :others_relationship_type_ids, as: :check_boxes, label: "Members can also sign up",
-        collection: RelationshipType.order(:parent_label), label_method: :identifier_name, value_method: :id,
-        hint: "Tick a relationship to let someone sign up the people they're related to through it (a parent their child)." %>
+  <% relationship_types = RelationshipType.order(:parent_label) %>
+  <% if relationship_types.any? %>
+    <%= f.input :others_relationship_type_ids, as: :check_boxes, label: "Members can also sign up",
+          collection: relationship_types, label_method: :identifier_name, value_method: :id,
+          hint: "Tick a relationship to let someone sign up the people they're related to through it (for example, a parent signing up their child)." %>
+  <% else %>
+    <div class="mb-3">
+      <label class="form-label">Members can also sign up</label>
+      <p class="text-body-secondary mb-0">No relationship types yet.</p>
+    </div>
+  <% end %>
 
   <%= f.input :on_behalf_of_mode, as: :radio_buttons, label: "A sign-up can be on behalf of",
         collection: [ [ "Only the person taking the place", "nobody_else" ], [ "Someone they're related to (as above)", "related_people" ], [ "Anyone the sheet is open to", "anyone" ] ],

@@ -68,7 +68,7 @@ class SignupPositionRule < ApplicationRecord
   end
 
   def check_age(person, event)
-    return "No birthday on file" if person.birthday.nil?
+    return "Must be #{age_range_text} (no birthday on file)" if person.birthday.nil?
 
     date = event.start_time.in_time_zone.to_date
     age = age_on(person.birthday, date)
