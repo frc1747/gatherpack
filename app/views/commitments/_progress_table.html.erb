@@ -1,0 +1,73 @@
+<%# Everyone's progress, for organizers: names and numbers only. %>
+<div class="card mb-3">
+  <div class="card-header">
+    <h2 class="h4 mb-0">Progress</h2>
+  </div>
+  <div class="card-body">
+    <%= form_with url: commitment_path(@commitment), method: :get, class: "row g-2 align-items-end mb-3 no-print" do |f| %>
+      <div class="col-md-4">
+        <%= f.label :filter, "Show", class: "form-label" %>
+        <%= f.select :filter, [ [ "Met", "met" ], [ "Not met", "not_met" ], [ "Nothing planned", "nothing_planned" ] ],
+              { include_blank: "Everyone", selected: @filter }, class: "form-select" %>
+      </div>
+      <div class="col-auto">
+        <%= f.submit "Filter", name: nil, class: "btn btn-secondary" %>
+        <%= link_to "Clear", commitment_path(@commitment), class: "btn btn-link" %>
+      </div>
+    <% end %>
+
+    <% if @rows.any? %>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle" id="progress">
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Owed</th>
+              <th>Confirmed</th>
+              <th>Planned</th>
+              <th>Remaining</th>
+              <th>Breakdown</th>
+              <th class="no-print"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @rows.each do |row| %>
+              <tr id="<%= dom_id row.person, :progress %>">
+                <td><%= row.person.display_name %> <%= commitment_status_badge(row) %></td>
+                <td><%= row.owed %></td>
+                <td><%= row.confirmed %></td>
+                <td><%= row.planned %></td>
+                <td><%= row.remaining %></td>
+                <td class="small">
+                  <% row.lines.each do |line| %>
+                    <div><%= line.source.label %>: <%= line.available? ? commitment_line_summary(line) : "not counted" %></div>
+                  <% end %>
+                  <% row.adjustments.each do |adjustment| %>
+                    <div>
+                      Adjustment <%= format("%+d", adjustment.credits) %>: <%= adjustment.reason %>
+                      <% if policy(adjustment).destroy? %>
+                        <%= button_to "Remove", commitment_commitment_adjustment_path(@commitment, adjustment), method: :delete,
+                              class: "btn btn-sm btn-link p-0 no-print", form_class: "d-inline",
+                              data: { turbo_confirm: "Remove this adjustment?" } %>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </td>
+                <td class="no-print text-nowrap">
+                  <% adjustment_policy = policy(CommitmentAdjustment.new(commitment: @commitment, person: row.person)) %>
+                  <% if adjustment_policy.create? %>
+                    <%= link_to "Adjust", new_commitment_commitment_adjustment_path(@commitment, person_id: row.person.id), class: "btn btn-sm btn-outline-secondary" %>
+                  <% else %>
+                    <div class="small text-body-secondary text-wrap"><%= adjustment_policy.self_approval_reason %></div>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p class="mb-0">Nobody<%= " matches this filter" if @filter %>.</p>
+    <% end %>
+  </div>
+</div>

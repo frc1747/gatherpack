@@ -1,0 +1,48 @@
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs">
+  <div class="row">
+    <div class="col-12 col-md-6">
+      <%= f.input :title %>
+    </div>
+    <div class="col-12 col-md-6">
+      <%= f.input :team_id, as: :select, label: "Team", collection: @team_choices, label_method: :name, value_method: :id, include_blank: false,
+            hint: "The team running this commitment. Check-ins count at its events and those of the teams below it." %>
+    </div>
+  </div>
+
+  <%= f.input :description, input_html: { rows: 3 }, hint: "Shown at the top of the commitment. Markdown works." %>
+
+  <div class="row">
+    <div class="col-12 col-md-6">
+      <%= f.input :owing_team_id, as: :select, label: "Who owes", collection: @team_choices, label_method: :name, value_method: :id, include_blank: false,
+            hint: "Everyone in this team and the teams below it. Must be the team above or one below it." %>
+    </div>
+    <div class="col-12 col-md-6">
+      <% if @badge_choices.any? %>
+        <%= f.input :owing_badge_id, as: :select, label: "Only those holding", collection: @badge_choices, label_method: :name, value_method: :id,
+              include_blank: "Anyone in the team" %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-6 col-md-3">
+      <%= f.input :base_amount, label: "Amount owed", input_html: { min: 1 } %>
+    </div>
+    <div class="col-6 col-md-3">
+      <%= f.input :unit, hint: "For example shifts, events or hours." %>
+    </div>
+    <div class="col-6 col-md-3">
+      <%= f.input :starts_on, as: :date, html5: true, label: "From" %>
+    </div>
+    <div class="col-6 col-md-3">
+      <%= f.input :ends_on, as: :date, html5: true, label: "Until" %>
+    </div>
+  </div>
+
+  <%= f.input :counts_when, as: :radio_buttons, label: "Met when",
+        collection: [ [ "Confirmed credit reaches the amount", "confirmed" ], [ "Confirmed and planned credit together reach it", "planned" ] ],
+        item_wrapper_tag: :div, item_label_html: { class: "form-check-label" } %>
+</div>
