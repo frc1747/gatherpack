@@ -8,10 +8,10 @@ class MembershipsController < InternalController
   def index
     @q = false
     if @team
-      @q = policy_scope(Membership).where(team: @team).ransack(params[:q])
+      @q = policy_scope(Membership).where(team: @team).ransack(params[:q], auth_object: current_user)
       @memberships = @q.result(distinct: true).includes(:person, :team).order("person.last_name" => "desc", "team.name" => "asc").page(params[:page])
 
-      @people_q = @team.all_people.includes(:memberships).ransack(params[:people_q])
+      @people_q = @team.all_people.includes(:memberships).ransack(params[:people_q], auth_object: current_user)
       @people = @people_q.result(distinct: true)
       @people = case params[:member_type]
       when "direct"
@@ -28,7 +28,7 @@ class MembershipsController < InternalController
       @can_add = policy(@team).manage_members?
       load_team_candidates if @can_add
     elsif @person
-      @q = policy_scope(Membership).where(person: @person).ransack(params[:q])
+      @q = policy_scope(Membership).where(person: @person).ransack(params[:q], auth_object: current_user)
       @memberships = @q.result(distinct: true).includes(:person, :team).order("person.last_name" => "desc", "team.name" => "asc").page(params[:page])
       @can_add = policy(Membership.new(person: @person)).new?
       load_person_candidates if @can_add
