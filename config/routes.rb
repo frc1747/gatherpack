@@ -100,7 +100,9 @@ Rails.application.routes.draw do
       resources :signup_sheet_organizers, only: %i[create destroy]
       resources :signup_audience_rules, only: %i[create destroy]
       resources :signup_sheet_events, only: %i[new create destroy]
-      resources :signup_slots, only: %i[index update]
+      resources :signup_slots, only: %i[index update] do
+        collection { patch :update_all }
+      end
       resources :signups, only: %i[new create edit update destroy]
       resources :roster_signups, only: %i[new create edit update destroy] do
         member do
