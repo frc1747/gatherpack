@@ -1,0 +1,1225 @@
+# Spec: Forms (data requests, consent, and event intent)
+
+Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
+its permission levels, badge grants, guardianship, and field types.
+Date: 2026-10-07 (rev. 8: the printable list starts from the form; people are everyone it
+asks or people who answered a question on any form (§9.4). Rev. 7: the printable list picks its people from general
+sources, not three groups taken from the meal order (§9.4). Rev. 6: the order
+sheet is renamed the printable list. Rev. 5: phase 2 built; content versions start on the
+first change and Publish only decides about earlier responses (§7.4);
+submissions keep a copy of the form's text (§3.5, §7.3); badge grants act as
+a leader (§5.3). Rev. 4: no form types; behaviour comes from what's on a
+form (§1.3). Rev. 3: audiences are built from rules (teams, badges,
+people, exclusions) instead of one team; a Forms tab on each profile. Rev. 2:
+every answer is kept on the form; responses are a history of submissions with
+one active, signed version; questions choose how they relate to the profile)
+
+## 1. Goal
+
+Let leaders ask a defined group of people for information, by a deadline,
+with a clear record of who has answered, who answered for whom, who signed,
+and what exactly they signed. One mechanism covers:
+
+- **Season preferences.** The 2026-27 Meal Choices spreadsheet: a sandwich
+  choice per restaurant, toppings to remove, a cookie, a chip, two entrées, a
+  wishlist, and allergies, collected once and used at many events.
+- **Consent and acknowledgment.** Parent consent, travel permission slips,
+  code of conduct, photo release: a statement, a signature from the right
+  person, and proof that it happened, renewed when something changes.
+- **Event intent.** "Are you coming Saturday?" as a planning count. It is
+  **never** attendance (§10).
+
+The spreadsheet shows what goes wrong today: a third of the rows are blank
+and nothing tracks who still owes an answer; the same choice is typed several
+ways ("Choc. Chip", "Choc.Chip", "DoubleChoc."); allergies are kept in a
+second place from the profile's Dietary Restrictions; and turning the answers
+into an order ("Jimmy John's: 4× Slim 4, 2× Big John") is done by hand.
+
+### 1.1 The model in four sentences
+
+1. A **form** is a request: an audience, a deadline, who may answer, who may
+   see, and a list of questions.
+2. **Every answer is kept on the form.** A submission records exactly what
+   was submitted and signed, whatever happens to the profile afterwards.
+3. Each question chooses its relationship to the profile: **form only**,
+   **filled in from the profile**, or **updates the profile** (§3.3).
+4. A person's response is a **history of submissions**. One of them is
+   **active**: the latest one that is fully submitted and signed. Updating
+   starts from the active answers and needs fresh signatures; until those
+   arrive, the previous signed version stays active. **Reports read the
+   active version, alongside current profile data** (§9).
+
+### 1.2 Non-goals (v1)
+
+- **Locking profile fields** to a form. Profile data stays editable through
+  its normal rules; a form detects and flags changes since it was signed
+  instead (§8).
+- **Conditional logic** ("show question 5 if question 4 is Yes"). §15.
+- **Payments** attached to a form (trip fees). A later phase can link a
+  submission to a ledger entry.
+- **Anonymous or public forms.** Every response is about a known person, and
+  the respondent is signed in.
+- **Several independent responses per person per form.** A person has one
+  response per form, with a history of versions. A new season or trip is a
+  new form; Duplicate makes that cheap (§12.2).
+- **Legal advice.** The signature design (§7) follows common e-signature
+  practice (intent, attribution, record keeping). Whether it suffices for a
+  given document is the organization's decision.
+
+### 1.3 Design rule: no form types
+
+A form has no type or category ("consent form", "event form", "survey"),
+and the code never branches on one. Every behaviour comes from what is on
+the form, so one set of building blocks serves any organization: a club's
+sign-up sheet, a volunteer roster, a t-shirt order, a waiver, a meal
+preference list.
+
+| Behaviour | Comes from |
+|---|---|
+| Signing, re-confirmation, completion badge | A signature or acknowledgment question; the form's re-confirm setting; a completion badge being set |
+| Updating the profile | A question linked to a person field in "updates profile" mode |
+| The event panel, the deadline defaulting to the event start | The form being attached to an event (`event_id`) |
+| Expected vs checked in | An intent question on a form attached to the event |
+| An order or packing list for an event | The printable list (§9.4): people from a form's audience, an event's check-ins, or a chosen answer to any question; columns from any form and from profiles |
+
+New capabilities arrive as question types, settings, or attachments, never
+as a new kind of form. Nothing in the code names a particular
+organization's teams, roles, or vendors; those live in data (and in one-off
+import scripts kept outside the repository).
+
+Phase 1 briefly had a `kind` column (`general`, `consent`, `event_intent`)
+that nothing read; it was removed before release.
+
+---
+
+## 2. What exists today (and what we reuse)
+
+| Piece | Where | How Forms uses it |
+|---|---|---|
+| Permission levels `admin`, `self`, `leaders`, `self_and_leaders`, `guardians`, `family`, `team`, `everyone`, stored as explicit integers | `PersonField::PERMISSION_LEVELS`, `LEVEL_VALUES` | The same levels, the same integers, for who may answer and who may see (§5) |
+| Single-subject evaluator and list form | `AudienceAccess`, `AudienceLevels.people`, `.component_people`, `PersonField#subjects_for` (§2.1) | The same audience components (`subject`, `guardian`, `leaders`, `teammates`, `everyone`) |
+| Badge grants (only admin-assigned badges; team badges scope the grant) | `PersonFieldBadgeGrant` | `FormBadgeGrant`, same rules (§5.3) |
+| Guardianship (typed, directed, age-limited) | `Relationship.active_guardianships`, `Person#guardians`, `#wards` | Who may answer for whom, and who must sign (§7) |
+| Field types, choice lists, normalization, casting | `PersonField` `data_type`, `options`, `#normalize`, `#cast`, `#serialize` | Form-only questions use the same types and code (§3.2) |
+| Writing profile data on someone's behalf | `Person#assign_field_values(values, acting:)` | "Updates profile" questions apply through it when a submission becomes active, so person field write rules and the `person_fields - value changed` hook apply unchanged (§6.4) |
+| Profile change notifications | `person_fields - value changed` (`PersonFieldChange`) | Detecting profile changes since signing (§8) |
+| Applicability by team subtree | `PersonField#applies_to?`, `Team#descendant_people` | Form audience (§3.1) |
+| Badges as the record of a status | Safety badge, "2027 FIRST Consent Signed" | Completion badge (§8.3) |
+| Admin-authored dynamic Pages (ERB) | `Page` (`dynamic`, editor must be `admin`) | Custom reports over active answers through a permission-aware reader (§9.5) |
+| Email | `SendEmailJob`, sending gateways | Reminders (§11) |
+| Scheduled jobs | Solid Queue, `config/recurring.yml` | Opening and closing forms (§11.3) |
+| Feature registration | `GatherPack::Features.register_built_in` | `:forms`, off by default |
+| Check-ins as attendance | `Checkin`, `Event#checkins` | Read only, to compare intent with attendance. Forms never create one (§10) |
+
+### 2.1 Shared pieces (phase 0, done)
+
+Done on `feature/person-fields` in `5b2700a` (2026-10-05), with no behaviour
+change, so Forms reuses the same code rather than copying it:
+
+- `AudienceLevels` (`app/models/audience_levels.rb`, a module):
+  `PERMISSION_LEVELS`, `LEVEL_VALUES`, `.reaches?(level, component)`,
+  `.within?(inner, outer)` (the containment test), `.people(level, viewer)`
+  (formerly `PersonField.level_people`), `.relations`, `.component_people`,
+  and `.combine` (one `Person` relation from several).
+- `AudienceAccess` (`app/models/audience_access.rb`): one viewer's audience
+  components relative to one subject, with each lookup cached.
+  `PersonFieldAccess` subclasses it; `FormAccess` (§5.3) will too.
+- `FieldValueType` (`app/models/concerns/field_value_type.rb`): the
+  `data_type` enum, `options` accessors, `normalize`, `cast`, `serialize`,
+  `choice_list`, and the option validations. `FormQuestion` includes it.
+
+---
+
+## 3. Data model
+
+Seven new tables.
+
+```
+badges ──< form_badge_grants >──┐
+                                │
+teams ──< forms >───────────────┼──< form_questions >── person_fields (optional)
+events ─<┘                      │
+                                └──< form_responses ──< form_submissions ──< form_signatures
+                                       │  (one per        (numbered history;
+                                       │   subject)        one active)
+                                    subject (people)
+                                       └──< form_reminders
+```
+
+Terms used below:
+
+- **Response**: one person's (the *subject's*) record for one form.
+- **Submission**: one version of that response's answers. Numbered 1, 2, 3…
+- **Active submission**: the response's latest submission that has been
+  submitted and fully signed. Reports read it.
+
+### 3.1 `forms`, neat_id prefix `frm`
+
+| Column | Type | Notes |
+|---|---|---|
+| `title` | string, required | |
+| `key` | string, required, unique, `\A[a-z][a-z0-9_]*\z` | Stable name for reports, hooks, and Pages (`meal_choices_2027`). Generated from the title, immutable after create |
+| `description` | text | Markdown, shown at the top (Redcarpet, as announcements) |
+| `team_id` | uuid, FK, required | **Owning team**: its managers (and those of teams above it) manage the form (§5.4). It is not the audience; that comes from the audience rules (§3.9) |
+| `audience_badge_id` | uuid, FK, nullable | Optional filter applied after the rules: only people holding this badge are asked (for example "2027 Season Rookie") |
+| `event_id` | uuid, FK, nullable | An event form (§10). The event's team must be the owning team or inside it |
+| `respond_permission` | integer enum (`LEVEL_VALUES`) | Who may fill in and submit for a subject. Default `family` |
+| `read_permission` | integer enum (`LEVEL_VALUES`) | Who may see a subject's response. Default `family` |
+| `status` | integer enum | `draft: 0, open: 1, closed: 2, archived: 3` |
+| `opens_at`, `closes_at` | datetime, nullable | Automatic transitions (§11.3). `closes_at` is the deadline shown everywhere |
+| `allow_updates` | boolean, default true | Respondents may submit a new version after their first one, while the form is open |
+| `late_entry` | integer enum | Who may still submit after close: `none: 0, leaders: 1` (default `leaders`, for paper forms handed in late) |
+| `content_version` | integer, default 1 | The version of what respondents see now. The first content change on an answered form bumps it (§7.4). Not `version`: PaperTrail defines `version` on every tracked model |
+| `published_version` | integer, default 1 | The content version Publish changes last accepted. `content_version > published_version` means there are unpublished changes |
+| `reconfirm_from_version` | integer, default 1 | Active submissions on an earlier version need re-confirmation. Publish with "ask them to sign again" sets it to the current version |
+| `reconfirm_on_profile_change` | boolean, default false | A change to profile data this form updated sends the response back for re-confirmation (§8.2) |
+| `completion_badge_id` | uuid, FK, nullable | Held while the response is complete (§8.3). Admin-assigned badges only |
+| `created_by_id` | uuid → people | |
+
+Validations: `respond_permission` ⊆ `read_permission` (as person fields);
+`closes_at > opens_at`; the completion badge is `added_by_admin?`, and if it
+has a team, that team contains every team the audience rules include
+(otherwise some of the audience could never hold it, since
+`BadgeAssignment#team_membership` refuses).
+
+### 3.2 `form_questions`, prefix `frmq`
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_id` | uuid, FK, required | |
+| `position` | integer | Order |
+| `kind` | integer enum | `input: 0, heading: 1, statement: 2, acknowledgment: 3, signature: 4, intent: 5` |
+| `label` | string | Required except for `heading`/`statement` with a body |
+| `body` | text | Markdown: help text, the statement, or the acknowledgment sentence |
+| `key` | string | Unique per form, `\A[a-z][a-z0-9_]*\z`, generated from the label, immutable once answered. Answers are keyed by it |
+| `data_type`, `options` | as `PersonField` (`FieldValueType`) | For form-only `input` questions. The meal choice lists live here |
+| `person_field_id` | uuid, FK, nullable | For profile-backed `input` questions (§3.3). The question then takes its type and choices from the person field |
+| `profile_mode` | integer enum, nullable | `prefill: 0, update_profile: 1`. Required when `person_field_id` is set, null otherwise |
+| `required` | boolean | |
+| `read_permission`, `write_permission` | integer enum, **nullable** | Per-question overrides (§5.2). Null = inherit the form's levels |
+| `signer` | integer enum | For `signature` only: `subject: 0, guardian: 1, guardian_if_minor: 2, leader: 3` (§7.1). Signature questions are always required and have no per-question levels; the form's read level must reach the signer |
+
+| Kind | Answer | Use |
+|---|---|---|
+| `input` | A typed value | Sandwich choice, "Please Remove" (multi-select), allergies (profile-backed) |
+| `heading` | none | Section title ("Jimmy John's") |
+| `statement` | none | Text the respondent reads (trip details, the release) |
+| `acknowledgment` | boolean, must be true if required | "I have read the code of conduct" |
+| `signature` | a `form_signatures` row (§7) | Parent consent |
+| `intent` | `yes`/`no`/`maybe` | Event intent (§10). At most one per form |
+
+### 3.3 How a question relates to the profile
+
+Chosen per question by whoever builds the form. **Form only** is the
+default; changing the profile is always an explicit choice.
+
+| Mode | Columns | Starting value | On activation | Example |
+|---|---|---|---|---|
+| **Form only** | no `person_field_id` | The previous active submission's answer, else blank | Nothing outside the form | Sandwich choice, "anything else about this trip?" |
+| **Filled in from profile** | `person_field_id`, `profile_mode: prefill` | The previous active submission's answer, else the current profile value | Nothing outside the form. The person may change it for this form only | Trip form showing the emergency contact; the parent writes "grandma this weekend" without changing the profile |
+| **Updates profile** | `person_field_id`, `profile_mode: update_profile` | The **current profile value** (it is the source of truth), with a note if it differs from what was last signed | The answer is written to the profile (§6.4) | Yearly "check your family's info" form; a medical form that is the official source for allergies |
+
+In every mode the answer is also stored in the submission, so the form
+always shows what was submitted and signed.
+
+### 3.4 `form_responses`, prefix `frmr`
+
+One per form and subject: the envelope for the submission history.
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_id` | uuid, FK, required | |
+| `subject_id` | uuid → people, required | Who the response is about |
+| `active_submission_id` | uuid → form_submissions, nullable | The version reports read |
+| `status` | integer enum | Cached summary, recomputed by `#sync_status!` (§8.1): `draft: 0, waiting: 1, complete: 2, needs_reconfirmation: 3, withdrawn: 4` |
+| `update_in_progress` | boolean | A draft or pending submission exists alongside an active one |
+| `last_reminded_at` | datetime | |
+| | | Unique index on `(form_id, subject_id)` |
+
+Created lazily, on the first save. "Not started" is the absence of a row.
+
+### 3.5 `form_submissions`, prefix `frmsb`
+
+Immutable once submitted, except for its status.
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_response_id` | uuid, FK, required | |
+| `number` | integer | 1, 2, 3… per response |
+| `status` | integer enum | `draft: 0, pending: 1, active: 2, superseded: 3, withdrawn: 4, discarded: 5` |
+| `answers` | jsonb, default `{}` | Every question's answer (all three profile modes, acknowledgments, intent), keyed by question `key`, serialized by the question's type |
+| `form_version` | integer | The form version it was started on, refreshed on submit |
+| `based_on_id` | uuid → form_submissions, nullable | The active submission this one started from |
+| `created_by_id`, `submitted_by_id` | uuid → people | Who started it and who pressed Submit (subject, guardian, or leader) |
+| `submitted_at`, `activated_at` | datetime | |
+| `entered_late` | boolean | Submitted after close via `late_entry` |
+| `profile_skipped` | jsonb, default `[]` | "Updates profile" keys that couldn't be written on activation (§6.4) |
+| `content` | jsonb, default `{}` | A copy of the form as submitted: title, description, and each question's key, kind, label, body, type and choices, required, signer. Set on submit. Signatures cover it (§7.3) |
+| | | Partial unique indexes: one `active`, and one `draft`-or-`pending`, per response. GIN index on `answers` |
+
+Why jsonb rather than an EAV table like `person_field_values`: answers live
+and die with their submission; a signature covers the submission as a whole;
+no query needs one row per value across forms; and tallies work with
+`answers->>'key'`.
+
+### 3.6 `form_signatures`, prefix `frms`
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_submission_id` | uuid, FK, required | Signatures belong to a submission and never carry over to the next |
+| `form_question_id` | uuid, FK, required | The `signature` question |
+| `signer_id` | uuid → people, required | |
+| `signer_role` | integer enum | `subject: 0, guardian: 1, leader: 2`: the role that qualified them |
+| `typed_name` | string, required | Must match the signer's name (§7.2) |
+| `signed_at` | datetime | |
+| `content_digest` | string | SHA-256 over the form version's rendered text **and** the submission's answers (§7.3) |
+| `ip_address`, `user_agent` | string | Attribution |
+| `revoked_at`, `revoked_by_id`, `revoked_reason` | | Revocation keeps the row |
+
+### 3.7 `form_badge_grants`, prefix `frmbg`
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_id`, `badge_id` | uuid, FK, required | Unique together |
+| `access` | integer enum | `read: 0, respond: 1`; `respond` implies read |
+
+Same rules as `PersonFieldBadgeGrant`: admin-assigned badges only; a team
+badge covers only subjects in that team's subtree. A holder acts as a leader
+of the people covered: `read` passes the form's read check, `respond` the
+respond check (and counts as a leader for late entries and paper
+signatures). Per-question levels apply to them when the question keeps the
+form's level or its level reaches leaders. Profile-backed questions still
+follow the person field's own levels. Use: a "Meal Coordinator"
+badge sees every meal response without being a team manager; a "Travel
+Coordinator" enters paper permission slips.
+
+### 3.8 `form_reminders`, prefix `frmrm`
+
+`form_id`, `sent_by_id`, `sent_at`, `recipient_count`, `filter` (jsonb). A
+log of Remind presses (§11.1), so leaders can see when the last nudge went
+out.
+
+### 3.9 `form_audience_rules`, prefix `frmar`
+
+Who a form asks. Forms are not assigned person by person: the audience is
+computed from these rules every time it's needed, so someone who joins a
+team later is asked automatically, and someone who leaves stops being asked.
+A rule can still name one person, for the cases that need it.
+
+| Column | Type | Notes |
+|---|---|---|
+| `form_id` | uuid, FK, required | |
+| `effect` | integer enum | `include: 0, exclude: 1` |
+| `target_type` | integer enum | `team: 0, badge: 1, person: 2` |
+| `team_id`, `badge_id`, `person_id` | uuid, FK | Exactly the one matching `target_type` |
+| `include_managers` | boolean, default true | Team rules only. False leaves out people whose only membership in that team's subtree is as a manager, so leaders aren't asked to fill in a student form |
+| | | Unique index on `(form_id, effect, target_type, team_id, badge_id, person_id)` |
+
+What each target covers:
+
+| Target | People |
+|---|---|
+| Team | Direct members of the team or any team below it (`team.descendant_people`), less its managers when `include_managers` is false |
+| Badge | Holders of the badge (a team badge only reaches that team, as now) |
+| Person | That person |
+
+**The audience** is everyone covered by an include rule, minus everyone
+covered by an exclude rule, then narrowed to holders of `audience_badge_id`
+if it's set. One relation, built in SQL (`Form#audience`); `FormAccess` and
+the list form both use it, and the consistency test covers it.
+
+Examples:
+
+- Meal choices: include "Team 1747 - Students", include "Mentors". One form,
+  so the data is in one place (Appendix A.1).
+- Student consent: include "Team 1747 - Students" with managers left out.
+- Rookies only: include the Students team, audience badge "2027 Season
+  Rookie".
+- A one-off: include three named people.
+- Everyone but the seniors: include Students, exclude "Class of 2027".
+
+Rules:
+
+- A form needs at least one include rule to open. The builder shows a live
+  count ("Asks 58 people", with the list).
+- Non-admins can only target what they manage: teams within their managed
+  teams, badges scoped to those teams, and people in `all_managed_people`.
+  Admins can target anything. Changing rules on an open form is allowed and
+  is audited.
+- **Leaving the audience keeps the answers.** A person with a response who is
+  no longer covered (they left the team, or a rule changed) keeps their
+  response, readable at the same levels. Results list them as "No longer
+  asked"; they are not reminded, not counted as "Not started", and not shown
+  in anyone's to-do. They can't start new submissions unless they're added
+  back. A leader can still enter a late or corrected response for them.
+- **Upgrade from phase 1:** a migration creates one include rule (managers
+  included) for each existing form's `team_id`, so every existing form keeps
+  exactly the audience it had.
+
+---
+
+## 4. Lifecycle of a response
+
+```
+                start / update
+   (none) ───────────────────────▶ draft ──discard──▶ discarded
+                                     │
+                                  submit
+                                     ▼
+                          ┌──── pending ────── discard / edit revokes signatures
+      no signatures       │          │
+      required ───────────┘   all required signatures
+                                     ▼
+                                   active ──── a newer one activates ───▶ superseded
+                                     │
+                                 withdraw
+                                     ▼
+                                 withdrawn
+```
+
+1. **Start.** The respondent opens the form for a subject. A `draft`
+   submission is created on first save, with starting values per §3.3.
+2. **Submit.** Required questions the respondent can write are validated.
+   With no signature questions, the submission becomes `active` at once.
+   Otherwise it becomes `pending` until every required signature is present.
+3. **Sign.** Each required signature question is signed by an eligible
+   signer (§7.1). The last one activates the submission.
+4. **Activate.** In one transaction: the previous active submission becomes
+   `superseded`; this one becomes `active` and the response points to it;
+   "updates profile" answers are written to the profile (§6.4); the response
+   status and completion badge are re-synced (§8).
+5. **Update.** With `allow_updates` (or as a leader with `late_entry`), the
+   respondent chooses **Update**. A new draft is created from the active
+   submission (`based_on_id`), with starting values per §3.3, **and no
+   signatures**. Submitting it requires fresh signatures. Until it
+   activates, the previous submission stays active: reports, badges, and
+   printable lists keep using it, and the response shows "Update in progress".
+6. **Edit while pending.** Changing a pending submission's answers returns it
+   to `draft` and revokes any signatures already on it ("Answers changed
+   after signing"), because they signed different content.
+7. **Discard.** A draft or pending submission can be discarded by its
+   creator or a leader. The active one is unaffected.
+8. **Withdraw.** Respondents and leaders can withdraw the active submission.
+   It becomes `withdrawn`, its signatures are revoked, the response has no
+   active submission, and the badge comes off. Profile values it wrote are
+   **not** rolled back: they may have been edited since, and the audit log
+   has the history.
+
+The response page lists every submission with its number, who submitted,
+who signed, its status, and a diff against the one before.
+
+---
+
+## 5. Permissions
+
+The rule: **form permissions work like person field permissions; members
+fill in their own forms; guardians and leaders can be brought in.**
+
+### 5.1 Form levels
+
+Two levels on the form, from the person field level table, relative to the
+**subject**:
+
+- `respond_permission`: who may start, edit, submit, update, and discard
+  the subject's submissions.
+- `read_permission`: who may see the response and its history. `respond` ⊆
+  `read`.
+
+| Respond level | Who can answer for a student | Typical form |
+|---|---|---|
+| `self` | the student only | Personal survey |
+| `self_and_leaders` | the student, or a leader entering it | Meal choices without parents |
+| `family` (**default**) | the student, a guardian, or a leader | Meal choices, most forms |
+| `guardians` | a guardian or a leader, not the student | Medical history |
+| `leaders` | leaders only | Leader checklist about a student |
+
+Read works the same way. `team` read lets teammates see each other's answers
+(shirt sizes for a group order); the default `family` keeps answers between
+the student, their guardians, and their leaders. Admins pass every check.
+
+### 5.2 Per-question rules
+
+A form can have a student part and a parent part, or a leader-only part.
+
+- **Form-only questions and acknowledgments** may override
+  `read_permission` (must be ⊆ the form's read level: a question can be more
+  private than the form, never more public) and `write_permission` (must be ⊆
+  the question's read level and ⊆ the form's respond level).
+- **Profile-backed questions** also follow the person field. A viewer sees
+  the question, and its stored answer in every submission, only if they can
+  read both the question and the person field. In `update_profile` mode they
+  can change it only if they can write both. In `prefill` mode, writing the
+  question is enough, because the profile isn't changed. Storing the answer
+  on the form therefore never widens who can see the profile data.
+
+A viewer who can read but not write a question sees it read-only, with the
+person-fields access message ("Only leaders can change this").
+
+### 5.3 Evaluator
+
+`FormAccess.new(viewer, subject, form)`, a subclass of `AudienceAccess`.
+"In the audience" means covered by the audience rules (§3.9); reading also
+works for a former member who has a response.
+
+
+```ruby
+can_respond?               # respond level component or a respond badge grant
+can_read?                  # read level component or any badge grant
+question_readable?(q)      # q's effective read level, and the person field's (if any)
+question_writable?(q)      # q's effective write level, and the person field's in update_profile mode
+can_sign?(q)               # §7.1
+```
+
+List form: `Form#readable_subjects_for(viewer)` and
+`#respondable_subjects_for(viewer)` return a `Person` relation (level
+relations `.or` badge-grant coverage, intersected with the audience). A
+consistency test asserts the list form matches `FormAccess` for every
+subject in the fixture world, as for person fields.
+
+### 5.4 Who manages forms
+
+| Action | Who |
+|---|---|
+| Create a form | Admins, and managers of the form's team (or an ancestor) |
+| Edit, publish, open, close, duplicate, archive | Same |
+| Set a completion badge or badge grants | Admins only (both widen access or status) |
+| Add a profile-backed question | Anyone who may edit the form. It grants nothing: each viewer still needs the person field's own levels (§5.2) |
+| Delete a form | Admins, and only with no submitted submissions; otherwise archive |
+| **Form creators** (rev. 5) | Holders of the badge named in the `forms_creator_badge` setting (admin-assigned only; off while Badges are off) create **event forms** for, and ask, the teams they're directly in and the teams below those; plus the teams above their own up to the team named in the `forms_creator_highest_team` setting (HBR: Team 1747 - Students), never higher. They manage, see responses to, and can delete (before anyone submits) **only the forms they created**, acting as an admin of those responses and nothing else; profile fields still follow their own levels. They can't add signatures or questions linked to profile fields, or set completion badges or badge grants. Team managers still manage every form owned by their teams, including these. Losing the badge ends their access; meant for short-lived polls by student leaders |
+
+---
+
+## 6. Responding
+
+### 6.1 "Forms to complete"
+
+A person sees every open form where they can respond for at least one subject
+in its audience whose response is not complete, or needs their signature:
+themselves, and each ward (one entry per child). Leaders get no extra
+entries (they work from the results page). Shown:
+
+- On the dashboard, as a card ("3 forms to complete · Meal Choices for Avery,
+  due Oct 12 · Consent for Jordan: needs your signature").
+- At `/forms` ("My forms"): To do, Submitted, Closed, across the person and
+  their wards.
+- On each person's profile, in a Forms tab (§6.5).
+- In the weekly digest (§11.2).
+
+### 6.2 The fill page
+
+`/forms/:id/responses/:subject_id/edit`. The subject is explicit in the URL
+and the header ("Meal Choices for **Avery Ash**, filled in by you as her
+guardian"), so a parent with two children can't confuse them.
+
+- Questions the viewer can't read are omitted; read-only ones show values.
+- **Save** keeps the draft. **Submit** validates and moves it on (§4).
+- On an update, each changed answer is marked against the active version
+  ("was: Slim 4"), and a profile-backed question whose profile value changed
+  since the last signing says so (§8.2).
+- A required question the respondent can't write (a leader-only question,
+  or a profile field only leaders can write) doesn't block Submit. The
+  response shows "Waiting for: …" until someone who can supply it does.
+
+### 6.3 Paper forms and late entries
+
+Leaders with respond access use the same page for any subject. After close,
+`late_entry: leaders` lets them still submit; the submission is marked
+`entered_late`. Leaders can't sign as a guardian (§7.1); they record a paper
+signature only where the question's `signer` allows `leader`.
+
+### 6.4 Writing to the profile
+
+"Updates profile" answers are written **when the submission activates**, not
+when it is saved or submitted. An unsigned update never changes the profile.
+
+The write is `subject.assign_field_values(values, acting: submitted_by)`, so
+the person field's write rule is checked against the person who submitted
+it, as of activation. If that person can no longer write a field (for
+example, guardianship ended in between), the key is recorded in
+`profile_skipped`, the profile is left alone, and the response shows "Not
+copied to profile: Dietary Restrictions". The `person_fields - value changed`
+hook fires for each field written, as for any other profile edit.
+
+### 6.5 The profile Forms tab
+
+Each profile (`people/show` and its tabs: Overview, Teams, Relationships,
+Recent Activity, Calendar, Statistics) gets a **Forms** tab at
+`/people/:person_id/forms`, about that one person:
+
+| Section | What's in it |
+|---|---|
+| To do | Open forms that ask this person and aren't complete: Not started, In progress, Needs re-confirmation. Each with its deadline and a Fill in / Continue / Review button for viewers who can respond |
+| Waiting on someone else | Submitted but waiting for an answer or signature someone else must give, and who that is ("Waiting for: parent signature") |
+| Complete | Forms with an active version: version number, submitted on and by, signed by, and a link to the response and its history. "Update in progress" when there is one |
+| Closed and earlier | Closed and archived forms they responded to, and forms they're no longer asked (§3.9) |
+
+- **Who sees the tab:** it shows when Forms is on and the viewer is the
+  person, a guardian, a leader of theirs, or an admin. Each row shows only if
+  the viewer can read that form's response for this person (`FormAccess`),
+  so a teammate never sees someone else's answers; a viewer with nothing
+  readable sees "No forms to show".
+- **Guardians:** a parent opening their child's profile sees the child's
+  forms and can fill them in from there, the same as from "My forms". A
+  parent's own Forms tab also has a **For their children** section: each
+  ward's open forms, and earlier ones with a response, with Fill in /
+  Continue / Sign buttons where the viewer can act.
+- **Leaders:** the quickest way to answer "what does Avery still owe us?"
+  without opening each form.
+- The tab replaces the "Forms on file" section once planned for the Overview
+  (§9.6).
+
+---
+
+## 7. Signatures and versions
+
+### 7.1 Who signs
+
+| `signer` | Who may sign |
+|---|---|
+| `subject` | the subject |
+| `guardian` | an active guardian of the subject |
+| `guardian_if_minor` | Goes by age (rev. 5, `FormAccess.signer_roles`). Of age (birthday at least `Relationship.guardianship_age_limit` years ago, or 18 when no limit is set): the subject, or an active guardian if one remains. Anyone else, including someone with **no birthday on file**: an active guardian only, so they wait until one is linked (decided 2026-10-06: no fallback to self-signing). (Rev. 4 went by whether a guardian was linked, which with no age limit set kept adults from signing for themselves) |
+| `leader` | a leader with respond access, recording a paper signature (`signer_role: leader`, shown as "Paper form recorded by …") |
+
+One signature per signature question per submission; the first valid one
+satisfies it.
+
+### 7.2 Capturing intent
+
+A signature question shows its text, the answers being signed (a read-only
+summary of the submission), the signer's name, and "Type your full name to
+sign: ______ [Sign]". The typed name must match the signer's display or
+legal name (case and whitespace insensitive). On sign we store `signed_at`,
+`ip_address`, `user_agent`, and the content digest. No drawn signatures in
+v1.
+
+### 7.3 Signatures cover content, and never carry over
+
+The digest is SHA-256 over the submission's `content` (the copy of the form
+taken on submit, §3.5) and its answers. So:
+
+- **Every new submission needs new signatures.** Updating a consent form
+  means signing again, even if only one answer changed.
+- **Editing a pending submission revokes its signatures** (§4, step 6).
+- "What exactly did this parent sign on Oct 3?" is answered by opening
+  submission #1 (`/forms/:id/responses/:subject_id/submissions/:id`): the
+  form text from its `content`, its answers, and the signature rows. (Rev. 5
+  stores the copy instead of rebuilding text from `form_questions`' paper
+  trail, which would break whenever a question is deleted. Submissions from
+  phase 1 have no copy and show the current questions.)
+
+### 7.4 Form versions
+
+Changing an **open** form's statement, acknowledgment, or signature text,
+adding a required question, or changing a choice list goes through
+a new content version. Built (rev. 5): the first such change on a form
+anyone has submitted bumps `forms.content_version` at once, so later
+submissions and signatures record the version they saw; further changes stay
+in that version until **Publish changes**, which asks how to treat active
+submissions on earlier versions. Content means anything respondents see: the
+description, and a question's kind, label, body, type, choices, profile
+link, required flag, or signer, or adding or removing a question (moving one
+doesn't count). The two choices:
+
+- **Keep**: they stay complete (typo fixes).
+- **Require re-confirmation**: responses whose active submission is on an
+  older version become `needs_reconfirmation` and lose the completion badge.
+  Their active submission **stays active**: its answers are still the latest
+  signed data, so reports keep showing them, marked "Signed on version 1".
+  Respondents see "This form changed. Please review and sign again," and the
+  update draft starts from the active answers, with new questions blank.
+
+Drafts and pending submissions on an older version are moved to the new
+version when it starts; pending ones go back to draft with signatures
+revoked ("The form changed after signing"). The edit page shows a banner with
+both choices until one is made.
+
+---
+
+## 8. Status, profile changes, and badges
+
+### 8.1 Response status
+
+| Status | Meaning |
+|---|---|
+| Not started | In the audience, no response row |
+| Draft | A draft, nothing active |
+| Waiting | Submitted, nothing active yet: waiting for a signature or for an answer someone else must give |
+| Complete | Has an active submission on an accepted form version, with no unresolved required profile change |
+| Needs re-confirmation | Has an active submission, but the form changed (§7.4) or profile data it set changed (§8.2) |
+| Withdrawn | Active submission withdrawn, nothing newer |
+
+Plus the `update_in_progress` flag, shown as "Complete · update in
+progress". `FormResponse#sync_status!` recomputes both and is the one place
+that grants or removes the badge.
+
+### 8.2 Profile changed since signing
+
+For every "updates profile" question, the active submission's answer is what
+was signed and the profile holds the current value. When they differ:
+
+- The response, the results grid, and the profile-backed column of reports
+  show **"Changed since signed on Oct 3"** with both values.
+- If the form has `reconfirm_on_profile_change`, the response becomes
+  `needs_reconfirmation` (badge off) until a new submission is signed.
+  Otherwise it's a flag only.
+
+Detected on `person_fields - value changed` (an internal subscriber, not a
+user Hook; `Person#run_person_field_hooks` also publishes
+`person_field_changed.gatherpack` through `ActiveSupport::Notifications`, and
+`config/initializers/forms.rb` subscribes): re-sync responses whose active submission has an
+`update_profile` question on that field. Note that this fires for changes
+from anywhere, including another form that updates the same field. That is
+correct: the first form's signed value is no longer current. "Filled in from
+profile" questions never flag, since they were never meant to match.
+
+No field is locked. Profile data stays editable through its normal rules; a
+form that cares says so through this flag.
+
+### 8.3 Completion badge
+
+While a response is `complete`, the subject holds the form's completion
+badge; otherwise the badge is removed. `badge_assignments - create/destroy`
+hooks fire as usual. "2027 Parent Consent Signed" works like "2027 FIRST
+Consent Signed", so the Eligibility Report and other badge-based reports need
+no change.
+
+---
+
+## 9. Reports
+
+**Reports read active submissions, alongside current profile data.** Drafts,
+pending updates, and superseded versions don't appear in results unless
+asked for. Every view shows only subjects in `readable_subjects_for(viewer)`
+and only cells the viewer can read (§5.2); tallies count only those cells.
+
+### 9.1 Status
+
+`/forms/:id`: counts and lists per status (§8.1), filterable by sub-team, with
+bulk **Remind** (§11.1) and **Export CSV**.
+
+### 9.2 Results grid
+
+One row per person in the audience:
+
+- **Active answers**: one column per question (headings and statements
+  omitted).
+- **Profile columns**: any person fields the viewer can read, chosen per
+  view (Dietary Restrictions, Shirt Size, Phone), showing **current** profile
+  values. For an "updates profile" question, the cell shows the signed
+  answer, marked if the profile has changed since.
+- **Record columns**: status, version number, signed by, signed on, form
+  version, "update in progress".
+
+A **Show** toggle switches between *Active (signed)*, the default, and
+*Latest*, which shows draft or pending updates instead where they exist,
+marked as unsigned. Saved column choices persist per viewer and form. Print
+uses the shared report print CSS. CSV export applies the same per-cell rules.
+
+### 9.3 Tally
+
+For every `select`, `multi_select`, `boolean`, and `intent` question: a count
+per choice, plus "no answer", over active submissions in a chosen
+population:
+
+- the form's audience (default), or a team below it, or
+- any other source from the printable list (§9.4): people checked in to an
+  event, or people who gave a chosen answer to a question.
+
+The tally page uses the printable list's step 1 (a shared partial), starting
+from its own form's audience. It replaces the fixed "Everyone asked / Said
+they're coming / Checked in" buttons.
+
+### 9.4 Printable list
+
+Built (rev. 5) as `/forms/print_list` (`FormPrintList`), not a member route,
+since it picks its form: any form the viewer can see results for. Renamed
+from "order sheet" (rev. 6): the tool isn't only for orders, and the old
+name hid what it does.
+
+Rev. 7: who's on the list comes from general sources. Rev. 5 offered three
+fixed groups ("Said they're coming", "Checked in", "Everyone the form asks")
+that came straight from one use case, turning the meal spreadsheet's
+Attending column into a sandwich order (§A.3). "Said they're coming" was a
+special case of "people who answered Yes to one question". It left out
+Maybe without saying so, and it gave nothing to a t-shirt order, a volunteer
+roster, or a carpool list.
+
+Rev. 8: the form comes first, and who's on the list is one of two plain
+choices under it. Rev. 7's first build put an abstract "People" source
+before the form, with a second form picker that pointed ahead to "the form
+in step 2", and answers that appeared only after a reload; it was harder to
+follow than rev. 5. A "People at an event" choice (Said Yes, Said Maybe,
+Checked in) was tried and dropped: "People who answered a question" covers
+Said Yes and Maybe more generally and shows where the answers come from.
+
+The page, top to bottom:
+
+1. **Answers from**: the form whose answers are shown (any open or closed
+   form the viewer can see results for, so a season form doesn't have to be
+   attached to every event). Choosing it reloads the page with the rest.
+2. **Who's on the list**: one of two radio choices. Changing a choice's
+   setting selects it.
+   - **Everyone the form asks** (default), optionally narrowed to a team
+     below the form's team.
+   - **People who answered a question**, in two steps: choose a form (any
+     form the viewer can see results for; event forms are labelled with
+     their event), then one of its questions, then tick the answers that
+     count. Yes/no and "Are you coming?" questions are listed first, then
+     choice and multiple choice questions. The people and the answers can
+     come from different forms: people who said Yes or Maybe on the event's
+     RSVP, with their answers from the season meal form; or people who
+     ticked "Can you drive?" on a trip form, with their phone numbers.
+     Nothing is ticked by default, so whether Maybe counts is up to the
+     person making the list. A `multi_select` answer matches if it includes
+     any ticked answer. An unticked yes/no is stored as no answer, so on a
+     submitted response it counts as No. Only answers the viewer can read
+     count; the rest are counted (below).
+
+   **Printable list for this event** (event panel) opens a finished list:
+   answers from the event's first form with something to show besides
+   "Are you coming?" (or its only form), and people from "People who
+   answered a question" with the event's "Are you coming?" question and Yes
+   ticked, or everyone asked if no form on the event asks. With no columns
+   ticked, the list is just names.
+3. **Columns**: tick boxes for the form's questions (default: its choice
+   and yes/no questions) and any profile fields the viewer can read.
+   Changing "Answers from" starts the columns over from the new form's
+   defaults.
+4. **Print as**: a table or labels, one per person.
+
+The tally page has the same "Who's counted" choices for its own form.
+
+The printout names who and what, for example:
+
+- "People: 22 who answered Yes or Maybe to "Are you coming?" (Build Day RSVP)"
+- "People: 6 who answered Yes to "Can you drive?" (Spring Trip)"
+- "People: 40 asked by Season Meal Choices (Programming)"
+
+followed by "Answers: Season Meal Choices · 15 answered, 3 haven't". People
+are split three ways: listed (an active answer the viewer can read),
+"Haven't answered" (no response, or nothing submitted), and a count of
+people whose answers the viewer can't see. "People who answered a question"
+adds its own count: "Not shown: 2 people whose answer to "Are you coming?"
+you can't see". No one is silently left out.
+
+Page directions stay short and generic (§12): "A list of people with their
+answers to one form, as a table or labels."
+
+#### Implementation
+
+- **`FormPopulation`** turns the choice and the viewer into people, sorted
+  by last and first name, plus a hidden count, a description for the
+  printout, and what's still to choose. `FormPrintList` and the tally page
+  both use it, replacing `FormPrintList::BASES` and
+  `FormsHelper::BASIS_LABELS`.
+- **Params**: `who` (`asked`, `answered`), `team_id`, `question_form_id`
+  (the page's first step only), `question_id`, `answers[<question id>][]`.
+  The page sends only the chosen form's question list. Links that still use
+  `basis=expected` start from Said Yes; other `basis` values start from
+  everyone asked.
+- **Matching** reads answers through `FormReport` (`readable?`, `answer`),
+  never `FormSubmission` directly, so it follows the same permissions as the
+  results page. Ticked answers are cast through the question's value type
+  (choice strings; `true`/`false` for booleans) before comparing.
+- **`EventForms#expected_people`** stays for the event panel. That panel's
+  numbers are about intent (§10.2); the printable list no longer uses it.
+
+#### Hooks
+
+None. The printable list and tally only read: no new tables or records,
+and no domain events. Hooks on `form_submissions` and `form_responses`
+(§13.1) already cover the answers the sources read.
+
+#### Considered and deferred
+
+- **"Was asked but hasn't answered"** as a source, for chasing answers. The
+  status page's filters and Remind (§11.1) already cover that.
+- **Checked in to an event** as a choice. It went with "People at an
+  event" in rev. 8. The event panel already lists who checked in against who
+  said yes (§10.2). Add it back if someone needs a handout list on paper.
+- **Combining choices** (said Yes *and* ticked "Can you drive?"). Add only
+  if someone needs it.
+
+### 9.5 Custom reports (Pages)
+
+HBR's reports are dynamic Pages (ERB, admin-authored). Forms provides a
+read API that applies the viewing person's permissions, because a Page's
+code runs for whoever views it:
+
+```ruby
+report = FormReport.new(Form.find_by!(key: "parent_consent_2027"), viewer: current_person)
+report.rows              # one per readable subject: person, status, active submission
+report.answer(row, "photo_release")             # nil if the viewer can't read it
+report.profile(row, "dietary_restrictions")     # current profile value, same rule
+report.changed_since_signed?(row, "dietary_restrictions")
+```
+
+Pages should use `FormReport`, never `FormSubmission` directly. The Pages
+editor shows that note when the feature is on.
+
+### 9.6 On the profile
+
+The profile's Forms tab (§6.5) lists every form for that person the viewer
+can read, with its status, active version, and who submitted and signed it.
+
+---
+
+## 10. Events
+
+### 10.1 Event forms
+
+Built (rev. 5): the event is picked on the Details tab (events of the owning
+team or a team below it, from a month ago on), or by **New form for this
+event** on the event page, which also makes the event's team the first
+audience rule. The deadline defaults to the event's start. The intent
+question has fixed choices (Yes, Maybe, No), at most one per form, and the
+builder offers it only on event forms. The event page's Forms panel shows
+status counts, intent, and the two lists only to people who can see the
+form's results (`FormPolicy#show?`); everyone else sees their own and their
+children's entries for the event's forms. All counts cover only people
+whose intent answer the viewer can read (`EventForms`).
+
+A form with `event_id` is an **event form** (a trip permission slip, a
+"coming Saturday?" poll). Its audience defaults to the event's team, its
+`closes_at` to the event start, and the event page shows a Forms panel: each
+attached form with its status counts and a link to its results.
+
+### 10.2 Intent is not attendance
+
+**An intent answer is a planning count only. A person counts as attending
+only when checked in.**
+
+- An `intent` question never creates, changes, or deletes a `Checkin`, and
+  never affects time-clock hours, travel eligibility, or the Attendance and
+  Eligibility reports, which keep reading check-ins only.
+- The event panel labels the numbers as intent: "Expected: 18 yes, 4 maybe,
+  6 no, 12 no answer". After check-ins begin it adds "Checked in: 21" and,
+  for leaders, two lists: said yes but not checked in; checked in without
+  saying yes.
+- Intent appears on the event page and the form's results, never in a
+  person's attendance history.
+
+### 10.3 Season forms used at events
+
+The meal form is a season form, not an event form. Events reach it through
+the printable list (§9.4). Nothing about a season form changes when an event
+uses it.
+
+---
+
+## 11. Notifications and scheduling
+
+### 11.1 Reminders
+
+**Remind** on the status page sends to every not-complete subject in the
+current filter (including Needs re-confirmation and Waiting). Recipients are
+the people who can act: the subject (if they have an account and can
+respond) and their guardians (if the respond level includes `guardian`, or a
+guardian signature is outstanding). One email per recipient per form, listing
+each of their subjects: "Meal Choices is due Oct 12 for Avery and Jordan."
+Sent with `SendEmailJob`; logged in `form_reminders`.
+
+Automatic reminders (N days before close) are Phase 4.
+
+### 11.2 Digest
+
+The weekly digest (`Infodump`) gains a "Forms to complete" section. This
+edits an upstream file; propose a digest-section seam first (§14.2).
+
+### 11.3 Opening and closing
+
+A recurring Solid Queue job every 5 minutes opens `draft` forms past
+`opens_at` and closes `open` forms past `closes_at`. Manual Open and Close
+buttons do the same immediately. Closing doesn't change any submission:
+pending ones can still be signed (a signature is not a late entry), but new
+drafts and updates need `late_entry`.
+
+---
+
+## 12. UX
+
+### 12.1 Navigation and registration
+
+```ruby
+GatherPack::Features.register_built_in(
+  GatherPack::Feature.new(
+    key: :forms,
+    label: "Forms",
+    description: "Collect information, consent, and event plans from members and their families",
+    default_enabled: false,
+    nav_section: "People",
+    nav_position: 40,
+    nav_items: [ GatherPack::Feature::NavItem.new(label: "Forms", path: :forms_path, icon: "file-signature") ]
+  )
+)
+```
+
+`/forms` is "My forms" for everyone, plus "Manage" (forms the viewer can
+edit) for leaders and admins.
+
+### 12.2 Form builder
+
+Built (rev. 5) as tabs on the edit page (`/forms/:id/edit?tab=`), grouped by
+what the settings are about: **Details** (title, key, description, owning
+team), **Questions**, **Who is asked** (audience rules, badge filter),
+**Permissions** (who can fill in and see, access through badges), and
+**Responses** (opens, deadline, updates, late entry, asking again on
+profile changes, completion badge). Phase 3's event attachment adds to
+Details or gets its own tab.
+
+While the Badges feature is off, every badge setting is hidden and ignored:
+badge rules and the badge filter don't narrow the audience, badge grants give
+no access, and completion badges are neither given nor removed (the next
+status sync after Badges return catches up). The edit page says which badge
+settings a form has that are being ignored.
+
+- **Who is asked**: the audience rules (§3.9) as a list ("Include Team 1747 -
+  Students (members only)", "Include Mentors", "Exclude Class of 2027"), with
+  Add team / badge / person and a live count with the list of names. The
+  audience badge filter sits under it.
+- Settings: title, key, description, owning team, event,
+  respond and read levels (the same selects and audience explanations as the
+  person field form), badge grants, dates, allow updates, late entry,
+  re-confirm on profile change, completion badge.
+- Questions: an ordered list with Move up / Move down, add by kind,
+  "Profile" setting for inputs (*Form only* / *Filled in from profile* /
+  *Updates profile* + field), per-question levels under "Advanced".
+- **Preview as…** (the person-fields component): pick a viewer and subject,
+  see what that viewer sees and can change.
+- **Publish changes** on an open form with responses (§7.4).
+- **Duplicate**: copies settings and questions, not responses. "2027-28 Meal
+  Choices" is a duplicate with new dates and key.
+
+### 12.3 Routes
+
+```ruby
+resources :forms do
+  member { post :open; post :close; post :publish; post :duplicate; post :remind; get :results; get :tally; get :order_sheet }
+  resources :questions, controller: "form_questions", except: [ :index, :show ] do
+    member { post :move }
+  end
+  resources :responses, controller: "form_responses", param: :subject_id, only: [ :show, :edit, :update ] do
+    member { post :submit; post :start_update; post :discard; post :withdraw; post :sign }
+    resources :submissions, controller: "form_submissions", only: [ :show ]
+  end
+  resources :badge_grants, controller: "form_badge_grants", only: [ :create, :update, :destroy ]
+  resources :audience_rules, controller: "form_audience_rules", only: [ :create, :update, :destroy ]
+  member { get :audience }  # the live list behind "Asks 58 people"
+end
+
+# The profile Forms tab (§6.5), a new controller so PeopleController is untouched.
+get "people/:person_id/forms", to: "person_forms#show", as: :person_forms  # show, not index: enforce-authorization requires a policy scope on every index
+```
+
+---
+
+## 13. Auditing, Hooks, and data handling
+
+- Every new model gets `has_paper_trail versions: { class_name: "AuditLog" }`.
+  `form_questions`' trail is also how earlier form text is rendered (§7.3).
+- `answers` and signature params go in `filter_parameters`.
+- `FormSubmission.ransackable_attributes` exposes `status`, `submitted_at`,
+  never `answers`. Tallies are computed in SQL after the readable-subject
+  filter, not through Ransack.
+
+### 13.1 Hooks
+
+#### Record events (`include CanBeHooked`, add to `Hook.catalog`)
+
+| Table | Why |
+|---|---|
+| `forms` | Definition and status changes (post "Permission slips are open" to Slack) |
+| `form_responses` | The per-person summary; `update` fires on status changes |
+| `form_submissions` | Core data, as `checkin_field_responses` and `person_field_values` |
+| `form_signatures` | Consent is what integrations care about most; create and revoke (update) |
+| `form_badge_grants` | Changes who can see responses, as `person_field_badge_grants` |
+| `form_audience_rules` | Changes who is asked, the same vein as `memberships` (an integration might announce a form to newly included people) |
+
+**Not hooked:** `form_questions` (structure; Publish shows up as
+`forms - update`) and `form_reminders` (a log).
+
+#### Domain events
+
+| Event | `model` | Fired when |
+|---|---|---|
+| `form_submissions - submitted` | `FormSubmission` | Submit. Record `update` fires on every save, so hook code would otherwise diff `status` |
+| `form_submissions - activated` | `FormSubmission` | It becomes the active version (after profile writes). `model.based_on` is the version it replaced |
+| `form_responses - completed` | `FormResponse` | The response becomes complete, e.g. the parent's signature arrives days after the student submitted |
+| `form_responses - incomplete` | `FormResponse` | A complete response stops being complete: withdrawn, form re-confirmation, or a profile change on a `reconfirm_on_profile_change` form. `model.status` says which |
+
+Fired after commit from the transition methods, as
+`person_fields - value changed` is.
+
+#### Considered and deferred
+
+- **`forms - opened` / `forms - closed`.** The record `update` hook already
+  fires when the job changes `status`.
+- **`form_responses - overdue`.** Needs a daily job at the deadline; add with
+  automatic reminders if wanted.
+
+#### Data handling note
+
+Hooks receive unfiltered answers, including restricted questions and
+profile-backed values. The Hook form's notice for person-field events is
+extended to these events.
+
+---
+
+## 14. Fit with the fork strategy
+
+### 14.1 Branch
+
+`feature/forms`, branched from `feature/person-fields` (declared
+dependency). Upstream naming, no `Hbr` namespace: a general capability
+intended for upstream after person fields. Decided 2026-10-06 (Corey): keep
+the upstream naming for the tables and classes even if Forms ends up carried. Upstream issue first, framed
+generally: "Forms: collect information and consent from members and
+guardians." Flag `feature_forms`, off by default.
+
+### 14.2 Upstream files touched (kept small)
+
+Almost everything is new files. Expected edits to existing upstream files:
+
+| File | Why | Seam to propose instead |
+|---|---|---|
+| `config/routes.rb` | Routes | The feature's `routes_proc` may avoid this; confirm |
+| `config/initializers/features.rb` | Registration | (already touched by person-fields) |
+| `app/models/hook.rb` | Catalog entries | A catalog registration API |
+| `app/views/welcome/dashboard.html.erb`, `app/controllers/welcome_controller.rb` | Forms to complete card | **Dashboard card registry** on `GatherPack::Feature` |
+| `app/views/events/show.html.erb` | Event forms panel: one `render` line | **Event panel slot** |
+| `app/views/people/_show_shared.html.erb` | The Forms tab (§6.5): one `<li>` | **Profile tab registry** on `GatherPack::Feature` |
+| `app/models/person.rb` | `assign_field_values(only_given:)`; one `ActiveSupport::Notifications` line for profile changes (§8.2) | (already touched by person-fields) |
+| `app/models/infodump.rb` | Digest section | **Digest section registry** |
+| `app/views/pages/_form.html.erb` | `FormReport` note (§9.5) | Optional; can be documentation instead |
+| `config/initializers/filter_parameter_logging.rb` | Answers | (already touched) |
+| `config/recurring.yml` | Open/close job | |
+| `lib/settings.rb` | The `forms_creator_badge` setting (§5.4) | (already touched by person-fields) |
+
+The registries are small, generic, and useful to any plugin, so they are
+good seam PRs to offer upstream before Forms.
+
+### 14.3 Migrations
+
+Reversible, primary DB only (run `db:migrate:primary` and
+`db:migrate:versions` per AGENTS.md). Phase 1 (`20261005120000`–`120400`)
+created forms, questions, responses, submissions, and reminders. Phase 2
+adds migrations rather than editing those, since phase 1 already ran on
+Ditto:
+
+- `20261006120000_create_form_audience_rules.rb`, which also gives every
+  existing form one include rule for its team (managers included), so it
+  keeps the audience it had. Rolling back drops the rules.
+- `20261006120100_create_form_signatures.rb`
+- `20261006120200_create_form_badge_grants.rb`
+- `20261006120300_add_consent_columns_to_forms.rb`: `completion_badge_id`,
+  `reconfirm_on_profile_change`, `published_version`,
+  `reconfirm_from_version` on forms; `signer` on questions; `content` on
+  submissions.
+- Phase 3: `20261006130000_add_event_to_forms.rb` (`forms.event_id`,
+  nullified if the event is deleted).
+- `20261006140000_add_sharing_options_to_forms.rb`: `totals_visibility`
+  and `leader_todo` on forms.
+
+---
+
+## 15. Rollout
+
+| Phase | Scope | Replaces |
+|---|---|---|
+| **0: Extract** (done) | `AudienceLevels`, `AudienceAccess`, and `FieldValueType` on `feature/person-fields` (§2.1) | |
+| **1: Core** (done) | forms, questions (input in all three profile modes, heading, statement), responses, submissions with history, update and discard; `FormAccess` and the list form with the consistency test; profile writes on activation; builder, Preview as…, Duplicate; fill page; My forms; dashboard card; status page, results grid with profile columns, CSV, tally; `FormReport`; manual Remind; open/close job; hooks for these tables | The meal spreadsheet, apart from the printable list |
+| **2: Audiences, profile tab, and consent** (done 2026-10-06) | audience rules (§3.9: several teams, badges, people, exclusions, managers left out, former members' responses kept), with the migration from `team_id`; the profile Forms tab (§6.5); acknowledgment and signature questions, `form_signatures`, form versions and Publish, `reconfirm_on_profile_change`, completion badge, `form_badge_grants`, the completed/incomplete hooks | Paper consent forms; one meal form for students and mentors |
+| **3: Events** (done 2026-10-06) | `event_id`, the intent question, event panel, expected vs checked in, printable list (was order sheet) | The Attending column and the hand-built order |
+| **3a: General list choices** (done 2026-10-07, rev. 8) | `FormPopulation`; the printable list's form-first layout and two choices of who's on it (§9.4), shared with the tally page; `basis` links mapped | Three fixed groups (said yes, checked in, everyone asked) |
+| **4: Later** | automatic reminders, reminders at clock-in (when someone clocks in at the time kiosk, remind them of forms they still owe), digest section, file-upload questions (insurance cards; needs a privacy decision on Active Storage access), conditional questions, payment link. Other event-driven reminders are out of scope for now | |
+
+### 15.1 Open questions
+
+1. **Leaders on "Forms to complete".** Decided 2026-10-06: an option per
+   form, `leader_todo` ("Show leaders what's waiting on them", Responses
+   tab). Leaders who can see the form's results get a dashboard card,
+   "Waiting on You as a Leader", listing submitted responses waiting on an
+   answer only they can give or a paper signature.
+2. **Who can see tallies.** Decided 2026-10-06: an option per form,
+   `totals_visibility` (Permissions tab): only people who can see the
+   answers (default), everyone asked and their guardians, or everyone signed
+   in. Shared totals cover everyone asked, show no names, and leave out
+   questions with their own read level and profile-linked questions. Small
+   groups can still give away who chose what; the hint says so.
+3. **One guardian or all?** Left as is for now: the first guardian's
+   signature satisfies a question.
+4. **Conditional questions.** The meal form doesn't need them; trip forms
+   might ("needs medication at camp? → which"). One-level "show if question X
+   is Y" would cover most cases.
+
+---
+
+## Appendix A: Worked examples
+
+### A.1 2026-27 Meal Choices (season form)
+
+- Key `meal_choices_2027`. Owning team: the root team. Audience: include
+  "Team 1747 - Students", include "Mentors", include "Parent Board" (a team
+  in the hierarchy, to be created): one form, so everyone who eats team
+  meals has their order in one place, and the rest of the Parents team isn't
+  asked. (On Ditto the phase 1 form sits on the root team, which also asks
+  every parent; harmless for preferences, because orders come from the
+  printable list's expected or checked-in people, §9.4, not from everyone who
+  answered.) Respond: `family`. Read:
+  `family`, plus a read grant for a "Meal Coordinator" badge. Allow updates:
+  yes.
+- Questions:
+  - heading "5 Guys"; select "5 Guys" (Cheeseburger, Grilled Cheese, Hot
+    Dog, …)
+  - heading "Jimmy John's"; select "Sandwich" (Slim 1–6, Big John, Totally
+    Tuna, Turkey Tom, Vito, The Pepe, …); select "JJ Dessert" (Chocolate
+    Chip, …)
+  - select "Pizza" (Cheese, Pepperoni, Sausage); select "Subway" (Turkey,
+    Ham, Tuna); multi_select "Please remove" (Lettuce, Tomatoes, Cheese)
+  - select "Cookie", select "Chip", select "Entrée 1", select "Entrée 2"
+  - multi_select or text "Wishlist"
+  - Dietary Restrictions, **updates profile** (the system person field; one
+    place for allergies)
+- No signatures, so each submission activates on submit. A student who
+  changes their sandwich in January submits an update; it replaces the
+  active version at once, and the old one stays in the history.
+- The "Attending" column becomes an event form per event, or the order
+  sheet run against checked-in people.
+- Importing this season's spreadsheet is a one-off script (outside the
+  feature) that maps the inconsistent spellings to the choice lists and
+  creates submission #1 per person with `submitted_by` = the importer.
+
+### A.2 2027 Parent Consent (consent form)
+
+- Key `parent_consent_2027`. Audience: include "Team 1747 - Students" with
+  managers left out. Respond and read: `family`. Completion badge "2027 Parent
+  Consent Signed". Re-confirm on profile change: yes.
+- Questions: statement (the release text); Emergency Contact (a custom
+  person field) and Phone, **updates profile**; Dietary Restrictions,
+  **updates profile**; acknowledgment "I have read the code of conduct"
+  (write override `self`, so the student ticks it); signature
+  (`guardian_if_minor`).
+- October: the student ticks the acknowledgment and submits; submission #1
+  is pending ("Waiting: parent signature"). The parent reviews and signs;
+  #1 activates, the profile is updated, the badge is granted,
+  `form_responses - completed` fires.
+- December: a leader records a new allergy on the profile. The consent
+  response shows "Dietary Restrictions changed since signed on Oct 3" and,
+  because of the form setting, becomes Needs re-confirmation; the badge
+  comes off. The parent clicks Update: draft #2 starts with the current
+  profile values and the October answers, and needs a new signature. Until
+  the parent signs, reports still show #1's answers, marked "needs
+  re-confirmation".
+- The Eligibility Report reads the badge; a custom Page lists every
+  student's photo release answer and current allergies via `FormReport`.
+
+### A.3 Saturday Build (event intent)
+
+- Event form on the Saturday event, closes at the event start. Respond:
+  `self_and_leaders`. Questions: intent "Are you coming?".
+- Friday: the event panel shows "Expected: 18 yes, 4 maybe". The printable list
+  (people who answered Yes to "Are you coming?", with answers from
+  `meal_choices_2027`) gives the Jimmy John's order.
+  Saturday: 21 check in; the panel lists the 3 who came without saying yes.
+  Attendance and hours come from the 21 check-ins only.
