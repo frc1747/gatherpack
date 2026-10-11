@@ -11,3 +11,5 @@ feature/widgets
 feature/signup-link-guard
 feature/kiosk-scanned-person
 feature/kiosk-auto-clock-in
+feature/extension-registries
+feature/signups
