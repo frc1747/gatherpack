@@ -33,11 +33,16 @@ class SignupPositionRuleTest < ActiveSupport::TestCase
     assert_equal "Needs a badge that no longer exists", rule.description
   end
 
-  test "a team a rule uses can't be deleted" do
-    @position.signup_position_rules.create!(kind: :team, team: @concessions)
+  test "a team rule ignores deleted teams, and fails once none is left" do
+    rule = @position.signup_position_rules.create!(kind: :team, team_ids: [ @concessions.id, @students.id ])
 
-    assert_raises(ActiveRecord::InvalidForeignKey) { @concessions.destroy }
-    assert Team.exists?(@concessions.id)
+    @students.destroy!
+    assert_nil rule.reload.check(person(:worker), @event)
+    assert_equal "Must be in Concessions", rule.check(person(:student), @event)
+    assert_equal "In Concessions", rule.description
+
+    @concessions.destroy!
+    assert_equal "Must be in a team that no longer exists", rule.reload.check(person(:worker), @event)
   end
 
   test "age rule uses the age on the event's date" do
@@ -70,13 +75,41 @@ class SignupPositionRuleTest < ActiveSupport::TestCase
   end
 
   test "team rule passes for the team and the teams below it" do
-    rule = @position.signup_position_rules.create!(kind: :team, team: @club)
+    rule = @position.signup_position_rules.create!(kind: :team, team_ids: [ @club.id ])
     assert_nil rule.check(person(:worker), @event)
 
-    rule.update!(team: @concessions)
+    rule.update!(team_ids: [ @concessions.id ])
     assert_nil rule.check(person(:worker), @event)
     assert_equal "Must be in Concessions", rule.check(person(:student), @event)
     assert_equal "Must be in Concessions", rule.check(person(:parent), @event)
+  end
+
+  test "team rule passes for any of its teams, or a team below one" do
+    grill = create_world_team("Grill", parent: @other_org)
+    rule = @position.signup_position_rules.create!(kind: :team, team_ids: [ "", @students.id, @other_org.id ])
+
+    assert_nil rule.check(person(:student), @event)
+    Membership.create!(person: person(:parent), team: grill)
+    assert_nil rule.check(person(:parent), @event), "in a team below Other Org"
+    assert_equal "In Other Org or Students", rule.description
+    assert_equal "Must be in Other Org or Students", rule.check(person(:worker), @event)
+
+    rule.update!(team_ids: [ @students.id, @other_org.id, @concessions.id ])
+    assert_equal "Must be in Concessions, Other Org, or Students", rule.check(person(:sibling), @event)
+  end
+
+  test "team rule needs a team" do
+    assert_not @position.signup_position_rules.build(kind: :team, team_ids: [ "" ]).valid?
+  end
+
+  test "a position has one rule of each kind" do
+    @position.signup_position_rules.create!(kind: :team, team_ids: [ @club.id ])
+    second = @position.signup_position_rules.build(kind: :team, team_ids: [ @students.id ])
+
+    assert_not second.valid?
+    assert_equal [ "This position already has a team rule; change it instead" ], second.errors[:kind]
+    assert @position.signup_position_rules.build(kind: :age, min_age: 18).valid?
+    assert @sheet.signup_positions.create!(name: "Cook").signup_position_rules.build(kind: :team, team_ids: [ @club.id ]).valid?
   end
 
   test "a position lists every failing rule" do
