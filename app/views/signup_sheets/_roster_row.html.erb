@@ -1,0 +1,42 @@
+<% slot = signup.signup_slot %>
+<% position = slot.signup_position %>
+<% signup_policy = policy(signup) %>
+<% failures = signup.cancelled? ? [] : position.eligibility_failures(signup.person, slot.event) %>
+<tr id="<%= dom_id signup %>" class="<%= "text-body-secondary" if signup.cancelled? %>">
+  <td class="text-nowrap"><%= slot.event.start_time.strftime("%a %b %-d") %><div class="small"><%= slot.event.name %></div></td>
+  <td><%= position.name %></td>
+  <td><%= signup.person.display_name %></td>
+  <td><%= roster_amount(signup) %></td>
+  <td><%= signup.answer %></td>
+  <td><%= signup.on_behalf_of.display_name if signup.on_behalf_of && signup.on_behalf_of_id != signup.person_id %></td>
+  <td><%= signup.note %></td>
+  <td><%= roster_status_label(signup) %></td>
+  <td>
+    <% if failures.any? %>
+      <span class="badge text-bg-warning text-wrap">Placed without: <%= failures.to_sentence %></span>
+    <% end %>
+  </td>
+  <td class="no-print text-nowrap">
+    <% if !signup.cancelled? && signup_policy.place? %>
+      <% if signup_policy.mark? %>
+        <% if signup.active? %>
+          <%= button_to position.items? ? "Brought" : "Fulfilled", mark_signup_sheet_roster_signup_path(@signup_sheet, signup), method: :patch,
+                params: { status: "fulfilled" }, class: "btn btn-sm btn-outline-success", form_class: "d-inline" %>
+          <% if slot.event.start_time <= Time.current %>
+            <%= button_to position.items? ? "Not brought" : "No-show", mark_signup_sheet_roster_signup_path(@signup_sheet, signup), method: :patch,
+                  params: { status: "no_show" }, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline" %>
+          <% end %>
+        <% else %>
+          <%= button_to "Undo", mark_signup_sheet_roster_signup_path(@signup_sheet, signup), method: :patch,
+                params: { status: "active" }, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline" %>
+        <% end %>
+      <% else %>
+        <div class="small text-body-secondary text-wrap"><%= signup_policy.self_approval_reason %></div>
+      <% end %>
+      <%= link_to signup_policy.move? ? "Edit or move" : "Edit", edit_signup_sheet_roster_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-warning" %>
+      <%= button_to "Cancel", signup_sheet_roster_signup_path(@signup_sheet, signup), method: :delete,
+            class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+            data: { turbo_confirm: "Cancel #{signup.person.display_name}'s sign-up?" } %>
+    <% end %>
+  </td>
+</tr>

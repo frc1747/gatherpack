@@ -1,5 +1,5 @@
 class SignupSheetsController < InternalController
-  before_action :set_signup_sheet, only: %i[ show edit update destroy ]
+  before_action :set_signup_sheet, only: %i[ show edit update destroy roster ]
   before_action :set_team_choices, only: %i[ new create edit update ]
 
   # GET /signup_sheets
@@ -11,6 +11,21 @@ class SignupSheetsController < InternalController
   # GET /signup_sheets/1
   def show
     @events = @signup_sheet.events.order(:start_time)
+  end
+
+  # GET /signup_sheets/1/roster
+  # Every sign-up on the sheet, filtered by event_id, signup_position_id and
+  # status.
+  def roster
+    @events = @signup_sheet.events.order(:start_time)
+    @positions = @signup_sheet.signup_positions.to_a
+    @signups = Signup.where(signup_slot_id: @signup_sheet.signup_slots.select(:id))
+      .joins(signup_slot: %i[ event signup_position ])
+      .includes(:person, :on_behalf_of, signup_slot: [ :event, { signup_position: :signup_position_rules } ])
+      .order("events.start_time", "signup_positions.position", "signups.created_at")
+    @signups = @signups.where(signup_slots: { event_id: params[:event_id] }) if params[:event_id].present?
+    @signups = @signups.where(signup_slots: { signup_position_id: params[:signup_position_id] }) if params[:signup_position_id].present?
+    @signups = @signups.where(status: params[:status]) if params[:status].to_s.in?(Signup.statuses.keys)
   end
 
   # GET /signup_sheets/new
@@ -63,7 +78,7 @@ class SignupSheetsController < InternalController
   private
     def set_signup_sheet
       @signup_sheet = SignupSheet.find(params[:id])
-      authorize @signup_sheet, action_name == "show" ? :show? : :manage?
+      authorize @signup_sheet, { "show" => :show?, "roster" => :roster? }.fetch(action_name, :manage?)
     end
 
     def set_team_choices

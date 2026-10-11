@@ -1,0 +1,46 @@
+<% breadcrumb @signup_sheet %>
+<% audience = @signup_sheet.audience.order(:last_name, :first_name).map { |person| [ person.display_name, person.id ] } %>
+<% failures = @signup.person ? @signup.signup_position.eligibility_failures(@signup.person, @signup.event) : [] %>
+<% slots = @signup_sheet.signup_slots.includes(:event, :signup_position).sort_by { |slot| [ slot.event.start_time, slot.signup_position.position ] } %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Add a sign-up</h1>
+  </div>
+  <div class="card-body">
+    <p>Place anyone the sheet is open to, even while the sheet is closed.</p>
+    <%= form_with url: new_signup_sheet_roster_signup_path(@signup_sheet), method: :get, class: "row g-2 align-items-end mb-3" do |f| %>
+      <div class="col-md-8">
+        <%= f.label :signup_slot_id, "Where", class: "form-label" %>
+        <%= f.select :signup_slot_id, slots.map { |slot| [ roster_slot_label(slot) + (slot.disabled? ? " (off)" : ""), slot.id ] },
+              { selected: @signup.signup_slot_id }, class: "form-select" %>
+      </div>
+      <div class="col-auto"><%= f.submit "Choose", name: nil, class: "btn btn-secondary" %></div>
+    <% end %>
+
+    <%= simple_form_for @signup, url: signup_sheet_roster_signups_path(@signup_sheet), method: :post do |f| %>
+      <%= f.error_notification message: @signup.errors.full_messages.to_sentence if @signup.errors.any? %>
+      <%= f.input :signup_slot_id, as: :hidden %>
+      <p><strong><%= roster_slot_label(@signup.signup_slot) %></strong></p>
+      <div class="row">
+        <div class="col-12 col-md-6">
+          <%= f.input :person_id, label: "Who takes the place", collection: audience, prompt: "Pick someone…" %>
+        </div>
+        <div class="col-12 col-md-6">
+          <%= f.input :on_behalf_of_id, label: "On behalf of", collection: audience, include_blank: "The same person" %>
+        </div>
+      </div>
+      <%= render "details_fields", f: f %>
+
+      <div class="form-check mb-3">
+        <%= check_box_tag "signup[override_rules]", "1", @override_rules, id: "signup_override_rules", class: "form-check-input" %>
+        <%= label_tag "signup_override_rules", class: "form-check-label" do %>
+          Place even though they don't meet: <%= failures.any? ? failures.to_sentence : "the position's rules" %>
+        <% end %>
+      </div>
+
+      <%= link_to "Cancel", roster_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= f.button :submit, "Place", class: "btn btn-primary" %>
+    <% end %>
+  </div>
+</div>
