@@ -59,7 +59,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
       post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, extra_people: 1, extra_names: "Sam", note: "Late" } }
     end
     assert_redirected_to signup_sheet_path(@sheet)
-    signup = Signup.last
+    signup = Signup.find_by!(signup_slot: @slot, person: person(:student))
     assert_equal [ person(:student) ] * 3, [ signup.person, signup.signed_up_by, signup.on_behalf_of ]
     assert_equal [ 1, "Sam", "Late" ], [ signup.extra_people, signup.extra_names, signup.note ]
 
@@ -87,7 +87,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_difference "Signup.count" do
       post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, person_id: person(:student).id } }
     end
-    signup = Signup.last
+    signup = Signup.find_by!(signup_slot: @slot, signed_up_by: person(:parent))
     assert_equal [ person(:student), person(:parent) ], [ signup.person, signup.signed_up_by ]
 
     get signup_sheet_path(@sheet)
@@ -105,12 +105,10 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".alert", text: /You can't sign up on behalf of StudentTwo World/
 
     @sheet.on_behalf_of_anyone!
-    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id)
-    assert_select "input[name='signup[on_behalf_of_id]'][value=?]", person(:student2).id
     assert_difference "Signup.count" do
       post signup_sheet_signups_path(@sheet), params: params
     end
-    signup = Signup.last
+    signup = Signup.find_by!(signup_slot: @slot, person: person(:student))
     assert_equal [ person(:student), person(:student2) ], [ signup.person, signup.on_behalf_of ]
 
     sign_in person(:student2).user
@@ -174,7 +172,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_difference "Signup.count" do
       post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot.id, quantity: 2, answer: "Veggie" } }
     end
-    assert_equal [ 2, "Veggie" ], [ Signup.last.quantity, Signup.last.answer ]
+    assert_equal [ 2, "Veggie" ], Signup.find_by!(signup_slot: slot, person: person(:student)).slice(:quantity, :answer).values
   end
 
   test "a required answer is needed" do
@@ -257,6 +255,111 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     end
     delete signup_sheet_signup_path(@sheet, signup)
     assert signup.reload.active?
+  end
+
+  test "related people mode offers the signer's relatives as on behalf of" do
+    Membership.create!(person: person(:parent), team: @students)
+    @sheet.update!(others_relationship_type_ids: [ @parent_of.id ], on_behalf_of_mode: :related_people)
+    sign_in person(:parent).user
+
+    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id)
+    assert_select "input[name='signup[on_behalf_of_id]'][value=?]", person(:student).id
+    assert_select "input[name='signup[on_behalf_of_id]'][value=?]", person(:student2).id, count: 0
+
+    assert_no_difference "Signup.count" do
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, on_behalf_of_id: person(:student2).id } }
+    end
+    assert_response :unprocessable_entity
+    assert_select ".alert", text: /You can't sign up on behalf of StudentTwo World/
+
+    assert_difference "Signup.count" do
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, on_behalf_of_id: person(:student).id } }
+    end
+    signup = Signup.find_by!(signup_slot: @slot, person: person(:parent))
+    assert_equal person(:student), signup.on_behalf_of
+  end
+
+  test "changing who takes the place moves on behalf of to them too" do
+    Membership.create!(person: person(:parent), team: @students)
+    @sheet.update!(others_relationship_type_ids: [ @parent_of.id ])
+    signup = Signup.place!(slot: @slot, person: person(:parent), signed_up_by: person(:parent))
+    sign_in person(:parent).user
+
+    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { person_id: person(:student).id, note: "Sending my kid" } }
+    assert_redirected_to signup_sheet_path(@sheet)
+    signup.reload
+    assert_equal [ person(:student), person(:student), "Sending my kid" ], [ signup.person, signup.on_behalf_of, signup.note ]
+  end
+
+  test "organizers can't use the member pages to sign up people they couldn't sign up as members" do
+    with_organizer_grants("Sheet Organizer > Club") do
+      @sheet.signup_sheet_organizers.create!(person: person(:worker))
+      assert @sheet.organizer?(person(:worker))
+      sign_in person(:worker).user
+
+      assert_no_difference "Signup.count" do
+        post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, on_behalf_of_id: person(:outsider).id } }
+      end
+      assert_response :unprocessable_entity
+      assert_select ".alert", text: /You can't sign up on behalf of Outsider World/
+
+      signup = Signup.place!(slot: @slot, person: person(:worker), signed_up_by: person(:worker))
+      patch signup_sheet_signup_path(@sheet, signup), params: { signup: { person_id: person(:outsider).id } }
+      assert_response :unprocessable_entity
+      assert_select ".alert", text: /You can't sign up Outsider World on this sheet/
+
+      patch signup_sheet_signup_path(@sheet, signup), params: { signup: { on_behalf_of_id: person(:outsider).id } }
+      assert_response :unprocessable_entity
+      assert_select ".alert", text: /You can't sign up on behalf of Outsider World/
+
+      signup.reload
+      assert_equal [ person(:worker), person(:worker) ], [ signup.person, signup.on_behalf_of ]
+    end
+  end
+
+  test "on sheets open to anyone, on behalf of is a type-to-search picker" do
+    @sheet.on_behalf_of_anyone!
+    sign_in person(:student).user
+
+    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id)
+    assert_select "#on_behalf_of_picker"
+    assert_select "input[type=radio][value=?]", person(:student2).id, count: 0
+    assert_no_match "StudentTwo World", response.body
+
+    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id, q: "Student"), as: :turbo_stream
+    assert_response :success
+    assert_match "StudentTwo World", response.body
+    assert_no_match "Parent World", response.body
+
+    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id, q: "S"), as: :turbo_stream
+    assert_no_match "World", response.body
+    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id, q: "Outsider"), as: :turbo_stream
+    assert_no_match "Outsider World", response.body
+  end
+
+  test "without JavaScript, Find shows matching people to pick from" do
+    @sheet.on_behalf_of_anyone!
+    sign_in person(:student).user
+
+    assert_no_difference "Signup.count" do
+      post signup_sheet_signups_path(@sheet), params: { find: "1", on_behalf_of_search: "Two", signup: { signup_slot_id: @slot.id, note: "Covering" } }
+    end
+    assert_response :success
+    assert_select "input[type=radio][name='signup[on_behalf_of_id]'][value=?]", person(:student2).id
+    assert_select "input[type=radio][value=?]", person(:outsider).id, count: 0
+    assert_select "textarea[name='signup[note]']", text: /Covering/
+
+    post signup_sheet_signups_path(@sheet), params: { find: "1", on_behalf_of_search: "Outsider", signup: { signup_slot_id: @slot.id } }
+    assert_select "#on_behalf_of_picker", text: /No one found/
+
+    post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: @slot.id, on_behalf_of_id: person(:student2).id } }
+    signup = Signup.find_by!(signup_slot: @slot, person: person(:student))
+    assert_equal person(:student2), signup.on_behalf_of
+
+    patch signup_sheet_signup_path(@sheet, signup), params: { find: "1", on_behalf_of_search: "Student", signup: { note: "Unsaved" } }
+    assert_response :success
+    assert_select "input[type=radio][name='signup[on_behalf_of_id]'][value=?][checked]", person(:student2).id
+    assert_nil signup.reload.note
   end
 
   test "disabled slots don't show and can't be taken" do

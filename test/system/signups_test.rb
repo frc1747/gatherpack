@@ -32,6 +32,20 @@ class SignupsTest < ApplicationSystemTestCase
 
     assert_text "Your sign-up was cancelled."
     assert_no_selector "#my_signups"
-    assert Signup.last.cancelled?
+    assert Signup.find_by!(person: person(:student)).cancelled?
+  end
+
+  test "on a sheet open to anyone, a member picks who it's on behalf of by typing a name" do
+    @sheet.on_behalf_of_anyone!
+    sign_in person(:student).user
+    visit signup_sheet_path(@sheet)
+
+    click_on "Sign up"
+    find("#on_behalf_of_picker input[role=combobox]").fill_in(with: "Two")
+    find("[role=option]", text: "StudentTwo World").click
+    click_on "Sign up"
+
+    assert_text "You're signed up for Cashier."
+    assert_equal person(:student2), Signup.find_by!(person: person(:student)).on_behalf_of
   end
 end
