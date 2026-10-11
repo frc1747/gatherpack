@@ -37,7 +37,7 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_select "#roster tbody tr", count: 3
     assert_select "td", text: "2 extra: Sam, Alex"
     assert_select "td", text: "Leaves early"
-    assert_select "button", text: "Print"
+    assert_select "button[data-controller=print][data-action=?]", "print#print", text: "Print"
     assert_select "td", text: person(:student).birthday.to_s, count: 0
 
     get roster_signup_sheet_path(@sheet, event_id: second.id)
@@ -74,7 +74,7 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ person(:student), person(:worker), "Cover" ], [ signup.person, signup.signed_up_by, signup.note ]
 
     get roster_signup_sheet_path(@sheet)
-    assert_select "##{ActionView::RecordIdentifier.dom_id(signup)} td", text: "Placed without: Needs the Alcohol License badge"
+    assert_select "##{ActionView::RecordIdentifier.dom_id(signup)} td", text: "Doesn't meet: Needs the Alcohol License badge"
   end
 
   test "an organizer can only place people the sheet is open to" do
@@ -93,14 +93,27 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
 
     [ :worker, :student2 ].each do |name|
       assert_no_difference "Signup.count" do
-        post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@cashier).id, person_id: person(name).id, override_rules: "1" } }
+        post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@cashier).id, person_id: person(name).id, note: "Kept", override_rules: "1" } }
       end
+      assert_response :unprocessable_entity, "re-renders the form instead of redirecting"
+      assert_select ".alert", text: /#{SignupSheet::SELF_APPROVAL_REASON}/
+      assert_select "#signup_override_rules", count: 0
+      assert_select "input[name=?][value=?]", "signup[note]", "Kept"
     end
 
     sign_in person(:concessions_manager).user
     assert_difference "Signup.count" do
       post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@cashier).id, person_id: person(:worker).id, override_rules: "1" } }
     end
+  end
+
+  test "ticking the override box for yourself is fine when you meet every rule" do
+    sign_in person(:worker).user
+
+    assert_difference "Signup.count" do
+      post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@bar).id, person_id: person(:worker).id, override_rules: "1" } }
+    end
+    assert_redirected_to roster_signup_sheet_path(@sheet)
   end
 
   test "an organizer can't mark or move their own or a relative's sign-up, and the roster says why" do

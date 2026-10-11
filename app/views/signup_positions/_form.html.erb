@@ -7,8 +7,11 @@
       <%= f.input :name, hint: "For example Cashier, Setup crew or Main dish." %>
     </div>
     <div class="col-12 col-md-6">
+      <% kind_locked = f.object.persisted? && f.object.signups.live.exists? %>
       <%= f.input :kind, as: :radio_buttons, label: "What is needed", collection: [ [ "People", "people" ], [ "Items", "items" ] ],
-            include_blank: false, item_wrapper_class: "form-check form-check-inline", input_html: { data: { action: "signup-position-kind#toggle" } } %>
+            include_blank: false, item_wrapper_class: "form-check form-check-inline", disabled: kind_locked,
+            hint: ("Can't change while people are signed up." if kind_locked),
+            input_html: { data: { action: "signup-position-kind#toggle" } } %>
     </div>
   </div>
   <%= f.input :description, input_html: { rows: 2 }, hint: "Optional. What the job involves, or what to bring." %>

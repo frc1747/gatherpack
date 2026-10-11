@@ -29,6 +29,8 @@ class SignupPositionsController < InternalController
     if params[:move].present?
       move(params[:move])
       redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), status: :see_other
+    elsif kind_change_refused?
+      render :edit, status: :unprocessable_entity
     elsif @signup_position.update(signup_position_params)
       redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), notice: "#{@signup_position.name} saved.", status: :see_other
     else
@@ -66,6 +68,17 @@ class SignupPositionsController < InternalController
       SignupPosition.transaction do
         positions.each_with_index { |position, number| position.update!(position: number) unless position.position == number }
       end
+    end
+
+    # Usage and caps count places for people and quantities for items, so
+    # the kind can't change once anyone is signed up.
+    def kind_change_refused?
+      kind = signup_position_params[:kind]
+      return false if kind.blank? || kind == @signup_position.kind || !@signup_position.signups.live.exists?
+
+      @signup_position.assign_attributes(signup_position_params.except(:kind))
+      @signup_position.errors.add(:kind, "can't change while people are signed up")
+      true
     end
 
     def signup_position_params

@@ -57,6 +57,27 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a position's kind can change only while nobody is signed up" do
+    sign_in person(:worker).user
+
+    patch signup_sheet_signup_position_path(@sheet, @position), params: { signup_position: { kind: "items", unit: "cases" } }
+    assert @position.reload.items?
+    patch signup_sheet_signup_position_path(@sheet, @position), params: { signup_position: { kind: "people" } }
+    assert @position.reload.people?
+
+    Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:student))
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "input[name=?][disabled]", "signup_position[kind]", count: 2
+    assert_select ".form-text", text: "Can't change while people are signed up."
+
+    patch signup_sheet_signup_position_path(@sheet, @position), params: { signup_position: { kind: "items", name: "Till" } }
+    assert_response :unprocessable_entity
+    assert_select ".invalid-feedback, .error", text: /can't change while people are signed up/
+    @position.reload
+    assert @position.people?
+    assert_equal "Cashier", @position.name
+  end
+
   test "a position with sign-ups can't be removed" do
     Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:student))
     sign_in person(:worker).user
@@ -94,7 +115,7 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
   end
 
   test "an organizer attaches upcoming events and detaches one" do
-    practice = create_world_event("Practice", 1.week.from_now, team: @students)
+    practice = create_world_event("Practice", 1.week.from_now, team: @concessions)
     elsewhere = create_world_event("Elsewhere", 1.week.from_now, team: @other_org)
     past = create_world_event("Last Year", 1.year.ago)
     sign_in person(:worker).user
@@ -104,8 +125,15 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     assert_select "label", text: /Practice/
     assert_select "label", text: /Elsewhere|Last Year|Game Day/, count: 0
 
+    [ elsewhere, past ].each do |event|
+      assert_no_difference "SignupSheetEvent.count" do
+        post signup_sheet_signup_sheet_events_path(@sheet), params: { event_ids: [ practice.id, event.id ] }
+      end
+      assert_match "Nothing was added", flash[:alert]
+    end
+
     assert_difference "SignupSheetEvent.count" do
-      post signup_sheet_signup_sheet_events_path(@sheet), params: { event_ids: [ practice.id, elsewhere.id, past.id ] }
+      post signup_sheet_signup_sheet_events_path(@sheet), params: { event_ids: [ practice.id ] }
     end
     assert_redirected_to edit_signup_sheet_path(@sheet, anchor: "dates")
     assert slot_for(@position, practice)
@@ -113,6 +141,31 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     sheet_event = @sheet.signup_sheet_events.find_by!(event: practice)
     assert_difference "SignupSheetEvent.count", -1 do
       delete signup_sheet_signup_sheet_event_path(@sheet, sheet_event)
+    end
+  end
+
+  test "a badge organizer can only attach events they can already see" do
+    # worker is in Concessions, not Students, so can't see Students' events.
+    hidden = create_world_event("Students Meeting", 1.week.from_now, team: @students)
+    visible = create_world_event("Club Night", 1.week.from_now, team: @club)
+    sign_in person(:worker).user
+
+    get new_signup_sheet_signup_sheet_event_path(@sheet)
+    assert_select "label", text: /Club Night/
+    assert_select "label", text: /Students Meeting/, count: 0
+
+    assert_no_difference "SignupSheetEvent.count" do
+      post signup_sheet_signup_sheet_events_path(@sheet), params: { event_ids: [ hidden.id ] }
+    end
+    assert_redirected_to new_signup_sheet_signup_sheet_event_path(@sheet)
+    assert_equal "Only events listed here can be added. Nothing was added.", flash[:alert]
+    assert_not @sheet.events.include?(hidden)
+
+    sign_in person(:admin).user
+    get new_signup_sheet_signup_sheet_event_path(@sheet)
+    assert_select "label", text: /Students Meeting/
+    assert_difference "SignupSheetEvent.count", 2 do
+      post signup_sheet_signup_sheet_events_path(@sheet), params: { event_ids: [ hidden.id, visible.id ] }
     end
   end
 
