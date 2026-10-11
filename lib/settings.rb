@@ -73,6 +73,12 @@ class Settings
     def register_feature(feature)
       instance.send(:add_feature_setting, feature)
     end
+
+    # Adds a setting from outside this file, with the same arguments as the
+    # built-in ones, so a feature or plugin can own its settings.
+    def register(setting_key, *args)
+      instance.send(:add_setting, setting_key, *args)
+    end
   end
 
   private
