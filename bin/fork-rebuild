@@ -6,7 +6,19 @@
 # Refs are read from origin by default. Set REF_PREFIX= (empty) to build from
 # local branches instead, e.g. before they have been pushed:
 #   REF_PREFIX= bin/fork-rebuild
+#
+# To cut a release, name its tag so HBR-CHANGELOG.md calls the build by it,
+# then tag the changelog commit with exactly that name:
+#   bin/fork-rebuild --release v0.0.0-hbr.14
 set -euo pipefail
+
+release_args=()
+case "${1-}" in
+  "") ;;
+  --release) [[ -n "${2-}" ]] || { echo "usage: bin/fork-rebuild [--release TAG]" >&2; exit 2; }
+             release_args=(--release "$2") ;;
+  *) echo "usage: bin/fork-rebuild [--release TAG]" >&2; exit 2 ;;
+esac
 
 INTEGRATION="hbr/integration"
 REF_PREFIX="${REF_PREFIX-origin/}"
@@ -66,7 +78,7 @@ done
 # hbr/integration, so no input branch ever carries it.
 toplevel="$(git rev-parse --show-toplevel)"
 changelog="${toplevel}/HBR-CHANGELOG.md"
-if ! "${toplevel}/bin/fork-changelog" --ref "${PLATFORM}" --output "${changelog}"; then
+if ! "${toplevel}/bin/fork-changelog" --ref "${PLATFORM}" ${release_args[@]+"${release_args[@]}"} --output "${changelog}"; then
   echo "Generating HBR-CHANGELOG.md failed; ${INTEGRATION} has every merge but no changelog." >&2
   exit 1
 fi
