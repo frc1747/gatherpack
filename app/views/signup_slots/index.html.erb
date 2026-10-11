@@ -19,7 +19,7 @@
               <% @positions.each do |position| %>
                 <th>
                   <%= position.name %>
-                  <div class="small fw-normal text-body-secondary"><%= position.capacity ? "#{position.capacity} #{position.unit_label}" : "No limit" %></div>
+                  <div class="small fw-normal text-light opacity-75"><%= position.capacity ? "#{position.capacity} #{position.unit_label}" : "No limit" %></div>
                 </th>
               <% end %>
             </tr>
