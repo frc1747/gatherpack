@@ -11,11 +11,14 @@ class SignupPolicyTest < ActiveSupport::TestCase
     # The parent is an organizer too.
     Membership.create!(person: person(:parent), team: @concessions)
     BadgeAssignment.create!(badge: @organizer_badge, person: person(:parent))
-    with_organizer_grants("Sheet Organizer > Club") do
-      @sheet.signup_sheet_organizers.create!(person: person(:worker))
-      @sheet.signup_sheet_organizers.create!(person: person(:parent))
-    end
+    @restore_settings = apply_settings(signups_organizers: "Sheet Organizer > Club")
+    @sheet.signup_sheet_organizers.create!(person: person(:worker))
+    @sheet.signup_sheet_organizers.create!(person: person(:parent))
     @signup = Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:student))
+  end
+
+  teardown do
+    @restore_settings&.call
   end
 
   test "members change and cancel their own and their family's sign-ups before the cutoff" do
@@ -50,6 +53,25 @@ class SignupPolicyTest < ActiveSupport::TestCase
     assert_not policy(:worker, own).mark?
     assert policy(:admin, own).mark?
     assert_not policy(:worker, @signup).move_to?(person(:worker))
+  end
+
+  test "the person on whose behalf a sign-up is taken can't change or cancel it" do
+    @sheet.on_behalf_of_anyone!
+    covered = Signup.place!(slot: slot_for(@position), person: person(:student2), signed_up_by: person(:student2), on_behalf_of: person(:student))
+
+    assert_not policy(:student, covered).update?
+    assert_not policy(:student, covered).destroy?
+    assert policy(:student2, covered).update?
+    assert policy(:student2, covered).destroy?
+  end
+
+  test "the signer and people who could sign up the person can change or cancel it" do
+    taken_by_parent = Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:parent))
+
+    assert policy(:parent, taken_by_parent).update?
+    assert policy(:student, taken_by_parent).destroy?
+    assert_not policy(:student2, taken_by_parent).destroy?
+    assert_not policy(:sibling, taken_by_parent).destroy?, "Sibling of isn't one of the sheet's types"
   end
 
   test "on behalf of a relative counts as theirs" do

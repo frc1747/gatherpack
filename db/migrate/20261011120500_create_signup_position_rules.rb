@@ -6,7 +6,7 @@ class CreateSignupPositionRules < ActiveRecord::Migration[8.1]
       t.uuid :badge_ids, array: true, null: false, default: []
       t.integer :min_age
       t.integer :max_age
-      t.references :team, type: :uuid, foreign_key: { on_delete: :cascade }
+      t.references :team, type: :uuid, foreign_key: true
 
       t.timestamps
     end

@@ -75,7 +75,7 @@ class SignupSheet < ApplicationRecord
   def self.grants_for(person)
     return [] if person.nil?
 
-    badge_ids = person.badge_ids
+    badge_ids = BadgeAssignment.where(person_id: person.id).pluck(:badge_id)
     organizer_grants.select { |badge, _team| badge_ids.include?(badge.id) }
   end
 
@@ -112,13 +112,15 @@ class SignupSheet < ApplicationRecord
     (person.all_managed_teams.ids + organizer_team_ids(person)).uniq
   end
 
-  # Runs this sheet: on its organizer list, an admin, or a manager of its
-  # team or a team above it.
+  # Runs this sheet: an admin, a manager of its team or a team above it, or
+  # someone on its organizer list who can still create sheets for its team
+  # (they lose the sheet when their badge or management goes, or the sheet
+  # moves out of their reach).
   def organizer?(person)
     return false if person.nil?
-    return true if person.admin?
+    return true if person.admin? || team.manager?(person)
 
-    signup_sheet_organizers.exists?(person_id: person.id) || team.manager?(person)
+    signup_sheet_organizers.exists?(person_id: person.id) && self.class.creatable_team_ids(person).include?(team_id)
   end
 
   # The people who may be added as organizers of this sheet: holders of a

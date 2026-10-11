@@ -20,6 +20,26 @@ class SignupPositionRuleTest < ActiveSupport::TestCase
     assert_equal "Needs the Alcohol License or Sheet Organizer badge", rule.check(person(:student), @event)
   end
 
+  test "a badge rule ignores deleted badges, and fails once none is left" do
+    rule = @position.signup_position_rules.create!(kind: :badge, badge_ids: [ @license_badge.id, @organizer_badge.id ])
+
+    @organizer_badge.destroy!
+    assert_nil rule.reload.check(person(:worker), @event)
+    assert_equal "Needs the Alcohol License badge", rule.check(person(:student), @event)
+    assert_equal "Needs the Alcohol License badge", rule.description
+
+    @license_badge.destroy!
+    assert_equal "Needs a badge that no longer exists", rule.reload.check(person(:worker), @event)
+    assert_equal "Needs a badge that no longer exists", rule.description
+  end
+
+  test "a team a rule uses can't be deleted" do
+    @position.signup_position_rules.create!(kind: :team, team: @concessions)
+
+    assert_raises(ActiveRecord::InvalidForeignKey) { @concessions.destroy }
+    assert Team.exists?(@concessions.id)
+  end
+
   test "age rule uses the age on the event's date" do
     rule = @position.signup_position_rules.create!(kind: :age, min_age: 16)
 

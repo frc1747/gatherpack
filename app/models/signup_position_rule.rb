@@ -38,7 +38,7 @@ class SignupPositionRule < ApplicationRecord
   # "Needs the Alcohol License badge", "Age 14 to 17", "In Concessions"
   def description
     case kind
-    when "badge" then "Needs the #{badge_names} badge"
+    when "badge" then badge_requirement
     when "age" then "Age #{age_range_text}"
     when "team" then "In #{team&.name}"
     end
@@ -55,10 +55,16 @@ class SignupPositionRule < ApplicationRecord
 
   private
 
+  # Deleted badges are left out; if none is left, nobody passes.
   def check_badge(person)
     return if BadgeAssignment.where(person_id: person.id, badge_id: badge_ids).exists?
 
-    "Needs the #{badge_names} badge"
+    badge_requirement
+  end
+
+  def badge_requirement
+    names = badge_names
+    names.present? ? "Needs the #{names} badge" : "Needs a badge that no longer exists"
   end
 
   def check_age(person, event)
