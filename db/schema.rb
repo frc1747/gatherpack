@@ -176,7 +176,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
     t.string "name"
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.uuid "person_field_id"
+    t.integer "read_permission", default: 7, null: false
     t.index ["event_type_id"], name: "index_checkin_fields_on_event_type_id"
+    t.index ["person_field_id"], name: "index_checkin_fields_on_person_field_id"
   end
 
   create_table "checkins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -212,6 +215,164 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
     t.index ["event_type_id"], name: "index_events_on_event_type_id"
     t.index ["team_id"], name: "index_events_on_team_id"
     t.index ["time_clock_period_id"], name: "index_events_on_time_clock_period_id"
+  end
+
+  create_table "form_audience_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.integer "effect", default: 0, null: false
+    t.integer "target_type", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "badge_id"
+    t.uuid "person_id"
+    t.boolean "include_managers", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_form_audience_rules_on_badge_id"
+    t.index ["form_id", "effect", "target_type", "team_id", "badge_id", "person_id"], name: "index_form_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["form_id"], name: "index_form_audience_rules_on_form_id"
+    t.index ["person_id"], name: "index_form_audience_rules_on_person_id"
+    t.index ["team_id"], name: "index_form_audience_rules_on_team_id"
+  end
+
+  create_table "form_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.uuid "badge_id", null: false
+    t.integer "access", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_form_badge_grants_on_badge_id"
+    t.index ["form_id", "badge_id"], name: "index_form_badge_grants_on_form_id_and_badge_id", unique: true
+    t.index ["form_id"], name: "index_form_badge_grants_on_form_id"
+  end
+
+  create_table "form_questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.integer "position", default: 0, null: false
+    t.integer "kind", default: 0, null: false
+    t.string "label"
+    t.text "body"
+    t.string "key", null: false
+    t.integer "data_type", default: 0, null: false
+    t.jsonb "options", default: {}, null: false
+    t.uuid "person_field_id"
+    t.integer "profile_mode"
+    t.boolean "required", default: false, null: false
+    t.integer "read_permission"
+    t.integer "write_permission"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "signer"
+    t.index ["form_id", "key"], name: "index_form_questions_on_form_id_and_key", unique: true
+    t.index ["form_id"], name: "index_form_questions_on_form_id"
+    t.index ["person_field_id"], name: "index_form_questions_on_person_field_id"
+  end
+
+  create_table "form_reminders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.uuid "sent_by_id"
+    t.datetime "sent_at", null: false
+    t.integer "recipient_count", default: 0, null: false
+    t.jsonb "filter", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["form_id"], name: "index_form_reminders_on_form_id"
+    t.index ["sent_by_id"], name: "index_form_reminders_on_sent_by_id"
+  end
+
+  create_table "form_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_id", null: false
+    t.uuid "subject_id", null: false
+    t.uuid "active_submission_id"
+    t.integer "status", default: 0, null: false
+    t.boolean "update_in_progress", default: false, null: false
+    t.datetime "last_reminded_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active_submission_id"], name: "index_form_responses_on_active_submission_id"
+    t.index ["form_id", "subject_id"], name: "index_form_responses_on_form_id_and_subject_id", unique: true
+    t.index ["form_id"], name: "index_form_responses_on_form_id"
+    t.index ["subject_id"], name: "index_form_responses_on_subject_id"
+  end
+
+  create_table "form_signatures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_submission_id", null: false
+    t.uuid "form_question_id", null: false
+    t.uuid "signer_id", null: false
+    t.integer "signer_role", null: false
+    t.string "typed_name", null: false
+    t.datetime "signed_at", null: false
+    t.string "content_digest", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.datetime "revoked_at"
+    t.uuid "revoked_by_id"
+    t.string "revoked_reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["form_question_id"], name: "index_form_signatures_on_form_question_id"
+    t.index ["form_submission_id", "form_question_id"], name: "index_form_signatures_one_standing", unique: true, where: "(revoked_at IS NULL)"
+    t.index ["form_submission_id"], name: "index_form_signatures_on_form_submission_id"
+    t.index ["revoked_by_id"], name: "index_form_signatures_on_revoked_by_id"
+    t.index ["signer_id"], name: "index_form_signatures_on_signer_id"
+  end
+
+  create_table "form_submissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "form_response_id", null: false
+    t.integer "number", null: false
+    t.integer "status", default: 0, null: false
+    t.jsonb "answers", default: {}, null: false
+    t.integer "form_version", null: false
+    t.uuid "based_on_id"
+    t.uuid "created_by_id"
+    t.uuid "submitted_by_id"
+    t.datetime "submitted_at"
+    t.datetime "activated_at"
+    t.boolean "entered_late", default: false, null: false
+    t.jsonb "profile_skipped", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "content", default: {}, null: false
+    t.index ["answers"], name: "index_form_submissions_on_answers", using: :gin
+    t.index ["based_on_id"], name: "index_form_submissions_on_based_on_id"
+    t.index ["created_by_id"], name: "index_form_submissions_on_created_by_id"
+    t.index ["form_response_id", "number"], name: "index_form_submissions_on_form_response_id_and_number", unique: true
+    t.index ["form_response_id"], name: "index_form_submissions_on_form_response_id"
+    t.index ["form_response_id"], name: "index_form_submissions_one_active", unique: true, where: "(status = 2)"
+    t.index ["form_response_id"], name: "index_form_submissions_one_open", unique: true, where: "(status = ANY (ARRAY[0, 1]))"
+    t.index ["submitted_by_id"], name: "index_form_submissions_on_submitted_by_id"
+  end
+
+  create_table "forms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "title", null: false
+    t.string "key", null: false
+    t.text "description"
+    t.uuid "team_id", null: false
+    t.uuid "audience_badge_id"
+    t.integer "respond_permission", default: 5, null: false
+    t.integer "read_permission", default: 5, null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "opens_at"
+    t.datetime "closes_at"
+    t.boolean "allow_updates", default: true, null: false
+    t.integer "late_entry", default: 1, null: false
+    t.integer "content_version", default: 1, null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "completion_badge_id"
+    t.boolean "reconfirm_on_profile_change", default: false, null: false
+    t.integer "published_version", default: 1, null: false
+    t.integer "reconfirm_from_version", default: 1, null: false
+    t.uuid "event_id"
+    t.integer "totals_visibility", default: 0, null: false
+    t.boolean "leader_todo", default: false, null: false
+    t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
+    t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
+    t.index ["created_by_id"], name: "index_forms_on_created_by_id"
+    t.index ["event_id"], name: "index_forms_on_event_id"
+    t.index ["key"], name: "index_forms_on_key", unique: true
+    t.index ["status"], name: "index_forms_on_status"
+    t.index ["team_id"], name: "index_forms_on_team_id"
   end
 
   create_table "gateways", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -458,6 +619,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
     t.index ["user_id"], name: "index_people_on_user_id"
   end
 
+  create_table "person_field_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_field_id", null: false
+    t.uuid "badge_id", null: false
+    t.integer "access", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_person_field_badge_grants_on_badge_id"
+    t.index ["person_field_id", "badge_id"], name: "idx_on_person_field_id_badge_id_1cbc5590b3", unique: true
+    t.index ["person_field_id"], name: "index_person_field_badge_grants_on_person_field_id"
+  end
+
+  create_table "person_field_groups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "person_field_values", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.uuid "person_field_id", null: false
+    t.text "value"
+    t.uuid "updated_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_field_id"], name: "index_person_field_values_on_person_field_id"
+    t.index ["person_id", "person_field_id"], name: "index_person_field_values_on_person_id_and_person_field_id", unique: true
+    t.index ["person_id"], name: "index_person_field_values_on_person_id"
+    t.index ["updated_by_id"], name: "index_person_field_values_on_updated_by_id"
+  end
+
+  create_table "person_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "key", null: false
+    t.integer "data_type", default: 0, null: false
+    t.jsonb "options", default: {}, null: false
+    t.text "help_text"
+    t.integer "read_permission", default: 0, null: false
+    t.integer "write_permission", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "person_field_group_id"
+    t.integer "position", default: 0, null: false
+    t.boolean "required", default: false, null: false
+    t.boolean "show_on_profile", default: true, null: false
+    t.datetime "archived_at"
+    t.string "system_source"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_person_fields_on_key", unique: true
+    t.index ["person_field_group_id"], name: "index_person_fields_on_person_field_group_id"
+    t.index ["system_source"], name: "index_person_fields_on_system_source", unique: true
+    t.index ["team_id"], name: "index_person_fields_on_team_id"
+  end
+
   create_table "questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "closed", default: false, null: false
     t.text "content", null: false
@@ -477,6 +692,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
     t.string "parent_label"
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.integer "guardianship", default: 0, null: false
   end
 
   create_table "relationships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -879,6 +1095,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "widgets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "title"
+    t.boolean "show_title", default: true, null: false
+    t.text "content"
+    t.boolean "dynamic", default: false, null: false
+    t.text "stylesheet"
+    t.string "style_mode", default: "theme", null: false
+    t.text "javascript"
+    t.integer "refresh_seconds", default: 0, null: false
+    t.string "placement", default: "right", null: false
+    t.integer "position", default: 0, null: false
+    t.string "viewer", default: "user", null: false
+    t.uuid "team_id"
+    t.boolean "enabled", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["team_id"], name: "index_widgets_on_team_id"
+  end
+
   add_foreign_key "account_relationships", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
@@ -892,10 +1127,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
   add_foreign_key "checkin_field_responses", "checkin_fields"
   add_foreign_key "checkin_field_responses", "checkins"
   add_foreign_key "checkin_fields", "event_types"
+  add_foreign_key "checkin_fields", "person_fields"
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
+  add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "forms", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "people", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "teams", on_delete: :cascade
+  add_foreign_key "form_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "form_badge_grants", "forms", on_delete: :cascade
+  add_foreign_key "form_questions", "forms", on_delete: :cascade
+  add_foreign_key "form_questions", "person_fields"
+  add_foreign_key "form_reminders", "forms", on_delete: :cascade
+  add_foreign_key "form_reminders", "people", column: "sent_by_id", on_delete: :nullify
+  add_foreign_key "form_responses", "form_submissions", column: "active_submission_id", on_delete: :nullify
+  add_foreign_key "form_responses", "forms", on_delete: :cascade
+  add_foreign_key "form_responses", "people", column: "subject_id", on_delete: :cascade
+  add_foreign_key "form_signatures", "form_questions"
+  add_foreign_key "form_signatures", "form_submissions", on_delete: :cascade
+  add_foreign_key "form_signatures", "people", column: "revoked_by_id", on_delete: :nullify
+  add_foreign_key "form_signatures", "people", column: "signer_id"
+  add_foreign_key "form_submissions", "form_responses", on_delete: :cascade
+  add_foreign_key "form_submissions", "form_submissions", column: "based_on_id", on_delete: :nullify
+  add_foreign_key "form_submissions", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "form_submissions", "people", column: "submitted_by_id", on_delete: :nullify
+  add_foreign_key "forms", "badges", column: "audience_badge_id"
+  add_foreign_key "forms", "badges", column: "completion_badge_id", on_delete: :nullify
+  add_foreign_key "forms", "events", on_delete: :nullify
+  add_foreign_key "forms", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "forms", "teams"
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
   add_foreign_key "ledger_entry_linkings", "ledger_entry_links"
@@ -916,6 +1178,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120700) do
   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "users", column: "resource_owner_id"
+  add_foreign_key "person_field_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "person_field_badge_grants", "person_fields"
+  add_foreign_key "person_field_values", "people"
+  add_foreign_key "person_field_values", "people", column: "updated_by_id", on_delete: :nullify
+  add_foreign_key "person_field_values", "person_fields"
+  add_foreign_key "person_fields", "person_field_groups"
+  add_foreign_key "person_fields", "teams"
   add_foreign_key "questions", "people"
   add_foreign_key "questions", "teams"
   add_foreign_key "relationships", "people", column: "child_id"
