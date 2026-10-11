@@ -190,6 +190,32 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  TURBO_ACCEPT = { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" }.freeze
+
+  test "a failed sign-up re-renders the form when Turbo asks for a turbo stream" do
+    pizza = @sheet.signup_positions.create!(name: "Pizza", kind: :items, unit: "pizzas", capacity: 6, question: "What kind?")
+    slot = slot_for(pizza)
+    sign_in person(:student).user
+
+    assert_no_difference "Signup.count" do
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot.id, quantity: 7 } }, headers: TURBO_ACCEPT
+    end
+    assert_response :unprocessable_entity
+    assert_equal "text/html", response.media_type
+    assert_select ".alert", text: /Only 6 pizzas still needed/
+    assert_select "form[action='#{signup_sheet_signups_path(@sheet)}']"
+  end
+
+  test "a failed change re-renders the form when Turbo asks for a turbo stream" do
+    signup = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:student))
+    sign_in person(:student).user
+
+    patch signup_sheet_signup_path(@sheet, signup), params: { signup: { extra_people: 5 } }, headers: TURBO_ACCEPT
+    assert_response :unprocessable_entity
+    assert_equal "text/html", response.media_type
+    assert_select ".alert", text: /Only 3 places left/
+  end
+
   test "a member changes their sign-up" do
     signup = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:student))
     sign_in person(:student).user

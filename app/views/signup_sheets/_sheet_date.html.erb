@@ -6,9 +6,9 @@
     </h2>
   </div>
   <% if slots.any? %>
-    <ul class="list-group list-group-flush">
+    <div class="card-body p-0">
       <%= render partial: "sheet_slot", collection: slots, as: :slot, locals: { event: event } %>
-    </ul>
+    </div>
   <% else %>
     <div class="card-body">Nothing needed for this date yet.</div>
   <% end %>

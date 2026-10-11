@@ -58,7 +58,7 @@ class SignupPositionRuleTest < ActiveSupport::TestCase
   test "age rule fails with no birthday on file" do
     rule = @position.signup_position_rules.create!(kind: :age, min_age: 18)
 
-    assert_equal "No birthday on file", rule.check(person(:student2), @event)
+    assert_equal "Must be 18 or older (no birthday on file)", rule.check(person(:student2), @event)
   end
 
   test "age rule needs a limit" do

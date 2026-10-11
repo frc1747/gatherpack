@@ -34,7 +34,7 @@ class SignupsController < InternalController
     redirect_to signup_sheet_path(@signup_sheet), notice: "You're signed up for #{@slot.signup_position.name}.", status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     @signup = e.record
-    render :new, status: :unprocessable_entity
+    render :new, status: :unprocessable_entity, formats: :html
   end
 
   # GET /signup_sheets/1/signups/1/edit
@@ -58,7 +58,7 @@ class SignupsController < InternalController
     @signup.change!(by: signer, **changes)
     redirect_to signup_sheet_path(@signup_sheet), notice: "Your sign-up was changed.", status: :see_other
   rescue ActiveRecord::RecordInvalid
-    render :edit, status: :unprocessable_entity
+    render :edit, status: :unprocessable_entity, formats: :html
   end
 
   # DELETE /signup_sheets/1/signups/1
@@ -137,7 +137,7 @@ class SignupsController < InternalController
     # again with the matches to choose from, saving nothing.
     def render_search(template)
       @on_behalf_of_matches = on_behalf_of_matches(params[:on_behalf_of_search], @signup.person).to_a
-      render template
+      render template, formats: :html
     end
 
     def chosen_person(key)
