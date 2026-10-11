@@ -1,7 +1,16 @@
 require "test_helper"
 
 class HookTest < ActiveSupport::TestCase
-  teardown { GatherPack::HookCatalog.reset! }
+  setup do
+    @targets = GatherPack::HookCatalog.targets.dup
+    @events = GatherPack::HookCatalog.events.dup
+  end
+
+  teardown do
+    GatherPack::HookCatalog.reset!
+    GatherPack::HookCatalog.register_targets(@targets)
+    GatherPack::HookCatalog.register_events(@events)
+  end
 
   test "catalog lists built-in events" do
     assert_includes Hook.catalog, "people - create"
