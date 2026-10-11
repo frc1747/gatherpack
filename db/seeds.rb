@@ -8,6 +8,8 @@
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
 
+PersonField.ensure_system_fields!
+
 team_type = TeamType.find_or_create_by!(name: "Test Team Type", icon: "address-book")
 event_type = EventType.find_or_create_by!(name: "Test Event Type")
 badge_type = BadgeType.find_or_create_by!(name: "Test Badge Type")
