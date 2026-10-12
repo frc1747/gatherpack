@@ -1,4 +1,6 @@
 class SignupSheetsController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet, only: %i[ show edit update destroy roster ]
   before_action :set_team_choices, only: %i[ new create edit update ]
 

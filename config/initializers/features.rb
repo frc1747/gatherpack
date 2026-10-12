@@ -132,7 +132,7 @@ Rails.application.config.to_prepare do
       key: :signups,
       label: "Sign-up Sheets",
       description: "Let members sign up to work or bring things at events",
-      default_enabled: true,
+      default_enabled: false,
       nav_section: "Time",
       nav_position: 15,
       nav_items: [

@@ -3,7 +3,7 @@
 # anyone else's address, and nothing is sent (but nothing fails) when no
 # gateway is set up. A sign-up's notices go to the person taking the place,
 # whoever signed them up and whoever it's on behalf of, if they have an
-# email address.
+# email address. Nothing is sent while Sign-up Sheets are turned off.
 class SignupNotices
   include ERB::Util
 
@@ -106,6 +106,8 @@ class SignupNotices
   # Sends one email per person with an address and returns how many. The
   # block gives the body, and is given the person.
   def deliver(people, subject)
+    return 0 unless GatherPack::Features.enabled?(:signups)
+
     people = people.compact.uniq.select { |person| person.user&.email.present? }
     return 0 if people.empty?
 

@@ -1,4 +1,6 @@
 class SignupAudienceRulesController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet
 
   # POST /signup_sheets/1/signup_audience_rules
