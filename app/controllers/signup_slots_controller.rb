@@ -1,4 +1,6 @@
 class SignupSlotsController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet
 
   # GET /signup_sheets/1/signup_slots

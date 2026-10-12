@@ -9,6 +9,13 @@
 # license badge is held by worker. The sheet belongs to Club and has one
 # event, Game Day, on Oct 24.
 module SignupsWorld
+  # Sign-up Sheets are off by default; tests using this world turn them on
+  # for each test, in a throwaway settings store.
+  def self.included(base)
+    base.setup { @restore_signups_feature = apply_settings(feature_signups: "true") }
+    base.teardown { @restore_signups_feature&.call }
+  end
+
   def build_signups_world
     @org = create_world_team("Org")
     @club = create_world_team("Club", parent: @org)

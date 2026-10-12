@@ -2,6 +2,8 @@
 # person gets their own email, so no one (the organizer included) sees the
 # addresses.
 class SignupMessagesController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet
 
   # GET /signup_sheets/1/signup_messages/new?event_id=...

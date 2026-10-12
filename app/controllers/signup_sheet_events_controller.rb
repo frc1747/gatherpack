@@ -2,6 +2,8 @@
 # the sheet, not EventPolicy, spec §3.6) or attach existing ones. They can
 # later change the name, place and time of the events the sheet made.
 class SignupSheetEventsController < InternalController
+  include SignupsFeature
+
   NEW_ROWS = 5
   MAX_ROWS = 50
 

@@ -1,4 +1,6 @@
 class SignupPositionRulesController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_position
 
   # POST /signup_sheets/1/signup_positions/1/signup_position_rules

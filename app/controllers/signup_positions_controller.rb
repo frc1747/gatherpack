@@ -1,4 +1,6 @@
 class SignupPositionsController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet
   before_action :set_signup_position, only: %i[ edit update destroy ]
 
