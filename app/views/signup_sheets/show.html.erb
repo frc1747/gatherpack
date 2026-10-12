@@ -32,6 +32,11 @@
 
 <%= render "member_signups", signups: @my_signups if @my_signups.any? %>
 
+<%# Panels other features add (Signups.extensions). %>
+<% Signups.extensions.sheet_panels.each do |panel| %>
+  <%= render panel.partial, signup_sheet: @signup_sheet, viewer: @viewer %>
+<% end %>
+
 <% if @events.any? %>
   <%= render partial: "sheet_date", collection: @events, as: :event %>
 <% else %>

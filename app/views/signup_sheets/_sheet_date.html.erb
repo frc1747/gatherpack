@@ -2,7 +2,7 @@
 <div class="card mb-3" id="<%= dom_id event %>">
   <div class="card-header">
     <h2 class="h5 mb-0">
-      <%= event.name %>, <%= event.start_time.strftime("%a %b %-d, %-l:%M %p") %><%= ", #{event.location}" if event.location.present? %>
+      <%= event.name %>, <%= signup_event_when(event, format: "%a %b %-d, %-l:%M %p") %><%= ", #{event.location}" if event.location.present? %>
     </h2>
   </div>
   <% if slots.any? %>

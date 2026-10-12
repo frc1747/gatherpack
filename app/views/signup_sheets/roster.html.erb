@@ -5,6 +5,7 @@
     <h1 class="mb-0">Roster: <%= @signup_sheet.title %></h1>
     <div class="no-print">
       <%= link_to "Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), class: "btn btn-success" unless @signup_sheet.archived? %>
+      <%= link_to "Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id]), class: "btn btn-primary" %>
       <button type="button" class="btn btn-secondary" data-controller="print" data-action="print#print">Print</button>
       <%= link_to "Set up", edit_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
     </div>
@@ -30,6 +31,20 @@
         <%= f.submit "Filter", name: nil, class: "btn btn-secondary" %>
         <%= link_to "Clear", roster_signup_sheet_path(@signup_sheet), class: "btn btn-link" %>
       </div>
+    <% end %>
+
+    <% if !@signup_sheet.archived? && @positions.any?(&:items?) && @events.any? %>
+      <%= form_with url: mark_all_brought_signup_sheet_roster_signups_path(@signup_sheet), method: :patch, id: "mark_all_brought", class: "row g-2 align-items-end mb-3 no-print" do |f| %>
+        <div class="col-md-3">
+          <%= f.label :event_id, "Items at", class: "form-label", for: "mark_all_brought_event_id" %>
+          <%= f.select :event_id, @events.map { |event| [ "#{event.start_time.strftime("%b %-d")} #{event.name}", event.id ] },
+                { selected: params[:event_id] }, id: "mark_all_brought_event_id", class: "form-select" %>
+        </div>
+        <div class="col-auto">
+          <%= f.submit "Mark all brought", class: "btn btn-outline-success", data: { turbo_confirm: "Mark every item sign-up at this date brought? You can then mark what didn't come." } %>
+        </div>
+        <div class="col-12 form-text mt-0">Your own and your family's sign-ups are left for another organizer to mark.</div>
+      <% end %>
     <% end %>
 
     <% if @signups.any? %>

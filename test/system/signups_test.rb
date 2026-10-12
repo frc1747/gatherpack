@@ -46,4 +46,35 @@ class SignupsTest < ApplicationSystemTestCase
     assert_text "You're signed up for Cashier."
     assert_equal person(:student2), Signup.find_by!(person: person(:student)).on_behalf_of
   end
+
+  test "an organizer adds a date with no time yet, then sets its time" do
+    restore = apply_settings(signups_organizers: "Sheet Organizer > Club")
+    sign_in person(:worker).user
+    @sheet.signup_sheet_organizers.create!(person: person(:worker))
+    visit edit_signup_sheet_path(@sheet)
+
+    click_on "Add dates"
+    find("select[name=dates_event_type_id] option[value='#{event_types(:one).id}']").select_option
+    within "#date_row_0" do
+      fill_in "Date", with: Date.new(2026, 11, 7)
+      fill_in "Name", with: "Picnic"
+    end
+    click_on "Add these dates"
+
+    assert_text "1 date added."
+    within "#dates" do
+      assert_text "Sat Nov 7, 2026, time not set yet"
+      within find("li", text: "Picnic") do
+        click_on "Change"
+      end
+    end
+    fill_in "Starts", with: Time.zone.parse("2026-11-07 11:00")
+    fill_in "Ends", with: Time.zone.parse("2026-11-07 15:00")
+    click_on "Save"
+
+    assert_text "Picnic saved."
+    within("#dates") { assert_text "Sat Nov 7, 2026 11:00 AM" }
+  ensure
+    restore&.call
+  end
 end
