@@ -2,6 +2,8 @@
 # goes through Signup.place! or Signup#change!, which check capacity, rules
 # and who may be signed up; organizers add and move people from the roster.
 class SignupsController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet
   before_action :set_signup, only: %i[ edit update destroy ]
 

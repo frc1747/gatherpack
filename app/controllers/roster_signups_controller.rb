@@ -2,6 +2,8 @@
 # Organizers can't mark, move or place against a rule for themselves or a
 # relative (SignupPolicy).
 class RosterSignupsController < InternalController
+  include SignupsFeature
+
   DETAILS = %w[ quantity answer note ].freeze
 
   before_action :set_signup_sheet

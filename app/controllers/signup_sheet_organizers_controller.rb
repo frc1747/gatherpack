@@ -1,4 +1,6 @@
 class SignupSheetOrganizersController < InternalController
+  include SignupsFeature
+
   before_action :set_signup_sheet
 
   # POST /signup_sheets/1/signup_sheet_organizers
