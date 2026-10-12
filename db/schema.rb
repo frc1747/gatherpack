@@ -856,6 +856,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_020000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.datetime "reminded_at"
+    t.uuid "fulfilled_by_checkin_id"
+    t.index ["fulfilled_by_checkin_id"], name: "index_signups_on_fulfilled_by_checkin_id"
     t.index ["on_behalf_of_id"], name: "index_signups_on_on_behalf_of_id"
     t.index ["person_id"], name: "index_signups_on_person_id"
     t.index ["signed_up_by_id"], name: "index_signups_on_signed_up_by_id"
