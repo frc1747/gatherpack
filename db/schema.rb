@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_120300) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_120400) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -241,7 +241,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_120300) do
     t.uuid "created_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "exempt_badge_id"
+    t.uuid "group_relationship_type_id"
+    t.integer "additional_amount", default: 0, null: false
     t.index ["created_by_id"], name: "index_commitments_on_created_by_id"
+    t.index ["exempt_badge_id"], name: "index_commitments_on_exempt_badge_id"
+    t.index ["group_relationship_type_id"], name: "index_commitments_on_group_relationship_type_id"
     t.index ["owing_badge_id"], name: "index_commitments_on_owing_badge_id"
     t.index ["owing_team_id"], name: "index_commitments_on_owing_team_id"
     t.index ["team_id"], name: "index_commitments_on_team_id"
@@ -842,8 +847,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_120300) do
   add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
   add_foreign_key "commitment_organizers", "people", on_delete: :cascade
   add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
+  add_foreign_key "commitments", "badges", column: "exempt_badge_id"
   add_foreign_key "commitments", "badges", column: "owing_badge_id"
   add_foreign_key "commitments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitments", "relationship_types", column: "group_relationship_type_id"
   add_foreign_key "commitments", "teams"
   add_foreign_key "commitments", "teams", column: "owing_team_id"
   add_foreign_key "events", "event_types"
