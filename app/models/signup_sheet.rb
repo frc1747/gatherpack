@@ -38,6 +38,7 @@ class SignupSheet < ApplicationRecord
   normalizes :others_relationship_type_ids, with: ->(ids) { Array(ids).compact_blank.uniq }
 
   after_create :add_creator_as_organizer
+  after_update_commit :reschedule_reminders, if: :saved_change_to_reminder_days?
 
   scope :visible, -> { where.not(status: :archived) }
 
@@ -232,6 +233,12 @@ class SignupSheet < ApplicationRecord
 
   def combine(relations)
     relations.map { |people| Person.where(id: people.select(:id)) }.reduce(:or)
+  end
+
+  # Existing sign-ups get reminders at the new number of days; jobs for the
+  # old number find they aren't due, or that a reminder already went out.
+  def reschedule_reminders
+    signups.active.find_each { |signup| SignupReminderJob.schedule_for(signup) }
   end
 
   def add_creator_as_organizer

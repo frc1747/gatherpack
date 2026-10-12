@@ -65,10 +65,14 @@ class RosterSignupsController < InternalController
   end
 
   # DELETE /signup_sheets/1/roster_signups/1
-  # Tells the people on the sign-up.
+  # Tells the people on the sign-up, once.
   def destroy
+    if @signup.cancelled?
+      return redirect_to roster_signup_sheet_path(@signup_sheet), alert: "#{@signup.person.display_name}'s sign-up was already cancelled.", status: :see_other
+    end
+
     @signup.cancel!
-    SignupNotices.new.cancelled(@signup, by: current_user.person)
+    SignupNotices.new.cancelled(@signup, by: current_user.person) if @signup.saved_change_to_status?
     redirect_to roster_signup_sheet_path(@signup_sheet), notice: "Sign-up for #{@signup.person.display_name} cancelled.", status: :see_other
   end
 

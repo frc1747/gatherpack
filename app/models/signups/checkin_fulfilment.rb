@@ -3,18 +3,25 @@ module Signups
   # so checkin.rb stays as upstream has it. A check-in means the person
   # showed up: their active sign-ups to people positions at the event become
   # fulfilled. It never creates a sign-up, and item sign-ups are marked by an
-  # organizer (bringing food doesn't mean staying).
+  # organizer (bringing food doesn't mean staying). Deleting a check-in (a
+  # mis-tap at the kiosk) puts those sign-ups back to active, unless the
+  # person has another check-in at the event.
   module CheckinFulfilment
     extend ActiveSupport::Concern
 
     included do
       after_create_commit :fulfil_signups_for_checkin
+      after_destroy_commit :unfulfil_signups_for_checkin
     end
 
     private
 
     def fulfil_signups_for_checkin
       Signup.fulfil_for_checkin!(self) if GatherPack::Features.enabled?(:signups)
+    end
+
+    def unfulfil_signups_for_checkin
+      Signup.unfulfil_for_checkin!(self) if GatherPack::Features.enabled?(:signups)
     end
   end
 end

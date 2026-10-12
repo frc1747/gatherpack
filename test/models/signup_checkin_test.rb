@@ -82,4 +82,16 @@ class SignupCheckinTest < ActiveSupport::TestCase
   ensure
     Thread.current[:signup_hooks] = nil
   end
+
+  test "deleting a check-in puts the sign-ups it fulfilled back to active" do
+    signup = create_world_signup(@cashier, :student)
+    pie = create_world_signup(@dessert, :student, quantity: 1, status: :fulfilled)
+    checkin = Checkin.create!(person: person(:student), event: @event)
+    assert signup.reload.fulfilled?
+
+    checkin.destroy!
+
+    assert signup.reload.active?
+    assert pie.reload.fulfilled?, "item sign-ups aren't touched by check-ins"
+  end
 end
