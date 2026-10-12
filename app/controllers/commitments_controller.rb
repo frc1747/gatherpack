@@ -13,8 +13,10 @@ class CommitmentsController < InternalController
     authorize Commitment
     @person = current_user.person
     commitments = policy_scope(Commitment).includes(:team, :owing_team).order(:starts_on, :title).to_a
-    @owed = commitments.filter_map { |commitment| commitment.progress_seen_by(@person) }
     @run = commitments.select { |commitment| commitment.organizer?(@person) }
+    @owed = commitments.filter_map do |commitment|
+      commitment.progress_seen_by(@person) if @run.exclude?(commitment) || commitment.covers?(@person)
+    end
   end
 
   # GET /commitments/1

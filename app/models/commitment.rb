@@ -201,10 +201,13 @@ class Commitment < ApplicationRecord
   end
 
   # The owing people's groups: person id => the ids of their group's
-  # members. Owing people connected through the group relationship type,
-  # directly or through anyone else (two students sharing a parent; a chain
-  # of them, so half-siblings too), are one group. Built once per instance
-  # for the whole owing population; reload to see later changes.
+  # members. Owing people related through the group relationship type,
+  # directly or through one person who doesn't owe related to both (two
+  # students sharing a parent), are one group, and so is a chain of those
+  # through owing members (half-siblings: A and B share a parent, B and C
+  # another). Two people who don't owe never link: with Parent of, a
+  # recorded grandparent doesn't make cousins one group. Built once per
+  # instance for the whole owing population; reload to see later changes.
   def group_index
     @group_index ||= build_group_index
   end
@@ -263,20 +266,16 @@ class Commitment < ApplicationRecord
     owing_ids = owing_people.pluck(:id)
     return owing_ids.to_h { |id| [ id, [ id ] ] } unless grouped?
 
-    # Union-find over the relationships of the type reachable from the
-    # owing people, a step of the chain per query.
+    # Union-find over the relationships of the type with an owing person
+    # on at least one side, in one query. A relationship between two people
+    # who don't owe is never loaded, so a link goes owing -> X -> owing at
+    # most, never X -> Y.
     roots = {}
     root = ->(id) { roots[id].nil? || roots[id] == id ? id : (roots[id] = root.(roots[id])) }
-    seen = owing_ids.to_set
-    frontier = owing_ids
-    while frontier.any?
-      pairs = Relationship.where(relationship_type_id: group_relationship_type_id)
-        .where(parent_id: frontier).or(Relationship.where(relationship_type_id: group_relationship_type_id, child_id: frontier))
-        .pluck(:parent_id, :child_id)
-      pairs.each { |a, b| roots[root.(a)] = root.(b) unless root.(a) == root.(b) }
-      frontier = pairs.flatten.uniq.reject { |id| seen.include?(id) }
-      seen.merge(frontier)
-    end
+    pairs = Relationship.where(relationship_type_id: group_relationship_type_id)
+      .where(parent_id: owing_ids).or(Relationship.where(relationship_type_id: group_relationship_type_id, child_id: owing_ids))
+      .pluck(:parent_id, :child_id)
+    pairs.each { |a, b| roots[root.(a)] = root.(b) unless root.(a) == root.(b) }
 
     groups = owing_ids.group_by { |id| root.(id) }.values
     groups.each_with_object({}) { |ids, index| ids.each { |id| index[id] = ids } }
