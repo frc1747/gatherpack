@@ -8,4 +8,11 @@ Rails.application.config.to_prepare do
     "signup_positions", "signup_position_rules", "signup_slots", "signups"
   )
   GatherPack::HookCatalog.register_events("signups - fulfilled", "signups - cancelled")
+
+  # Check-ins fulfil sign-ups, and event time changes reach the people
+  # signed up, without editing checkin.rb or event.rb (decision 7). These
+  # run on every reload in development, against the freshly loaded classes;
+  # including a module twice does nothing.
+  Checkin.include(Signups::CheckinFulfilment)
+  Event.include(Signups::EventChanges)
 end
