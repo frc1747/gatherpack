@@ -36,6 +36,20 @@ class SignupsSummaryWidgetTest < ActionDispatch::IntegrationTest
     assert_no_match "Oct 12", response.body
   end
 
+  test "lists a sign-up at an event with no end time until it starts" do
+    open_ended = Event.create!(name: "Open House", start_time: Time.zone.parse("2026-10-11 10:00"), end_time: nil,
+      event_type: @outreach, team: @club)
+    @sheet.signup_sheet_events.create!(event: open_ended)
+    sign_up(:member, @cashier, open_ended)
+
+    get_body(:member)
+    assert_select ".widget-body li", text: /Cashier.*Sun Oct 11/m
+
+    travel_to Time.zone.parse("2026-10-11 10:01")
+    get_body(:member)
+    assert_select ".widget-body", 0
+  end
+
   test "shows sign-ups made for someone else, and limits the list" do
     @sheet.update!(on_behalf_of_mode: :related_people, others_relationship_type_ids: [ @parent_of.id ])
     events = (1..5).map { |day| add_sheet_event("Day #{day}", "2026-10-#{day + 10} 10:00") }
