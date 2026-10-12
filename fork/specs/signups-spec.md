@@ -1,6 +1,8 @@
 # Spec: Sign-up Sheets and Commitments
 
-Status: draft rev. 9, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+Status: rev. 10, 2026-10-12. Phases 1–5 are built and live in production since 2026-10-12 (`v0.0.0-hbr.17`); phase 6 and a commitments profile tab are in progress (§7). Decisions in §8 are settled or defaults; §9 lists open questions.
+
+Rev. 10: status only. Phases 1–5 are live in production since 2026-10-12 (`v0.0.0-hbr.17`) on `feature/signups`, `feature/commitments` and `feature/signup-credit`; the completion badge is not built (decision 17). Phase 6 is in progress on `feature/signups-widget`, and a profile tab for commitments is in progress on `feature/profile-tabs` (BL-020) and `feature/commitments-profile-tab`. No decisions change.
 
 Rev. 9: who owes can exclude holders of an exempt badge; check-ins at events that haven't started are planned; reports read commitment progress directly, and the completion badge is deferred (§4.1, §4.2, §4.6, decision 17). Phase 3 is built on `feature/commitments`; phases 4 and 5 are in progress.
 
@@ -292,12 +294,14 @@ The hardcoded catalog is BL-014's drift problem; these follow the current patter
 
 ## 7. Phases
 
-1. **Sheets and sign-ups**: §3.1–3.4, 3.6, 3.8.
-2. **Events integration**: Add dates, event panel, check-in fulfils, notices, view extensions.
-3. **Commitments core**: §4.1–4.3, 4.5–4.7 with the check-in kind and adjustments, without groups. Can ship before or without sheets.
-4. **Groups and badges**: §4.4, completion badge.
-5. **Sign-up credit**: `feature/signup-credit`.
-6. **Widget** (separate branch, depends on `feature/widgets`): "My sign-ups and commitments".
+1. **Sheets and sign-ups**: §3.1–3.4, 3.6, 3.8. *Built* (`feature/signups`), including item positions.
+2. **Events integration**: Add dates, event panel, check-in fulfils, notices, view extensions. *Built* (`feature/signups`), including reminders.
+3. **Commitments core**: §4.1–4.3, 4.5–4.7 with the check-in kind and adjustments, without groups. Can ship before or without sheets. *Built* (`feature/commitments`), with the progress API (decision 17).
+4. **Groups and badges**: §4.4, completion badge. *Built* (`feature/commitments`): groups and the exempt badge. The completion badge is deliberately not built (decision 17).
+5. **Sign-up credit**: `feature/signup-credit`. *Built*: sign-ups as a credit source and the on-behalf-of hints.
+6. **Widget** (separate branch, depends on `feature/widgets`): "My sign-ups and commitments". *In progress* on `feature/signups-widget`: a summary partial an admin places as a one-line widget.
+
+Phases 1–5 are live in production since 2026-10-12 (`v0.0.0-hbr.17`). Also *in progress*: a commitments tab on the person profile (§4.6), through a generic profile-tab seam on `feature/profile-tabs` (BL-020) and `feature/commitments-profile-tab`.
 
 ## 8. Decisions
 
