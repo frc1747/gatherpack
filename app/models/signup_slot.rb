@@ -3,6 +3,7 @@
 class SignupSlot < ApplicationRecord
   has_neat_id :susl
   include CanBeHooked
+  include Signups::SheetChanges
   has_paper_trail versions: { class_name: "AuditLog" }
 
   belongs_to :signup_position
@@ -45,6 +46,11 @@ class SignupSlot < ApplicationRecord
     remaining&.zero? || false
   end
 
+
+  # For Signups::SheetChanges.
+  def changed_signup_sheet_id
+    signup_position&.signup_sheet_id
+  end
   private
 
   def check_no_signups

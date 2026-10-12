@@ -85,6 +85,26 @@ module SignupsWorld
     with_settings(signups_organizers: text, &block)
   end
 
+  # The emails enqueued through SendEmailJob, as [address, subject, body].
+  # Needs ActiveJob::TestHelper.
+  def enqueued_emails
+    enqueued_jobs.select { |job| job[:job] == SendEmailJob }.map { |job| job[:args][1..3] }
+  end
+
+  def enqueued_email_addresses
+    enqueued_emails.map(&:first).sort
+  end
+
+  def email_of(name)
+    person(name).user.email
+  end
+
+  # Places a sign-up as its organizer would, skipping the checks, for setups.
+  def create_world_signup(position, name, event: @event, status: :active, **attributes)
+    attributes[:quantity] ||= 1 if position.items?
+    Signup.create!(signup_slot: slot_for(position, event), person: person(name), signed_up_by: person(name), status: status, **attributes)
+  end
+
   private
 
   def create_world_team(name, parent: nil)
