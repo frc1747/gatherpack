@@ -57,10 +57,20 @@ class CommitmentSignupSourceTest < ActiveSupport::TestCase
     end
 
     signups, checkins = progress(:member).lines
-    assert_equal [ Commitments.event_key(game.id) ], signups.records.map(&:dedupe_key)
+    assert_equal [ Commitments.event_key(game.id, person(:member).id) ], signups.records.map(&:dedupe_key)
     assert_equal [ :confirmed ], signups.records.map(&:state), "the check-in fulfilled the sign-up"
-    assert_equal [ Commitments.event_key(other.id) ], checkins.records.map(&:dedupe_key)
+    assert_equal [ Commitments.event_key(other.id, person(:member).id) ], checkins.records.map(&:dedupe_key)
     assert_equal 2, progress(:member).confirmed
+  end
+
+  test "two people working for the same person at one event both count" do
+    @commitment.update!(base_amount: 3)
+    @commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+    game = add_sheet_event("Game", "2026-10-10 10:00")
+    sign_up(:member, @cashier, game, status: :fulfilled, on_behalf_of: :kid)
+    sign_up(:kid, @cashier, game, status: :fulfilled)
+
+    assert_equal 2, progress(:kid).confirmed
   end
 
   test "a position source counts only that position, at its ratio" do
