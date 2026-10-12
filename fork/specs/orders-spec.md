@@ -2,6 +2,8 @@
 
 Status: rev. 2, 2026-10-12. Draft; nothing is built. Decisions in §10 are settled or defaults; §11 lists open questions.
 
+Rev. 3: **funding sources** (§3.13). Every request can say where its money comes from, whether or not that budget is kept in GatherPack, and restricted gifts carry their restriction to the approver. A funding source can point at a GatherPack Budget; requests no longer point at budgets directly (§6). The money line in §3.1 says plainly that it doesn't need the Ledger feature.
+
 Rev. 2: a new **Purchasing** menu section (decision 10); an approver may also buy (decision 4, confirmed); plain table names (decision 11); importing from the sheet is deferred (§9).
 
 This spec lives on `hbr/platform`, not on a feature branch. `feature/orders` is meant for upstream, so the feature branches themselves must not mention HBR. HBR's configuration and the move off the Google Sheet go in `orders-hbr-rollout.md` when the rollout is planned; §9 holds the facts needed until then.
@@ -16,7 +18,7 @@ Three layers, each useful without the next:
 - **Inventory** (`feature/inventory`, separate spec later). Items, locations and stock counts.
 - **Order receiving into inventory** (`feature/order-inventory`). Received lines become stock. The only place that knows both layers.
 
-Ledgers and Budgets are optional. Orders works with both turned off. When they're on, a request can be charged to a budget and a purchase can be recorded in a ledger (§6).
+Ledgers and Budgets are optional. Orders works with both turned off. Where the money comes from is tracked by orders itself, as funding sources (§3.13), so it works when the budgets are kept outside GatherPack. When Ledger and Budgets are on, a funding source can point at a Budget and a purchase can be recorded in a ledger (§6).
 
 ### 1.1 The rule for this spec
 
@@ -34,7 +36,11 @@ As in the sign-ups spec: adding a use case is configuration or an additive exten
 | The price at checkout differs from the request | Fits | Buyer records the actual price; within the tolerance it needs no new approval (§3.4) |
 | A large request needs a second, more senior approval | Fits | Approval steps with amount thresholds (§3.3) |
 | A volunteer buys with their own card and needs paying back | Fits | Purchase "paid with: personal, reimburse"; a ledger entry when ledgers are on (§6) |
-| Spending is checked against a season budget | Fits when Budgets is on | Request picks a budget; approvers see remaining and committed (§6) |
+| Knowing which budget pays for a request, when budgets are kept in a spreadsheet or accounting system | Fits | Funding source with an optional amount; spent and committed come from orders' own purchases (§3.13) |
+| A purchase paid from a restricted gift or grant ("for robot parts only", "spend by June 30") | Fits | Restricted funding source: the approver sees the restriction and confirms the request fits it; a report lists what the gift bought, with receipts (§3.13) |
+| One request paid partly from a grant and partly from general funds | Fits | A line can name its own funding source |
+| Spending is checked against a GatherPack budget | Fits when Budgets is on | The funding source points at the Budget; approvers see its actual spending too (§6) |
+| Fund accounting: restricted net assets, releases from restriction, donor statements | Non-goal | The accounting system's job. Orders records what was bought from which source; it doesn't keep the books. |
 | "Order the same thing again" | Fits | Copy a past request as a new draft |
 | Receive into a bin and track stock | Additive | `feature/order-inventory` through the receiving seam (§3.9) |
 | Reorder when stock runs low | Additive | Inventory creates a draft request through the same API members use |
@@ -55,6 +61,7 @@ As in the sign-ups spec: adding a use case is configuration or an additive exten
 | Approval | One approver's decision on one step of a request: approved, changes requested, or declined, with a comment |
 | Approval step | A level of approval a request needs (for example "Mentor", then "Treasurer" above $500). The last one is the final approval. |
 | Purchase | An order placed with one vendor by a buyer: order number, date, actual costs, shipping and tax, paid with, receipt file. Holds lines from one or more requests. |
+| Funding source | Where a request's money comes from: a budget or a restricted gift, kept in GatherPack or not, with an optional amount and, for a gift, its restriction |
 | Delivery | A quantity of a line that arrived, who received it, when, and in what condition |
 | Timeline | The readable history of a request: every submission, edit, approval, purchase, delivery and comment, with who and when |
 | Approver, buyer | People allowed to approve or to buy for teams within their reach, granted by badge (§3.7) |
@@ -64,11 +71,11 @@ As in the sign-ups spec: adding a use case is configuration or an additive exten
 ### 3.1 Model
 
 - **Vendor.** Name, website, `domains` (so a pasted link fills in the vendor), account note (customer number, tax-exempt status; visible to buyers only), `preferred`, `active`. Organization-wide. Buyers and admins manage vendors.
-- **Order request.** `team` (whose need; drives who approves and who sees it), `requested_by`, `needed_by`, `title`, `purpose` (why; shown to approvers), `status` (§3.2), optional `budget` (§6), watchers (other people who follow and may receive it).
-- **Line.** Belongs to a request. `description`, `manufacturer`, `manufacturer_part_number`, `vendor` or `other_vendor_name`, `vendor_part_number`, `url`, `quantity` (whole number), `unit` ("each", "roll", "pack of 100"), `estimated_unit_price`, `actual_unit_price`, `status` (§3.2), `purchase`, `note`. Ordered.
+- **Order request.** `team` (whose need; drives who approves and who sees it), `requested_by`, `needed_by`, `title`, `purpose` (why; shown to approvers), `status` (§3.2), `funding_source` (§3.13; optional unless required by setting), watchers (other people who follow and may receive it).
+- **Line.** Belongs to a request. `description`, `manufacturer`, `manufacturer_part_number`, `vendor` or `other_vendor_name`, `vendor_part_number`, `url`, `quantity` (whole number), `unit` ("each", "roll", "pack of 100"), `estimated_unit_price`, `actual_unit_price`, `status` (§3.2), `purchase`, `funding_source` (blank means the request's), `note`. Ordered.
 - **Request total.** Sum of lines' quantity × price (actual where known, else estimated), plus an optional estimated shipping amount on the request. Always computed, never typed.
 
-Money uses `money-rails` (`monetize`), as `LedgerEntry` and `Budget` do.
+Amounts are stored as cents with `money-rails` (`monetize`), the money library GatherPack already includes and the ledger uses. It doesn't need the Ledger feature.
 
 ### 3.2 States
 
@@ -120,7 +127,7 @@ Approvers can also edit lines themselves (fix a part number, lower a quantity) b
 
 **No approving yourself.** An approver can't approve, ask for changes on, or decline a request they made or that's for a relative (any relationship type), or one they're a watcher on. Another approver has to. The page says why the buttons are missing. Same rule as sign-ups §3.6.
 
-**Flags for approvers.** The approve screen marks lines from a non-preferred vendor, lines without a link or part number, a `needed_by` that's already past or within the vendor's usual lead time, and, when a budget is chosen, the budget's remaining amount after this and other approved, not-yet-paid requests (§6).
+**Flags for approvers.** The approve screen marks lines from a non-preferred vendor, lines without a link or part number, a `needed_by` that's already past or within the vendor's usual lead time, and the funding source's picture: its restriction, if any, and what would remain after this request (§3.13).
 
 ### 3.4 Buying
 
@@ -162,6 +169,8 @@ Registered through `Settings.register` (from `feature/extension-registries`):
 | `orders_paid_with` | Choices for a purchase: label and whether it needs reimbursing ("Team card", "Purchase order", "Personal card — reimburse") | Team card, Personal card — reimburse |
 | `orders_team_can_see` | Whether members of a request's team see its requests | on |
 | `orders_require_other_vendor_reason` | A line from "Other" needs a reason | off |
+| `orders_funding_managers` | Who manages funding sources: badge → highest team pairs (§3.13) | none (admins and team managers) |
+| `orders_require_funding_source` | A funding source is needed before final approval | off |
 | `orders_close_after_days` | Received requests close after this many days | 14 |
 
 Approver and buyer grants use the delegated-grant pattern from forms and sign-ups: a badge, capped at a highest team. A holder acts on requests whose team is within reach (teams they belong to and those above, up to the highest team, plus teams below their own). Several pairs give the union. Admins and managers of a request's team can always approve and buy for it. See sign-ups §9 question 1 on sharing this pattern.
@@ -225,7 +234,7 @@ Mailer and reminder pattern as in forms and sign-ups:
 
 **Approver: decide.**
 1. **To approve** lists requests waiting on a step they can act on, with total, team, needed-by and flags.
-2. The request page shows lines, flags and the budget picture. **Approve**, **Ask for changes** or **Decline**, with a comment box above the buttons.
+2. The request page shows lines, flags and the funding picture. For a restricted source, the restriction is shown above the buttons with a **This request fits the restriction** tick that Approve needs. **Approve**, **Ask for changes** or **Decline**, with a comment box above the buttons.
 
 **Buyer: buy.**
 1. **To buy**, grouped by vendor. Tick lines, **Record purchase**, fill in what the vendor's checkout said, attach the receipt.
@@ -237,19 +246,43 @@ Mailer and reminder pattern as in forms and sign-ups:
 
 **Reports** (organizers and admins): open requests by status and age; spending by vendor, team and month (actual, with shipping and tax split); lines overdue against `needed_by`; non-preferred vendor spending. Each prints.
 
-### 3.13 Data
+### 3.13 Funding sources
+
+Where a request's money comes from. Kept by orders, so it works whether the budget lives in GatherPack, a spreadsheet or the accounting system. It's a label with an optional limit, not bookkeeping.
+
+**A funding source** has: name ("2026–27 Build Budget", "Robotics grant from a local foundation"), team (whose it is; requests from that team and teams below can use it), kind (`general` or `restricted`), optional amount, optional dates it can be spent between, `active`, and an optional link to a GatherPack Budget (§6). A restricted source also has:
+
+- **Restriction**: what the money may be spent on, in the giver's terms ("Robot parts and tools for the 2027 season. No travel or food.").
+- **Giver and reference** (grant number, gift letter date) and the gift documents as attachments. Seen only by funding managers, approvers and admins; others see the source's name.
+- **Report due** date, optional, for the giver's report.
+
+**Using it.**
+- The requester picks a funding source for the request, or leaves it for the approver. A line can name a different one, so a request can be split. A setting, `orders_require_funding_source`, makes a source required before final approval (default off).
+- Approvers see each source the request uses: its amount, what orders has **spent** on it (purchases recorded, actual prices plus their share of shipping and tax), what's **committed** (approved and ordered lines not yet purchased, at estimated prices), and what would remain after this request. Sources without an amount show spent and committed only.
+- For a restricted source, Approve needs the **fits the restriction** tick, recorded in the timeline with the approver's name. A request dated outside the source's dates is flagged.
+- Over the amount is flagged, not blocked (decision 5).
+- A funding manager can move a purchased line to another source (a reallocation after the fact), with a reason. It's recorded in the timeline like any other change.
+
+**Funding managers.** A setting, `orders_funding_managers` (badge → highest team pairs, as for buyers), plus admins and team managers. They create and edit sources for teams within reach. Approvers and buyers can't, unless they also hold the grant.
+
+**Report.** Each source has a page: amount, spent, committed, remaining, and every line charged to it (date, item, vendor, request, approver, actual cost), with receipts attached to the purchases. Prints, and downloads as CSV. For a restricted gift, this page is the backing for the giver's report.
+
+**Spent is orders' own number.** It counts purchases recorded in orders, nothing else. Money spent from the same source outside orders (a registration fee, travel) isn't in it. When the source is linked to a GatherPack Budget, the Budget's actual spending is shown next to it (§6). Otherwise an optional **spent outside orders** amount, typed by a funding manager with a date, keeps the remaining figure honest.
+
+### 3.14 Data
 
 New tables (upstream naming):
 
 | Table | Columns |
 |---|---|
 | `vendors` | `name`, `website`, `domains` (array), `account_note`, `preferred`, `active` |
-| `order_requests` | `team_id`, `requested_by_id`, `title`, `purpose`, `needed_by`, `status`, `budget_id` (nullable), `estimated_shipping_cents`, `approved_total_cents`, `submitted_at`, `approved_at`, `closed_at` |
+| `order_requests` | `team_id`, `requested_by_id`, `title`, `purpose`, `needed_by`, `status`, `funding_source_id`, `estimated_shipping_cents`, `approved_total_cents`, `submitted_at`, `approved_at`, `closed_at` |
 | `order_request_watchers` | `order_request_id`, `person_id` |
-| `order_lines` | `order_request_id`, `position`, `description`, `manufacturer`, `manufacturer_part_number`, `vendor_id`, `other_vendor_name`, `other_vendor_reason`, `vendor_part_number`, `url`, `quantity`, `unit`, `estimated_unit_price_cents`, `actual_unit_price_cents`, `status`, `purchase_id`, `expected_on`, `item_type`, `item_id`, `note` |
+| `order_lines` | `order_request_id`, `position`, `description`, `manufacturer`, `manufacturer_part_number`, `vendor_id`, `other_vendor_name`, `other_vendor_reason`, `vendor_part_number`, `url`, `quantity`, `unit`, `estimated_unit_price_cents`, `actual_unit_price_cents`, `status`, `purchase_id`, `funding_source_id`, `expected_on`, `item_type`, `item_id`, `note` |
 | `order_approvals` | `order_request_id`, `step_key`, `approver_id`, `decision`, `comment`, `cleared_at` (set when a material change voids it) |
 | `purchases` | `vendor_id`, `other_vendor_name`, `buyer_id`, `vendor_order_number`, `ordered_on`, `shipping_cents`, `tax_cents`, `paid_with`, `reimburse_to_id`, `tracking_url`, `expected_on`, `ledger_entry_id` (nullable, §6), `note`; receipts as Active Storage attachments, as `LedgerEntry#receipts` |
 | `order_deliveries` | `order_line_id`, `quantity`, `received_by_id`, `received_on`, `condition`, `note`; photo attachment |
+| `funding_sources` | `team_id`, `name`, `kind` (`general`, `restricted`), `amount_cents` (nullable), `starts_on`, `ends_on`, `restriction`, `giver`, `reference`, `report_due_on`, `spent_outside_cents`, `spent_outside_as_of`, `budget_id` (nullable, §6), `active`; documents as Active Storage attachments |
 | `order_request_events` | `order_request_id`, `order_line_id` (nullable), `actor_id`, `action`, `step_key`, `changes` (jsonb), `comment`, `created_at` |
 
 Approval steps are keyed by a stable `step_key` in the setting so renaming a step doesn't orphan its approvals.
@@ -279,9 +312,9 @@ Depends on `feature/orders` and `feature/inventory`. Small:
 
 Ledger and Budgets are upstream features that can be turned off (`GatherPack::Features.enabled?(:ledger)`, `:budgets`). Everything here appears only when they're on, and orders works the same with them off.
 
-**Budget on a request.** When Budgets is on, a request can pick a budget from the request team's budget periods (requester picks; approvers can change it). The approve screen shows the budget's amount, its actual spending (`Budget#actual_amount_cents`, from ledger entries), what's **committed** by orders (approved and ordered requests on this budget not yet recorded in a ledger), and what would remain after this request. Committed is computed in orders; `Budget` isn't changed. A budget can be required by setting (`orders_require_budget`, default off). No hard stop when over: approvers decide (decision 5).
+**Funding source linked to a Budget.** When Budgets is on, a funding manager can link a funding source (§3.13) to a Budget. Requests still pick the funding source, never the Budget directly, so the same request screen works with Budgets on or off. For a linked source, the approve screen also shows the Budget's amount and its actual spending from ledger entries (`Budget#actual_amount_cents`), which includes money spent outside orders. Committed is still computed in orders; `Budget` isn't changed. A restricted gift kept in the ledger is a Budget with its own ledger tag, linked to a restricted funding source.
 
-**Ledger entry on a purchase.** When Ledger is on, a buyer recording a purchase can tick **Record in ledger** and pick a ledger they're allowed to add entries to (`LedgerEntryPolicy#create?`). That creates a finalized `LedgerEntry` for the purchase total as an expense, `created_by` the buyer, the receipt files copied, `metadata: { "purchase_id" => … }` (as entries already carry `gateway_id`), and tagged with the request budget's ledger tags so it counts against that budget. One purchase that spans budgets makes a split entry (child entries per budget), using the existing split support. The purchase stores `ledger_entry_id`; the ledger entry page links back.
+**Ledger entry on a purchase.** When Ledger is on, a buyer recording a purchase can tick **Record in ledger** and pick a ledger they're allowed to add entries to (`LedgerEntryPolicy#create?`). That creates a finalized `LedgerEntry` for the purchase total as an expense, `created_by` the buyer, the receipt files copied, `metadata: { "purchase_id" => … }` (as entries already carry `gateway_id`), and tagged with the linked Budget's ledger tags for each line's funding source, so it counts against that budget. One purchase whose lines use several funding sources makes a split entry (child entries per source), using the existing split support. The purchase stores `ledger_entry_id`; the ledger entry page links back.
 
 For **paid with: reimburse**, the entry's remark names who to pay back. Paying them is done in the ledger as today.
 
@@ -291,15 +324,15 @@ Buyers without ledger permission record the purchase without an entry; the purch
 
 Every new model includes `CanBeHooked`. Register through `GatherPack::HookCatalog` (`feature/extension-registries`):
 
-- Targets: `vendors`, `order_requests`, `order_lines`, `order_approvals`, `purchases`, `order_deliveries`.
+- Targets: `vendors`, `funding_sources`, `order_requests`, `order_lines`, `order_approvals`, `purchases`, `order_deliveries`.
 - Events: `order_requests - submitted`, `order_requests - approved` (final), `order_requests - declined`, `order_lines - ordered`, `order_lines - backordered`, `order_lines - received`, `order_lines - problem`. Same shape as `form_responses - completed` and `signups - fulfilled`.
 
 `order_request_events` isn't a hook target: it duplicates the events above. Inventory adds its own (`stock_movements`) in its spec.
 
 ## 8. Sample data and tests
 
-- `fork/sample_data/features/orders.rb`: Northwind vendors (three preferred, one inactive) and requests in every state: a draft; one waiting on the first step; one over the threshold waiting on the second; one with changes requested; one declined; an approved request from two vendors with one line bought and one waiting; a purchase combining two requests; a backordered line with an expected date; a partly received line; a damaged delivery; a request received in full and closed; an "Other vendor" line; a price change within tolerance and one that triggered re-approval. One purchase recorded in a ledger against a budget, one "Not in ledger".
-- Model tests: state transitions and refusals; material change clears approvals, a lowered quantity doesn't; tolerance arithmetic; step thresholds; self and relative approval refused; line can't join two purchases (lock); delivery quantities and statuses; timeline entry written for every change and never editable; ledger entry and split when Ledger is on; nothing ledger-related when it's off.
+- `fork/sample_data/features/orders.rb`: Northwind vendors (three preferred, one inactive) and requests in every state: a draft; one waiting on the first step; one over the threshold waiting on the second; one with changes requested; one declined; an approved request from two vendors with one line bought and one waiting; a purchase combining two requests; a backordered line with an expected date; a partly received line; a damaged delivery; a request received in full and closed; an "Other vendor" line; a price change within tolerance and one that triggered re-approval. Funding sources: a general budget with an amount, one with no amount, and a restricted grant with dates, a restriction and a report due; one request split between the grant and the general budget; one over the amount; one reallocated after purchase. One purchase recorded in a ledger against a linked Budget, one "Not in ledger".
+- Model tests: state transitions and refusals; material change clears approvals, a lowered quantity doesn't; tolerance arithmetic; step thresholds; funding spent and committed, with shipping and tax shared out; restricted source needs the tick; line source overrides request source; self and relative approval refused; line can't join two purchases (lock); delivery quantities and statuses; timeline entry written for every change and never editable; ledger entry and split when Ledger is on; nothing ledger-related when it's off.
 - System tests: new request with a pasted link; approve; record purchase; receive.
 - `fork/catalog.yml` and `FORK.md` entries when the branch joins the manifest.
 
@@ -328,13 +361,14 @@ Rollout notes to settle then: the preferred supplier list (the sheet's dropdown)
 2. **Ledger and budget links live in `feature/orders`**, shown only when those upstream features are on. They depend only on upstream code, so they don't need a branch of their own.
 3. **Requests have lines; approval is per request; buying and receiving are per line.** Matches how people ask (one project, several things) and how vendors deliver (partly, late).
 4. **A buyer may buy what they approved or asked for** (confirmed 2026-10-12). The approval is the control; small organizations often have one person who approves and buys. An approver still can't approve their own request. No setting to separate the two.
-5. **Budgets inform, don't block.** Approvers see the numbers and decide.
+5. **Budgets and funding sources inform, don't block.** Approvers see the numbers and decide.
 6. **Receiving is an acknowledgement unless inventory is in the build** and the line is tracked.
 7. **Dashboard card, native.** "My Orders" (requests waiting on me: to approve, to buy, to receive, and my open requests) renders at the top of the dashboard like Forms to Complete, not as a widget.
 8. **The timeline is append-only**, written in the same transaction as each change.
 9. **No public requests.** Only signed-in people in `orders_requesters`.
-10. **A Purchasing menu section** (2026-10-12). Orders is its first entry, with To approve, To buy, To receive, Vendors and Reports under it; inventory and later purchasing features join it. Registered with `GatherPack::Features.register_section("Purchasing", …)` from the orders initializer, not under Finance, so it stays when Ledger is turned off.
-11. **Plain table names** (default). `vendors` and `purchases`, not `order_vendors` and `order_purchases`. The feature is meant for upstream, which uses plain names, and a vendor list is something the ledger could use later too. The risk is upstream adding its own `vendors` table for something else while we still carry this; check upstream's schema before the first migration and rename then if it's taken.
+10. **A Purchasing menu section** (2026-10-12). Orders is its first entry, with To approve, To buy, To receive, Vendors, Funding sources and Reports under it; inventory and later purchasing features join it. Registered with `GatherPack::Features.register_section("Purchasing", …)` from the orders initializer, not under Finance, so it stays when Ledger is turned off.
+11. **Plain table names** (default). `vendors`, `purchases` and `funding_sources`, not `order_vendors` and `order_purchases`. The feature is meant for upstream, which uses plain names, and a vendor list is something the ledger could use later too. The risk is upstream adding its own `vendors` table for something else while we still carry this; check upstream's schema before the first migration and rename then if it's taken.
+12. **Funding sources live in orders** (rev. 3), not as a separate feature, until a second feature needs them. They're labels with an optional limit and orders' own spent figure. If the ledger or another feature wants them, they move to their own branch with orders depending on it.
 
 ## 11. Open questions
 
