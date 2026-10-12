@@ -188,13 +188,14 @@ class TimeKioskControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a Hook's token renders not found" do
+  test "a Hook's token shows the bad card banner" do
     token = Token.create!(value: "200000002", tokenable: hooks(:one))
 
     kiosk tool: "find_token", token_value: token.value
 
     assert_response :success
-    assert_select ".card-body", text: /Token not found/
+    assert_select "h2", text: "Welcome to the Time Kiosk"
+    assert_select ".alert-warning", text: /Card not recognized/
   end
 
   test "the 61st lookup in a minute from the same user is refused" do
