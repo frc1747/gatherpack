@@ -52,12 +52,11 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 
 **Commitment "Outreach 2026–27".** Owed by Students except holders of "2027 Season Rookie", per person, base = the report's `outreach_required` (1 today), period May 1–Apr 30, unit "events", counts when confirmed. Sources in order: any outreach sheet the student leaders post, then check-ins at Outreach events (1 per 1). The Eligibility Report's outreach column reads its progress. On Ditto since 2026-10-11 (`~/dev/gatherpack-import/ditto_outreach_commitment.rb`). The 22 camp days are separate events, so a week-long camp counts as five; if it should count once, that's a ratio or cap on that camp's sheet source.
 
-**Saturday lunches (next).** One sheet, team and audience like the concessions sheet, one event per Saturday. Item positions for what's needed (for example Main dish, a quantity in servings or pans, with the question "What are you bringing?"; Drinks; Paper goods) and a people position for servers. Not decided yet, and to ask the lunch coordinators before configuring:
+**Saturday lunches (next).** One sheet, team and audience like the concessions sheet, one event per Saturday. Item positions for what's needed (for example Main dish, a quantity in servings or pans, with the question "What are you bringing?"; Drinks; Paper goods) and a people position for servers. Settled 2026-10-12:
 
-- The item list, units and quantities per Saturday, and whether they vary by date.
-- How many servers each lunch needs, and whether students can serve.
-- Whether lunches count toward any commitment (a new one, or the concessions one), and if so whether bringing food counts, serving counts, or both.
-- Whether there's anything to migrate (an existing SignUpGenius sheet or spreadsheet).
+- Lunches don't count toward any commitment. No source points at the lunch sheet.
+- Nothing to migrate; the sheet starts empty.
+- The items, quantities and number of servers aren't fixed in advance. The lunch organizers set them on the sheet when they start using it, and can change them per Saturday.
 
 ## 5. Migration
 
@@ -68,7 +67,7 @@ A one-off script in `~/dev/gatherpack-import`, like the enrollment import; not p
 3. Turn each 2026-10-04 Concessions and Stocking check-in (meaning "credited to this student") into a sign-up on behalf of that student, unless step 2 covers it. Use the Concessions check-in fields: **Shifts** (places filled) and **Worked by** (who worked, when not the student): one sign-up per worker. Where Shifts is more than the known workers, ask the coordinators who the others were. Delete the check-ins on events that haven't happened. Keep check-ins on past events; they mark those sign-ups fulfilled (decision 4).
 4. Outreach check-ins stay as they are; the check-in source counts them.
 5. Corrections found by comparing the reports (2026-10-11): Sushanth Ankammagari did not work 9/4 although SignUpGenius lists him (mark that sign-up no-show). Kamden and Karsen Williams worked 9/4 without signing up; keep their check-ins, which credit them. Four Class of 2030 students (Eric Hudson, Pru Madsen, Yavor Piperov, Timothy Woolwine) lack the "2027 Season Rookie" badge that excuses outreach; the old report treated them as rookies by class.
-6. Concessions 9/8 and 10/3 aren't on the SignUpGenius sheet. Ask the coordinators what they were before importing their check-ins.
+6. Concessions 9/8 and 10/3 aren't on the SignUpGenius sheet (answered 2026-10-11). "9/8" was a typo for the 9/2 stocking session: credit those check-ins on "Concessions Stocking 9/2" and delete the 9/8 event. 10/3 was a real concessions event (a commencement, pretzel carts): it gets its own closed sheet with one "Cart" position and no rules, holding the people who worked it.
 
 ## 6. Decisions
 
