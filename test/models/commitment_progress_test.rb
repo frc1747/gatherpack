@@ -30,7 +30,10 @@ class CommitmentProgressTest < ActiveSupport::TestCase
     end
   end
 
+  # After the period, so every check-in in it is at an event that has
+  # started (confirmed).
   setup do
+    travel_to Time.zone.parse("2026-11-15 12:00")
     build_commitments_world
     Commitments.register_source(:listed, ListedSource)
     ListedSource.list = []

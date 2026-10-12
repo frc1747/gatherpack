@@ -42,10 +42,11 @@ class CommitmentAdjustmentsController < InternalController
       @commitment.owing_people.find_by(id: id) if id.present?
     end
 
-    # Everyone who owes, less the organizer and their relatives.
+    # Everyone who owes, less the organizer, their relatives and anyone in a
+    # group with either.
     def set_people
       viewer = current_user.person
-      @people = @commitment.owing_people.order(:last_name, :first_name).reject { |person| @commitment.self_or_relative?(viewer, person) }
+      @people = @commitment.owing_people.order(:last_name, :first_name).reject { |person| @commitment.self_or_relative_in_group?(viewer, person) }
     end
 
     def adjustment_params

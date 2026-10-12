@@ -1,5 +1,6 @@
 class CommitmentPolicy < ApplicationPolicy
-  # Commitments the person runs, and those they owe.
+  # Commitments the person runs, those they owe, and those owed by a group
+  # they're related to.
   class Scope < ApplicationPolicy::Scope
     def resolve
       return scope.all if user.admin
@@ -9,7 +10,7 @@ class CommitmentPolicy < ApplicationPolicy
       listed = CommitmentOrganizer.where(person_id: person.id).select(:commitment_id)
       run = scope.where(id: listed, team_id: Commitment.creatable_team_ids(person))
         .or(scope.where(team_id: person.all_managed_teams.select(:id)))
-      owed = scope.where.not(id: run.select(:id)).includes(:owing_team).select { |commitment| commitment.covers?(person) }
+      owed = scope.where.not(id: run.select(:id)).includes(:owing_team).select { |commitment| commitment.covers?(person) || commitment.group_relative?(person) }
       run.or(scope.where(id: owed.map(&:id)))
     end
   end
@@ -18,9 +19,10 @@ class CommitmentPolicy < ApplicationPolicy
     person.present?
   end
 
-  # Organizers see everyone's progress; people who owe see their own.
+  # Organizers see everyone's progress; people who owe see their own, and
+  # people related to a group through its relationship type see the group's.
   def show?
-    organizer? || record.covers?(person)
+    organizer? || record.covers?(person) || record.group_relative?(person)
   end
 
   # Admins, team managers and organizer badge holders, for a team in reach

@@ -1,6 +1,7 @@
-# A person's commitments page. The person sees every commitment they owe;
-# others see only the ones they run (Commitment#organizer?), so organizers
-# see progress and nothing more of the person.
+# A person's commitments page. The person sees every commitment they owe and
+# those owed by a group they're related to; others see only the ones they
+# run (Commitment#organizer?) or whose group they're related to through its
+# relationship type, so they see progress and nothing more of the person.
 class PersonCommitmentsPolicy < ApplicationPolicy
   def show?
     return false if person.nil?
@@ -12,9 +13,13 @@ class PersonCommitmentsPolicy < ApplicationPolicy
   def visible_commitments
     return [] if person.nil?
 
-    owed = Commitment.includes(:team, :owing_team).order(:starts_on, :title).select { |commitment| commitment.covers?(record) }
-    return owed if person.id == record.id
+    commitments = Commitment.includes(:team, :owing_team).order(:starts_on, :title).to_a
+    if person.id == record.id
+      return commitments.select { |commitment| commitment.covers?(record) || commitment.group_relative?(record) }
+    end
 
-    owed.select { |commitment| commitment.organizer?(person) }
+    commitments.select do |commitment|
+      commitment.covers?(record) && (commitment.organizer?(person) || commitment.group_relative_of?(person, record))
+    end
   end
 end

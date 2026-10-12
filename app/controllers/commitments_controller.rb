@@ -7,26 +7,27 @@ class CommitmentsController < InternalController
   before_action :set_choices, only: %i[ new create edit update ]
 
   # GET /commitments
-  # The viewer's own commitments, then those they run.
+  # The viewer's own commitments (their group's progress, or that of the
+  # group they're related to), then those they run.
   def index
     authorize Commitment
     @person = current_user.person
     commitments = policy_scope(Commitment).includes(:team, :owing_team).order(:starts_on, :title).to_a
-    @owed = commitments.select { |commitment| commitment.covers?(@person) }
+    @owed = commitments.filter_map { |commitment| commitment.progress_seen_by(@person) }
     @run = commitments.select { |commitment| commitment.organizer?(@person) }
   end
 
   # GET /commitments/1
-  # Organizers get one row per person, filtered by params[:filter]; people
-  # who owe see their own progress.
+  # Organizers get one row per person or group, filtered by params[:filter];
+  # people who owe (and those related to a group) see their own progress.
   def show
     @viewer = current_user.person
     if policy(@commitment).progress?
       @filter = params[:filter].presence_in(FILTERS)
-      @rows = @commitment.progress(@commitment.owing_people.order(:last_name, :first_name)).values
+      @rows = @commitment.progress(@commitment.owing_people.order(:last_name, :first_name)).values.uniq
       @rows = @rows.select { |row| row_matches?(row) } if @filter
     else
-      @own = @commitment.progress_for(@viewer)
+      @own = @commitment.progress_seen_by(@viewer)
     end
   end
 
@@ -81,7 +82,7 @@ class CommitmentsController < InternalController
       return redirect_to @commitment, alert: "Write a subject and a message.", status: :see_other
     end
 
-    open = @commitment.progress.values.reject(&:met?).map(&:person)
+    open = @commitment.progress.values.uniq.reject(&:met?).flat_map(&:members)
     emails = User.where(id: open.map(&:user_id).compact).pluck(:email).compact_blank.uniq
     emails.each { |email| SendEmailJob.perform_later(Gateway[:email_sending], email, subject, body) }
     redirect_to @commitment, notice: "Message sent to #{helpers.pluralize(emails.size, "person")} with open commitments.", status: :see_other
@@ -98,6 +99,7 @@ class CommitmentsController < InternalController
       ids |= [ @commitment.team_id ] if @commitment&.persisted?
       @team_choices = Team.where(id: ids).order(:name).to_a
       @badge_choices = GatherPack::Features.enabled?(:badges) ? Badge.order(:name).to_a : []
+      @relationship_type_choices = RelationshipType.order(:parent_label).to_a
     end
 
     def row_matches?(row)
@@ -109,7 +111,7 @@ class CommitmentsController < InternalController
     end
 
     def commitment_params
-      params.require(:commitment).permit(:team_id, :title, :description, :owing_team_id, :owing_badge_id, :base_amount, :unit,
-        :counts_when, :starts_on, :ends_on)
+      params.require(:commitment).permit(:team_id, :title, :description, :owing_team_id, :owing_badge_id, :exempt_badge_id, :base_amount,
+        :group_relationship_type_id, :additional_amount, :unit, :counts_when, :starts_on, :ends_on)
     end
 end

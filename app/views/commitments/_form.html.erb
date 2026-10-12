@@ -23,13 +23,15 @@
       <% if @badge_choices.any? %>
         <%= f.input :owing_badge_id, as: :select, label: "Only those holding", collection: @badge_choices, label_method: :name, value_method: :id,
               include_blank: "Anyone in the team" %>
+        <%= f.input :exempt_badge_id, as: :select, label: "Except holders of", collection: @badge_choices, label_method: :name, value_method: :id,
+              include_blank: "Nobody is excused", hint: "Holders of this badge don't owe, and organizers don't see their progress." %>
       <% end %>
     </div>
   </div>
 
   <div class="row">
     <div class="col-6 col-md-3">
-      <%= f.input :base_amount, label: "Amount owed", input_html: { min: 1 } %>
+      <%= f.input :base_amount, label: "Amount owed", input_html: { min: 1 }, hint: "By each person, or by a group's first member." %>
     </div>
     <div class="col-6 col-md-3">
       <%= f.input :unit, hint: "For example shifts, events or hours." %>
@@ -39,6 +41,18 @@
     </div>
     <div class="col-6 col-md-3">
       <%= f.input :ends_on, as: :date, html5: true, label: "Until" %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12 col-md-6">
+      <%= f.input :group_relationship_type_id, as: :select, label: "Owe together through", collection: @relationship_type_choices,
+            label_method: :identifier_name, value_method: :id, include_blank: "Nobody, everyone owes on their own",
+            hint: "People who owe and are connected through this relationship, directly or through others (two children of one parent), owe as one group and pool their credit." %>
+    </div>
+    <div class="col-12 col-md-6">
+      <%= f.input :additional_amount, label: "Each other group member adds", input_html: { min: 0 },
+            hint: "A group owes the amount owed plus this for each member after the first." %>
     </div>
   </div>
 
