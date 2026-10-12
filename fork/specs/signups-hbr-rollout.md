@@ -28,7 +28,8 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 | 2 for the first student, +1 per additional | Grouped by Parent/Guardian – Student; base 2, additional 1 |
 | Outreach events, with or without a sign-up | Per-person commitment; check-in source on event type Outreach |
 | Parents run concessions, student leaders run outreach | Two organizer grants with different highest teams |
-| "Concessions done" on the Eligibility Report | Completion badge, as a report column |
+| "Concessions done" on the Eligibility Report | The report reads each commitment's progress (spec decision 17) |
+| Rookies don't owe outreach | Exempt badge: "2027 Season Rookie" (next season's badge each year) |
 
 ## 3. Production today (checked 2026-10-11)
 
@@ -47,9 +48,9 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 
 **Stocking sheet.** Positions Student Stocker (3, team Students), Adults (2, min age 18); 7 events; same relationship settings.
 
-**Commitment "Concessions 2026".** Owed by Students, grouped by Parent/Guardian – Student, base 2, additional 1, unit "shifts", counts when confirmed. Sources in order: Concessions sheet (all positions, 1 per 1), Stocking → Student Stocker (1 per 3, no cap). Completion badge "Concessions Complete", added as an Eligibility Report column.
+**Commitment "Concessions 2026".** Owed by Students, grouped by Parent/Guardian – Student, base 2, additional 1, unit "shifts", counts when confirmed. Sources in order: Concessions sheet (all positions, 1 per 1), Stocking → Student Stocker (1 per 3, no cap). Period: season start (May 1) to kickoff (2027-01-09). The Eligibility Report's concessions column reads this commitment's progress for the student's family.
 
-**Commitment "Outreach 2026–27".** Owed by Students, per person, base = the number the team sets, unit "events", counts when confirmed. Sources in order: any outreach sheet the student leaders post, then check-ins at Outreach events (1 per 1). Completion badge "Outreach Complete". The 22 camp days are separate events, so a week-long camp counts as five; if it should count once, that's a ratio or cap on that camp's sheet source.
+**Commitment "Outreach 2026–27".** Owed by Students except holders of "2027 Season Rookie", per person, base = the report's `outreach_required` (1 today), period May 1–Apr 30, unit "events", counts when confirmed. Sources in order: any outreach sheet the student leaders post, then check-ins at Outreach events (1 per 1). The Eligibility Report's outreach column reads its progress. On Ditto since 2026-10-11 (`~/dev/gatherpack-import/ditto_outreach_commitment.rb`). The 22 camp days are separate events, so a week-long camp counts as five; if it should count once, that's a ratio or cap on that camp's sheet source.
 
 **Saturday lunches (next).** One sheet, team and audience like the concessions sheet, one event per Saturday. Item positions for what's needed (for example Main dish, a quantity in servings or pans, with the question "What are you bringing?"; Drinks; Paper goods) and a people position for servers. Not decided yet, and to ask the lunch coordinators before configuring:
 
