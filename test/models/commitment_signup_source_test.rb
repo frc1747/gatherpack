@@ -100,6 +100,28 @@ class CommitmentSignupSourceTest < ActiveSupport::TestCase
     assert_empty Commitments::SignupSource.subject_choices(@commitment, person(:organizer)), "without the grant they no longer run it"
   end
 
+  test "organizers of a sheet can still change its sources once it's archived" do
+    with_settings(signups_organizers: "Commitment Organizer > Club", commitments_organizers: "Commitment Organizer > Club") do
+      @commitment.commitment_organizers.create!(person: person(:organizer))
+      sheet_source = @commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+      position_source = @commitment.commitment_sources.create!(kind: "signup_positions", subject: @cashier)
+      @sheet.archived!
+
+      [ sheet_source, position_source ].each do |source|
+        source.reload.per = 3
+        assert CommitmentSourcePolicy.new(person(:organizer).user, source).update?
+        assert_not CommitmentSourcePolicy.new(person(:member).user, source).update?
+      end
+      assert_empty Commitments::SignupSource.subject_choices(@commitment, person(:organizer)), "archived sheets stay out of the picker"
+    end
+  end
+
+  test "a manager of the sheet's team or a team above it picks from its sheets" do
+    Membership.create!(person: person(:member2), team: @org, manager: true)
+    assert_equal [ @sheet ], Commitments::SignupSource.subject_choices(@commitment, person(:member2)).to_a
+    assert_empty Commitments::SignupSource.subject_choices(@commitment, person(:crew_manager))
+  end
+
   test "each kind takes its own subject type" do
     assert @commitment.commitment_sources.build(kind: "signups", subject: @sheet).valid?
     assert_not @commitment.commitment_sources.build(kind: "signups", subject: @cashier).valid?
