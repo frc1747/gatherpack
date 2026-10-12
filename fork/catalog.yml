@@ -170,12 +170,44 @@ feature/signups:
     so two people working together are two sign-ups, and a sign-up can be made
     on behalf of another person. Organizers hold a badge you choose, run their
     own sheets without managing a team, and mark who showed up or brought
-    their items. It is on for everyone as soon as it is added.
+    their items. An admin turns it on in Settings.
   audience: Everyone signs up; organizers run the sheets; admins choose the organizer badge
   settings:
     - name: Sign-up Sheets
       key: feature_signups
-      default: "on"
+      default: "off"
     - name: Sign-up Sheet Organizers
       key: signups_organizers
       default: blank (only admins and team managers run sheets)
+
+feature/commitments:
+  title: Commitments
+  emoji: "✅"
+  description: >-
+    Track what people owe over a season, such as two volunteer shifts each,
+    and credit it from what they do, such as checking in at events of a
+    chosen type. A commitment can be owed by families together, with more
+    owed for each extra child, and holders of a badge can be exempt. Each
+    person sees what they owe and how to earn it; organizers see everyone's
+    progress, add credit by hand with a reason, and message those who still
+    owe.
+  audience: Members and families see their progress; organizers and admins set commitments up
+  settings:
+    - name: Commitments
+      key: feature_commitments
+      default: "off"
+    - name: Commitment Organizers
+      key: commitments_organizers
+      default: blank (only admins and team managers run commitments)
+
+feature/signup-credit:
+  title: Sign-ups count toward commitments
+  emoji: "🤝"
+  description: >-
+    A sign-up sheet, or one position on it, can count toward a commitment:
+    signing up shows as planned, and showing up or bringing the items counts
+    it. A sign-up made on behalf of someone credits that person, so a parent
+    working a place for their child credits the family. The sign up dialog
+    shows how much each person still owes. It has no setting of its own and
+    works while Sign-up Sheets and Commitments are both on.
+  audience: Everyone who signs up; organizers choose which sheets count

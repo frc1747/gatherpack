@@ -140,12 +140,16 @@ Cards `10000001` to `10000032`, one per Northwind person in last-name order. Typ
 
 **Sign-up link.** In Settings, turn off Enable Creating Local Accounts, sign out, and open Forgot Password: there's no sign-up link and no error.
 
+**Commitments** (Commitments in the menu). *Crew Shifts*: each Facilities Crew member owes 2 shifts this season, one per check-in at a Crew Shift event. Ella has met it, Isla has one shift and one planned, Mia one and nothing planned, Yara met it with an adjustment, and Uma holds the New Volunteer badge, so she doesn't owe it. *Youth Family Shifts*: Youth Program families owe 2 shifts plus 1 for each additional child, and 3 Setup Hour check-ins make a shift. Grace and Kate owe 3 together and have 5 setup hours (1 shift and 2 of 3 toward the next); Olive has met it. A person's own page is `/people/<id>/commitments`, with nothing linking to it from the profile yet (BL-020): sign in as `member@` for Ella's, or `parent1@` to see Grace and Kate's through either child. Dan holds the Commitment Organizer badge, so he runs both without managing a team; use the page's filters for met, not met and nothing planned.
+
+**Sign-up credit.** Spring Workday Helpers counts toward Youth Family Shifts, listed first, then Workday check-ins, then setup hours. Paula has a Fall Fair Setup greeter place on behalf of Kate, which credits the family as planned. Grace signed up for Work Night and checked in, which fulfilled her sign-up: it counts once, as the sign-up. Sam checked in at Work Night without signing up, and the Workday check-ins give him a shift. Sign in as `admin@` and sign up for a Spring Workday Helpers slot: the on-behalf-of choices show how many shifts each Youth Program member still owes. Paula and Owen aren't on a Northwind team, so they can't sign up on the sheet themselves.
+
 **Time kiosk.** Open the Time Kiosk and type the card numbers above. To try auto clock-in, in Settings → Time Clock turn off **Kiosk: Allow Unassigned Punches**, then scan Ella (one period: clocked in immediately) and Kate (two periods: she chooses). Set **Kiosk: Return to Welcome After** to 10 to see the screen clear itself, and **Kiosk: Who Can Open the Kiosk** to Kiosk to limit it to `kiosk@` (and admins).
 
 ## Safety
 
 - It refuses to run if any login is outside `@example.com`, or any person exists that neither this data nor `db/seeds.rb` creates. The message names what it found. `SAMPLE_DATA_FORCE=1` loads it anyway; don't do that on a real site.
-- It turns on the Custom Person Fields, Forms and Widgets features, and sets Guardianship Age Limit and Form Creator Badge.
+- It turns on the Custom Person Fields, Forms, Widgets, Sign-up Sheets and Commitments features, and sets Guardianship Age Limit, Form Creator Badge, Sign-up Sheet Organizers and Commitment Organizers.
 - Nothing it creates is a Hook, so loading it runs no admin-written code beyond any Hooks already on the site.
 
 ## Adding data for a feature
