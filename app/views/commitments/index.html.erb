@@ -4,8 +4,8 @@
 
 <h2 class="h4">What you owe</h2>
 <% if @owed.any? %>
-  <% @owed.each do |commitment| %>
-    <%= render "commitments/progress", progress: commitment.progress_for(@person) %>
+  <% @owed.each do |progress| %>
+    <%= render "commitments/progress", progress: progress %>
   <% end %>
 <% else %>
   <p>You don't owe anything right now.</p>

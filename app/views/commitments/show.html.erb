@@ -8,8 +8,11 @@
   <div class="card-body">
     <%= md @commitment.description if @commitment.description.present? %>
     <p class="mb-0">
-      Everyone in <%= @commitment.owing_team.name %><%= " holding #{@commitment.owing_badge.name}" if @commitment.owing_badge %>
+      Everyone in <%= @commitment.owing_team.name %><%= " holding #{@commitment.owing_badge.name}" if @commitment.owing_badge %><%= ", except holders of #{@commitment.exempt_badge.name}," if @commitment.exempt_badge %>
       owes <%= pluralize(@commitment.base_amount, @commitment.unit.singularize, plural: @commitment.unit) %>.
+      <% if @commitment.grouped? %>
+        People connected as <%= @commitment.group_relationship_type.identifier_name %> owe together, plus <%= @commitment.additional_amount %> for each member after the first.
+      <% end %>
       <%= @commitment.counts_planned? ? "Planned credit counts toward it." : "Only confirmed credit counts toward it." %>
     </p>
   </div>

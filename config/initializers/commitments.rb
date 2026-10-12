@@ -17,10 +17,15 @@ Rails.application.config.to_prepare do
 
   Commitments.register_source(:checkins, Commitments::CheckinSource)
 
-  # A commitment's team, owing team and owing badge can't be deleted while it
-  # uses them: losing the owing badge would widen who owes. The foreign keys
+  # A commitment's team, owing team, owing and exempt badges and group
+  # relationship type can't be deleted while it uses them: losing the owing
+  # badge would widen who owes, losing the exempt badge would make the
+  # exempt owe, and losing the type would split groups. The foreign keys
   # block it too; these give a readable error instead.
   Badge.has_many :owing_commitments, class_name: "Commitment", foreign_key: :owing_badge_id, inverse_of: :owing_badge, dependent: :restrict_with_error
+  Badge.has_many :exempting_commitments, class_name: "Commitment", foreign_key: :exempt_badge_id, inverse_of: :exempt_badge, dependent: :restrict_with_error
+  RelationshipType.has_many :grouping_commitments, class_name: "Commitment", foreign_key: :group_relationship_type_id,
+    inverse_of: :group_relationship_type, dependent: :restrict_with_error
   Team.has_many :commitments, inverse_of: :team, dependent: :restrict_with_error
   Team.has_many :owed_commitments, class_name: "Commitment", foreign_key: :owing_team_id, inverse_of: :owing_team, dependent: :restrict_with_error
 end

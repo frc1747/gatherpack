@@ -1,4 +1,4 @@
-<%# Everyone's progress, for organizers: names and numbers only. %>
+<%# Everyone's progress, one row per person or group, for organizers: names and numbers only. %>
 <div class="card mb-3">
   <div class="card-header">
     <h2 class="h4 mb-0">Progress</h2>
@@ -21,7 +21,7 @@
         <table class="table table-sm align-middle" id="progress">
           <thead>
             <tr>
-              <th>Person</th>
+              <th><%= @commitment.grouped? ? "Group" : "Person" %></th>
               <th>Owed</th>
               <th>Confirmed</th>
               <th>Planned</th>
@@ -33,7 +33,7 @@
           <tbody>
             <% @rows.each do |row| %>
               <tr id="<%= dom_id row.person, :progress %>">
-                <td><%= row.person.display_name %> <%= commitment_status_badge(row) %></td>
+                <td><%= row.members.map(&:display_name).join(", ") %> <%= commitment_status_badge(row) %></td>
                 <td><%= row.owed %></td>
                 <td><%= row.confirmed %></td>
                 <td><%= row.planned %></td>
@@ -44,7 +44,7 @@
                   <% end %>
                   <% row.adjustments.each do |adjustment| %>
                     <div>
-                      Adjustment <%= format("%+d", adjustment.credits) %>: <%= adjustment.reason %>
+                      Adjustment <%= format("%+d", adjustment.credits) %>: <%= adjustment.reason %><%= " (#{row.members.find { |member| member.id == adjustment.person_id }&.display_name})" if row.members.size > 1 %>
                       <% if policy(adjustment).destroy? %>
                         <%= button_to "Remove", commitment_commitment_adjustment_path(@commitment, adjustment), method: :delete,
                               class: "btn btn-sm btn-link p-0 no-print", form_class: "d-inline",
