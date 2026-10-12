@@ -1,43 +1,48 @@
-<%# The viewer's upcoming sign-ups and what they and their family still owe (SignupsSummary). Renders nothing when there's nothing to show, so a dashboard widget whose ERB is just render "signups_summaries/summary" hides itself. %>
+<%# The dashboard card with the viewer's upcoming sign-ups and what they and their family still owe (SignupsSummary). Renders nothing when there's nothing to show. %>
 <% summary = SignupsSummary.new(current_user, limit: local_assigns.fetch(:limit, SignupsSummary::DEFAULT_LIMIT)) %>
 <% unless summary.empty? %>
-  <div class="signups-summary">
-    <% if summary.signups.any? %>
-      <section class="signups-summary-signups mb-3">
-        <h3 class="h6">Coming up</h3>
-        <ul class="list-unstyled mb-2">
-          <% summary.signups.each do |signup| %>
-            <li class="mb-2" id="<%= dom_id signup, :summary %>">
-              <strong><%= signup.signup_position.name %></strong>,
-              <%= signup_event_when(signup.event, format: "%a %b %-d, %-l:%M %p") %>
-              <div class="small text-body-secondary">
-                <%= link_to signup.signup_sheet.title, signup.signup_sheet %>
-                <% if (for_whom = signups_summary_for(signup, summary.person)) %>
-                  · <%= for_whom %>
-                <% end %>
-              </div>
-            </li>
-          <% end %>
-        </ul>
-        <%= link_to summary.more_signups? ? "All your sign-ups" : "Sign-up sheets", signup_sheets_path, class: "small" %>
-      </section>
-    <% end %>
+  <div class="card signups-summary">
+    <div class="card-header">
+      <h2>My Sign-ups and Commitments</h2>
+    </div>
+    <div class="card-body">
+      <% if summary.signups.any? %>
+        <section class="signups-summary-signups mb-3">
+          <h3 class="h6">Coming up</h3>
+          <ul class="list-unstyled mb-2">
+            <% summary.signups.each do |signup| %>
+              <li class="mb-2" id="<%= dom_id signup, :summary %>">
+                <strong><%= signup.signup_position.name %></strong>,
+                <%= signup_event_when(signup.event, format: "%a %b %-d, %-l:%M %p") %>
+                <div class="small text-body-secondary">
+                  <%= link_to signup.signup_sheet.title, signup.signup_sheet %>
+                  <% if (for_whom = signups_summary_for(signup, summary.person)) %>
+                    · <%= for_whom %>
+                  <% end %>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+          <%= link_to summary.more_signups? ? "All your sign-ups" : "Sign-up sheets", signup_sheets_path, class: "small" %>
+        </section>
+      <% end %>
 
-    <% if summary.commitments.any? %>
-      <section class="signups-summary-commitments">
-        <h3 class="h6">Commitments</h3>
-        <ul class="list-unstyled mb-0">
-          <% summary.commitments.each do |item| %>
-            <% progress = item.progress %>
-            <li class="mb-2" id="<%= dom_id progress.commitment, :summary %>">
-              <strong><%= progress.commitment.title %></strong>:
-              <%= signups_summary_owed(progress, summary.person) %>
-              <% if progress.met? %><span class="badge text-bg-success">Met</span><% end %>
-              <div class="small"><%= link_to "Details", person_commitments_path(item.page_person) %></div>
-            </li>
-          <% end %>
-        </ul>
-      </section>
-    <% end %>
+      <% if summary.commitments.any? %>
+        <section class="signups-summary-commitments">
+          <h3 class="h6">Commitments</h3>
+          <ul class="list-unstyled mb-0">
+            <% summary.commitments.each do |item| %>
+              <% progress = item.progress %>
+              <li class="mb-2" id="<%= dom_id progress.commitment, :summary %>">
+                <strong><%= progress.commitment.title %></strong>:
+                <%= signups_summary_owed(progress, summary.person) %>
+                <% if progress.met? %><span class="badge text-bg-success">Met</span><% end %>
+                <div class="small"><%= link_to "Details", person_commitments_path(item.page_person) %></div>
+              </li>
+            <% end %>
+          </ul>
+        </section>
+      <% end %>
+    </div>
   </div>
 <% end %>
