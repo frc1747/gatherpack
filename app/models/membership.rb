@@ -8,7 +8,9 @@ class Membership < ApplicationRecord
   validates :person, uniqueness: { scope: :team, message: "is already a member of this team" }
 
   def self.ransackable_attributes(auth_object = nil)
-    [ "manager", "person.display_name", "person.last_name", "person.first_name", "person.birthday", "updated_at" ]
+    attributes = [ "manager", "person.display_name", "person.last_name", "person.first_name", "updated_at" ]
+    attributes << "person.birthday" if Person.ransackable_attributes(auth_object).include?("birthday")
+    attributes
   end
 
   def self.ransackable_associations(auth_object = nil)
