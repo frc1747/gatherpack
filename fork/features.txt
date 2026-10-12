@@ -13,3 +13,5 @@ feature/kiosk-scanned-person
 feature/kiosk-auto-clock-in
 feature/extension-registries
 feature/signups
+feature/commitments
+feature/signup-credit
