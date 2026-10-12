@@ -1,7 +1,6 @@
 # What a signed-in person has coming up and still owes, for the
-# "My sign-ups and commitments" dashboard widget (signups spec §7, phase 6):
-#
-#   <%= render "signups_summaries/summary" %>
+# "My Sign-ups and Commitments" dashboard card (signups spec §7, phase 6),
+# rendered by signups_summaries/_summary.
 #
 # Sign-ups are the upcoming active ones the person takes, made, or that
 # count for them (as on a sheet's My sign-ups), on sheets they may see.
