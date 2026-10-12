@@ -16,6 +16,10 @@ module Commitments
         .order("signup_sheets.title", :position, :created_at)
     end
 
+    def self.sheet_of(subject)
+      subject.signup_sheet
+    end
+
     def how_to_earn
       HowToEarn.new(text: "Sign up as #{source.subject&.name} on #{sheet&.title}", links: open_dates)
     end

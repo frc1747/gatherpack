@@ -24,10 +24,25 @@ module Commitments
       SignupSheet.where(id: organized_sheet_ids(person)).order(:title)
     end
 
+    # Whoever runs the subject's sheet, archived or not, so a source can
+    # still be changed after its sheet is archived at the end of a season.
+    def self.subject_allowed?(_commitment, person, subject)
+      subject.is_a?(subject_type.constantize) && sheet_of(subject).organizer?(person)
+    end
+
+    def self.sheet_of(subject)
+      subject
+    end
+
+    # The sheets that aren't archived that the person runs: those they're
+    # listed on or whose team they manage, checked with SignupSheet#organizer?.
     def self.organized_sheet_ids(person)
       return [] if person.nil?
+      return SignupSheet.visible.ids if person.admin?
 
-      SignupSheet.visible.includes(:team).select { |sheet| sheet.organizer?(person) }.map(&:id)
+      listed = SignupSheetOrganizer.where(person_id: person.id).select(:signup_sheet_id)
+      candidates = SignupSheet.visible.where(id: listed).or(SignupSheet.visible.where(team_id: person.all_managed_teams.select(:id)))
+      candidates.includes(:team).select { |sheet| sheet.organizer?(person) }.map(&:id)
     end
 
     def self.watches

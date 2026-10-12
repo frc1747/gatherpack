@@ -28,4 +28,16 @@ class SignupCreditHintTest < ActionDispatch::IntegrationTest
     assert_select "label", text: "Kid World (2 shifts left on Shifts)"
     assert_select "label", text: "Organizer World"
   end
+
+  test "editing a sign-up shows the hints for its slot" do
+    signup = sign_up(:organizer, @cashier, @game, on_behalf_of: :kid)
+    sign_in person(:organizer).user
+
+    with_settings(feature_commitments: "true", feature_signups: "true") do
+      get edit_signup_sheet_signup_path(@sheet, signup)
+    end
+
+    assert_response :success
+    assert_select "label", text: "Kid World (2 shifts left on Shifts)"
+  end
 end
