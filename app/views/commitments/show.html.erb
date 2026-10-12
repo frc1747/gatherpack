@@ -1,0 +1,34 @@
+<% breadcrumb @commitment %>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h1><%= @commitment.title %></h1>
+    <%= @commitment.team.name %> · <%= commitment_period(@commitment) %>
+  </div>
+  <div class="card-body">
+    <%= md @commitment.description if @commitment.description.present? %>
+    <p class="mb-0">
+      Everyone in <%= @commitment.owing_team.name %><%= " holding #{@commitment.owing_badge.name}" if @commitment.owing_badge %><%= ", except holders of #{@commitment.exempt_badge.name}," if @commitment.exempt_badge %>
+      owes <%= pluralize(@commitment.base_amount, @commitment.unit.singularize, plural: @commitment.unit) %>.
+      <% if @commitment.grouped? %>
+        People connected as <%= @commitment.group_relationship_type.identifier_name %> owe together, plus <%= @commitment.additional_amount %> for each member after the first.
+      <% end %>
+      <%= @commitment.counts_planned? ? "Planned credit counts toward it." : "Only confirmed credit counts toward it." %>
+    </p>
+  </div>
+  <% if policy(@commitment).update? %>
+    <div class="card-footer no-print">
+      <%= link_to "Set up", edit_commitment_path(@commitment), class: "btn btn-warning" %>
+      <%= link_to "Add an adjustment", new_commitment_commitment_adjustment_path(@commitment), class: "btn btn-secondary" %>
+      <button type="button" class="btn btn-secondary" data-controller="print" data-action="print#print">Print</button>
+      <%= link_to "Delete", @commitment, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Delete this commitment and its adjustments?" } %>
+    </div>
+  <% end %>
+</div>
+
+<% if @own %>
+  <%= render "commitments/progress", progress: @own %>
+<% else %>
+  <%= render "progress_table" %>
+  <%= render "message_form" %>
+<% end %>
