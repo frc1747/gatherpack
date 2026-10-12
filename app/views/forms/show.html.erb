@@ -1,0 +1,92 @@
+<% breadcrumb :form, @form %>
+<% manage = policy(@form).manage? %>
+<% counts = @report.status_counts %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %> <%= form_state_badge(@form) %></h1>
+    <div class="text-muted">
+      <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge && Form.badges_enabled? %>, <%= @form.audience_badge.name %> badge holders only<% end %>
+      <% if @form.event %>· For <%= GatherPack::Features.enabled?(:events) ? link_to(@form.event.name, event_path(@form.event)) : @form.event.name %><% end %>
+      · <%= form_due(@form) %>
+      <% if @form.completion_badge && Form.badges_enabled? %>· Completion badge: <%= @form.completion_badge.name %><% end %>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if @form.description.present? %>
+      <div class="mb-3"><%= form_markdown(@form.description) %></div>
+    <% end %>
+
+    <%= render "team_filter", teams: @teams, team: @team, url: form_path(@form), keep: { status: @status } %>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <%= link_to "All (#{@report.rows.size})", form_path(@form, team_id: @team&.id), class: "btn btn-sm #{@status ? "btn-outline-secondary" : "btn-secondary"}" %>
+      <% FormReport::STATUSES.each do |status| %>
+        <% next if counts[status].zero? %>
+        <%= link_to "#{FormsHelper::STATUS_LABELS.fetch(status)} (#{counts[status]})", form_path(@form, team_id: @team&.id, status: status),
+              class: "btn btn-sm #{@status == status ? "btn-secondary" : "btn-outline-secondary"}" %>
+      <% end %>
+    </div>
+
+    <% rows = @status ? @report.rows.select { |row| row.status == @status } : @report.rows %>
+    <% if rows.empty? %>
+      <p class="text-muted">Nobody here.</p>
+    <% else %>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr><th>Person</th><th>Status</th><th>Version</th><th>Submitted</th><th>Last reminded</th></tr>
+          </thead>
+          <tbody>
+            <% rows.each do |row| %>
+              <tr id="<%= dom_id row.person %>">
+                <td><%= link_to row.person.identifier_name, form_response_path(@form, row.person) %></td>
+                <td>
+                  <%= form_status_badge(row.status) %>
+                  <% if row.response&.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
+                  <% if row.status == "no_longer_asked" %><span class="badge text-bg-light"><%= FormsHelper::STATUS_LABELS.fetch(row.response_status) %></span><% end %>
+                  <% if row.response_status == "waiting" && (pending = row.response.open_submission) %>
+                    <br><small class="text-muted">Waiting for <%= pending.waiting_for.to_sentence %></small>
+                  <% end %>
+                </td>
+                <td><%= row.submission ? "##{row.submission.number}" : "—" %></td>
+                <td><%= row.submission&.submitted_at ? "#{nice_datetime(row.submission.submitted_at)} by #{row.submission.submitted_by&.identifier_name}" : "—" %></td>
+                <td><%= row.response&.last_reminded_at ? nice_datetime(row.response.last_reminded_at) : "—" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Results", results_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
+    <%= link_to "Tally", tally_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
+    <%= link_to "Printable list", print_list_forms_path(form_id: @form.id, event_id: @form.event_id), class: "btn btn-primary" %>
+    <% if manage %>
+      <%= link_to "Edit", edit_form_path(@form), class: "btn btn-secondary" %>
+      <%= link_to "Preview as…", preview_form_path(@form), class: "btn btn-secondary" %>
+      <% if @form.draft? || @form.closed? %>
+        <%= button_to "Open", open_form_path(@form), class: "btn btn-success", form_class: "d-inline" %>
+      <% end %>
+      <% if @form.open? %>
+        <%= button_to "Close", close_form_path(@form), class: "btn btn-dark", form_class: "d-inline", data: { turbo_confirm: "Close this form? People won't be able to respond#{@form.late_entry_leaders? ? " (leaders still can)" : ""}." } %>
+        <% waiting = @report.rows.count { |row| !%w[ complete no_longer_asked ].include?(row.status) } %>
+        <% if waiting.positive? %>
+          <%= button_to "Remind (#{waiting})", remind_form_path(@form, team_id: @team&.id), class: "btn btn-warning", form_class: "d-inline",
+                data: { turbo_confirm: "Email the people who can respond for #{pluralize(waiting, "person", plural: "people")} who haven't completed this form?" } %>
+        <% end %>
+      <% end %>
+      <%= button_to "Duplicate", duplicate_form_path(@form), class: "btn btn-secondary", form_class: "d-inline" %>
+      <% unless @form.archived? %>
+        <%= button_to "Archive", archive_form_path(@form), class: "btn btn-outline-dark", form_class: "d-inline", data: { turbo_confirm: "Archive this form? It's hidden from lists; responses are kept." } %>
+      <% end %>
+      <% if policy(@form).destroy? %>
+        <%= button_to "Delete", form_path(@form), method: :delete, class: "btn btn-danger", form_class: "d-inline", data: { turbo_confirm: "Delete this form? It has no submitted responses." } %>
+      <% end %>
+    <% end %>
+    <% if (last = @form.form_reminders.order(:sent_at).last) %>
+      <div class="form-text mt-2">Last reminder: <%= nice_datetime(last.sent_at) %> to <%= pluralize(last.recipient_count, "person", plural: "people") %><%= " by #{last.sent_by.identifier_name}" if last.sent_by %>.</div>
+    <% end %>
+  </div>
+</div>
