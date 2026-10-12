@@ -55,6 +55,54 @@ class SignupNoticesTest < ActiveSupport::TestCase
     assert_enqueued_with(job: SignupReminderJob, args: [ signup, signup.signup_slot_id, @event.start_time.iso8601 ], at: @event.start_time - 2.days)
   end
 
+  test "a sign-up created after its event's time changed in the same transaction may get two jobs, but only one reminder goes out" do
+    # As in the production migration: one transaction fixes the event's time,
+    # then places sign-ups, and every commit callback runs at the end. The
+    # sign-up schedules itself and the event reschedules it; duplicates are
+    # accepted because reminded_at lets only one send.
+    signup = nil
+    Signup.transaction do
+      @event.update!(start_time: Time.zone.parse("2026-10-24 13:00"), end_time: Time.zone.parse("2026-10-24 17:00"))
+      signup = Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:admin))
+      signup.update!(signed_up_by: person(:student), status: :active)
+    end
+
+    jobs = enqueued_jobs.select { |job| job[:job] == SignupReminderJob }
+    assert_equal [ 2 ], [ jobs.size ]
+    assert_equal [ @event.reload.start_time.iso8601 ], jobs.map { |job| job[:args][2] }.uniq
+
+    clear_enqueued_jobs
+    travel_to @event.start_time - 2.days
+    jobs.each { |job| SignupReminderJob.perform_now(Signup.find(signup.id), *job[:args][1..]) }
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+  end
+
+  test "a sign-up made before its event's time changed still has its reminder moved" do
+    signup = create_world_signup(@cashier, :student)
+    clear_enqueued_jobs
+
+    @event.update!(start_time: Time.zone.parse("2026-10-24 13:00"), end_time: Time.zone.parse("2026-10-24 17:00"))
+    assert_enqueued_with(job: SignupReminderJob, args: [ signup, signup.signup_slot_id, @event.start_time.iso8601 ])
+  end
+
+  test "a plain status change doesn't queue a reminder" do
+    signup = create_world_signup(@cashier, :student)
+    clear_enqueued_jobs
+
+    signup.update!(status: :fulfilled)
+    signup.update!(status: :active)
+    assert_no_enqueued_jobs only: SignupReminderJob
+  end
+
+  test "moving a sign-up to another slot reschedules its reminder" do
+    other = @sheet.signup_positions.create!(name: "Cook", capacity: 2)
+    signup = create_world_signup(@cashier, :student)
+    clear_enqueued_jobs
+
+    signup.change!(by: person(:admin), slot: slot_for(other))
+    assert_enqueued_with(job: SignupReminderJob, args: [ signup, slot_for(other).id, @event.start_time.iso8601 ])
+  end
+
   test "no reminder when the sheet sends none or it's already too late" do
     @sheet.update!(reminder_days: 0)
     Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
