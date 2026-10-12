@@ -36,6 +36,21 @@ class CommitmentGroupsTest < ActiveSupport::TestCase
     assert_equal 1, @commitment.progress.values.uniq.size
   end
 
+  test "two people who don't owe never link groups: a grandparent doesn't make cousins one group" do
+    grandparent = create_world_person("Grandparent")
+    relate(grandparent, @parent_a)
+    relate(grandparent, @parent_b)
+    relate(@parent_a, person(:member))
+    relate(@parent_a, person(:kid))
+    relate(@parent_b, person(:member2))
+
+    assert_equal names(:kid, :member), @commitment.group_for(person(:member)).map(&:first_name)
+    assert_equal names(:member2), @commitment.group_for(person(:member2)).map(&:first_name)
+    assert_equal 2, @commitment.progress.values.uniq.size
+    assert_equal names(:kid, :member), @commitment.progress_seen_by(@parent_a).members.map(&:first_name)
+    assert_nil @commitment.progress_seen_by(grandparent), "related to no owing person directly"
+  end
+
   test "someone with no connection is a group of one, and so is everyone when the commitment isn't grouped" do
     relate(@parent_a, person(:member))
     relate(@parent_a, person(:kid))
@@ -115,16 +130,21 @@ class CommitmentGroupsTest < ActiveSupport::TestCase
     assert @commitment.errors[:exempt_badge_id].any?
   end
 
-  test "an exempt person still connects a chain without joining the group" do
+  # Once exempt, the kid doesn't owe, so parent_a -> kid -> parent_b links
+  # people who don't owe and joins nothing; owing half-siblings still do.
+  test "an exempt person neither joins a group nor links the families on either side" do
     rookie = Badge.create!(name: "Rookie", short: "R", color: "#00aa00", badge_type: badge_types(:one), permission: :added_by_admin)
     BadgeAssignment.create!(badge: rookie, person: person(:kid))
     relate(@parent_a, person(:member))
     relate(@parent_a, person(:kid))
     relate(@parent_b, person(:kid))
     relate(@parent_b, person(:member2))
-    @commitment.update!(exempt_badge: rookie)
+    assert_equal names(:kid, :member, :member2), @commitment.group_for(person(:member)).map(&:first_name), "while the kid owes"
 
-    assert_equal names(:member, :member2), @commitment.group_for(person(:member)).map(&:first_name)
+    @commitment.update!(exempt_badge: rookie)
+    assert_equal names(:member), @commitment.group_for(person(:member)).map(&:first_name)
+    assert_equal names(:member2), @commitment.group_for(person(:member2)).map(&:first_name)
+    assert_empty @commitment.group_for(person(:kid))
   end
 
   test "the exempt badge and the group relationship type can't be deleted out from under a commitment" do
