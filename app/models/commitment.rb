@@ -16,8 +16,10 @@
 #   commitment.group_for(person)     # the owing people who owe with them, themselves included
 #
 # A Progress answers owed, confirmed, planned, remaining, met?, members
-# (the group's owing people) and lines (the breakdown, one Line per source
-# with its confirmed and planned credits, plus adjustments). See
+# (the group's owing people), relatives (the people outside the owing
+# population whose records credit the group) and lines (the breakdown,
+# one Line per source with its confirmed and planned credits, plus
+# adjustments). See
 # Commitments::Progress. Nothing else of the commitments layer is meant to
 # be read from outside it.
 class Commitment < ApplicationRecord
@@ -216,6 +218,17 @@ class Commitment < ApplicationRecord
     group_index.fetch(person_id, [])
   end
 
+  # The people outside the owing population related through the group
+  # relationship type to owing people (a parent, an exempt sibling with a
+  # sibling type), each keyed to the ids of the group they're related to:
+  # person id => group member ids. Their own records credit that group
+  # (spec §4.4). Everyone they're related to who owes is in that one group,
+  # since sharing them joins those people. Empty when ungrouped.
+  def group_relatives_index
+    group_index
+    @group_relatives_index
+  end
+
   # Someone related through the group relationship type to a member of a
   # group without owing themselves (a parent). They see that group's
   # progress, read-only.
@@ -260,10 +273,12 @@ class Commitment < ApplicationRecord
 
   def forget_groups
     @group_index = nil
+    @group_relatives_index = nil
   end
 
   def build_group_index
     owing_ids = owing_people.pluck(:id)
+    @group_relatives_index = {}
     return owing_ids.to_h { |id| [ id, [ id ] ] } unless grouped?
 
     # Union-find over the relationships of the type with an owing person
@@ -278,7 +293,14 @@ class Commitment < ApplicationRecord
     pairs.each { |a, b| roots[root.(a)] = root.(b) unless root.(a) == root.(b) }
 
     groups = owing_ids.group_by { |id| root.(id) }.values
-    groups.each_with_object({}) { |ids, index| ids.each { |id| index[id] = ids } }
+    index = groups.each_with_object({}) { |ids, all| ids.each { |id| all[id] = ids } }
+    pairs.each do |a, b|
+      next if index.key?(a) == index.key?(b)
+
+      relative, member = index.key?(a) ? [ b, a ] : [ a, b ]
+      @group_relatives_index[relative] = index[member]
+    end
+    index
   end
 
   # The people related to this one through the group relationship type.

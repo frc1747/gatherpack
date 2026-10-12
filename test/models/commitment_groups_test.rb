@@ -107,6 +107,95 @@ class CommitmentGroupsTest < ActiveSupport::TestCase
     assert_not progress.met?
   end
 
+  test "a relative's own record credits the group they're related to, labelled with their name" do
+    relate(@parent_a, person(:member))
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    Checkin.create!(person: @parent_a, event: @games[0])
+
+    progress = @commitment.progress_for(person(:member))
+    assert_equal 1, progress.confirmed
+    assert_equal [ @parent_a.id ], progress.lines.first.records.map(&:person_id)
+    assert_equal [ @parent_a ], progress.relatives
+    assert_equal [ person(:member) ], progress.members, "a relative credits the group without joining it"
+    assert_equal 1, @commitment.progress_seen_by(@parent_a).confirmed
+  end
+
+  test "a parent of two siblings credits their one group, and no other" do
+    relate(@parent_a, person(:member))
+    relate(@parent_a, person(:kid))
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    Checkin.create!(person: @parent_a, event: @games[0])
+    Checkin.create!(person: @parent_a, event: @games[1])
+
+    everyone = @commitment.progress
+    assert_same everyone[person(:member).id], everyone[person(:kid).id]
+    assert_equal 2, everyone[person(:kid).id].confirmed
+    assert_equal 0, everyone[person(:member2).id].confirmed
+  end
+
+  test "a parent of only people who don't owe credits nobody, and neither do they" do
+    toddler = create_world_person("Toddler")
+    relate(@parent_a, toddler)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    Checkin.create!(person: @parent_a, event: @games[0])
+    Checkin.create!(person: toddler, event: @games[1])
+
+    assert_not @commitment.group_relatives_index.key?(@parent_a.id)
+    assert_equal [ 0 ], @commitment.progress.values.map(&:confirmed).uniq
+  end
+
+  # With Parent of, an exempt child is related only to their parents, who
+  # don't owe either, so their records credit nobody; with a type linking
+  # them to someone who owes (a sibling type), they credit that group.
+  test "an exempt person's records credit the group they're related to, if any" do
+    rookie = Badge.create!(name: "Rookie", short: "R", color: "#00aa00", badge_type: badge_types(:one), permission: :added_by_admin)
+    BadgeAssignment.create!(badge: rookie, person: person(:kid))
+    relate(@parent_a, person(:member))
+    relate(@parent_a, person(:kid))
+    @commitment.update!(exempt_badge: rookie)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    check_in(:kid, @games[0])
+    assert_equal 0, @commitment.progress_for(person(:member)).confirmed
+
+    sibling_of = RelationshipType.create!(parent_label: "Sibling of", child_label: "Sibling of", permission: :added_by_admin)
+    relate(person(:kid), person(:member), sibling_of)
+    @commitment.update!(group_relationship_type: sibling_of)
+    progress = @commitment.progress_for(person(:member))
+    assert_equal 1, progress.confirmed
+    assert_equal [ person(:kid) ], progress.relatives
+  end
+
+  test "an ungrouped commitment ignores relatives" do
+    relate(@parent_a, person(:member))
+    @commitment.update!(group_relationship_type: nil)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    Checkin.create!(person: @parent_a, event: @games[0])
+
+    progress = @commitment.progress_for(person(:member))
+    assert_equal 0, progress.confirmed
+    assert_empty progress.relatives
+    assert_empty @commitment.group_relatives_index
+  end
+
+  test "a parent and child at one event are two records, and the cap is still the group's" do
+    relate(@parent_a, person(:member))
+    @commitment.update!(base_amount: 5, additional_amount: 0)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach, max_credits: 3)
+    check_in(:member, @games[0])
+    Checkin.create!(person: @parent_a, event: @games[0])
+
+    line = @commitment.progress_for(person(:member)).lines.first
+    assert_equal 2, line.records.size, "two people worked"
+    assert_equal 2, line.confirmed_credits
+
+    Checkin.create!(person: @parent_a, event: @games[1])
+    check_in(:member, @games[2])
+    line = @commitment.progress_for(person(:member)).lines.first
+    assert_equal 4, line.records.size
+    assert_equal 3, line.confirmed_credits
+    assert line.capped
+  end
+
   test "holders of the exempt badge don't owe, can't be adjusted, and organizers don't see them" do
     rookie = Badge.create!(name: "Rookie", short: "R", color: "#00aa00", badge_type: badge_types(:one), permission: :added_by_admin)
     BadgeAssignment.create!(badge: rookie, person: person(:member2))

@@ -2,10 +2,13 @@ module Commitments
   # One group's progress on a commitment (a person's alone when it isn't
   # grouped): what they owe, what each source and their adjustments credit,
   # and what remains. Members' credits pool, and source caps apply to the
-  # group. Built by Commitment#progress; nothing is stored.
+  # group. In a grouped commitment, the records of relatives (people outside
+  # the owing population related to members through the group relationship
+  # type, such as a parent working a shift) credit the group too. Built by
+  # Commitment#progress; nothing is stored.
   #
   # Part of the API for reports (see Commitment): owed, confirmed, planned,
-  # remaining, met?, members and lines (the per-source breakdown).
+  # remaining, met?, members, relatives and lines (the per-source breakdown).
   class Progress
     # One source's part of a person's progress. Quantities are the records'
     # summed quantities after dedupe; credits apply the source's ratio and
@@ -17,13 +20,14 @@ module Commitments
       end
     end
 
-    attr_reader :commitment, :members, :lines, :adjustments
+    attr_reader :commitment, :members, :lines, :adjustments, :relatives
 
-    def initialize(commitment, members, lines, adjustments)
+    def initialize(commitment, members, lines, adjustments, relatives = [])
       @commitment = commitment
       @members = members
       @lines = lines
       @adjustments = adjustments
+      @relatives = relatives
     end
 
     # The group's first member by name, which identifies its row.
@@ -69,20 +73,24 @@ module Commitments
 
     # Builds the progress of these people's groups at once, keyed by person
     # id (people the commitment doesn't cover are left out): records from
-    # each source in order for every member, deduped across sources by
-    # person and dedupe key, then pooled by group.
+    # each source in order for every member and relative, deduped across
+    # sources by person and dedupe key, then pooled by group.
     def self.for(commitment, people)
       people = people.to_a.select { |person| commitment.group_ids_for(person.id).any? }
       return {} if people.empty?
 
       groups = people.map { |person| commitment.group_ids_for(person.id) }.uniq
       ids = groups.flatten
+      wanted = groups.to_set
+      relative_groups = commitment.group_relatives_index.select { |_id, group_ids| wanted.include?(group_ids) }
+      relatives_of = relative_groups.keys.group_by { |id| relative_groups[id] }
       members = Person.where(id: ids).order(:last_name, :first_name).to_a
+      relatives = relative_groups.any? ? Person.where(id: relative_groups.keys).order(:last_name, :first_name).to_a : []
       seen = Set.new
 
       by_source = commitment.commitment_sources.map do |source|
         kind = source.kind_instance
-        records = kind ? kind.records(ids).sort_by { |record| record.confirmed? ? 0 : 1 } : []
+        records = kind ? kind.records(ids + relative_groups.keys).sort_by { |record| record.confirmed? ? 0 : 1 } : []
         kept = records.select { |record| record.dedupe_key.nil? || seen.add?([ record.person_id, record.dedupe_key ]) }
         [ source, kept.group_by(&:person_id) ]
       end
@@ -90,8 +98,10 @@ module Commitments
 
       by_group = groups.to_h do |group_ids|
         group = members.select { |member| group_ids.include?(member.id) }
-        lines = by_source.map { |source, records| line(commitment, source, group_ids.flat_map { |id| records[id] || [] }) }
-        [ group_ids, new(commitment, group, lines, group_ids.flat_map { |id| adjustments[id] || [] }.sort_by(&:created_at)) ]
+        crediting = group_ids + relatives_of.fetch(group_ids, [])
+        lines = by_source.map { |source, records| line(commitment, source, crediting.flat_map { |id| records[id] || [] }) }
+        [ group_ids, new(commitment, group, lines, group_ids.flat_map { |id| adjustments[id] || [] }.sort_by(&:created_at),
+          relatives.select { |relative| crediting.include?(relative.id) }) ]
       end
       people.to_h { |person| [ person.id, by_group[commitment.group_ids_for(person.id)] ] }
     end
