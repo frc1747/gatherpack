@@ -71,8 +71,9 @@ Commitments:
   are built in; other kinds register themselves. One person at one
   event counts once, whichever sources see it.
 - **Groups.** People connected through a relationship type, such as
-  siblings through a parent, owe together: an amount for the first
-  member plus one for each other, with everyone's credit pooled.
+  siblings through a parent, owe together: a set amount for the first
+  member and a second, per-member amount for each other member, with
+  everyone's credit pooled.
 - **Adjustments** with a reason for the cases that don't fit.
 - **Progress pages.** People see what they owe and how to earn it;
   organizers see one row per person or group with owed, confirmed,
