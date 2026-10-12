@@ -29,6 +29,8 @@ class Signup < ApplicationRecord
 
   before_validation -> { self.on_behalf_of ||= person }
   after_update :run_status_hooks, if: :saved_change_to_status?
+  after_create_commit :confirm_and_schedule_reminder
+  after_update_commit :announce_change
 
   delegate :signup_position, :signup_sheet, :event, to: :signup_slot
 
@@ -79,6 +81,15 @@ class Signup < ApplicationRecord
 
   def cancel!
     update!(status: :cancelled)
+  end
+
+  # A check-in means the person showed up (decision 13): their active
+  # sign-ups to people positions at the event become fulfilled. Never
+  # creates a sign-up; item sign-ups are marked by an organizer.
+  def self.fulfil_for_checkin!(checkin)
+    active.joins(signup_slot: :signup_position)
+      .where(person_id: checkin.person_id, signup_slots: { event_id: checkin.event_id }, signup_positions: { kind: :people })
+      .find_each { |signup| signup.update!(status: :fulfilled) }
   end
 
   # Members can cancel until cancel_cutoff_hours before the event starts.
@@ -157,6 +168,23 @@ class Signup < ApplicationRecord
       errors.add(:quantity, "is needed") if quantity.nil?
     elsif !quantity.nil?
       errors.add(:quantity, "is only for item positions")
+    end
+  end
+
+  def confirm_and_schedule_reminder
+    SignupNotices.new.confirmation(self)
+    SignupReminderJob.schedule_for(self)
+    Signups.signup_changed(self, :created)
+  end
+
+  def announce_change
+    if saved_change_to_signup_slot_id?
+      SignupReminderJob.schedule_for(self)
+      Signups.signup_changed(self, :moved)
+    elsif saved_change_to_status?
+      Signups.signup_changed(self, cancelled? ? :cancelled : :status)
+    elsif saved_changes.keys.intersect?(%w[ person_id on_behalf_of_id quantity ])
+      Signups.signup_changed(self, :changed)
     end
   end
 

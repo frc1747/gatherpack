@@ -5,6 +5,7 @@
 class SignupSheetEvent < ApplicationRecord
   has_neat_id :suev
   include CanBeHooked
+  include Signups::SheetChanges
   has_paper_trail versions: { class_name: "AuditLog" }
 
   belongs_to :signup_sheet
@@ -23,6 +24,11 @@ class SignupSheetEvent < ApplicationRecord
     SignupSlot.where(event_id: event_id, signup_position_id: signup_sheet.signup_positions.select(:id))
   end
 
+
+  # For Signups::SheetChanges.
+  def changed_signup_sheet_id
+    signup_sheet_id
+  end
   private
 
   def add_slots

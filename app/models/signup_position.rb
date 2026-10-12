@@ -5,6 +5,7 @@
 class SignupPosition < ApplicationRecord
   has_neat_id :supo
   include CanBeHooked
+  include Signups::SheetChanges
   has_paper_trail versions: { class_name: "AuditLog" }
 
   belongs_to :signup_sheet
@@ -49,6 +50,11 @@ class SignupPosition < ApplicationRecord
     people? ? "places" : unit.presence || "items"
   end
 
+
+  # For Signups::SheetChanges.
+  def changed_signup_sheet_id
+    signup_sheet_id
+  end
   private
 
   def place_last
