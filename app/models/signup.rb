@@ -28,6 +28,9 @@ class Signup < ApplicationRecord
   validate :fits_position_kind, if: -> { new_record? || will_save_change_to_signup_slot_id? || will_save_change_to_quantity? }
 
   before_validation -> { self.on_behalf_of ||= person }
+  # Any status change other than a check-in's fulfilment (see
+  # .fulfil_for_checkin!) means no check-in fulfilled it.
+  before_save -> { self.fulfilled_by_checkin_id = nil }, if: -> { will_save_change_to_status? && !will_save_change_to_fulfilled_by_checkin_id? }
   after_update :run_status_hooks, if: :saved_change_to_status?
   after_create_commit :confirm_and_schedule_reminder
   after_update_commit :announce_change
@@ -89,18 +92,16 @@ class Signup < ApplicationRecord
   def self.fulfil_for_checkin!(checkin)
     active.joins(signup_slot: :signup_position)
       .where(person_id: checkin.person_id, signup_slots: { event_id: checkin.event_id }, signup_positions: { kind: :people })
-      .find_each { |signup| signup.update!(status: :fulfilled) }
+      .find_each { |signup| signup.update!(status: :fulfilled, fulfilled_by_checkin_id: checkin.id) }
   end
 
-  # Undoes .fulfil_for_checkin! when a check-in is deleted: the person's
-  # fulfilled people sign-ups at the event go back to active, unless they
-  # still have another check-in there.
+  # Undoes .fulfil_for_checkin! when a check-in is deleted: the sign-ups
+  # that check-in fulfilled go back to active, unless the person still has
+  # another check-in there. Sign-ups an organizer marked are left alone.
   def self.unfulfil_for_checkin!(checkin)
     return if Checkin.where(person_id: checkin.person_id, event_id: checkin.event_id).where.not(id: checkin.id).exists?
 
-    fulfilled.joins(signup_slot: :signup_position)
-      .where(person_id: checkin.person_id, signup_slots: { event_id: checkin.event_id }, signup_positions: { kind: :people })
-      .find_each { |signup| signup.update!(status: :active) }
+    fulfilled.where(fulfilled_by_checkin_id: checkin.id).find_each { |signup| signup.update!(status: :active) }
   end
 
   # Members can cancel until cancel_cutoff_hours before the event starts.
