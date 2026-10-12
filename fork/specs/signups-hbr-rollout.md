@@ -20,7 +20,7 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 |---|---|
 | Cashier needs an alcohol license | Badge rule: "Alcohol License" |
 | Stockers 18+, Students 16/17 | Age rules: min 18; min 16, max 17 |
-| A couple fills 2 cashier places | Two sign-ups, one each |
+| A couple fills 2 cashier places | Two sign-ups, one each; they count as 2 shifts toward the family's requirement (Corey, 2026-10-11) |
 | "Working for [another student]" | Sign-up on behalf of that student |
 | Concession shift = 1 | Sign-up source: Concessions sheet, 1 per 1 |
 | 3 stocking = 1 shift | Sign-up source: Stocking → Student Stocker, 1 per 3, no cap |
@@ -67,7 +67,8 @@ A one-off script in `~/dev/gatherpack-import`, like the enrollment import; not p
 2. Import the SignUpGenius sign-ups (CSV export): one sign-up per person who works, and on behalf of parsed from notes ("working for [student]"), matching names to people by hand where needed.
 3. Turn each 2026-10-04 Concessions and Stocking check-in (meaning "credited to this student") into a sign-up on behalf of that student, unless step 2 covers it. Use the Concessions check-in fields: **Shifts** (places filled) and **Worked by** (who worked, when not the student): one sign-up per worker. Where Shifts is more than the known workers, ask the coordinators who the others were. Delete the check-ins on events that haven't happened. Keep check-ins on past events; they mark those sign-ups fulfilled (decision 4).
 4. Outreach check-ins stay as they are; the check-in source counts them.
-5. Concessions 9/8 and 10/3 aren't on the SignUpGenius sheet. Ask the coordinators what they were before importing their check-ins.
+5. Corrections found by comparing the reports (2026-10-11): Sushanth Ankammagari did not work 9/4 although SignUpGenius lists him (mark that sign-up no-show). Kamden and Karsen Williams worked 9/4 without signing up; keep their check-ins, which credit them. Four Class of 2030 students (Eric Hudson, Pru Madsen, Yavor Piperov, Timothy Woolwine) lack the "2027 Season Rookie" badge that excuses outreach; the old report treated them as rookies by class.
+6. Concessions 9/8 and 10/3 aren't on the SignUpGenius sheet. Ask the coordinators what they were before importing their check-ins.
 
 ## 6. Decisions
 
