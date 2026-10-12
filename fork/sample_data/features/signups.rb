@@ -59,6 +59,8 @@ Hbr::SampleData.feature "feature/signups" do |s|
     description: "Pick a job for each date. Some jobs need a badge or an age; the sheet says why when you can't take one.",
     contact: "Chloe, chloe@example.com")
   SignupSheetOrganizer.find_or_create_by!(signup_sheet: helpers, person: s.person("Chloe"))
+  # Sign-up credit feeds a commitment from this sheet.
+  s.remember :helpers_sheet, helpers
   [ workday, breakfast, work_night, fair_setup ].each { |record| add_event.call(helpers, record) }
 
   greeter = position.call(helpers, "Greeter", 0, kind: :people, capacity: 2, description: "Welcome people at the door")
