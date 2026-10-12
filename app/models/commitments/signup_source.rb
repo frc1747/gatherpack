@@ -54,7 +54,7 @@ module Commitments
         .includes(signup_slot: %i[ event signup_position ]).map do |signup|
           event = signup.event
           CreditRecord.new(person_id: signup.on_behalf_of_id, quantity: 1, state: STATES.fetch(signup.status), date: event.start_time.to_date,
-            dedupe_key: Commitments.event_key(event.id), label: "#{signup.signup_position.name}: #{event.name}", link: sheet)
+            dedupe_key: Commitments.event_key(event.id, signup.person_id), label: "#{signup.signup_position.name}: #{event.name}", link: sheet)
         end
     end
 
