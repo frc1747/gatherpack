@@ -18,6 +18,14 @@
 #                         path:  -> { MyPlugin::Engine.routes.url_helpers.things_path },
 #                         icon:  "star"
 #                       )],
+#         # Tabs on a person's profile, after the built-in ones. The path proc
+#         # gets the person; the optional visible: proc gets the current user
+#         # and the person (the tab shows by default).
+#         profile_tabs: [GatherPack::Feature::ProfileTab.new(
+#                          label:   "Things",
+#                          path:    ->(person) { MyPlugin::Engine.routes.url_helpers.person_things_path(person) },
+#                          visible: ->(user, person) { user.admin? || user.person == person }
+#                        )],
 #         routes_proc: proc { mount MyPlugin::Engine, at: "/my_plugin" }
 #       )
 #     )
