@@ -64,6 +64,21 @@ class SignupsSummaryWidgetTest < ActionDispatch::IntegrationTest
     assert_select ".widget-body a[href=?]", signup_sheets_path, text: "All your sign-ups"
   end
 
+  test "leaves out sign-ups on sheets the person may not see" do
+    draft = SignupSheet.create!(title: "Draft Stand", team: @club, status: :draft, created_by: person(:organizer))
+    greeter = draft.signup_positions.create!(name: "Greeter", kind: :people, capacity: 2)
+    draft.signup_sheet_events.create!(event: @game)
+    Signup.create!(signup_slot: greeter.signup_slots.find_by!(event: @game), person: person(:member), signed_up_by: person(:organizer))
+    sign_up(:member, @cashier, @game)
+
+    get_body(:member)
+
+    assert_select ".widget-body .signups-summary-signups li", 1
+    assert_select ".widget-body li", text: /Cashier/
+    assert_no_match "Draft Stand", response.body
+    assert_no_match "Greeter", response.body
+  end
+
   test "a parent sees their child's grouped commitment; an unrelated person doesn't" do
     commitment = create_world_commitment(group_relationship_type: @parent_of)
     commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
