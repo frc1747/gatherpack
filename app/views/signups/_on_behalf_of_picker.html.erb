@@ -25,7 +25,7 @@
         <% ([ picked ].compact + @on_behalf_of_matches).uniq.each do |someone| %>
           <div class="form-check form-check-inline">
             <%= radio_button_tag "signup[on_behalf_of_id]", someone.id, someone == picked, class: "form-check-input", id: "on_behalf_of_#{someone.id}" %>
-            <%= label_tag "on_behalf_of_#{someone.id}", someone.identifier_name, class: "form-check-label" %>
+            <%= label_tag "on_behalf_of_#{someone.id}", signup_on_behalf_of_label(@signup_sheet, someone), class: "form-check-label" %>
           </div>
         <% end %>
         <% if @on_behalf_of_matches.empty? %>
