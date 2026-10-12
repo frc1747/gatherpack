@@ -299,7 +299,7 @@ The hardcoded catalog is BL-014's drift problem; these follow the current patter
 3. **Commitments core**: §4.1–4.3, 4.5–4.7 with the check-in kind and adjustments, without groups. Can ship before or without sheets. *Built* (`feature/commitments`), with the progress API (decision 17).
 4. **Groups and badges**: §4.4, completion badge. *Built* (`feature/commitments`): groups and the exempt badge. The completion badge is deliberately not built (decision 17).
 5. **Sign-up credit**: `feature/signup-credit`. *Built*: sign-ups as a credit source and the on-behalf-of hints.
-6. **Widget** (separate branch, depends on `feature/widgets`): "My sign-ups and commitments". *In progress* on `feature/signups-widget`: a summary partial an admin places as a one-line widget.
+6. **Dashboard card** (separate branch): "My Sign-ups and Commitments". *In progress* on `feature/signups-widget`: a summary partial the dashboard renders at the top of its right column, like forms' Forms to Complete (hbr.18 shipped it as a widget an admin placed; the native card replaces that).
 
 Phases 1–5 are live in production since 2026-10-12 (`v0.0.0-hbr.17`). Also *in progress*: a commitments tab on the person profile (§4.6), through a generic profile-tab seam on `feature/profile-tabs` (BL-020) and `feature/commitments-profile-tab`.
 
