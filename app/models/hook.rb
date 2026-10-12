@@ -8,6 +8,7 @@ class Hook < ApplicationRecord
     targets = [ "announcements", "badges", "badge_assignments", "events", "checkins", "memberships", "people", "relationships", "teams", "users", "pages", "tokens", "ledgers", "ledger_entries", "ledger_ownerships", "ledger_taggings", "ledger_tags" ].map do |k|
       [ "create", "update", "destroy" ].map { |e| [ k, e ].join(" - ") }
     end.flatten
+    targets += [ "create", "update", "destroy" ].map { |e| "widgets - #{e}" }
 
     targets << "token - activate"
 
