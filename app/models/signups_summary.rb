@@ -66,7 +66,9 @@ class SignupsSummary
 
   def all_signups
     @all_signups ||= if signups_enabled?
-      signups = Signup.active.joins(signup_slot: :event).where(events: { end_time: Time.current.. })
+      # An event with no end time (dates added with only a start) is upcoming
+      # until it starts.
+      signups = Signup.active.joins(signup_slot: :event).where("COALESCE(events.end_time, events.start_time) >= ?", Time.current)
       signups.where(person_id: person.id).or(signups.where(signed_up_by_id: person.id)).or(signups.where(on_behalf_of_id: person.id))
         .includes(:person, :on_behalf_of, signup_slot: [ :event, { signup_position: :signup_sheet } ])
         .to_a
