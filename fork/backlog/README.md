@@ -26,6 +26,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-016](BL-016-inline-code-blanked.md) | Inline code in Markdown shows up as an empty code editor | upstream bug | low | waiting | 2026-10-10 |
 | [BL-017](BL-017-event-time-tba-all-day.md) | Events with no known time: "Time TBA" and all-day events | upstream feature | low | waiting | 2026-10-11 |
 | [BL-018](BL-018-settings-and-hook-registries.md) | Let features register their own settings and hook events | upstream feature | medium | started | 2026-10-11 |
+| [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | waiting | 2026-10-11 |
 
 ## Fields
 
