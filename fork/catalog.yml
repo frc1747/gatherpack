@@ -211,3 +211,34 @@ feature/signup-credit:
     shows how much each person still owes. It has no setting of its own and
     works while Sign-up Sheets and Commitments are both on.
   audience: Everyone who signs up; organizers choose which sheets count
+
+feature/profile-tabs:
+  title: Features can add tabs to a profile
+  emoji: "🗂️"
+  description: >-
+    Infrastructure, nothing to see on its own. It lets a feature add a tab to
+    a person's profile from its own code, shown only to the people it says,
+    instead of editing the profile page. The Commitments tab uses it.
+  audience: Developers; no one will notice a change
+
+feature/commitments-profile-tab:
+  title: Commitments tab on the profile
+  emoji: "📋"
+  description: >-
+    A Commitments tab on a person's profile shows what they owe and how to
+    earn it. People see their own; a parent sees it on a child's profile when
+    the commitment is shared by the family. The tab appears only when there is
+    something to show. It has no setting of its own and works while
+    Commitments is on.
+  audience: Members and their parents
+
+feature/signups-widget:
+  title: My sign-ups and commitments widget
+  emoji: "🗓️"
+  description: >-
+    A dashboard widget that shows each person their upcoming sign-ups (their
+    own and those made for their family) and what they still owe on their
+    commitments, with links to the sheets and details. An admin adds it as a
+    widget whose content is one line; it hides itself for anyone with nothing
+    to show.
+  audience: Everyone signed in; admins place it
