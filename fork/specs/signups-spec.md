@@ -233,7 +233,7 @@ Each kind decides whose credit a record is, and says so in the table above. Comm
 
 ### 4.4 Groups
 
-A commitment can be owed by groups instead of individuals. It names a relationship type; owing people connected through that relationship type, directly or through people outside the owing population, are one group. With a parent–child type that makes siblings (including half-siblings, through a chain) one group; with a household type it makes households. A person with no connection is a group of one.
+A commitment can be owed by groups instead of individuals. It names a relationship type; owing people who share a related person (one step through someone outside the owing population, such as a parent) are one group, and so are chains of those through owing people. With a parent–child type that makes siblings and half-siblings one group, but not cousins through a recorded grandparent; with a household type it makes households. A person with no connection is a group of one.
 
 A group owes the base amount for its first member plus the per-additional amount for each other member. Credits of everyone in the group pool, and source caps apply to the group. The completion badge goes to every member of a group that has met its amount.
 
