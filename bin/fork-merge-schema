@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+# Git merge driver for db/schema.rb, registered by bin/fork-rebuild.
+#
+#   bin/fork-merge-schema <current> <base> <other>
+#
+# Merges like git normally would, then resolves one kind of conflict: two
+# branches that both added migrations disagree on the schema version line.
+# The newer version wins, since the merged schema contains both branches'
+# migrations. Any other conflict is left in place, marked, and reported, so
+# the rebuild still stops on real schema conflicts (see fork/STRATEGY.md).
+current, base, other = ARGV
+abort "usage: #{$PROGRAM_NAME} <current> <base> <other>" unless current && base && other
+
+system("git", "merge-file", "--quiet", "-L", "ours", "-L", "base", "-L", "theirs", current, base, other)
+
+VERSION_LINE = /ActiveRecord::Schema\[[\d.]+\]\.define\(version: ([\d_]+)\) do\n/
+VERSION_CONFLICT = /^<{7} ours\n(#{VERSION_LINE})={7}\n(#{VERSION_LINE})>{7} theirs\n/
+
+text = File.read(current).gsub(VERSION_CONFLICT) do
+  ours, ours_version, theirs, theirs_version = Regexp.last_match.captures
+  ours_version.delete("_").to_i >= theirs_version.delete("_").to_i ? ours : theirs
+end
+File.write(current, text)
+
+exit(text.match?(/^<{7} |^>{7} /) ? 1 : 0)
