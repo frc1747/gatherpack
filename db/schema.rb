@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -978,6 +978,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_140000) do
     t.string "name"
     t.text "raw_value"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "widgets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "title"
+    t.boolean "show_title", default: true, null: false
+    t.text "content"
+    t.boolean "dynamic", default: false, null: false
+    t.text "stylesheet"
+    t.string "style_mode", default: "theme", null: false
+    t.text "javascript"
+    t.integer "refresh_seconds", default: 0, null: false
+    t.string "placement", default: "right", null: false
+    t.integer "position", default: 0, null: false
+    t.string "viewer", default: "user", null: false
+    t.uuid "team_id"
+    t.boolean "enabled", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["team_id"], name: "index_widgets_on_team_id"
   end
 
   add_foreign_key "account_relationships", "accounts"
