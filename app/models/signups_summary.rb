@@ -49,20 +49,28 @@ class SignupsSummary
   # Commitments still running (not ended before today), by start date.
   def commitments
     @commitments ||= if commitments_enabled?
-      PersonCommitmentsPolicy.new(user, person).visible_commitments
-        .reject { |commitment| commitment.ends_on < Date.current }
-        .filter_map do |commitment|
-          progress = commitment.progress_seen_by(person)
-          next unless progress
+      visible_commitments.filter_map do |commitment|
+        progress = commitment.progress_seen_by(person)
+        next unless progress
 
-          Item.new(progress: progress, page_person: progress.members.include?(person) ? person : progress.person)
-        end
+        Item.new(progress: progress, page_person: progress.members.include?(person) ? person : progress.person)
+      end
     else
       []
     end
   end
 
   private
+
+  # The current commitments the person's own commitments page shows them:
+  # PersonCommitmentsPolicy#visible_commitments for the person themselves
+  # (keep the two in step), less the ended ones. Ended commitments are left
+  # out in the query, before the per-commitment checks, so years of past
+  # seasons cost nothing.
+  def visible_commitments
+    Commitment.where(ends_on: Date.current..).includes(:team, :owing_team).order(:starts_on, :title).to_a
+      .select { |commitment| commitment.covers?(person) || commitment.group_relative?(person) }
+  end
 
   def all_signups
     @all_signups ||= if signups_enabled?
