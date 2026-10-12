@@ -52,18 +52,20 @@ class SignupNotices
   end
 
   # When an event's date or time changes, to everyone with an active
-  # sign-up at it, on any sheet.
+  # sign-up at it, on any sheet. Each person's email names only the sheets
+  # their own sign-ups are on.
   def event_changed(event, start_time_was:, end_time_was:)
     signups = Signup.active.joins(:signup_slot).where(signup_slots: { event_id: event.id })
       .includes(:person, :signed_up_by, :on_behalf_of, signup_slot: { signup_position: :signup_sheet })
-    sheets = signups.map(&:signup_sheet).uniq
+    sheets_by_person = Hash.new { |hash, person| hash[person] = [] }
+    signups.each { |signup| recipients(signup).compact.each { |person| sheets_by_person[person] |= [ signup.signup_sheet ] } }
     was = self.class.when_text(event, start_time: start_time_was, end_time: end_time_was)
     now = self.class.when_text(event)
 
-    deliver(signups.flat_map { |signup| recipients(signup) }, "Time changed: #{event.name}") do
+    deliver(sheets_by_person.keys, "Time changed: #{event.name}") do |person|
       "<p>The time of <strong>#{h(event.name)}</strong> has changed.</p>" \
         "<p>It was: #{h(was)}<br>It's now: <strong>#{h(now)}</strong>#{h(", #{event.location}") if event.location.present?}</p>" \
-        "<p>You're signed up for it on #{sheets.map { |sheet| link_to_sheet(sheet) }.to_sentence}. " \
+        "<p>You're signed up for it on #{sheets_by_person[person].map { |sheet| link_to_sheet(sheet) }.to_sentence}. " \
         "If you can't make the new time, please cancel or tell the organizers.</p>"
     end
   end
@@ -101,15 +103,15 @@ class SignupNotices
 
   private
 
-  # Sends one email per person with an address and returns how many.
+  # Sends one email per person with an address and returns how many. The
+  # block gives the body, and is given the person.
   def deliver(people, subject)
     people = people.compact.uniq.select { |person| person.user&.email.present? }
     return 0 if people.empty?
 
-    body = yield
     gateway = Gateway[:email_sending]
     people.each do |person|
-      SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{body}")
+      SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{yield(person)}")
     end
     people.size
   end

@@ -87,6 +87,18 @@ class SignupOrganizerNoticesTest < ActionDispatch::IntegrationTest
     assert_match "Worker World cancelled Student World&#39;s sign-up", enqueued_emails.first[2]
   end
 
+  test "cancelling a sign-up that's already cancelled sends nothing again" do
+    signup = create_world_signup(@cashier, :student, status: :cancelled)
+    clear_enqueued_jobs
+    sign_in person(:worker).user
+
+    delete signup_sheet_roster_signup_path(@sheet, signup)
+
+    assert_redirected_to roster_signup_sheet_path(@sheet)
+    assert_equal "Student World's sign-up was already cancelled.", flash[:alert]
+    assert_empty enqueued_emails
+  end
+
   test "a member cancelling their own sign-up gets no notice" do
     travel_to Time.zone.parse("2026-10-20 12:00")
     signup = create_world_signup(@cashier, :student)
@@ -114,7 +126,7 @@ class SignupOrganizerNoticesTest < ActionDispatch::IntegrationTest
     _, subject, body = enqueued_emails.first
     assert_match "Sign-up moved: Cashier, Second Game", subject
     assert_match "It was: Cashier, Game Day", body
-    assert_enqueued_with(job: SignupReminderJob, args: [ signup, later.id, later.start_time.iso8601 ])
+    assert_enqueued_with(job: SignupReminderJob, args: [ signup, slot_for(@cashier, later).id, later.start_time.iso8601 ])
   end
 
   test "an organizer messages everyone signed up for a date without seeing their addresses" do
