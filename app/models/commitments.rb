@@ -41,10 +41,12 @@ module Commitments
       @sources.dup
     end
 
-    # The dedupe key every kind uses for "this person at this event", so a
-    # sign-up and a check-in for the same event count once.
-    def event_key(event_id)
-      "Event:#{event_id}"
+    # The dedupe key every kind uses for "this person did something at this
+    # event": event_id, and worker_id for who actually did it (who checked in,
+    # who took the place). A sign-up and a check-in by the same worker count
+    # once; two people working for the same person count twice.
+    def event_key(event_id, worker_id)
+      "Event:#{event_id}:Person:#{worker_id}"
     end
   end
 end

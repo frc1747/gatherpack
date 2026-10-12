@@ -24,7 +24,7 @@ module Commitments
       Checkin.where(person_id: person_ids, event_id: events.select(:id)).includes(:event).map do |checkin|
         event = checkin.event
         CreditRecord.new(person_id: checkin.person_id, quantity: 1, state: event.start_time > now ? :planned : :confirmed, date: event.start_time.to_date,
-          dedupe_key: Commitments.event_key(event.id), label: "Checked in: #{event.name}", link: event)
+          dedupe_key: Commitments.event_key(event.id, checkin.person_id), label: "Checked in: #{event.name}", link: event)
       end
     end
 
