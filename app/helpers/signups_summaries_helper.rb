@@ -1,14 +1,20 @@
 module SignupsSummariesHelper
-  # Who a summarized sign-up is for, from the viewer's side: "For Kid World",
-  # "Taken for you by Organizer World", or nil for the viewer's own.
+  # Who takes a summarized sign-up and whose it counts as, from the viewer's
+  # side, by the rules of the sheet's My sign-ups (signup_sheets/_member_signups):
+  # "Taken for you by Organizer World", "For Kid World", "For Grandma World on
+  # behalf of Kid World", "on behalf of Kid World" (the viewer takes it), or
+  # nil for the viewer's own.
   def signups_summary_for(signup, viewer)
+    parts = []
     if signup.person_id != viewer.id && signup.on_behalf_of_id == viewer.id
-      "Taken for you by #{signup.person.identifier_name}"
-    elsif signup.on_behalf_of_id != viewer.id
-      "For #{signup.on_behalf_of.identifier_name}"
+      parts << "Taken for you by #{signup.person.identifier_name}"
     elsif signup.person_id != viewer.id
-      "For #{signup.person.identifier_name}"
+      parts << "For #{signup.person.identifier_name}"
     end
+    if signup.on_behalf_of_id != signup.person_id && signup.on_behalf_of_id != viewer.id
+      parts << "on behalf of #{signup.on_behalf_of.identifier_name}"
+    end
+    parts.join(" ").presence
   end
 
   # "You owe 2 more shifts", "Kid World owes 1 more shift",
