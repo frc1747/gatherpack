@@ -1,0 +1,36 @@
+<% breadcrumb @signup_sheet %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Message the people signed up</h1>
+    <%= @signup_sheet.title %>
+  </div>
+  <%= form_with url: signup_sheet_signup_messages_path(@signup_sheet) do |f| %>
+    <div class="card-body">
+      <p>
+        Everyone signed up for the date gets the message by email: the people taking places, whoever signed them up,
+        and whoever it's on behalf of. Each gets their own email, so no one sees the addresses.
+      </p>
+      <% if @error %>
+        <div class="alert alert-danger"><%= @error %></div>
+      <% end %>
+      <div class="mb-3 col-md-6">
+        <%= f.label :event_id, "Date", class: "form-label" %>
+        <%= f.select :event_id, @events.map { |event| [ "#{signup_event_when(event, format: "%a %b %-d, %-l:%M %p")} #{event.name}", event.id ] },
+              { include_blank: "Pick a date", selected: @event_id }, class: "form-select" %>
+      </div>
+      <div class="mb-3">
+        <%= f.label :subject, class: "form-label" %>
+        <%= f.text_field :subject, value: @subject, class: "form-control" %>
+      </div>
+      <div class="mb-3">
+        <%= f.label :body, "Message", class: "form-label" %>
+        <%= f.text_area :body, value: @body, rows: 8, class: "form-control" %>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", roster_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= f.submit "Send", class: "btn btn-primary" %>
+    </div>
+  <% end %>
+</div>

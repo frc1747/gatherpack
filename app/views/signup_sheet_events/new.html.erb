@@ -1,13 +1,56 @@
 <% breadcrumb @signup_sheet %>
 
-<div class="card">
+<h1>Add dates to <%= @signup_sheet.title %></h1>
+
+<div class="card mb-4" id="new_dates">
   <div class="card-header">
-    <h1>Add dates to <%= @signup_sheet.title %></h1>
+    <h2 class="h5 mb-0">New dates</h2>
+  </div>
+  <%= form_with url: create_dates_signup_sheet_signup_sheet_events_path(@signup_sheet) do |f| %>
+    <div class="card-body">
+      <p>
+        Each date becomes an event for <%= @signup_sheet.team.name %>. Leave the times empty if they aren't known yet:
+        the event is entered as 00:00 to 23:59, and when you set the real time later everyone signed up is told.
+        With no name, the event is called <%= @signup_sheet.title %>.
+      </p>
+      <% if @dates_error %>
+        <div class="alert alert-danger"><%= @dates_error %></div>
+      <% end %>
+      <div class="col-md-4 mb-3">
+        <%= f.label :dates_event_type_id, "Event type", class: "form-label" %>
+        <%= f.select :dates_event_type_id, EventType.order(:name).map { |type| [ type.name, type.id ] },
+              { include_blank: "Pick an event type", selected: @event_type_id }, class: "form-select" %>
+      </div>
+      <div class="row g-2 d-none d-md-flex fw-semibold" aria-hidden="true">
+        <div class="col-md-2">Date</div>
+        <div class="col-md-2">Starts</div>
+        <div class="col-md-2">Ends</div>
+        <div class="col-md-3">Name</div>
+        <div class="col-md-3">Location</div>
+      </div>
+      <% @rows.each_with_index do |row, index| %>
+        <div class="row g-2 mb-2 border-bottom pb-2" id="date_row_<%= index %>">
+          <%= fields_for "dates[#{index}]", row do |row_fields| %>
+            <%= render "date_fields", f: row_fields, row: row, compact: true, name_placeholder: @signup_sheet.title %>
+          <% end %>
+        </div>
+      <% end %>
+      <%= f.button "More rows", name: "more", value: "1", class: "btn btn-outline-secondary btn-sm" if @rows.size < SignupSheetEventsController::MAX_ROWS %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, anchor: "dates"), class: "btn btn-warning" %>
+      <%= f.submit "Add these dates", class: "btn btn-primary" %>
+    </div>
+  <% end %>
+</div>
+
+<div class="card" id="existing_events">
+  <div class="card-header">
+    <h2 class="h5 mb-0">Existing events</h2>
   </div>
   <div class="card-body">
     <p>
-      Tick the events people should sign up for. These are the upcoming events of <%= @signup_sheet.team.name %> and the teams below it.
-      To add a date that isn't listed, make the event on the <%= link_to "Events", events_path %> page first.
+      Or tick events that already exist. These are the upcoming events of <%= @signup_sheet.team.name %> and the teams below it.
     </p>
     <% if @event_types.many? %>
       <%= form_with url: new_signup_sheet_signup_sheet_event_path(@signup_sheet), method: :get, class: "row g-2 align-items-end mb-3" do |f| %>
@@ -42,9 +85,10 @@
         <p class="text-warning-emphasis">No upcoming events to add.</p>
       <% end %>
     </div>
-    <div class="card-footer">
-      <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, anchor: "dates"), class: "btn btn-warning" %>
-      <%= f.submit "Add dates", class: "btn btn-primary" if @events.any? %>
-    </div>
+    <% if @events.any? %>
+      <div class="card-footer">
+        <%= f.submit "Add ticked events", class: "btn btn-primary" %>
+      </div>
+    <% end %>
   <% end %>
 </div>
