@@ -245,6 +245,23 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a relative's records in a group's breakdown carry their name" do
+    parent = create_world_person("Stacey")
+    Relationship.create!(parent: parent, child: person(:member), relationship_type: @parent_of, created_by: person(:admin))
+    @commitment.update!(group_relationship_type: @parent_of)
+    Checkin.create!(person: parent, event: create_world_event("Concessions", "2026-10-14 10:00"))
+
+    with_feature do
+      sign_in person(:member).user
+      get commitments_path
+      assert_response :success
+      assert_select "li", text: /Checked in: Concessions · Stacey World \(relative\)/
+      assert_select "li", text: /Checked in: Outreach Day/
+      assert_select "li", { text: /Outreach Day · /, count: 0 }, "a lone member's own records stay unlabelled"
+      assert_match "2 confirmed", response.body
+    end
+  end
+
   test "holders of the exempt badge are left out of the organizer's view" do
     rookie = Badge.create!(name: "Rookie", short: "R", color: "#00aa00", badge_type: badge_types(:one), permission: :added_by_admin)
     BadgeAssignment.create!(badge: rookie, person: person(:member2))

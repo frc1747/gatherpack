@@ -1,6 +1,7 @@
 <%# One person's or group's progress on a commitment, with the breakdown and how to earn more. %>
 <% commitment = progress.commitment %>
 <% names = progress.members.to_h { |member| [ member.id, member.display_name ] } %>
+<% relative_names = progress.relatives.to_h { |relative| [ relative.id, "#{relative.display_name} (relative)" ] } %>
 <div class="card mb-3" id="<%= dom_id commitment, :progress %>">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <h3 class="h5 mb-0"><%= link_to commitment.title, commitment %></h3>
@@ -27,7 +28,7 @@
             <ul class="small mb-0">
               <% line.records.each do |record| %>
                 <li>
-                  <%= record.date.strftime("%b %-d") %>: <%= record.label %><%= " (planned)" unless record.confirmed? %><%= " · #{names[record.person_id]}" if names.size > 1 %>
+                  <%= record.date.strftime("%b %-d") %>: <%= record.label %><%= " (planned)" unless record.confirmed? %><% name = relative_names[record.person_id] || (names[record.person_id] if names.size > 1) %><%= " · #{name}" if name %>
                 </li>
               <% end %>
             </ul>
