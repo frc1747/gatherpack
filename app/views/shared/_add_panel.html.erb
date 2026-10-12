@@ -1,0 +1,17 @@
+<%# locals: (title:, url:, placeholder:) %>
+<%# Rendered as a layout; the block renders "shared/add_candidates". %>
+<div class="card">
+  <div class="card-header">
+    <h2 class="h5 mb-2"><%= title %></h2>
+    <%= form_with url: url, method: :get, data: { controller: "auto-submit", turbo_frame: "candidates" } do |f| %>
+      <%= f.search_field :candidate_q, value: params[:candidate_q],
+            class: "form-control",
+            placeholder: placeholder,
+            autocomplete: "off",
+            autofocus: true,
+            aria: { label: title },
+            data: { action: "input->auto-submit#submit" } %>
+    <% end %>
+  </div>
+  <%= yield %>
+</div>
