@@ -15,3 +15,6 @@ feature/extension-registries
 feature/signups
 feature/commitments
 feature/signup-credit
+feature/profile-tabs
+feature/commitments-profile-tab
+feature/signups-widget
