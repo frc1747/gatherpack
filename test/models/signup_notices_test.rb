@@ -52,7 +52,7 @@ class SignupNoticesTest < ActiveSupport::TestCase
   test "a reminder is scheduled the sheet's reminder days before the event" do
     signup = Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
 
-    assert_enqueued_with(job: SignupReminderJob, args: [ signup, @event.id, @event.start_time.iso8601 ], at: @event.start_time - 2.days)
+    assert_enqueued_with(job: SignupReminderJob, args: [ signup, signup.signup_slot_id, @event.start_time.iso8601 ], at: @event.start_time - 2.days)
   end
 
   test "no reminder when the sheet sends none or it's already too late" do
@@ -69,10 +69,80 @@ class SignupNoticesTest < ActiveSupport::TestCase
     signup = create_world_signup(@cashier, :student)
     clear_enqueued_jobs
 
-    SignupReminderJob.perform_now(signup, @event.id, @event.start_time.iso8601)
+    travel_to @event.start_time - 2.days
+    SignupReminderJob.perform_now(signup, signup.signup_slot_id, @event.start_time.iso8601)
 
     assert_equal [ email_of(:student) ], enqueued_email_addresses
     assert_match "Reminder: Cashier, Game Day", enqueued_emails.first[1]
+    assert_equal Time.current, signup.reload.reminded_at
+
+    clear_enqueued_jobs
+    SignupReminderJob.perform_now(signup, signup.signup_slot_id, @event.start_time.iso8601)
+    assert_empty enqueued_emails, "a reminder goes out once"
+  end
+
+  test "moving a sign-up to another position at the same date reminds once" do
+    signup = Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
+    greeter = @sheet.signup_positions.create!(name: "Greeter")
+    signup.change!(by: person(:admin), slot: slot_for(greeter))
+    jobs = enqueued_jobs.select { |job| job[:job] == SignupReminderJob }
+    assert_equal 2, jobs.size
+    clear_enqueued_jobs
+
+    travel_to @event.start_time - 2.days
+    jobs.each { |job| SignupReminderJob.perform_now(Signup.find(signup.id), *job[:args][1..]) }
+
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+  end
+
+  test "an event's time going A to B and back to A reminds once" do
+    signup = create_world_signup(@cashier, :student)
+    start, finish = @event.start_time, @event.end_time
+    @event.update!(start_time: start + 1.hour, end_time: finish + 1.hour)
+    @event.update!(start_time: start, end_time: finish)
+    jobs = enqueued_jobs.select { |job| job[:job] == SignupReminderJob }
+    clear_enqueued_jobs
+
+    travel_to start - 2.days + 1.hour
+    jobs.each { |job| SignupReminderJob.perform_now(Signup.find(signup.id), *job[:args][1..]) }
+
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+  end
+
+  test "a move or time change after the reminder went out makes a new one due" do
+    signup = create_world_signup(@cashier, :student)
+    signup.update_columns(reminded_at: Time.current)
+
+    @event.update!(start_time: @event.start_time + 1.day, end_time: @event.end_time + 1.day)
+
+    assert_nil signup.reload.reminded_at
+  end
+
+  test "changing a sheet's reminder days reschedules its sign-ups' reminders" do
+    @sheet.update!(reminder_days: 0)
+    signup = create_world_signup(@cashier, :student)
+    assert_no_enqueued_jobs only: SignupReminderJob
+
+    @sheet.update!(reminder_days: 2)
+    assert_enqueued_with(job: SignupReminderJob, args: [ signup, signup.signup_slot_id, @event.start_time.iso8601 ], at: @event.start_time - 2.days)
+
+    @sheet.update!(reminder_days: 5)
+    assert_enqueued_with(job: SignupReminderJob, at: @event.start_time - 5.days)
+  end
+
+  test "a reminder scheduled for more days than the sheet now has waits for the later one" do
+    signup = create_world_signup(@cashier, :student)
+    @sheet.update!(reminder_days: 5)
+    clear_enqueued_jobs
+    @sheet.update!(reminder_days: 2)
+
+    travel_to @event.start_time - 5.days
+    SignupReminderJob.perform_now(Signup.find(signup.id), signup.signup_slot_id, @event.start_time.iso8601)
+    assert_empty enqueued_emails
+
+    travel_to @event.start_time - 2.days
+    SignupReminderJob.perform_now(Signup.find(signup.id), signup.signup_slot_id, @event.start_time.iso8601)
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
   end
 
   test "the reminder does nothing once the sign-up is cancelled or the event has moved" do
@@ -82,11 +152,11 @@ class SignupNoticesTest < ActiveSupport::TestCase
     clear_enqueued_jobs
 
     # As the job would, with the sign-up loaded afresh.
-    SignupReminderJob.perform_now(Signup.find(signup.id), @event.id, start)
+    SignupReminderJob.perform_now(Signup.find(signup.id), signup.signup_slot_id, start)
     assert_empty enqueued_emails
 
     signup.cancel!
-    SignupReminderJob.perform_now(Signup.find(signup.id), @event.id, @event.start_time.iso8601)
+    SignupReminderJob.perform_now(Signup.find(signup.id), signup.signup_slot_id, @event.start_time.iso8601)
     assert_empty enqueued_emails
   end
 
@@ -102,7 +172,27 @@ class SignupNoticesTest < ActiveSupport::TestCase
     assert_match "Time changed: Game Day", subject
     assert_match "Sat Oct 24, 2026, 10:00 AM to 2:00 PM", body
     assert_match "Sat Oct 24, 2026, 1:00 PM to 5:00 PM", body
-    assert_enqueued_with(job: SignupReminderJob, args: [ active, @event.id, @event.start_time.iso8601 ])
+    assert_enqueued_with(job: SignupReminderJob, args: [ active, active.signup_slot_id, @event.start_time.iso8601 ])
+  end
+
+  test "each person's time-change email names only the sheets they're on" do
+    other = create_world_sheet("Secret Sheet", status: :draft)
+    greeter = other.signup_positions.create!(name: "Greeter")
+    create_world_signup(@cashier, :student)
+    create_world_signup(greeter, :student2)
+    create_world_signup(greeter, :sibling)
+    create_world_signup(@cashier, :sibling)
+    clear_enqueued_jobs
+
+    @event.update!(start_time: @event.start_time + 1.hour)
+
+    bodies = enqueued_emails.to_h { |address, _subject, body| [ address, body ] }
+    assert_match "Snack Stand", bodies[email_of(:student)]
+    assert_no_match "Secret Sheet", bodies[email_of(:student)]
+    assert_match "Secret Sheet", bodies[email_of(:student2)]
+    assert_no_match "Snack Stand", bodies[email_of(:student2)]
+    assert_match(/Snack Stand.*Secret Sheet|Secret Sheet.*Snack Stand/, bodies[email_of(:sibling)])
+    assert_equal 3, enqueued_emails.size
   end
 
   test "an event entered as 00:00 to 23:59 getting its real time is a time change" do

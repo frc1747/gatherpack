@@ -19,7 +19,7 @@ module Signups
       SignupNotices.new.event_changed(self,
         start_time_was: saved_changes.fetch("start_time", [ start_time ]).first,
         end_time_was: saved_changes.fetch("end_time", [ end_time ]).first)
-      Signup.active.joins(:signup_slot).where(signup_slots: { event_id: id }).find_each { |signup| SignupReminderJob.schedule_for(signup) }
+      Signup.active.joins(:signup_slot).where(signup_slots: { event_id: id }).find_each { |signup| SignupReminderJob.schedule_for(signup, fresh: true) }
       signup_sheet_events.each { |sheet_event| Signups.sheet_changed(sheet_event.signup_sheet_id, self, :event_time) }
     end
   end
