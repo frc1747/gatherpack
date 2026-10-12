@@ -133,6 +133,17 @@ class CommitmentProgressTest < ActiveSupport::TestCase
     assert_equal 1, progress[person(:member2).id].confirmed
   end
 
+  test "dedupe is per worker: two people working for one person at one event both count" do
+    ListedSource.list = [ record(:member, @games[0], :confirmed, worker: :member), record(:member, @games[0], :confirmed, worker: :member2) ]
+    @commitment.commitment_sources.create!(kind: "listed", subject: @outreach, position: 1)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach, position: 2)
+    check_in(:member, @games[0])
+
+    listed_line, checkin_line = @commitment.progress_for(person(:member)).lines
+    assert_equal 2, listed_line.confirmed_credits
+    assert_empty checkin_line.records
+  end
+
   test "counts when: planned credit completes only when the commitment says so" do
     ListedSource.list = [ record(:member, @games[0], :confirmed), record(:member, @games[1], :planned) ]
     @commitment.commitment_sources.create!(kind: "listed", subject: @outreach)
@@ -176,8 +187,8 @@ class CommitmentProgressTest < ActiveSupport::TestCase
 
   private
 
-  def record(name, event, state)
+  def record(name, event, state, worker: name)
     Commitments::CreditRecord.new(person_id: person(name).id, quantity: 1, state: state, date: event.start_time.to_date,
-      dedupe_key: Commitments.event_key(event.id), label: "Listed: #{event.name}", link: event)
+      dedupe_key: Commitments.event_key(event.id, person(worker).id), label: "Listed: #{event.name}", link: event)
   end
 end
