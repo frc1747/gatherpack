@@ -233,12 +233,11 @@ feature/commitments-profile-tab:
   audience: Members and their parents
 
 feature/signups-widget:
-  title: My sign-ups and commitments widget
+  title: My sign-ups and commitments on the dashboard
   emoji: "🗓️"
   description: >-
-    A dashboard widget that shows each person their upcoming sign-ups (their
+    A dashboard card that shows each person their upcoming sign-ups (their
     own and those made for their family) and what they still owe on their
-    commitments, with links to the sheets and details. An admin adds it as a
-    widget whose content is one line; it hides itself for anyone with nothing
-    to show.
-  audience: Everyone signed in; admins place it
+    commitments, with links to the sheets and details. It hides itself for
+    anyone with nothing to show.
+  audience: Everyone signed in
