@@ -6,7 +6,9 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
   include ActiveJob::TestHelper
   include CommitmentsWorld
 
+  # Within the period, after the checked-in event has started.
   setup do
+    travel_to Time.zone.parse("2026-10-20 12:00")
     host! "localhost"
     build_commitments_world
     @commitment = create_world_commitment(description: "Work **two** shifts.")
@@ -34,7 +36,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       assert_difference "Commitment.count" do
         post commitments_path, params: { commitment: commitment_params(team_id: @club.id) }
       end
-      commitment = Commitment.order(:created_at).last
+      commitment = Commitment.find_by!(title: "Outreach")
       assert_redirected_to edit_commitment_path(commitment, anchor: "sources")
       assert_equal [ person(:organizer) ], commitment.organizers.to_a
 
@@ -109,7 +111,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
         get commitments_path
         assert_response :success
         assert_select "h3", text: "Shifts"
-        assert_match "1 confirmed, 0 planned, 2 shifts owed", response.body
+        assert_match "0 confirmed, 1 planned, 2 shifts owed", response.body, "checked in before the event started"
         assert_match "Check in at any Outreach event", response.body
 
         get commitment_path(@commitment)
@@ -201,6 +203,68 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
         delete commitment_path(commitment)
       end
       assert_redirected_to commitments_path
+    end
+  end
+
+  test "a grouped commitment shows one row per group, and a parent sees their children's group read-only" do
+    parent = create_world_person("Parent")
+    [ person(:member), person(:kid) ].each do |child|
+      Relationship.create!(parent: parent, child: child, relationship_type: @parent_of, created_by: person(:admin))
+    end
+    @commitment.update!(group_relationship_type: @parent_of, additional_amount: 1)
+    check_in(:kid, @event)
+
+    with_feature do
+      sign_in person(:admin).user
+      get commitment_path(@commitment)
+      assert_select "#progress tbody tr", 2
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)} td", text: /Kid World, Member World/
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)} td", text: "3"
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)} td", text: "2"
+
+      sign_in parent.user
+      get commitments_path
+      assert_response :success
+      assert_match "Owed by Kid World and Member World together.", response.body
+      assert_match "2 confirmed, 0 planned, 3 shifts owed", response.body
+      assert_select "a", text: "Adjust", count: 0
+
+      get commitment_path(@commitment)
+      assert_response :success
+      assert_select "#progress", count: 0
+      assert_no_match "MemberTwo", response.body
+
+      get person_commitments_path(parent)
+      assert_match "Owed by Kid World and Member World together.", response.body
+      get person_commitments_path(person(:kid))
+      assert_response :success
+      get person_commitments_path(person(:member2))
+      assert_redirected_to root_path
+      get new_commitment_commitment_adjustment_path(@commitment, person_id: person(:kid).id)
+      assert_redirected_to root_path
+    end
+  end
+
+  test "holders of the exempt badge are left out of the organizer's view" do
+    rookie = Badge.create!(name: "Rookie", short: "R", color: "#00aa00", badge_type: badge_types(:one), permission: :added_by_admin)
+    BadgeAssignment.create!(badge: rookie, person: person(:member2))
+    with_feature_and_grants do
+      sign_in person(:admin).user
+      patch commitment_path(@commitment), params: { commitment: { exempt_badge_id: rookie.id, group_relationship_type_id: @parent_of.id, additional_amount: 2 } }
+      assert_redirected_to commitment_path(@commitment)
+      assert_equal [ rookie, @parent_of, 2 ], [ @commitment.reload.exempt_badge, @commitment.group_relationship_type, @commitment.additional_amount ]
+
+      get edit_commitment_path(@commitment)
+      assert_select "select#commitment_exempt_badge_id option[selected]", text: "Rookie"
+
+      @commitment.commitment_organizers.create!(person: person(:organizer))
+      sign_in person(:organizer).user
+      get commitment_path(@commitment)
+      assert_match "except holders of Rookie", response.body
+      assert_select "#progress tbody tr", 2
+      assert_no_match "MemberTwo", response.body
+      get person_commitments_path(person(:member2))
+      assert_redirected_to root_path
     end
   end
 

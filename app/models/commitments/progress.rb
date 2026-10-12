@@ -1,7 +1,11 @@
 module Commitments
-  # One person's progress on a commitment: what they owe, what each source
-  # and their adjustments credit, and what remains. Built by
-  # Commitment#progress; nothing is stored.
+  # One group's progress on a commitment (a person's alone when it isn't
+  # grouped): what they owe, what each source and their adjustments credit,
+  # and what remains. Members' credits pool, and source caps apply to the
+  # group. Built by Commitment#progress; nothing is stored.
+  #
+  # Part of the API for reports (see Commitment): owed, confirmed, planned,
+  # remaining, met?, members and lines (the per-source breakdown).
   class Progress
     # One source's part of a person's progress. Quantities are the records'
     # summed quantities after dedupe; credits apply the source's ratio and
@@ -13,17 +17,23 @@ module Commitments
       end
     end
 
-    attr_reader :commitment, :person, :lines, :adjustments
+    attr_reader :commitment, :members, :lines, :adjustments
 
-    def initialize(commitment, person, lines, adjustments)
+    def initialize(commitment, members, lines, adjustments)
       @commitment = commitment
-      @person = person
+      @members = members
       @lines = lines
       @adjustments = adjustments
     end
 
+    # The group's first member by name, which identifies its row.
+    def person
+      members.first
+    end
+
+    # base_amount for the first member, additional_amount for each other.
     def owed
-      commitment.base_amount
+      commitment.base_amount + commitment.additional_amount * (members.size - 1)
     end
 
     def adjustment_credits
@@ -57,11 +67,17 @@ module Commitments
       !met? && planned.zero?
     end
 
-    # Builds every person's progress at once: records from each source in
-    # order, deduped across sources by person and dedupe key.
+    # Builds the progress of these people's groups at once, keyed by person
+    # id (people the commitment doesn't cover are left out): records from
+    # each source in order for every member, deduped across sources by
+    # person and dedupe key, then pooled by group.
     def self.for(commitment, people)
-      people = people.to_a
-      ids = people.map(&:id)
+      people = people.to_a.select { |person| commitment.group_ids_for(person.id).any? }
+      return {} if people.empty?
+
+      groups = people.map { |person| commitment.group_ids_for(person.id) }.uniq
+      ids = groups.flatten
+      members = Person.where(id: ids).order(:last_name, :first_name).to_a
       seen = Set.new
 
       by_source = commitment.commitment_sources.map do |source|
@@ -72,10 +88,12 @@ module Commitments
       end
       adjustments = commitment.commitment_adjustments.where(person_id: ids).order(:created_at).group_by(&:person_id)
 
-      people.to_h do |person|
-        lines = by_source.map { |source, records| line(commitment, source, records[person.id] || []) }
-        [ person.id, new(commitment, person, lines, adjustments[person.id] || []) ]
+      by_group = groups.to_h do |group_ids|
+        group = members.select { |member| group_ids.include?(member.id) }
+        lines = by_source.map { |source, records| line(commitment, source, group_ids.flat_map { |id| records[id] || [] }) }
+        [ group_ids, new(commitment, group, lines, group_ids.flat_map { |id| adjustments[id] || [] }.sort_by(&:created_at)) ]
       end
+      people.to_h { |person| [ person.id, by_group[commitment.group_ids_for(person.id)] ] }
     end
 
     def self.line(commitment, source, records)

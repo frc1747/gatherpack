@@ -1,7 +1,25 @@
 # Who owes, how much, over what period, and which sources count (spec §4).
 # People in the owing team (and the teams below it), optionally only those
-# holding the owing badge, each owe base_amount in the commitment's unit.
-# Progress is computed from the sources and adjustments, never stored.
+# holding the owing badge, less holders of the exempt badge, owe
+# base_amount in the commitment's unit. With a group relationship type they
+# owe together in groups (spec §4.4): base_amount for the first member and
+# additional_amount for each other. Progress is computed from the sources
+# and adjustments, never stored.
+#
+# The API for reports and other features:
+#
+#   commitment.covers?(person)       # owes it (in the owing population, not exempt)
+#   commitment.progress_for(person)  # their group's Commitments::Progress, nil if not covered
+#   commitment.progress(people)      # the same for many people at once, keyed by person id;
+#                                    # build it once for a list instead of calling progress_for
+#                                    # per person (a few queries in all, whatever the size)
+#   commitment.group_for(person)     # the owing people who owe with them, themselves included
+#
+# A Progress answers owed, confirmed, planned, remaining, met?, members
+# (the group's owing people) and lines (the breakdown, one Line per source
+# with its confirmed and planned credits, plus adjustments). See
+# Commitments::Progress. Nothing else of the commitments layer is meant to
+# be read from outside it.
 class Commitment < ApplicationRecord
   has_neat_id :cmt
   include CanBeHooked
@@ -12,6 +30,8 @@ class Commitment < ApplicationRecord
   belongs_to :team
   belongs_to :owing_team, class_name: "Team"
   belongs_to :owing_badge, class_name: "Badge", optional: true
+  belongs_to :exempt_badge, class_name: "Badge", optional: true
+  belongs_to :group_relationship_type, class_name: "RelationshipType", optional: true
   belongs_to :created_by, class_name: "Person", optional: true
 
   has_many :commitment_organizers, dependent: :destroy
@@ -25,12 +45,15 @@ class Commitment < ApplicationRecord
   validates :title, presence: true
   validates :unit, presence: true
   validates :base_amount, numericality: { only_integer: true, greater_than: 0 }
+  validates :additional_amount, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :starts_on, presence: true
   validates :ends_on, presence: true
   validate :period_in_order
   validate :owing_team_in_reach
+  validate :exempt_badge_differs
 
   after_create :add_creator_as_organizer
+  after_save :forget_groups
 
   def self.ransackable_attributes(auth_object = nil)
     [ "title", "team_id", "starts_on", "ends_on", "updated_at" ]
@@ -123,15 +146,29 @@ class Commitment < ApplicationRecord
     Relationship.where(parent_id: organizer.id, child_id: person.id).or(Relationship.where(parent_id: person.id, child_id: organizer.id)).exists?
   end
 
+  # Whether the organizer is, or is related by any relationship type to,
+  # anyone in the person's group. Credit pools in a group, so adjusting any
+  # member's is adjusting the whole group's.
+  def self_or_relative_in_group?(organizer, person)
+    return false if organizer.nil? || person.nil?
+
+    ids = group_ids_for(person.id).presence || [ person.id ]
+    return true if ids.include?(organizer.id)
+
+    Relationship.where(parent_id: organizer.id, child_id: ids).or(Relationship.where(parent_id: ids, child_id: organizer.id)).exists?
+  end
+
   def self_approval_reason(organizer, person)
-    SELF_APPROVAL_REASON if self_or_relative?(organizer, person)
+    SELF_APPROVAL_REASON if self_or_relative_in_group?(organizer, person)
   end
 
   # Everyone who owes: the owing team and every team below it, narrowed to
-  # holders of the owing badge when there is one.
+  # holders of the owing badge when there is one, less holders of the
+  # exempt badge.
   def owing_people
     people = owing_team.descendant_people
     people = people.where(id: BadgeAssignment.where(badge_id: owing_badge_id).select(:person_id)) if owing_badge_id
+    people = people.where.not(id: BadgeAssignment.where(badge_id: exempt_badge_id).select(:person_id)) if exempt_badge_id
     Person.where(id: people.select(:id))
   end
 
@@ -139,13 +176,73 @@ class Commitment < ApplicationRecord
     person.present? && owing_people.exists?(id: person.id)
   end
 
-  # Progress for these people (default: everyone who owes), keyed by person id.
+  def grouped?
+    group_relationship_type_id.present?
+  end
+
+  # Progress for these people (default: everyone who owes), keyed by person
+  # id. Each person's value is their group's progress, shared by the
+  # group's members; people the commitment doesn't cover are left out.
   def progress(people = owing_people)
     Commitments::Progress.for(self, people)
   end
 
+  # The person's group's progress (theirs alone when ungrouped), or nil
+  # when the commitment doesn't cover them.
   def progress_for(person)
-    progress([ person ])[person.id]
+    progress([ person ])[person.id] if person
+  end
+
+  # The owing people in the person's group, by name; just the person when
+  # ungrouped or unconnected, and none when they don't owe.
+  def group_for(person)
+    ids = group_ids_for(person.id)
+    Person.where(id: ids).order(:last_name, :first_name).to_a
+  end
+
+  # The owing people's groups: person id => the ids of their group's
+  # members. Owing people related through the group relationship type,
+  # directly or through one person who doesn't owe related to both (two
+  # students sharing a parent), are one group, and so is a chain of those
+  # through owing members (half-siblings: A and B share a parent, B and C
+  # another). Two people who don't owe never link: with Parent of, a
+  # recorded grandparent doesn't make cousins one group. Built once per
+  # instance for the whole owing population; reload to see later changes.
+  def group_index
+    @group_index ||= build_group_index
+  end
+
+  def group_ids_for(person_id)
+    group_index.fetch(person_id, [])
+  end
+
+  # Someone related through the group relationship type to a member of a
+  # group without owing themselves (a parent). They see that group's
+  # progress, read-only.
+  def group_relative?(person)
+    !covers?(person) && related_group_member_id(person).present?
+  end
+
+  # Whether the viewer is related through the group relationship type to a
+  # member of the person's group.
+  def group_relative_of?(viewer, person)
+    return false unless grouped? && viewer && person
+
+    (group_relative_ids(viewer) & group_ids_for(person.id)).any?
+  end
+
+  # The progress a person sees as their own: their group's if they owe,
+  # the group of the people they're related to through the group
+  # relationship type if not (a parent's), or nil.
+  def progress_seen_by(person)
+    return if person.nil?
+
+    progress_for(person) || related_group_member_id(person)&.then { |id| progress([ Person.find(id) ])[id] }
+  end
+
+  def reload(*)
+    forget_groups
+    super
   end
 
   # The commitment's team and every team below it. Sources count activity
@@ -160,6 +257,49 @@ class Commitment < ApplicationRecord
   end
 
   private
+
+  def forget_groups
+    @group_index = nil
+  end
+
+  def build_group_index
+    owing_ids = owing_people.pluck(:id)
+    return owing_ids.to_h { |id| [ id, [ id ] ] } unless grouped?
+
+    # Union-find over the relationships of the type with an owing person
+    # on at least one side, in one query. A relationship between two people
+    # who don't owe is never loaded, so a link goes owing -> X -> owing at
+    # most, never X -> Y.
+    roots = {}
+    root = ->(id) { roots[id].nil? || roots[id] == id ? id : (roots[id] = root.(roots[id])) }
+    pairs = Relationship.where(relationship_type_id: group_relationship_type_id)
+      .where(parent_id: owing_ids).or(Relationship.where(relationship_type_id: group_relationship_type_id, child_id: owing_ids))
+      .pluck(:parent_id, :child_id)
+    pairs.each { |a, b| roots[root.(a)] = root.(b) unless root.(a) == root.(b) }
+
+    groups = owing_ids.group_by { |id| root.(id) }.values
+    groups.each_with_object({}) { |ids, index| ids.each { |id| index[id] = ids } }
+  end
+
+  # The people related to this one through the group relationship type.
+  def group_relative_ids(person)
+    Relationship.where(relationship_type_id: group_relationship_type_id)
+      .where(parent_id: person.id).or(Relationship.where(relationship_type_id: group_relationship_type_id, child_id: person.id))
+      .pluck(:parent_id, :child_id).flatten.uniq - [ person.id ]
+  end
+
+  # An owing person this one is related to through the group relationship
+  # type. A person outside the owing population connects all of theirs, so
+  # they're all in one group.
+  def related_group_member_id(person)
+    return unless grouped? && person
+
+    group_relative_ids(person).find { |id| group_index.key?(id) }
+  end
+
+  def exempt_badge_differs
+    errors.add(:exempt_badge_id, "can't be the badge of those who owe") if exempt_badge_id.present? && exempt_badge_id == owing_badge_id
+  end
 
   def period_in_order
     errors.add(:ends_on, "can't be before the start") if starts_on && ends_on && ends_on < starts_on
