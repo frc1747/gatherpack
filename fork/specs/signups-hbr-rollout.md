@@ -19,11 +19,11 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 | HBR rule | Configured as |
 |---|---|
 | Cashier needs an alcohol license | Badge rule: "Alcohol License" |
-| Stockers 18+, Students 16/17 | Age rules: min 18; min 16, max 17 |
+| Cooks and stockers are adults; Students 16/17 | Team rule: any of Parents or Friends of HBR; age rule min 16, max 17 plus team Students. Stocking "Adults" keeps age min 18 |
 | A couple fills 2 cashier places | Two sign-ups, one each; they count as 2 shifts toward the family's requirement (Corey, 2026-10-11) |
 | "Working for [another student]" | Sign-up on behalf of that student |
-| Concession shift = 1 | Sign-up source: Concessions sheet, 1 per 1 |
-| 3 stocking = 1 shift | Sign-up source: Stocking → Student Stocker, 1 per 3, no cap |
+| Concession shift = 1 | Sign-up sources: Concessions sheet and the commencement sheet, 1 per 1; check-ins at Concessions events, 1 per 1 |
+| 3 stocking = 1 shift | Sign-up source: Stocking → Student Stocker, 1 per 3, no cap; check-ins at Concessions Stocking events, 1 per 3 |
 | Adult stocking counts for nothing | Adults position isn't a source |
 | 2 for the first student, +1 per additional | Grouped by Parent/Guardian – Student; base 2, additional 1 |
 | Outreach events, with or without a sign-up | Per-person commitment; check-in source on event type Outreach |
@@ -44,13 +44,17 @@ Replace the team's SignUpGenius sheets with GatherPack sign-ups tied to Events, 
 
 **Organizers.** Admins give an admin-assigned badge "Sign-up Organizer" to specific parents (the concessions coordinators, and any director who runs a sheet). `signups_organizers` and `commitments_organizers` both pair it with "FIRST Team 1747, Harrison Boiler Robotics", so a coordinator on the Parents team can own a sheet at the top team and open it to Students and Parents. Both also pair "Student Form Creator" (or a new student-leader badge) with "Team 1747 - Students", so student leaders run outreach without reaching parents.
 
-**Concessions sheet.** Team: top. Audience: Students and Parents. Positions Shift Lead (1), Cook (2), Cashier (4, badge Alcohol License), Stocker (4, min age 18), Student (6, team Students, age 16–17; cap 2 on some games). The 7 game events; the two without a kickoff time are 00:00–23:59 until it's announced. Sign up others via Parent/Guardian – Student; on behalf of: anyone. Shift Lead pairing per framework decision 6.
+Ditto is the reference for everything below (Corey, 2026-10-12): production is made to match it.
 
-**Stocking sheet.** Positions Student Stocker (3, team Students), Adults (2, min age 18); 7 events; same relationship settings.
+**Concessions sheet** ("Purdue Football Concessions"). Team: top. Audience: Students, Parents and Friends of HBR (team "Team 1747 - Friends of HBR"). Positions Shift Lead (1, no rules), Cook (2, team any of Parents or Friends of HBR), Cashier (4, badge Alcohol License), Stocker (4, team any of Parents or Friends of HBR), Student (6, team Students, age 16–17; cap 2 on some games). Reminders 2 days before; no cancel cutoff. The 7 game events; the two without a kickoff time are 00:00–23:59 until it's announced. Sign up others via Parent/Guardian – Student; on behalf of: anyone. Shift Lead pairing per framework decision 6.
 
-**Commitment "Concessions 2026".** Owed by Students, grouped by Parent/Guardian – Student, base 2, additional 1, unit "shifts", counts when confirmed. Sources in order: Concessions sheet (all positions, 1 per 1), Stocking → Student Stocker (1 per 3, no cap). Period: season start (May 1) to kickoff (2027-01-09). The Eligibility Report's concessions column reads this commitment's progress for the student's family.
+**Stocking sheet** ("Concessions Stocking"). Same team and audience. Positions Student Stocker (3, team Students), Adults (2, min age 18); 7 events; same relationship settings.
 
-**Commitment "Outreach 2026–27".** Owed by Students except holders of "2027 Season Rookie", per person, base = the report's `outreach_required` (1 today), period May 1–Apr 30, unit "events", counts when confirmed. Sources in order: any outreach sheet the student leaders post, then check-ins at Outreach events (1 per 1). The Eligibility Report's outreach column reads its progress. On Ditto since 2026-10-11 (`~/dev/gatherpack-import/ditto_outreach_commitment.rb`). The 22 camp days are separate events, so a week-long camp counts as five; if it should count once, that's a ratio or cap on that camp's sheet source.
+**Commencement sheet** ("Purdue Global Commencement Concessions", closed). The 10/3 Purdue Global commencement at Mackey Arena (pretzel carts), 8:00 am–7:00 pm. One position, Cart (no cap, no rules), holding the four people who worked it; same team and audience.
+
+**Commitment "Concessions 2026".** Owed by Students, grouped by Parent/Guardian – Student, base 2, additional 1, unit "shifts", counts when confirmed. Sources in order: Concessions sheet (all positions, 1 per 1), commencement sheet (1 per 1), Stocking → Student Stocker (1 per 3, no cap), check-ins at Concessions events (1 per 1), check-ins at Concessions Stocking events (1 per 3). The check-in sources credit students who work without signing up; dedupe per worker and event keeps a fulfilled sign-up from counting twice. Period: season start (2026-05-01) to the day before kickoff (2027-01-08). The Eligibility Report's concessions column reads this commitment's progress for the student's family.
+
+**Commitment "Outreach 2026–27".** Owed by Students except holders of "2027 Season Rookie", per person, base = the report's `outreach_required` (1 today), period May 1–Apr 30, unit "events", counts when confirmed. Team: "Team 1747 - Students". Sources: check-ins at Outreach events (1 per 1); an outreach sheet the student leaders post can be added ahead of it. The Eligibility Report's outreach column reads its progress. On Ditto since 2026-10-11 (`~/dev/gatherpack-import/ditto_outreach_commitment.rb`). The 22 camp days are separate events, so a week-long camp counts as five; if it should count once, that's a ratio or cap on that camp's sheet source.
 
 **Saturday lunches (next).** One sheet, team and audience like the concessions sheet, one event per Saturday. Item positions for what's needed (for example Main dish, a quantity in servings or pans, with the question "What are you bringing?"; Drinks; Paper goods) and a people position for servers. Settled 2026-10-12:
 
