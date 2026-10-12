@@ -73,6 +73,8 @@ module Commitments
     # person and dedupe key, then pooled by group.
     def self.for(commitment, people)
       people = people.to_a.select { |person| commitment.group_ids_for(person.id).any? }
+      return {} if people.empty?
+
       groups = people.map { |person| commitment.group_ids_for(person.id) }.uniq
       ids = groups.flatten
       members = Person.where(id: ids).order(:last_name, :first_name).to_a

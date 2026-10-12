@@ -48,7 +48,7 @@
     <div class="col-12 col-md-6">
       <%= f.input :group_relationship_type_id, as: :select, label: "Owe together through", collection: @relationship_type_choices,
             label_method: :identifier_name, value_method: :id, include_blank: "Nobody, everyone owes on their own",
-            hint: "People who owe and are connected through this relationship, directly or through others (two children of one parent), owe as one group and pool their credit." %>
+            hint: "People who owe and are connected through this relationship, directly or through one person related to both (two children of one parent), owe as one group and pool their credit." %>
     </div>
     <div class="col-12 col-md-6">
       <%= f.input :additional_amount, label: "Each other group member adds", input_html: { min: 0 },
