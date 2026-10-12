@@ -175,6 +175,54 @@ class SignupNoticesTest < ActiveSupport::TestCase
     assert_enqueued_with(job: SignupReminderJob, args: [ active, active.signup_slot_id, @event.start_time.iso8601 ])
   end
 
+  test "a reminder due while the feature is off waits an hour and goes out once it's on" do
+    signup = create_world_signup(@cashier, :student)
+    clear_enqueued_jobs
+    args = [ signup, signup.signup_slot_id, @event.start_time.iso8601 ]
+
+    travel_to @event.start_time - 2.days
+    with_settings(feature_signups: "false") do
+      SignupReminderJob.perform_now(*args)
+      assert_empty enqueued_emails
+      assert_nil signup.reload.reminded_at
+      assert_enqueued_with(job: SignupReminderJob, args: args, at: 1.hour.from_now)
+    end
+
+    clear_enqueued_jobs
+    travel 1.hour
+    SignupReminderJob.perform_now(Signup.find(signup.id), *args[1..])
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+    assert_not_nil signup.reload.reminded_at
+  end
+
+  test "a reminder due while the feature is off, less than an hour before the event, is dropped" do
+    signup = create_world_signup(@cashier, :student)
+    clear_enqueued_jobs
+
+    travel_to @event.start_time - 30.minutes
+    with_settings(feature_signups: "false") do
+      SignupReminderJob.perform_now(signup, signup.signup_slot_id, @event.start_time.iso8601)
+    end
+
+    assert_empty enqueued_emails
+    assert_no_enqueued_jobs only: SignupReminderJob
+    assert_nil signup.reload.reminded_at
+  end
+
+  test "an event's time change while the feature is off sends no notices but moves the reminders" do
+    signup = create_world_signup(@cashier, :student)
+    signup.update_columns(reminded_at: Time.current)
+    clear_enqueued_jobs
+
+    with_settings(feature_signups: "false") do
+      @event.update!(start_time: Time.zone.parse("2026-10-24 13:00"), end_time: Time.zone.parse("2026-10-24 17:00"))
+    end
+
+    assert_empty enqueued_emails
+    assert_enqueued_with(job: SignupReminderJob, args: [ signup, signup.signup_slot_id, @event.start_time.iso8601 ], at: @event.start_time - 2.days)
+    assert_nil signup.reload.reminded_at
+  end
+
   test "each person's time-change email names only the sheets they're on" do
     other = create_world_sheet("Secret Sheet", status: :draft)
     greeter = other.signup_positions.create!(name: "Greeter")
