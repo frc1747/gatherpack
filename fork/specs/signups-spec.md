@@ -1,6 +1,8 @@
 # Spec: Sign-up Sheets and Commitments
 
-Status: draft rev. 8, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+Status: draft rev. 9, 2026-10-11. Nothing built yet. Decisions in §8 are settled or defaults; §9 lists the questions this revision opened.
+
+Rev. 9: who owes can exclude holders of an exempt badge; check-ins at events that haven't started are planned; reports read commitment progress directly, and the completion badge is deferred (§4.1, §4.2, §4.6, decision 17). Phase 3 is built on `feature/commitments`; phases 4 and 5 are in progress.
 
 Rev. 8: no extra people. Every place is one sign-up for one person in GatherPack; someone who isn't in GatherPack joins before they can work. Two people working together are two sign-ups, and the signer can make the second for the other person when the sheet allows it (decision 3).
 
@@ -189,12 +191,12 @@ Upstream files touched (estimate): `config/routes.rb`, `config/initializers/feat
 ### 4.1 Model
 
 - **Commitment.** Belongs to a team. Has:
-  - **Who owes**: a team, optionally narrowed by a badge.
+  - **Who owes**: a team, optionally narrowed by a badge, minus holders of an optional **exempt badge** (a season's rookies, for example).
   - **Amount**: a base amount, and optionally a per-additional-member amount for groups (§4.4).
   - **Unit**: a display label ("shifts", "events", "hours"). Quantities are whole numbers in this unit.
   - **Period**: start and end dates. Only activity in the period counts.
   - **Counts when**: `planned` or `confirmed`. Pages always show both ("2 confirmed, 1 planned, 2 owed"); this setting picks which completes the commitment.
-  - **Completion badge** (optional): granted when met, removed when it stops being met.
+  - **Completion badge** (optional, deferred): granted when met, removed when it stops being met. Not built; reports read progress instead (decision 17).
   - **Sources**: an ordered list (§4.2).
 - **Adjustment.** Manual credit or debit for a person, with a reason. Shown separately in the breakdown.
 
@@ -218,7 +220,7 @@ Kinds in v1:
 
 | Kind | Branch | Subject | Records |
 |---|---|---|---|
-| Check-ins | `feature/commitments` | An event type, on events of the commitment's team or below | One per check-in, confirmed, quantity 1, to the person checked in. Dedupe key: the event. |
+| Check-ins | `feature/commitments` | An event type, on events of the commitment's team or below | One per check-in, quantity 1, to the person checked in: confirmed once the event has started, planned before. Dedupe key: the event. |
 | Sign-ups | `feature/signup-credit` | A sheet, or one position on it | One per sign-up, to the on-behalf-of person. Quantity: 1 for people positions, and 1 for item positions, since bringing 3 pizzas is one contribution. Active is planned, fulfilled is confirmed; cancelled and no-show produce nothing. Dedupe key: the event. |
 
 Adjustments aren't a source kind; they're added after sources and don't count toward source caps.
@@ -317,6 +319,7 @@ Settled 2026-10-11 unless marked otherwise. Decisions about one organization's s
 14. **No approving yourself or your relatives**: fulfilled and no-show, rule overrides, moves, adjustments.
 15. **Items and people on one sheet.** A position's kind decides whether its cap counts people or a quantity. Rules, on behalf of, notices and organizers work the same for both.
 16. **Items are marked brought by an organizer** (default), with Mark all brought per event. A setting to treat items as brought once the event has passed can be added if marking proves a chore.
+17. **Reports read progress, not badges.** `Commitment#progress_for(person)` (the person's group, or them alone: owed, confirmed, planned, remaining, met, breakdown) is the supported way for reports and other features to ask; `covers?` says whether someone owes at all. A completion badge stays optional and isn't built.
 
 ## 9. Open questions
 
