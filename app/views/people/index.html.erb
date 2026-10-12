@@ -24,7 +24,9 @@
     <ul class="dropdown-menu">
       <li><%= sort_link @q, :last_name, "Last Name", class: "dropdown-item" %></li>
       <li><%= sort_link @q, :first_name, "First Name", class: "dropdown-item" %></li>
-      <li><%= sort_link @q, :birthday, "Age", class: "dropdown-item" %></li>
+      <% if Person.ransackable_attributes(current_user).include?("birthday") %>
+        <li><%= sort_link @q, :birthday, "Age", class: "dropdown-item" %></li>
+      <% end %>
       <li><%= sort_link @q, :updated_at, "Last Updated", class: "dropdown-item" %></li>
     </ul>
   </div>
