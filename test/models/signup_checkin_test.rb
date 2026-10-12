@@ -94,4 +94,28 @@ class SignupCheckinTest < ActiveSupport::TestCase
     assert signup.reload.active?
     assert pie.reload.fulfilled?, "item sign-ups aren't touched by check-ins"
   end
+
+  test "deleting a check-in leaves a sign-up an organizer marked fulfilled" do
+    marked_before = create_world_signup(@cashier, :student)
+    marked_before.update!(status: :fulfilled)
+    checkin = Checkin.create!(person: person(:student), event: @event)
+    assert_nil marked_before.reload.fulfilled_by_checkin_id
+
+    checkin.destroy!
+
+    assert marked_before.reload.fulfilled?
+  end
+
+  test "an organizer re-marking a check-in's fulfilment makes it theirs" do
+    signup = create_world_signup(@cashier, :student)
+    checkin = Checkin.create!(person: person(:student), event: @event)
+    assert_equal checkin.id, signup.reload.fulfilled_by_checkin_id
+
+    signup.update!(status: :no_show)
+    signup.update!(status: :fulfilled)
+    assert_nil signup.fulfilled_by_checkin_id
+
+    checkin.destroy!
+    assert signup.reload.fulfilled?
+  end
 end
