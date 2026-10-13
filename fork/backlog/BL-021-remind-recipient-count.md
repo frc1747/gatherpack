@@ -24,6 +24,7 @@ Decided with Corey (2026-10-13):
 - The defaults are today's wording, so a form nobody customizes sends the same email it does now.
 - Guardians get their own message, so a guardian's email can say "please remind them" instead of "please complete".
 - **Form permissions stay as they are.** If the form lets guardians respond, the guardian's link still opens the form; if a parent fills it in, so be it. No new "remind only" setting.
+- **"Also email guardians" tick box** (added 2026-10-13). The first reminder can go to the students alone, and a later one can add the guardian nudge. Untick it and guardians are left out, except where a guardian has to act (see below).
 - **Guardian parts show only when guardians are involved.** If a send reaches no guardians, the screen, counts and preview say nothing about guardians. This applies to anything built on top of guardian relationships later: show the guardian part only when the operation actually reaches a guardian.
 
 ## Where things are (`feature/forms` `13e5a83`)
@@ -55,7 +56,7 @@ Null means "use the default". The defaults live in code and reproduce today's se
 - Themselves: `Please complete **{form}**{due} for:`
 - Guardians: same text. Corey can then change it per form to a nudge, for example "**{form}** isn't finished yet{due}. Please remind them to do it:".
 
-Add `guardian_count` (integer) to `form_reminders` so the log line can say "19 people (9 guardians)". Optionally also store the message bodies sent, for the record.
+Add `guardian_count` (integer) and `guardians_included` (boolean) to `form_reminders` so the log line can say "19 people (9 guardians)" or "10 people, guardians not emailed". Optionally also store the message bodies sent, for the record.
 
 ### Message format
 
@@ -74,7 +75,11 @@ The links and greeting stay outside the editable part, so a message can't lose t
 - The count, broken down only when guardians are included: "Email 19 people: 10 students and 9 guardians." With no guardians: "Email 10 people." (Say "people", not "students", when the subjects aren't all students; use the form's own subject wording if there is one.)
 - An expandable list of who gets it, grouped the same way.
 - **Message to people reminded about their own response** (text box prefilled with the saved message or the default).
-- **Message to guardians**: only when this send reaches at least one guardian.
+- **Also email guardians** tick box, under the count: only when this send could reach at least one guardian. Ticking or unticking it updates the count, the list and the preview right away (a small Stimulus controller, or recount on the server through a Turbo Frame).
+  - Default: unticked on the form's first reminder, ticked after that (any earlier `form_reminders` row). That matches "students first, then add the nudge"; the sender can always change it.
+  - Guardians who have to act still get emailed when it's unticked: on a guardians-level form (subjects can't respond), or when a guardian's signature is outstanding. The screen says so: "2 guardians will still be emailed because they need to sign." In `FormReminderSender`, the box drops only the guardians added for a nudge (`respond_permission` reaches `:guardian` while the subject can act too); the `signers.include?(:guardian)` and guardian-only paths stay.
+  - A subject with no email address gets no reminder while it's unticked. Say so in the count ("2 students have no email address and won't be reminded"), so ticking the box is the obvious fix.
+- **Message to guardians**: only while the send includes at least one guardian (ticked, or guardians who have to act).
 - A preview of one email of each kind that's going out, using a real recipient from the list.
 - Above a threshold (about 25 emails), a stronger line: "This will email 60 people."
 - **Send** and **Cancel**. No pop-up.
@@ -95,7 +100,11 @@ Decide from the actual recipients of this send, not from the form's permission s
 - The send screen for a form open to subjects and guardians, with 2 waiting students who share one guardian and 1 with no guardian: "Email 4 people: 3 students and 1 guardian"; both message boxes; the guardian's email lists both students.
 - A subjects-only form: no guardian wording, no guardian box, count "Email N people".
 - A guardians-level form (guardians respond, subjects don't): only the guardian box.
-- A send that reaches no guardians on a form that allows them: no guardian parts.
+- A send that reaches no guardians on a form that allows them: no guardian parts, no tick box.
+- First reminder: the box starts unticked and only subjects are emailed; second reminder: it starts ticked. `form_reminders.guardians_included` records each.
+- Unticked with an outstanding guardian signature: that guardian is still emailed and the screen says why; other guardians aren't.
+- Guardians-level form: unticking can't leave a subject unreached (the box is hidden or forced on, since guardians are the only ones who can act).
+- Unticked with a subject who has no email: the count names them as not reminded.
 - Changing a message and sending saves it; the next send screen shows it; Duplicate copies it; Reset stores null.
 - Placeholders fill in; a form title with `<script>` or Markdown characters is escaped.
 - At or above the threshold, the stronger wording shows.
