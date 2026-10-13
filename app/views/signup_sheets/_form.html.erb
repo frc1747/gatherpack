@@ -1,0 +1,49 @@
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs">
+  <div class="row">
+    <div class="col-12 col-md-6">
+      <%= f.input :title %>
+    </div>
+    <div class="col-12 col-md-6">
+      <%= f.input :team_id, as: :select, label: "Team", collection: @team_choices, label_method: :name, value_method: :id, include_blank: false,
+            hint: "With no audience rules, the sheet is open to this team and every team below it." %>
+    </div>
+  </div>
+
+  <%= f.input :description, label: "Instructions", input_html: { rows: 4 }, hint: "Shown at the top of the sheet. Markdown works." %>
+  <%# Not a login: keep password managers from offering credentials here. %>
+  <%= f.input :contact, hint: "Who to ask about this sheet, for example a name and email.",
+        input_html: { autocomplete: "off", data: { bwignore: true } } %>
+
+  <div class="row">
+    <div class="col-12 col-md-4">
+      <%= f.input :status, as: :select, collection: SignupSheet.statuses.keys.map { |status| [ status.humanize, status ] }, include_blank: false,
+            hint: "Members can sign up while it's open." %>
+    </div>
+    <div class="col-12 col-md-4">
+      <%= f.input :names_permission, as: :select, label: "Who sees names",
+            collection: [ [ "Everyone who can sign up", "everyone" ], [ "Organizers only", "organizers" ] ], include_blank: false %>
+    </div>
+    <div class="col-12 col-md-4">
+      <%= f.input :cancel_cutoff_hours, label: "Members can cancel until", hint: "Hours before the event starts. 0 means until it starts." %>
+    </div>
+  </div>
+
+  <% relationship_types = RelationshipType.order(:parent_label) %>
+  <% if relationship_types.any? %>
+    <%= f.input :others_relationship_type_ids, as: :check_boxes, label: "Members can also sign up",
+          collection: relationship_types, label_method: :identifier_name, value_method: :id,
+          hint: "Tick a relationship to let someone sign up the people they're related to through it (for example, a parent signing up their child)." %>
+  <% else %>
+    <div class="mb-3">
+      <label class="form-label">Members can also sign up</label>
+      <p class="text-body-secondary mb-0">No relationship types yet.</p>
+    </div>
+  <% end %>
+
+  <%= f.input :on_behalf_of_mode, as: :radio_buttons, label: "A sign-up can be on behalf of",
+        collection: [ [ "Only the person taking the place", "nobody_else" ], [ "Someone they're related to (as above)", "related_people" ], [ "Anyone the sheet is open to", "anyone" ] ],
+        item_wrapper_tag: :div, item_label_html: { class: "form-check-label" } %>
+</div>

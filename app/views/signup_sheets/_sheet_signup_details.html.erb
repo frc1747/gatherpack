@@ -1,0 +1,3 @@
+<%# The answer and, for items, quantity of a sign-up: "(Cheese, 2)". %>
+<% details = [ signup.answer.presence, (signup.quantity if signup.signup_position.items?) ].compact.join(", ") %>
+<%= "(#{details})" if details.present? %>

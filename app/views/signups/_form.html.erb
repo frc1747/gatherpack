@@ -1,0 +1,48 @@
+<% position = slot.signup_position %>
+<% remaining = slot.remaining(excluding: signup) %>
+
+<%= simple_form_for [ @signup_sheet, signup ] do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1><%= title %></h1>
+      <%= position.name %>, <%= slot.event.name %>, <%= slot.event.start_time.strftime("%a %b %-d, %-l:%M %p") %>
+    </div>
+    <div class="card-body">
+      <%= f.error_notification message: signup.errors[:base].to_sentence if signup.errors[:base].present? %>
+      <%= md position.description if position.description.present? %>
+      <%= f.hidden_field :signup_slot_id if signup.new_record? %>
+
+      <% if taker_choices.size > 1 || taker_choices.exclude?(current_user.person) %>
+        <%= f.input :person_id, as: :radio_buttons, label: "Who's taking the place?", collection: taker_choices,
+              label_method: :identifier_name, value_method: :id, include_blank: false, wrapper: :vertical_collection_inline %>
+      <% end %>
+
+      <% if @signup_sheet.on_behalf_of_related_people? %>
+        <%# The current choice stays offered (and ticked) even if this signer couldn't pick it, so saving other changes keeps it. %>
+        <% picked = signup.on_behalf_of unless signup.on_behalf_of_id == signup.person_id %>
+        <%= f.input :on_behalf_of_id, as: :radio_buttons, label: "Who is it on behalf of?",
+              collection: [ [ "Whoever takes the place", "" ] ] + (on_behalf_of_choices + [ picked ].compact).uniq.map { |someone| [ signup_on_behalf_of_label(@signup_sheet, someone), someone.id ] },
+              checked: picked&.id || "", include_blank: false, required: false,
+              wrapper: :vertical_collection_inline, hint: "Pick someone when you're taking the place for them." %>
+      <% elsif @signup_sheet.on_behalf_of_anyone? %>
+        <%= render "on_behalf_of_picker", signup: signup, slot: slot %>
+      <% end %>
+
+      <% if position.items? %>
+        <%= f.input :quantity, label: "How many #{position.unit_label}?", required: true,
+              input_html: { min: 1, max: remaining },
+              hint: remaining ? "#{remaining} still needed." : nil %>
+      <% end %>
+
+      <% if position.question.present? %>
+        <%= f.input :answer, label: position.question, required: position.question_required? %>
+      <% end %>
+
+      <%= f.input :note, label: "Anything the organizers should know?", required: false, input_html: { rows: 2 } %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Back", @signup_sheet, class: "btn btn-secondary" %>
+      <%= f.button :submit, submit_label, class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
