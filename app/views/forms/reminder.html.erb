@@ -4,6 +4,7 @@
 <% choice = on.optional_guardians? %>
 <% guardians_on = on.guardian_count.positive? %>
 <% guardians_off = off.guardian_count.positive? %>
+<% own = [ on, off ].any? { |sender| sender.recipients.keys.any? { |recipient| !sender.guardian?(recipient) } } %>
 
 <div class="card" data-controller="form-reminder">
   <div class="card-header">
@@ -31,11 +32,13 @@
 
       <% if on.recipients.any? || off.recipients.any? %>
         <% hint = "Comes after \"Hi {first name},\" and before the list of names. You can use {first name}, {form} and {due}. Markdown is supported. Saved for this form's next reminder." %>
-        <div class="mb-3">
-          <%= label_tag :message, guardians_on || guardians_off ? "Message to people about their own response" : "Message", class: "form-label" %>
-          <%= text_area_tag :message, on.message, rows: 3, class: "form-control", data: { default: FormReminderSender::DEFAULT_MESSAGE } %>
-          <div class="form-text"><%= hint %> <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-action="form-reminder#useDefault" data-field="message">Use the default</button></div>
-        </div>
+        <% if own %>
+          <div class="mb-3">
+            <%= label_tag :message, guardians_on || guardians_off ? "Message to people about their own response" : "Message", class: "form-label" %>
+            <%= text_area_tag :message, on.message, rows: 3, class: "form-control", data: { default: FormReminderSender::DEFAULT_MESSAGE } %>
+            <div class="form-text"><%= hint %> <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-action="form-reminder#useDefault" data-field="message">Use the default</button></div>
+          </div>
+        <% end %>
         <% if guardians_on || guardians_off %>
           <div class="mb-3" <%= "data-form-reminder-when=on" unless guardians_off %> <%= "hidden" unless guardians_off || !choice || @include_guardians %>>
             <%= label_tag :guardian_message, "Message to guardians", class: "form-label" %>
