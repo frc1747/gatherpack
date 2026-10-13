@@ -118,14 +118,25 @@ class FormsController < InternalController
     redirect_to edit_form_path(copy, tab: "details"), notice: "Form was duplicated. Its responses weren't copied.", status: :see_other
   end
 
+  # GET /forms/1/reminder
+  # Who Remind will email, the messages, and a preview, before sending.
+  def reminder
+    load_reminder
+  end
+
   # POST /forms/1/remind
   def remind
-    team = Team.find_by(id: params[:team_id])
-    report = FormReport.new(@form, viewer: current_user.person, team: team)
-    pending = report.rows.reject { |row| %w[ complete no_longer_asked ].include?(row.status) }.map(&:person)
-    sender = FormReminderSender.new(@form, pending)
-    sender.send!(sent_by: current_user.person, filter: { team_id: team&.id }.compact)
-    redirect_to form_path(@form, team_id: team&.id), notice: "Sent #{helpers.pluralize(sender.recipients.size, "reminder")} about #{helpers.pluralize(pending.size, "person", plural: "people")}.", status: :see_other
+    load_reminder
+    return render :reminder, status: :unprocessable_content if params[:preview]
+
+    sender = @senders.fetch(@include_guardians)
+    return redirect_to form_path(@form, team_id: @team&.id), notice: "Nobody to remind.", status: :see_other if sender.recipients.empty?
+
+    saved = { reminder_message: FormReminderSender.stored(params[:message]) } if params.key?(:message)
+    saved = (saved || {}).merge(guardian_reminder_message: FormReminderSender.stored(params[:guardian_message])) if params.key?(:guardian_message)
+    @form.update!(saved) if saved
+    sender.send!(sent_by: current_user.person, filter: { team_id: @team&.id }.compact)
+    redirect_to form_path(@form, team_id: @team&.id), notice: "Sent #{helpers.pluralize(sender.recipients.size, "reminder")} about #{helpers.pluralize(@pending.size, "person", plural: "people")}.", status: :see_other
   end
 
   # GET /forms/1/results
@@ -209,6 +220,18 @@ class FormsController < InternalController
     def set_form
       @form = authorize Form.find(params[:id])
       @tab = params[:tab].presence_in(EDIT_TABS) || "details"
+    end
+
+    # The people still owing a response in the team filter, and a sender
+    # for each guardian choice, so the screen can switch between them. The
+    # choice starts off on a form's first reminder and on after that.
+    def load_reminder
+      @team = Team.find_by(id: params[:team_id])
+      report = FormReport.new(@form, viewer: current_user.person, team: @team)
+      @pending = report.rows.reject { |row| %w[ complete no_longer_asked ].include?(row.status) }.map(&:person)
+      @include_guardians = params.key?(:include_guardians) ? params[:include_guardians] == "1" : @form.form_reminders.exists?
+      messages = { message: params[:message], guardian_message: params[:guardian_message] }
+      @senders = [ true, false ].index_with { |include| FormReminderSender.new(@form, @pending, include_guardians: include, **messages) }
     end
 
     def require_feature

@@ -1,0 +1,56 @@
+<% breadcrumb :form_reminder, @form %>
+<% on = @senders.fetch(true) %>
+<% off = @senders.fetch(false) %>
+<% choice = on.optional_guardians? %>
+<% guardians_on = on.guardian_count.positive? %>
+<% guardians_off = off.guardian_count.positive? %>
+
+<div class="card" data-controller="form-reminder">
+  <div class="card-header">
+    <h1>Remind: <%= @form.title %></h1>
+    <div class="text-muted">
+      <%= pluralize(@pending.size, "person", plural: "people") %> haven't finished this form<%= " in #{@team.name}" if @team %>.
+    </div>
+  </div>
+  <%= form_with url: remind_form_path(@form), method: :post do |f| %>
+    <%= hidden_field_tag :team_id, @team&.id if @team %>
+    <div class="card-body">
+      <% if choice %>
+        <div class="form-check mb-3">
+          <%= hidden_field_tag :include_guardians, "0", id: nil %>
+          <%= check_box_tag :include_guardians, "1", @include_guardians, class: "form-check-input", data: { form_reminder_target: "guardians", action: "form-reminder#toggle" } %>
+          <%= label_tag :include_guardians, "Also email guardians", class: "form-check-label" %>
+          <div class="form-text">Guardians get their own message. Leave this off to remind only the people who haven't finished.</div>
+        </div>
+      <% end %>
+
+      <%= render "reminder_state", sender: on, state: "on", shown: !choice || @include_guardians %>
+      <% if choice %>
+        <%= render "reminder_state", sender: off, state: "off", shown: !@include_guardians %>
+      <% end %>
+
+      <% if on.recipients.any? || off.recipients.any? %>
+        <% hint = "Comes after \"Hi {first name},\" and before the list of names. You can use {first name}, {form} and {due}. Markdown is supported. Saved for this form's next reminder." %>
+        <div class="mb-3">
+          <%= label_tag :message, guardians_on || guardians_off ? "Message to people about their own response" : "Message", class: "form-label" %>
+          <%= text_area_tag :message, on.message, rows: 3, class: "form-control", data: { default: FormReminderSender::DEFAULT_MESSAGE } %>
+          <div class="form-text"><%= hint %> <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-action="form-reminder#useDefault" data-field="message">Use the default</button></div>
+        </div>
+        <% if guardians_on || guardians_off %>
+          <div class="mb-3" <%= "data-form-reminder-when=on" unless guardians_off %> <%= "hidden" unless guardians_off || !choice || @include_guardians %>>
+            <%= label_tag :guardian_message, "Message to guardians", class: "form-label" %>
+            <%= text_area_tag :guardian_message, on.guardian_message, rows: 3, class: "form-control", data: { default: FormReminderSender::DEFAULT_MESSAGE } %>
+            <div class="form-text"><%= hint %> <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-action="form-reminder#useDefault" data-field="guardian_message">Use the default</button></div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+    <div class="card-footer d-flex flex-wrap gap-2">
+      <% if on.recipients.any? || off.recipients.any? %>
+        <%= button_tag "Send", type: "submit", class: "btn btn-warning" %>
+        <%= button_tag "Update preview", type: "submit", name: "preview", value: "1", class: "btn btn-secondary" %>
+      <% end %>
+      <%= link_to "Cancel", form_path(@form, team_id: @team&.id), class: "btn btn-outline-secondary" %>
+    </div>
+  <% end %>
+</div>

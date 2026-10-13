@@ -2,7 +2,7 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-11 (rev. 9: the choice about earlier responses is made by the Save
+Date: 2026-10-13 (rev. 10: Remind opens a send screen with the count, an "Also email guardians" choice, and messages the form keeps (§11.1, §3.8). Rev. 9: the choice about earlier responses is made by the Save
 button, not a banner (§7.4); a form's default audience follows its owning team, and
 a form can be for an event of a team above it (§3.9, §10). Rev. 8: the printable list starts from the form; people are everyone it
 asks or people who answered a question on any form (§9.4). Rev. 7: the printable list picks its people from general
@@ -297,9 +297,13 @@ Coordinator" enters paper permission slips.
 
 ### 3.8 `form_reminders`, prefix `frmrm`
 
-`form_id`, `sent_by_id`, `sent_at`, `recipient_count`, `filter` (jsonb). A
-log of Remind presses (§11.1), so leaders can see when the last nudge went
-out.
+`form_id`, `sent_by_id`, `sent_at`, `recipient_count`, `guardian_count`,
+`guardians_included` (null when the send had no choice, and on reminders sent
+before rev. 10), `filter` (jsonb). A log of Remind sends (§11.1), so leaders
+can see when the last nudge went out and whether it reached guardians.
+
+`forms` also keeps `reminder_message` and `guardian_reminder_message` (text,
+null for the default), the messages its last reminder used.
 
 ### 3.9 `form_audience_rules`, prefix `frmar`
 
@@ -927,12 +931,41 @@ uses it.
 
 ### 11.1 Reminders
 
-**Remind** on the status page sends to every not-complete subject in the
-current filter (including Needs re-confirmation and Waiting). Recipients are
-the people who can act: the subject (if they have an account and can
-respond) and their guardians (if the respond level includes `guardian`, or a
-guardian signature is outstanding). One email per recipient per form, listing
-each of their subjects: "Meal Choices is due Oct 12 for Avery and Jordan."
+**Remind** on the status page opens a send screen for every not-complete
+subject in the current filter (including Needs re-confirmation and Waiting).
+Nothing is sent until **Send**.
+
+Recipients are the people who can act: the subject (if they have an account
+and can respond, or their signature is outstanding) and their guardians. One
+email per recipient per form, listing each of their subjects. Guardians come
+in two kinds:
+
+- **Needed**: the subject can't respond (the respond level reaches guardians
+  but not the subject), or a guardian signature is outstanding. Always
+  emailed.
+- **Nudging**: the respond level reaches both, so the subject can act
+  themselves. Emailed only when **Also email guardians** is ticked. The box
+  starts unticked on a form's first reminder and ticked after that, so the
+  usual pattern is students first, then the guardian nudge.
+
+The screen shows the count ("Email 19 people: 10 about their own response
+and 9 guardians"), who gets it, the people nobody can be emailed about, a
+stronger warning at 25 or more emails, and a preview of each kind of email.
+Ticking the box switches between both versions without a reload. Guardian
+wording, the box, and the guardian message appear only when the send can
+reach a guardian.
+
+Each email is "Hi {first name}," then a message, then the list of names with
+their links. There are two messages, one for people about their own response
+and one for guardians (a recipient reminded about anyone else gets the
+guardian one). They are Markdown with `{first name}`, `{form}` and `{due}`
+filled in (values escaped), default to "Please complete **{form}**{due}
+for:", and are saved on the form when sent, so the next reminder starts from
+them; Duplicate copies them. A message equal to the default is stored as
+null. **Update preview** re-renders the screen with the typed messages
+without sending. Form permissions are unchanged: a guardian who can respond
+still gets an edit link.
+
 Sent with `SendEmailJob`; logged in `form_reminders`.
 
 Automatic reminders (N days before close) are Phase 4.

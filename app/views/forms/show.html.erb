@@ -73,8 +73,7 @@
         <%= button_to "Close", close_form_path(@form), class: "btn btn-dark", form_class: "d-inline", data: { turbo_confirm: "Close this form? People won't be able to respond#{@form.late_entry_leaders? ? " (leaders still can)" : ""}." } %>
         <% waiting = @report.rows.count { |row| !%w[ complete no_longer_asked ].include?(row.status) } %>
         <% if waiting.positive? %>
-          <%= button_to "Remind (#{waiting})", remind_form_path(@form, team_id: @team&.id), class: "btn btn-warning", form_class: "d-inline",
-                data: { turbo_confirm: "Email the people who can respond for #{pluralize(waiting, "person", plural: "people")} who haven't completed this form?" } %>
+          <%= link_to "Remind (#{waiting})", reminder_form_path(@form, team_id: @team&.id), class: "btn btn-warning" %>
         <% end %>
       <% end %>
       <%= button_to "Duplicate", duplicate_form_path(@form), class: "btn btn-secondary", form_class: "d-inline" %>
@@ -86,7 +85,7 @@
       <% end %>
     <% end %>
     <% if (last = @form.form_reminders.order(:sent_at).last) %>
-      <div class="form-text mt-2">Last reminder: <%= nice_datetime(last.sent_at) %> to <%= pluralize(last.recipient_count, "person", plural: "people") %><%= " by #{last.sent_by.identifier_name}" if last.sent_by %>.</div>
+      <div class="form-text mt-2">Last reminder: <%= nice_datetime(last.sent_at) %> to <%= pluralize(last.recipient_count, "person", plural: "people") %><%= form_reminder_guardian_note(last) %><%= " by #{last.sent_by.identifier_name}" if last.sent_by %>.</div>
     <% end %>
   </div>
 </div>
