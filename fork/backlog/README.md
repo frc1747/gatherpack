@@ -29,6 +29,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | waiting | 2026-10-11 |
 | [BL-020](BL-020-profile-tabs-for-features.md) | Commitments on the person's profile (features can't add profile tabs) | upstream feature | medium | waiting | 2026-10-12 |
 | [BL-021](BL-021-remind-recipient-count.md) | Remind opens a send screen: who it will email, and a message saved on the form | fork-only | medium | started | 2026-10-13 |
+| [BL-022](BL-022-guardianship-grants-hint.md) | Say what guardianship grants, where it's set | upstream feature | medium | waiting | 2026-10-13 |
+| [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | waiting | 2026-10-13 |
 
 ## Fields
 
