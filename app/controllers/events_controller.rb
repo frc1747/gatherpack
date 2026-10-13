@@ -18,25 +18,25 @@ class EventsController < InternalController
   def arrange
     @event.checkins.each(&:refresh_fields)
     @field = CheckinField.find(params[:field_id]) rescue nil
+    # Linked fields show a person's value; there's nothing to arrange.
+    @field = nil if @field&.linked?
     @responses = CheckinFieldResponse
       .includes(checkin: :person)
       .joins(:checkin)
       .where(checkin_field: @field, checkins: { event_id: @event.id })
+    @responses = @responses.where(checkins: { person_id: @field.readable_people_for(current_user.person).select(:id) }) if @field
   end
 
   def print
     @event.checkins.each(&:refresh_fields)
     @field = CheckinField.find(params[:field_id]) rescue nil
-    @possible_values = @event.checkin_field_responses.where(checkin_field: @field).distinct.pluck(:response).compact.sort_by { |v| v || "zzzzz" }
-    @values = params[:values].present? ? @possible_values & params[:values] : @possible_values
-    @values = @possible_values if @values.empty?
     @paged = params[:paged] == "true"
     @notes = params[:notes] == "true"
-    @responses = CheckinFieldResponse
-      .includes(checkin: :person)
-      .joins(:checkin)
-      .where(checkin_field: @field, checkins: { event_id: @event.id })
-    @last_updated = @responses.maximum(:updated_at)
+    @groups = @field ? print_groups(@field) : {}
+    @possible_values = @groups.keys.compact.sort
+    @values = params[:values].present? ? @possible_values & params[:values] : @possible_values
+    @values = @possible_values if @values.empty?
+    @last_updated = @event.checkin_field_responses.where(checkin_field: @field).maximum(:updated_at) unless @field&.linked?
   end
 
   # GET /events/new
@@ -75,6 +75,24 @@ class EventsController < InternalController
   end
 
   private
+    # Check-ins grouped by their value for the field. People whose value the
+    # viewer can't see are grouped under "—".
+    def print_groups(field)
+      readable = field.readable_people_for(current_user.person).where(id: @event.checkins.select(:person_id)).ids.to_set
+      @event.checkins.includes(:person, :checkin_field_responses).group_by do |checkin|
+        readable.include?(checkin.person_id) ? print_value(field.value_for(checkin)) : "—"
+      end
+    end
+
+    def print_value(value)
+      case value
+      when Array then value.join(", ").presence
+      when Date then value.iso8601
+      when true, false then value ? "Yes" : "No"
+      else value.presence
+      end
+    end
+
     # Use callbacks to share common setup or constraints between actions.
     def set_event
       @event = authorize Event.find(params[:id])
