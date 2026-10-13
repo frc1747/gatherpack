@@ -209,7 +209,7 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
 
       as(:pack_leader) do
         assert_enqueued_jobs 7, only: SendEmailJob do
-          post remind_form_path(@form)
+          post remind_form_path(@form), params: { include_guardians: "1" }
         end
       end
     end

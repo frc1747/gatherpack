@@ -46,7 +46,7 @@ class FormPolicy < ApplicationPolicy
     (user.admin || creator_only?) && !record.form_submissions.where.not(submitted_at: nil).exists?
   end
 
-  %i[ open? close? archive? duplicate? remind? preview? publish? audience? ].each { |action| alias_method action, :update? }
+  %i[ open? close? archive? duplicate? reminder? remind? preview? publish? audience? ].each { |action| alias_method action, :update? }
 
   # Completion badges and badge grants widen access or status: admins only.
   def manage_badges?

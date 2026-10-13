@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -275,6 +275,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_140000) do
     t.jsonb "filter", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "guardian_count"
+    t.boolean "guardians_included"
     t.index ["form_id"], name: "index_form_reminders_on_form_id"
     t.index ["sent_by_id"], name: "index_form_reminders_on_sent_by_id"
   end
@@ -366,6 +368,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_140000) do
     t.uuid "event_id"
     t.integer "totals_visibility", default: 0, null: false
     t.boolean "leader_todo", default: false, null: false
+    t.text "reminder_message"
+    t.text "guardian_reminder_message"
     t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
     t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
     t.index ["created_by_id"], name: "index_forms_on_created_by_id"

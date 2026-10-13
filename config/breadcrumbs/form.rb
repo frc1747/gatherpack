@@ -57,3 +57,8 @@ crumb :form_print_list do
   link "Printable list", print_list_forms_path
   parent :forms
 end
+
+crumb :form_reminder do |form|
+  link "Remind", reminder_form_path(form)
+  parent :form, form
+end
