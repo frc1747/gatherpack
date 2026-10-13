@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | waiting |
+| Status | started: built on `feature/forms` (`db22e80`, `b9a6efe`); see `FORK.md` |
 | Added | 2026-10-13 |
 | Feature branch checked | `feature/forms` at `13e5a83` |
 | Planned branch | change on `feature/forms` (no new branch) |
