@@ -14,12 +14,18 @@ module Signups
     private
 
     def tell_signups_about_time_change
+      # Reminders move even while the feature is off, so they're still right
+      # when it's turned on; notices and announcements wait for the feature.
+      # Every active sign-up is rescheduled, even one made after this change
+      # in the same transaction (commit callbacks run at the end of it), which
+      # then has two jobs. A duplicate is harmless (reminded_at lets one send),
+      # while skipping by timestamp could lose a reminder.
+      Signup.active.joins(:signup_slot).where(signup_slots: { event_id: id }).find_each { |signup| SignupReminderJob.schedule_for(signup, fresh: true) }
       return unless GatherPack::Features.enabled?(:signups)
 
       SignupNotices.new.event_changed(self,
         start_time_was: saved_changes.fetch("start_time", [ start_time ]).first,
         end_time_was: saved_changes.fetch("end_time", [ end_time ]).first)
-      Signup.active.joins(:signup_slot).where(signup_slots: { event_id: id }).find_each { |signup| SignupReminderJob.schedule_for(signup, fresh: true) }
       signup_sheet_events.each { |sheet_event| Signups.sheet_changed(sheet_event.signup_sheet_id, self, :event_time) }
     end
   end

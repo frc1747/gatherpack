@@ -4,7 +4,8 @@
 # its sign-up is still active in the same slot, the event's start is the
 # one it was scheduled for, the sheet's current reminder_days makes it due,
 # and no reminder has gone out yet (reminded_at), so stale or duplicate
-# jobs do nothing.
+# jobs do nothing. While the sign-ups feature is off, a job that is due
+# waits an hour at a time (until the event starts) rather than being lost.
 class SignupReminderJob < ApplicationJob
   queue_as :default
 
@@ -26,8 +27,6 @@ class SignupReminderJob < ApplicationJob
   end
 
   def perform(signup, slot_id, start_time)
-    return unless GatherPack::Features.enabled?(:signups)
-
     signup.with_lock do
       event = signup.event
       days = signup.signup_sheet.reminder_days
@@ -37,6 +36,12 @@ class SignupReminderJob < ApplicationJob
       # Not due yet: reminder_days has shrunk since this was scheduled, and
       # a later job is waiting.
       return if Time.current < event.start_time - days.days - 1.minute
+
+      unless GatherPack::Features.enabled?(:signups)
+        retry_at = 1.hour.from_now
+        self.class.set(wait_until: retry_at).perform_later(signup, slot_id, start_time) if retry_at < event.start_time
+        return
+      end
 
       SignupNotices.new.reminder(signup)
       signup.update_columns(reminded_at: Time.current)
