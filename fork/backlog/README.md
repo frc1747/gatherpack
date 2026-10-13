@@ -28,7 +28,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-018](BL-018-settings-and-hook-registries.md) | Let features register their own settings and hook events | upstream feature | medium | started | 2026-10-11 |
 | [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | waiting | 2026-10-11 |
 | [BL-020](BL-020-profile-tabs-for-features.md) | Commitments on the person's profile (features can't add profile tabs) | upstream feature | medium | waiting | 2026-10-12 |
-| [BL-021](BL-021-remind-recipient-count.md) | Remind opens a send screen: who it will email, and a message saved on the form | fork-only | medium | waiting | 2026-10-13 |
+| [BL-021](BL-021-remind-recipient-count.md) | Remind opens a send screen: who it will email, and a message saved on the form | fork-only | medium | started | 2026-10-13 |
 
 ## Fields
 
