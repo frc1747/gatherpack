@@ -18,8 +18,9 @@ class FormReminderSender
   DEFAULT_MESSAGE = "Please complete **{form}**{due} for:".freeze
   # Sends this large get a stronger warning before they go.
   LARGE_SEND = 25
-  # Characters Redcarpet treats as Markdown, escaped in filled-in values.
-  MARKDOWN_SPECIAL = /([\\`*_{}\[\]()#+\-.!|<>&~^=:])/
+  # Characters Redcarpet treats as Markdown, escaped in filled-in values
+  # after HTML escaping (so not the # of an entity like &#39;).
+  MARKDOWN_SPECIAL = /([\\`*_{}\[\]()+\-.!|~^=:]|(?<!&)#)/
 
   attr_reader :form, :subjects, :include_guardians
 
@@ -152,8 +153,8 @@ class FormReminderSender
   end
 
   def render_message(text, recipient)
-    values = { "{first name}" => recipient.first_name.to_s, "{form}" => form.title.to_s, "{due}" => due }
-    filled = text.gsub(/\{first name\}|\{form\}|\{due\}/) { |placeholder| values.fetch(placeholder).gsub(MARKDOWN_SPECIAL) { "\\#{$1}" } }
+    values = { "{first name}" => recipient.first_name.to_s.strip, "{form}" => form.title.to_s.strip, "{due}" => due }
+    filled = text.gsub(/\{first name\}|\{form\}|\{due\}/) { |placeholder| h(values.fetch(placeholder)).gsub(MARKDOWN_SPECIAL) { "\\#{$1}" } }
     markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML, autolink: true, no_intra_emphasis: true, lax_spacing: true)
     ActionController::Base.helpers.sanitize(markdown.render(filled)).to_str.strip
   end

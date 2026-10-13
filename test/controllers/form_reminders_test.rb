@@ -109,6 +109,50 @@ class FormRemindersTest < ActionDispatch::IntegrationTest
     assert_includes body, "<strong>&lt;b&gt;Trip&lt;/b&gt; *2026*</strong>"
   end
 
+  test "a title with stray spaces or quotes still reads as before, and names are escaped" do
+    @form.update!(title: " Pat's Trip ")
+    person(:a2).update!(first_name: "<i>Al</i>_x")
+    sender = FormReminderSender.new(@form, [ person(:a2) ], message: "Hi again {first name}, see **{form}**:")
+    body = sender.body(person(:a2))
+    assert_includes body, "<p>Hi &lt;i&gt;Al&lt;/i&gt;_x,</p>"
+    assert_includes body, "<p>Hi again &lt;i&gt;Al&lt;/i&gt;_x, see <strong>Pat's Trip</strong>:</p>"
+  end
+
+  test "one email per guardian lists all of their people" do
+    relate_world(:parent_a1, :a2, @parent_of)
+    with_feature do
+      as(:pack_leader) do
+        get reminder_form_path(@form)
+        assert_select "[data-form-reminder-when=on]", text: /Email 9 people: 7 about their own response and 2 guardians\./
+        post remind_form_path(@form), params: { include_guardians: "1" }
+      end
+    end
+    assert_equal 1, sent_to.count("parenta1@example.com")
+    assert_match(/A1 World.*A2 World/, body_to("parenta1@example.com"))
+  end
+
+  test "a send that reaches no guardians says nothing about them, even on a form that allows them" do
+    with_feature do
+      as(:pack_leader) do
+        get reminder_form_path(@form, team_id: @den_b.id)
+        assert_select "input[name=include_guardians]", count: 0
+        assert_select "textarea[name=guardian_message]", count: 0
+        assert_select "body", text: /guardian/i, count: 0
+      end
+    end
+  end
+
+  test "a large send gets a stronger warning" do
+    18.times { |i| create_world_person("Extra#{i}", @pack) }
+    with_feature do
+      as(:pack_leader) do
+        get reminder_form_path(@form)
+        assert_select "[data-form-reminder-when=on] .alert-warning", text: "This will email 27 people."
+        assert_select "[data-form-reminder-when=off] .alert-warning", text: "This will email 25 people."
+      end
+    end
+  end
+
   test "a form only the subject answers says nothing about guardians" do
     @form.update!(respond_permission: "self_and_leaders")
     with_feature do
@@ -129,6 +173,7 @@ class FormRemindersTest < ActionDispatch::IntegrationTest
         get reminder_form_path(@form)
         assert_select "input[name=include_guardians]", count: 0
         assert_select "textarea[name=guardian_message]"
+        assert_select "textarea[name=message]", count: 0
         assert_enqueued_jobs 2, only: SendEmailJob do
           post remind_form_path(@form), params: { include_guardians: "0" }
         end

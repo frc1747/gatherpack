@@ -134,7 +134,10 @@ class FormsController < InternalController
 
     saved = { reminder_message: FormReminderSender.stored(params[:message]) } if params.key?(:message)
     saved = (saved || {}).merge(guardian_reminder_message: FormReminderSender.stored(params[:guardian_message])) if params.key?(:guardian_message)
-    @form.update!(saved) if saved
+    # Only the messages change, so the form's own checks (which depend on
+    # other records) don't get a say in whether reminders go out.
+    @form.assign_attributes(saved) if saved
+    @form.save!(validate: false) if @form.changed?
     sender.send!(sent_by: current_user.person, filter: { team_id: @team&.id }.compact)
     redirect_to form_path(@form, team_id: @team&.id), notice: "Sent #{helpers.pluralize(sender.recipients.size, "reminder")} about #{helpers.pluralize(@pending.size, "person", plural: "people")}.", status: :see_other
   end
