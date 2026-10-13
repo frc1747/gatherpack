@@ -1,0 +1,121 @@
+name: HBR Check
+
+# Reusable fork check: RuboCop, the full test suite, migrations from an
+# empty database, and (where the build has it) loading the sample data. Environment setup mirrors the `test` job in upstream's ci.yml.
+# See fork/STRATEGY.md, "Continuous Integration".
+#
+# mode:
+#   ref       check out `ref` and test it as-is
+#   upstream  check out `ref`, merge the latest upstream/main into it, test that
+#   rebuild   run bin/fork-rebuild from origin refs and test the result
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+      mode:
+        type: string
+        default: ref
+
+jobs:
+  check:
+    name: ${{ inputs.mode }} ${{ inputs.ref }}
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_HOST: localhost
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: password
+
+    steps:
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y google-chrome-stable curl libjemalloc2 libpq-dev libvips
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/GatherPack/gatherpack.git
+          git fetch --quiet upstream
+
+      - name: Merge latest upstream/main
+        if: inputs.mode == 'upstream'
+        run: git merge --no-edit upstream/main
+
+      - name: Rebuild hbr/integration
+        if: inputs.mode == 'rebuild'
+        run: bin/fork-rebuild
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Lint code for consistent style
+        run: bin/rubocop -f github
+
+      # db:test:prepare covers both test databases: primary and versions.
+      - name: Run tests
+        env:
+          RAILS_ENV: test
+        run: bin/rails db:test:prepare test test:system
+
+      # db:migrate runs both the primary and versions databases. The schema
+      # files it dumps must match what is committed.
+      - name: Migrate from an empty database
+        env:
+          RAILS_ENV: development
+        run: |
+          bin/rails db:create db:migrate
+          git diff --exit-code db/schema.rb db/versions_schema.rb
+
+      # Builds with the sample data loader (hbr/integration, a rebuild) load it
+      # twice into the database just migrated: the second run proves it can be
+      # re-run. Fails on any error, a failed check, or a manifest branch with
+      # no sample data. Feature branches don't carry the loader, so they skip
+      # this. See fork/specs/sample-data-spec.md.
+      - name: Load the sample data
+        if: hashFiles('fork/sample_data/sample_data.rb') != ''
+        env:
+          RAILS_ENV: development
+          SAMPLE_DATA_STRICT: "1"
+        run: |
+          bin/rails hbr:sample_data
+          bin/rails hbr:sample_data
+
+      - name: Name the screenshots artifact
+        if: failure()
+        env:
+          REF: ${{ inputs.ref || 'rebuild' }}
+        run: echo "ARTIFACT=screenshots-$(echo "${REF}" | tr '/' '-')" >> "$GITHUB_ENV"
+
+      - name: Keep screenshots from failed system tests
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: ${{ github.workspace }}/tmp/screenshots
+          if-no-files-found: ignore
