@@ -228,6 +228,15 @@ module FormsHelper
     sanitize(md(text))
   end
 
+  # How a logged reminder treated guardians, for "Last reminder: … to 19
+  # people (9 guardians)". Older reminders didn't record it.
+  def form_reminder_guardian_note(reminder)
+    count = reminder.guardian_count.to_i
+    note = count.positive? ? " (#{pluralize(count, "guardian")})" : ""
+    note += count.positive? ? ", other guardians not emailed" : ", guardians not emailed" if reminder.guardians_included == false
+    note
+  end
+
   def form_level_options
     person_field_level_options
   end

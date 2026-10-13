@@ -56,6 +56,7 @@ Rails.application.routes.draw do
       post :close
       post :archive
       post :duplicate
+      get :reminder
       post :remind
       get :results
       get :tally
