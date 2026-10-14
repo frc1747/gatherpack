@@ -31,6 +31,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-021](BL-021-remind-recipient-count.md) | Remind opens a send screen: who it will email, and a message saved on the form | fork-only | medium | started | 2026-10-13 |
 | [BL-022](BL-022-guardianship-grants-hint.md) | Say what guardianship grants, where it's set | upstream feature | medium | waiting | 2026-10-13 |
 | [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | waiting | 2026-10-13 |
+| [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | waiting | 2026-10-13 |
 
 ## Fields
 
