@@ -74,7 +74,7 @@ module Commitments
     # Builds the progress of these people's groups at once, keyed by person
     # id (people the commitment doesn't cover are left out): records from
     # each source in order for every member and relative, deduped across
-    # sources by person and dedupe key, then pooled by group.
+    # sources by dedupe key (see CreditRecord), then pooled by group.
     def self.for(commitment, people)
       people = people.to_a.select { |person| commitment.group_ids_for(person.id).any? }
       return {} if people.empty?
@@ -86,12 +86,13 @@ module Commitments
       relatives_of = relative_groups.keys.group_by { |id| relative_groups[id] }
       members = Person.where(id: ids).order(:last_name, :first_name).to_a
       relatives = relative_groups.any? ? Person.where(id: relative_groups.keys).order(:last_name, :first_name).to_a : []
-      seen = Set.new
+      sources = commitment.commitment_sources.to_a
+      kinds = sources.map(&:kind_instance)
+      records = kinds.map { |kind| kind ? kind.records(ids + relative_groups.keys) : [] }
+      winners = dedupe_winners(kinds, records)
 
-      by_source = commitment.commitment_sources.map do |source|
-        kind = source.kind_instance
-        records = kind ? kind.records(ids + relative_groups.keys).sort_by { |record| record.confirmed? ? 0 : 1 } : []
-        kept = records.select { |record| record.dedupe_key.nil? || seen.add?([ record.person_id, record.dedupe_key ]) }
+      by_source = sources.each_with_index.map do |source, index|
+        kept = records[index].select { |record| record.dedupe_key.nil? || (winners[record.dedupe_key] == winner_signature(record, index) && winners.delete(record.dedupe_key)) }
         [ source, kept.group_by(&:person_id) ]
       end
       adjustments = commitment.commitment_adjustments.where(person_id: ids).order(:created_at).group_by(&:person_id)
@@ -104,6 +105,31 @@ module Commitments
           relatives.select { |relative| crediting.include?(relative.id) }) ]
       end
       people.to_h { |person| [ person.id, by_group[commitment.group_ids_for(person.id)] ] }
+    end
+
+    # Which record counts for each dedupe key among these records (as a
+    # winner_signature), chosen among every record the same workers have
+    # under that key, including ones crediting people outside this batch, so
+    # a worker's place counts for the same person whoever's progress is asked
+    # for. A record on someone's behalf beats one for the worker, then the
+    # earlier source, then confirmed over planned.
+    def self.dedupe_winners(kinds, records)
+      keyed = records.flatten.select(&:dedupe_key)
+      return {} if keyed.empty?
+
+      keys = keyed.map(&:dedupe_key).to_set
+      workers = keyed.map(&:worker).uniq
+      candidates = kinds.each_with_index.flat_map do |kind, index|
+        others = kind ? kind.records_by_workers(workers).select { |record| keys.include?(record.dedupe_key) } : []
+        (records[index] + others).map { |record| [ record, index ] }
+      end
+      candidates.group_by { |record, _index| record.dedupe_key }.transform_values do |entries|
+        winner_signature(*entries.min_by { |record, index| [ record.on_behalf? ? 0 : 1, index, record.confirmed? ? 0 : 1, record.person_id.to_s, record.label.to_s ] })
+      end
+    end
+
+    def self.winner_signature(record, index)
+      [ index, record.person_id, record.state, record.label ]
     end
 
     def self.line(commitment, source, records)

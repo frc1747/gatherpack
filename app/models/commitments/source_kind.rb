@@ -38,6 +38,15 @@ module Commitments
       raise NotImplementedError
     end
 
+    # Credit records whoever they credit, done by these workers, so a worker's
+    # record at an event counts for one person however progress is asked
+    # for. A kind whose records can credit someone other than the worker
+    # (worker_id set) overrides this; otherwise the worker is the person
+    # credited.
+    def records_by_workers(worker_ids)
+      records(worker_ids).select { |record| worker_ids.include?(record.worker) }
+    end
+
     # A HowToEarn for a person's commitment page.
     def how_to_earn
       raise NotImplementedError
