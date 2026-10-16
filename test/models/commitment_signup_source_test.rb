@@ -73,6 +73,43 @@ class CommitmentSignupSourceTest < ActiveSupport::TestCase
     assert_equal 2, progress(:kid).confirmed
   end
 
+  test "one person in two places at one event counts once, for the person they worked for" do
+    @commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+    @lead = @sheet.signup_positions.create!(name: "Shift Lead", kind: :people, capacity: 1)
+    game = add_sheet_event("Game", "2026-10-10 10:00")
+    sign_up(:member, @lead, game, status: :fulfilled)
+    sign_up(:member, @cashier, game, status: :fulfilled, on_behalf_of: :kid)
+
+    assert_equal 1, progress(:kid).confirmed
+    assert_equal 0, progress(:member).confirmed
+    everyone = @commitment.progress
+    assert_equal 1, everyone[person(:kid).id].confirmed
+    assert_equal 0, everyone[person(:member).id].confirmed
+  end
+
+  test "one person in two places at one event counts once for their own group" do
+    @commitment.update!(group_relationship_type: @parent_of)
+    @commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+    @lead = @sheet.signup_positions.create!(name: "Shift Lead", kind: :people, capacity: 1)
+    game = add_sheet_event("Game", "2026-10-10 10:00")
+    sign_up(:organizer, @lead, game, status: :fulfilled)
+    sign_up(:organizer, @cashier, game, status: :fulfilled, on_behalf_of: :kid)
+
+    assert_equal [ "Cashier: Game" ], progress(:kid).lines.first.records.map(&:label)
+    assert_equal 1, progress(:kid).confirmed
+  end
+
+  test "a worker's check-in at an event doesn't add to their place for someone else" do
+    @commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    game = add_sheet_event("Game", "2026-10-03 10:00")
+    sign_up(:member, @cashier, game, on_behalf_of: :kid)
+    with_settings(feature_signups: "true") { check_in(:member, game) }
+
+    assert_equal 0, progress(:member).confirmed + progress(:member).planned
+    assert_equal 1, progress(:kid).confirmed + progress(:kid).planned
+  end
+
   test "a position source counts only that position, at its ratio" do
     @commitment.update!(base_amount: 5)
     @commitment.commitment_sources.create!(kind: "signup_positions", subject: @cashier, per: 3)
