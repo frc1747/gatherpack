@@ -1,0 +1,7 @@
+<% seconds = TimeKiosk::Config.return_seconds %>
+<% if seconds.positive? %>
+  <div class="position-fixed bottom-0 end-0 m-3 small text-body-secondary" id="kiosk-return-timer"
+       data-controller="kiosk-return" data-kiosk-return-seconds-value="<%= seconds %>" data-kiosk-return-url-value="<%= time_kiosk_path %>">
+    <span data-kiosk-return-target="message">Returning in <%= seconds %>s</span>
+  </div>
+<% end %>
