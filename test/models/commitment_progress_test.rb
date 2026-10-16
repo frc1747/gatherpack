@@ -25,6 +25,10 @@ class CommitmentProgressTest < ActiveSupport::TestCase
       list.select { |record| person_ids.include?(record.person_id) }
     end
 
+    def records_by_workers(worker_ids)
+      list.select { |record| worker_ids.include?(record.worker) }
+    end
+
     def how_to_earn
       Commitments::HowToEarn.new(text: "Be listed", links: [])
     end
@@ -144,6 +148,27 @@ class CommitmentProgressTest < ActiveSupport::TestCase
     assert_empty checkin_line.records
   end
 
+  test "dedupe is per place: one worker at one event counts once, for the person they worked for" do
+    # member2 takes two places at one event: one for themselves, one for member.
+    ListedSource.list = [ record(:member2, @games[0], :confirmed), record(:member, @games[0], :confirmed, worker: :member2) ]
+    @commitment.commitment_sources.create!(kind: "listed", subject: @outreach)
+
+    progress = @commitment.progress
+    assert_equal 1, progress[person(:member).id].confirmed
+    assert_equal 0, progress[person(:member2).id].confirmed
+    assert_equal 0, @commitment.progress_for(person(:member2)).confirmed, "the same however progress is asked for"
+  end
+
+  test "dedupe is per place: a worker's check-in doesn't add to their place for someone else" do
+    ListedSource.list = [ record(:member, @games[0], :planned, worker: :member2) ]
+    @commitment.commitment_sources.create!(kind: "listed", subject: @outreach, position: 1)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach, position: 2)
+    check_in(:member2, @games[0])
+
+    assert_equal 0, @commitment.progress_for(person(:member2)).confirmed
+    assert_equal 1, @commitment.progress_for(person(:member)).planned
+  end
+
   test "counts when: planned credit completes only when the commitment says so" do
     ListedSource.list = [ record(:member, @games[0], :confirmed), record(:member, @games[1], :planned) ]
     @commitment.commitment_sources.create!(kind: "listed", subject: @outreach)
@@ -189,6 +214,7 @@ class CommitmentProgressTest < ActiveSupport::TestCase
 
   def record(name, event, state, worker: name)
     Commitments::CreditRecord.new(person_id: person(name).id, quantity: 1, state: state, date: event.start_time.to_date,
-      dedupe_key: Commitments.event_key(event.id, person(worker).id), label: "Listed: #{event.name}", link: event)
+      dedupe_key: Commitments.event_key(event.id, person(worker).id), label: "Listed: #{event.name}", link: event,
+      worker_id: (person(worker).id unless worker == name))
   end
 end
