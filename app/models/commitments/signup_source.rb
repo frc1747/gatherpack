@@ -4,8 +4,9 @@ module Commitments
   # (bringing 3 pizzas is one contribution). Active sign-ups are planned and
   # fulfilled ones confirmed; cancelled and no-show sign-ups count nothing.
   # Only events of the commitment's team and those below it, during the
-  # commitment's period, count. Dedupe key: the event, as for check-ins, so
-  # a check-in at an event someone signed up for counts once.
+  # commitment's period, count. Dedupe key: the event and who took the place,
+  # as for check-ins, so a check-in at an event someone signed up for counts
+  # once, and so do two places one person takes at one event.
   #
   # SignupPositionSource is the same kind narrowed to one position.
   class SignupSource < SourceKind
@@ -50,12 +51,12 @@ module Commitments
     end
 
     def records(person_ids)
-      Signup.where(on_behalf_of_id: person_ids, status: STATES.keys, signup_slot_id: slots.select(:id))
-        .includes(signup_slot: %i[ event signup_position ]).map do |signup|
-          event = signup.event
-          CreditRecord.new(person_id: signup.on_behalf_of_id, quantity: 1, state: STATES.fetch(signup.status), date: event.start_time.to_date,
-            dedupe_key: Commitments.event_key(event.id, signup.person_id), label: "#{signup.signup_position.name}: #{event.name}", link: sheet)
-        end
+      credit_records(counted_signups.where(on_behalf_of_id: person_ids))
+    end
+
+    # The places these people took, whoever they're on behalf of.
+    def records_by_workers(worker_ids)
+      credit_records(counted_signups.where(person_id: worker_ids))
     end
 
     # The upcoming dates with a place still free, while the sheet is open.
@@ -68,6 +69,19 @@ module Commitments
     end
 
     private
+
+    def counted_signups
+      Signup.where(status: STATES.keys, signup_slot_id: slots.select(:id))
+    end
+
+    def credit_records(signups)
+      signups.includes(signup_slot: %i[ event signup_position ]).map do |signup|
+        event = signup.event
+        CreditRecord.new(person_id: signup.on_behalf_of_id, quantity: 1, state: STATES.fetch(signup.status), date: event.start_time.to_date,
+          dedupe_key: Commitments.event_key(event.id, signup.person_id), label: "#{signup.signup_position.name}: #{event.name}", link: sheet,
+          worker_id: signup.person_id)
+      end
+    end
 
     # The subject's slots at events that count.
     def slots
