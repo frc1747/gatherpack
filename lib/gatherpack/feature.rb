@@ -2,14 +2,20 @@ module GatherPack
   class Feature
     NavItem = Struct.new(:label, :path, :icon, keyword_init: true)
     SetupItem = Struct.new(:label, :path, :policy_check, keyword_init: true)
+    ProfileTab = Struct.new(:label, :path, :visible, keyword_init: true) do
+      def visible?(user, person)
+        visible.nil? || visible.call(user, person)
+      end
+    end
 
     attr_reader :key, :label, :description, :default_enabled, :toggleable,
       :nav_section, :nav_position, :nav_items, :setup_section, :setup_items,
-      :routes_proc
+      :profile_tabs, :routes_proc
 
     def initialize(key:, label:, description: nil, default_enabled: true,
       toggleable: true, nav_section: nil, nav_position: 50,
-      nav_items: [], setup_section: nil, setup_items: [], routes_proc: nil)
+      nav_items: [], setup_section: nil, setup_items: [], profile_tabs: [],
+      routes_proc: nil)
       @key = key
       @label = label
       @description = description
@@ -20,6 +26,7 @@ module GatherPack
       @nav_items = Array(nav_items)
       @setup_section = setup_section
       @setup_items = Array(setup_items)
+      @profile_tabs = Array(profile_tabs)
       @routes_proc = routes_proc
     end
 
