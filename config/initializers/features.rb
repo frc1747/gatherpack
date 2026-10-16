@@ -230,6 +230,20 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :widgets,
+      label: "Dashboard Widgets",
+      description: "Custom sections on the dashboard",
+      default_enabled: false,
+      nav_section: "Content",
+      nav_position: 30,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Widgets", path: :widgets_path, icon: "table-cells-large")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :qa,
       label: "Q&A",
       description: "Team question and answer boards",
