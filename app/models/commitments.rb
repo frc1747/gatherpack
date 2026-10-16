@@ -8,12 +8,23 @@
 # A source whose kind isn't registered shows as unavailable and counts nothing.
 module Commitments
   # One unit of activity attributed to a person. state is :planned or
-  # :confirmed. Records with the same person and dedupe_key count once per
-  # commitment, from the first source in the commitment's order (a nil key
-  # never dedupes). label and link describe the record in the breakdown.
-  CreditRecord = Struct.new(:person_id, :quantity, :state, :date, :dedupe_key, :label, :link, keyword_init: true) do
+  # :confirmed. worker_id is who did it, when that isn't the person credited
+  # (a parent working a shift on a child's behalf); nil means the person
+  # credited. Records with the same dedupe_key count once per commitment,
+  # for one person: a record crediting someone other than its worker comes
+  # first, then the first source in the commitment's order (a nil key never
+  # dedupes). label and link describe the record in the breakdown.
+  CreditRecord = Struct.new(:person_id, :quantity, :state, :date, :dedupe_key, :label, :link, :worker_id, keyword_init: true) do
     def confirmed?
       state == :confirmed
+    end
+
+    def worker
+      worker_id || person_id
+    end
+
+    def on_behalf?
+      worker != person_id
     end
   end
 
@@ -44,7 +55,8 @@ module Commitments
     # The dedupe key every kind uses for "this person did something at this
     # event": event_id, and worker_id for who actually did it (who checked in,
     # who took the place). A sign-up and a check-in by the same worker count
-    # once; two people working for the same person count twice.
+    # once, as do two places one worker takes at one event; two people
+    # working for the same person count twice.
     def event_key(event_id, worker_id)
       "Event:#{event_id}:Person:#{worker_id}"
     end
