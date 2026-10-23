@@ -90,7 +90,7 @@ class BadgeAssignmentsController < InternalController
     end
 
     def load_badge_candidates
-      load_candidates(eligible_people.order(:last_name, :first_name), :first_name_or_last_name_or_display_name_cont)
+      load_candidates(eligible_people.order(:last_name, :first_name), :first_name_or_last_name_or_display_name_i_cont)
     end
 
     # Only allow a list of trusted parameters through.

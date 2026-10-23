@@ -8,7 +8,7 @@ class CheckinsController < InternalController
   def candidates
     authorize Checkin.new(event: @event), :create?
     people = policy_scope(Person).where.not(id: @event.checkins.select(:person_id)).order(:last_name, :first_name)
-    load_candidates(people, :first_name_or_last_name_or_display_name_cont)
+    load_candidates(people, :first_name_or_last_name_or_display_name_i_cont)
   end
 
   # GET /checkins/1
