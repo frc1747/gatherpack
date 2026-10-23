@@ -1,0 +1,17 @@
+<% if @team %>
+  <%= render "shared/add_candidates",
+        candidates: @candidates,
+        more: @more_candidates,
+        add_url: team_memberships_path(@team, format: :turbo_stream),
+        param_key: :membership,
+        attribute: :person_id,
+        empty_message: "Everyone you manage is already on this team." %>
+<% else %>
+  <%= render "shared/add_candidates",
+        candidates: @candidates,
+        more: @more_candidates,
+        add_url: person_memberships_path(@person, format: :turbo_stream),
+        param_key: :membership,
+        attribute: :team_id,
+        empty_message: "#{@person.identifier_name} is already on every team you manage." %>
+<% end %>
