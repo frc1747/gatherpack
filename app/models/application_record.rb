@@ -2,6 +2,12 @@ class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
   before_create :maybe_assign_id
 
+  # Ransack 6 checks associations whenever a search form draws a field, so a
+  # model that doesn't list any would raise. Default to none searchable.
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   def identifier_name
     try(:display_name) || try(:name) || try(:title) || try(:id)
   end
