@@ -1,0 +1,34 @@
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs" data-controller="signup-position-kind">
+  <div class="row">
+    <div class="col-12 col-md-6">
+      <%= f.input :name, hint: "For example Cashier, Setup crew or Main dish." %>
+    </div>
+    <div class="col-12 col-md-6">
+      <% kind_locked = f.object.persisted? && f.object.signups.live.exists? %>
+      <%= f.input :kind, as: :radio_buttons, label: "What is needed", collection: [ [ "People", "people" ], [ "Items", "items" ] ],
+            include_blank: false, item_wrapper_class: "form-check form-check-inline", disabled: kind_locked,
+            hint: ("Can't change while people are signed up." if kind_locked),
+            input_html: { data: { action: "signup-position-kind#toggle" } } %>
+    </div>
+  </div>
+  <%= f.input :description, input_html: { rows: 2 }, hint: "Optional. What the job involves, or what to bring." %>
+  <div class="row">
+    <div class="col-12 col-md-4" data-signup-position-kind-target="unit">
+      <%= f.input :unit, hint: "What items are counted in, for example pizzas, dozen or cases." %>
+    </div>
+    <div class="col-12 col-md-4">
+      <%= f.input :capacity, label: "How many are needed", hint: "On each date. Leave blank for no limit." %>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-12 col-md-8">
+      <%= f.input :question, label: "Question to ask each person", hint: "Optional, for example \"What are you bringing?\"" %>
+    </div>
+    <div class="col-12 col-md-4">
+      <%= f.input :question_required, label: "Answer required" %>
+    </div>
+  </div>
+</div>
