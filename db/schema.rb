@@ -984,6 +984,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_120000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "widgets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "title"
+    t.boolean "show_title", default: true, null: false
+    t.text "content"
+    t.boolean "dynamic", default: false, null: false
+    t.text "stylesheet"
+    t.string "style_mode", default: "theme", null: false
+    t.text "javascript"
+    t.integer "refresh_seconds", default: 0, null: false
+    t.string "placement", default: "right", null: false
+    t.integer "position", default: 0, null: false
+    t.string "viewer", default: "user", null: false
+    t.uuid "team_id"
+    t.boolean "enabled", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["team_id"], name: "index_widgets_on_team_id"
+  end
+
   add_foreign_key "account_relationships", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"

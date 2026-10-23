@@ -1,0 +1,69 @@
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<p>A widget is a titled section on the dashboard. Choose where it goes and who sees it, then write its content. If the content comes out blank for someone, they won't see the widget.</p>
+
+<div class="row">
+  <div class="col-md">
+    <%= f.input :title %>
+  </div>
+  <div class="col-md-3">
+    <%= f.input :show_title, label: "Show the title" %>
+    <%= f.input :enabled, label: "Show on the dashboard" %>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md">
+    <%= f.input :placement, label: "Where on the dashboard", as: :select, collection: Widget::PLACEMENTS.map { |p| [ widget_placement_label(p), p ] }, include_blank: false %>
+  </div>
+  <div class="col-md">
+    <%= f.input :position, label: "Order", hint: "Lower numbers show first." %>
+  </div>
+  <div class="col-md">
+    <%= f.input :viewer, label: "Who can see it", as: :select, collection: Widget::VIEWER_LEVELS.map { |v| [ widget_viewer_label(v), v ] }, include_blank: false %>
+  </div>
+  <div class="col-md">
+    <%= f.input :team_id, as: :searching_combobox, label: "Team", scope: "managed_teams", include_blank: true %>
+  </div>
+</div>
+
+<% if f.object.dynamic && !architect? %>
+  <div class="mb-3">
+    <label class="form-label">Content</label>
+    <pre class="border rounded p-2 bg-body-tertiary"><%= f.object.content %></pre>
+    <div class="form-text">This widget runs ERB, so only architects can change its content.</div>
+  </div>
+<% else %>
+  <%= f.input :content, hint: "Markdown or HTML#{", with ERB" if f.object.dynamic}.",
+    wrapper_html: { class: "code-editor" }, input_html: { rows: 12, data: { lang: f.object.dynamic ? "html" : "markdown" } } %>
+<% end %>
+
+<div class="row">
+  <div class="col-md-4">
+    <%= f.input :style_mode, label: "Styles", as: :radio_buttons, collection: [ [ "Use the theme, plus the CSS below", "theme" ], [ "Replace all styles with the CSS below", "replace" ] ] %>
+  </div>
+  <div class="col-md-8">
+    <%= f.input :stylesheet, label: "CSS", hint: "Applies only to this widget. With \"Replace all styles\", theme colors are still available, for example var(--bs-primary).",
+      wrapper_html: { class: "code-editor" }, input_html: { rows: 8, data: { lang: "css" } } %>
+  </div>
+</div>
+
+<% if architect? %>
+  <%= f.input :javascript, label: "JavaScript", hint: "Runs when the widget appears. Find your elements with root.querySelector(...). Return a function to clean up (clear timers) when the widget goes away.",
+    wrapper_html: { class: "code-editor" }, input_html: { rows: 8, data: { lang: "javascript" } } %>
+<% elsif f.object.javascript.present? %>
+  <div class="mb-3">
+    <label class="form-label">JavaScript</label>
+    <pre class="border rounded p-2 bg-body-tertiary"><%= f.object.javascript %></pre>
+    <div class="form-text">Only architects can change the JavaScript.</div>
+  </div>
+<% end %>
+
+<%= f.input :refresh_seconds, label: "Reload every (seconds)", hint: "0 = never. At least #{Widget::MIN_REFRESH_SECONDS} otherwise.", input_html: { min: 0 } %>
+
+<% if architect? %>
+  <div class="alert alert-danger">
+    <%= f.input :dynamic, label: "Enable ERB Parsing?" %>
+  </div>
+<% end %>
