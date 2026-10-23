@@ -24,16 +24,6 @@ feature/search-and-add:
     in place, and only people or teams that can still be added are shown.
   audience: Team managers and admins
 
-feature/enforce-authorization:
-  title: Permission checks on every page
-  emoji: "🔒"
-  description: >-
-    Every page now checks who may see or change it. Members can no longer
-    delete their team, edit its announcements, change other people's check-ins
-    or edit badge types. People who were already allowed to do these things
-    see no change.
-  audience: Everyone (behind the scenes)
-
 feature/people-ransack-auth-object:
   title: People searches know who is searching
   emoji: "🧭"
