@@ -2,6 +2,7 @@ require "test_helper"
 
 class LocalSignupDisabledTest < ActionDispatch::IntegrationTest
   setup do
+    host! "localhost"
     @setting = Settings.get(:local_signup)
     @original_value = @setting.instance_variable_get(:@value)
     @setting.instance_variable_set(:@value, "false")
