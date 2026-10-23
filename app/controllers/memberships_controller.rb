@@ -137,7 +137,7 @@ class MembershipsController < InternalController
   def load_team_candidates
     people = current_user.admin? ? policy_scope(Person) : current_user.person.all_managed_people
     people = people.where.not(id: @team.memberships.select(:person_id)).order(:last_name, :first_name)
-    load_candidates(people, :first_name_or_last_name_or_display_name_cont)
+    load_candidates(people, :first_name_or_last_name_or_display_name_i_cont)
   end
 
   # Teams the current user could add @person to that they aren't directly in yet.
