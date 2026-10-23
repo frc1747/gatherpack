@@ -47,7 +47,7 @@ class RansackTest < ActiveSupport::TestCase
 
   test "ransack sort links work" do
     # Only test with our created records by filtering
-    q = Person.where(id: [@person.id, @person2.id]).ransack({ s: "last_name asc" })
+    q = Person.where(id: [ @person.id, @person2.id ]).ransack({ s: "last_name asc" })
     results = q.result(distinct: true).to_a
 
     # Alpha Beta should come before Zebra Xylophone alphabetically by last_name
@@ -91,7 +91,7 @@ class RansackTest < ActiveSupport::TestCase
     # Create a user and associate with person to test distinct through a join
     user = User.create!(email: "duplicate-test@example.com", password: "password123")
     @person.update!(user: user)
-    
+
     # Search through user association - should return person only once despite join
     q = Person.ransack(user_email_cont: "duplicate-test")
     results = q.result(distinct: true)
