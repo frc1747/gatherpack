@@ -231,3 +231,19 @@ feature/signups-widget:
     commitments, with links to the sheets and details. It hides itself for
     anyone with nothing to show.
   audience: Everyone signed in
+
+feature/test-hosts:
+  title: Tests run against the right hosts again
+  emoji: "🧪"
+  description: >-
+    Fixes tests that upstream's latest update broke, so the build's checks
+    pass. Nothing changes for anyone using GatherPack.
+  audience: Developers (tests only)
+
+feature/ransack-test-style:
+  title: Style fixes in the search tests
+  emoji: "🧹"
+  description: >-
+    Tidies formatting in a test file from upstream's latest update, so the
+    build's style check passes. Nothing changes for anyone using GatherPack.
+  audience: Developers (tests only)

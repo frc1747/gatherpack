@@ -17,3 +17,5 @@ feature/signup-credit
 feature/profile-tabs
 feature/commitments-profile-tab
 feature/signups-widget
+feature/test-hosts
+feature/ransack-test-style
