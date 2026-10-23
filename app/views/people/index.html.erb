@@ -10,12 +10,17 @@
       <div class="col-md">
         <%= f.input :display_name_i_cont, label: "Name" %>
       </div>
-      <div class="col-md">
-        <%= f.input :phone_number_i_cont, label: "Phone" %>
-      </div>
-      <div class="col-md">
-        <%= f.input :address_i_cont, label: "Address" %>
-      </div>
+      <% searchable = Person.ransackable_attributes(current_user) %>
+      <% if searchable.include?("phone_number") %>
+        <div class="col-md">
+          <%= f.input :phone_number_i_cont, label: "Phone" %>
+        </div>
+      <% end %>
+      <% if searchable.include?("address") %>
+        <div class="col-md">
+          <%= f.input :address_i_cont, label: "Address" %>
+        </div>
+      <% end %>
     </div>
   </div>
   <div class="card-footer">
