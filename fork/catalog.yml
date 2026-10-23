@@ -256,3 +256,11 @@ feature/lockfile-ffi-platforms:
     on ARM (and other platforms) as well as Intel. Nothing changes for
     anyone using GatherPack.
   audience: Developers (build only)
+
+feature/ransack-associations-default:
+  title: Automation and setup lists open again
+  emoji: "🔎"
+  description: >-
+    Fixes the Hooks, Variables, Reports, Event Types, Team Types and
+    Mailboxes lists, which showed an error after upstream's latest update.
+  audience: Admins
