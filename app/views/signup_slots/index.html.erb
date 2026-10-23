@@ -1,0 +1,64 @@
+<% breadcrumb @signup_sheet %>
+
+<%= form_with url: update_all_signup_sheet_signup_slots_path(@signup_sheet), method: :patch do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Slots for <%= @signup_sheet.title %></h1>
+  </div>
+  <div class="card-body">
+    <p>
+      How many are needed of each position on each date. Leave a box blank to use the position's number.
+      Untick On to drop a position from one date; people already signed up there stay signed up.
+    </p>
+    <% if @events.any? && @positions.any? %>
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <% @positions.each do |position| %>
+                <th>
+                  <%= position.name %>
+                  <div class="small fw-normal text-light opacity-75"><%= position.capacity ? "#{position.capacity} #{position.unit_label}" : "No limit" %></div>
+                </th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% @events.each do |event| %>
+              <tr id="<%= dom_id event, :slots %>">
+                <th scope="row">
+                  <%= event.name %>
+                  <div class="small fw-normal"><%= event.start_time.strftime("%a %b %-d, %-l:%M %p") %></div>
+                </th>
+                <% @positions.each do |position| %>
+                  <% slot = @slots[[ event.id, position.id ]] %>
+                  <td>
+                    <% if slot %>
+                      <div class="input-group input-group-sm" style="max-width: 12rem;">
+                        <%= number_field_tag "slots[#{slot.id}][capacity]", slot.capacity, min: 1, class: "form-control", autocomplete: "off",
+                              placeholder: position.capacity || "No limit", "aria-label": "How many #{position.name} on #{event.name}" %>
+                        <div class="input-group-text">
+                          <%= hidden_field_tag "slots[#{slot.id}][on]", "0", id: nil %>
+                          <%= check_box_tag "slots[#{slot.id}][on]", "1", !slot.disabled?, id: dom_id(slot, :on), class: "form-check-input mt-0 me-1" %>
+                          <%= label_tag dom_id(slot, :on), "On", class: "form-check-label" %>
+                        </div>
+                      </div>
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p class="text-warning-emphasis">Add positions and dates first; a slot appears for every position on every date.</p>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Back to the sheet", edit_signup_sheet_path(@signup_sheet, anchor: "slots"), class: "btn btn-warning" %>
+    <%= f.submit "Save", class: "btn btn-primary" if @events.any? && @positions.any? %>
+  </div>
+</div>
+<% end %>
