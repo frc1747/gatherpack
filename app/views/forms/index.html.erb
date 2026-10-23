@@ -20,6 +20,39 @@
   </div>
 </div>
 
+<% if @shared.any? %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <h2>Shared with You</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">Forms you can see everyone's answers to.</p>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle" id="shared_forms">
+          <thead>
+            <tr><th>Form</th><th>Team</th><th>Status</th><th>Deadline</th></tr>
+          </thead>
+          <tbody>
+            <% @shared.each do |form| %>
+              <tr id="<%= dom_id form, :shared %>">
+                <td><%= link_to form.title, form_path(form) %></td>
+                <td><%= form.team.name %></td>
+                <td><%= form_state_badge(form) %></td>
+                <td><%= form.closes_at ? nice_datetime(form.closes_at) : "—" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% unless policy(Form.new).new? %>
+      <div class="card-footer">
+        <%= link_to "Printable list", print_list_forms_path, class: "btn btn-secondary" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
 <% if policy(Form.new).new? %>
   <div class="card mt-3">
     <div class="card-header">

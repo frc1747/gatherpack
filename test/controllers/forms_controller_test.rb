@@ -38,6 +38,37 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "forms shared through a badge grant are listed for the badge holder" do
+    with_feature do
+      as(:health_officer) do
+        get forms_path
+        assert_select "#shared_forms", count: 0
+      end
+
+      @form.form_badge_grants.create!(badge: @health_officer_badge, access: :read)
+      as(:health_officer) do
+        get forms_path
+        assert_select "#shared_forms a[href=?]", form_path(@form), text: "Meal Choices"
+        assert_select "a[href=?]", print_list_forms_path, text: "Printable list"
+        get form_path(@form)
+        assert_response :success
+      end
+
+      # Someone who runs the form finds it under Manage, not twice.
+      as(:pack_leader) do
+        get forms_path
+        assert_select "#shared_forms", count: 0
+        assert_select "a[href=?]", form_path(@form), count: 1
+      end
+
+      # Parents see their own child's answers, which isn't a shared form.
+      as(:parent_a1) do
+        get forms_path
+        assert_select "#shared_forms", count: 0
+      end
+    end
+  end
+
   test "people can't manage forms for teams they don't manage" do
     with_feature do
       as(:den_b_leader) do

@@ -1004,7 +1004,12 @@ GatherPack::Features.register_built_in(
 ```
 
 `/forms` is "My forms" for everyone, plus "Manage" (forms the viewer can
-edit) for leaders and admins.
+edit) for leaders and admins, plus "Shared with you" (rev. 11): open and
+closed forms the viewer can see others' answers to without managing them,
+through a badge grant or a read level wider than their family. Without it a
+form with no event (Meal Choices) shared by a badge grant had no way in but
+a bookmarked link. People who can't create forms get the Printable list
+button there.
 
 ### 12.2 Form builder
 
