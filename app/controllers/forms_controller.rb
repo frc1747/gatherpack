@@ -19,6 +19,10 @@ class FormsController < InternalController
     authorize Form
     @entries = helpers.form_entries_for(current_user.person)
     @managed = policy_scope(Form).visible.includes(:team).order(Arel.sql("status = 1 DESC"), :title)
+    # Forms the viewer can see others' answers to without running them (a
+    # badge grant or a wide read level), so they have a way to get there.
+    @shared = Form.where(status: %i[ open closed ]).where.not(id: @managed.select(:id)).includes(:team)
+      .order(Arel.sql("status = 1 DESC"), :title).select { |form| policy(form).show? }
   end
 
   # GET /forms/1
