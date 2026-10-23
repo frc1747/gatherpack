@@ -157,6 +157,20 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :commitments,
+      label: "Commitments",
+      description: "Track what people owe (shifts, events, hours) and credit it from their activity",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 25,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Commitments", path: :commitments_path, icon: "list-check")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :ledger,
       label: "Ledger",
       description: "Financial ledgers and transactions",
