@@ -84,6 +84,11 @@ class PersonFieldsLeakTest < ActionDispatch::IntegrationTest
 
       get people_path
       assert_select "a", text: "Age", count: 0
+      assert_select "input[name=?]", "q[phone_number_i_cont]", count: 0
+      assert_select "input[name=?]", "q[address_i_cont]", count: 0
+
+      get people_path, params: { q: { phone_number_i_cont: "555-0199" } }
+      assert_includes response.body, "B1 World", "the restricted phone filter should be ignored"
 
       get "/calendar/calendar.json", params: calendar_params
       assert_not_includes response.body, "A1 World's Birthday"
