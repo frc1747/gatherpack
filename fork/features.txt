@@ -2,7 +2,6 @@
 # One branch per line. Dependencies must come after the branches they depend on.
 # Comment a line out with # to disable that feature temporarily.
 feature/search-and-add
-feature/enforce-authorization
 feature/people-ransack-auth-object
 feature/person-fields
 feature/forms
