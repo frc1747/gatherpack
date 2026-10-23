@@ -93,10 +93,21 @@ Every line we change in an upstream file is a line that can conflict forever. Ru
 
 Enable `git rerere` (`git config rerere.enabled true`) so repeated conflict resolutions are recorded and replayed.
 
+### When upstream is broken
+
+Don't assume `upstream/main` works. Before step 3, check upstream's own CI on the commit being taken (`gh run list -R GatherPack/gatherpack --branch main --event push`). `bin/fork-rebuild` always builds on `upstream/main`, so a red upstream can't be skipped by syncing to an older commit without changing the script (ask first). Instead:
+
+1. Reproduce each failure on plain `upstream/main` in a detached worktree, so upstream's breakage is never mistaken for ours.
+2. Fix each one on its own small branch from `upstream/main`, written for upstream, and append it to the manifest with a catalog entry, sample data file and `FORK.md` row naming the upstream commit that broke it. Retire it when upstream fixes the problem. Keep these fixes out of feature branches (a feature branch may carry a one-line workaround in its own tests so it passes alone, as `feature/signup-link-guard` does).
+3. A feature branch passes step 4 when its only failures are the upstream ones recorded in `FORK.md`; anything else is ours to fix on that branch.
+4. Upstream CI covers less than ours: it has no system tests and builds the image only after its tests pass. Run the system tests, and treat the tag's image build for every platform (amd64 and arm64) as part of the release check.
+
+Example: the 2026-10-23 sync took a red `upstream/main` (ransack 6 and a bundle update) and carried `feature/test-hosts`, `feature/ransack-test-style` and `feature/lockfile-ffi-platforms`.
+
 ### Recurring conflict hotspots
 
 - **`db/schema.rb`**: never hand-merge. Take the upstream version, then regenerate by running migrations against a fresh database and commit the result. One conflict is routine and resolved automatically: two branches that both add migrations disagree only on the `define(version: ...)` line. `bin/fork-rebuild` registers `bin/fork-merge-schema` as a git merge driver for `db/schema.rb` (in the repository's own config and `info/attributes`, so no tracked file changes); it keeps the newer version and leaves any other schema conflict in place, so the rebuild still stops on it. The integration CI job's `db:migrate` from an empty database is the check that the merged schema is right.
-- **`Gemfile.lock`**: never hand-merge. Take the upstream version, then run `bundle lock` (or `bundle install`) and commit the result.
+- **`Gemfile.lock`**: never hand-merge. Take the upstream version, then run `bundle lock` (or `bundle install`) and commit the result. Then check that platform-specific gems still list a gem for every platform under `PLATFORMS`: upstream's lockfile has lost them before (`ffi`, 2026-10-23), which breaks only the arm64 image build.
 - **Routes and shared initializers**: if these conflict repeatedly, that is a signal the feature needs a seam or an engine.
 
 ## Rebuild Script
@@ -165,7 +176,7 @@ The workflows should cover:
 
 1. **Each feature branch alone against `upstream/main`.** Proves the feature is upstreamable and self-contained.
 2. **`hbr/integration`.** Proves the combination is cohesive. Full test suite, RuboCop, `db:migrate` from an empty database, and loading the sample data into it twice.
-3. **Scheduled upstream drift check.** Daily job that fetches upstream, attempts the rebuild, and opens an issue if any feature fails to merge or tests break. This surfaces trouble when it's one commit old instead of fifty.
+3. **Scheduled upstream drift check.** Daily job that fetches upstream, attempts the rebuild, and opens an issue if any feature fails to merge or tests break. This surfaces trouble when it's one commit old instead of fifty. It should also report upstream's own CI result on `main`, so a red upstream shows up the day it happens (BL-025, not built yet).
 
 ## Releases and Deployment
 
@@ -183,6 +194,8 @@ Fork tooling (`FORK.md`, `fork/`, `bin/fork-*`, `.github/workflows/hbr-*.yml`) e
 3. Open a cross-fork PR from `origin:feature/<name>` into `upstream:main`. Check "Allow edits by maintainers." Before submitting, confirm the "Files changed" tab contains no fork tooling and no references to HBR or our deployment.
 4. Make all review changes on the same feature branch. The PR and the next rebuild both pick them up. Add them as new commits; never force-push while a PR is open unless the maintainers ask for a rebase.
 5. If a feature is too large to be accepted, split it: propose the seam first, keep the HBR-specific behavior as a carried feature on top of it.
+6. Offer in this order: fixes for upstream bugs and security issues, then small general seams (extension registries, profile tabs, the Ransack `auth_object`), then features. A large feature stays portable as long as the seams it needs are upstream; the dependent stacks (person-fields, then forms; extension-registries, then sign-ups) have to be accepted in order.
+7. Upstream doesn't always stop on a red `main`. If it's red when a PR is opened, say so in the PR and name the failures that aren't ours. After a merge, check that upstream's version matches what we run before retiring the branch, and expect to find later breakage on our next sync rather than from upstream.
 
 ### After upstream merges
 
