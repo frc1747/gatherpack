@@ -5,4 +5,6 @@
   <%= f.input :parent_label %>
   <%= f.input :child_label %>
   <%= f.input :permission, as: :select, collection: RelationshipType.permissions.keys, label_method: :titleize, include_blank: false %>
+  <%= f.input :guardianship, as: :select, collection: RelationshipType::GUARDIANSHIP_LABELS.invert, include_blank: false,
+        hint: "Guardians can see and edit fields set to family or guardian levels on the child-side person's profile." %>
 </div>
