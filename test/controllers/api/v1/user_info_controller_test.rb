@@ -2,6 +2,7 @@ require "test_helper"
 
 class Api::V1::UserInfoControllerTest < ActionDispatch::IntegrationTest
   setup do
+    host! "localhost"
     @user = User.create!(email: "oauth-test@example.com", password: "Password1!")
     @oauth_app = Doorkeeper::Application.create!(
       name: "Test App",
