@@ -25,7 +25,7 @@ The always-loaded digest of [`fork/STRATEGY.md`](STRATEGY.md) for Claude Code se
 
 ## Workspace
 
-`~/dev/gatherpack/` holds one worktree per branch: `platform/` (hbr/platform, primary clone), `feature-<name>/`, `integration/`. Create worktrees from `platform/` with `git worktree add ../feature-<name> feature/<name>`. Keep task worktrees inside this folder too (herdr: `--path ~/dev/gatherpack/task-<slug>`), so they load this file and the workspace skills.
+`~/dev/gatherpack/` holds one worktree per branch: `platform/` (hbr/platform, primary clone), `feature-<name>/`, `integration/`. Create worktrees from `platform/` with `git worktree add ../feature-<name> feature/<name>`, then link the skills in (Claude Code looks for them at the git root): `mkdir -p ../feature-<name>/.claude && ln -sfn ../../.claude/skills ../feature-<name>/.claude/skills && ln -sfn ../../.claude/agents ../feature-<name>/.claude/agents` (git-excluded). Keep task worktrees inside this folder too (herdr: `--path ~/dev/gatherpack/task-<slug>`), so they load this file and the workspace skills.
 
 ## Load on demand
 
