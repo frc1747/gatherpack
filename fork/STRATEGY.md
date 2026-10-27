@@ -112,40 +112,9 @@ Example: the 2026-10-23 sync took a red `upstream/main` (ransack 6 and a bundle 
 
 ## Rebuild Script
 
-`bin/fork-rebuild` on `hbr/platform` regenerates the integration branch deterministically. Reference implementation:
+`bin/fork-rebuild` on `hbr/platform` regenerates the integration branch deterministically: it checks out `upstream/main`, merges `hbr/platform`, then merges each manifest branch in order with `--no-ff`, aborting on the first conflict. Read the script for the current behavior.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-INTEGRATION="hbr/integration"
-PLATFORM="origin/hbr/platform"
-MANIFEST_PATH="fork/features.txt"
-
-git fetch upstream
-git fetch origin
-
-manifest="$(git show "${PLATFORM}:${MANIFEST_PATH}")"
-
-git checkout -B "${INTEGRATION}" upstream/main
-git merge --no-ff --no-edit -m "Integrate hbr/platform" "${PLATFORM}"
-
-while IFS= read -r branch; do
-  branch="${branch%%#*}"
-  branch="$(echo "${branch}" | xargs)"
-  [[ -z "${branch}" ]] && continue
-  echo "Merging ${branch}"
-  if ! git merge --no-ff --no-edit -m "Integrate ${branch}" "origin/${branch}"; then
-    echo "Conflict merging ${branch}. Resolve it on the feature branch, not here." >&2
-    git merge --abort
-    exit 1
-  fi
-done <<< "${manifest}"
-
-echo "Integration branch rebuilt from upstream/main at $(git rev-parse --short upstream/main)"
-```
-
-The script refuses to resolve conflicts itself on purpose. The one exception is the schema version line, which `bin/fork-merge-schema` resolves (see "Recurring conflict hotspots"); the reference implementation above predates it and the changelog step below. If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
+The script refuses to resolve conflicts itself on purpose. The one exception is the schema version line, which `bin/fork-merge-schema` resolves (see "Recurring conflict hotspots"). If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
 
 ### The HBR changelog
 
