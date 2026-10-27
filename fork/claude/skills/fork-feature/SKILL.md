@@ -19,7 +19,7 @@ Existing branch: `git worktree add ../feature-<name> feature/<name>`. Never base
 
 ## Design
 
-- A spec for anything non-trivial goes in `fork/specs/` on hbr/platform. Every spec has a **Hooks** section: which new models `include CanBeHooked`, what `GatherPack::HookCatalog.register_targets/register_events` entries are added, and named domain events, with brief reasons for omissions.
+- A spec for anything non-trivial goes in `fork/specs/` on hbr/platform. Every spec has a **Hooks** section: which new models `include CanBeHooked`, what `GatherPack::HookCatalog.register_targets/register_events` entries are added, and named domain events, with brief reasons for omissions. Add hooks where they match existing intent, not for everything, and check for catalog drift (models that `include CanBeHooked` but are missing from `Hook.catalog`).
 - Generic layers, HBR as configuration: no team-specific words in code. A new use case should be a row in the spec's use-case table, then config or an additive change.
 - Add, don't edit: new files, `config/initializers/<feature>.rb` with `to_prepare` registrations, `Klass.include(Module)` patches. Every upstream file still edited goes in `FORK.md` "Upstream files touched".
 - Behavior changes get a flag via `GatherPack::Features.register(... default_enabled: false)`; controllers gate with a `before_action`.
