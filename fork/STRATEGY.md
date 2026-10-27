@@ -247,7 +247,10 @@ gatherpack/
 mkdir -p .claude/skills .claude/agents
 for d in platform/fork/claude/skills/*/; do ln -sfn "../../${d%/}" .claude/skills/; done
 for f in platform/fork/claude/agents/*.md; do ln -sfn "../../$f" .claude/agents/; done
+printf '/.claude/skills\n/.claude/agents\n' >> "$(git -C platform rev-parse --path-format=absolute --git-common-dir)/info/exclude"
 ```
+
+Claude Code finds skills and agents at the git root of the session's checkout, not in parent folders, so each worktree also links to the workspace copies: `mkdir -p <worktree>/.claude && ln -sfn ../../.claude/skills <worktree>/.claude/skills && ln -sfn ../../.claude/agents <worktree>/.claude/agents`.
 
 Skills that hold deployment details (hosts, containers, credentials, production data) stay in the workspace's `.claude/skills/` only and are never committed, because this repository is public.
 
