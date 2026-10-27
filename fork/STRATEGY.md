@@ -216,24 +216,40 @@ If a feature ran in production before upstream merged it, our migration is alrea
 7. Before modifying any existing upstream file, check whether a seam, hook, new file, or engine could achieve the same result. If you still need to edit it, record the file in `FORK.md`.
 8. Confirm behavior against actual GatherPack source before assuming a Rails convention or API.
 9. Ask before deleting any branch, rewriting any tag, or changing the manifest order.
+10. Keep `fork/AGENT.md` and `fork/claude/` in step with this document.
 
 ## Local Workspace Layout
 
-This document lives at `fork/STRATEGY.md` on `hbr/platform` only, so it is absent from feature branch checkouts. To keep it loaded in every session, use one parent folder containing a worktree per branch, with a `CLAUDE.md` in the parent folder (not in any repository) that imports the strategy from the platform worktree. Claude Code reads `CLAUDE.md` files from parent directories, so this applies regardless of which branch is being worked on.
+This document lives at `fork/STRATEGY.md` on `hbr/platform` only, so it is absent from feature branch checkouts. Use one parent folder containing a worktree per branch, with a `CLAUDE.md` in the parent folder (not in any repository). Claude Code reads `CLAUDE.md` files from parent directories, so this applies regardless of which branch is being worked on.
 
 ```text
 gatherpack/
   CLAUDE.md
+  .claude/
+    skills/      # one symlink per fork/claude/skills/<name>, plus local-only skills
+    agents/      # one symlink per fork/claude/agents/<name>.md
   platform/
+  integration/
   feature-field-permissions/
   feature-resend/
+  tasks/         # specs for dispatched work; never committed to a feature branch
 ```
 
-`gatherpack/CLAUDE.md`:
+`gatherpack/CLAUDE.md` imports the agent digest, not this whole document, so every session starts small:
 
 ```markdown
-@platform/fork/STRATEGY.md
+@platform/fork/AGENT.md
 ```
+
+[`fork/AGENT.md`](AGENT.md) is a short digest of the rules here and an index of the procedures. The procedures live as Claude Code skills and agents in `fork/claude/`, which load only when a task needs them. This document stays the authority: when you change a rule or procedure here, update `fork/AGENT.md` and the matching skill in the same commit. Link them into the workspace once, from the parent folder:
+
+```bash
+mkdir -p .claude/skills .claude/agents
+for d in platform/fork/claude/skills/*/; do ln -sfn "../../${d%/}" .claude/skills/; done
+for f in platform/fork/claude/agents/*.md; do ln -sfn "../../$f" .claude/agents/; done
+```
+
+Skills that hold deployment details (hosts, containers, credentials, production data) stay in the workspace's `.claude/skills/` only and are never committed, because this repository is public.
 
 `platform/` is the primary clone, permanently checked out on `hbr/platform`. Each feature gets its own worktree, created from inside `platform/`:
 
@@ -241,7 +257,7 @@ gatherpack/
 git worktree add ../feature-resend feature/resend
 ```
 
-Do all feature work in that feature's worktree. Remove a worktree with `git worktree remove` once its feature is retired.
+Do all feature work in that feature's worktree. Remove a worktree with `git worktree remove` once its feature is retired. Worktrees for dispatched tasks also go in the parent folder, so they pick up `CLAUDE.md` and the skills.
 
 ## Initial Setup Tasks
 
