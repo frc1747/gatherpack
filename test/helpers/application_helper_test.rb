@@ -19,7 +19,8 @@ class ApplicationHelperTest < ActionView::TestCase
   end
 
   test "event_calendar_colors falls back to the default for missing or invalid colors" do
-    [ Event.new, Event.new(team: Team.new(color: nil)), Event.new(team: Team.new(color: "red")) ].each do |event|
+    [ Event.new, Event.new(team: Team.new(color: nil)), Event.new(team: Team.new(color: "red")),
+      Event.new(team: Team.new(color: "#fff;position:fixed")) ].each do |event|
       assert_equal ApplicationHelper::DEFAULT_EVENT_COLOR, event_calendar_colors(event)[:background]
     end
   end

@@ -32,4 +32,17 @@ class WelcomeControllerTest < ActionDispatch::IntegrationTest
     assert_not response.body.include?("position:fixed;inset:0"),
       "A manager's shortcut color injects CSS into the style attribute"
   end
+
+  test "a hostile team color can't restyle announcements on the dashboard" do
+    team = teams(:one)
+    team.update!(color: "#ff0000;position:fixed;inset:0")
+    team.announcements.create!(title: "Campout", content: "Pack tonight.", start_time: 1.hour.ago, end_time: 1.day.from_now)
+    sign_in @admin_user
+
+    get root_path
+
+    assert_response :success
+    assert_includes response.body, "Campout"
+    assert_not response.body.include?("position:fixed"), "the team color injects CSS into the dashboard"
+  end
 end
