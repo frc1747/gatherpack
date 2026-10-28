@@ -1,0 +1,16 @@
+<% breadcrumb @commitment %>
+
+<%= simple_form_for(@commitment) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>New commitment</h1>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", commitments_path, class: "btn btn-warning" %>
+    <%= f.button :submit, "Create commitment", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
