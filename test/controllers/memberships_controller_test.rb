@@ -121,6 +121,60 @@ class MembershipsControllerTest < ActionDispatch::IntegrationTest
     assert_not Membership.exists?(membership.id)
   end
 
+  test "a manager can't add someone from outside their teams" do
+    build_pack
+    outsider = create_member("outsider", @other_org)
+    sign_in @den_leader.user
+
+    post team_memberships_path(@den_a), params: { membership: { person_id: outsider.id } }
+
+    assert_not Membership.exists?(person: outsider, team: @den_a), "the Den A manager added an outsider from another org to Den A"
+  end
+
+  test "a manager can't add an outsider and then take over their login" do
+    build_pack
+    outsider = create_member("outsider", @other_org)
+    sign_in @den_leader.user
+
+    post team_memberships_path(@den_a), params: { membership: { person_id: outsider.id } }
+    patch person_user_path(outsider), params: { user: { password: "Hijacked123!", password_confirmation: "Hijacked123!" } }
+
+    assert_not Membership.exists?(person: outsider, team: @den_a), "the Den A manager added an outsider to Den A"
+    assert_not outsider.user.reload.valid_password?("Hijacked123!")
+  end
+
+  test "a manager can't add someone to a team they don't manage from the person's page" do
+    build_pack
+    sign_in @den_leader.user
+
+    post person_memberships_path(@scout), params: { membership: { team_id: @other_org.id } }
+
+    assert_not Membership.exists?(person: @scout, team: @other_org)
+  end
+
+  test "a manager can add someone they manage to another team they manage" do
+    build_pack
+    patrol = Team.create!(name: "Patrol", team_type: team_types(:one), parent: @den_a)
+    sign_in @den_leader.user
+
+    post team_memberships_path(patrol), params: { membership: { person_id: @scout.id } }
+    assert Membership.exists?(person: @scout, team: patrol)
+
+    delete team_membership_path(patrol, Membership.find_by!(person: @scout, team: patrol))
+    post person_memberships_path(@scout), params: { membership: { team_id: patrol.id } }
+    assert Membership.exists?(person: @scout, team: patrol)
+  end
+
+  test "a member can join an open team themselves" do
+    build_pack
+    open_team = Team.create!(name: "Open", team_type: team_types(:one), join_permission: :has_account)
+    sign_in @scout.user
+
+    post team_memberships_path(open_team), params: { membership: { person_id: @scout.id, manager: false } }
+
+    assert Membership.exists?(person: @scout, team: open_team, manager: false)
+  end
+
   private
 
   #   Org > Pack (@pack_leader) > Den A (@den_leader, @scout)

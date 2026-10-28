@@ -50,11 +50,13 @@ class TeamPolicy < ApplicationPolicy
     user.admin || user.architect || record.people.include?(person) || has_perms
   end
 
+  # Managers add and remove people through memberships, which check who they
+  # may add; person_ids would replace the whole list unchecked.
   def permitted_attributes_for_update
     [ :name, :color, :team_type_id, :description ] + if user.admin?
       [ :join_permission, :parent_id, person_ids: [] ]
     elsif record.join_permission != "added_by_admin"
-      [ :parent_id, person_ids: [] ]
+      [ :parent_id ]
     else
       []
     end

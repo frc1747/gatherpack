@@ -13,10 +13,11 @@ class MembershipPolicy < ApplicationPolicy
     user.admin || user.person.manager?
   end
 
-  # Managers add people to their teams. Anyone else may only join an open team
-  # themselves, and never as a manager.
+  # Managers add people they already manage to the teams they manage, so they
+  # can't pull in someone from elsewhere and gain power over them. Anyone else
+  # may only join an open team themselves, and never as a manager.
   def create?
-    return true if user.admin || record.team&.manager?(person)
+    return true if user.admin || (manages?(record.team) && manages?(record.person))
 
     record.person == person && !record.manager? && record.team&.has_account?
   end

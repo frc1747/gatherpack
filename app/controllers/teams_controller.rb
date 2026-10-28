@@ -93,8 +93,11 @@ class TeamsController < InternalController
     @recent_questions = @team.questions.where(closed: false).order(created_at: :desc).limit(5)
   end
 
-  # Only allow a list of trusted parameters through.
+  # Only allow a list of trusted parameters through. Only admins fill a new
+  # team with people directly; managers add them through memberships.
   def team_params
-    params.require(:team).permit(:name, :parent_id, :color, :description, :team_type_id, :join_permission, person_ids: [])
+    fields = [ :name, :parent_id, :color, :description, :team_type_id, :join_permission ]
+    fields << { person_ids: [] } if current_user.admin?
+    params.require(:team).permit(*fields)
   end
 end
