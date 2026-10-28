@@ -64,7 +64,10 @@ class TeamsController < InternalController
 
   # PATCH/PUT /teams/1
   def update
-    if @team.update(permitted_attributes(@team))
+    @team.assign_attributes(permitted_attributes(@team))
+    authorize @team, :move? if @team.parent_id_changed?
+
+    if @team.save
       redirect_to @team, notice: "Team was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

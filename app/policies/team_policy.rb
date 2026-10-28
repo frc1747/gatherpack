@@ -15,8 +15,18 @@ class TeamPolicy < ApplicationPolicy
     person.manager?
   end
 
+  # Managers create teams only under a team they manage; top-level teams are
+  # for admins.
   def create?
-    person.admin? || (person.manager? && !record.parent.nil? && person.teams.include?(record.parent))
+    user.admin? || manages?(record.parent)
+  end
+
+  # Checked with the new parent assigned. A manager moves a team only from
+  # under one team they manage to another, so they can't take it away from a
+  # team above them; making a team top-level, or moving one that is, is for
+  # admins.
+  def move?
+    user.admin? || (manages?(Team.find_by(id: record.parent_id_was)) && manages?(record.parent))
   end
 
   def update?
