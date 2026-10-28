@@ -88,7 +88,21 @@ class PeopleController < InternalController
   def calendar
   end
 
+  # Totals count only the punches, events and periods the viewer may see, so
+  # the page shows no more of someone's attendance than the person page does.
   def statistics
+    punches = policy_scope(@person.time_clock_punches)
+    checkins = @person.checkins.where(event: policy_scope(Event))
+    @show_punches = @person == current_user.person || punches.exists?
+    @hours = punches.sum(&:hours)
+    @checkin_count = checkins.count
+    @periods = policy_scope(@person.current_time_clock_periods).map do |period|
+      {
+        period: period,
+        hours: punches.where(time_clock_period: period).sum(&:hours),
+        checkin_count: checkins.joins(:event).where(event: { time_clock_period: period }).count
+      }
+    end
   end
 
   def relationships
