@@ -197,6 +197,32 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Den A"
   end
 
+  test "an admin can't delete the audit entry for their own change" do
+    as(@admin) { @architect.update!(email: "taken-over@example.com") }
+    entry = last_version(@architect, "update")
+    assert_equal @admin.id.to_s, entry.whodunnit
+
+    sign_in @admin
+    delete audit_log_path(entry)
+
+    assert AuditLog.exists?(entry.id), "an admin deleted the audit entry recording their own change to an architect's login"
+    assert_response :not_found
+  end
+
+  test "audit entries have no delete route" do
+    assert_not Rails.application.routes.routes.any? { |route| route.defaults[:controller] == "audit_logs" && route.defaults[:action] == "destroy" }
+  end
+
+  test "the audit entry has no Delete button" do
+    team = as(@admin) { Team.create!(name: "Den A", team_type: team_types(:one)) }
+    version = last_version(team, "create")
+
+    sign_in @architect
+    get audit_log_path(version)
+
+    assert_select "a[href=?][data-turbo-method=delete]", audit_log_path(version), count: 0
+  end
+
   private
 
   def create_user(email, **flags)

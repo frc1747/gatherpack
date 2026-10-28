@@ -44,6 +44,10 @@ class AuditLogPolicyTest < ActiveSupport::TestCase
   end
 
   def test_destroy
+    architect = create_user("architect@example.com", admin: true, architect: true)
+    team = Team.create!(name: "Den A", team_type: team_types(:one))
+
+    assert_not AuditLogPolicy.new(architect, team.versions.last).destroy?
   end
 
   def test_revert

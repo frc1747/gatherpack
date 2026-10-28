@@ -1,6 +1,6 @@
 class AuditLogsController < ApplicationController
   before_action :check_for_admin
-  before_action :set_log, only: %i[ show destroy revert ]
+  before_action :set_log, only: %i[ show revert ]
 
   def index
     @q = policy_scope(AuditLog).ransack(params[:q])
@@ -10,15 +10,6 @@ class AuditLogsController < ApplicationController
 
   def show
     @log_hash = @log.object_changes ? PaperTrail.serializer.load(@log.object_changes) : {}
-  end
-
-  def destroy
-    @log.destroy!
-
-    respond_to do |format|
-      format.html { redirect_to audit_logs_url, notice: "Log was successfully destroyed." }
-      format.json { head :no_content }
-    end
   end
 
   def revert

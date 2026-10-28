@@ -12,7 +12,7 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :audit_logs, only: %i[index show destroy] do
+  resources :audit_logs, only: %i[index show] do
     post "revert", to: "audit_logs#revert", on: :member
   end
 

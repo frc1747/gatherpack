@@ -16,6 +16,12 @@ class AuditLogPolicy < AdminPolicy
     super && (user.architect || ARCHITECT_ONLY_ITEM_TYPES.exclude?(record.item_type))
   end
 
+  # The audit trail is the record of who changed what, so nobody deletes
+  # entries from the app.
+  def destroy?
+    false
+  end
+
   # Reverting writes the item back, so it takes the rights to make that change
   # directly: the item's own policy has to allow changing the record as it is
   # now (or creating it again, if it's gone) and as it will be. A dynamic
