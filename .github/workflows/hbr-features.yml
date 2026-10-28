@@ -4,6 +4,11 @@ name: HBR Features
 # upstream/main. Proves each feature is self-contained and still upstreamable.
 # Feature branches carry no fork workflows, so this runs from the default
 # branch (hbr/platform) and checks each one out explicitly.
+#
+# Each branch is tested together with the upstream fix branches in
+# `also_merge` below, so upstream's own breakage doesn't fail every feature
+# (fork/STRATEGY.md, "When upstream is broken"). Remove a fix branch there
+# when it's retired.
 
 on:
   schedule:
@@ -36,3 +41,4 @@ jobs:
     with:
       ref: ${{ matrix.branch }}
       mode: upstream
+      also_merge: feature/test-hosts
