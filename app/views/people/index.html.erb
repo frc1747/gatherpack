@@ -10,12 +10,14 @@
       <div class="col-md">
         <%= f.input :display_name_i_cont, label: "Name" %>
       </div>
-      <div class="col-md">
-        <%= f.input :phone_number_i_cont, label: "Phone" %>
-      </div>
-      <div class="col-md">
-        <%= f.input :address_i_cont, label: "Address" %>
-      </div>
+      <% if admin? %>
+        <div class="col-md">
+          <%= f.input :phone_number_i_cont, label: "Phone" %>
+        </div>
+        <div class="col-md">
+          <%= f.input :address_i_cont, label: "Address" %>
+        </div>
+      <% end %>
     </div>
   </div>
   <div class="card-footer">
@@ -34,7 +36,9 @@
     <ul class="dropdown-menu">
       <li><%= sort_link @q, :last_name, "Last Name", class: "dropdown-item" %></li>
       <li><%= sort_link @q, :first_name, "First Name", class: "dropdown-item" %></li>
-      <li><%= sort_link @q, :birthday, "Age", class: "dropdown-item" %></li>
+      <% if admin? %>
+        <li><%= sort_link @q, :birthday, "Age", class: "dropdown-item" %></li>
+      <% end %>
       <li><%= sort_link @q, :updated_at, "Last Updated", class: "dropdown-item" %></li>
     </ul>
   </div>

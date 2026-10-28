@@ -21,12 +21,23 @@ class Person < ApplicationRecord
   has_one_attached :avatar
   attr_accessor :email
 
+  # Only admins search people by their private details, login or cards; a
+  # match on them would tell anyone else what they hold. Everyone else,
+  # including a search that names no user, searches by name.
   def self.ransackable_attributes(auth_object = nil)
-    [ "address", "birthday", "created_at", "dietary_restrictions", "display_name", "first_name", "gender", "id", "last_name", "phone_number", "shirt_size", "updated_at", "user_id" ]
+    if auth_object.respond_to?(:admin?) && auth_object.admin?
+      [ "address", "birthday", "created_at", "dietary_restrictions", "display_name", "first_name", "gender", "id", "last_name", "phone_number", "shirt_size", "updated_at", "user_id" ]
+    else
+      [ "display_name", "first_name", "id", "last_name", "updated_at" ]
+    end
   end
 
   def self.ransackable_associations(auth_object = nil)
-    [ "user", "tokens" ]
+    if auth_object.respond_to?(:admin?) && auth_object.admin?
+      [ "user", "tokens" ]
+    else
+      []
+    end
   end
 
   def admin?

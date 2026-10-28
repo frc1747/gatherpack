@@ -16,8 +16,13 @@ class User < ApplicationRecord
 
   attr_accessor :old_password, :acting_user
 
+  # A login email is only searchable by admins.
   def self.ransackable_attributes(auth_object = nil)
-    [ "email" ]
+    if auth_object.respond_to?(:admin?) && auth_object.admin?
+      [ "email" ]
+    else
+      []
+    end
   end
 
   # User search matches the person's name as well as the email.
