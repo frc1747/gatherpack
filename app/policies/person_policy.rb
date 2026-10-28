@@ -33,8 +33,10 @@ class PersonPolicy < ApplicationPolicy
     user.admin?
   end
 
+  # Impersonating someone hands over their powers, so only an architect may
+  # impersonate an architect.
   def impersonate?
-    user.admin?
+    user.admin? && (user.architect? || !record.user&.architect?)
   end
 
   def stop_impersonating?
