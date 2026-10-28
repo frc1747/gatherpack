@@ -2,6 +2,16 @@ require "test_helper"
 
 class UserPolicyTest < ActiveSupport::TestCase
   def test_scope
+    admin = create_person("admin@example.com", admin: true)
+    member = create_person("member@example.com")
+    manager = create_person("manager@example.com")
+    team = Team.create!(name: "Den", team_type: team_types(:one))
+    Membership.create!(person: manager, team: team, manager: true)
+    Membership.create!(person: member, team: team)
+
+    assert_equal User.count, UserPolicy::Scope.new(admin.user, User).resolve.count
+    assert_equal [ member.user ], UserPolicy::Scope.new(member.user, User).resolve.to_a
+    assert_equal [ manager.user ], UserPolicy::Scope.new(manager.user, User).resolve.to_a
   end
 
   def test_show

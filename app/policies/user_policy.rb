@@ -1,7 +1,8 @@
 class UserPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
+    # A login carries an email address, so only admins list other people's.
     def resolve
-      scope.all
+      user.admin? ? scope.all : scope.where(id: user.id)
     end
   end
 
