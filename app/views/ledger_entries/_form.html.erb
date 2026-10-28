@@ -44,7 +44,7 @@
           </div>
           <div class="col">
             <%= f.hidden_field :receipts, multiple: true, value: receipt.signed_id %>
-            <a class="remove-receipt-button btn btn-sm btn-danger"><%= i "trash" %></a>
+            <a class="remove-receipt-button btn btn-sm btn-danger" data-controller="receipt-remove" data-action="receipt-remove#remove"><%= i "trash" %></a>
           </div>
         </div>
       <% end %>
@@ -77,13 +77,3 @@
   <% end %>
 
 </div>
-
-<script>
-  document.body.querySelector('.remove-receipt-button').addEventListener('click', (e) => {
-    var parent = e.target.parentElement;
-    while(!parent.classList.contains('row')) {
-      parent = parent.parentElement;
-    }
-    parent.remove();
-  })
-</script>
