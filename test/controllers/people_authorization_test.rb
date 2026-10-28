@@ -49,11 +49,42 @@ class PeopleAuthorizationTest < ActionDispatch::IntegrationTest
       "non-manager granted themselves a team via mass assignment"
   end
 
-  test "a non-admin can create a person without a server error" do
-    assert_difference -> { Person.count }, 1 do
+  test "a non-admin cannot create a person" do
+    assert_no_difference -> { Person.count } do
       post people_path, params: { person: { first_name: "New", last_name: "Scout" } }
     end
-    assert_response :redirect
+    assert_redirected_to root_path
+  end
+
+  test "a non-admin cannot create a person with a login" do
+    post people_path, params: { person: { first_name: "Made", last_name: "Up", email: "made-up@example.com" } }
+
+    assert_not User.exists?(email: "made-up@example.com"),
+      "a non-admin created a new person and a login (password shown in the flash)"
+  end
+
+  test "a non-admin is not offered the new person form" do
+    get new_person_path
+    assert_redirected_to root_path
+
+    get people_path
+    assert_select "a[href=?]", new_person_path, count: 0
+  end
+
+  test "an admin can create a person with a login" do
+    admin = create_member("admin@example.com", "Ada", "Admin", manager: false)
+    admin.user.update!(admin: true)
+    sign_in admin.user
+
+    get people_path
+    assert_select "a[href=?]", new_person_path, count: 1
+
+    assert_difference -> { Person.count }, 1 do
+      post people_path, params: { person: { first_name: "Made", last_name: "Up", email: "made-up@example.com" } }
+    end
+    created = Person.find_by!(first_name: "Made", last_name: "Up")
+    assert_redirected_to person_path(created)
+    assert_equal "made-up@example.com", created.user.email
   end
 
   test "a manager can add a managed member to a team they manage" do

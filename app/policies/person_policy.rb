@@ -20,6 +20,11 @@ class PersonPolicy < ApplicationPolicy
   alias_method :relationships?, :show?
   alias_method :teams?, :show?
 
+  # Creating a person can also create their login, so it's admin-only.
+  def create?
+    user.admin?
+  end
+
   def update?
     record == person || user.admin? || (person.all_managed_teams & record.all_teams).any?
   end
