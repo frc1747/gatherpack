@@ -1,0 +1,37 @@
+<% breadcrumb :person_field_groups %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Person Field Sections</h1>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Sections group fields on profiles and edit forms. Fields without a section appear first.</p>
+    <% if @person_field_groups.empty? %>
+      <p class="text-muted">No sections yet.</p>
+    <% else %>
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr><th>Name</th><th>Fields</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% @person_field_groups.each do |group| %>
+            <tr id="<%= dom_id group %>">
+              <td><%= link_to group.name, edit_person_field_group_path(group) %></td>
+              <td><%= group.person_fields.map(&:name).to_sentence %></td>
+              <td class="text-nowrap">
+                <%= button_to i("arrow-up"), move_person_field_group_path(group, direction: "up"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move up" %>
+                <%= button_to i("arrow-down"), move_person_field_group_path(group, direction: "down"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move down" %>
+                <%= button_to "Delete", person_field_group_path(group), method: :delete, class: "btn btn-sm btn-danger", form_class: "d-inline",
+                      data: { turbo_confirm: "Delete this section? Its fields will move to the top of the profile." } %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "New Section", new_person_field_group_path, class: "btn btn-success" %>
+    <%= link_to "Person Fields", person_fields_path, class: "btn btn-secondary" %>
+  </div>
+</div>

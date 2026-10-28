@@ -1,0 +1,36 @@
+<% person_policy = policy(person) %>
+<% writable = person_policy.writable_person_fields %>
+<% fields = person_policy.readable_person_fields | writable %>
+<% if fields.any? %>
+  <% rows = person.person_field_values.index_by(&:person_field_id) %>
+  <% submitted = params.dig(:person, :person_field_values) || {} %>
+  <% fields.group_by(&:person_field_group).each do |group, group_fields| %>
+    <% if group %>
+      <h5 class="mt-3"><%= group.name %></h5>
+    <% end %>
+    <div class="row">
+      <% group_fields.each do |field| %>
+        <% current = person_field_current_value(person, field, rows) %>
+        <div class="col-12 col-md-6" id="<%= dom_id field %>">
+          <% if writable.include?(field) %>
+            <%= person_field_input(f, field, submitted.key?(field.key) ? submitted[field.key] : current) %>
+          <% else %>
+            <div class="mb-3">
+              <div class="form-label"><%= field.name %></div>
+              <div class="form-control-plaintext"><%= person_field_display(field, current) %></div>
+              <div class="form-text"><%= person_field_read_only_note(field) %></div>
+            </div>
+          <% end %>
+          <% notes = access_notes(field, person, current_user.person) %>
+          <% if notes.any? %>
+            <div class="form-text mt-n2 mb-3"><%= notes.join(" ") %></div>
+          <% end %>
+          <% updated_by = rows[field.id]&.updated_by %>
+          <% if updated_by && writable.include?(field) %>
+            <div class="form-text mt-n2 mb-3" title="Last updated by <%= updated_by.identifier_name %>"><%= i "clock-rotate-left" %> Last updated by <%= updated_by.identifier_name %></div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>
