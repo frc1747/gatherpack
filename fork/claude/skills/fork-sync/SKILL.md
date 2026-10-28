@@ -12,7 +12,7 @@ Work from `~/dev/gatherpack/platform/` for remotes and the manifest; rebase each
 ## Before you start
 
 ```bash
-git fetch upstream origin
+git fetch --multiple upstream origin
 git config rerere.enabled true
 gh run list -R GatherPack/gatherpack --branch main --event push --limit 3   # upstream CI red? see "Upstream is broken"
 gh pr list -R GatherPack/gatherpack --author @me --state open             # these branches are FROZEN

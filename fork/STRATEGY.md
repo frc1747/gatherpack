@@ -81,7 +81,7 @@ Every line we change in an upstream file is a line that can conflict forever. Ru
 
 ## Sync Procedure (weekly, and before every release)
 
-1. `git fetch upstream origin`
+1. `git fetch --multiple upstream origin`
 2. Fast-forward `main` to `upstream/main` and push. If it can't fast-forward, someone committed to `main`. Stop and report.
 3. Rebase `hbr/platform` onto `upstream/main`.
 4. For each branch in the manifest, in order, rebase onto its base (`upstream/main` or its declared dependency). Resolve conflicts *on the feature branch*, where the context is clearest, not later during integration. Run that branch's tests and RuboCop after each rebase. **Skip any branch behind an open upstream PR** (`gh pr list -R GatherPack/gatherpack --author @me --state open`): leave it on its old base and let the rebuild merge it as-is. Pushing a rebase updates the public PR with a force-push notice, which is noise for maintainers even when the code is unchanged. If such a branch starts to conflict in the rebuild, stop and ask before rebasing it.

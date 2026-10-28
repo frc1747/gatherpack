@@ -11,7 +11,7 @@ Read `gp-map` first for where things live and which seams exist. Authority: `for
 
 ```bash
 cd ~/dev/gatherpack/platform
-git fetch upstream origin
+git fetch --multiple upstream origin
 git worktree add -b feature/<name> ../feature-<name> upstream/main   # or the dependency branch
 ```
 
