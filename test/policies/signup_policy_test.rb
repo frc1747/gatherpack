@@ -5,6 +5,7 @@ class SignupPolicyTest < ActiveSupport::TestCase
   include SignupsWorld
 
   setup do
+    travel_to Time.zone.parse("2026-10-11 12:00")
     build_signups_world
     @sheet = create_world_sheet(others_relationship_type_ids: [ @parent_of.id ])
     @position = @sheet.signup_positions.create!(name: "Cashier")
