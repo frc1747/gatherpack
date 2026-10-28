@@ -1,19 +1,15 @@
 class UsersController < InternalController
   before_action :set_person
   before_action :set_user, only: %i[ edit update ]
+  before_action :build_user, only: %i[ new create ]
 
   def new
-    @user = authorize User.new(person: @person)
   end
 
+  # Always a new login: an existing User is never adopted by email, so a taken
+  # email fails the uniqueness validation instead.
   def create
-    existing_user = User.find_by(email: user_params[:email])
-    if existing_user && existing_user.person.nil?
-      @user = authorize existing_user
-      @user.assign_attributes(user_params)
-    else
-      @user = authorize User.new(user_params)
-    end
+    @user.assign_attributes(user_params)
 
     if @user.save
       @person.update(user: @user)
@@ -39,12 +35,25 @@ class UsersController < InternalController
   end
 
   private
+    # Finding the person only needs them to be visible; the login itself is
+    # authorized against UserPolicy.
     def set_person
-      @person = authorize policy_scope(Person).find(params[:person_id])
+      @person = authorize policy_scope(Person).find(params[:person_id]), :show?
     end
 
     def set_user
       @user = authorize @person.user
+    end
+
+    # A person has at most one login; replacing it is not something new/create
+    # does. Changing an existing login goes through edit/update.
+    def build_user
+      if @person.user
+        authorize User.new
+        redirect_to @person, notice: "This person already has a login.", status: :see_other
+      else
+        @user = authorize User.new(person: @person)
+      end
     end
 
     def user_params

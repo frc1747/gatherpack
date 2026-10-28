@@ -99,7 +99,7 @@
     <%= link_to "Edit Profile", edit_person_path(@person), class: "btn btn-warning" if policy(@person).update? %>
     <% if @person.user&.id %>
       <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" %>
-    <% else %>
+    <% elsif policy(User).create? %>
       <%= link_to "Create Email/Password", new_person_user_path(@person), class: "btn btn-primary" %>
     <% end %>
     <%= link_to "Delete", @person, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@person).destroy? %>
