@@ -33,7 +33,12 @@ class BudgetPeriodsController < InternalController
 
   # PATCH/PUT /budget_periods/1
   def update
-    if @budget_period.update(budget_period_params)
+    # set_budget_period checked it as stored; check it as it will be saved too, so
+    # it can't be moved somewhere the user doesn't manage.
+    @budget_period.assign_attributes(budget_period_params)
+    authorize @budget_period
+
+    if @budget_period.save
       redirect_to @budget_period, notice: "Budget period was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

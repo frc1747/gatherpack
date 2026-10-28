@@ -33,6 +33,12 @@ class BudgetsController < InternalController
 
   # PATCH/PUT /budgets/1
   def update
+    # set_budget checked it as stored; check it in its new period too, so it
+    # can't be moved somewhere the user doesn't manage. Only the period is
+    # assigned first: assigning ledger_tag_ids saves the taggings at once.
+    @budget.assign_attributes(budget_params.slice(:budget_period_id))
+    authorize @budget
+
     if @budget.update(budget_params)
       redirect_to @budget, notice: "Budget was successfully updated.", status: :see_other
     else

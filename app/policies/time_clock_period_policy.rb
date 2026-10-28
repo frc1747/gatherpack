@@ -9,12 +9,18 @@ class TimeClockPeriodPolicy < ApplicationPolicy
     end
   end
 
+  def new?
+    person.manager?
+  end
+
+  # Only admins may add punches to an "added by admin" period, so only they
+  # may set one up or change one.
   def create?
-    user.admin || person.manager?
+    user.admin? || (manages?(record.team) && !record.added_by_admin?)
   end
 
   def update?
-    user.admin || (record.team.nil? ? false : person.all_managed_teams.include?(record.team))
+    create?
   end
 
   def edit?

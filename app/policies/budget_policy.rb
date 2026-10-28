@@ -9,7 +9,15 @@ class BudgetPolicy < ApplicationPolicy
     end
   end
 
+  def new?
+    person.manager?
+  end
+
   def create?
-    person.user.admin || person.manager?
+    user.admin? || manages?(record.budget_period&.team)
+  end
+
+  def update?
+    create?
   end
 end
