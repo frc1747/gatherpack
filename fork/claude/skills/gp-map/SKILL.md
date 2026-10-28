@@ -19,14 +19,18 @@ Rails 8.1, Postgres (UUID PKs), Pundit, Devise + omniauth, PaperTrail in a **sep
 - **Badge/BadgeAssignment**: a team badge requires the person in `person.all_teams`. **Relationship** (parent/child Person + RelationshipType with `guardianship` none/minor/consented).
 - **Event/EventType/Checkin**, **TimeClockPeriod/TimeClockPunch** (`end_time nil` = clocked in).
 - Validations on Relationship, Checkin, TimeClockPunch need the `created_by` attr set (controllers do it; scripts must too).
+- **Audience levels** (`app/models/audience_levels.rb`): fixed permission levels relative to a subject person, used by person fields and check-in field read levels. `self_and_leaders` = the subject + their leaders (`all_managed_people`); `guardians` = guardians (via `wards`) + leaders; `family` adds the subject; `team` adds teammates. Hard-coded; relationships only matter through guardianship.
+- **Finance**: `Ledger` (per team; `balance_cents` = sum of finalized, non-failed top-level entries), `LedgerEntry` (`parent_id` splits, tags, receipts, links), `LedgerOwnership` (polymorphic owner). `LedgerPayment`/`LedgerTransfer` are ActiveModel form objects, not tables. `Budget` (in a team's `BudgetPeriod`) = entries carrying all its `LedgerTag`s within the period. No chart of accounts or double entry.
 - **Custom fields** (fork, person-fields): `PersonField*`; `person.readable_fields_for(viewer)`, `writable_fields_for`, `assign_field_values(values, acting:)`; `field_value`/`set_field_value` skip viewer checks.
 
 ## Authorization
 
-- Pundit. `ApplicationPolicy` defaults **every action to true**: a policy that forgets `update?`/`destroy?` is open. No global `verify_authorized`.
+- Pundit. `ApplicationPolicy` defaults **every action to true**: a policy that forgets `update?`/`destroy?` is open.
+- `InternalController` (`app/controllers/internal_controller.rb`, base of most controllers) requires a signed-in user and runs `verify_policy_scoped` after `index`, `verify_authorized` after every other action. Controllers that inherit `ApplicationController` directly (pages, relationships, calendar, search, settings, audit logs, theme, welcome, time kiosk, API) get neither check.
 - Controller pattern: `@x = authorize policy_scope(Model).find(params[:id])`; index uses `policy_scope(Model).ransack(params[:q])`.
 - `AdminPolicy`/`ArchitectPolicy` bases; `ReportPolicy`: run = admin, author = architect.
 - **Gotcha**: `EventPolicy::Scope` and `PagePolicy::Scope` use `team_id: ""` on a uuid column, which becomes `= NULL` and matches nothing. Non-admins never see team-less events. Scripts that create events must set `team_id`.
+- Columns: `db/schema.rb` (primary) and `db/versions_schema.rb`, e.g. `grep -A30 'create_table "events"' db/schema.rb`.
 - Ransack: models allowlist `ransackable_attributes`; associations default to `[]`.
 
 ## Executable content
@@ -67,7 +71,7 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 
 ## Views
 
-`layouts/application.html.erb` renders `_navbar` and `_sidebar` (the sidebar comes from the Features registry: sections People 10, Time 20, Finance 30, Communication 40, Content 50). Dashboard: `welcome#index` with `welcome/dashboard.html.erb`. Search-and-add UI: `shared/_add_panel`, `_add_candidate(s)`.
+`layouts/application.html.erb` renders `_navbar` and `_sidebar` (the sidebar comes from the Features registry: sections People 10, Time 20, Finance 30, Communication 40, Content 50). Dashboard: `welcome#index` with `welcome/dashboard.html.erb`. Flash alerts: `application_helper#flash_to_class` (`notice` → `alert-info`). Search-and-add UI: `shared/_add_panel`, `_add_candidate(s)`.
 
 ## Tests
 
