@@ -81,7 +81,8 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 - Two DBs per env (primary + `versions`). Rails reads `DATABASE_URL` and `VERSIONS_DATABASE_URL` from the env (the `<name>_DATABASE_URL` convention); the repo itself only sets `DATABASE_HOST/USERNAME/PASSWORD`.
 - `bin/rails db:test:prepare`, `bin/rails test [file[:line]]`, `bin/rails test:system` (headless Chrome), `bin/rubocop` (omakase), `bin/brakeman --no-pager`. Many system test files are empty stubs.
 - Fork tooling tests: `ruby test/fork/fork_changelog_test.rb`, `ruby test/fork/sample_data_test.rb` (no DB).
-- Use the `gp-test` agent to run anything long.
+- Use the `gp-test` agent to run anything long. It also drops the `_N` copies each parallel worker creates (Rails leaves one per worker, `parallelize(workers: :number_of_processors)`: 48 pairs per run on `desktop` without `PARALLEL_WORKERS`).
+- `gatherpack_development` (+ `_versions`) holds the Northwind sample data and is the target for manual testing. On `desktop` (`gp-test-pg`) both are marked `IS_TEMPLATE`, so `DROP DATABASE` is refused; leave them marked. Dumps: `~/dev/gatherpack-dev-data/northwind-desktop-<date>.dump`.
 
 ## Gotchas (collected)
 

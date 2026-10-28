@@ -19,7 +19,7 @@ export VERSIONS_DATABASE_URL=postgres://postgres:password@localhost:5432/gp_<nam
 export RAILS_ENV=test
 ```
 
-Never point these at `gatherpack_development` or any database without `_test` in its name. Never drop databases other than through `db:test:prepare`.
+Never point these at `gatherpack_development` or any database without `_test` in its name. `gatherpack_development` (+ `_versions`) is the Northwind sample data, kept as the target for manual testing and the source for `createdb -T` copies; it is marked as a template so Postgres refuses to drop it, and you must never unmark, drop or reset it. Drop no database except through `db:test:prepare` and the cleanup below.
 
 ## Running
 
@@ -28,6 +28,12 @@ Never point these at `gatherpack_development` or any database without `_test` in
 - System tests only when asked: `bin/rails test:system [paths]`.
 - Lint: `bin/rubocop [paths]`. Security: `bin/brakeman --no-pager -q`.
 - Fork tooling (platform worktree): `ruby test/fork/fork_changelog_test.rb`, `ruby test/fork/sample_data_test.rb`.
+- After every test run, pass or fail, drop the per-worker copies Rails parallel testing leaves behind (`gp_<name>_test_<n>` and `gp_<name>_test_versions_<n>`; they're rebuilt on the next run). Keep the base pair:
+
+```bash
+ruby -rpg -e 'n = ARGV.fetch(0); c = PG.connect(host: "localhost", user: "postgres", password: "password", dbname: "postgres"); c.exec_params("SELECT datname FROM pg_database WHERE datname ~ $1 AND NOT datistemplate", ["^gp_#{n}_test(_versions)?_[0-9]+$"]).each { |r| c.exec("DROP DATABASE IF EXISTS #{c.quote_ident(r["datname"])}") }' <name>
+```
+
 - Redirect full output to a file in `/tmp/gp-test-<name>-<timestamp>.log` and read from it, so you can quote precisely.
 
 ## Report

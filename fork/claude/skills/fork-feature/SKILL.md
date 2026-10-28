@@ -44,7 +44,7 @@ Dependent branches take a schema fix by merge, not rebase.
 
 ## Tests
 
-Delegate runs to the `gp-test` agent (it knows the DB conventions and returns only failures). Each branch has its own test DB, `gp_<name>_test` (+ `_versions`, parallel workers add `_N`); keep them. Match upstream's Minitest and RuboCop style. Never weaken a test to get green.
+Delegate runs to the `gp-test` agent (it knows the DB conventions and returns only failures). Each branch has its own test DB, `gp_<name>_test` (+ `_versions`); keep that pair. Parallel workers add `_N` copies, which `gp-test` drops after each run; if you run tests yourself, always set `PARALLEL_WORKERS` (4 or less) and drop the copies the same way (command in `fork/claude/agents/gp-test.md`). Never touch `gatherpack_development`: it's the Northwind sample data and the target for manual testing. Match upstream's Minitest and RuboCop style. Never weaken a test to get green.
 
 ## Joining the manifest (all on hbr/platform)
 
