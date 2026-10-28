@@ -240,23 +240,6 @@ feature/test-hosts:
     pass. Nothing changes for anyone using GatherPack.
   audience: Developers (tests only)
 
-feature/ransack-test-style:
-  title: Style fixes in the search tests
-  emoji: "🧹"
-  description: >-
-    Tidies formatting in a test file from upstream's latest update, so the
-    build's style check passes. Nothing changes for anyone using GatherPack.
-  audience: Developers (tests only)
-
-feature/lockfile-ffi-platforms:
-  title: Images build for every platform again
-  emoji: "📦"
-  description: >-
-    Fixes the gem list from upstream's latest update so the app image builds
-    on ARM (and other platforms) as well as Intel. Nothing changes for
-    anyone using GatherPack.
-  audience: Developers (build only)
-
 feature/ransack-associations-default:
   title: Automation and setup lists open again
   emoji: "🔎"

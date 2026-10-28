@@ -18,6 +18,4 @@ feature/profile-tabs
 feature/commitments-profile-tab
 feature/signups-widget
 feature/test-hosts
-feature/ransack-test-style
-feature/lockfile-ffi-platforms
 feature/ransack-associations-default
