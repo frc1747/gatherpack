@@ -18,6 +18,11 @@ on:
       mode:
         type: string
         default: ref
+      # upstream mode only: origin branches merged after upstream/main,
+      # separated by spaces (upstream fixes the branch needs to pass).
+      also_merge:
+        type: string
+        default: ""
 
 jobs:
   check:
@@ -63,6 +68,15 @@ jobs:
       - name: Merge latest upstream/main
         if: inputs.mode == 'upstream'
         run: git merge --no-edit upstream/main
+
+      - name: Merge upstream fix branches
+        if: inputs.mode == 'upstream' && inputs.also_merge != ''
+        env:
+          ALSO_MERGE: ${{ inputs.also_merge }}
+        run: |
+          for branch in ${ALSO_MERGE}; do
+            git merge --no-edit "origin/${branch}"
+          done
 
       - name: Rebuild hbr/integration
         if: inputs.mode == 'rebuild'
