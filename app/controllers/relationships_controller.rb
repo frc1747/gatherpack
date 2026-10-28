@@ -2,7 +2,7 @@ class RelationshipsController < ApplicationController
   before_action :set_person
 
   def new
-    @relationship = Relationship.new
+    @relationship = authorize Relationship.new(node_occupant: @person)
   end
 
   def create
@@ -10,6 +10,9 @@ class RelationshipsController < ApplicationController
     @relationship.created_by = current_user.person
     @relationship.node_occupant = @person
     @relationship.reify
+    # The other side comes from the form by id, so like the person in the
+    # URL it must be someone the user can see.
+    [ @relationship.parent_id, @relationship.child_id ].compact.each { |id| policy_scope(Person).find(id) }
     if @relationship.parent.present? && @relationship.child.present?
       authorize @relationship
       if @relationship.save
@@ -41,7 +44,7 @@ class RelationshipsController < ApplicationController
 
   private
   def set_person
-    @person = Person.find(params[:person_id])
+    @person = policy_scope(Person).find(params[:person_id])
   end
 
   def relationship_params
