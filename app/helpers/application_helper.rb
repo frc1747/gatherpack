@@ -62,7 +62,7 @@ module ApplicationHelper
       time_clock_punch_as_badge(obj, **opts)
     else
       raise "Tried to display a #{obj.class} as a badge but couldn't!"
-    end.html_safe
+    end
   end
 
   def flash_to_class(type)

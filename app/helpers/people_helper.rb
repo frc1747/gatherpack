@@ -42,18 +42,19 @@ module PeopleHelper
 
   def person_time_clock_as_badge(person, hours, time_clock_period = nil)
     if time_clock_period
-      content = if time_clock_period.available_hours > 0
-        "#{hours} / #{pluralize(time_clock_period&.available_hours, "hour")} #{i 'hourglass-half'} #{time_clock_period.identifier_name}"
+      total = if time_clock_period.available_hours > 0
+        "#{hours} / #{pluralize(time_clock_period&.available_hours, "hour")}"
       else
-        "#{pluralize(hours, "hour")} #{i 'hourglass-half'} #{time_clock_period.identifier_name}"
+        pluralize(hours, "hour")
       end
+      content = safe_join([ total, i("hourglass-half"), time_clock_period.identifier_name ], " ")
       link_to time_clock_period_path(time_clock_period, q: { person_id_eq: person.id }), class: "undecorated", "data-turbo": false do
-        tag.span content.html_safe, class: "badge text-bg-primary"
+        tag.span content, class: "badge text-bg-primary"
       end
     else
       content = pluralize(hours, "unallocated hour")
       link_to time_clock_punches_path(q: { person_id_eq: person.id }), class: "undecorated", "data-turbo": false do
-        tag.span content.html_safe, class: "badge text-bg-primary"
+        tag.span content, class: "badge text-bg-primary"
       end
     end
   end
