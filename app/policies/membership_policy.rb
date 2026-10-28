@@ -21,7 +21,9 @@ class MembershipPolicy < ApplicationPolicy
     record.person == person && !record.manager? && record.team&.has_account?
   end
 
+  # Managers change memberships on the teams they manage, but only their own
+  # and those of people they manage, so never an admin's or a superior's.
   def update?
-    user.admin || record.team.manager?(user.person)
+    user.admin || (manages?(record.team) && (record.person == person || manages?(record.person)))
   end
 end
