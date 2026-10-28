@@ -98,7 +98,7 @@
     <%= link_to "Impersonate", impersonate_person_path(@person), data: { turbo_method: :post }, class: "btn btn-dark" if @person.user.present? && policy(@person).impersonate? %>
     <%= link_to "Edit Profile", edit_person_path(@person), class: "btn btn-warning" if policy(@person).update? %>
     <% if @person.user&.id %>
-      <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" %>
+      <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" if policy(@person.user).update? %>
     <% elsif policy(User).create? %>
       <%= link_to "Create Email/Password", new_person_user_path(@person), class: "btn btn-primary" %>
     <% end %>
