@@ -36,6 +36,25 @@ class UserPolicyTest < ActiveSupport::TestCase
     assert_not UserPolicy.new(member.user, architect.user).update?
   end
 
+  def test_update_by_a_manager
+    pack = Team.create!(name: "Pack", team_type: team_types(:one))
+    den = Team.create!(name: "Den", team_type: team_types(:one), parent: pack)
+    pack_leader = create_person("pack-leader@example.com")
+    Membership.create!(person: pack_leader, team: pack, manager: true)
+    den_leader = create_person("den-leader@example.com")
+    Membership.create!(person: den_leader, team: den, manager: true)
+    admin = create_person("admin@example.com", admin: true)
+    Membership.create!(person: admin, team: den)
+    member = create_person("member@example.com")
+    Membership.create!(person: member, team: den)
+
+    assert UserPolicy.new(den_leader.user, den_leader.user).update?
+    assert_not UserPolicy.new(den_leader.user, admin.user).update?
+    assert_not UserPolicy.new(den_leader.user, pack_leader.user).update?
+    assert_not UserPolicy.new(den_leader.user, member.user).update?
+    assert_not UserPolicy.new(pack_leader.user, den_leader.user).update?
+  end
+
   def test_destroy
   end
 

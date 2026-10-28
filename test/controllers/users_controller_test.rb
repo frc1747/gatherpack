@@ -177,6 +177,64 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", edit_person_user_path(architect), count: 1
   end
 
+  test "a manager can't change the login of an admin who is a member of their team" do
+    sign_in @leader.user
+
+    patch person_user_path(@admin), params: { user: new_login("leader-owned@example.com") }
+
+    @admin.user.reload
+    assert_equal "admin@example.com", @admin.user.email, "the manager changed the admin's email"
+    assert_not @admin.user.valid_password?("Hijacked123!"), "the manager set the admin's password"
+  end
+
+  test "a manager can't change the login of the manager of a parent team" do
+    pack = Team.create!(name: "Pack", team_type: team_types(:one))
+    @team.update!(parent: pack)
+    pack_leader = create_member("pack-leader@example.com", "Pat", "Pack")
+    Membership.find_by!(person: pack_leader).update!(team: pack, manager: true)
+    sign_in @leader.user
+
+    patch person_user_path(pack_leader), params: { user: new_login("leader-owned@example.com") }
+
+    assert_not pack_leader.user.reload.valid_password?("Hijacked123!"),
+      "the Den A manager set the password of the Pack manager above them"
+  end
+
+  # Only the person themselves or an admin changes a login, even for a member
+  # the manager does manage.
+  test "a manager can't change the login of a member they manage" do
+    sign_in @leader.user
+
+    get person_path(@member)
+    assert_select "a[href=?]", edit_person_user_path(@member), count: 0
+
+    patch person_user_path(@member), params: { user: new_login("leader-owned@example.com") }
+
+    @member.user.reload
+    assert_equal "member@example.com", @member.user.email
+    assert_not @member.user.valid_password?("Hijacked123!")
+  end
+
+  test "a member can change their own login with their old password" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: new_login("max@example.com").merge(old_password: "Password1!") }
+
+    assert_redirected_to person_path(@member)
+    @member.user.reload
+    assert_equal "max@example.com", @member.user.email
+    assert @member.user.valid_password?("Hijacked123!")
+  end
+
+  test "a member can't change their own password with a wrong old password" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: new_login("member@example.com").merge(old_password: "wrong") }
+
+    assert_response :unprocessable_entity
+    assert_not @member.user.reload.valid_password?("Hijacked123!")
+  end
+
   private
 
   def new_login(email)

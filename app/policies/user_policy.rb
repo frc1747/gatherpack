@@ -12,10 +12,12 @@ class UserPolicy < ApplicationPolicy
   end
 
   # An architect's login (email, password, flags) is changed only by
-  # architects, or whoever signs in as it could use their powers.
+  # architects, or whoever signs in as it could use their powers. Otherwise
+  # only the person themselves or an admin changes a login: a manager who
+  # could set someone's email or password could sign in as them.
   def update?
     return false if record&.architect? && !user&.architect?
-    record == user || user.admin? || (person.all_managed_teams & (record&.person&.all_teams || [])).any?
+    record == user || user.admin?
   end
 
   def destroy?
