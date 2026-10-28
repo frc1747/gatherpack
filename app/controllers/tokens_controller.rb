@@ -23,7 +23,10 @@ class TokensController < InternalController
 
   # POST /tokens
   def create
-    @token = authorize Token.new(token_params)
+    @token = authorize Token.new, :new?
+    return unless assign_token_params(:new)
+
+    authorize @token
 
     @other_token = Token.find_by(value: @token.value)
     if @other_token
@@ -40,7 +43,13 @@ class TokensController < InternalController
 
   # PATCH/PUT /tokens/1
   def update
-    if @token.update(token_params)
+    # Authorize again once the new holder is in place: set_token only checked
+    # the card as it was.
+    return unless assign_token_params(:edit)
+
+    authorize @token
+
+    if @token.save
       redirect_to @token, notice: "Token was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -57,6 +66,17 @@ class TokensController < InternalController
     # Use callbacks to share common setup or constraints between actions.
     def set_token
       @token = authorize policy_scope(Token).find(params[:id])
+    end
+
+    # Assigns the form's values to @token, or renders the form again when the
+    # holder's id doesn't match any record.
+    def assign_token_params(template)
+      @token.assign_attributes(token_params)
+      true
+    rescue ArgumentError, NeatIds::Error
+      @token.errors.add(:tokenable_nid, "doesn't match anyone")
+      render template, status: :unprocessable_entity
+      false
     end
 
     # Only allow a list of trusted parameters through.
