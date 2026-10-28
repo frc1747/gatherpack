@@ -23,6 +23,77 @@ class LedgerEntryLinksControllerTest < ActionDispatch::IntegrationTest
     @robotics_ledger = Ledger.create!(name: "Robotics fund", team: @robotics)
     @robotics_reserve = Ledger.create!(name: "Robotics reserve", team: @robotics)
     @drama_ledger = Ledger.create!(name: "Drama fund", team: @drama)
+    @drama_travel = Ledger.create!(name: "Drama travel", team: @drama)
+  end
+
+  # --- index / show -------------------------------------------------------
+
+  test "a plain member can't open a link between another team's entries" do
+    link = transfer(@drama_ledger, @drama_travel)
+    sign_in @member_user
+
+    get ledger_entry_link_path(link)
+
+    assert_not_equal 200, response.status, "a plain member opened a link between two Drama ledger entries"
+    assert_response :not_found
+  end
+
+  test "a plain member can't open a link to another team's entry, in any format" do
+    link = transfer(@drama_ledger, @robotics_ledger)
+    sign_in @member_user
+
+    get ledger_entry_link_path(link)
+    assert_response :not_found
+
+    sign_in @member_user
+    get ledger_entry_link_path(link, format: :json)
+    assert_response :not_found
+  end
+
+  test "a plain member can open a link between their team's entries" do
+    link = transfer(@robotics_ledger, @robotics_reserve)
+    sign_in @member_user
+
+    get ledger_entry_link_path(link)
+
+    assert_response :success
+    assert_select "a", text: "Delete", count: 0
+  end
+
+  test "the index only lists links whose entries the user may see" do
+    own = transfer(@robotics_ledger, @robotics_reserve)
+    shared = transfer(@drama_ledger, @robotics_ledger)
+    other = transfer(@drama_ledger, @drama_travel)
+    sign_in @member_user
+
+    get ledger_entry_links_path
+
+    assert_response :success
+    assert_select "##{ActionView::RecordIdentifier.dom_id(own)}"
+    assert_select "##{ActionView::RecordIdentifier.dom_id(shared)}", count: 0
+    assert_select "##{ActionView::RecordIdentifier.dom_id(other)}", count: 0
+  end
+
+  test "an admin can open any link" do
+    link = transfer(@drama_ledger, @drama_travel)
+    sign_in @admin_user
+
+    get ledger_entry_link_path(link)
+
+    assert_response :success
+    assert_select "a", text: "Delete"
+  end
+
+  # --- destroy ------------------------------------------------------------
+
+  test "a plain member can't unlink another team's transfer" do
+    link = transfer(@drama_ledger, @drama_travel)
+    sign_in @member_user
+
+    delete ledger_entry_link_path(link)
+
+    assert LedgerEntryLink.exists?(link.id), "a plain member deleted the link pairing a Drama transfer's two entries"
+    assert_response :not_found
   end
 
   test "a plain member can't unlink a transfer" do
@@ -32,7 +103,7 @@ class LedgerEntryLinksControllerTest < ActionDispatch::IntegrationTest
     delete ledger_entry_link_path(link)
 
     assert LedgerEntryLink.exists?(link.id), "a plain member unlinked a transfer"
-    assert_redirected_to root_path
+    assert_response :not_found
   end
 
   test "a manager of one side can't unlink a transfer" do
@@ -42,7 +113,22 @@ class LedgerEntryLinksControllerTest < ActionDispatch::IntegrationTest
     delete ledger_entry_link_path(link)
 
     assert LedgerEntryLink.exists?(link.id), "manager of Robotics unlinked a transfer with Drama"
-    assert_redirected_to root_path
+    assert_response :not_found
+  end
+
+  test "a manager of only a parent team can't reach a link between its sub-teams' entries" do
+    org = Team.create!(name: "Org", team_type: team_types(:one))
+    @robotics.update!(parent: org)
+    @drama.update!(parent: org)
+    org_manager_user = User.create!(email: "org@example.com", password: "Password1!")
+    Membership.create!(person: Person.create!(user: org_manager_user, first_name: "Olga", last_name: "Org"), team: org, manager: true)
+    link = transfer(@drama_ledger, @robotics_ledger)
+    sign_in org_manager_user
+
+    delete ledger_entry_link_path(link)
+
+    assert_response :not_found
+    assert LedgerEntryLink.exists?(link.id)
   end
 
   test "a manager of both sides can unlink a transfer" do
