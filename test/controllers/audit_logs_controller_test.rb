@@ -2,6 +2,7 @@ require "test_helper"
 
 class AuditLogsControllerTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
+  include ActionView::RecordIdentifier
 
   setup do
     host! "localhost"
@@ -139,6 +140,61 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
     sign_in @architect
     get audit_log_path(hook_version)
     assert_select "a[href=?]", revert_audit_log_path(hook_version), count: 1
+  end
+
+  test "an admin who isn't an architect can't read a gateway's audit entry" do
+    gateway = as(@architect) { Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_test_secret", public_key: "pk_test_x") }
+
+    sign_in @admin
+    get gateway_path(gateway)
+    assert_response :redirect, "the gateway page itself should be refused"
+
+    get audit_log_path(last_version(gateway, "create"))
+    assert_not response.body.include?("sk_test_secret"),
+      "a non-architect admin read the Stripe secret key in the audit log although the gateway page refuses them"
+    assert_response :redirect
+  end
+
+  test "the audit log list leaves out gateway entries for admins who aren't architects" do
+    gateway = as(@architect) { Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_test_secret", public_key: "pk_test_x") }
+    gateway_version = last_version(gateway, "create")
+    team = as(@admin) { Team.create!(name: "Den A", team_type: team_types(:one)) }
+    team_version = last_version(team, "create")
+
+    sign_in @admin
+    get audit_logs_path
+    assert_response :success
+    assert_select "##{dom_id(gateway_version)}", count: 0
+    assert_select "##{dom_id(team_version)}", count: 1
+
+    get audit_logs_path, params: { q: { item_type_eq: "Gateway" } }
+    assert_select "##{dom_id(gateway_version)}", count: 0
+
+    get audit_logs_path, params: { q: { object_changes_cont: "sk_test_secret" } }
+    assert_select "##{dom_id(gateway_version)}", count: 0
+  end
+
+  test "an architect can read a gateway's audit entry" do
+    gateway = as(@architect) { Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_test_secret", public_key: "pk_test_x") }
+    gateway_version = last_version(gateway, "create")
+
+    sign_in @architect
+    get audit_log_path(gateway_version)
+    assert_response :success
+    assert_includes response.body, "sk_test_secret"
+
+    get audit_logs_path
+    assert_select "##{dom_id(gateway_version)}", count: 1
+  end
+
+  test "an admin can read an ordinary audit entry" do
+    team = as(@admin) { Team.create!(name: "Den A", team_type: team_types(:one)) }
+
+    sign_in @admin
+    get audit_log_path(last_version(team, "create"))
+
+    assert_response :success
+    assert_includes response.body, "Den A"
   end
 
   private

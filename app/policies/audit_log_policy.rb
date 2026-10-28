@@ -1,4 +1,21 @@
 class AuditLogPolicy < AdminPolicy
+  # An entry records the item's attributes, so entries for a model only
+  # architects may see (its policy is an ArchitectPolicy: gateways, whose
+  # configuration holds secrets) are shown only to architects.
+  ARCHITECT_ONLY_ITEM_TYPES = %w[ Gateway ].freeze
+
+  class Scope < AdminPolicy::Scope
+    def resolve
+      return scope if user&.architect
+
+      scope.where.not(item_type: ARCHITECT_ONLY_ITEM_TYPES)
+    end
+  end
+
+  def show?
+    super && (user.architect || ARCHITECT_ONLY_ITEM_TYPES.exclude?(record.item_type))
+  end
+
   # Reverting writes the item back, so it takes the rights to make that change
   # directly: the item's own policy has to allow changing the record as it is
   # now (or creating it again, if it's gone) and as it will be. A dynamic
