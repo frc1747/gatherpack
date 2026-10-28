@@ -51,4 +51,28 @@ class BudgetPolicyTest < ActiveSupport::TestCase
     assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @robotics_period)).update?
     assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @robotics_period)).destroy?
   end
+
+  test "admins and members of the budget period's team may see a budget" do
+    robotics_budget = Budget.new(budget_period: @robotics_period)
+
+    assert BudgetPolicy.new(@admin_user, Budget.new(budget_period: @drama_period)).show?
+    assert BudgetPolicy.new(@manager_user, robotics_budget).show?
+    assert BudgetPolicy.new(@member_user, robotics_budget).show?
+    assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @drama_period)).show?
+  end
+
+  test "show? agrees with the scope" do
+    budgets = [ @robotics_period, @robotics_jr_period, @drama_period ].map do |period|
+      period.update!(starts_at: 1.month.ago, ends_at: 1.month.from_now)
+      Budget.create!(budget_period: period, amount: 100)
+    end
+
+    [ @admin_user, @manager_user, @member_user ].each do |user|
+      visible = BudgetPolicy::Scope.new(user, Budget).resolve.where(id: budgets).to_a
+      budgets.each do |budget|
+        assert_equal visible.include?(budget), BudgetPolicy.new(user, budget).show?,
+          "scope and show? disagree for #{user.email} on #{budget.budget_period.name}"
+      end
+    end
+  end
 end

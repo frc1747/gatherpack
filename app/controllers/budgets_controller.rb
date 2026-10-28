@@ -9,6 +9,9 @@ class BudgetsController < InternalController
 
   # GET /budgets/1
   def show
+    # The budget only counts its own team's entries, which everyone who may
+    # see it may open; list them through the scope anyway.
+    @ledger_entries = @budget.ledger_entries.where(id: policy_scope(LedgerEntry))
   end
 
   # GET /budgets/new
