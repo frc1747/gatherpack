@@ -1,6 +1,18 @@
 module ApplicationHelper
   DEFAULT_EVENT_COLOR = "#3788d8"
 
+  # Redcarpet copies a fenced code block's info string into the class
+  # attribute as is, which would let authors apply any CSS class on the page.
+  # Keep only the first word ("ruby", or ".ruby" in {.ruby}), as a language-
+  # class.
+  class MarkdownRenderer < Redcarpet::Render::HTML
+    def block_code(code, language)
+      language = language.to_s.split.first&.delete_prefix(".")
+      klass = %( class="language-#{ERB::Util.h(language)}") if language&.match?(/\A[\w+#.-]+\z/)
+      "<pre><code#{klass}>#{ERB::Util.h(code)}</code></pre>\n"
+    end
+  end
+
   def contrasting_color(color, dark: "#000", light: "#fff")
     Color::RGB.by_hex(color.to_s).brightness > 0.5 ? dark : light
   rescue ArgumentError
@@ -97,8 +109,12 @@ module ApplicationHelper
     end
   end
 
+  # Renders member-written Markdown. Raw HTML in the source is dropped, and
+  # Rails' sanitizer then removes links and images with unsafe protocols
+  # (javascript:, vbscript:, data:text/html and the like).
   def md(content)
-    md = Redcarpet::Markdown.new(Redcarpet::Render::HTML, autolink: true, no_intra_emphasis: true, fenced_code_blocks: true, lax_spacing: true)
-    md.render(content || "").html_safe
+    renderer = MarkdownRenderer.new(filter_html: true)
+    md = Redcarpet::Markdown.new(renderer, autolink: true, no_intra_emphasis: true, fenced_code_blocks: true, lax_spacing: true)
+    sanitize(md.render(content || ""))
   end
 end

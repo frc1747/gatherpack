@@ -45,6 +45,18 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
       "the deleted person's login re-attached itself to a new person and opened /audit_logs (#{response.status})"
   end
 
+  test "a member's bio can't put script on the profile page" do
+    @member.update!(bio: "Hi!\n\n<img src=x onerror=\"alert(1)\">\n\n[site](javascript:alert(document.cookie))")
+
+    sign_in @admin.user
+    get person_path(@member)
+
+    assert_response :success
+    assert_includes response.body, "<p>Hi!</p>"
+    assert_not response.body.match?(/<img[^>]*onerror=/), "the bio renders a live onerror handler"
+    assert_not response.body.match?(/href="javascript:/), "the bio renders a javascript: link"
+  end
+
   private
 
   def create_person(email, first, last, admin: false)
