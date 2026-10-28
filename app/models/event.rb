@@ -23,6 +23,7 @@ class Event < ApplicationRecord
   end
 
   validate :valid_times
+  validate :time_clock_period_in_team, if: -> { time_clock_period_id_changed? || team_id_changed? }
 
   def complete?
     start_time.present? && end_time.present?
@@ -46,6 +47,22 @@ class Event < ApplicationRecord
     if start_time? && end_time? then
       errors.add(:end_time, "cannot be before start time!") if end_time.before?(start_time)
     end
+  end
+
+  # A period's hours count the events linked to it, so an event may only count
+  # toward a period of its own team or a team above it. A period with no team
+  # is open to every event.
+  def time_clock_period_in_team
+    if time_clock_period_id.present? && time_clock_period.nil?
+      errors.add(:time_clock_period_id, "doesn't exist")
+      return
+    end
+
+    period_team = time_clock_period&.team
+    return if period_team.nil?
+    return if team && (team == period_team || team.all_ancestor_ids.include?(period_team.id))
+
+    errors.add(:time_clock_period_id, "must belong to the event's team or a team above it")
   end
 
   def update_checkins
