@@ -55,6 +55,7 @@ class PeopleSearchTest < ActionDispatch::IntegrationTest
   end
 
   test "a member can't learn a card value from a team's roster" do
+    Membership.create!(person: @student, team: @pack)
     sign_in @student.user
 
     assert_same_people team_memberships_path(@pack), "#people_grid",
@@ -91,6 +92,7 @@ class PeopleSearchTest < ActionDispatch::IntegrationTest
 
   test "a member finds people by name" do
     event = create_event_with(@classmate)
+    Membership.create!(person: @student, team: @pack)
     sign_in @student.user
 
     get people_path, params: { q: { display_name_i_cont: "cora" } }

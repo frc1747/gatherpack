@@ -175,6 +175,78 @@ class MembershipsControllerTest < ActionDispatch::IntegrationTest
     assert Membership.exists?(person: @scout, team: open_team, manager: false)
   end
 
+  test "an outsider can't list the roster of a team that requires approval" do
+    build_pack
+    @den_a.update!(join_permission: :requires_approval)
+    outsider = create_member("outsider", @other_org)
+    sign_in outsider.user
+
+    get team_memberships_path(@den_a)
+
+    assert_redirected_to root_path
+    assert_select "#people_grid", count: 0
+  end
+
+  test "a team's other pages offer the Members tab only to those who may list the roster" do
+    build_pack
+    @den_a.update!(join_permission: :requires_approval)
+    outsider = create_member("outsider", @other_org)
+
+    sign_in outsider.user
+    get events_team_path(@den_a)
+    assert_response :success
+    assert_select "a[href='#{team_memberships_path(@den_a)}']", count: 0
+
+    sign_in @scout.user
+    get events_team_path(@den_a)
+    assert_select "a[href='#{team_memberships_path(@den_a)}']", text: "Members"
+  end
+
+  test "an outsider can't list the roster of a team anyone may join" do
+    build_pack
+    @den_a.update!(join_permission: :has_account)
+    outsider = create_member("outsider", @other_org)
+    sign_in outsider.user
+
+    get team_memberships_path(@den_a)
+
+    assert_redirected_to root_path
+  end
+
+  test "a member of a sub-team can't list the roster of the team above it" do
+    build_pack
+    sign_in @scout.user
+
+    get team_memberships_path(@pack)
+
+    assert_redirected_to root_path
+  end
+
+  test "members, managers, managers of a parent team and admins list the roster" do
+    build_pack
+    @den_a.update!(join_permission: :requires_approval)
+    admin = create_member("admin", @other_org, admin: true)
+
+    [ @scout, @den_leader, @pack_leader, admin ].each do |viewer|
+      sign_in viewer.user
+
+      get team_memberships_path(@den_a)
+
+      assert_response :success, "#{viewer.first_name} couldn't list the roster"
+      assert_select "#people_grid", text: /Scout Test/
+    end
+  end
+
+  test "an outsider can't list the teams of someone they can't see" do
+    build_pack
+    outsider = create_member("outsider", @other_org)
+    sign_in outsider.user
+
+    get person_memberships_path(@scout)
+
+    assert_response :not_found
+  end
+
   private
 
   #   Org > Pack (@pack_leader) > Den A (@den_leader, @scout)

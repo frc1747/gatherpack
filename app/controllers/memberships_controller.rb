@@ -6,6 +6,9 @@ class MembershipsController < InternalController
   def index
     @q = false
     if @team
+      # The roster is part of the full team page, which teams#show gives only
+      # to members and managers; anyone else gets the public page.
+      authorize @team, :show_full?
       @q = policy_scope(Membership).where(team: @team).ransack(params[:q], auth_object: current_user)
       @memberships = @q.result(distinct: true).includes(:person, :team).order("person.last_name" => "desc", "team.name" => "asc").page(params[:page])
 
