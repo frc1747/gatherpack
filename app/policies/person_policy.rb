@@ -25,8 +25,10 @@ class PersonPolicy < ApplicationPolicy
     user.admin?
   end
 
+  # Managers edit the people they manage, so not an admin or architect, nor
+  # someone who manages a team above them.
   def update?
-    record == person || user.admin? || (person.all_managed_teams & record.all_teams).any?
+    record == person || user.admin? || manages?(record)
   end
 
   def destroy?

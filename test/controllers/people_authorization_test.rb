@@ -142,6 +142,59 @@ class PeopleAuthorizationTest < ActionDispatch::IntegrationTest
       "manager re-linked a member's user account"
   end
 
+  test "a sub-team manager cannot edit the profile of the parent team's manager" do
+    pack = Team.create!(name: "Pack", team_type: team_types(:one))
+    @team.update!(parent: pack)
+    den_leader = create_member("den-leader@example.com", "Dana", "Leader", manager: true)
+    pack_leader = create_member("pack-leader@example.com", "PackLeader", "Leader", manager: false)
+    Membership.find_by!(person: pack_leader).update!(team: pack, manager: true)
+    sign_in den_leader.user
+
+    patch person_path(pack_leader), params: { person: { first_name: "Renamed", bio: "set by a den leader" } }
+
+    assert_equal "PackLeader", pack_leader.reload.first_name, "the Den A manager edited the profile of the Pack manager above them"
+    get person_path(pack_leader)
+    assert_select "a[href=?]", edit_person_path(pack_leader), count: 0
+  end
+
+  test "a manager cannot edit the profile of an admin on their team" do
+    manager = create_member("mgr@example.com", "Mary", "Leader", manager: true)
+    admin = create_member("admin@example.com", "Ada", "Admin", manager: false)
+    admin.user.update!(admin: true)
+    sign_in manager.user
+
+    patch person_path(admin), params: { person: { first_name: "Renamed" } }
+
+    assert_equal "Ada", admin.reload.first_name
+  end
+
+  test "a manager can edit the profiles of members of their team and the teams below it" do
+    manager = create_member("mgr@example.com", "Mary", "Leader", manager: true)
+    patrol = Team.create!(name: "Patrol", team_type: team_types(:one), parent: @team)
+    scout = create_member("scout@example.com", "Sam", "Scout", manager: false)
+    Membership.find_by!(person: scout).update!(team: patrol)
+    sign_in manager.user
+
+    get person_path(@victim)
+    assert_select "a[href=?]", edit_person_path(@victim), count: 1
+
+    patch person_path(@victim), params: { person: { first_name: "Sal" } }
+    patch person_path(scout), params: { person: { first_name: "Sammy" } }
+
+    assert_equal "Sal", @victim.reload.first_name
+    assert_equal "Sammy", scout.reload.first_name
+  end
+
+  test "co-managers of a team can edit each other's profiles" do
+    manager = create_member("mgr@example.com", "Mary", "Leader", manager: true)
+    co_manager = create_member("co-mgr@example.com", "Cody", "Leader", manager: true)
+    sign_in manager.user
+
+    patch person_path(co_manager), params: { person: { first_name: "Coda" } }
+
+    assert_equal "Coda", co_manager.reload.first_name
+  end
+
   private
 
   def create_member(email, first, last, manager:)
