@@ -2,14 +2,12 @@ import { Controller } from "@hotwired/stimulus"
 
 // Drag-and-drop arranging of check-in field responses on events/arrange.
 export default class extends Controller {
-  static values = { fieldUpdateUrl: String, renameUrl: String, fieldId: String }
+  static values = { fieldUpdateUrl: String }
 
   connect() {
-    this.renamePendingEncoded = null;
     this.dragstartHandler = this.dragstartHandler.bind(this);
     this.dragoverHandler = this.dragoverHandler.bind(this);
     this.dropHandler = this.dropHandler.bind(this);
-    this.renameSubmitHandler = this.renameSubmitHandler.bind(this);
 
     const element = document.querySelectorAll(".arranging-badge");
     element.forEach( (e) => { e.addEventListener("dragstart", this.dragstartHandler) });
@@ -18,15 +16,6 @@ export default class extends Controller {
 
     const addNewField = document.getElementById("addNewField");
     if (addNewField) addNewField.addEventListener("click", () => this.addNewFieldHandler());
-
-    this.renameModal = new bootstrap.Modal(document.getElementById("renameModal"));
-
-    document.getElementById("renameSave").addEventListener("click", this.renameSubmitHandler);
-    document.getElementById("renameInput").addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") this.renameSubmitHandler();
-    });
-
-    this.bindRenameButtons();
   }
 
   dragstartHandler(ev) {
@@ -44,9 +33,11 @@ export default class extends Controller {
     const draggedElement = document.getElementById(data);
     const sourceContainer = draggedElement.parentElement;
     const sourceContainerName = sourceContainer.dataset.arrangingContainer;
-    const targetContainerName = ev.target.dataset.arrangingContainer;
+    // The drop may land on a badge inside the container; the listener is on the container itself.
+    const targetContainer = ev.currentTarget;
+    const targetContainerName = targetContainer.dataset.arrangingContainer;
 
-    ev.target.appendChild(draggedElement);
+    targetContainer.appendChild(draggedElement);
 
     // Update counters
     const sourceCounter = document.querySelector(`[data-arranging-count="${sourceContainerName}"]`);
@@ -67,7 +58,8 @@ export default class extends Controller {
         "X-CSRF-Token": csrfToken,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ field_id: data, response: decodeURIComponent(ev.target.dataset.arrangingContainer) })
+      // The "unassigned" group has an empty key and holds nil responses.
+      body: JSON.stringify({ field_id: data, response: targetContainerName === "" ? null : decodeURIComponent(targetContainerName) })
     }).then(response => {
       if (!response.ok) { throw response; }
     }).catch(error => {
@@ -94,7 +86,6 @@ export default class extends Controller {
         </div>`;
     document.getElementById("responseContainer").insertAdjacentHTML("afterbegin", template);
     this.bindDropZones();
-    this.bindRenameButtons();
   }
 
   bindDropZones() {
@@ -102,69 +93,5 @@ export default class extends Controller {
     const zones = document.querySelectorAll(".arranging-container");
     zones.forEach( (e) => { e.addEventListener("drop", this.dropHandler) });
     zones.forEach( (e) => { e.addEventListener("dragover", this.dragoverHandler) });
-  }
-
-  bindRenameButtons() {
-    document.querySelectorAll(".rename-btn").forEach((btn) => {
-      if (btn.dataset.renameBound) return;
-      btn.dataset.renameBound = "1";
-      btn.addEventListener("click", () => {
-        this.renamePendingEncoded = btn.dataset.arrangingLabel;
-        document.getElementById("renameInput").value = btn.dataset.currentValue;
-        document.getElementById("renameError").classList.add("d-none");
-        this.renameModal.show();
-        setTimeout(() => document.getElementById("renameInput").select(), 300);
-      });
-    });
-  }
-
-  renameSubmitHandler() {
-    if (!this.renamePendingEncoded) return;
-    const oldEncoded = this.renamePendingEncoded;
-    const newVal = document.getElementById("renameInput").value.trim();
-    const newEncoded = encodeURIComponent(newVal);
-    const csrfToken = document.querySelector("[name='csrf-token']").content;
-    const saveBtn = document.getElementById("renameSave");
-    const errorEl = document.getElementById("renameError");
-
-    saveBtn.disabled = true;
-
-    fetch(this.renameUrlValue, {
-      method: "PATCH",
-      headers: {
-        "X-CSRF-Token": csrfToken,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        field_id: this.fieldIdValue || null,
-        old_response: decodeURIComponent(oldEncoded),
-        new_response: newVal
-      })
-    }).then((response) => {
-      if (!response.ok) { throw new Error(`Server error ${response.status}`); }
-
-      // Update label text & data attributes
-      const label = document.querySelector(`.arranging-label[data-arranging-label="${oldEncoded}"]`);
-      label.textContent = newVal || "unassigned";
-      label.dataset.arrangingLabel = newEncoded;
-
-      const counter = document.querySelector(`[data-arranging-count="${oldEncoded}"]`);
-      counter.dataset.arrangingCount = newEncoded;
-
-      const container = document.querySelector(`.arranging-container[data-arranging-container="${oldEncoded}"]`);
-      container.dataset.arrangingContainer = newEncoded;
-
-      const renameBtn = document.querySelector(`.rename-btn[data-arranging-label="${oldEncoded}"]`);
-      renameBtn.dataset.arrangingLabel = newEncoded;
-      renameBtn.dataset.currentValue = newVal;
-
-      this.renamePendingEncoded = null;
-      this.renameModal.hide();
-    }).catch((error) => {
-      errorEl.textContent = `Rename failed: ${error.message}`;
-      errorEl.classList.remove("d-none");
-    }).finally(() => {
-      saveBtn.disabled = false;
-    });
   }
 }

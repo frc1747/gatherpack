@@ -1,9 +1,6 @@
 <% breadcrumb :arrange_event, @event %>
 
-<div class="card" data-controller="arrange"
-  data-arrange-field-update-url-value="/events/<%= @event.id.to_json %>/field_update"
-  data-arrange-rename-url-value="/events/<%= @event.id.to_json %>/rename_response"
-  data-arrange-field-id-value="<%= params[:field_id] %>">
+<div class="card" data-controller="arrange" data-arrange-field-update-url-value="<%= field_update_event_path(@event) %>">
   <div class="card-header">
     <h1>Arranging <%= @event.identifier_name %></h1>
   </div>
