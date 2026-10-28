@@ -2,6 +2,13 @@ require "test_helper"
 
 class HookPolicyTest < ActiveSupport::TestCase
   def test_scope
+    hook = Hook.create!(name: "Sync roster", event: "people - update", code: "model")
+    admin = User.new(admin: true)
+    member = User.new
+
+    assert HookPolicy::Scope.new(admin, Hook).resolve.exists?(hook.id)
+    assert_not HookPolicy::Scope.new(member, Hook).resolve.exists?(hook.id)
+    assert_not HookPolicy::Scope.new(nil, Hook).resolve.exists?(hook.id)
   end
 
   def test_show
