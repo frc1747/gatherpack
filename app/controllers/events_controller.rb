@@ -82,7 +82,7 @@ class EventsController < InternalController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_event
-      @event = authorize Event.find(params[:id])
+      @event = authorize policy_scope(Event).find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.

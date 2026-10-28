@@ -72,6 +72,91 @@ class EventsControllerTest < ActionDispatch::IntegrationTest
     assert_equal period.id, @event.reload.time_clock_period_id
   end
 
+  # --- show ---------------------------------------------------------------
+
+  test "a member can't open another team's event or read its check-in notes" do
+    student = create_user("student", team: @team_a)
+    attendee = create_user("attendee-b", team: @team_b)
+    event = Event.create!(name: "B practice", start_time: 1.day.ago, event_type: event_types(:one), team: @team_b)
+    Checkin.create!(event: event, person: attendee.person, notes: "Sent home early")
+    sign_in student
+
+    get event_path(event)
+
+    assert_response :not_found
+  end
+
+  test "a member can't open another organization's event or see who checked in" do
+    other_org = Team.create!(name: "Other Org", team_type: team_types(:one))
+    outsider = create_user("outsider", team: other_org)
+    event = Event.create!(name: "Other kickoff", start_time: 1.day.ago, event_type: event_types(:one), team: other_org)
+    Checkin.create!(event: event, person: outsider.person, notes: "Outsider note")
+    sign_in create_user("student", team: @team_a)
+
+    get event_path(event)
+
+    assert_response :not_found
+  end
+
+  test "a member sees their team's check-ins but only their own check-in's notes" do
+    student = create_user("student", team: @team_a)
+    attendee = create_user("attendee", team: @team_a)
+    Checkin.create!(event: @event, person: attendee.person, notes: "Attendee note")
+    Checkin.create!(event: @event, person: student.person, notes: "Student note")
+    sign_in student
+
+    get event_path(@event)
+
+    assert_response :success
+    assert_includes response.body, attendee.person.display_name
+    assert_not_includes response.body, "Attendee note"
+    assert_includes response.body, "Student note"
+  end
+
+  test "a member can't read another member's check-in notes on the check-in page" do
+    attendee = create_user("attendee", team: @team_a)
+    checkin = Checkin.create!(event: @event, person: attendee.person, notes: "Attendee note")
+    sign_in create_user("student", team: @team_a)
+
+    get event_checkin_path(@event, checkin)
+
+    assert_response :success
+    assert_not_includes response.body, "Attendee note"
+  end
+
+  test "the event's managers and admins read check-in notes" do
+    attendee = create_user("attendee", team: @team_a)
+    checkin = Checkin.create!(event: @event, person: attendee.person, notes: "Attendee note")
+
+    [ @lead_a_user, @org_leader_user, @admin_user ].each do |user|
+      sign_in user
+      get event_path(@event)
+      assert_includes response.body, "Attendee note", "#{user.email} couldn't read the notes on the event page"
+      get event_checkin_path(@event, checkin)
+      assert_includes response.body, "Attendee note", "#{user.email} couldn't read the notes on the check-in page"
+    end
+  end
+
+  test "managers and admins still open the event's other pages" do
+    [ @lead_a_user, @admin_user ].each do |user|
+      sign_in user
+      get edit_event_path(@event)
+      assert_response :success
+      get arrange_event_path(@event)
+      assert_response :success
+      get print_event_path(@event)
+      assert_response :success
+    end
+  end
+
+  test "a manager of another team can't edit the event" do
+    sign_in create_user("lead-b", team: @team_b, manager: true)
+
+    get edit_event_path(@event)
+
+    assert_response :not_found
+  end
+
   private
 
   def create_user(name, team: nil, manager: false, admin: false)

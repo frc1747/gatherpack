@@ -9,9 +9,11 @@
       <div class="col-3">
         <img src="<%= get_avatar_url_512(@checkin.person.avatar) %>">
       </div>
-      <div class="col">
-        <%= render "notes", notes: @checkin.notes %>
-      </div>
+      <% if policy(@checkin).show_notes? %>
+        <div class="col">
+          <%= render "notes", notes: @checkin.notes %>
+        </div>
+      <% end %>
       <div class="col">
         <h2>Field Responses:</h2>
         <% @checkin.checkin_field_responses.each do |response| %>
