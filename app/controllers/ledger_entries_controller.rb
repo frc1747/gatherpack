@@ -30,10 +30,11 @@ class LedgerEntriesController < InternalController
 
   # PATCH/PUT /ledger_entries/1
   def update
-    if @ledger_entry.update(ledger_entry_params)
-      @ledger_entry.linked_entries.each do |e|
-        e.update(ledger_entry_params.except(:remark))
-      end
+    updated = LedgerEntry.transaction do
+      @ledger_entry.update(ledger_entry_params) && @ledger_entry.mirror_amount_to_linked_entries
+    end
+
+    if updated
       redirect_to ledger_ledger_entry_path(@ledger, @ledger_entry), notice: "Ledger entry was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

@@ -32,6 +32,15 @@ class LedgerEntry < ApplicationRecord
     LedgerEntry.where(id: (ledger_entry_links.flat_map(&:ledger_entries).map(&:id) - [ id ]))
   end
 
+  # The other half of a transfer carries the same amount with the opposite
+  # sign. Nothing else (approval, tags, receipts, splits) is shared.
+  def mirror_amount_to_linked_entries
+    return true unless saved_change_to_amount_cents?
+
+    linked_entries.each { |entry| entry.update!(amount_cents: -amount_cents) }
+    true
+  end
+
   def update_associated_entries
     links = ledger_entry_links
     entries = links.flat_map(&:ledger_entries)
