@@ -34,7 +34,7 @@ grep -v '^#' fork/features.txt                                            # mani
 ## Upstream is broken
 
 1. Reproduce each failure on plain `upstream/main` in a detached worktree, so upstream breakage is never mistaken for ours.
-2. Fix each on its own small branch from `upstream/main`, written for upstream. Append it to the manifest with a `fork/catalog.yml` entry, a `fork/sample_data/features/<name>.rb` file and a `FORK.md` row naming the upstream commit that broke it. Retire it when upstream fixes it.
+2. Fix each on its own small branch from `upstream/main`, written for upstream. Append it to the manifest with a `fork/catalog.yml` entry, a `fork/sample_data/features/<name>.rb` file and a `FORK.md` row naming the upstream commit that broke it. If feature branches fail alone without it, add it to `also_merge` in `.github/workflows/hbr-features.yml`. Retire it when upstream fixes it, and remove it from `also_merge` then.
 3. A feature branch passes when its only failures are the recorded upstream ones.
 4. Run the system tests locally (upstream CI has none). After taking upstream's `Gemfile.lock`, check every platform-specific gem still lists a gem for each `PLATFORMS` entry (the `ffi` arm64 break).
 5. Don't raise upstream's breakage upstream without asking.
