@@ -10,7 +10,7 @@
         <div class="card-body">
           <div class="toolbox">
             <% @shortcuts.each do |shortcut| %>
-              <%= tool_button shortcut.icon, shortcut.name, "btn", shortcut.target, style: "background-color: #{shortcut.color}; color: #{contrasting_color(shortcut.color)}" %>
+              <%= tool_button shortcut.icon, shortcut.name, "btn", shortcut.safe_target? ? shortcut.target : "#", style: "background-color: #{safe_color(shortcut.color)}; color: #{contrasting_color(shortcut.color)}" %>
             <% end %>
           </div>
         </div>

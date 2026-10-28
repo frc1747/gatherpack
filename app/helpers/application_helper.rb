@@ -26,10 +26,13 @@ module ApplicationHelper
   end
 
   def hex_color?(color)
-    Color::RGB.by_hex(color.to_s)
-    true
-  rescue ArgumentError
-    false
+    color.to_s.match?(/\A#\h{3}(\h{3})?\z/)
+  end
+
+  # Returns the color if it's safe to put in a style attribute (a hex color
+  # or a CSS color name), otherwise the fallback.
+  def safe_color(color, fallback = nil)
+    hex_color?(color) || color.to_s.match?(/\A[a-z]+\z/i) ? color : fallback
   end
 
   def as_badge(obj, **opts)

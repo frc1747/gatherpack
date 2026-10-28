@@ -37,6 +37,6 @@ module LedgersHelper
 
   def ledger_tag_as_badge(ltag, **opts)
     content = i("stamp") + " " + ltag.identifier_name
-    tag.span content, class: [ "badge" ], style: "background-color: #{ltag.color}; color: #{contrasting_color(ltag.color)}"
+    tag.span content, class: [ "badge" ], style: "background-color: #{safe_color(ltag.color)}; color: #{contrasting_color(ltag.color)}"
   end
 end

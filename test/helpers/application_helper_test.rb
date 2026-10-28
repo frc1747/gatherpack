@@ -106,4 +106,22 @@ class ApplicationHelperTest < ActionView::TestCase
   test "md treats nil as empty" do
     assert_equal "", md(nil)
   end
+
+  test "hex_color? only accepts a whole hex color" do
+    [ "#fff", "#FFFFFF", "#3788d8" ].each { |color| assert hex_color?(color), "for #{color.inspect}" }
+    [ nil, "", "fff", "red", "#ffff", "#fff;position:fixed", "#ff0000 ", "#ff0000\n;x" ].each do |color|
+      assert_not hex_color?(color), "for #{color.inspect}"
+    end
+  end
+
+  test "safe_color keeps hex colors and CSS color names" do
+    [ "#fff", "#3788d8", "blue", "RebeccaPurple" ].each { |color| assert_equal color, safe_color(color) }
+  end
+
+  test "safe_color falls back for anything that could carry other CSS" do
+    [ nil, "", "#ff0000;position:fixed;inset:0", "red;position:fixed", "url(https://evil.example)", "blue " ].each do |color|
+      assert_nil safe_color(color), "for #{color.inspect}"
+      assert_equal "#0dcaf0", safe_color(color, "#0dcaf0"), "for #{color.inspect}"
+    end
+  end
 end
