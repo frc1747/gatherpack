@@ -16,6 +16,7 @@ class Person < ApplicationRecord
   has_many :time_clock_punches, dependent: :destroy
   has_many :calendar_notes, as: :noteable
   before_save :check_display_name
+  after_destroy :destroy_unshared_login
   accepts_nested_attributes_for :user
   has_one_attached :avatar
   attr_accessor :email
@@ -166,5 +167,10 @@ class Person < ApplicationRecord
 
   def check_display_name
     self.display_name = first_name + " " + last_name if display_name.blank? && !first_name.blank? && !last_name.blank?
+  end
+
+  # A person's login goes with them, unless another person still uses it.
+  def destroy_unshared_login
+    user.destroy! if user && !Person.where(user_id: user_id).exists?
   end
 end
