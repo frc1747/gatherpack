@@ -29,7 +29,7 @@ class OauthApplicationPolicy < ApplicationPolicy
 
   class Scope < ApplicationPolicy::Scope
     def resolve
-      scope.all
+      user.admin? ? scope.all : scope.none
     end
   end
 end

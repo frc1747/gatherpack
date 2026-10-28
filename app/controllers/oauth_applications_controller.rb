@@ -2,6 +2,7 @@ class OauthApplicationsController < InternalController
   before_action :set_oauth_application, only: %i[show edit update destroy]
 
   def index
+    authorize OauthApplication
     @q = policy_scope(OauthApplication).ransack(params[:q])
     @oauth_applications = @q.result(distinct: true).page(params[:page])
   end
