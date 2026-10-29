@@ -4,7 +4,7 @@ class TimeKiosk
   attr_accessor :tool, :token_value, :time_clock_period_id, :time_clock_punch_id, :person_id
 
   def token
-    @token ||= Token.find_by(value: token_value)
+    @token ||= Token.find_by_rfid(token_value)
   end
 
   def time_clock_period

@@ -28,7 +28,7 @@ class TokensController < InternalController
 
     authorize @token
 
-    @other_token = Token.find_by(value: @token.value)
+    @other_token = Token.find_by_rfid(@token.value)
     if @other_token
       redirect_to edit_token_path(@other_token), notice: "Token with the same value already exists."
       return

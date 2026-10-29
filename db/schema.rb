@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_160200) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_171000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -729,6 +729,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_160200) do
     t.datetime "updated_at", null: false
     t.string "value"
     t.index ["tokenable_type", "tokenable_id"], name: "index_tokens_on_tokenable"
+    t.index ["value"], name: "index_tokens_on_value", unique: true
   end
 
   create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

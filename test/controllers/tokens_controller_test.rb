@@ -123,6 +123,31 @@ class TokensControllerTest < ActionDispatch::IntegrationTest
     assert_equal @member, token.tokenable
   end
 
+  # --- duplicate values ----------------------------------------------------
+
+  test "a second card with an existing card's value cannot be created in the other reader's format" do
+    existing = Token.create!(value: "8675309", tokenable: @member)
+    sign_in @manager_user
+
+    post tokens_path, params: { token: { value: "5700" + 8675309.to_s(16), tokenable_nid: @manager.neat_id.to_s } }
+
+    assert_equal 1, Token.where(value: "8675309").count,
+      "two tokens share the stored value 8675309, so the kiosk would pick one arbitrarily"
+    assert_redirected_to edit_token_path(existing)
+  end
+
+  test "a card cannot be changed to another card's value in the other reader's format" do
+    Token.create!(value: "8675309", tokenable: @member)
+    token = Token.create!(value: "424242", tokenable: @manager)
+    sign_in @manager_user
+
+    patch token_path(token), params: { token: { value: "5700" + 8675309.to_s(16) } }
+
+    assert_response :unprocessable_entity
+    assert_equal "424242", token.reload.value
+    assert_equal 1, Token.where(value: "8675309").count
+  end
+
   private
 
   def create_person(name, team: nil, manager: false, admin: false)
