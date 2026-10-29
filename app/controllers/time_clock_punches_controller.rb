@@ -23,6 +23,11 @@ class TimeClockPunchesController < InternalController
     @too_long         = scoped.too_long.order(start_time: :desc).to_a
     @still_clocked_in = scoped.still_clocked_in.order(start_time: :asc).to_a
     @near_duplicates  = scoped.near_duplicates.order(:person_id, :start_time).to_a
+    @deletable_counts = {
+      still_clocked_in: deletable(@still_clocked_in).size,
+      too_long: deletable(@too_long).size,
+      near_duplicates: deletable(scoped.shorter_duplicates).size
+    }
     @has_editable_punches = true
   end
 
@@ -33,12 +38,13 @@ class TimeClockPunchesController < InternalController
     punches = case params[:violation]
     when "too_long"         then scoped.too_long
     when "still_clocked_in" then scoped.still_clocked_in
-    when "near_duplicates"  then scoped.near_duplicates
+    when "near_duplicates"  then scoped.shorter_duplicates
     else
                 return redirect_to flagged_time_clock_punches_path, alert: "Unknown violation type."
     end
-    count = punches.count
-    punches.destroy_all
+    # Delete only the punches the user could delete one by one.
+    deleted = deletable(punches.includes(:person, :time_clock_period)).each(&:destroy!)
+    count = deleted.size
     redirect_to flagged_time_clock_punches_path, notice: "Deleted #{count} #{count == 1 ? 'punch' : 'punches'}."
   end
 
@@ -115,6 +121,10 @@ class TimeClockPunchesController < InternalController
         # periods of teams they are not in
         @time_clock_periods = @time_clock_periods.reject { |period| current_user.person.teams.exclude?(period.team) }
       end
+    end
+
+    def deletable(punches)
+      punches.select { |punch| policy(punch).destroy? }
     end
 
     # Only allow a list of trusted parameters through.

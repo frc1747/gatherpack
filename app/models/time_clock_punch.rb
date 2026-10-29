@@ -33,6 +33,24 @@ class TimeClockPunch < ApplicationRecord
     )
   end
 
+  # The shorter punch of each overlapping pair of the same person (of equal
+  # lengths, the later-created one, then by id). A punch still clocked in
+  # counts as zero hours, as in #hours. Cleaning these up keeps the longest
+  # punch of each overlap, so a punch recorded over someone's shift can only
+  # add hours, never replace the shift.
+  def self.shorter_duplicates
+    where(
+      "id IN (
+        SELECT DISTINCT p1.id FROM time_clock_punches p1
+        JOIN time_clock_punches p2 ON p1.person_id = p2.person_id AND p1.id != p2.id
+        WHERE p1.start_time < COALESCE(p2.end_time, 'infinity'::timestamptz)
+          AND p2.start_time < COALESCE(p1.end_time, 'infinity'::timestamptz)
+          AND (COALESCE(p2.end_time - p2.start_time, interval '0'), p1.created_at, p1.id)
+            > (COALESCE(p1.end_time - p1.start_time, interval '0'), p2.created_at, p2.id)
+      )"
+    )
+  end
+
   def self.ransackable_attributes(auth_object = nil)
     %w[ person.display_name start_time end_time time_clock_period_id updated_at ]
   end

@@ -31,6 +31,18 @@ class TimeClockPunchTest < ActiveSupport::TestCase
     assert TimeClockPunch.create(person: @member, time_clock_period: @self_report, start_time: Time.current, created_by: "kiosk").persisted?
   end
 
+  test "shorter duplicates are the shorter punch of each overlap, or the later-created one of equal length" do
+    long = punch(@member, created_by: @member).tap(&:save!)
+    short = TimeClockPunch.create!(person: @member, start_time: long.start_time + 1.hour, end_time: long.start_time + 2.hours, created_by: @member)
+    same_length = TimeClockPunch.create!(person: @member, start_time: long.start_time + 30.minutes, end_time: long.end_time + 30.minutes, created_by: @member)
+    open = TimeClockPunch.create!(person: @member, start_time: long.start_time + 15.minutes, created_by: @member)
+    separate = TimeClockPunch.create!(person: @member, start_time: 5.days.ago, end_time: 5.days.ago + 1.hour, created_by: @member)
+
+    assert_equal [ long, short, same_length, open ].sort_by(&:id), TimeClockPunch.near_duplicates.sort_by(&:id)
+    assert_equal [ short, same_length, open ].sort_by(&:id), TimeClockPunch.shorter_duplicates.sort_by(&:id)
+    assert_not_includes TimeClockPunch.shorter_duplicates, separate
+  end
+
   private
 
   def create_person(name, manager: false)
