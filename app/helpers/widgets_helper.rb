@@ -1,4 +1,25 @@
 module WidgetsHelper
+  # Keeps the HTML an admin writes in a Markdown widget (layout, classes and
+  # data attributes for the widget's JavaScript) but not scripts, event
+  # handlers or unsafe links. The attributes that wire up Stimulus or Turbo
+  # are dropped too, so only architects can make a widget run code.
+  class MarkdownScrubber < Rails::HTML::PermitScrubber
+    BEHAVIOR_ATTRIBUTES = /\Adata-(controller|action|method|remote|turbo)/
+
+    def initialize
+      super
+      sanitizer = Rails::HTML::Sanitizer.best_supported_vendor.safe_list_sanitizer
+      self.tags = sanitizer.allowed_tags
+      self.attributes = sanitizer.allowed_attributes
+    end
+
+    def scrub_attribute?(name)
+      return name.match?(BEHAVIOR_ATTRIBUTES) if name.start_with?("data-")
+
+      super
+    end
+  end
+
   # The widget's content as HTML: Markdown, or ERB for dynamic widgets. An
   # error shows a short notice (with the message, for admins) instead of
   # breaking the dashboard.
@@ -6,7 +27,7 @@ module WidgetsHelper
     if widget.dynamic
       ERB.new(widget.content.to_s).result(binding).html_safe
     else
-      md widget.content
+      widget_markdown(widget.content)
     end
   rescue StandardError, SyntaxError => e
     Rails.logger.error("Widget #{widget.neat_id} failed to render: #{e.class}: #{e.message}")
@@ -37,6 +58,13 @@ module WidgetsHelper
   end
 
   private
+
+  # Not ApplicationHelper#md, which drops raw HTML: widgets are written by
+  # admins, and a widget such as a countdown is HTML for its JavaScript.
+  def widget_markdown(content)
+    markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML, autolink: true, no_intra_emphasis: true, fenced_code_blocks: true, lax_spacing: true)
+    sanitize(markdown.render(content.to_s), scrubber: MarkdownScrubber.new)
+  end
 
   def widget_error(error)
     message = "This widget couldn't be shown."

@@ -124,6 +124,26 @@ class WidgetsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "Markdown keeps an admin's HTML and data attributes but not scripts or behavior" do
+    with_feature do
+      content = <<~HTML
+        <!-- Change data-kickoff below. -->
+        <div class="countdown" data-kickoff="2027-01-09T12:00:00-05:00" onclick="alert(1)">
+          <p class="time">&nbsp;</p>
+          <a href="javascript:alert(1)" data-turbo-method="delete" data-action="click->x#y">Go</a>
+        </div>
+        <script>alert(1)</script>
+      HTML
+      widget = Widget.create!(title: "Countdown", content: content)
+      sign_in @member
+      get body_widget_path(widget)
+      assert_response :success
+      assert_select ".widget-body div.countdown[data-kickoff=?] p.time", "2027-01-09T12:00:00-05:00"
+      assert_select ".widget-body div[onclick], .widget-body a[href], .widget-body a[data-turbo-method], .widget-body a[data-action], .widget-body script", false
+      assert_no_match "Change data-kickoff", response.body
+    end
+  end
+
   test "replace mode puts the content in a template for the shadow root" do
     with_feature do
       widget = Widget.create!(title: "Banner", content: "Kickoff", stylesheet: "p { color: red; }", style_mode: "replace")
