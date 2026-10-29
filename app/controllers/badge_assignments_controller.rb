@@ -36,7 +36,11 @@ class BadgeAssignmentsController < InternalController
 
   # PATCH/PUT /badge_assignments/1
   def update
-    if @badge_assignment.update(badge_assignment_params)
+    # The new holder must be someone the user may give this badge to as well.
+    @badge_assignment.assign_attributes(badge_assignment_params)
+    authorize @badge_assignment
+
+    if @badge_assignment.save
       redirect_to [ @badge, @badge_assignment ], notice: "Badge assignment was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -56,11 +60,12 @@ class BadgeAssignmentsController < InternalController
     end
     # Use callbacks to share common setup or constraints between actions.
     def set_badge_assignment
-      @badge_assignment = authorize policy_scope(BadgeAssignment).find(params[:id])
+      @badge_assignment = authorize policy_scope(@badge.badge_assignments).find(params[:id])
     end
 
-    # Only allow a list of trusted parameters through.
+    # Only allow a list of trusted parameters through. The badge always comes
+    # from the URL, so an assignment can't be moved to another badge.
     def badge_assignment_params
-      params.require(:badge_assignment).permit(:badge_id, :person_id)
+      params.require(:badge_assignment).permit(:person_id)
     end
 end
