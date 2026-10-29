@@ -152,7 +152,10 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :oauth_applications
+    resources :oauth_applications do
+      post :regenerate_secret, on: :member
+    end
+    resources :authorized_applications, only: %i[index destroy]
   end
 
   if GatherPack::Features.enabled?(:qa)

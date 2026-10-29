@@ -33,6 +33,8 @@ Doorkeeper.configure do
   end
 
   application_class "OauthApplication"
+  # Refuses refresh tokens past their lifetime (see OauthAccessToken).
+  access_token_class "OauthAccessToken"
   #
   # Don't forget to include Doorkeeper ORM mixins into your custom models:
   #
@@ -178,8 +180,10 @@ Doorkeeper.configure do
   #
   # Note: If you are already a user of doorkeeper and have existing tokens
   # in your installation, they will be invalid without adding 'fallback: :plain'.
+  # Tokens and codes issued before hashing was enabled are hashed by the
+  # HashOauthSecrets migration, so no fallback is needed.
   #
-  # hash_token_secrets
+  hash_token_secrets
   # By default, token secrets will be hashed using the
   # +Doorkeeper::Hashing::SHA256+ strategy.
   #
@@ -193,7 +197,9 @@ Doorkeeper.configure do
 
   # Hash application secrets before persisting them.
   #
-  # hash_application_secrets
+  # Client secrets can then be shown only once, when they are created or
+  # regenerated. Existing ones are hashed by the HashOauthSecrets migration.
+  hash_application_secrets
   #
   # By default, applications will be hashed
   # with the +Doorkeeper::SecretStoring::SHA256+ strategy.

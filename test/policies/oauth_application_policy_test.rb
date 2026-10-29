@@ -19,4 +19,11 @@ class OauthApplicationPolicyTest < ActiveSupport::TestCase
 
   def test_destroy
   end
+
+  def test_regenerate_secret
+    application = OauthApplication.new
+
+    assert OauthApplicationPolicy.new(User.new(admin: true), application).regenerate_secret?
+    assert_not OauthApplicationPolicy.new(User.new, application).regenerate_secret?
+  end
 end

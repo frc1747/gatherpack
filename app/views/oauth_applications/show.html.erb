@@ -12,12 +12,17 @@
       <dt class="col-sm-3">Client ID</dt>
       <dd class="col-sm-9"><tt><%= @oauth_application.uid %></tt></dd>
 
+      <dt class="col-sm-3">Client Secret</dt>
       <% if flash[:client_secret] %>
-        <dt class="col-sm-3">Client Secret</dt>
         <dd class="col-sm-9">
-          <tt><%= flash[:client_secret] %></tt>
+          <tt data-client-secret><%= flash[:client_secret] %></tt>
           <button class="btn btn-sm btn-secondary ms-2" data-controller="clipboard" data-action="clipboard#copy" data-clipboard-text-value="<%= flash[:client_secret] %>">Copy</button>
           <div class="text-warning mt-1"><small>This secret will not be shown again. Copy it now.</small></div>
+        </dd>
+      <% else %>
+        <dd class="col-sm-9">
+          <span class="text-body-secondary">Hidden. It is shown only once, when it is issued.</span>
+          <%= link_to "Regenerate", regenerate_secret_oauth_application_path(@oauth_application), class: "btn btn-sm btn-warning ms-2", data: { turbo_method: :post, turbo_confirm: "Issue a new client secret? The current one stops working right away." } %>
         </dd>
       <% end %>
 

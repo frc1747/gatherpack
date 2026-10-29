@@ -5,7 +5,7 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     host! "localhost"
-    OauthApplication.create!(name: "Team Wiki SSO", redirect_uri: "https://wiki.example.com/oauth/callback", scopes: "user_read user_email")
+    @app = OauthApplication.create!(name: "Team Wiki SSO", redirect_uri: "https://wiki.example.com/oauth/callback", scopes: "user_read user_email")
   end
 
   test "a member can't list OAuth applications" do
@@ -24,6 +24,46 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "Team Wiki SSO"
+  end
+
+  test "the client secret is shown once, right after creation" do
+    sign_in create_user("admin@example.com", admin: true)
+
+    post oauth_applications_path, params: { oauth_application: { name: "Chat", redirect_uri: "https://chat.example.com/callback" } }
+    app = OauthApplication.find_by!(name: "Chat")
+    follow_redirect!
+
+    secret = css_select("[data-client-secret]").first&.text
+    assert secret.present?, "the new client secret is not shown"
+    assert app.secret_matches?(secret)
+
+    get oauth_application_path(app)
+
+    assert_empty css_select("[data-client-secret]")
+  end
+
+  test "an admin regenerates a client secret" do
+    old_secret = @app.plaintext_secret
+    sign_in create_user("admin@example.com", admin: true)
+
+    post regenerate_secret_oauth_application_path(@app)
+    follow_redirect!
+
+    secret = css_select("[data-client-secret]").first&.text
+    assert secret.present?, "the regenerated client secret is not shown"
+    @app.reload
+    assert @app.secret_matches?(secret)
+    assert_not @app.secret_matches?(old_secret)
+  end
+
+  test "a member can't regenerate a client secret" do
+    old_secret = @app.plaintext_secret
+    sign_in create_user("member@example.com")
+
+    post regenerate_secret_oauth_application_path(@app)
+
+    assert_response :not_found
+    assert @app.reload.secret_matches?(old_secret)
   end
 
   private

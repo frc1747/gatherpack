@@ -1,5 +1,5 @@
 class OauthApplicationsController < InternalController
-  before_action :set_oauth_application, only: %i[show edit update destroy]
+  before_action :set_oauth_application, only: %i[show edit update destroy regenerate_secret]
 
   def index
     authorize OauthApplication
@@ -34,6 +34,15 @@ class OauthApplicationsController < InternalController
     else
       render :edit, status: :unprocessable_entity
     end
+  end
+
+  # Only a hash of the secret is stored, so a lost secret can't be shown
+  # again; this issues a new one and shows it once.
+  def regenerate_secret
+    @oauth_application.renew_secret
+    @oauth_application.save!
+    redirect_to @oauth_application, notice: "A new client secret was issued. The old one no longer works.",
+      flash: { client_secret: @oauth_application.plaintext_secret }, status: :see_other
   end
 
   def destroy
