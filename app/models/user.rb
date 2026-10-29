@@ -74,12 +74,15 @@ class User < ApplicationRecord
     end
   end
 
+  # Changing your own password or email takes your current password, admins
+  # included, so a session left open or copied can't be used to take the
+  # account over. Who may change someone else's login is up to UserPolicy.
   def password_change
-    return if !acting_user || acting_user.admin?
-    if self.persisted? && self.password.present? && self.old_password.present?
-      unless Devise::Encryptor.compare(User, encrypted_password_was, old_password)
-        errors.add(:old_password, "must be the same as the old password.")
-      end
+    return unless persisted? && acting_user == self
+    return unless password.present? || will_save_change_to_email?
+
+    unless old_password.present? && Devise::Encryptor.compare(User, encrypted_password_was, old_password)
+      errors.add(:old_password, "must be your current password to change your email or password.")
     end
   end
 

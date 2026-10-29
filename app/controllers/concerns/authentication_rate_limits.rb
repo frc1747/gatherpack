@@ -24,6 +24,13 @@ module AuthenticationRateLimits
         by: :authentication_rate_limit_email, if: -> { authentication_rate_limit_email.present? },
         store: AuthenticationRateLimits, with: :authentication_rate_limited
     end
+
+    # Limits a form that checks the signed-in user's current password, per
+    # signed-in user, so a copied session can't be used to guess it.
+    def rate_limit_current_password(**options)
+      rate_limit to: 10, within: 15.minutes, only: :update, name: "current_password", by: -> { true_user.id },
+        store: AuthenticationRateLimits, with: :authentication_rate_limited, **options
+    end
   end
 
   private

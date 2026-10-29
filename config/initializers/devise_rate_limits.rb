@@ -11,4 +11,7 @@ Rails.application.config.to_prepare do
     controller.include AuthenticationRateLimits
     controller.rate_limit_authentication(**limits)
   end
+
+  # Editing one's account there takes the current password.
+  Devise::RegistrationsController.rate_limit_current_password
 end

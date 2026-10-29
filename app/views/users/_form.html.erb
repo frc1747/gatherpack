@@ -7,9 +7,9 @@
 <% else %>
   <%= f.input :password %>
   <%= f.input :password_confirmation %>
-  <% unless @user.new_record? %>
-    <%= f.input :old_password %>
-  <% end %>
+<% end %>
+<% if @user.persisted? && @user == current_user %>
+  <%= f.input :old_password, label: "Current password", hint: "Needed to change your own email or password." %>
 <% end %>
 
 <% if current_user.admin? %>

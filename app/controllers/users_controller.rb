@@ -1,7 +1,11 @@
 class UsersController < InternalController
+  include AuthenticationRateLimits
+
   before_action :set_person
   before_action :set_user, only: %i[ edit update ]
   before_action :build_user, only: %i[ new create ]
+  # Changing one's own login checks the current password (User#password_change).
+  rate_limit_current_password if: -> { @user == current_user }
 
   def new
   end

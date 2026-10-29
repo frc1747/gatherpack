@@ -14,6 +14,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     Membership.create!(person: @no_login, team: @team)
   end
 
+  teardown do
+    AuthenticationRateLimits.store = nil
+  end
+
   test "a member cannot replace another person's login" do
     sign_in @member.user
     original_user = @leader.user
@@ -233,6 +237,121 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_not @member.user.reload.valid_password?("Hijacked123!")
+  end
+
+  test "changing one's own password requires the current password" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: { password: "NewPass123!", password_confirmation: "NewPass123!" } }
+
+    assert_not @member.user.reload.valid_password?("NewPass123!"), "password changed with no old_password supplied"
+    assert_response :unprocessable_entity
+  end
+
+  test "a member can change their own password with their current password" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: { password: "NewPass123!", password_confirmation: "NewPass123!", old_password: "Password1!" } }
+
+    assert_redirected_to person_path(@member)
+    assert @member.user.reload.valid_password?("NewPass123!")
+  end
+
+  test "changing one's own email requires the current password" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: { email: "max@example.com" } }
+    assert_response :unprocessable_entity
+
+    patch person_user_path(@member), params: { user: { email: "max@example.com", old_password: "wrong" } }
+    assert_response :unprocessable_entity
+    assert_equal "member@example.com", @member.user.reload.email
+
+    patch person_user_path(@member), params: { user: { email: "max@example.com", old_password: "Password1!" } }
+    assert_redirected_to person_path(@member)
+    assert_equal "max@example.com", @member.user.reload.email
+  end
+
+  test "an admin changing their own login also needs their current password" do
+    sign_in @admin.user
+
+    patch person_user_path(@admin), params: { user: new_login("admin-new@example.com") }
+
+    assert_response :unprocessable_entity
+    @admin.user.reload
+    assert_equal "admin@example.com", @admin.user.email
+    assert_not @admin.user.valid_password?("Hijacked123!")
+  end
+
+  test "an admin changes another member's password without giving their own" do
+    sign_in @admin.user
+
+    patch person_user_path(@member), params: { user: { password: "NewPass123!", password_confirmation: "NewPass123!" } }
+
+    assert_redirected_to person_path(@member)
+    assert @member.user.reload.valid_password?("NewPass123!")
+  end
+
+  test "the login form asks for the current password, including for a provider login" do
+    sign_in @member.user
+    get edit_person_user_path(@member)
+    assert_select "input[type=password][name=?]", "user[old_password]"
+
+    @member.user.update_columns(provider: "github", uid: "123")
+    get edit_person_user_path(@member)
+    assert_select "input[type=password][name=?]", "user[old_password]"
+  end
+
+  test "the login form doesn't ask for a current password on someone else's login" do
+    sign_in @admin.user
+    get edit_person_user_path(@member)
+    assert_select "input[type=password][name=?]", "user[password]"
+    assert_select "input[name=?]", "user[old_password]", false
+  end
+
+  test "saving one's own login unchanged doesn't ask for the current password" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: { email: "MEMBER@example.com", password: "", password_confirmation: "" } }
+
+    assert_redirected_to person_path(@member)
+  end
+
+  test "guessing one's own current password is rate limited" do
+    AuthenticationRateLimits.store = ActiveSupport::Cache::MemoryStore.new
+    sign_in @member.user
+
+    statuses = 11.times.map do |i|
+      patch person_user_path(@member), params: { user: new_login("member@example.com").merge(old_password: "guess-#{i}") }
+      response.status
+    end
+
+    assert_equal [ 422 ] * 10 + [ 429 ], statuses
+    assert_not @member.user.reload.valid_password?("Hijacked123!")
+  end
+
+  test "an admin changing other people's logins isn't rate limited" do
+    AuthenticationRateLimits.store = ActiveSupport::Cache::MemoryStore.new
+    sign_in @admin.user
+
+    statuses = 11.times.map do |i|
+      patch person_user_path(@member), params: { user: { email: "member-#{i}@example.com" } }
+      response.status
+    end
+
+    assert_equal [ 303 ] * 11, statuses
+  end
+
+  test "guessing the current password on the account page is rate limited" do
+    AuthenticationRateLimits.store = ActiveSupport::Cache::MemoryStore.new
+    sign_in @member.user
+
+    statuses = 11.times.map do |i|
+      put user_registration_path, params: { user: { email: "member@example.com", current_password: "guess-#{i}" } }
+      response.status
+    end
+
+    assert_equal [ 422 ] * 10 + [ 429 ], statuses
   end
 
   private
