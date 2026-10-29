@@ -166,7 +166,11 @@ Doorkeeper.configure do
   # Require non-confidential clients to use PKCE when using an authorization code
   # to obtain an access_token (disabled by default)
   #
-  # force_pkce
+  force_pkce
+
+  # Accept only the S256 PKCE challenge method; "plain" sends the verifier
+  # itself as the challenge.
+  pkce_code_challenge_methods %w[S256]
 
   # Hash access and refresh tokens before persisting them.
   # This will disable the possibility to use +reuse_access_token+
