@@ -104,6 +104,17 @@ rebinding protection and the URLs generated in outgoing email.
    the background job dashboard (protected by the HTTP basic auth credentials
    in `JOBS_DASHBOARD_USER` / `JOBS_DASHBOARD_PASSWORD`).
 
+## Payment and email gateways
+
+Gateways (Stripe, Postmark, Resend, SMTP) are set up by an architect at
+`/gateways`. Their webhook URLs are public, so GatherPack checks every webhook
+request before acting on it:
+
+- Stripe events must carry a valid `Stripe-Signature`. A Stripe gateway without
+  a webhook signing secret refuses every event, and its page says it isn't
+  ready. Copy the endpoint's signing secret from the Stripe dashboard into the
+  gateway's Secret field.
+
 ## Using an external PostgreSQL server
 
 Set `DATABASE_HOST`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` to point at

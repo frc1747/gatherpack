@@ -5,6 +5,10 @@
     <h1><%= @gateway.identifier_name %></h1>
   </div>
   <div class="card-body">
+    <% if (problem = @gateway.webhook_problem) %>
+      <div class="alert alert-warning">Webhooks <%= problem %>.</div>
+    <% end %>
+
     <h2>Configuration</h2>
     <code data-lang="json"><pre><%= JSON.pretty_generate @gateway.configuration %></pre></code>
 

@@ -49,6 +49,11 @@ class Gateway < ApplicationRecord
   def handle_webhook(payload, headers)
   end
 
+  # A short note for the gateway page when this gateway can't accept
+  # webhooks yet, or nil when it can.
+  def webhook_problem
+  end
+
   def self.webhook_headers
     []
   end

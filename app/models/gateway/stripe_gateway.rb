@@ -45,14 +45,15 @@ class Gateway::StripeGateway < Gateway
   end
 
   def handle_webhook(payload, headers)
-    event = Stripe::Event.construct_from(JSON.parse(payload))
+    if secret.blank?
+      Rails.logger.error("Gateway::StripeGateway##{id} (#{name}) refused a Stripe event: this gateway has no webhook signing secret. Copy the endpoint's signing secret from the Stripe dashboard into this gateway's Secret field.")
+      return
+    end
 
-    if secret.present?
-      begin
-        event = Stripe::Webhook.construct_event(payload, headers["HTTP_STRIPE_SIGNATURE"], secret)
-      rescue Stripe::SignatureVerificationError => e
-        raise "Stripe webhook signature verification failed. #{e.message}"
-      end
+    begin
+      event = Stripe::Webhook.construct_event(payload, headers["HTTP_STRIPE_SIGNATURE"], secret)
+    rescue Stripe::SignatureVerificationError => e
+      raise "Stripe webhook signature verification failed. #{e.message}"
     end
 
     case event.type
@@ -76,6 +77,10 @@ class Gateway::StripeGateway < Gateway
     )
 
     update(secret: endpoint.secret)
+  end
+
+  def webhook_problem
+    "not ready: no webhook signing secret" if secret.blank?
   end
 
   def entry_handler_url_for(entry)

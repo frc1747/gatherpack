@@ -30,11 +30,13 @@ class Gateway::StripeGatewayTest < ActiveSupport::TestCase
     end
   end
 
-  test "handle_webhook skips verification when secret is blank" do
+  test "handle_webhook refuses every event when secret is blank" do
     gateway = gateway_stripe_gateways(:without_secret)
+    entry = LedgerEntry.create!(ledger: ledgers(:one), amount: 5, finalized: false, created_by: people(:one),
+      metadata: { gateway_id: gateway.id, stripe_checkout_session: { id: "cs_test123" } })
 
-    assert_nothing_raised do
-      gateway.handle_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => nil })
-    end
+    gateway.handle_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => nil })
+
+    assert_not entry.reload.failed, "an event was processed without a signature check"
   end
 end
