@@ -37,7 +37,21 @@ class Api::V1::UserInfoControllerTest < ActionDispatch::IntegrationTest
 
     json = response.parsed_body
     assert_equal @user.email, json["email"]
-    assert_equal true, json["email_verified"]
+    assert_equal false, json["email_verified"]
+  end
+
+  test "does not claim an address the member typed in is verified" do
+    @user.update!(email: "head-coach@example.com")
+    token = Doorkeeper::AccessToken.create!(resource_owner_id: @user.id, application_id: @oauth_app.id,
+                                            scopes: "user_read user_email", expires_in: 2.hours)
+
+    get "/api/v1/userinfo", headers: { Authorization: "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    json = response.parsed_body
+    assert_equal "head-coach@example.com", json["email"]
+    assert_not_equal true, json["email_verified"],
+      "userinfo asserts email_verified: true for an address nobody verified (member self-set head-coach@example.com)"
   end
 
   test "should not include email when token lacks user_email scope" do

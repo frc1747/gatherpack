@@ -19,7 +19,8 @@ class Api::V1::UserInfoController < InternalController
 
     if scopes.exists?(:user_email)
       payload[:email] = user.email
-      payload[:email_verified] = true
+      # Addresses are never confirmed, so none is claimed as verified.
+      payload[:email_verified] = false
     end
 
     if scopes.exists?(:user_name) && user.person
