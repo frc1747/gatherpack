@@ -34,17 +34,26 @@ class Gateway::ResendSendingGateway < Gateway
     [ "HTTP_SVIX_ID", "HTTP_SVIX_TIMESTAMP", "HTTP_SVIX_SIGNATURE" ]
   end
 
+  def verify_webhook(body, headers)
+    return refuse_without_secret if secret.blank?
+
+    Svix::Webhook.new(secret).verify(body, svix_headers(headers))
+    true
+  rescue Svix::WebhookVerificationError
+    false
+  end
+
+  def webhook_problem
+    "not ready: no webhook signing secret" if secret.blank?
+  end
+
   def handle_webhook(body, headers)
-    if secret.present?
-      begin
-        Svix::Webhook.new(secret).verify(body, {
-          "svix-id" => headers["HTTP_SVIX_ID"],
-          "svix-timestamp" => headers["HTTP_SVIX_TIMESTAMP"],
-          "svix-signature" => headers["HTTP_SVIX_SIGNATURE"]
-        })
-      rescue Svix::WebhookVerificationError => e
-        raise "Resend webhook signature verification failed. #{e.message}"
-      end
+    return refuse_without_secret if secret.blank?
+
+    begin
+      Svix::Webhook.new(secret).verify(body, svix_headers(headers))
+    rescue Svix::WebhookVerificationError => e
+      raise "Resend webhook signature verification failed. #{e.message}"
     end
 
     payload = JSON.parse(body)
@@ -69,4 +78,18 @@ class Gateway::ResendSendingGateway < Gateway
   rescue Resend::Error => e
     Rails.logger.warn("Gateway::ResendSendingGateway##{id} could not auto-create a Resend webhook (#{e.class}: #{e.message}). This usually means the API token is restricted to sending only. Create the webhook manually in the Resend dashboard and paste its signing secret into this gateway's Secret field.")
   end
+
+  private
+    def refuse_without_secret
+      Rails.logger.error("Gateway::ResendSendingGateway##{id} (#{name}) refused a Resend event: this gateway has no webhook signing secret. Copy the webhook's signing secret from the Resend dashboard into this gateway's Secret field.")
+      false
+    end
+
+    def svix_headers(headers)
+      {
+        "svix-id" => headers["HTTP_SVIX_ID"],
+        "svix-timestamp" => headers["HTTP_SVIX_TIMESTAMP"],
+        "svix-signature" => headers["HTTP_SVIX_SIGNATURE"]
+      }
+    end
 end

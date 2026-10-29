@@ -49,6 +49,18 @@ class Gateway < ApplicationRecord
   def handle_webhook(payload, headers)
   end
 
+  # Checks that a webhook request really comes from the gateway's service,
+  # before it is queued for handle_webhook. Gateways that receive webhooks
+  # override this; the rest refuse every request.
+  def verify_webhook(payload, headers)
+    false
+  end
+
+  # The HTTP status a refused webhook request is answered with.
+  def webhook_refusal_status
+    :bad_request
+  end
+
   # A short note for the gateway page when this gateway can't accept
   # webhooks yet, or nil when it can.
   def webhook_problem

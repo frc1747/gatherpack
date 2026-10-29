@@ -89,6 +89,10 @@ The health check endpoint `/up` is excluded from both the HTTPS redirect and
 `Host` header validation, so container and load balancer probes work without
 any extra configuration.
 
+Limit request body sizes at the proxy as well (nginx `client_max_body_size`,
+Caddy `request_body { max_size }`). Set it to the largest upload you accept;
+GatherPack refuses gateway webhook bodies over 1 MB itself.
+
 `ROOT_URL` must be the full public URL including the scheme
 (`https://gather.example.com`). It drives the hostname allowed by Rails' DNS
 rebinding protection and the URLs generated in outgoing email.
@@ -114,6 +118,14 @@ request before acting on it:
   a webhook signing secret refuses every event, and its page says it isn't
   ready. Copy the endpoint's signing secret from the Stripe dashboard into the
   gateway's Secret field.
+- Resend events must carry a valid Svix signature. A Resend gateway without a
+  webhook signing secret refuses them the same way.
+- Requests to any other gateway's webhook URL are refused with 400. That
+  includes the bounce and spam-complaint webhook a Postmark sending gateway
+  registers with Postmark; GatherPack never acted on those events, so delete
+  that webhook in Postmark or ignore its failed deliveries.
+- Webhook bodies over 1 MB are refused with 413, and more than 120 webhook
+  requests a minute from one address get 429.
 
 ## Using an external PostgreSQL server
 

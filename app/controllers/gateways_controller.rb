@@ -1,4 +1,10 @@
 class GatewaysController < InternalController
+  # Webhook bodies are small JSON documents; anything bigger is refused.
+  WEBHOOK_MAX_BYTES = 1.megabyte
+
+  rate_limit to: 120, within: 1.minute, only: :webhook,
+    with: -> { render plain: "Too many requests.", status: :too_many_requests }
+
   before_action :set_gateway, only: %i[ show edit update destroy webhook ]
   skip_before_action :check_for_user, only: :webhook
   skip_before_action :verify_authenticity_token, only: :webhook
@@ -49,9 +55,22 @@ class GatewaysController < InternalController
     redirect_to gateways_url, notice: "Gateway was successfully destroyed.", status: :see_other
   end
 
+  # Requests are verified here, before anything is queued, so forged or
+  # junk requests never reach the job queue.
   def webhook
+    return head :content_too_large if request.content_length.to_i > WEBHOOK_MAX_BYTES
+
+    body = request.raw_post.to_s
+    return head :content_too_large if body.bytesize > WEBHOOK_MAX_BYTES
+
     headers = request.env.slice(*@gateway.class.webhook_headers)
-    ProcessGatewayWebhookJob.perform_later @gateway, request.body.read, headers
+
+    unless @gateway.verify_webhook(body, headers)
+      Rails.logger.warn("#{@gateway.class}##{@gateway.id} (#{@gateway.name}) refused an unverified webhook request.")
+      return head @gateway.webhook_refusal_status
+    end
+
+    ProcessGatewayWebhookJob.perform_later @gateway, body, headers
     head :no_content
   end
 
