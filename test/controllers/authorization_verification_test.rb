@@ -10,8 +10,7 @@ class AuthorizationVerificationTest < ActionDispatch::IntegrationTest
   # Controllers that inherit ApplicationController but have no record to
   # authorize, with the reason.
   UNVERIFIED = {
-    "DeviseController" => "signing in, up and out happens before there is a user to authorize",
-    "MissionControl::Jobs::ApplicationController" => "the jobs dashboard engine, behind its own HTTP basic auth"
+    "DeviseController" => "signing in, up and out happens before there is a user to authorize"
   }.freeze
 
   class ForgetfulController < InternalController
