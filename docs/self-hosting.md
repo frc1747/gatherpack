@@ -131,6 +131,41 @@ request before acting on it:
 - Webhook bodies over 1 MB are refused with 413, and more than 120 webhook
   requests a minute from one address get 429.
 
+## Stored secrets and encryption keys
+
+Gateway API keys, tokens and passwords are encrypted in the database with
+Active Record encryption. Each of its three keys is taken, in order, from:
+
+1. `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY`,
+   `ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY` and
+   `ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT` (generate values with
+   `bin/rails db:encryption:init`);
+2. the `active_record_encryption` section of the Rails credentials;
+3. otherwise, a key derived from `SECRET_KEY_BASE`.
+
+Setting explicit keys later is safe as long as `SECRET_KEY_BASE` stays the
+same: secrets saved with the derived keys stay readable, but they still depend
+on `SECRET_KEY_BASE` until they are encrypted again with the new keys. To move
+them, set the explicit keys, restart, and run
+`docker compose -f docker-compose.production.yml exec web ./bin/rails gateways:reencrypt`
+before you change `SECRET_KEY_BASE`.
+
+Changing `SECRET_KEY_BASE` while relying on derived keys, or replacing explicit
+keys, makes the stored secrets unreadable. Gateway pages then say so: enter the
+secrets again on each gateway's edit page, or restore the old keys (the
+unreadable secrets stay stored until they are entered again or cleared from
+the gateway page).
+
+### Upgrading from plain-text gateway secrets
+
+- The migrations move existing secrets into the encrypted column. Rolling them
+  back moves them back into the plain `configuration` column.
+- Audit log rows written before the upgrade still contain the old secrets.
+  Remove them with
+  `docker compose -f docker-compose.production.yml exec web ./bin/rails gateways:scrub_audit_log`,
+  then **rotate every gateway key** (Stripe, Postmark, Resend, SMTP): backups
+  taken before the upgrade still contain them.
+
 ## Using an external PostgreSQL server
 
 Set `DATABASE_HOST`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` to point at
@@ -160,6 +195,10 @@ docker run --rm -v gatherpack_storage:/storage -v "$PWD:/backup" alpine \
 
 `pg_dumpall` is used rather than `pg_dump` because of the three databases
 above.
+
+Keep `SECRET_KEY_BASE` (and the `ACTIVE_RECORD_ENCRYPTION_*` keys, if you set
+them) safe alongside the backups. Gateway secrets in a restored database can
+only be read with the same keys.
 
 ## Operating the stack
 

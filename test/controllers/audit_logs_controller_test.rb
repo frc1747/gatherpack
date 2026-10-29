@@ -53,12 +53,13 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
 
   test "an admin who isn't an architect can't revert a gateway's configuration" do
     gateway = as(@architect) { Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_test_secret", public_key: "pk_test_x") }
-    as(@architect) { gateway.update!(secret: "whsec_webhook") }
+    as(@architect) { gateway.update!(public_key: "pk_test_y", secret: "whsec_webhook") }
 
     sign_in @admin
     post revert_audit_log_path(last_version(gateway, "update"))
 
-    assert_equal "whsec_webhook", gateway.reload.secret, "a non-architect admin cleared the webhook secret through a revert"
+    assert_equal "pk_test_y", gateway.reload.public_key, "a non-architect admin rolled a gateway's configuration back through a revert"
+    assert_equal "whsec_webhook", gateway.secret, "a non-architect admin cleared the webhook secret through a revert"
   end
 
   test "an admin who isn't an architect can't revert a dynamic page" do
@@ -181,7 +182,8 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
     sign_in @architect
     get audit_log_path(gateway_version)
     assert_response :success
-    assert_includes response.body, "sk_test_secret"
+    assert_includes response.body, "pk_test_x"
+    assert_not_includes response.body, "sk_test_secret", "the audit entry shows the gateway's secret key"
 
     get audit_logs_path
     assert_select "##{dom_id(gateway_version)}", count: 1

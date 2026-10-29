@@ -1,8 +1,8 @@
 class Gateway::ResendSendingGateway < Gateway
   Gateway.register(self, :email_sending)
-  store_accessor :configuration, :api_token
+  store_accessor :secrets, :api_token
   store_accessor :configuration, :sender
-  store_accessor :configuration, :secret
+  store_accessor :secrets, :secret
 
   def fields
     [ :api_token, :sender, :secret ]

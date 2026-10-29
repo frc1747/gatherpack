@@ -5,12 +5,29 @@
     <h1><%= @gateway.identifier_name %></h1>
   </div>
   <div class="card-body">
+    <% if @gateway.secrets_unreadable? %>
+      <div class="alert alert-danger">
+        This gateway's secrets can't be decrypted, because the encryption keys have changed. Enter them again on the edit page,
+        or restore the old keys. Clearing them throws them away for good.
+        <%= button_to "Clear unreadable secrets", gateway_path(@gateway), method: :patch,
+              params: { clear_unreadable_secrets: "1" },
+              class: "btn btn-sm btn-outline-danger mt-2",
+              form: { data: { turbo_confirm: "Throw away this gateway's unreadable secrets?" } } %>
+      </div>
+    <% end %>
     <% if (problem = @gateway.webhook_problem) %>
       <div class="alert alert-warning">Webhooks <%= problem %>.</div>
     <% end %>
 
     <h2>Configuration</h2>
     <code data-lang="json"><pre><%= JSON.pretty_generate @gateway.configuration %></pre></code>
+
+    <h2>Secrets</h2>
+    <ul>
+      <% @gateway.fields.select { |fd| @gateway.secret_field?(fd) }.each do |fd| %>
+        <li><%= fd %>: <%= @gateway.send(fd).present? ? "set" : "not set" %></li>
+      <% end %>
+    </ul>
 
     <h2>Webhook URL</h2>
     <code data-lang="md"><pre><%= webhook_gateway_url(@gateway, **@gateway.webhook_url_options) %></pre></code>

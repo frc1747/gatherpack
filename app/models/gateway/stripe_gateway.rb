@@ -1,9 +1,9 @@
 class Gateway::StripeGateway < Gateway
   Gateway.register(self, :payment)
-  store_accessor :configuration, :secret_key
+  store_accessor :secrets, :secret_key
   store_accessor :configuration, :public_key
   store_accessor :configuration, :test_mode
-  store_accessor :configuration, :secret
+  store_accessor :secrets, :secret
 
   def fields
     [ :public_key, :secret_key, :test_mode, :secret ]

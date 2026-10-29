@@ -1,7 +1,19 @@
 class Gateway < ApplicationRecord
   has_neat_id :gw
   include CanBeHooked
-  has_paper_trail versions: { class_name: "AuditLog" }
+  # API keys, tokens and passwords live in the encrypted secrets column
+  # (subclasses declare theirs with store_accessor :secrets), never in the
+  # plain configuration column or in the audit log.
+  store :secrets, coder: JSON
+  encrypts :secrets
+  has_paper_trail versions: { class_name: "AuditLog" }, skip: [ :secrets ]
+
+  # Audit log rows don't carry secrets, so a gateway reverted to one of them
+  # keeps its current secrets instead of losing them.
+  before_save -> { restore_attributes([ :secrets ]) }, if: -> { version.present? && secrets_changed? }
+  # Older audit log rows still have secrets in configuration; reverting to
+  # one must not write them back in plain text.
+  before_save :remove_secrets_from_configuration
 
   class << self
     def registry
@@ -33,6 +45,33 @@ class Gateway < ApplicationRecord
 
   def start_finalizing_setup
     FinalizeGatewaySetupJob.perform_later(self)
+  end
+
+  def secret_field?(field)
+    self.class.stored_attributes.fetch(:secrets, []).include?(field.to_sym)
+  end
+
+  # Secrets encrypted with keys this install no longer has (SECRET_KEY_BASE
+  # or the encryption keys changed) can't be read. Such a gateway is loaded
+  # with empty secrets that don't count as a change, so it can still be
+  # shown, edited, deleted and reverted, and the stored ciphertext is only
+  # replaced when secrets are entered again (or cleared on purpose).
+  after_find -> { secrets }
+
+  def secrets
+    super
+  rescue ActiveRecord::Encryption::Errors::Decryption
+    Rails.logger.error("#{self.class}##{id} (#{name}) has secrets that can't be decrypted (were SECRET_KEY_BASE or the encryption keys changed?). Enter them again on the gateway page.")
+    @secrets_unreadable = true
+    # An encrypted empty hash, as if loaded from the database. (Serializing
+    # {} through the attribute type gives nil, which would count as a change.)
+    @attributes.write_from_database("secrets", ActiveRecord::Encryption.encryptor.encrypt({}.to_json))
+    super
+  end
+
+  def secrets_unreadable?
+    secrets
+    @secrets_unreadable == true
   end
 
   def gateway_name
@@ -85,4 +124,11 @@ class Gateway < ApplicationRecord
   def self.webhook_headers
     []
   end
+
+  private
+    def remove_secrets_from_configuration
+      return unless configuration.is_a?(Hash)
+
+      self.configuration = configuration.except(*self.class.stored_attributes.fetch(:secrets, []).map(&:to_s))
+    end
 end

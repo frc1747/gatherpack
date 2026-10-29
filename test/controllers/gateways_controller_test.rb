@@ -141,7 +141,7 @@ class GatewaysControllerTest < ActionDispatch::IntegrationTest
 
   test "a Postmark receiving gateway without an inbound password refuses everything" do
     gateway = Gateway::PostmarkReceivingGateway.create!(name: "Inbound", server_token: "pm-server-token")
-    gateway.update_columns(configuration: gateway.configuration.except("inbound_password"))
+    gateway.update!(secrets: gateway.secrets.except("inbound_password"))
     clear_enqueued_jobs
 
     post webhook_gateway_url(gateway), params: inbound_message("team@inbound.example.com"),
@@ -164,6 +164,109 @@ class GatewaysControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to gateway_url(gateway)
     assert_not_equal old_password, gateway.reload.inbound_password
     assert_predicate gateway.inbound_password, :present?
+  end
+
+  test "the edit form doesn't render stored secrets" do
+    gateway = Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_live_EDITFORMSECRET", public_key: "pk_live_x", secret: "whsec_EDITFORMSECRET")
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    get edit_gateway_url(gateway)
+    assert_response :success
+    assert_not_includes response.body, "sk_live_EDITFORMSECRET"
+    assert_not_includes response.body, "whsec_EDITFORMSECRET"
+    assert_includes response.body, "pk_live_x"
+
+    get gateway_url(gateway)
+    assert_response :success
+    assert_not_includes response.body, "sk_live_EDITFORMSECRET"
+    assert_not_includes response.body, "whsec_EDITFORMSECRET"
+  end
+
+  test "saving the edit form with a blank secret keeps it, and a new one replaces it" do
+    gateway = Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_live_OLD", public_key: "pk_live_x", secret: "whsec_OLD")
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    patch gateway_url(gateway), params: { gateway: { name: "Stripe", public_key: "pk_live_y", secret_key: "", secret: "whsec_NEW" } }
+
+    gateway.reload
+    assert_equal "pk_live_y", gateway.public_key
+    assert_equal "sk_live_OLD", gateway.secret_key
+    assert_equal "whsec_NEW", gateway.secret
+  end
+
+  test "a gateway whose secrets can't be decrypted still opens and takes new secrets" do
+    gateway = unreadable_stripe_gateway
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    get gateway_url(gateway)
+    assert_response :success
+    assert_includes response.body, "secrets can't be decrypted"
+
+    get edit_gateway_url(gateway)
+    assert_response :success
+
+    patch gateway_url(gateway), params: { gateway: { secret_key: "sk_live_NEW", secret: "whsec_NEW" } }
+    assert_redirected_to gateway_url(gateway)
+
+    gateway = Gateway.find(gateway.id)
+    assert_equal "sk_live_NEW", gateway.secret_key
+    assert_equal "whsec_NEW", gateway.secret
+    assert_not gateway.secrets_unreadable?
+  end
+
+  test "a gateway whose secrets can't be decrypted can be renamed without losing the stored secrets" do
+    gateway = unreadable_stripe_gateway
+    ciphertext = raw_secrets(gateway)
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    patch gateway_url(gateway), params: { gateway: { name: "Renamed", public_key: "pk_live_y", secret_key: "", secret: "" } }
+
+    assert_redirected_to gateway_url(gateway)
+    assert_equal "Renamed", gateway.reload.name
+    assert_equal ciphertext, raw_secrets(gateway), "saving other fields replaced the stored secrets"
+  end
+
+  test "a gateway whose secrets can't be decrypted can be deleted" do
+    gateway = unreadable_stripe_gateway
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    delete gateway_url(gateway)
+
+    assert_redirected_to gateways_url
+    assert_not Gateway.exists?(gateway.id)
+  end
+
+  test "an architect can clear secrets that can't be decrypted" do
+    gateway = unreadable_stripe_gateway
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    get gateway_url(gateway)
+    assert_includes response.body, "Clear unreadable secrets"
+
+    patch gateway_url(gateway), params: { clear_unreadable_secrets: "1" }
+
+    assert_redirected_to edit_gateway_url(gateway)
+    assert_nil raw_secrets(gateway)
+    assert_not Gateway.find(gateway.id).secrets_unreadable?
+  end
+
+  test "clearing readable secrets does nothing, and only architects can clear secrets" do
+    gateway = gateway_stripe_gateways(:with_secret)
+    ciphertext = raw_secrets(gateway)
+
+    sign_in create_user("admin@example.com", admin: true)
+    patch gateway_url(gateway), params: { clear_unreadable_secrets: "1" }
+    assert_equal ciphertext, raw_secrets(gateway)
+
+    unreadable = unreadable_stripe_gateway
+    unreadable_ciphertext = raw_secrets(unreadable)
+    patch gateway_url(unreadable), params: { clear_unreadable_secrets: "1" }
+    assert_equal unreadable_ciphertext, raw_secrets(unreadable), "a non-architect cleared a gateway's secrets"
+
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+    patch gateway_url(gateway), params: { clear_unreadable_secrets: "1" }
+    assert_redirected_to gateway_url(gateway)
+    assert_equal ciphertext, raw_secrets(gateway)
   end
 
   test "an unsigned Stripe event doesn't mark a payment paid when the gateway has no webhook secret" do
@@ -208,6 +311,20 @@ class GatewaysControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    # A Stripe gateway whose secrets were encrypted with keys this install
+    # doesn't have.
+    def unreadable_stripe_gateway
+      gateway = Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_live_OLD", public_key: "pk_live_x", secret: "whsec_OLD")
+      other_keys = ActiveRecord::Encryption::DerivedSecretKeyProvider.new("a key this install doesn't have")
+      unreadable = ActiveRecord::Encryption::Encryptor.new.encrypt({ secret_key: "sk_live_OLD" }.to_json, key_provider: other_keys)
+      Gateway.where(id: gateway.id).update_all([ "secrets = ?", unreadable ])
+      gateway
+    end
+
+    def raw_secrets(gateway)
+      Gateway.connection.select_value(Gateway.sanitize_sql([ "SELECT secrets FROM gateways WHERE id = ?", gateway.id ]))
+    end
+
     def create_user(email, **flags)
       user = User.create!(email: email, password: "Password1!", **flags)
       Person.create!(user: user, first_name: "Test", last_name: "Person")

@@ -1,7 +1,7 @@
 class Gateway::PostmarkReceivingGateway < Gateway
   Gateway.register(self, :email_receiving)
-  store_accessor :configuration, :server_token
-  store_accessor :configuration, :inbound_password
+  store_accessor :secrets, :server_token
+  store_accessor :secrets, :inbound_password
 
   # Postmark signs in to the inbound webhook with HTTP basic auth, using the
   # credentials in the inbound URL (https://user:password@host/...).

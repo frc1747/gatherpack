@@ -42,17 +42,23 @@ class GatewaysController < InternalController
 
   # PATCH/PUT /gateways/1
   def update
+    return clear_unreadable_secrets if params[:clear_unreadable_secrets].present?
+
     if @gateway.update(gateway_params)
       redirect_to gateway_path(@gateway), notice: "Gateway was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
     end
+  rescue ActiveRecord::Encryption::Errors::Decryption
+    redirect_to_unreadable_secrets
   end
 
   # DELETE /gateways/1
   def destroy
     @gateway.destroy!
     redirect_to gateways_url, notice: "Gateway was successfully destroyed.", status: :see_other
+  rescue ActiveRecord::Encryption::Errors::Decryption
+    redirect_to_unreadable_secrets
   end
 
   # Requests are verified here, before anything is queued, so forged or
@@ -74,14 +80,33 @@ class GatewaysController < InternalController
   end
 
   private
+    # Secrets that can't be decrypted are thrown away only when an architect
+    # asks for it, so restoring the old keys can still bring them back.
+    def clear_unreadable_secrets
+      authorize @gateway, :clear_secrets?, policy_class: GatewayPolicy
+
+      if @gateway.secrets_unreadable?
+        @gateway.update_columns(secrets: nil)
+        Rails.logger.warn("#{@gateway.class}##{@gateway.id} (#{@gateway.name}): user #{current_user.id} cleared its secrets, which couldn't be decrypted.")
+        redirect_to edit_gateway_path(@gateway), notice: "The unreadable secrets were cleared. Enter them again.", status: :see_other
+      else
+        redirect_to gateway_path(@gateway), notice: "This gateway's secrets can be read; nothing was cleared.", status: :see_other
+      end
+    end
+
+    def redirect_to_unreadable_secrets
+      redirect_to edit_gateway_path(@gateway), alert: "This gateway's secrets can't be decrypted. Enter the secrets again first.", status: :see_other
+    end
+
     # Use callbacks to share common setup or constraints between actions.
     def set_gateway
       @gateway = authorize policy_scope(Gateway).find(params[:id])
     end
 
-    # Only allow a list of trusted parameters through.
+    # Only allow a list of trusted parameters through. The form never shows
+    # stored secrets, so a secret left blank keeps its current value.
     def gateway_params
       fields = @gateway.fields + @gateway.extra_params + [ :name ]
-      params.require(:gateway).permit(fields)
+      params.require(:gateway).permit(fields).reject { |field, value| value.blank? && @gateway.secret_field?(field) }
     end
 end
