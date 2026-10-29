@@ -11,6 +11,11 @@ class TeamPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, Team).resolve.exists?(record.id)
+  end
+
   def new?
     person.manager?
   end
@@ -31,6 +36,10 @@ class TeamPolicy < ApplicationPolicy
 
   def update?
     has_perms
+  end
+
+  def destroy?
+    update?
   end
 
   def badges?

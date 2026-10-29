@@ -9,6 +9,11 @@ class MembershipPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def new?
     user.admin || user.person.manager?
   end
@@ -26,5 +31,9 @@ class MembershipPolicy < ApplicationPolicy
   # and those of people they manage, so never an admin's or a superior's.
   def update?
     user.admin || (manages?(record.team) && (record.person == person || manages?(record.person)))
+  end
+
+  def destroy?
+    update?
   end
 end

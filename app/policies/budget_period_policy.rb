@@ -9,6 +9,11 @@ class BudgetPeriodPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def new?
     person.manager?
   end
@@ -19,5 +24,9 @@ class BudgetPeriodPolicy < ApplicationPolicy
 
   def update?
     create?
+  end
+
+  def destroy?
+    update?
   end
 end

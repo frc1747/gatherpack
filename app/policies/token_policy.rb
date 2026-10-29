@@ -19,6 +19,11 @@ class TokenPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, Token).resolve.exists?(record.id)
+  end
+
   def new?
     user.admin? || person.manager?
   end

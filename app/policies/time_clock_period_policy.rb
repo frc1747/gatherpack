@@ -9,6 +9,11 @@ class TimeClockPeriodPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, TimeClockPeriod).resolve.exists?(record.id)
+  end
+
   def new?
     person.manager?
   end

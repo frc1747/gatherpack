@@ -5,6 +5,11 @@ class CheckinPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def create?
     !record.event.locked? || user.admin || (record.event.team && record.event.team.manager?(person))
   end
@@ -15,6 +20,10 @@ class CheckinPolicy < ApplicationPolicy
 
   def update?
     record.person == person || user.admin || (record.event.team && record.event.team.manager?(person))
+  end
+
+  def destroy?
+    update?
   end
 
   # Anyone who may see the event sees who checked in, but the notes on a

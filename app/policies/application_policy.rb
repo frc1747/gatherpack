@@ -8,16 +8,18 @@ class ApplicationPolicy
     @record = record
   end
 
+  # Every action is refused unless the record's policy allows it, so a policy
+  # that forgets a method stays closed instead of opening up.
   def index?
-    true
+    false
   end
 
   def show?
-    true
+    false
   end
 
   def create?
-    true
+    false
   end
 
   def new?
@@ -25,7 +27,7 @@ class ApplicationPolicy
   end
 
   def update?
-    true
+    false
   end
 
   def edit?
@@ -33,7 +35,7 @@ class ApplicationPolicy
   end
 
   def destroy?
-    update?
+    false
   end
 
   def person

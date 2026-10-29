@@ -8,4 +8,14 @@ class CheckinFieldResponsePolicy < ApplicationPolicy
       end
     end
   end
+
+  # Responses are changed through their check-in (CheckinPolicy); these are
+  # asked only when an admin reverts a response from the audit log.
+  def create?
+    user.admin?
+  end
+
+  def update?
+    user.admin?
+  end
 end

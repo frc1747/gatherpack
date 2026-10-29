@@ -9,6 +9,11 @@ class LedgerEntryPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, LedgerEntry).resolve.exists?(record.id)
+  end
+
   def split?
     update?
   end

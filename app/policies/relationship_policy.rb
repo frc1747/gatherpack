@@ -20,6 +20,12 @@ class RelationshipPolicy < ApplicationPolicy
     true
   end
 
+  # Decides whether the relationships page offers to reverse one; reversing it
+  # is reverse?.
+  def update?
+    true
+  end
+
   def destroy?
     user.admin? || record.parent == person || record.child == person
   end

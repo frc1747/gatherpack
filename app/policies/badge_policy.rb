@@ -9,6 +9,11 @@ class BadgePolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, Badge).resolve.exists?(record.id)
+  end
+
   def new?
      user.admin || person.all_managed_teams.present?
   end

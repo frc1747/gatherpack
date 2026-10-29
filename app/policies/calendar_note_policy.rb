@@ -8,4 +8,21 @@ class CalendarNotePolicy < ApplicationPolicy
       end
     end
   end
+
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
+  def create?
+    true
+  end
+
+  def update?
+    true
+  end
+
+  def destroy?
+    true
+  end
 end
