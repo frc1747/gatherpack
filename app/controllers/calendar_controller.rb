@@ -1,8 +1,13 @@
-class CalendarController < ApplicationController
+class CalendarController < InternalController
   def index
+    # The page itself lists nothing; it loads its entries from #calendar.
+    skip_policy_scope
   end
 
   def calendar
+    # Every list below goes through policy_scope; there is no one record to
+    # authorize.
+    skip_authorization
     respond_to do |format|
       format.html { redirect_to calendar_index_path }
       format.json do

@@ -1,4 +1,4 @@
-class PagesController < ApplicationController
+class PagesController < InternalController
   before_action :set_page, only: %i[ show edit update destroy ]
 
   # GET /pages

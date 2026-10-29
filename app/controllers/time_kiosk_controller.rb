@@ -1,7 +1,10 @@
-class TimeKioskController < ApplicationController
+class TimeKioskController < InternalController
   layout "kiosk"
 
   def index
+    # Any signed-in account may run the kiosk. It acts for the person whose
+    # card is scanned, not the signed-in user, so it has no scope of its own.
+    skip_policy_scope
     @time_kiosk = TimeKiosk.new(time_kiosk_params)
     @time_kiosk.tool ||= "welcome"
 

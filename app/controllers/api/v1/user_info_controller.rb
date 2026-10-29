@@ -1,8 +1,11 @@
-class Api::V1::UserInfoController < ApplicationController
+class Api::V1::UserInfoController < InternalController
   before_action :doorkeeper_authorize!
   skip_before_action :check_for_user
 
+  # The access token is the authorization: it reads only its own owner's
+  # details, limited to the token's scopes.
   def show
+    skip_authorization
     user = User.find(doorkeeper_token.resource_owner_id)
     render json: user_info_payload(user)
   end

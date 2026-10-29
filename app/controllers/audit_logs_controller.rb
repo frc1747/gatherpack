@@ -1,4 +1,4 @@
-class AuditLogsController < ApplicationController
+class AuditLogsController < InternalController
   before_action :check_for_admin
   before_action :set_log, only: %i[ show revert ]
 

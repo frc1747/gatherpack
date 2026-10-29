@@ -1,4 +1,4 @@
-class SearchController < ApplicationController
+class SearchController < InternalController
   def index
     scope = params[:scope].presence || "people events teams badges tokens announcements time_clock_periods hooks"
     @results = search(params[:q], scope)
@@ -15,6 +15,11 @@ class SearchController < ApplicationController
   private
 
   def search(q, scope)
+    # Every list below goes through policy_scope, or holds only the user's own
+    # person and the teams and people they manage, so there is no one record
+    # to authorize.
+    skip_authorization
+    skip_policy_scope
     feature_scope_map = {
       "events" => :events,
       "badges" => :badges,

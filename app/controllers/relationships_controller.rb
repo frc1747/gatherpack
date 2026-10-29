@@ -1,4 +1,4 @@
-class RelationshipsController < ApplicationController
+class RelationshipsController < InternalController
   before_action :set_person
 
   def new
@@ -13,8 +13,8 @@ class RelationshipsController < ApplicationController
     # The other side comes from the form by id, so like the person in the
     # URL it must be someone the user can see.
     [ @relationship.parent_id, @relationship.child_id ].compact.each { |id| policy_scope(Person).find(id) }
+    authorize @relationship
     if @relationship.parent.present? && @relationship.child.present?
-      authorize @relationship
       if @relationship.save
         redirect_to @person
       else
