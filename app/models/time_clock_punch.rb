@@ -68,9 +68,13 @@ class TimeClockPunch < ApplicationRecord
   private
 
   def permission_check
-    if time_clock_period.nil? || created_by == "kiosk"
-      true
-    else
+    return if created_by == "kiosk"
+
+    if time_clock_period.nil? || time_clock_period.permission == "added_by_user"
+      errors.add(:person_id, "can only be yourself or someone you manage") unless recorded_by_self_or_manager?
+    end
+
+    if time_clock_period.present?
       if time_clock_period.team.present?
         errors.add(:person_id, "is not a member of the team that the selected period is part of") unless person.all_teams.include? time_clock_period.team
       end
@@ -86,6 +90,13 @@ class TimeClockPunch < ApplicationRecord
       end
       errors.add(:time_clock_period, "does not meet permission requirements") unless valid
     end
+  end
+
+  # Without a period, or in an 'added_by_user' one, people record their own
+  # punches and their managers record for them. Writes that don't say who made
+  # them (console, scripts) are left alone, as before.
+  def recorded_by_self_or_manager?
+    created_by.nil? || person.nil? || created_by == person || created_by.can_manage(person)
   end
 
   def valid_times

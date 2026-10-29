@@ -73,8 +73,13 @@ class TimeClockPunchesController < InternalController
 
   # PATCH/PUT /time_clock_punches/1
   def update
+    # The punch was authorized as stored. Moving it to another person or
+    # period records it anew, so the new person and period must pass create?.
+    @time_clock_punch.assign_attributes(time_clock_punch_params)
+    moved = @time_clock_punch.person_id_changed? || @time_clock_punch.time_clock_period_id_changed?
+    authorize @time_clock_punch, moved ? :create? : :update?
     @time_clock_punch.created_by = current_user.person
-    if @time_clock_punch.update(time_clock_punch_params)
+    if @time_clock_punch.save
       redirect_to time_clock_punches_path, notice: "Time clock punch was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

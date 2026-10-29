@@ -23,8 +23,15 @@ class TimeClockPunchPolicy < ApplicationPolicy
     user.admin || person.manager?
   end
 
+  # Admins record punches for anyone, members for themselves and managers for
+  # the people they manage, within what the period allows (see update?). In an
+  # 'added_by_team_member' period the team's members record for each other, as
+  # before. The empty new form has no person yet; saving a punch without one
+  # fails validation.
   def create?
-    true
+    return true if record.person.nil?
+
+    (user.admin || person == record.person || manages?(record.person) || team_member_period?) && update?
   end
 
   def update?
@@ -33,7 +40,7 @@ class TimeClockPunchPolicy < ApplicationPolicy
       true
     # can update punches if part of a generic period with 'added_by_user' perms
     elsif record.time_clock_period.nil?
-      person == record.person || (person.all_managed_teams & (record&.person&.all_teams || [])).any?
+      person == record.person || manages?(record.person)
     elsif record.time_clock_period.team.nil?
       person == record.person && record.time_clock_period.permission == "added_by_user"
     # can update punches if manager of punch's period's team, up to 'added_by_manager' perms
@@ -51,5 +58,12 @@ class TimeClockPunchPolicy < ApplicationPolicy
 
   def destroy?
     update?
+  end
+
+  private
+
+  def team_member_period?
+    period = record.time_clock_period
+    period&.team.present? && period.permission == "added_by_team_member" && person.all_teams.include?(period.team)
   end
 end
