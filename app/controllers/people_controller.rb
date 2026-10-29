@@ -68,14 +68,14 @@ class PeopleController < InternalController
 
   def impersonate
     user = @person.user
-    impersonate_user(user)
+    begin_impersonation(user)
     redirect_back_or_to root_path
   end
 
   # Always allowed: it only returns an impersonating admin to themselves.
   def stop_impersonating
     skip_authorization
-    stop_impersonating_user
+    end_impersonation("stopped")
     redirect_back_or_to root_path
   end
 
