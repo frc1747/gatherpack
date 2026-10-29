@@ -32,7 +32,10 @@ class CheckinsController < InternalController
   # PATCH/PUT /checkins/1
   def update
     @checkin.created_by = current_user.person
-    if @checkin.update(checkin_params)
+    @checkin.assign_attributes(checkin_params)
+    # Moving a check-in to someone else checks that person in.
+    authorize @checkin, :create? if @checkin.person_id_changed?
+    if @checkin.save
       redirect_to [ @event, @checkin ], notice: "Checkin was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

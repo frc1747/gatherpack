@@ -6,12 +6,16 @@ class CheckinsControllerTest < ActionDispatch::IntegrationTest
   setup do
     host! "localhost"
 
-    # Team A (run by @lead_a; @student)
+    # Team A (run by @lead_a; @student, @classmate)
+    # Other Org (@outsider)
     @team_a = Team.create!(name: "Team A", team_type: team_types(:one))
+    other_org = Team.create!(name: "Other Org", team_type: team_types(:one))
 
     @admin = create_user("admin", admin: true)
     @lead_a = create_user("lead-a", team: @team_a, manager: true)
     @student = create_user("student", team: @team_a)
+    @classmate = create_user("classmate", team: @team_a)
+    @outsider = create_user("outsider", team: other_org)
 
     @event_type = EventType.create!(name: "Practice")
     @admin_field = CheckinField.create!(event_type: @event_type, name: "Dues paid", permission: :added_by_admin)
@@ -152,6 +156,96 @@ class CheckinsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :no_content
     assert_equal "yes", response.reload.response
+  end
+
+  # --- Who may be checked in ----------------------------------------------
+
+  test "a member checks themselves in" do
+    sign_in @student
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id } }
+
+    assert_redirected_to event_path(@event)
+    assert Checkin.exists?(event: @event, person: @student.person)
+  end
+
+  test "a member cannot check in a person they cannot see" do
+    sign_in @student
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @outsider.person.id } }
+
+    assert_not Checkin.exists?(event: @event, person: @outsider.person),
+      "a member checked a member of another organisation in to Team A's event"
+  end
+
+  test "a member cannot check in a teammate" do
+    sign_in @student
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @classmate.person.id } }
+
+    assert_not Checkin.exists?(event: @event, person: @classmate.person)
+  end
+
+  test "a member cannot hand their check-in to someone else" do
+    checkin = Checkin.create!(event: @event, person: @student.person)
+    sign_in @student
+
+    patch event_checkin_path(@event, checkin), params: { checkin: { person_id: @outsider.person.id } }
+
+    assert_equal @student.person.id, checkin.reload.person_id,
+      "a member re-assigned their check-in to a person outside their scope"
+  end
+
+  test "a member cannot check in on a locked event" do
+    @event.update!(locked: true)
+    sign_in @student
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id } }
+
+    assert_not Checkin.exists?(event: @event, person: @student.person)
+  end
+
+  test "the event's manager checks in a member of their team, even on a locked event" do
+    @event.update!(locked: true)
+    sign_in @lead_a
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id } }
+
+    assert Checkin.exists?(event: @event, person: @student.person)
+  end
+
+  test "the event's manager cannot check in someone outside their teams" do
+    sign_in @lead_a
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @outsider.person.id } }
+
+    assert_not Checkin.exists?(event: @event, person: @outsider.person)
+  end
+
+  test "the event's manager moves a check-in to another member of their team" do
+    checkin = Checkin.create!(event: @event, person: @student.person)
+    sign_in @lead_a
+
+    patch event_checkin_path(@event, checkin), params: { checkin: { person_id: @classmate.person.id } }
+
+    assert_equal @classmate.person.id, checkin.reload.person_id
+  end
+
+  test "the check-in form offers a member only themselves" do
+    sign_in @student
+
+    get new_event_checkin_path(@event)
+
+    assert_response :success
+    assert_includes response.body, ERB::Util.html_escape(combo_search_path(scope: "me managed_people", attribute: :person_id))
+  end
+
+  test "an admin checks in anyone" do
+    sign_in @admin
+
+    post event_checkins_path(@event), params: { checkin: { person_id: @outsider.person.id } }
+
+    assert Checkin.exists?(event: @event, person: @outsider.person)
   end
 
   private
