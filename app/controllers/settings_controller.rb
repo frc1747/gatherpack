@@ -11,6 +11,9 @@ class SettingsController < InternalController
   def update
     authorize :settings
     params[:settings].each do |key, val|
+      # Secrets aren't shown on the page, so a blank one keeps its value.
+      next if val.blank? && Settings.get(key.to_sym)&.secret?
+
       Settings.set(key.to_sym, val)
     end
     redirect_to settings_path, notice: "Settings were successfully updated.", status: :see_other

@@ -24,6 +24,8 @@ class Settings
     end
 
     def value=(val)
+      val = encryptor.encrypt(val.to_s) if secret? && val.present?
+
       store = Settings.instance.store
       store.transaction do
         store[@setting_key] = val
@@ -35,14 +37,61 @@ class Settings
       case setting_type
       when :boolean
         @value == "true"
+      when :secret
+        decrypted_value
       else
         @value
       end
     end
 
+    # Secret settings are stored encrypted, with the Active Record encryption
+    # keys, and the settings page never shows them.
+    def secret?
+      setting_type == :secret
+    end
+
     def in_group?(group)
       group == @group
     end
+
+    private
+      # Settings are registered before the encryption keys are configured, so
+      # secrets are only decrypted when read.
+      def decrypted_value
+        return @value if @value.blank?
+
+        if encryptor.encrypted?(@value)
+          decrypt(@value)
+        else
+          # Saved before secret settings were encrypted: encrypt it now.
+          plain = @value
+          self.value = plain
+          plain
+        end
+      rescue ActiveRecord::Encryption::Errors::Decryption
+        Rails.logger.error("The #{@setting_key} setting can't be decrypted (were the encryption keys or SECRET_KEY_BASE changed?). Set it again on the settings page.")
+        nil
+      end
+
+      # The bare encryptor only tries the current keys. A secret saved with
+      # previous keys (e.g. derived ones, before explicit keys were set) is
+      # read with those and saved again with the current ones.
+      def decrypt(value)
+        encryptor.decrypt(value)
+      rescue ActiveRecord::Encryption::Errors::Decryption => error
+        ActiveRecord::Encryption.config.previous_schemes.each do |scheme|
+          plain = encryptor.decrypt(value, key_provider: scheme.key_provider)
+          self.value = plain
+          return plain
+        rescue ActiveRecord::Encryption::Errors::Decryption
+          next
+        end
+        raise error
+      end
+
+      def encryptor
+        ActiveRecord::Encryption.encryptor
+      end
   end
 
   class << self
@@ -107,13 +156,13 @@ class Settings
     add_setting(:oauth_signup, :boolean, "Enable Creating OAuth Accounts", "true", "OAuth", "Enable people to sign themselves up with third party services")
 
     add_setting(:discord_oauth_client_id, :string, "Discord OAuth Client ID", "", "OAuth - Discord", "Client ID for Sign In via Discord")
-    add_setting(:discord_oauth_client_secret, :string, "Discord OAuth Client Secret", "", "OAuth - Discord", "Client ID for Sign In via Discord")
+    add_setting(:discord_oauth_client_secret, :secret, "Discord OAuth Client Secret", "", "OAuth - Discord", "Client ID for Sign In via Discord")
 
     add_setting(:github_oauth_client_id, :string, "Github OAuth Client ID", "", "OAuth - Github", "Client ID for Sign In via Github")
-    add_setting(:github_oauth_client_secret, :string, "Github OAuth Client Secret", "", "OAuth - Github", "Client ID for Sign In via Github")
+    add_setting(:github_oauth_client_secret, :secret, "Github OAuth Client Secret", "", "OAuth - Github", "Client ID for Sign In via Github")
 
     add_setting(:google_oauth_client_id, :string, "Google OAuth Client ID", "", "OAuth - Google", "Client ID for Sign In via Google")
-    add_setting(:google_oauth_client_secret, :string, "Google OAuth Client Secret", "", "OAuth - Google", "Client ID for Sign In via Google")
+    add_setting(:google_oauth_client_secret, :secret, "Google OAuth Client Secret", "", "OAuth - Google", "Client ID for Sign In via Google")
 
     add_setting(:time_clock_max_hours, :integer, "Time Clock Max Shift Hours", "12", "Time Clock", "Shifts longer than this many hours are flagged for review")
 

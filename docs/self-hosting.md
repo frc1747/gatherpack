@@ -133,8 +133,9 @@ request before acting on it:
 
 ## Stored secrets and encryption keys
 
-Gateway API keys, tokens and passwords are encrypted in the database with
-Active Record encryption. Each of its three keys is taken, in order, from:
+Gateway API keys, tokens and passwords are encrypted in the database, and the
+OAuth client secrets in `storage/settings.pstore`, with Active Record
+encryption. Each of its three keys is taken, in order, from:
 
 1. `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY`,
    `ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY` and
@@ -144,17 +145,18 @@ Active Record encryption. Each of its three keys is taken, in order, from:
 3. otherwise, a key derived from `SECRET_KEY_BASE`.
 
 Setting explicit keys later is safe as long as `SECRET_KEY_BASE` stays the
-same: secrets saved with the derived keys stay readable, but they still depend
-on `SECRET_KEY_BASE` until they are encrypted again with the new keys. To move
-them, set the explicit keys, restart, and run
+same: secrets saved with the derived keys stay readable. OAuth client secrets
+are encrypted again with the new keys at the next start, but gateway secrets
+still depend on `SECRET_KEY_BASE` until they are encrypted again. To move them,
+set the explicit keys, restart, and run
 `docker compose -f docker-compose.production.yml exec web ./bin/rails gateways:reencrypt`
 before you change `SECRET_KEY_BASE`.
 
 Changing `SECRET_KEY_BASE` while relying on derived keys, or replacing explicit
 keys, makes the stored secrets unreadable. Gateway pages then say so: enter the
-secrets again on each gateway's edit page, or restore the old keys (the
-unreadable secrets stay stored until they are entered again or cleared from
-the gateway page).
+secrets again on each gateway's edit page (and the OAuth client secrets on the
+settings page), or restore the old keys (unreadable gateway secrets stay stored
+until they are entered again or cleared from the gateway page).
 
 ### Upgrading from plain-text gateway secrets
 
@@ -165,6 +167,9 @@ the gateway page).
   `docker compose -f docker-compose.production.yml exec web ./bin/rails gateways:scrub_audit_log`,
   then **rotate every gateway key** (Stripe, Postmark, Resend, SMTP): backups
   taken before the upgrade still contain them.
+- OAuth client secrets already in `storage/settings.pstore` are encrypted the
+  first time they are read, at startup. Copies of that file made before still
+  hold them in plain text; rotate the client secrets with the providers.
 
 ## Using an external PostgreSQL server
 
@@ -197,8 +202,9 @@ docker run --rm -v gatherpack_storage:/storage -v "$PWD:/backup" alpine \
 above.
 
 Keep `SECRET_KEY_BASE` (and the `ACTIVE_RECORD_ENCRYPTION_*` keys, if you set
-them) safe alongside the backups. Gateway secrets in a restored database can
-only be read with the same keys.
+them) safe alongside the backups. Gateway secrets in a restored database, and
+OAuth client secrets in a restored `storage` volume, can only be read with the
+same keys.
 
 ## Operating the stack
 
