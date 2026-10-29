@@ -23,6 +23,10 @@ class User < ApplicationRecord
 
   attr_accessor :old_password, :acting_user
 
+  # A kiosk account's session ends after this long without a request, so a
+  # kiosk left on overnight has to be signed in again.
+  KIOSK_TIMEOUT = 12.hours
+
   # A login email is only searchable by admins.
   def self.ransackable_attributes(auth_object = nil)
     if auth_object.respond_to?(:admin?) && auth_object.admin?
@@ -63,6 +67,29 @@ class User < ApplicationRecord
   # Ends every session of this login, on every device.
   def rotate_session_token!
     update_columns(session_token: SecureRandom.uuid)
+  end
+
+  # A kiosk account runs the time kiosk on a shared device and can do
+  # nothing else (see KioskConfinement). An admin flagged as a kiosk keeps
+  # their admin powers.
+  def kiosk_account?
+    kiosk? && !admin?
+  end
+
+  def timeout_in
+    kiosk_account? ? KIOSK_TIMEOUT : super
+  end
+
+  # Kiosk accounts aren't remembered: Devise skips the idle timeout while a
+  # valid remember-me cookie is present, and the cookie would sign the kiosk
+  # back in after it. Cookies issued before the account became a kiosk stop
+  # working too.
+  def remember_me
+    super unless kiosk_account?
+  end
+
+  def remember_me?(token, generated_at)
+    !kiosk_account? && super
   end
 
   def self.create_from_provider_data(provider_data)

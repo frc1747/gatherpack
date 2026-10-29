@@ -5,6 +5,10 @@ class TimeKioskController < InternalController
 
   rescue_from Pundit::NotAuthorizedError, with: :refuse_kiosk
 
+  def kiosk_page?
+    true
+  end
+
   def index
     # The kiosk acts for the person whose card is scanned, not the signed-in
     # user, so it has no scope of its own; who may run it is up to

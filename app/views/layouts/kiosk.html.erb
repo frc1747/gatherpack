@@ -31,7 +31,7 @@
   <body>
     <header class="navbar navbar-expand-lg bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">
+        <a class="navbar-brand" href="<%= kiosk_account? ? time_kiosk_path : "/" %>">
           <% if Theme.instance.logo.attached? %>
             <%= image_tag Theme.instance.logo, alt: Settings[:title] %>
           <% else %>
@@ -39,6 +39,15 @@
           <% end %>
           <%= Settings[:title] %>
         </a>
+        <%# A kiosk account can't reach the app's other pages, so its ways out are here. %>
+        <div class="d-flex gap-2">
+          <% if current_user != true_user %>
+            <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: { turbo: false }, class: "btn btn-danger btn-sm" %>
+          <% end %>
+          <% if kiosk_account? %>
+            <%= button_to "Sign out", destroy_user_session_path, method: :delete, data: { turbo: false }, class: "btn btn-outline-light btn-sm" %>
+          <% end %>
+        </div>
       </div>
 
     <div class="collapse navbar-collapse" id="navbarSupportedContent">

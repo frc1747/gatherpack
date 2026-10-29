@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   include Pundit::Authorization
+  include KioskConfinement
 
   impersonates :user
 
@@ -9,6 +10,7 @@ class ApplicationController < ActionController::Base
   around_action :set_time_zone
   before_action :set_paper_trail_whodunnit
   before_action :check_impersonation
+  before_action :confine_kiosk_account
   before_action :check_for_user, unless: :devise_controller?
 
   def admin?
@@ -21,10 +23,6 @@ class ApplicationController < ActionController::Base
 
   def manager?
     current_user&.person&.manager?
-  end
-
-  def kiosk_page?
-    false
   end
 
   helper_method :admin?, :architect?, :manager?, :kiosk_page?
