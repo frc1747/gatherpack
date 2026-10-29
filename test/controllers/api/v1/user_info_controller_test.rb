@@ -74,6 +74,31 @@ class Api::V1::UserInfoControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a user_read-only token does not reveal the member's roles" do
+    architect = User.create!(email: "oauth-architect@example.com", password: "Password1!", admin: true, architect: true)
+    Person.create!(user: architect, first_name: "Test", last_name: "Architect")
+    token = Doorkeeper::AccessToken.create!(resource_owner_id: architect.id, application_id: @oauth_app.id,
+                                            scopes: "user_read", expires_in: 2.hours)
+
+    get "/api/v1/userinfo", headers: { Authorization: "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    assert_nil response.parsed_body["roles"],
+      "a user_read-only token got roles=#{response.parsed_body['roles'].inspect} (not covered by any consented scope)"
+  end
+
+  test "a roles_read token reveals the member's roles" do
+    architect = User.create!(email: "oauth-architect@example.com", password: "Password1!", admin: true, architect: true)
+    Person.create!(user: architect, first_name: "Test", last_name: "Architect")
+    token = Doorkeeper::AccessToken.create!(resource_owner_id: architect.id, application_id: @oauth_app.id,
+                                            scopes: "user_read roles_read", expires_in: 2.hours)
+
+    get "/api/v1/userinfo", headers: { Authorization: "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    assert_equal %w[admin architect], response.parsed_body["roles"]
+  end
+
   test "should return 401 without token" do
     get "/api/v1/userinfo"
     assert_response :unauthorized

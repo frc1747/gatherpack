@@ -40,7 +40,7 @@ class Api::V1::UserInfoController < InternalController
       payload[:badges] = user.person.badges.pluck(:name)
     end
 
-    if user.person
+    if scopes.exists?(:roles_read) && user.person
       payload[:roles] = user.person.roles
     end
 

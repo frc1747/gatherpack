@@ -231,7 +231,7 @@ Doorkeeper.configure do
   # enable_application_owner confirmation: false
 
   default_scopes :user_read
-  optional_scopes :user_email, :user_name, :teams_read, :badges_read
+  optional_scopes :user_email, :user_name, :teams_read, :badges_read, :roles_read
 
   # Allows to restrict only certain scopes for grant_type.
   # By default, all the scopes will be available for all the grant types.
