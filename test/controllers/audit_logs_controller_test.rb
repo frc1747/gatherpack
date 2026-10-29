@@ -223,6 +223,22 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?][data-turbo-method=delete]", audit_log_path(version), count: 0
   end
 
+  test "an architect can revert a login's entry written before it had lockout columns" do
+    member = create_user("member@example.com")
+    as(@architect) { member.update!(email: "renamed@example.com") }
+    entry = last_version(member, "update")
+    object = PaperTrail.serializer.load(entry.object).except("failed_attempts", "locked_at")
+    entry.update_columns(object: PaperTrail.serializer.dump(object))
+
+    sign_in @architect
+    post revert_audit_log_path(entry)
+
+    assert_redirected_to audit_logs_url
+    member.reload
+    assert_equal "member@example.com", member.email
+    assert_equal 0, member.failed_attempts
+  end
+
   private
 
   def create_user(email, **flags)
