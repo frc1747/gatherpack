@@ -11,7 +11,7 @@ module DirectUploadRestrictions
   extend ActiveSupport::Concern
 
   MAX_BYTE_SIZE = 10.megabytes
-  CONTENT_TYPES = %w[image/png image/jpeg image/webp application/pdf].freeze
+  CONTENT_TYPES = (AttachmentValidator::IMAGE_TYPES + %w[application/pdf]).freeze
 
   included do
     before_action :require_signed_in_user

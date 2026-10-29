@@ -19,6 +19,7 @@ class Person < ApplicationRecord
   after_destroy :destroy_unshared_login
   accepts_nested_attributes_for :user
   has_one_attached :avatar
+  validates :avatar, attachment: { content_types: AttachmentValidator::IMAGE_TYPES, max_size: 5.megabytes }
   attr_accessor :email
 
   # Only admins search people by their private details, login or cards; a

@@ -14,6 +14,7 @@ class LedgerEntry < ApplicationRecord
   accepts_nested_attributes_for :child_entries, allow_destroy: true, reject_if: :unsplit?
 
   has_many_attached :receipts
+  validates :receipts, attachment: { content_types: AttachmentValidator::IMAGE_TYPES + %w[application/pdf], max_size: 10.megabytes }
 
   monetize :amount_cents
 

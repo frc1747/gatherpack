@@ -1,18 +1,25 @@
 module PeopleHelper
+  # An avatar that isn't an image Active Storage can resize (one stored before
+  # uploads were checked), or isn't saved yet (a form shown again after its
+  # upload was refused), shows the default picture instead of breaking the page.
   def get_avatar_url(avatar)
-    avatar.attached? ? url_for(avatar) : asset_path("default_profile.png")
+    avatar_shown?(avatar) ? url_for(avatar) : asset_path("default_profile.png")
   end
 
   def get_avatar_url_64(avatar)
-    avatar.attached? ? url_for(avatar.variant(resize_to_fill: [ 64, 64 ], format: :jpg)) : asset_path("default_profile.png")
+    avatar_shown?(avatar) ? url_for(avatar.variant(resize_to_fill: [ 64, 64 ], format: :jpg)) : asset_path("default_profile.png")
   end
 
   def get_avatar_url_128(avatar)
-    avatar.attached? ? url_for(avatar.variant(resize_to_fill: [ 128, 128 ], format: :jpg)) : asset_path("default_profile.png")
+    avatar_shown?(avatar) ? url_for(avatar.variant(resize_to_fill: [ 128, 128 ], format: :jpg)) : asset_path("default_profile.png")
   end
 
   def get_avatar_url_512(avatar)
-    avatar.attached? ? url_for(avatar.variant(resize_to_fill: [ 512, 512 ], format: :jpg)) : asset_path("default_profile.png")
+    avatar_shown?(avatar) ? url_for(avatar.variant(resize_to_fill: [ 512, 512 ], format: :jpg)) : asset_path("default_profile.png")
+  end
+
+  def avatar_shown?(avatar)
+    avatar.attached? && avatar.variable? && avatar.blob.persisted?
   end
 
   def get_joinable_teams(person, current_user)
