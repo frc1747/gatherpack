@@ -131,6 +131,17 @@ class PeopleAuthorizationTest < ActionDispatch::IntegrationTest
       "manager removed a member from a team they don't manage"
   end
 
+  test "a manager gives a managed member a manager-or-self badge, but not an admin-or-self one" do
+    manager = create_member("mgr@example.com", "Mary", "Leader", manager: true)
+    sign_in manager.user
+    first_aid = Badge.create!(name: "First Aid", color: "#000000", short: "B", badge_type: badge_types(:one), permission: :added_by_manager_or_self)
+    volunteer = Badge.create!(name: "Volunteer", color: "#000000", short: "B", badge_type: badge_types(:one), permission: :added_by_admin_or_self)
+
+    patch person_path(@victim), params: { person: { badge_ids: [ first_aid.id, volunteer.id ] } }
+
+    assert_equal [ first_aid ], @victim.reload.badges.to_a
+  end
+
   test "a manager cannot re-link a managed member's user account" do
     manager = create_member("mgr@example.com", "Mary", "Leader", manager: true)
     sign_in manager.user

@@ -137,7 +137,7 @@ class PeopleController < InternalController
         permitted[:team_ids] = merge_manageable_ids(@person.team_ids, permitted[:team_ids], manageable)
       end
       if permitted.key?(:badge_ids)
-        manageable = policy_scope(Badge).select { |badge| BadgePolicy.new(current_user, badge).update? }.map(&:id)
+        manageable = policy_scope(Badge).select { |badge| BadgeAssignmentPolicy.new(current_user, BadgeAssignment.new(badge: badge, person: @person)).create? }.map(&:id)
         permitted[:badge_ids] = merge_manageable_ids(@person.badge_ids, permitted[:badge_ids], manageable)
       end
       permitted

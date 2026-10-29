@@ -34,7 +34,11 @@ class BadgesController < InternalController
 
   # PATCH/PUT /badges/1
   def update
-    if @badge.update(badge_params)
+    # A new team or permission must still leave the badge one the user manages.
+    @badge.assign_attributes(badge_params.except(:person_ids))
+    authorize @badge
+
+    if @badge.update(badge_params.slice(:person_ids))
       redirect_to @badge, notice: "Badge was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -53,12 +57,12 @@ class BadgesController < InternalController
       @badge = authorize policy_scope(Badge).find(params[:id])
     end
 
-    # Only allow a list of trusted parameters through.
+    # Only allow a list of trusted parameters through. Only those who may
+    # create the badge, or manage it, change anything about it; members take
+    # a badge through its assignments instead.
     def badge_params
-      if policy(Badge).new? || policy(@badge).update?
-        params.require(:badge).permit(:name, :description, :color, :short, :badge_type_id, :team_id, :permission, person_ids: [])
-      else
-        params.require(:badge).permit(person_ids: [])
-      end
+      return {} unless @badge ? policy(@badge).update? : policy(Badge).new?
+
+      params.require(:badge).permit(:name, :description, :color, :short, :badge_type_id, :team_id, :permission, person_ids: [])
     end
 end
