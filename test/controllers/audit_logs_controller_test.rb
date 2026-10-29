@@ -239,6 +239,23 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, member.failed_attempts
   end
 
+  test "reverting a login's entry gives it a new session token" do
+    member = create_user("member@example.com")
+    as(@architect) { member.update!(email: "renamed@example.com") }
+    entry = last_version(member, "update")
+    assert_not_includes PaperTrail.serializer.load(entry.object).keys, "session_token"
+    token = member.session_token
+
+    sign_in @architect
+    post revert_audit_log_path(entry)
+
+    assert_redirected_to audit_logs_url
+    member.reload
+    assert_equal "member@example.com", member.email
+    assert member.session_token.present?
+    assert_not_equal token, member.session_token
+  end
+
   private
 
   def create_user(email, **flags)
