@@ -29,6 +29,22 @@ class DirectUploadsTest < ActionDispatch::IntegrationTest
     assert_equal BODY, ActiveStorage::Blob.last.download
   end
 
+  test "the signed id a direct upload hands back expires" do
+    sign_in users(:one)
+    post rails_direct_uploads_path, params: { blob: blob_params }, as: :json
+    created = response.parsed_body
+    put created.dig("direct_upload", "url"), params: BODY, headers: created.dig("direct_upload", "headers")
+    link = "/rails/active_storage/blobs/redirect/#{created["signed_id"]}/receipt.pdf"
+    sign_out users(:one)
+
+    get link
+    assert_response :redirect, "a fresh signed id opens"
+    travel 2.hours do
+      get link
+      assert_response :not_found, "a direct upload's signed id still opens the file 2 hours later with no session"
+    end
+  end
+
   test "a direct upload over the size limit is refused" do
     sign_in users(:one)
 

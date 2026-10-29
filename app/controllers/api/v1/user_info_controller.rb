@@ -29,7 +29,10 @@ class Api::V1::UserInfoController < InternalController
       payload[:given_name] = user.person.first_name
       payload[:family_name] = user.person.last_name
       payload[:profile] = person_url(user.person)
-      payload[:picture] = url_for(user.person.avatar) if user.person.avatar.attached?
+      # Signed for this request and expiring like every file link: clients
+      # fetch it when the member signs in, and a link that never expired
+      # would outlive the client's access.
+      payload[:picture] = url_for(user.person.avatar) if user.person.avatar.attached? && user.person.avatar.variable?
     end
 
     if scopes.exists?(:teams_read) && user.person

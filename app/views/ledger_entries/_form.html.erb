@@ -43,7 +43,8 @@
             <%= image_tag receipt, class: "receipt-preview" %>
           </div>
           <div class="col">
-            <%= f.hidden_field :receipts, multiple: true, value: receipt.signed_id %>
+            <%# Kept receipts are posted back by signed id, which also opens the file; let it expire. %>
+            <%= f.hidden_field :receipts, multiple: true, value: receipt.signed_id(expires_in: ActiveStorage.urls_expire_in) %>
             <a class="remove-receipt-button btn btn-sm btn-danger" data-controller="receipt-remove" data-action="receipt-remove#remove"><%= i "trash" %></a>
           </div>
         </div>

@@ -39,6 +39,12 @@ class LedgerEntriesController < InternalController
     else
       render :edit, status: :unprocessable_entity
     end
+  rescue ActiveSupport::MessageVerifier::InvalidSignature
+    # The form's links to the receipts already attached expire (see the
+    # form), so a form left open too long can't keep them.
+    @ledger_entry.reload
+    flash.now[:notice] = "This form was open too long to keep its receipts. Reload the page and make your changes again."
+    render :edit, status: :unprocessable_entity
   end
 
   # DELETE /ledger_entries/1

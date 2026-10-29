@@ -122,6 +122,7 @@ Rails.application.routes.draw do
           post "split"
           post "unsplit"
         end
+        resources :receipts, only: %i[show], controller: "ledger_entry_receipts"
       end
     end
   end
@@ -133,7 +134,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:mailboxes)
     resources :mailboxes do
-      resources :mailbox_messages, except: %i[index]
+      resources :mailbox_messages, except: %i[index] do
+        resources :attachments, only: %i[show], controller: "mailbox_message_attachments"
+      end
     end
   end
 

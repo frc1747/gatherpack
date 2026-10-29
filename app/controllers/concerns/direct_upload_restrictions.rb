@@ -13,9 +13,21 @@ module DirectUploadRestrictions
   MAX_BYTE_SIZE = 10.megabytes
   CONTENT_TYPES = (AttachmentValidator::IMAGE_TYPES + %w[application/pdf]).freeze
 
+  # The signed id handed back attaches the blob, and also opens it through
+  # Active Storage's blob links, so it expires like every other file link.
+  # Prepended, since the controller defines direct_upload_json itself.
+  module ExpiringSignedId
+    private
+
+    def direct_upload_json(blob)
+      super.merge("signed_id" => blob.signed_id(expires_in: ActiveStorage.urls_expire_in))
+    end
+  end
+
   included do
     before_action :require_signed_in_user
     before_action :check_blob_limits
+    prepend ExpiringSignedId
   end
 
   private
