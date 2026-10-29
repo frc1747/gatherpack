@@ -63,13 +63,12 @@ class GatewaysController < InternalController
     body = request.raw_post.to_s
     return head :content_too_large if body.bytesize > WEBHOOK_MAX_BYTES
 
-    headers = request.env.slice(*@gateway.class.webhook_headers)
-
-    unless @gateway.verify_webhook(body, headers)
+    unless @gateway.verify_webhook(body, request.env.slice(*@gateway.class.webhook_verification_headers))
       Rails.logger.warn("#{@gateway.class}##{@gateway.id} (#{@gateway.name}) refused an unverified webhook request.")
       return head @gateway.webhook_refusal_status
     end
 
+    headers = request.env.slice(*@gateway.class.webhook_headers)
     ProcessGatewayWebhookJob.perform_later @gateway, body, headers
     head :no_content
   end
@@ -82,7 +81,7 @@ class GatewaysController < InternalController
 
     # Only allow a list of trusted parameters through.
     def gateway_params
-      fields = @gateway.fields + [ :name ]
+      fields = @gateway.fields + @gateway.extra_params + [ :name ]
       params.require(:gateway).permit(fields)
     end
 end

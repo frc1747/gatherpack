@@ -13,7 +13,10 @@
     <code data-lang="json"><pre><%= JSON.pretty_generate @gateway.configuration %></pre></code>
 
     <h2>Webhook URL</h2>
-    <code data-lang="md"><pre><%= webhook_gateway_url(@gateway) %></pre></code>
+    <code data-lang="md"><pre><%= webhook_gateway_url(@gateway, **@gateway.webhook_url_options) %></pre></code>
+
+    <% details = "gateways/#{@gateway.gateway_name.underscore}/details" %>
+    <%= render details, gateway: @gateway if lookup_context.exists?(details, [], true) %>
   </div>
   <div class="card-footer">
     <%= link_to "Edit", edit_gateway_path(@gateway), class: "btn btn-warning" %>

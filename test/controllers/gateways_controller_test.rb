@@ -100,6 +100,72 @@ class GatewaysControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an inbound Postmark request without credentials doesn't create a mailbox message" do
+    gateway = Gateway::PostmarkReceivingGateway.create!(name: "Inbound", server_token: "pm-server-token")
+    mailbox = Mailbox.create!(address: "team@inbound.example.com")
+
+    perform_enqueued_jobs do
+      post webhook_gateway_url(gateway), params: inbound_message("team@inbound.example.com"), headers: { "CONTENT_TYPE" => "application/json" }
+    end
+
+    assert_equal 0, mailbox.mailbox_messages.count,
+      "An anonymous, unauthenticated POST to the Postmark receiving webhook planted a message with a spoofed From address into a team mailbox"
+    assert_response :unauthorized
+  end
+
+  test "an inbound Postmark request with the wrong password is refused" do
+    gateway = Gateway::PostmarkReceivingGateway.create!(name: "Inbound", server_token: "pm-server-token")
+    mailbox = Mailbox.create!(address: "team@inbound.example.com")
+
+    perform_enqueued_jobs do
+      post webhook_gateway_url(gateway), params: inbound_message("team@inbound.example.com"),
+        headers: { "CONTENT_TYPE" => "application/json", "HTTP_AUTHORIZATION" => basic_auth("postmark", "wrong-password") }
+    end
+
+    assert_response :unauthorized
+    assert_equal 0, mailbox.mailbox_messages.count
+  end
+
+  test "an inbound Postmark request with the gateway's credentials creates the mailbox message" do
+    gateway = Gateway::PostmarkReceivingGateway.create!(name: "Inbound", server_token: "pm-server-token")
+    mailbox = Mailbox.create!(address: "team@inbound.example.com")
+
+    perform_enqueued_jobs do
+      post webhook_gateway_url(gateway), params: inbound_message("team@inbound.example.com"),
+        headers: { "CONTENT_TYPE" => "application/json", "HTTP_AUTHORIZATION" => basic_auth("postmark", gateway.inbound_password) }
+    end
+
+    assert_response :no_content
+    assert_equal [ "Hello" ], mailbox.mailbox_messages.pluck(:subject)
+  end
+
+  test "a Postmark receiving gateway without an inbound password refuses everything" do
+    gateway = Gateway::PostmarkReceivingGateway.create!(name: "Inbound", server_token: "pm-server-token")
+    gateway.update_columns(configuration: gateway.configuration.except("inbound_password"))
+    clear_enqueued_jobs
+
+    post webhook_gateway_url(gateway), params: inbound_message("team@inbound.example.com"),
+      headers: { "CONTENT_TYPE" => "application/json", "HTTP_AUTHORIZATION" => basic_auth("postmark", "") }
+
+    assert_response :unauthorized
+    assert_no_enqueued_jobs
+  end
+
+  test "the gateway page shows the inbound URL with credentials and an architect can regenerate the password" do
+    gateway = Gateway::PostmarkReceivingGateway.create!(name: "Inbound", server_token: "pm-server-token")
+    old_password = gateway.inbound_password
+    sign_in create_user("architect@example.com", admin: true, architect: true)
+
+    get gateway_url(gateway)
+    assert_response :success
+    assert_includes response.body, "://postmark:#{old_password}@"
+
+    patch gateway_url(gateway), params: { gateway: { regenerate_inbound_password: "1" } }
+    assert_redirected_to gateway_url(gateway)
+    assert_not_equal old_password, gateway.reload.inbound_password
+    assert_predicate gateway.inbound_password, :present?
+  end
+
   test "an unsigned Stripe event doesn't mark a payment paid when the gateway has no webhook secret" do
     gateway = Gateway::StripeGateway.create!(name: "Stripe", secret_key: "sk_test_x", public_key: "pk_test_x")
     clear_enqueued_jobs
@@ -159,6 +225,18 @@ class GatewaysControllerTest < ActionDispatch::IntegrationTest
     def stripe_signature(payload, secret)
       timestamp = Time.now
       Stripe::Webhook::Signature.generate_header(timestamp, Stripe::Webhook::Signature.compute_signature(timestamp, payload, secret))
+    end
+
+    def basic_auth(user, password)
+      ActionController::HttpAuthentication::Basic.encode_credentials(user, password)
+    end
+
+    def inbound_message(to)
+      {
+        FromFull: { Email: "someone@example.com" },
+        ToFull: [ { Email: to } ], CcFull: [], BccFull: [],
+        Subject: "Hello", HtmlBody: "<p>Hi</p>"
+      }.to_json
     end
 
     def completed_checkout_event(session_id)

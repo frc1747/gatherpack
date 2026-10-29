@@ -120,6 +120,10 @@ request before acting on it:
   gateway's Secret field.
 - Resend events must carry a valid Svix signature. A Resend gateway without a
   webhook signing secret refuses them the same way.
+- Postmark inbound mail must sign in with the user name and password in the
+  receiving gateway's webhook URL, shown on its page. Paste that whole URL into
+  the Postmark server's inbound webhook setting, and again whenever you
+  regenerate the password; until then inbound mail is refused with 401.
 - Requests to any other gateway's webhook URL are refused with 400. That
   includes the bounce and spam-complaint webhook a Postmark sending gateway
   registers with Postmark; GatherPack never acted on those events, so delete

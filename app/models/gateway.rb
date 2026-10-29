@@ -61,6 +61,22 @@ class Gateway < ApplicationRecord
     :bad_request
   end
 
+  # Request headers verify_webhook needs. Only webhook_headers are passed on
+  # to the job.
+  def self.webhook_verification_headers
+    webhook_headers
+  end
+
+  # Extra options for this gateway's webhook URL, e.g. credentials.
+  def webhook_url_options
+    {}
+  end
+
+  # Parameters the edit form may send besides #fields, e.g. one-off actions.
+  def extra_params
+    []
+  end
+
   # A short note for the gateway page when this gateway can't accept
   # webhooks yet, or nil when it can.
   def webhook_problem
