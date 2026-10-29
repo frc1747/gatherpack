@@ -20,6 +20,7 @@ class SecurityHeadersTest < ActionDispatch::IntegrationTest
   end
 
   test "the time kiosk sends the security policies" do
+    users(:one).update!(kiosk: true)
     sign_in users(:one)
 
     get time_kiosk_path

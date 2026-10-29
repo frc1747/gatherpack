@@ -15,6 +15,7 @@
 <% if current_user.admin? %>
   <p><strong>Sitewide Privileges</strong></p>
   <%= f.input :admin %>
+  <%= f.input :kiosk, label: "Kiosk account", hint: "For a shared device that runs the time kiosk. It can only use the time kiosk." %>
   <% if current_user.architect? %>
     <%= f.input :architect %>
   <% end %>

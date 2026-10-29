@@ -13,6 +13,11 @@ class User < ApplicationRecord
   validate :password_change, on: :update
   before_save :fill_missing_defaults
   after_update :revoke_api_access, if: :saved_change_to_encrypted_password?
+  # An app authorized before the account became a kiosk account (flagged
+  # kiosk and not an admin, either by gaining the flag or losing admin)
+  # shouldn't act for it. (A second `after_update :revoke_api_access` would
+  # replace the one above.)
+  after_update -> { revoke_api_access }, if: -> { kiosk? && !admin? && (saved_change_to_kiosk? || saved_change_to_admin?) }
 
   after_create :adminify_first_user
 
@@ -103,7 +108,8 @@ class User < ApplicationRecord
     end
   end
 
-  # A new password also ends the access apps were given with the old one.
+  # A new password also ends the access apps were given with the old one,
+  # and so does becoming a kiosk account.
   def revoke_api_access
     access_tokens.where(revoked_at: nil).update_all(revoked_at: Time.current)
     access_grants.where(revoked_at: nil).update_all(revoked_at: Time.current)

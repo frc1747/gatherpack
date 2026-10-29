@@ -62,7 +62,7 @@ class UsersController < InternalController
 
     def user_params
       fields = [ :email, :password, :password_confirmation, :person_id, :old_password ]
-      fields << :admin if current_user.admin?
+      fields += [ :admin, :kiosk ] if current_user.admin?
       fields << :architect if current_user.architect?
       params.require(:user).permit(*fields)
     end

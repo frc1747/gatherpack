@@ -173,12 +173,12 @@ class AuthorizationVerificationTest < ActionDispatch::IntegrationTest
 
   # --- calendar, search, dashboard, kiosk -----------------------------------
 
-  test "the calendar, search, dashboard and kiosk open for admins and members" do
+  test "the calendar, search and dashboard open for admins and members" do
     [ @admin, @member ].each do |person|
       sign_in person.user
 
       [ calendar_index_path, search_path(q: "a"), search_path(q: "a", scope: "me"),
-        search_path(q: "a", scope: "managed_people managed_teams"), root_path, setup_path, time_kiosk_path ].each do |path|
+        search_path(q: "a", scope: "managed_people managed_teams"), root_path, setup_path ].each do |path|
         get path
         assert_response :success, "#{path} for #{person.user.email}"
       end
@@ -191,6 +191,16 @@ class AuthorizationVerificationTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the kiosk opens for admins but not members" do
+    sign_in @admin.user
+    get time_kiosk_path
+    assert_response :success
+
+    sign_in @member.user
+    get time_kiosk_path
+    assert_response :forbidden
+  end
+
   test "the calendar feed sends a browser back to the calendar" do
     [ @admin, @member ].each do |person|
       sign_in person.user
@@ -200,20 +210,25 @@ class AuthorizationVerificationTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "admins and members punch in and out at the kiosk" do
+  test "admins and kiosk accounts punch in and out at the kiosk" do
     period = TimeClockPeriod.create!(name: "Build", team: @team, start_time: 1.day.ago, end_time: 1.day.from_now, permission: :added_by_team_member)
+    kiosk = create_person("kiosk@example.com")
+    kiosk.user.update!(kiosk: true)
+    time_kiosk = TimeKiosk.new
+    time_kiosk.person = @teammate
+    ref = time_kiosk.person_reference
 
-    [ @admin, @member ].each do |person|
+    [ @admin, kiosk ].each do |person|
       sign_in person.user
 
       [ :html, :turbo_stream ].each do |format|
         assert_difference -> { TimeClockPunch.where(person: @teammate, end_time: nil).count }, 1, "#{format} for #{person.user.email}" do
-          post time_kiosk_path(format: format), params: { time_kiosk: { tool: "punch_in", person_id: @teammate.id, time_clock_period_id: period.id } }
+          post time_kiosk_path(format: format), params: { time_kiosk: { tool: "punch_in", person_ref: ref, time_clock_period_id: period.id } }
         end
         assert_response :success
 
         punch = TimeClockPunch.find_by!(person: @teammate, end_time: nil)
-        patch time_kiosk_path(format: format), params: { time_kiosk: { tool: "punch_out", time_clock_punch_id: punch.id } }
+        patch time_kiosk_path(format: format), params: { time_kiosk: { tool: "punch_out", person_ref: ref, time_clock_punch_id: punch.id } }
         assert_response :success
         assert_not_nil punch.reload.end_time, "#{format} for #{person.user.email}"
       end

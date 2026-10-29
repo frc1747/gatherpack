@@ -354,6 +354,35 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ 422 ] * 10 + [ 429 ], statuses
   end
 
+  test "a member can't make their own login a kiosk account" do
+    sign_in @member.user
+
+    patch person_user_path(@member), params: { user: { email: "member@example.com", kiosk: "1", old_password: "Password1!" } }
+
+    assert_not @member.user.reload.kiosk?
+  end
+
+  test "an admin can make a login a kiosk account and back" do
+    sign_in @admin.user
+
+    get edit_person_user_path(@member)
+    assert_select "input[type=checkbox][name=?]", "user[kiosk]"
+
+    patch person_user_path(@member), params: { user: { email: "member@example.com", kiosk: "1" } }
+    assert @member.user.reload.kiosk?
+
+    patch person_user_path(@member), params: { user: { email: "member@example.com", kiosk: "0" } }
+    assert_not @member.user.reload.kiosk?
+  end
+
+  test "the login form offers the kiosk flag only to admins" do
+    sign_in @member.user
+
+    get edit_person_user_path(@member)
+
+    assert_select "input[name=?]", "user[kiosk]", count: 0
+  end
+
   private
 
   def new_login(email)
