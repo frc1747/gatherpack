@@ -9,13 +9,15 @@ class CheckinFieldResponsePolicy < ApplicationPolicy
     end
   end
 
-  # Responses are changed through their check-in (CheckinPolicy); these are
-  # asked only when an admin reverts a response from the audit log.
+  # Responses are created along with their check-in; this is asked only when
+  # an admin restores a deleted response from the audit log.
   def create?
     user.admin?
   end
 
+  # A response is written by someone its field allows (CheckinField#permission)
+  # who may also edit the check-in it belongs to.
   def update?
-    user.admin?
+    record.permission_check(person) && CheckinPolicy.new(user, record.checkin).update?
   end
 end

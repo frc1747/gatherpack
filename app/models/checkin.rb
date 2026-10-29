@@ -10,7 +10,7 @@ class Checkin < ApplicationRecord
   validates :person, presence: true, uniqueness: { scope: :event, message: "has already been checked in" }
   validate :check_limit
 
-  before_update :check_attributes
+  before_validation :keep_response_fields
   before_validation :refresh_fields
 
   attr_accessor :created_by
@@ -41,11 +41,12 @@ class Checkin < ApplicationRecord
 
   private
 
-  def check_attributes
-    self.checkin_field_responses.each do |r|
-      if !r.permission_check(self.created_by)
-        r.response = r.response_was
-      end
+  # A saved response stays with its field, so nested attributes can't move an
+  # answer onto or off a field the acting person may not write. This runs
+  # before refresh_fields, which would otherwise fill the gap left behind.
+  def keep_response_fields
+    checkin_field_responses.each do |r|
+      r.restore_attributes([ :checkin_field_id ]) if r.persisted?
     end
   end
 

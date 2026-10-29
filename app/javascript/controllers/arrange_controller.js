@@ -32,23 +32,11 @@ export default class extends Controller {
     const data = ev.dataTransfer.getData("text/plain");
     const draggedElement = document.getElementById(data);
     const sourceContainer = draggedElement.parentElement;
-    const sourceContainerName = sourceContainer.dataset.arrangingContainer;
     // The drop may land on a badge inside the container; the listener is on the container itself.
     const targetContainer = ev.currentTarget;
     const targetContainerName = targetContainer.dataset.arrangingContainer;
 
-    targetContainer.appendChild(draggedElement);
-
-    // Update counters
-    const sourceCounter = document.querySelector(`[data-arranging-count="${sourceContainerName}"]`);
-    const targetCounter = document.querySelector(`[data-arranging-count="${targetContainerName}"]`);
-
-    if (sourceCounter) {
-      sourceCounter.textContent = parseInt(sourceCounter.textContent) - 1;
-    }
-    if (targetCounter) {
-      targetCounter.textContent = parseInt(targetCounter.textContent) + 1;
-    }
+    this.moveBadge(draggedElement, sourceContainer, targetContainer);
 
     const csrfToken = document.querySelector("[name='csrf-token']").content
 
@@ -63,8 +51,24 @@ export default class extends Controller {
     }).then(response => {
       if (!response.ok) { throw response; }
     }).catch(error => {
+      // The change wasn't saved (refused or failed), so put the badge back.
+      this.moveBadge(draggedElement, targetContainer, sourceContainer);
       console.error("error", error);
     })
+  }
+
+  moveBadge(badge, from, to) {
+    to.appendChild(badge);
+
+    const fromCounter = document.querySelector(`[data-arranging-count="${from.dataset.arrangingContainer}"]`);
+    const toCounter = document.querySelector(`[data-arranging-count="${to.dataset.arrangingContainer}"]`);
+
+    if (fromCounter) {
+      fromCounter.textContent = parseInt(fromCounter.textContent) - 1;
+    }
+    if (toCounter) {
+      toCounter.textContent = parseInt(toCounter.textContent) + 1;
+    }
   }
 
   addNewFieldHandler() {
