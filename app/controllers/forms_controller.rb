@@ -119,7 +119,11 @@ class FormsController < InternalController
   # POST /forms/1/duplicate
   def duplicate
     copy = @form.duplicate!(title: "#{@form.title} (copy)", created_by: current_user.person)
-    redirect_to edit_form_path(copy, tab: "details"), notice: "Form was duplicated. Its responses weren't copied.", status: :see_other
+    notice = "Form was duplicated. Its responses weren't copied."
+    if @form.badge_settings_left_off?(copy)
+      notice += current_user.admin? ? " Some badge settings weren't copied because they're no longer allowed." : " Its badge settings weren't copied: only an admin can add them."
+    end
+    redirect_to edit_form_path(copy, tab: "details"), notice: notice, status: :see_other
   end
 
   # GET /forms/1/reminder

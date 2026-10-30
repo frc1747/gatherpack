@@ -319,11 +319,18 @@ class Form < ApplicationRecord
   end
 
   # Copies the settings and questions, not the responses, as a new draft.
+  # The badge grants and completion badge are admin-only settings, so the
+  # copy keeps them only when an admin makes it, and then only those still
+  # allowed: a completion badge only admins assign and that gives no access,
+  # and grants that are in effect (Badge#grant_effective?) to a badge that
+  # isn't a completion badge.
   def duplicate!(title:, key: nil, created_by: nil)
+    badges = created_by&.admin?
     transaction do
       copy = dup
+      badge = completion_badge if badges && completion_badge&.added_by_admin? && !Form.access_badges.exists?(id: completion_badge.id)
       copy.assign_attributes(title: title, key: key, status: :draft, content_version: 1, published_version: 1, reconfirm_from_version: 1,
-        completion_badge: nil, created_by: created_by, opens_at: nil, closes_at: nil)
+        completion_badge: badge, created_by: created_by, opens_at: nil, closes_at: nil)
       copy.save!
       form_questions.each do |question|
         copy.form_questions.create!(question.attributes.except("id", "form_id", "created_at", "updated_at"))
@@ -331,9 +338,20 @@ class Form < ApplicationRecord
       form_audience_rules.each do |rule|
         copy.form_audience_rules.create!(rule.attributes.slice("effect", "target_type", "team_id", "badge_id", "person_id", "include_managers"))
       end
-      form_badge_grants.each { |grant| copy.form_badge_grants.create!(badge_id: grant.badge_id, access: grant.access) }
+      if badges
+        completion_badge_ids = Form.where.not(completion_badge_id: nil).select(:completion_badge_id)
+        form_badge_grants.where.not(badge_id: completion_badge_ids).includes(:badge).select { |grant| grant.badge.grant_effective? }.each do |grant|
+          copy.form_badge_grants.create!(badge_id: grant.badge_id, access: grant.access)
+        end
+      end
       copy
     end
+  end
+
+  # Whether a copy (#duplicate!) left off any of this form's badge grants or
+  # its completion badge.
+  def badge_settings_left_off?(copy)
+    (completion_badge_id.present? && copy.completion_badge_id.nil?) || form_badge_grants.count > copy.form_badge_grants.count
   end
 
   private
