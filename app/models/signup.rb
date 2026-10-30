@@ -95,15 +95,6 @@ class Signup < ApplicationRecord
       .find_each { |signup| signup.update!(status: :fulfilled, fulfilled_by_checkin_id: checkin.id) }
   end
 
-  # Undoes .fulfil_for_checkin! when a check-in is deleted: the sign-ups
-  # that check-in fulfilled go back to active, unless the person still has
-  # another check-in there. Sign-ups an organizer marked are left alone.
-  def self.unfulfil_for_checkin!(checkin)
-    return if Checkin.where(person_id: checkin.person_id, event_id: checkin.event_id).where.not(id: checkin.id).exists?
-
-    fulfilled.where(fulfilled_by_checkin_id: checkin.id).find_each { |signup| signup.update!(status: :active) }
-  end
-
   # Members can cancel until cancel_cutoff_hours before the event starts.
   def cancellable_by_member?(now = Time.current)
     active? && now < event.start_time - signup_sheet.cancel_cutoff_hours.hours
