@@ -30,7 +30,8 @@ class PersonFieldAccess < AudienceAccess
 
   def badge_grant(field, mode)
     field.person_field_badge_grants.find do |grant|
-      (mode == :read || grant.write?) && viewer_badge_ids.include?(grant.badge_id) && grant.covers?(subject_team_ids)
+      (mode == :read || grant.write?) && viewer_badge_ids.include?(grant.badge_id) &&
+        grant.covers?(subject_team_ids) && grant.effective?
     end
   end
 end

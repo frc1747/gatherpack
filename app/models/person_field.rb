@@ -161,7 +161,7 @@ class PersonField < ApplicationRecord
     audience = AUDIENCE_ROLES.to_h { |role, component| [ role, role_access(component) ] }
     audience.delete(:guardians) unless subject.persisted? && subject.guardians.exists?
     audience[:subject] = :read if audience[:subject] == :write && system_read_only?
-    audience[:badges] = person_field_badge_grants.to_h { |grant| [ grant.badge, grant.write? && !system_read_only? ? :write : :read ] }
+    audience[:badges] = person_field_badge_grants.select(&:effective?).to_h { |grant| [ grant.badge, grant.write? && !system_read_only? ? :write : :read ] }
     audience[:guardianship_ends_on] = subject.guardianship_ends_on if audience.fetch(:guardians, :none) != :none
     audience
   end
