@@ -45,11 +45,27 @@ class FormSubmission < ApplicationRecord
   end
 
   def answer(question)
-    question.cast_answer(answers[question.key])
+    question.cast_answer(stored_answer(question))
   end
 
   def answered?(question)
-    !question.blank_answer?(answers[question.key])
+    !question.blank_answer?(stored_answer(question))
+  end
+
+  # The stored answer for the question, or nil when this submission recorded
+  # its key as linked to a different profile field than the question has
+  # now: that answer belongs behind the other field's read level, so it's
+  # never shown as this question's answer.
+  def stored_answer(question)
+    field = snapshot_person_field(question.key)
+    return nil if field && field != question.person_field&.key
+    answers[question.key]
+  end
+
+  # The profile field key the question with this key was linked to when
+  # this was submitted, or nil (form only, or not on the form then).
+  def snapshot_person_field(key)
+    Array(content["questions"]).detect { |snapshot| snapshot["key"] == key }&.dig("person_field")
   end
 
   # Whether an "updates profile" answer no longer matches the profile. Only

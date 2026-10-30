@@ -128,7 +128,7 @@ class FormPopulation
   # counts as No; other questions need a stored answer.
   def answered?(row)
     return false unless row.submission && answer_report.readable?(row, question)
-    question.value_type.type_boolean? || row.submission.answers.key?(question.key)
+    question.value_type.type_boolean? || !row.submission.stored_answer(question).nil?
   end
 
   def answer_report

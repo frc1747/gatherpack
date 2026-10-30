@@ -323,6 +323,16 @@ module FormsHelper
     form.input question.key.to_sym, **options
   end
 
+  # An answer to a question that was filled in from (or updated) a profile
+  # field when it was submitted stays behind that field's read level, even
+  # after the question was unlinked or removed. A field that's gone hides it.
+  def form_snapshot_field_readable?(snapshot, access)
+    return true if snapshot["person_field"].blank?
+
+    field = PersonField.find_by(key: snapshot["person_field"])
+    field.present? && access.field_access.readable?(field)
+  end
+
   # "Jo Parent (guardian), Oct 3"
   def form_signed_summary(submission)
     submission.standing_signatures.sort_by(&:signed_at).map do |signature|

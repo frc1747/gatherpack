@@ -168,6 +168,17 @@ class Form < ApplicationRecord
     asked.or(Person.where(id: former.select(:id)))
   end
 
+  # Every question key stored in this form's submissions, as an answer or in
+  # the copy of the form a submission keeps, including removed questions'.
+  def stored_question_keys
+    return [] unless persisted?
+
+    submissions = FormSubmission.joins(:form_response).where(form_responses: { form_id: id }).distinct
+    answered = submissions.pluck(Arel.sql("jsonb_object_keys(form_submissions.answers)"))
+    snapshots = submissions.pluck(Arel.sql("jsonb_array_elements(CASE WHEN jsonb_typeof(form_submissions.content -> 'questions') = 'array' THEN form_submissions.content -> 'questions' ELSE '[]'::jsonb END) ->> 'key'"))
+    (answered + snapshots).compact.uniq
+  end
+
   def response_for(subject)
     form_responses.find_by(subject: subject)
   end
