@@ -133,6 +133,27 @@ class SignupSheet < ApplicationRecord
     self.class.organizer_team_ids(person).include?(team_id)
   end
 
+  # The teams whose members an organizer can open this sheet to by person
+  # or badge: the teams they may create sheets for, and this sheet's team
+  # and the teams below it. Admins reach every team.
+  def reach_team_ids(person)
+    ([ team_id ] + team.all_descendant_ids + self.class.creatable_team_ids(person)).uniq
+  end
+
+  # The members of #reach_team_ids.
+  def people_in_reach_of(person)
+    Person.where(id: Membership.where(team_id: reach_team_ids(person)).select(:person_id))
+  end
+
+  # The badges an organizer can open this sheet to: badges of a team in
+  # reach, and badges with no team (whose holders outside reach the rule
+  # then leaves out, SignupAudienceRule#people_in_reach).
+  def badges_in_reach_of(person)
+    return Badge.all if person&.admin?
+
+    Badge.where(team_id: nil).or(Badge.where(team_id: reach_team_ids(person)))
+  end
+
   # Everyone the sheet is open to: everyone an include rule covers, less
   # everyone an exclude rule covers. With no include rule, the sheet's team
   # and every team below it.
@@ -142,7 +163,7 @@ class SignupSheet < ApplicationRecord
     included = rules.select(&:effect_include?)
     excluded = rules.select(&:effect_exclude?)
 
-    people = included.any? ? combine(included.map(&:people)) : team.descendant_people
+    people = included.any? ? combine(included.map(&:people_in_reach)) : team.descendant_people
     people = people.where.not(id: combine(excluded.map(&:people)).select(:id)) if excluded.any?
     Person.where(id: people.select(:id))
   end

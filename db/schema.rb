@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_31_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -543,7 +543,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_020000) do
     t.boolean "include_managers", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "created_by_id"
     t.index ["badge_id"], name: "index_signup_audience_rules_on_badge_id"
+    t.index ["created_by_id"], name: "index_signup_audience_rules_on_created_by_id"
     t.index ["person_id"], name: "index_signup_audience_rules_on_person_id"
     t.index ["signup_sheet_id", "effect", "target_type", "team_id", "badge_id", "person_id"], name: "index_signup_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
     t.index ["signup_sheet_id"], name: "index_signup_audience_rules_on_signup_sheet_id"
@@ -928,6 +930,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_020000) do
   add_foreign_key "reply_votes", "replies"
   add_foreign_key "shortcuts", "teams"
   add_foreign_key "signup_audience_rules", "badges", on_delete: :cascade
+  add_foreign_key "signup_audience_rules", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "signup_audience_rules", "people", on_delete: :cascade
   add_foreign_key "signup_audience_rules", "signup_sheets", on_delete: :cascade
   add_foreign_key "signup_audience_rules", "teams", on_delete: :cascade
