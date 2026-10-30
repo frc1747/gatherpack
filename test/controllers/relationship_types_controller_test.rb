@@ -11,7 +11,7 @@ class RelationshipTypesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin can mark a type as a guardianship" do
-    type = relationship_types(:one)
+    type = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin)
 
     get edit_relationship_type_path(type)
     assert_response :success

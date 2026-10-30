@@ -13,6 +13,7 @@ class RelationshipType < ApplicationRecord
   }.freeze
 
   validate :guardianship_requires_restricted_permission
+  validate :guardianship_not_widened_while_linked
 
   def self.guardianship_configured?
     where.not(guardianship: :none).exists?
@@ -30,6 +31,12 @@ class RelationshipType < ApplicationRecord
     !guardianship_none?
   end
 
+  # Existing links were made under the type's current setting, so widening
+  # it would hand them guardianship nobody agreed to.
+  def guardianship_locked?
+    persisted? && relationships.exists?
+  end
+
   private
 
   # A guardianship type grants access to the child side's data, so members
@@ -37,6 +44,15 @@ class RelationshipType < ApplicationRecord
   def guardianship_requires_restricted_permission
     if guardianship_minor? && !(added_by_admin? || added_by_manager?)
       errors.add(:guardianship, "can only be set on types added by admins or managers")
+    end
+  end
+
+  def guardianship_not_widened_while_linked
+    return unless will_save_change_to_guardianship? && guardianship_locked?
+
+    # none < minor < consented: each grants guardianship in more cases.
+    if self.class.guardianships.fetch(guardianship) > self.class.guardianships.fetch(guardianship_in_database)
+      errors.add(:guardianship, "can't grant more while this type already has links. To give guardianship, create a new type and link people to it")
     end
   end
 end
