@@ -1,9 +1,9 @@
 # Who owes, how much, over what period, and which sources count (spec §4).
 # People in the owing team (and the teams below it), optionally only those
 # holding the owing badge, less holders of the exempt badge, owe
-# base_amount in the commitment's unit. With a group relationship type they
-# owe together in groups (spec §4.4): base_amount for the first member and
-# additional_amount for each other. Progress is computed from the sources
+# base_amount in the commitment's unit. With a group relationship type (one
+# only admins or managers add) they owe together in groups (spec §4.4):
+# base_amount for the first member and additional_amount for each other. Progress is computed from the sources
 # and adjustments, never stored.
 #
 # The API for reports and other features:
@@ -29,6 +29,11 @@ class Commitment < ApplicationRecord
 
   SELF_APPROVAL_REASON = "Another organizer needs to adjust your own family's credit".freeze
 
+  # The relationship type permissions trusted for grouping: kinds only
+  # admins or managers add. A kind members can add themselves would let
+  # anyone join another person's group and pool their credit.
+  TRUSTED_RELATIONSHIP_PERMISSIONS = %w[ added_by_admin added_by_manager ].freeze
+
   belongs_to :team
   belongs_to :owing_team, class_name: "Team"
   belongs_to :owing_badge, class_name: "Badge", optional: true
@@ -53,6 +58,7 @@ class Commitment < ApplicationRecord
   validate :period_in_order
   validate :owing_team_in_reach
   validate :exempt_badge_differs
+  validate :group_relationship_type_trusted
 
   after_create :add_creator_as_organizer
   after_save :forget_groups
@@ -113,6 +119,15 @@ class Commitment < ApplicationRecord
       within = [ cap.id ] + cap.all_descendant_ids
       (above + below) & within
     end.uniq
+  end
+
+  # The relationship types a commitment may group by.
+  def self.trusted_relationship_types
+    RelationshipType.where(permission: TRUSTED_RELATIONSHIP_PERMISSIONS)
+  end
+
+  def self.trusted_relationship_type?(type)
+    type.present? && TRUSTED_RELATIONSHIP_PERMISSIONS.include?(type.permission)
   end
 
   # The teams a person may create a commitment for: all for admins, the
@@ -178,8 +193,11 @@ class Commitment < ApplicationRecord
     person.present? && owing_people.exists?(id: person.id)
   end
 
+  # Whether people owe in groups: a group relationship type is set and is
+  # still a trusted one. A saved type that members can add themselves (or
+  # that has become one) groups nobody until it's changed.
   def grouped?
-    group_relationship_type_id.present?
+    self.class.trusted_relationship_type?(group_relationship_type)
   end
 
   # Progress for these people (default: everyone who owes), keyed by person
@@ -317,6 +335,12 @@ class Commitment < ApplicationRecord
     return unless grouped? && person
 
     group_relative_ids(person).find { |id| group_index.key?(id) }
+  end
+
+  def group_relationship_type_trusted
+    return if group_relationship_type_id.nil? || self.class.trusted_relationship_type?(group_relationship_type)
+
+    errors.add(:group_relationship_type_id, "must be a relationship only admins or managers add")
   end
 
   def exempt_badge_differs

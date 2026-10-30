@@ -291,6 +291,31 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "only relationship types members can't add themselves are offered and accepted for grouping" do
+    friend_of = RelationshipType.create!(parent_label: "Friend of", child_label: "Friend of", permission: :added_by_participant)
+    guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_manager)
+    with_feature do
+      sign_in person(:admin).user
+      get edit_commitment_path(@commitment)
+      assert_select "select#commitment_group_relationship_type_id option", text: "Guardian of - Ward of"
+      assert_select "select#commitment_group_relationship_type_id option", text: "Friend of - Friend of", count: 0
+
+      patch commitment_path(@commitment), params: { commitment: { group_relationship_type_id: friend_of.id } }
+      assert_response :unprocessable_entity
+      assert_nil @commitment.reload.group_relationship_type
+
+      patch commitment_path(@commitment), params: { commitment: { group_relationship_type_id: guardian_of.id } }
+      assert_redirected_to commitment_path(@commitment)
+      assert_equal guardian_of, @commitment.reload.group_relationship_type
+
+      @commitment.update_column(:group_relationship_type_id, friend_of.id)
+      get commitment_path(@commitment)
+      assert_match "don't owe together", response.body
+      get edit_commitment_path(@commitment)
+      assert_select "select#commitment_group_relationship_type_id option[selected]", text: "Friend of - Friend of"
+    end
+  end
+
   test "holders of the exempt badge are left out of the organizer's view" do
     rookie = Badge.create!(name: "Rookie", short: "R", color: "#00aa00", badge_type: badge_types(:one), permission: :added_by_admin)
     BadgeAssignment.create!(badge: rookie, person: person(:member2))
