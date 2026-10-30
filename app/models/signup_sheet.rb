@@ -7,6 +7,9 @@ class SignupSheet < ApplicationRecord
   has_paper_trail versions: { class_name: "AuditLog" }
 
   SELF_APPROVAL_REASON = "Another organizer needs to mark your own family's sign-ups".freeze
+  # Relationship types members can't add themselves. Only these say who is
+  # someone's family where that gives them something.
+  TRUSTED_RELATIONSHIP_PERMISSIONS = %w[ added_by_admin added_by_manager ].freeze
 
   belongs_to :team
   # Used by Add dates (not built yet).
@@ -181,6 +184,17 @@ class SignupSheet < ApplicationRecord
     return true if organizer.id == person.id
 
     Relationship.where(parent_id: organizer.id, child_id: person.id).or(Relationship.where(parent_id: person.id, child_id: organizer.id)).exists?
+  end
+
+  # Whether the two are related through a relationship type members can't
+  # add themselves (TRUSTED_RELATIONSHIP_PERMISSIONS).
+  def self.trusted_relative?(someone, person)
+    return false if someone.nil? || person.nil?
+
+    types = RelationshipType.where(permission: TRUSTED_RELATIONSHIP_PERMISSIONS).select(:id)
+    Relationship.where(relationship_type_id: types)
+      .where(parent_id: someone.id, child_id: person.id).or(Relationship.where(relationship_type_id: types, parent_id: person.id, child_id: someone.id))
+      .exists?
   end
 
   # Why the organizer can't mark this person's sign-ups, if they can't.

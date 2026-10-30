@@ -136,7 +136,7 @@ class Signup < ApplicationRecord
   end
 
   def rule_problems(by, organizer, override_rules)
-    failures = signup_position.eligibility_failures(person, event)
+    failures = signup_position.eligibility_failures(person, event, viewer: by)
     return failures unless override_rules && failures.any?
     return [ "Only organizers can place people against a rule" ] unless organizer
     return [ "Another organizer needs to place your own family against a rule" ] if signup_sheet.self_or_relative?(by, person)
