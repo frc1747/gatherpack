@@ -4,4 +4,7 @@ Rails.application.config.to_prepare do
   Badge.include(BadgeAccessGrants)
   Badge.has_many :person_field_badge_grants, inverse_of: :badge
   Badge.register_access_grants(:person_field_badge_grants)
+
+  # Only admins make or hand out admin-assigned badges.
+  BadgesController.include(BadgeAdminAssignmentGuard)
 end
