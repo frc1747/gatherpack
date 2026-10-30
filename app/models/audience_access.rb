@@ -33,9 +33,11 @@ class AudienceAccess
     @guardian = subject.persisted? && subject.guardians.where(id: viewer.id).exists?
   end
 
+  # Agrees with AudienceLevels.led_people: managers don't lead admins or
+  # architects.
   def leader?
     return @leader if defined?(@leader)
-    @leader = viewer.can_manage(subject)
+    @leader = viewer.can_manage(subject) && (viewer.admin? || !AudienceLevels.privileged?(subject))
   end
 
   def teammate?

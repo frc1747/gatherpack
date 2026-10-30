@@ -36,7 +36,7 @@ class RelationshipTypeTest < ActiveSupport::TestCase
   test "relationship type changes fire hooks" do
     assert_includes Hook.catalog, "relationship_types - update"
     Hook.create!(name: "Record", event: "relationship_types - update", code: "Thread.current[:hooked_relationship_type] = model.guardianship")
-    type = relationship_types(:one)
+    type = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin)
 
     type.update!(guardianship: :minor)
 

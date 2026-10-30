@@ -160,8 +160,8 @@ class PersonField < ApplicationRecord
   def audience_for(subject)
     audience = AUDIENCE_ROLES.to_h { |role, component| [ role, role_access(component) ] }
     audience.delete(:guardians) unless subject.persisted? && subject.guardians.exists?
-    audience[:subject] = :read if audience[:subject] == :write && system_read_only?
-    audience[:badges] = person_field_badge_grants.to_h { |grant| [ grant.badge, grant.write? && !system_read_only? ? :write : :read ] }
+    audience[:subject] = :read if audience[:subject] == :write && (system_read_only? || self_write_locked?(subject))
+    audience[:badges] = person_field_badge_grants.select(&:effective?).to_h { |grant| [ grant.badge, grant.write? && !system_read_only? ? :write : :read ] }
     audience[:guardianship_ends_on] = subject.guardianship_ends_on if audience.fetch(:guardians, :none) != :none
     audience
   end
@@ -176,6 +176,15 @@ class PersonField < ApplicationRecord
 
   def system_read_only?
     SYSTEM_READ_ONLY_SOURCES.include?(system_source)
+  end
+
+  # Birthday decides when minor guardianships end, so a person on the child
+  # side of any guardianship-type link (active or not) can't change their
+  # own. Their guardians and leaders still can.
+  def self_write_locked?(subject)
+    system_source == "birthday" && subject.persisted? &&
+      Relationship.joins(:relationship_type).where(child_id: subject.id)
+        .where.not(relationship_types: { guardianship: RelationshipType.guardianships[:none] }).exists?
   end
 
   def archive!
@@ -249,7 +258,8 @@ class PersonField < ApplicationRecord
     person_field_badge_grants.each do |grant|
       relations << grant.covered_people if (mode == :read || grant.write?) && viewer_badge_ids.include?(grant.badge_id)
     end
-    AudienceLevels.combine(relations).where(id: applicable_people.select(:id))
+    subjects = AudienceLevels.combine(relations).where(id: applicable_people.select(:id))
+    mode == :write && self_write_locked?(viewer) ? subjects.where.not(id: viewer.id) : subjects
   end
 
   def generate_key
