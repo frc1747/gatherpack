@@ -37,6 +37,7 @@ class Form < ApplicationRecord
   validate :respond_within_read
   validate :closes_after_opens
   validate :completion_badge_reaches_audience
+  validate :completion_badge_grants_nothing, if: -> { completion_badge && will_save_change_to_completion_badge_id? }
   validate :event_within_team
 
   # Browsers send textarea line breaks as CRLF. Without this, saving the
@@ -104,6 +105,23 @@ class Form < ApplicationRecord
 
     within = [ cap.id ] + cap.all_descendant_ids
     ((person.all_ancestor_teams.ids + below) & within).uniq
+  end
+
+  # Badges that give access to people's information: those with person
+  # field or form badge grants, and the form creator badge (by name, whether
+  # or not Badges are on). None of them can be a completion badge.
+  def self.access_badges
+    badges = Badge.where(id: PersonFieldBadgeGrant.select(:badge_id)).or(Badge.where(id: FormBadgeGrant.select(:badge_id)))
+    name = Settings[:forms_creator_badge].to_s.strip
+    name.present? ? badges.or(Badge.where("LOWER(badges.name) = ?", name.downcase)) : badges
+  end
+
+  # The badges an admin may choose as this form's completion badge, plus the
+  # one it has.
+  def completion_badge_choices
+    choices = Badge.added_by_admin.where.not(id: Form.access_badges.select(:id))
+    choices = choices.or(Badge.where(id: completion_badge_id)) if completion_badge_id
+    choices.order(:name)
   end
 
   # Whether this person runs the form as its creator (holding the creator
@@ -371,6 +389,10 @@ class Form < ApplicationRecord
     elsif event.team_id != team_id && !team.all_descendant_ids.include?(event.team_id) && !team.all_ancestor_ids.include?(event.team_id)
       errors.add(:event, "belongs to #{event.team.name}, which isn't #{team.name} or a team above or below it")
     end
+  end
+
+  def completion_badge_grants_nothing
+    errors.add(:completion_badge, "can't be a badge that gives access to people's information") if Form.access_badges.exists?(id: completion_badge.id)
   end
 
   # Only admins assign the badge, and a team badge can only be held by

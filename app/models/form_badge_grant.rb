@@ -6,6 +6,7 @@ class FormBadgeGrant < ApplicationRecord
   has_neat_id :frmbg
   include CanBeHooked
   has_paper_trail versions: { class_name: "AuditLog" }
+  include FormCompletionBadgeGuard
 
   belongs_to :form
   belongs_to :badge

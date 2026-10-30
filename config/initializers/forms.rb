@@ -5,3 +5,9 @@ ActiveSupport::Notifications.subscribe("person_field_changed.gatherpack") do |*,
   change = payload[:change]
   Form.resync_profile_field!(change.person, change.field)
 end
+
+# A form's completion badge can't be given access to person fields either
+# (FormCompletionBadgeGuard).
+Rails.application.config.to_prepare do
+  PersonFieldBadgeGrant.include(FormCompletionBadgeGuard)
+end

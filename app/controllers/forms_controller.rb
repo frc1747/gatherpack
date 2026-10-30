@@ -254,6 +254,9 @@ class FormsController < InternalController
       permitted << :completion_badge_id if current_user.admin? && badges
       permitted.delete(:audience_badge_id) unless badges
       permitted << :key if @form.nil? || @form.new_record?
+      # Who is asked and who may answer decide who gets a completion badge
+      # (FormPolicy#change_audience?).
+      permitted -= [ :respond_permission, :audience_badge_id ] if @form&.persisted? && policy(@form).audience_locked?
       params.require(:form).permit(*permitted)
     end
 end
