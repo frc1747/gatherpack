@@ -174,6 +174,35 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a message goes out as text, greeting each person and saying who sent it about which commitment" do
+    with_feature_and_grants do
+      @commitment.commitment_organizers.create!(person: person(:organizer))
+      sign_in person(:organizer).user
+      body = %(<a href="https://example.com/login">Log in to record your hours</a><img src="https://example.com/p.gif">)
+      post message_commitment_path(@commitment), params: { subject: "Hours", body: body }
+
+      bodies = enqueued_jobs.select { |job| job[:job] == SendEmailJob }.map { |job| job[:args][3] }
+      assert bodies.any?, "messages were enqueued"
+      assert bodies.none? { |sent| sent.include?("<a ") || sent.include?("<img") }, "the message went out as HTML: #{bodies.first}"
+      assert bodies.all? { |sent| sent.include?("&lt;a href=&quot;https://example.com/login&quot;&gt;") }
+    end
+  end
+
+  test "an organizer's plain message keeps its line breaks, under a greeting and a from line" do
+    @commitment.update!(title: "Shifts & Setup")
+    with_feature_and_grants do
+      @commitment.commitment_organizers.create!(person: person(:organizer))
+      sign_in person(:organizer).user
+      post message_commitment_path(@commitment), params: { subject: "Shifts", body: "Please sign up.\nThanks!\n\nSee you there." }
+
+      sent = enqueued_jobs.select { |job| job[:job] == SendEmailJob }.to_h { |job| [ job[:args][1], job[:args][2..3] ] }
+      assert_equal [ "member@example.com", "membertwo@example.com", "kid@example.com" ].sort, sent.keys.sort
+      assert_equal [ "Shifts", "<p>Hi Member,</p><p>From Organizer World, about Shifts &amp; Setup:</p>" \
+        "<p>Please sign up.<br>Thanks!</p><p>See you there.</p>" ], sent["member@example.com"]
+      assert_match "<p>Hi Kid,</p>", sent["kid@example.com"].last
+    end
+  end
+
   test "an unavailable source shows as not counted and can be removed" do
     with_feature do
       source = @commitment.commitment_sources.sole
