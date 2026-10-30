@@ -17,6 +17,7 @@ class PersonFieldAccess < AudienceAccess
     return nil if viewer.nil? || subject.nil? || !applies?(field)
     return nil if mode == :write && field.system_read_only?
     return :admin if viewer.admin?
+    return nil if mode == :write && viewer.id == subject.id && field.self_write_locked?(subject)
 
     level_component(mode == :read ? field.read_permission : field.write_permission) ||
       badge_grant(field, mode)&.badge
