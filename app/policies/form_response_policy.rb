@@ -29,9 +29,12 @@ class FormResponsePolicy < ApplicationPolicy
   end
 
   # Not while an update is in progress, so it's never unclear which version
-  # a withdrawal applies to.
+  # a withdrawal applies to. Withdrawing changes the response, so it follows
+  # the rules for updating it (open, late entry, "Allow updates"), except for
+  # the subject's leaders, who may withdraw at any time to fix a mistake.
   def withdraw?
-    access.can_respond? && record.active_submission.present? && record.open_submission.nil?
+    access.can_respond? && record.active_submission.present? && record.open_submission.nil? &&
+      (access.subject_leader? || access.can_update?)
   end
 
   # Signing happens on a submitted version, even after the form closes: a
