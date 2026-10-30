@@ -1,6 +1,8 @@
 # Spec: Sign-up Sheets and Commitments
 
-Status: rev. 10, 2026-10-12. Phases 1–5 are built and live in production since 2026-10-12 (`v0.0.0-hbr.17`); phase 6 and a commitments profile tab are in progress (§7). Decisions in §8 are settled or defaults; §9 lists open questions.
+Status: rev. 11, 2026-10-29. Phases 1–5 are built and live in production since 2026-10-12 (`v0.0.0-hbr.17`); phase 6 and a commitments profile tab are in progress (§7). Decisions in §8 are settled or defaults; §9 lists open questions.
+
+Rev. 11: deleting a check-in no longer undoes the fulfilment it made. Upstream's event page uses Checkout (delete the check-in) for someone leaving, so a fulfilled sign-up stays fulfilled; an organizer undoes a mis-tap from the roster (§3.5, decision 18).
 
 Rev. 10: status only. Phases 1–5 are live in production since 2026-10-12 (`v0.0.0-hbr.17`) on `feature/signups`, `feature/commitments` and `feature/signup-credit`; the completion badge is not built (decision 17). Phase 6 is in progress on `feature/signups-widget`, and a profile tab for commitments is in progress on `feature/profile-tabs` (BL-020) and `feature/commitments-profile-tab`. No decisions change.
 
@@ -123,7 +125,7 @@ Sheets staff Events. Every slot is at an Event; sign-ups with no event are a non
 - **Add dates** on a sheet creates Events in bulk for the sheet's team: a list of dates, each with start and end time, name, location, and one event type chosen for the sheet. It can also attach existing Events.
 - **Unknown times.** `events.start_time` is required. A date whose time isn't known yet is entered as 00:00–23:59 and given its real time later; changing it notifies everyone signed up (§3.7). Sign-ups has no TBA of its own (decision 11).
 - **Event page panel.** The event page shows a Sign-ups panel: positions, places or quantities filled, and names (to people allowed to see them).
-- **Check-in means showed up.** When someone checks in to an event, their active sign-ups to people positions at that event become `fulfilled`. After the event ends, an organizer can mark any sign-up `no_show`. A check-in never creates a sign-up.
+- **Check-in means showed up.** When someone checks in to an event, their active sign-ups to people positions at that event become `fulfilled`. After the event ends, an organizer can mark any sign-up `no_show`. A check-in never creates a sign-up. Deleting the check-in (upstream's Checkout, for someone leaving) leaves the sign-up fulfilled; an organizer fixes a mis-tap with Undo on the roster (decision 18).
 - **Items are marked by an organizer.** Bringing food doesn't mean staying, so a check-in doesn't fulfil item sign-ups. The roster has **Mark all brought** for an event's items, then the organizer marks the exceptions Not brought (decision 16) Mark all brought skips the organizer's own and their relatives' sign-ups, which another organizer marks (§3.6).
 
 ### 3.6 Organizers
@@ -324,6 +326,7 @@ Settled 2026-10-11 unless marked otherwise. Decisions about one organization's s
 15. **Items and people on one sheet.** A position's kind decides whether its cap counts people or a quantity. Rules, on behalf of, notices and organizers work the same for both.
 16. **Items are marked brought by an organizer** (default), with Mark all brought per event. A setting to treat items as brought once the event has passed can be added if marking proves a chore.
 17. **Reports read progress, not badges.** `Commitment#progress_for(person)` (the person's group, or them alone: owed, confirmed, planned, remaining, met, breakdown) is the supported way for reports and other features to ask; `covers?` says whether someone owes at all. A completion badge stays optional and isn't built.
+18. **Checkout doesn't undo showing up** (2026-10-29). Upstream checks people out by deleting their check-in, so deleting a check-in leaves the sign-ups it fulfilled as they are. Before, it put them back to active (meant for kiosk mis-taps), which made checking out erase sign-up attendance. `fulfilled_by_checkin_id` stays as a record of which check-in fulfilled a sign-up.
 
 ## 9. Open questions
 
