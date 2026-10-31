@@ -19,3 +19,4 @@ feature/commitments-profile-tab
 feature/signups-widget
 feature/test-hosts
 feature/ransack-associations-default
+feature/pagination-labels
