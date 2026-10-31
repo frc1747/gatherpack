@@ -11,6 +11,7 @@ adopted. The full specs are attached separately as an appendix.
 | 3 | [Person fields with permissions](03-person-fields.md) | Admin-defined profile fields, each with its own read and write levels, including guardians | Large. About 40 upstream files, 7 migrations, flag off by default | Person fields spec |
 | 4 | [Forms](04-forms.md) | Ask a group for information or a signature by a deadline, and track who has answered | Medium, mostly new files. Requires person fields | Forms spec |
 | 5 | [Sign-ups and commitments](05-signups.md) | Let people claim shifts and items at events, and track what each person or family owes from check-ins and sign-ups | Large, mostly new files: 16 migrations, 5 upstream files, flags off by default. Requires extension registries (4 more upstream files) | Sign-up sheets and commitments spec |
+| 6 | [AI agent](06-agent.md) | Do GatherPack work by asking for it, through tools that run as the signed-in user (idea, not built) | Small to medium, mostly new files: an MCP server first, an in-app chat later. Flag off by default | None |
 
 ## How they relate
 
