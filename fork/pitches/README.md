@@ -1,8 +1,10 @@
 # Feature descriptions
 
-Short functional descriptions of the major features: what each one does,
-the problem it solves, how big the change is, and how it could be
-adopted. The full specs are attached separately as an appendix.
+Short functional descriptions of features, built or proposed: what each
+one does, the problem it solves, how big the change is, and how it could
+be adopted. Each is written against the fork, so upstream can adopt one
+along with the features it depends on. Bugs and small tasks go in the
+backlog instead. Full specs, where they exist, are separate.
 
 | # | Feature | In one line | Size | Spec |
 |---|---|---|---|---|
