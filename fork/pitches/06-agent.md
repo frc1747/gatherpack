@@ -83,7 +83,7 @@ chat, another 1-2 weeks.
 ## Adoption
 
 Upstream might accept the MCP server, since it is generic and builds on
-their OAuth provider; pitch that alone. The in-app chat (B) would likely
+their OAuth provider; pitch that alone ([MCP server](07-mcp-server.md)). The in-app chat (B) would likely
 stay fork-only, like widgets.
 
 Suggested first step: a read-only MCP server, used by one admin for a few
