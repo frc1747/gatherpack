@@ -3,7 +3,7 @@
 module Mcp::Access
   class << self
     def enabled?
-      GatherPack::Features.enabled?(:mcp) && GatherPack::Features.enabled?(:oauth_provider)
+      stored_setting(:feature_mcp) == "true" && GatherPack::Features.enabled?(:oauth_provider)
     end
 
     def allowed?(user)
@@ -11,14 +11,24 @@ module Mcp::Access
     end
 
     def writes_enabled?
-      Settings[:mcp_write_enabled] == true
+      stored_setting(:mcp_write_enabled) == "true"
+    end
+
+    # The setting as saved in the store, not the per-process copy, which a
+    # save through another web worker leaves stale. Used for the settings that
+    # decide who can connect, and by the settings page so it can't show (and
+    # re-save) an old value.
+    def stored_setting(key)
+      setting = Settings.get(key)
+      store = Settings.instance.store
+      store.transaction(true) { store.fetch(key, setting.default_value) }.to_s
     end
 
     private
 
     # A setting that names no badge (a typo, a deleted badge) lets no one in.
     def badge_allows?(person)
-      neat_id = Settings[:mcp_allowed_badge].to_s.strip
+      neat_id = stored_setting(:mcp_allowed_badge).strip
       return true if neat_id.blank?
 
       badge = Mcp.find_by_neat_id(Badge, neat_id)

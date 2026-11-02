@@ -108,6 +108,129 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Writes the store directly, as a save through another web worker does: this
+  # process's cached value stays as it was.
+  def write_behind_cache(key, value)
+    store = Settings.instance.store
+    store.transaction { store[key] = value }
+  end
+
+  test "the select has the app's select styling" do
+    sign_in user(:admin)
+    get settings_path
+
+    assert_select "select.form-select[name='settings[mcp_allowed_badge]']"
+    assert_select "select.form-control[name='settings[mcp_allowed_badge]']", 0
+  end
+
+  test "badges can't pass for the special options" do
+    fake_blank = create_world_badge("every  Member ", team: @beta)
+    fake_missing = create_world_badge("Missing badge (no one can connect)")
+    sign_in user(:admin)
+    get settings_path
+
+    assert_select "#{SELECT} option[value='']", 1
+    assert_select "#{SELECT} option[value='#{fake_blank.neat_id}']", "every Member (badge, Beta)"
+    assert_select "#{SELECT} option[value='#{fake_missing.neat_id}']", "Missing badge (no one can connect) (badge, no team)"
+  end
+
+  test "a badge named like the missing option doesn't hide a real missing badge" do
+    fake = create_world_badge("Missing badge (no one can connect)")
+    with_settings(mcp_allowed_badge: "bdg_gone") do
+      sign_in user(:admin)
+      get settings_path
+
+      assert_select "#{SELECT} option[selected]", 1
+      assert_select "#{SELECT} option[selected][value='bdg_gone']", "Missing badge (no one can connect)"
+      assert_select "#{SELECT} option[value='#{fake.neat_id}']", /\(badge, no team\)/
+    end
+  end
+
+  test "badges that still read alike get more detail" do
+    a = create_world_badge("Same", team: @beta)
+    b = create_world_badge("Same", team: @beta)
+    b.update!(short: "Two")
+    c = create_world_badge("Same", team: @beta)
+    c.update!(short: b.short)
+    sign_in user(:admin)
+    get settings_path
+
+    labels = css_select("#{SELECT} option").map(&:text)
+    assert_equal labels.uniq, labels
+    assert_select "#{SELECT} option[value='#{a.neat_id}']", /Same \(Beta\) \(Sam\)/
+    assert_select "#{SELECT} option[value='#{c.neat_id}']", /\(Two\) \(bdg_/
+  end
+
+  test "badge and team names are escaped" do
+    team = create_world_team("<img src=x onerror=alert(2)>")
+    create_world_badge("<script>alert(1)</script>", team: team)
+    create_world_badge("<script>alert(1)</script>")
+    sign_in user(:admin)
+    get settings_path
+
+    assert_no_match(/<script>alert\(1\)/, response.body)
+    assert_no_match(/<img src=x/, response.body)
+    assert_includes response.body, "&lt;script&gt;alert(1)&lt;/script&gt; (&lt;img src=x onerror=alert(2)&gt;)"
+  end
+
+  test "a padded stored value shows its badge as selected" do
+    with_settings(mcp_allowed_badge: "  #{@access_badge.neat_id} ") do
+      sign_in user(:admin)
+      get settings_path
+
+      assert_select "#{SELECT} option[selected][value='#{@access_badge.neat_id}']"
+      assert_select "#{SELECT} option", text: /Missing badge/, count: 0
+    end
+  end
+
+  test "badges members can give themselves aren't offered" do
+    self_service = %i[added_by_current_member added_by_manager_or_self added_by_admin_or_self has_account].map do |permission|
+      create_world_badge("Free #{permission}", team: @alpha).tap { |badge| badge.update_columns(permission: Badge.permissions.fetch(permission)) }
+    end
+    sign_in user(:admin)
+    get settings_path
+
+    self_service.each { |badge| assert_select "#{SELECT} option[value='#{badge.neat_id}']", 0 }
+    assert_select "#{SELECT} option[value='#{@other_badge.neat_id}']"
+  end
+
+  test "a stored self-service badge stays selected and is labelled" do
+    free = create_world_badge("Free", team: @alpha)
+    free.update_columns(permission: Badge.permissions.fetch(:added_by_manager_or_self))
+    with_settings(mcp_allowed_badge: free.neat_id) do
+      sign_in user(:admin)
+      get settings_path
+
+      assert_select "#{SELECT} option[selected]", 1
+      assert_select "#{SELECT} option[selected][value='#{free.neat_id}']", "Free (members can give this to themselves)"
+    end
+  end
+
+  test "a limit saved through another worker applies here" do
+    write_behind_cache(:mcp_allowed_badge, @access_badge.neat_id)
+
+    assert_equal "", Settings[:mcp_allowed_badge]
+    assert connects?(:badge_holder)
+    assert_not connects?(:alpha_member)
+  end
+
+  test "the page shows the saved value, not this worker's copy" do
+    write_behind_cache(:mcp_allowed_badge, @access_badge.neat_id)
+    sign_in user(:admin)
+    get settings_path
+
+    assert_select "#{SELECT} option[selected]", 1
+    assert_select "#{SELECT} option[selected][value='#{@access_badge.neat_id}']"
+  end
+
+  test "write and feature switches saved through another worker apply here" do
+    write_behind_cache(:mcp_write_enabled, "true")
+    assert Mcp::Access.writes_enabled?
+
+    write_behind_cache(:feature_mcp, "false")
+    assert_not Mcp::Access.enabled?
+  end
+
   test "a non-admin can't reach or change it" do
     sign_in user(:alpha_manager)
 

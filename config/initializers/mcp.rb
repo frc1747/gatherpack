@@ -31,7 +31,9 @@ Rails.application.config.to_prepare do
       Settings.instance.send(:add_setting, *args)
     end
   end
-  # :mcp_badge renders as McpBadgeInput (a select by name) on the settings page.
+  # :mcp_badge renders as McpBadgeInput (a select by name) on the settings
+  # page, with the app's select styling.
+  SimpleForm.wrapper_mappings = (SimpleForm.wrapper_mappings || {}).merge(mcp_badge: :vertical_select)
   register_setting.call(:mcp_allowed_badge, :mcp_badge, "MCP: allowed badge", "", "MCP",
     "Only people with this badge can connect. Every member: no limit.")
   register_setting.call(:mcp_write_enabled, :boolean, "MCP: allow changes", "false", "MCP",
