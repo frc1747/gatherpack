@@ -46,8 +46,9 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
   tool_name "form_answers"
   description "A form's submitted answers per person (by last name), question by question. Only people whose response you may read, " \
     "and answers you may see; a hidden answer has readable: false and no value. " \
-    "Questions linked to the built-in email, phone, address or birthday fields, and questions of phone or email type, are left out for anyone under 18 or with no birthday on file, whoever is asking. " \
-    "Other answers are returned as given and may hold the same details. " \
+    "Questions linked to the built-in email, phone, address or birthday fields, questions of phone or email type, and questions that were either of those earlier " \
+    "are left out for anyone under 18 or with no birthday on file, whoever is asking. " \
+    "Other answers may still hold the same details. " \
     "Optionally only one person."
   scope :read
   feature :forms
