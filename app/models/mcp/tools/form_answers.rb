@@ -23,14 +23,18 @@
 # field's key is "phone"), or has the phone or email type, its person field's type
 # if it has one. Those are the only types that say what an answer holds: a date
 # may be any date, and an address is free text, so those and other free-text
-# answers can't be judged and stay.
+# answers can't be judged and stay. A question is judged as it is now and as it was
+# in the submission's own snapshot (content["questions"]), since answers are stored
+# by key and a question can be unlinked, relinked, or removed and added back after
+# it was answered. A submission with no snapshot is judged as the question is now.
 class Mcp::Tools::FormAnswers < Mcp::Tool
   WITHHELD_DATA_TYPES = %w[phone email].freeze
 
   tool_name "form_answers"
   description "A form's submitted answers per person (by last name), question by question. Only people whose response you may read, " \
     "and answers you may see; a hidden answer has readable: false and no value. " \
-    "Email, phone number, address and birthday questions, and any phone or email question, are left out for anyone under 18 or with no birthday on file, whoever is asking. " \
+    "Questions linked to the built-in email, phone, address or birthday fields, and questions of phone or email type, are left out for anyone under 18 or with no birthday on file, whoever is asking. " \
+    "Other answers are returned as given and may hold the same details. " \
     "Optionally only one person."
   scope :read
   feature :forms
@@ -114,7 +118,10 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
   def row_json(report, row)
     submission = row.submission
     questions = report.questions
-    questions = questions.reject { |question| contact_question?(question) } if Mcp.withhold_contact_details?(row.person)
+    if Mcp.withhold_contact_details?(row.person)
+      answered_as_contact = contact_snapshot_keys(submission)
+      questions = questions.reject { |question| contact_question?(question) || answered_as_contact.include?(question.key) }
+    end
     {
       person: person_json(row.person),
       submission: { number: submission.number, submitted_at: time_json(submission.submitted_at), form_version: submission.form_version },
@@ -126,9 +133,25 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
   end
 
   def contact_question?(question)
-    source = question.person_field&.system_source
+    contact?(question.person_field&.system_source, question.value_type.data_type)
+  end
+
+  # The keys of questions that counted as contact when this submission was made.
+  def contact_snapshot_keys(submission)
+    Array(submission.content["questions"])
+      .select { |snapshot| contact?(system_sources[snapshot["person_field"]], snapshot["type"]) }
+      .map { |snapshot| snapshot["key"] }
+  end
+
+  # Built-in fields by key, archived ones too, for reading snapshots. Built-in
+  # fields can't be deleted, and a key missing here is a custom field or none.
+  def system_sources
+    @system_sources ||= PersonField.system.pluck(:key, :system_source).to_h
+  end
+
+  def contact?(source, data_type)
     return true if source && Mcp::MinorRule::WITHHELD_KEYS.include?(source.delete_prefix("user."))
 
-    WITHHELD_DATA_TYPES.include?(question.value_type.data_type)
+    WITHHELD_DATA_TYPES.include?(data_type)
   end
 end

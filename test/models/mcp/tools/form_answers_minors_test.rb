@@ -162,7 +162,10 @@ class Mcp::Tools::FormAnswersMinorsTest < ActiveSupport::TestCase
 
     assert_no_match(/minor|under 18|birthday on file|withheld/i, result.value.to_json)
     assert_equal %w[ person submission answers ].sort, result.value["items"].first.keys.sort
-    assert_includes Mcp::Tools::FormAnswers.description, "under 18 or with no birthday on file"
+    description = Mcp::Tools::FormAnswers.description
+    assert_includes description, "Questions linked to the built-in email, phone, address or birthday fields, and questions of phone or email type, are left out"
+    assert_includes description, "under 18 or with no birthday on file"
+    assert_includes description, "Other answers are returned as given and may hold the same details"
   end
 
   test "form_status and list_forms carry no answer values, for a minor or anyone else" do
