@@ -51,6 +51,20 @@ class Mcp::Tools::ClockedInNowTest < ActiveSupport::TestCase
     assert_empty call_tool("clocked_in_now", user: user(:alpha_manager), team_id: @beta.neat_id).value["items"]
   end
 
+  test "the team filter doesn't list the roster of a team whose page shows no members" do
+    child = create_world_team("Alpha Juniors", parent: @alpha)
+    @alpha.update!(join_permission: :has_account)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    Membership.create!(person: person(:alpha_manager), team: @beta)
+    Membership.create!(person: person(:beta_member), team: child)
+
+    names = ->(viewer) { call_tool("clocked_in_now", user: user(viewer), team_id: @alpha.neat_id).value["items"].map { |item| item["person"]["name"] } }
+
+    assert_equal [ "AlphaManager World", "BetaMember World" ], names.call(:admin)
+    assert_equal [ "AlphaManager World", "BetaMember World" ], names.call(:alpha_manager)
+    assert_equal [ "BetaMember World" ], names.call(:beta_member), "a manager who isn't on Alpha's full page"
+  end
+
   test "a plain member is not allowed" do
     assert_equal "Not allowed", call_tool("clocked_in_now", user: user(:beta_member)).error
   end

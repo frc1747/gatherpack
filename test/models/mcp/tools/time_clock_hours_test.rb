@@ -51,6 +51,20 @@ class Mcp::Tools::TimeClockHoursTest < ActiveSupport::TestCase
     assert_empty hours(:beta_member, team_id: @alpha.neat_id).value["items"]
   end
 
+  test "the team filter doesn't list the roster of a team whose page shows no members" do
+    child = create_world_team("Alpha Juniors", parent: @alpha)
+    @alpha.update!(join_permission: :has_account)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    Membership.create!(person: person(:alpha_manager), team: @beta)
+    Membership.create!(person: person(:beta_member), team: child)
+
+    names = ->(viewer) { by_name(hours(viewer, team_id: @alpha.neat_id)).keys.sort }
+
+    assert_equal %w[AlphaManager AlphaMember BetaMember Ward], names.call(:admin)
+    assert_equal %w[AlphaManager AlphaMember BetaMember Ward], names.call(:alpha_manager)
+    assert_equal %w[BetaMember], names.call(:beta_member), "a manager who isn't on Alpha's full page"
+  end
+
   test "a team outside the viewer's scope is not found" do
     @alpha.update!(join_permission: :added_by_admin)
 

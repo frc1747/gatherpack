@@ -1,7 +1,10 @@
 # People whose name contains the query, as the people index finds them
 # (PeopleController#index: policy_scope(Person), display_name_i_cont).
 # The team filter takes a team in policy_scope(Team) and matches its direct
-# members. The badge filter needs the badges feature and a badge in
+# members, but only where the team page shows the roster (TeamsController#show
+# renders show_public, which lists no members, unless policy(team).show_full?).
+# Without show_full? it matches just the viewer, if they are a member, so the
+# answer is the same whether or not the viewer belongs to the team. The badge filter needs the badges feature and a badge in
 # policy_scope(Badge), and matches its holders; results stay within
 # policy_scope(Person) either way, so neither filter reveals anyone the
 # people index wouldn't. Each person's teams are their direct teams that are
@@ -14,7 +17,7 @@ class Mcp::Tools::SearchPeople < Mcp::Tool
   input_schema(
     properties: {
       query: { type: "string", minLength: 1, description: "Part of the person's name" },
-      team_id: { type: "string", description: "Only direct members of this team (tm_ ID)" },
+      team_id: { type: "string", description: "Only direct members of this team (tm_ ID); for a team whose member list you can't see, only yourself" },
       badge_id: { type: "string", description: "Only holders of this badge (bdg_ ID)" },
       limit: limit_property
     },
@@ -44,7 +47,7 @@ class Mcp::Tools::SearchPeople < Mcp::Tool
     invalid_argument!("query can't be blank") if query.strip.empty?
 
     people = ctx.policy_scope(Person).ransack(display_name_i_cont: query.strip).result(distinct: true)
-    people = people.where(id: Membership.where(team: ctx.find(ctx.policy_scope(Team), team_id)).select(:person_id)) if team_id
+    people = people.where(id: team_member_ids(ctx.find(ctx.policy_scope(Team), team_id))) if team_id
     people = people.where(id: BadgeAssignment.where(badge: visible_badge(badge_id)).select(:person_id)) if badge_id
 
     result = list(people.order(:last_name, :first_name, :id), limit: limit) { |person| person }
@@ -58,6 +61,12 @@ class Mcp::Tools::SearchPeople < Mcp::Tool
   end
 
   private
+
+  def team_member_ids(team)
+    members = Membership.where(team: team)
+    members = members.where(person_id: ctx.person.id) unless ctx.allowed?(team, :show_full?)
+    members.select(:person_id)
+  end
 
   def visible_badge(badge_id)
     raise Mcp::FeatureOff, "Badges are off" unless GatherPack::Features.enabled?(:badges)

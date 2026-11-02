@@ -8,6 +8,9 @@
 # them out. A person must be in policy_scope(Person) as well; for person_id the
 # person must also pass PersonPolicy#show?, for team_id the team must be in
 # policy_scope(Team) and people are the members of the team and its sub-teams.
+# The page has no team filter, so the roster rule of the team page applies
+# (TeamsController#show shows members only if policy(team).show_full?): without
+# it the filter matches just the viewer, if they are among those people.
 # Punches count by their start time, from and to inclusive, at most 366 days.
 # Each punch's hours are the page's own (punch.hours, rounded to 0.05 as the
 # page rounds them). An open punch counts up to now or the end of `to`,
@@ -20,7 +23,7 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
 
   tool_name "time_clock_hours"
   description "Hours on the time clock between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days, both ends counted) for one " \
-    "person or the members of one team, per person, counting punches in all time clock periods you can see, " \
+    "person or the members of one team (for a team whose member list you can't see, only yourself), per person, counting punches in all time clock periods you can see, " \
     "not only that team's. An open punch that started in the window is counted up to now or the end of `to`, " \
     "whichever is earlier, and sets open_in_window: that says something about this window only; " \
     "use clocked_in_now to see who is clocked in at the moment."
@@ -69,7 +72,10 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
       ctx.authorize!(person, :show?)
       people = people.where(id: person.id)
     else
-      people = people.where(id: ctx.find(ctx.policy_scope(Team), team_id).descendant_member_ids)
+      team = ctx.find(ctx.policy_scope(Team), team_id)
+      ids = team.descendant_member_ids
+      ids = ids.where(people: { id: ctx.person.id }) unless ctx.allowed?(team, :show_full?)
+      people = people.where(id: ids)
     end
 
     punches = ctx.policy_scope(TimeClockPunch)

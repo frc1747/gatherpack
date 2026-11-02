@@ -5,12 +5,15 @@
 # policy_scope(Person) and the period is named only if it is in
 # policy_scope(TimeClockPeriod), otherwise it is null. The team filter takes a
 # team in policy_scope(Team) and matches its members and its sub-teams'
-# members. Longest-open first. Narrower than the page: a punch that hasn't
+# members. The page has no team filter, so the roster rule of the team page
+# applies (TeamsController#show shows members only if policy(team).show_full?):
+# without it the filter matches just the viewer, if they are among those
+# people. Longest-open first. Narrower than the page: a punch that hasn't
 # started yet (a start time in the future) isn't listed.
 class Mcp::Tools::ClockedInNow < Mcp::Tool
   tool_name "clocked_in_now"
   description "People who are clocked in right now (an open time clock punch), since when and for how long, " \
-    "longest first. For admins and team managers. Optionally only members of one team."
+    "longest first. For admins and team managers. Optionally only members of one team (for a team whose member list you can't see, only yourself)."
   scope :read
   feature :time_tracking
   input_schema(
@@ -44,7 +47,7 @@ class Mcp::Tools::ClockedInNow < Mcp::Tool
     ctx.authorize!(TimeClockPunch, :flagged?)
 
     punches = ctx.policy_scope(TimeClockPunch).still_clocked_in.where(start_time: ..Time.current).where(person_id: ctx.policy_scope(Person).select(:id))
-    punches = punches.where(person_id: ctx.find(ctx.policy_scope(Team), team_id).descendant_member_ids) if team_id
+    punches = punches.where(person_id: team_member_ids(team_id)) if team_id
     visible_periods = ctx.policy_scope(TimeClockPeriod).where(id: punches.select(:time_clock_period_id)).index_by(&:id)
 
     list(punches.includes(:person).order(:start_time, :id), limit: limit) do |punch|
@@ -56,5 +59,13 @@ class Mcp::Tools::ClockedInNow < Mcp::Tool
         period: period && { id: period.neat_id, name: period.name.to_s }
       }
     end
+  end
+
+  private
+
+  def team_member_ids(team_id)
+    team = ctx.find(ctx.policy_scope(Team), team_id)
+    ids = team.descendant_member_ids
+    ctx.allowed?(team, :show_full?) ? ids : ids.where(people: { id: ctx.person.id })
   end
 end
