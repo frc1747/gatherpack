@@ -46,7 +46,7 @@ do.
   membership, place or remove a person on a sign-up slot, record a
   check-in, create an event. Each write takes explicit record IDs,
   changes one thing, and is recorded in the audit history as the user,
-  marked as made through MCP.
+  marked as made through MCP in the call log.
 - **Limits.** Off by default. An admin can allow it for everyone or only
   for holders of a badge, and can allow read tools only. No tool runs or
   edits reports, hooks or pages, sends messages, or changes settings,
@@ -75,16 +75,20 @@ do.
   a controller having done them. Reports and pages are not called; a
   tool that answers the same question queries the models directly.
 - **Registry.** `Mcp.register_tool`, in the style of
-  `Commitments.register_source` and `GatherPack::HookCatalog`. Forms,
-  sign-ups, commitments and kiosk each register their tools from their
-  own initializers, and a disabled feature exposes none.
+  `Commitments.register_source` and `GatherPack::HookCatalog`. Person
+  fields, forms, sign-ups and commitments each register their tools from
+  their own initializers, and a disabled feature exposes none.
+- **Call log.** Every tool call is recorded (user, application, tool,
+  arguments, outcome, record changed) on an admin page. This is what
+  marks a change as made through MCP, and shows which tools are used.
 - **Tests.** For every tool, what an admin, a badge-granted coordinator,
   a member and a guardian can and cannot see or change; that a read
   token cannot call write tools; that the badge limit holds.
 
 Upstream files touched: `config/routes.rb` (no route seam),
-`config/initializers/doorkeeper.rb` (scopes, PKCE), `Gemfile`. No
-migrations.
+`Gemfile`, and `config/initializers/doorkeeper.rb` only if the scopes
+can't be added from the feature's initializer. One migration (the call
+log).
 
 Size: read tools with transport, sign-in and tests, a few days. Write
 tools, about a week more.
