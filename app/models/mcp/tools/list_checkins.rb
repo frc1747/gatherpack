@@ -7,14 +7,14 @@
 # (policy_scope(@person.events)); anyone who can open such an event's page sees
 # who checked in. CheckinPolicy::Scope returns every row and
 # isn't used. The window is on the event's start time, from and to inclusive,
-# at most 366 days. Notes, field responses and when a check-in was made are
-# left out: no page shows them.
+# at most 366 days. Notes and field responses are left out as narrower than
+# the pages; no page shows when a check-in was made.
 class Mcp::Tools::ListCheckins < Mcp::Tool
   MAX_WINDOW_DAYS = 366
 
   tool_name "list_checkins"
   description "A person's check-ins at events you can see, for events starting between `from` and `to` " \
-    "(YYYY-MM-DD, inclusive, at most 366 days apart), newest event first."
+    "(YYYY-MM-DD, inclusive, at most 366 days, both ends counted), newest event first."
   scope :read
   feature :events
   input_schema(

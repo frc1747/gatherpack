@@ -19,7 +19,7 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
   MAX_WINDOW_DAYS = 366
 
   tool_name "time_clock_hours"
-  description "Hours on the time clock between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days apart) for one " \
+  description "Hours on the time clock between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days, both ends counted) for one " \
     "person or the members of one team, per person, counting punches in all time clock periods you can see, " \
     "not only that team's. An open punch that started in the window is counted up to now or the end of `to`, " \
     "whichever is earlier, and sets open_in_window: that says something about this window only; " \

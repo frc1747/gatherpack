@@ -12,7 +12,7 @@ class Mcp::Tools::ListEvents < Mcp::Tool
   MAX_WINDOW_DAYS = 366
 
   tool_name "list_events"
-  description "Events you can see that start between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days apart), " \
+  description "Events you can see that start between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days, both ends counted), " \
     "oldest first, with team, type, times and number of check-ins. Optionally only one team's or one event type's."
   scope :read
   feature :events
