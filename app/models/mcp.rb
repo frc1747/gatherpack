@@ -115,6 +115,12 @@ module Mcp
       @person_filters
     end
 
+    # Whether Mcp::MinorRule::WITHHELD_KEYS, and the same details held anywhere
+    # else, must stay out of a tool's result for this person, whoever is asking.
+    def withhold_contact_details?(person)
+      Mcp::MinorRule.minor?(person)
+    end
+
     def tools
       @tools.values
     end
