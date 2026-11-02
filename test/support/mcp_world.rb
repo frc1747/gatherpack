@@ -123,6 +123,48 @@ module McpWorld
     Mcp.unregister_tool(tool.tool_name)
   end
 
+  # Events, time clock and ledgers for the core read tools (call after
+  # build_mcp_world). Times are in March 2026; tests that count open punches
+  # travel_to NOW.
+  #
+  #   Alpha event "Alpha Meeting" (alpha_member, ward checked in), Beta event
+  #   "Beta Meeting" (beta_member), and "Open Day" with no team (admin only).
+  #   Periods: "Alpha March" (Alpha), "Beta March" (Beta), "Everyone March" (no team).
+  #   Punches: alpha_member 2h, ward 1h, alpha_manager 3h and an open one since
+  #   3/11 08:00, beta_member 4h and an open one since 3/11 09:00 (hours 0.05-rounded).
+  #   Ledgers: "Alpha Fund" (Alpha; +50.00 "Dues", -12.50 "Snacks" and a pending
+  #   +5.00), "Beta Fund" (Beta, +20.00 "Dues" split in two).
+  MCP_TIME_NOW = Time.utc(2026, 3, 12, 12, 0)
+
+  def build_mcp_time_world
+    meeting = Time.utc(2026, 3, 10, 18, 0)
+    @alpha_event = create_world_event("Alpha Meeting", @alpha, meeting)
+    @beta_event = create_world_event("Beta Meeting", @beta, meeting + 1.day)
+    @open_event = create_world_event("Open Day", nil, meeting + 2.days)
+    [ :alpha_member, :ward ].each { |name| create_world_checkin(person(name), @alpha_event) }
+    create_world_checkin(person(:beta_member), @beta_event)
+    create_world_checkin(person(:alpha_member), @open_event)
+
+    @alpha_period = create_world_period("Alpha March", @alpha)
+    @beta_period = create_world_period("Beta March", @beta)
+    @everyone_period = create_world_period("Everyone March", nil)
+    create_world_punch(person(:alpha_member), @alpha_period, 9, 11)
+    create_world_punch(person(:ward), @alpha_period, 9, 10)
+    create_world_punch(person(:alpha_manager), @alpha_period, 9, 12)
+    @open_punch = create_world_punch(person(:alpha_manager), @alpha_period, 32, nil)
+    create_world_punch(person(:beta_member), @beta_period, 9, 13)
+    create_world_punch(person(:beta_member), @beta_period, 33, nil)
+
+    @dues = LedgerTag.create!(name: "Dues")
+    @alpha_ledger = Ledger.create!(name: "Alpha Fund", team: @alpha)
+    @beta_ledger = Ledger.create!(name: "Beta Fund", team: @beta)
+    @alpha_dues = create_world_entry(@alpha_ledger, "Dues", 5000, tags: [ @dues ])
+    create_world_entry(@alpha_ledger, "Snacks", -1250)
+    create_world_entry(@alpha_ledger, "Awaiting payment", 500, finalized: false)
+    beta_entry = create_world_entry(@beta_ledger, "Beta dues", 2000, tags: [ @dues ])
+    @beta_split = create_world_entry(@beta_ledger, "Half", 1000, parent: beta_entry)
+  end
+
   def with_feature(key, enabled = true, &block)
     with_settings({ "feature_#{key}": enabled.to_s }, &block)
   end
@@ -162,6 +204,31 @@ module McpWorld
     person = Person.create!(user: user, first_name: name, last_name: "World")
     Membership.create!(person: person, team: team, manager: manager) if team
     person
+  end
+
+  def create_world_event(name, team, start_time)
+    Event.create!(name: name, team: team, start_time: start_time, end_time: start_time + 1.hour, event_type: event_types(:one))
+  end
+
+  def create_world_checkin(person, event)
+    Checkin.create!(person: person, event: event)
+  end
+
+  def create_world_period(name, team)
+    TimeClockPeriod.create!(name: name, team: team, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_admin)
+  end
+
+  # A punch starting this many hours after March 10 00:00 UTC, open when
+  # end_hour is nil.
+  def create_world_punch(person, period, start_hour, end_hour)
+    base = Time.utc(2026, 3, 10)
+    TimeClockPunch.create!(person: person, time_clock_period: period, start_time: base + start_hour.hours,
+      end_time: end_hour && base + end_hour.hours, created_by: "kiosk")
+  end
+
+  def create_world_entry(ledger, remark, cents, tags: [], finalized: true, parent: nil)
+    LedgerEntry.create!(ledger: ledger, remark: remark, amount_cents: cents, finalized: finalized, parent: parent,
+      ledger_tags: tags, created_by: person(:admin))
   end
 
   def create_world_badge(name, team: nil)

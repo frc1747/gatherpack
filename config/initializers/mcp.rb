@@ -49,4 +49,13 @@ Rails.application.config.to_prepare do
   Mcp.reset!
   Mcp.register_tool(Mcp::Tools::Whoami)
   Mcp.register_tool(Mcp::Tools::SearchPeople)
+
+  # Events, time, ledgers
+  Mcp.register_tool(Mcp::Tools::ListEvents)
+  Mcp.register_tool(Mcp::Tools::GetEvent)
+  Mcp.register_tool(Mcp::Tools::ListCheckins)
+  Mcp.register_tool(Mcp::Tools::TimeClockHours)
+  Mcp.register_tool(Mcp::Tools::ClockedInNow)
+  Mcp.register_tool(Mcp::Tools::ListLedgers)
+  Mcp.register_tool(Mcp::Tools::LedgerEntries)
 end
