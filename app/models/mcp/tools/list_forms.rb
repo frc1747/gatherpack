@@ -19,8 +19,8 @@ class Mcp::Tools::ListForms < Mcp::Tool
   STATUSES = %w[open closed all].freeze
 
   tool_name "list_forms"
-  description "Forms you can see, open ones first then by title, with team, status and deadline. Forms you manage also show " \
-    "how many people are asked (assigned) and how many have an answer in effect (submitted). " \
+  description "Forms you can see, open ones first then by title, with status and deadline, and the team where you can see it. " \
+    "Forms you manage also show, among people whose responses you may read, how many are asked (assigned) and how many have an answer in effect (submitted). " \
     "`status` is open, closed or all (default all; drafts only show for forms you manage)."
   scope :read
   feature :forms
