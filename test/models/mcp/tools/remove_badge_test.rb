@@ -13,6 +13,10 @@ class Mcp::Tools::RemoveBadgeTest < ActionDispatch::IntegrationTest
     @holder_assignment = BadgeAssignment.find_by!(badge: @access_badge, person: person(:badge_holder))
   end
 
+  def ctx_allows_destroy?(viewer, assignment)
+    mcp_context(user(viewer), scopes: "mcp_write").allowed?(assignment, :destroy?)
+  end
+
   def remove(viewer, assignment, **options)
     call_tool("remove_badge", user: user(viewer), badge_assignment_id: assignment.neat_id, **options)
   end
@@ -51,6 +55,19 @@ class Mcp::Tools::RemoveBadgeTest < ActionDispatch::IntegrationTest
 
     assignment = BadgeAssignment.create!(badge: create_world_badge_with(:has_account), person: person(:alpha_member))
     assert_refused("Not found", BadgeAssignment) { remove(:beta_member, assignment) }
+  end
+
+  # The holder is visible, and destroy? would pass: only the gate on the badge stops this.
+  test "a viewer who sees the holder but not the badge can't reach the assignment" do
+    both = create_world_person("Both", @alpha)
+    Membership.create!(person: both, team: @beta)
+    badge = create_world_badge_with(:has_account, team: @alpha)
+    assignment = BadgeAssignment.create!(badge: badge, person: both)
+
+    assert ctx_allows_destroy?(:beta_member, assignment)
+    assert_refused("Not found", BadgeAssignment) { remove(:beta_member, assignment) }
+    assert BadgeAssignment.exists?(assignment.id)
+    assert_not page_changes_rows?(BadgeAssignment, as: user(:beta_member)) { delete badge_badge_assignment_path(badge, assignment) }
   end
 
   test "a guardian can't reach their ward's badge" do

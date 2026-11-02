@@ -11,7 +11,7 @@
 # team-less event); ends_at is required and must be after starts_at (the model only refuses
 # an end before the start). Times are ISO 8601; without an offset, they're in the app's time zone.
 class Mcp::Tools::CreateEvent < Mcp::Tool
-  ISO8601_TIME = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)?\z/
+  ISO8601_TIME = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(?<offset>Z|[+-]\d{2}(:?\d{2})?)?\z/
 
   tool_name "create_event"
   description "Create an event for a team you manage. starts_at and ends_at are ISO 8601 date-times " \
@@ -21,7 +21,7 @@ class Mcp::Tools::CreateEvent < Mcp::Tool
   input_schema(
     properties: {
       team_id: { type: "string", description: "The team's ID (tm_)" },
-      event_type_id: { type: "string", description: "The event type's ID (evtp_)" },
+      event_type_id: { type: "string", description: "The event type's ID (evtp_), from list_event_types" },
       name: { type: "string", description: "The event's name" },
       starts_at: { type: "string", description: "Start, ISO 8601 date-time" },
       ends_at: { type: "string", description: "End, ISO 8601 date-time, after starts_at" },
@@ -69,8 +69,11 @@ class Mcp::Tools::CreateEvent < Mcp::Tool
   private
 
   # Date.iso8601 catches days like February 31, which Time.zone.iso8601 rolls over.
+  # Date._iso8601 finds no offset in one out of range, like +24:00, and Time.zone.iso8601
+  # would then read the time as local.
   def parse_time(value, name)
-    raise ArgumentError unless value.match?(ISO8601_TIME)
+    match = value.match(ISO8601_TIME)
+    raise ArgumentError if match.nil? || (match[:offset] && Date._iso8601(value)[:offset].nil?)
 
     Date.iso8601(value.first(10))
     Time.zone.iso8601(value)

@@ -79,6 +79,17 @@ class Mcp::Tools::CreateEventTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an out-of-range offset is refused, not read as local time" do
+    %w[+24:00 -24:00 +30:00 -99:00 +12:60 +05:99].each do |offset|
+      assert_refused(/starts_at must be an ISO 8601/, Event) { create_event(:admin, starts_at: "#{STARTS}#{offset}", ends_at: "2030-01-01T00:00:00") }
+    end
+  end
+
+  test "an offset at the edge of the range keeps its instant" do
+    assert_equal Time.utc(2026, 3, 9, 18, 1), create_event(:admin, starts_at: "#{STARTS}+23:59").changed.start_time
+    assert_equal Time.utc(2026, 3, 10, 4, 0), create_event(:admin, starts_at: "#{STARTS}+14:00").changed.start_time
+  end
+
   test "ends_at must be after starts_at" do
     assert_refused("ends_at must be after starts_at", Event) { create_event(:admin, ends_at: "2026-03-10T17:00:00") }
     assert_refused("ends_at must be after starts_at", Event) { create_event(:admin, ends_at: STARTS) }

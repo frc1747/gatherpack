@@ -68,7 +68,7 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     assert_equal "Ward World", value["name"]
     assert_equal "ward@example.com", value["email"]
     assert_equal [ "555-0100", "1 Main St", "2012-05-06", "M" ], value.values_at("phone_number", "address", "birthday", "shirt_size")
-    assert_equal [ { "id" => @alpha.neat_id, "name" => "Alpha", "manager" => false } ], value["teams"]
+    assert_equal [ { "id" => @alpha.neat_id, "name" => "Alpha", "manager" => false, "membership_id" => Membership.find_by!(person: person(:ward), team: @alpha).neat_id } ], value["teams"]
     assert_equal [], value["badges"]
     assert_equal [ { "label" => "Parent of", "person" => { "id" => person(:guardian).neat_id, "name" => "Guardian World" } } ],
       value["relationships"]
@@ -342,5 +342,53 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     Mcp.person_filters << ->(_subject, _viewer) { %w[email] }
 
     assert_equal %w[email], PROFILE_KEYS & get(:alpha_member, :ward).value.keys
+  end
+
+  test "membership IDs go only to viewers who may remove the membership, and not for an inherited team" do
+    parent = create_world_team("Alpha Parent")
+    @alpha.update!(parent: parent)
+    membership = Membership.find_by!(person: person(:ward), team: @alpha)
+    id_for = ->(viewer, team) { get(viewer, :ward).value["teams"].find { |row| row["id"] == team.neat_id }["membership_id"] }
+
+    assert_equal membership.neat_id, id_for.call(:admin, @alpha)
+    assert_equal membership.neat_id, id_for.call(:alpha_manager, @alpha)
+    assert_nil id_for.call(:admin, parent)
+    assert_nil id_for.call(:alpha_member, @alpha)
+    assert_nil id_for.call(:ward, @alpha)
+  end
+
+  test "a membership ID is there exactly when remove_team_member accepts it" do
+    target = Membership.find_by!(person: person(:ward), team: @alpha)
+
+    %i[admin alpha_manager alpha_member ward].each do |viewer|
+      listed = get(viewer, :ward).value["teams"].find { |row| row["id"] == @alpha.neat_id }
+      removed = changes_rows?(Membership) { call_tool("remove_team_member", user: user(viewer), membership_id: target.neat_id) }
+
+      assert_equal removed, listed["membership_id"] == target.neat_id, viewer
+    end
+  end
+
+  test "badge assignment IDs go only to viewers who may remove the assignment" do
+    badge = create_world_badge_with(:added_by_manager, team: @alpha)
+    assignment = BadgeAssignment.create!(badge: badge, person: person(:ward))
+    id_for = ->(viewer) { get(viewer, :ward).value["badges"].find { |row| row["id"] == badge.neat_id }["badge_assignment_id"] }
+
+    assert_equal assignment.neat_id, id_for.call(:admin)
+    assert_equal assignment.neat_id, id_for.call(:alpha_manager)
+    assert_nil id_for.call(:alpha_member)
+    assert_nil id_for.call(:ward)
+  end
+
+  test "a badge assignment ID is there exactly when remove_badge accepts it" do
+    [ @access_badge, create_world_badge_with(:added_by_manager, team: @alpha), create_world_badge_with(:has_account) ].each do |badge|
+      target = BadgeAssignment.create!(badge: badge, person: person(:ward))
+
+      %i[admin alpha_manager alpha_member ward].each do |viewer|
+        listed = get(viewer, :ward).value["badges"].find { |row| row["id"] == badge.neat_id }
+        removed = changes_rows?(BadgeAssignment) { call_tool("remove_badge", user: user(viewer), badge_assignment_id: target.neat_id) }
+
+        assert_equal removed, listed&.dig("badge_assignment_id") == target.neat_id, "#{viewer} on #{badge.name}"
+      end
+    end
   end
 end

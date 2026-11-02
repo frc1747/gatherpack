@@ -40,6 +40,32 @@ class Mcp::Tools::AddTeamMemberTest < ActionDispatch::IntegrationTest
     assert Membership.find_by!(person: person(:alpha_member), team: @child).manager?
   end
 
+  test "a manager adds only people they manage, or themselves, even someone they can see" do
+    parent = create_world_team("Parent")
+    kid = create_world_team("Kid", parent: parent)
+    sibling = create_world_team("Sibling", parent: parent)
+    @people[:kid_manager] = create_world_person("KidManager", kid, manager: true)
+    @people[:kid_member] = create_world_person("KidMember", kid)
+    @people[:sibling_member] = create_world_person("SiblingMember", sibling)
+    @people[:parent_member] = create_world_person("ParentMember", parent)
+    grandchild = create_world_team("Grandchild", parent: kid)
+
+    assert_nil add(:kid_manager, :kid_member, grandchild).error
+    assert_nil add(:kid_manager, :kid_manager, grandchild, manager: true).error
+    assert_refused("Not allowed", Membership) { add(:kid_manager, :sibling_member, kid) }
+    assert_refused("Not allowed", Membership) { add(:kid_manager, :sibling_member, kid, manager: true) }
+    assert_refused("Not allowed", Membership) { add(:kid_manager, :parent_member, kid) }
+
+    page = page_changes_rows?(Membership, as: user(:kid_manager)) do
+      post team_memberships_path(kid), params: { membership: { person_id: person(:sibling_member).id } }
+    end
+    assert page, "the POST doesn't check the person"
+  end
+
+  test "an admin adds anyone, managed or not" do
+    assert_nil add(:admin, :beta_member, @child).error
+  end
+
   test "a team manager can add to an admin-only team they manage: the policy doesn't look at it" do
     @alpha.update!(join_permission: :added_by_admin)
     Membership.where(person: person(:ward), team: @alpha).destroy_all
@@ -130,7 +156,7 @@ class Mcp::Tools::AddTeamMemberTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # The one difference: the team route's POST doesn't check the person, though its form only offers managed people.
+  # The team route's POST doesn't check the person, though its form only offers managed people.
   test "it refuses a person the manager can't see, where a hand-made POST goes through" do
     page = page_changes_rows?(Membership, as: user(:alpha_manager)) do
       post team_memberships_path(@alpha), params: { membership: { person_id: person(:beta_member).id } }

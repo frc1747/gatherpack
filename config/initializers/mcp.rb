@@ -60,6 +60,7 @@ Rails.application.config.to_prepare do
   # Events, time, ledgers
   Mcp.register_tool(Mcp::Tools::ListEvents)
   Mcp.register_tool(Mcp::Tools::GetEvent)
+  Mcp.register_tool(Mcp::Tools::ListEventTypes)
   Mcp.register_tool(Mcp::Tools::ListCheckins)
   Mcp.register_tool(Mcp::Tools::TimeClockHours)
   Mcp.register_tool(Mcp::Tools::ClockedInNow)

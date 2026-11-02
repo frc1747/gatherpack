@@ -9,12 +9,13 @@
 # policy, so manager: true from someone who can't set it refuses the call rather than
 # being dropped. The model's duplicate validation comes back as an invalid-argument error.
 #
-# Narrower than the page in one way: the person must be in policy_scope(Person). The
-# team route's POST doesn't check the person, but its form only offers people the
-# viewer manages, and this result names them.
+# Narrower than the team route's POST, which doesn't check the person at all: the
+# person must be in policy_scope(Person), since this result names them, and a
+# non-admin may only add themselves or people they manage (all_managed_people). That
+# matches the form, which offers managed people, and adds only the viewer themselves.
 class Mcp::Tools::AddTeamMember < Mcp::Tool
   tool_name "add_team_member"
-  description "Add a person to a team, optionally as a manager. Team managers and admins can add people; " \
+  description "Add a person to a team, optionally as a manager. Team managers can add people they manage or themselves, admins anyone; " \
     "anyone else can only add themselves to a team open to any account. Returns the new membership."
   scope :write
   input_schema(
@@ -36,6 +37,8 @@ class Mcp::Tools::AddTeamMember < Mcp::Tool
     team = ctx.find(Team, team_id)
     membership = team.memberships.build(person: person, manager: manager)
     ctx.authorize!(membership, :create?)
+    raise Mcp::NotAllowed unless person == ctx.person || ctx.person.can_manage(person)
+
     invalid_argument!(membership.errors.full_messages.to_sentence) unless membership.save
 
     changed!(membership)
