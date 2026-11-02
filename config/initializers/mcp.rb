@@ -3,6 +3,10 @@
 # mcp_write scopes. See app/models/mcp.rb for the tool registry and how
 # connector initializers (config/initializers/mcp_<feature>.rb) add tools.
 Rails.application.config.to_prepare do
+  # Mcp::Access reads the settings store on every request, so transactions
+  # must wait for each other instead of raising when requests overlap.
+  Settings.instance.store = PStore.new(Settings.instance.store.path, true)
+
   GatherPack::Features.register(
     GatherPack::Feature.new(
       key: :mcp,
@@ -31,8 +35,11 @@ Rails.application.config.to_prepare do
       Settings.instance.send(:add_setting, *args)
     end
   end
-  register_setting.call(:mcp_allowed_badge, :string, "MCP: allowed badge", "", "MCP",
-    "Neat ID (bdg_...) of the badge whose holders can connect. Blank: every member.")
+  # :mcp_badge renders as McpBadgeInput (a select by name) on the settings
+  # page, with the app's select styling.
+  SimpleForm.wrapper_mappings = (SimpleForm.wrapper_mappings || {}).merge(mcp_badge: :vertical_select)
+  register_setting.call(:mcp_allowed_badge, :mcp_badge, "MCP: allowed badge", "", "MCP",
+    "Only people with this badge can connect. Every member: no limit.")
   register_setting.call(:mcp_write_enabled, :boolean, "MCP: allow changes", "false", "MCP",
     "Off: MCP clients can only read. Clients connected while this was off must reconnect to make changes.")
 
@@ -42,6 +49,10 @@ Rails.application.config.to_prepare do
     Doorkeeper.config.optional_scopes.add(scope)
     Doorkeeper.config.scopes.add(scope)
   end
+
+  # A worker's copy of these settings can be stale; refresh before the page
+  # shows them, so a full-form save from here can't write old values back.
+  SettingsController.before_action(only: :index) { Mcp::Access.refresh_settings }
 
   Doorkeeper::AuthorizationsController.include(Mcp::AuthorizationChecks)
 

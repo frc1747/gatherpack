@@ -52,7 +52,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
   # --- Which applications can ask for an MCP scope
 
   test "an application with blank scopes can't ask for an MCP scope" do
-    blank = OauthApplication.create!(name: "Blank", redirect_uri: "https://client.example.com/callback", scopes: "", confidential: true)
+    blank = Doorkeeper::Application.create!(name: "Blank", redirect_uri: "https://client.example.com/callback", scopes: "", confidential: true)
 
     with_pkce_supported(false) do
       get "/oauth/authorize", params: authorize_params(blank, scope: "mcp_write")
