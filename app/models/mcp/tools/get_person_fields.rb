@@ -23,7 +23,7 @@ class Mcp::Tools::GetPersonFields < Mcp::Tool
 
   tool_name "get_person_fields"
   description "A person's profile fields that you can see, built-in and custom, grouped by section, each with its type and value. " \
-    "Email, phone, address and birthday fields, and custom phone and email fields, are never given here for anyone " \
+    "The built-in email, phone, address and birthday fields, and custom fields of phone or email type, are never given here for anyone " \
     "under 18 or with no birthday on file, whoever is asking, so they can be left out even for someone whose details you can see in the app."
   scope :read
   feature :person_fields
