@@ -7,7 +7,10 @@
 # read rules and no filter, all of those keys are omitted and the rest of the
 # profile is still returned. After the filters, Mcp::MinorRule leaves out email,
 # phone number, address and birthday for a minor, whoever the viewer is, which is
-# narrower than the page. Teams are the person's teams and their ancestors
+# narrower than the page. first_name and last_name are returned only where
+# PersonPolicy#update? allows it: people/show gives only the name, and the two
+# appear on the edit form, so someone with a chosen display name keeps the others
+# from teammates. Teams are the person's teams and their ancestors
 # that are in policy_scope(Team), with the manager flag from the person's own
 # memberships. Badges are the person's badges in policy_scope(Badge), and only
 # while the badges feature is on. membership_id and badge_assignment_id are what
@@ -25,10 +28,12 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   # The keys Mcp.person_filters decide on. The bio isn't one: people/show renders
   # it outside its list of fields, whatever that list's read rules are.
   PROFILE_FIELD_KEYS = %w[email phone_number birthday address dietary_restrictions shirt_size gender].freeze
+  EDIT_FORM_NAME_KEYS = %w[first_name last_name].freeze
 
   tool_name "get_person"
   description "A person's profile as you can see it: name, contact details, bio, the teams they belong to " \
     "(with whether they manage each), their badges and their relationships to other people. " \
+    "First and last name are given only where you may edit the person. " \
     "Membership and badge assignment IDs are given only where you may remove them. " \
     "Fields you can't see are left out; null means the field is empty. " \
     "Email, phone number, address and birthday are never given here for anyone under 18 or with no birthday on file, " \
@@ -80,6 +85,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
     result[:badges] = badges_json(person) if GatherPack::Features.enabled?(:badges)
     hidden = PROFILE_FIELD_KEYS - kept_profile_keys(person)
     hidden |= Mcp::MinorRule::WITHHELD_KEYS if Mcp.withhold_contact_details?(person)
+    hidden |= EDIT_FORM_NAME_KEYS unless ctx.allowed?(person, :update?)
     # After the merge, so an extension can't put back a key that was left out.
     extensions_json(person).merge(result).except(*hidden.map(&:to_sym))
   end

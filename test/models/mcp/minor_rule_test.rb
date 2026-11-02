@@ -52,6 +52,16 @@ class Mcp::MinorRuleTest < ActiveSupport::TestCase
     end
   end
 
+  test "a birthday more than 120 years ago counts as unknown, so it fails closed" do
+    travel_to Time.utc(2026, 5, 6, 12) do
+      assert minor?(Date.new(10, 5, 6))
+      assert minor?(Date.new(26, 5, 6))
+      assert minor?(Date.new(1906, 5, 5))
+      assert_not minor?(Date.new(1906, 5, 6))
+      assert_not minor?(Date.new(1950, 5, 6))
+    end
+  end
+
   test "a birthday in the future counts as a minor" do
     assert minor?(Date.current + 1.year)
   end

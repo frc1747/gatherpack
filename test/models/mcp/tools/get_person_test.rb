@@ -400,6 +400,12 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     travel_to(Time.utc(2026, 5, 6, 12)) { assert_empty WITHHELD_KEYS - get(:admin, :ward).value.keys }
   end
 
+  test "every viewer gets no contact details for a birthday in year 0010" do
+    fill_profile(:ward, birthday: Date.new(10, 5, 6))
+
+    minor_viewers.each { |viewer| assert_contact_details_withheld(get(viewer, :ward).value) }
+  end
+
   test "the birthday check uses the app's time zone" do
     fill_profile(:ward, birthday: Date.new(2008, 3, 12))
 
@@ -460,6 +466,56 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     description = Mcp::Tools::GetPerson.description
 
     assert_match(/Email, phone number, address and birthday are never given here for anyone under 18 or with no birthday on file/, description)
+  end
+
+  # --- First and last name (the edit form's, PersonPolicy#update?)
+
+  test "first and last name go to the person, their manager and an admin; the name stays" do
+    person(:ward).update!(display_name: "Sky")
+
+    %i[ward alpha_manager admin].each do |viewer|
+      value = get(viewer, :ward).value
+
+      assert_equal [ "Ward", "World", "Sky" ], value.values_at("first_name", "last_name", "name"), viewer
+    end
+  end
+
+  test "a teammate gets the name only, with the other two left out, not null" do
+    person(:ward).update!(display_name: "Sky")
+    Membership.create!(person: person(:guardian), team: @alpha)
+
+    %i[alpha_member guardian].each do |viewer|
+      value = get(viewer, :ward).value
+
+      assert_equal "Sky", value["name"]
+      assert_not value.key?("first_name"), viewer
+      assert_not value.key?("last_name"), viewer
+      assert_not_includes value.to_json, "Ward"
+    end
+  end
+
+  test "first and last name are there exactly when the viewer may update the person" do
+    %i[admin alpha_manager alpha_member guardian ward].each do |viewer|
+      Membership.find_or_create_by!(person: person(viewer), team: @alpha) unless viewer == :admin
+      expected = PersonPolicy.new(user(viewer), person(:ward)).update?
+
+      assert_equal expected, get(viewer, :ward).value.key?("first_name"), viewer
+      assert_equal expected, get(viewer, :ward).value.key?("last_name"), viewer
+    end
+  end
+
+  test "an extension can't put back first or last name" do
+    Mcp.person_extensions << ->(_subject, _viewer) { { first_name: "Leaked", last_name: "Leaked", extra: true } }
+    value = get(:alpha_member, :ward).value
+
+    assert_not value.key?("first_name")
+    assert_not value.key?("last_name")
+    assert_equal true, value["extra"]
+  end
+
+  test "the output schema doesn't require first or last name, and the description says who gets them" do
+    assert_empty %w[first_name last_name] & Mcp::Tools::GetPerson.output_schema[:required]
+    assert_match(/First and last name are given only where you may edit the person/, Mcp::Tools::GetPerson.description)
   end
 
   test "membership IDs go only to viewers who may remove the membership, and not for an inherited team" do

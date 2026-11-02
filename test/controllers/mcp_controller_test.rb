@@ -146,7 +146,8 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
         whoami = mcp_post(token, "tools/call", { name: "whoami" }).dig("result", "structuredContent")
         assert_equal [ "mcp_read" ], whoami["scopes"]
-        assert_equal false, whoami["writes_enabled"]
+        assert_equal true, whoami["writes_enabled"]
+        assert_equal false, whoami["can_write"]
       end
     end
   end
