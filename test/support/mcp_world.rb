@@ -234,4 +234,57 @@ module McpWorld
   def create_world_badge(name, team: nil)
     Badge.create!(name: name, short: name.first(3), color: "#336699", badge_type: badge_types(:one), team: team, permission: :added_by_admin)
   end
+
+  # For write tools.
+
+  def create_world_badge_with(permission, team: nil)
+    badge = create_world_badge(permission.to_s.humanize, team: team)
+    badge.update!(permission: permission)
+    badge
+  end
+
+  # Asserts the block's call_tool result is this error (a string or regexp) and
+  # that it left each model's row count alone.
+  def assert_refused(error, *models)
+    result = nil
+    assert_no_difference(models.map { |model| -> { model.count } }) { result = yield }
+    assert_nil result.changed
+    error.is_a?(Regexp) ? assert_match(error, result.error.to_s) : assert_equal(error, result.error)
+    result
+  end
+
+  # Whether the block changes model's row count. The change is rolled back, so the
+  # same request can then be tried another way. Works for a page request too: the
+  # app runs on the test's thread and database connection.
+  def changes_rows?(model)
+    changed = false
+    model.transaction(requires_new: true) do
+      before = model.count
+      yield
+      changed = model.count != before
+      raise ActiveRecord::Rollback
+    end
+    changed
+  end
+
+  # changes_rows? for a page request made as user (needs Devise's integration helpers).
+  def page_changes_rows?(model, as:, &block)
+    sign_in as
+    changes_rows?(model, &block)
+  ensure
+    sign_out as
+  end
+
+  # Asserts that the event is in the hook catalog and that a hook on it runs, with
+  # the record the block's successful call_tool result says it changed.
+  def assert_hook_runs(event)
+    assert_includes Hook.catalog, event
+    Thread.current[:mcp_hook_model] = nil
+    Hook.create!(name: "MCP test hook", event: event, code: "Thread.current[:mcp_hook_model] = model")
+    result = yield
+    assert_nil result.error
+    assert_equal result.changed, Thread.current[:mcp_hook_model]
+  ensure
+    Thread.current[:mcp_hook_model] = nil
+  end
 end
