@@ -380,10 +380,10 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "empty contact details come back as null" do
-    person(:ward).update_columns(phone_number: "", address: "", dietary_restrictions: "", shirt_size: "", gender: "")
+    person(:ward).update_columns(bio: "", phone_number: "", address: "", dietary_restrictions: "", shirt_size: "", gender: "")
     value = get(:alpha_manager, :ward).value
 
-    %w[phone_number address dietary_restrictions shirt_size gender].each do |key|
+    %w[bio phone_number address dietary_restrictions shirt_size gender].each do |key|
       assert value.key?(key), key
       assert_nil value[key], key
     end
