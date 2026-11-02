@@ -64,6 +64,18 @@ class Mcp::Tools::PlaceSignupTest < ActionDispatch::IntegrationTest
     assert_equal "Cashier", result.value.dig("position", "name")
   end
 
+  test "signed_up_by is the viewer, whoever takes the place" do
+    greeter = @sheet.signup_positions.create!(name: "Greeter", capacity: 5)
+    organizer = place(:organizer, :alpha_plain).value
+    own = place(:alpha_plain, :alpha_plain, slot_of(greeter, @bake_day)).value
+    relative = place(:guardian, :ward, slot_of(greeter, @cleanup)).value
+
+    assert_equal [ person(:organizer).neat_id, person(:alpha_plain).neat_id ], organizer.values_at("signed_up_by", "person").map { |ref| ref["id"] }
+    assert_equal person(:alpha_plain).neat_id, own.dig("signed_up_by", "id")
+    assert_equal [ person(:guardian).neat_id, person(:ward).neat_id, person(:ward).neat_id ],
+      [ relative.dig("signed_up_by", "id"), relative.dig("person", "id"), relative.dig("on_behalf_of", "id") ]
+  end
+
   test "an admin and a team manager are organizers too" do
     assert_difference("Signup.count", 2) do
       assert_nil place(:admin, :alpha_plain).error

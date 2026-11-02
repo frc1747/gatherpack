@@ -12,11 +12,11 @@
 # sign-ups. Organizers (roster?) get the roster's view instead: every sign-up
 # in any status, with who it is on behalf of (when not the person) and the
 # organizer note, and slots turned off that still hold sign-ups, with
-# disabled: true. Others never see on-behalf-of, notes or who made a
-# sign-up on a slot. my_signups are the viewer's own, as the page's My sign-ups
+# disabled: true. Others never see on-behalf-of or notes
+# on a slot. my_signups are the viewer's own, as the page's My sign-ups
 # card shows them: sign-ups the viewer takes, made, or that are on their
 # behalf, not cancelled, with status and who it's for, but not who made it
-# (the card doesn't print that). `limit` (default 25, at most 100) caps the
+# (neither the sign-up pages nor the roster print that, so signed_up_by is never returned). `limit` (default 25, at most 100) caps the
 # events, each slot's sign-ups and my_signups, each with a truncated flag.
 class Mcp::Tools::GetSignupSheet < Mcp::Tool
   include Mcp::Tools::SignupFormat
@@ -24,7 +24,8 @@ class Mcp::Tools::GetSignupSheet < Mcp::Tool
   tool_name "get_signup_sheet"
   description "One sign-up sheet you can see: team, status, description, its events and, for each event, the positions with " \
     "capacity, filled and open places (`from` and `limit` page through events and my_signups). Who holds each place is listed only where the " \
-    "sheet shows names to you (organizers also see every status, on-behalf-of, notes and turned-off slots). my_signups are yours."
+    "sheet shows names to you (organizers also see every status, on-behalf-of, notes and turned-off slots). on_behalf_of is whose behalf " \
+    "the place is for, by default the person taking it. my_signups are yours."
   scope :read
   feature :signups
   input_schema(
@@ -85,7 +86,7 @@ class Mcp::Tools::GetSignupSheet < Mcp::Tool
             event: EVENT_SCHEMA,
             position: POSITION_SCHEMA,
             person: REF_SCHEMA,
-            on_behalf_of: REF_SCHEMA,
+            on_behalf_of: ON_BEHALF_OF_SCHEMA,
             answer: { type: %w[string null] },
             quantity: { type: %w[integer null] }
           },

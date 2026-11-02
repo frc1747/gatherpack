@@ -29,6 +29,15 @@ class Mcp::Tools::PersonSignupsTest < ActiveSupport::TestCase
     assert_equal "Bake Day", item["event"]["name"]
   end
 
+  test "signed_up_by is never returned, to organizers, those involved, the signer or a teammate" do
+    [ [ :admin, :ward ], [ :admin, :alpha_member ], [ :alpha_member, :alpha_member ],
+      [ :alpha_plain, :ward ], [ :alpha_plain, :late ] ].each do |viewer, subject|
+      items = signups(viewer, subject).value["items"]
+      assert items.any?
+      assert items.none? { |item| item.key?("signed_up_by") }
+    end
+  end
+
   test "past and cancelled sign-ups are left out" do
     assert_equal [ [ "Bake Sale", "Cashier" ], [ "Bake Sale", "Cookies" ], [ "Quiet Sale", "Helper" ] ], labels(signups(:admin, :alpha_member)).sort
     assert_empty signups(:admin, :alpha_manager).value["items"]

@@ -34,6 +34,21 @@ module Mcp::Tools::SignupFormat
     required: %w[id title]
   }.freeze
 
+  # Whose behalf a sign-up is for: by default the person taking the place, not
+  # the one who acted (that is signed_up_by, which only place_signup returns,
+  # as no sign-up page names the signer to anyone).
+  ON_BEHALF_OF_SCHEMA = Mcp::Tool::REF_SCHEMA.merge(
+    description: "Whose behalf the place is for, by default the person taking it. Not who made the sign-up."
+  ).freeze
+
+  # Who made the sign-up, as place_signup returns it: the viewer, who did it.
+  SIGNED_UP_BY_SCHEMA = {
+    type: %w[object null],
+    properties: Mcp::Tool::REF_SCHEMA[:properties],
+    required: Mcp::Tool::REF_SCHEMA[:required],
+    description: "Who made the sign-up (you), which can differ from the person taking the place and from on_behalf_of"
+  }.freeze
+
   # A sign-up as the page shows it. status, on_behalf_of and note are added by
   # the tool only for those who may see them.
   SIGNUP_SCHEMA = {
@@ -42,7 +57,7 @@ module Mcp::Tools::SignupFormat
       id: { type: "string" },
       status: { type: "string", enum: %w[active cancelled fulfilled no_show] },
       person: Mcp::Tool::REF_SCHEMA,
-      on_behalf_of: Mcp::Tool::REF_SCHEMA,
+      on_behalf_of: ON_BEHALF_OF_SCHEMA,
       answer: { type: %w[string null] },
       quantity: { type: %w[integer null] },
       note: { type: %w[string null] }
