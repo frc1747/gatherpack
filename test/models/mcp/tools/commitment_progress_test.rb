@@ -118,6 +118,22 @@ class Mcp::Tools::CommitmentProgressTest < ActiveSupport::TestCase
     assert_equal [ 2, 1, 1, true ], source.values_at("per", "credits_per", "max_credits", "capped")
   end
 
+  test "a member who owes can't read a friend who owes" do
+    Relationship.create!(parent: person(:alpha_member), child: person(:ward), relationship_type: @friend, created_by: person(:admin))
+
+    assert_equal "Not found", progress(:alpha_member, person_id: person(:ward).neat_id).error
+  end
+
+  test "an uncapped ratio shows the partial progress toward the next credit" do
+    ratio = Commitment.create!(title: "Ratio", team: @alpha, owing_team: @alpha, base_amount: 3, unit: "shifts",
+      starts_on: 1.month.ago.to_date, ends_on: 1.month.from_now.to_date)
+    ratio.commitment_sources.create!(kind: "checkins", subject: event_types(:one), per: 3, credits: 2)
+    create_world_checkin(person(:alpha_member), create_world_event("Ratio Shift", @alpha, 1.day.ago))
+    source = rows(:admin, ratio, person_id: person(:alpha_member).neat_id).sole["sources"].sole
+
+    assert_equal [ 2, 3, 2, false, 1 ], source.values_at("partial", "per", "credits_per", "capped", "confirmed")
+  end
+
   test "a relative who doesn't owe can ask about themselves" do
     row = rows(:guardian, person_id: person(:guardian).neat_id).sole
 
