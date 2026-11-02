@@ -82,14 +82,13 @@ class McpTest < ActiveSupport::TestCase
     tools.each { |tool| Mcp.register_tool(tool) }
   end
 
-  test "person extensions start empty and reset clears them" do
+  test "reset clears the person extensions" do
+    Mcp.reset!
     assert_empty Mcp.person_extensions
     Mcp.person_extensions << ->(_person, _viewer) { { extra: 1 } }
     Mcp.reset!
     assert_empty Mcp.person_extensions
   ensure
-    Mcp.person_extensions.clear
-    Mcp.reset!
     Rails.application.reloader.prepare!
   end
 

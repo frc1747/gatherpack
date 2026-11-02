@@ -63,6 +63,27 @@ class Mcp::Tools::GetTeamTest < ActiveSupport::TestCase
     assert_equal [ "Open Child" ], get(:alpha_member, @alpha).value["children"].map { |child| child["name"] }
   end
 
+  test "members are limited, ordered, and flagged when truncated" do
+    30.times { |i| Membership.create!(person: Person.create!(first_name: "Extra#{i}", last_name: "Zed"), team: @alpha) }
+    value = get(:admin, @alpha).value
+
+    assert_equal 25, value["members"].size
+    assert_equal true, value["truncated"]
+    assert_equal value["members"], get(:admin, @alpha).value["members"]
+    assert_equal 33, call_tool("get_team", user: user(:admin), team_id: @alpha.neat_id, limit: 100).value["members"].size
+    assert_equal false, call_tool("get_team", user: user(:admin), team_id: @alpha.neat_id, limit: 100).value["truncated"]
+    assert_equal 2, call_tool("get_team", user: user(:admin), team_id: @alpha.neat_id, limit: 2).value["members"].size
+  end
+
+  test "a parent the viewer can't see is null" do
+    hidden = create_world_team("SecretParent")
+    open_child = create_world_team("Open Child", parent: hidden)
+    open_child.update!(join_permission: :has_account)
+
+    assert_nil get(:beta_member, open_child).value["parent"]
+    assert_equal "SecretParent", get(:admin, open_child).value.dig("parent", "name")
+  end
+
   test "a wrong ID prefix is not found" do
     assert_equal "Not found", call_tool("get_team", user: user(:admin), team_id: person(:admin).neat_id).error
   end

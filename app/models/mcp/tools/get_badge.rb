@@ -1,15 +1,14 @@
 # One badge and its holders. The badge must be in policy_scope(Badge)
 # (BadgesController#show), else "Not found"; needs the badges feature.
-# Holders follow the "Manage Assignments" page: when
-# BadgeAssignmentPolicy#index? allows the viewer (they can edit the badge,
-# BadgePolicy#edit?) all holders; otherwise only holders in policy_scope(Person)
-# (what the badge page lists). BadgeAssignmentPolicy::Scope is scope.all and
-# is not used. Note BadgePolicy#update? is true for the "...or self" and
-# "has account" permissions, so those badges show all holders to everyone.
+# Holders are the badge's holders in policy_scope(Person), for everyone (admins
+# included, whose scope is every person): what the badge page's People list,
+# list_badges and the search_people badge filter show. The "Manage Assignments"
+# page also lists holders to anyone BadgePolicy#edit? passes, which is true for
+# every viewer on the "...or self" and "has account" permissions, so
+# BadgeAssignmentPolicy#index? isn't used here, nor is its Scope (scope.all).
 class Mcp::Tools::GetBadge < Mcp::Tool
   tool_name "get_badge"
-  description "A badge you can see: description, type, team and its holders (all of them if you can manage the badge, " \
-    "otherwise the holders you can see), ordered by last name."
+  description "A badge you can see: description, type, team and the holders you can see, ordered by last name."
   scope :read
   feature :badges
   input_schema(
@@ -35,8 +34,7 @@ class Mcp::Tools::GetBadge < Mcp::Tool
 
   def call(badge_id:, limit: DEFAULT_LIMIT)
     badge = ctx.find(Badge, badge_id)
-    holders = badge.people
-    holders = holders.where(id: ctx.policy_scope(Person).select(:id)) unless ctx.allowed?(badge, :index?, policy_class: BadgeAssignmentPolicy)
+    holders = badge.people.where(id: ctx.policy_scope(Person).select(:id))
     holder_count = holders.count
     listed = list(holders.order(:last_name, :first_name, :id), limit: limit) { |person| person_json(person) }
 

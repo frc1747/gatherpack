@@ -48,10 +48,19 @@ class Mcp::Tools::GetBadgeTest < ActiveSupport::TestCase
     assert_empty holder_names(get(:guardian))
   end
 
-  test "an editable badge shows every holder even outside the viewer's scope" do
-    @access_badge.update!(permission: :added_by_admin_or_self)
+  test "a badge anyone may self-assign still shows only the holders the viewer can see" do
+    %i[added_by_admin_or_self added_by_manager_or_self has_account].each do |permission|
+      badge = create_world_badge("Open #{permission}")
+      badge.update!(permission: permission)
+      BadgeAssignment.create!(badge: badge, person: person(:badge_holder))
 
-    assert_equal %w[BadgeHolder], holder_names(get(:alpha_member))
+      %i[alpha_member alpha_manager guardian].each do |viewer|
+        value = get(viewer, badge).value
+        assert_empty value["holders"], "#{viewer} / #{permission}"
+        assert_equal 0, value["holder_count"]
+      end
+      assert_equal %w[BadgeHolder], holder_names(get(:admin, badge))
+    end
   end
 
   test "a team badge outside the viewer's scope is not found" do

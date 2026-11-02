@@ -10,7 +10,9 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     call_tool("get_person", user: user(viewer), person_id: person(target).neat_id)
   end
 
-  teardown { Mcp.person_extensions.clear }
+  # Other initializers may have registered extensions: put them back.
+  setup { @saved_extensions = Mcp.person_extensions.dup }
+  teardown { Mcp.person_extensions.replace(@saved_extensions) }
 
   test "an admin sees the profile, contact details, teams, badges and relationships" do
     person(:ward).update!(phone_number: "555-0100", address: "1 Main St", birthday: Date.new(2012, 5, 6), shirt_size: "M")
@@ -77,6 +79,34 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     assert_nil call_tool("get_person", user: user(:admin), person_id: nobody.neat_id).value["email"]
   end
 
+  test "a person with no display name is named by their names, then their ID" do
+    solo = Person.create!(first_name: "Solo")
+    nameless = Person.create!
+    Membership.create!(person: solo, team: @alpha)
+    Membership.create!(person: nameless, team: @alpha)
+
+    assert_equal "Solo", call_tool("get_person", user: user(:admin), person_id: solo.neat_id).value["name"]
+    assert_equal nameless.neat_id, call_tool("get_person", user: user(:admin), person_id: nameless.neat_id).value["name"]
+    members = call_tool("get_team", user: user(:admin), team_id: @alpha.neat_id).value["members"]
+    assert_includes members.map { |member| member["name"] }, "Solo"
+    assert_includes members.map { |member| member["name"] }, nameless.neat_id
+  end
+
+  test "an extension whose value fails to serialize, or that raises a ScriptError, is dropped" do
+    exploding = Object.new
+    def exploding.as_json(*) = raise("no json")
+    Mcp.person_extensions << ->(_subject, _viewer) { { lazy: Person.where("no_such_column = 1") } }
+    Mcp.person_extensions << ->(_subject, _viewer) { { bad: exploding } }
+    Mcp.person_extensions << ->(_subject, _viewer) { raise NotImplementedError, "later" }
+    Mcp.person_extensions << ->(_subject, _viewer) { { extra: true } }
+    result = get(:admin, :ward)
+
+    assert_nil result.error
+    assert_equal [ true, "Ward World" ], result.value.values_at("extra", "name")
+    assert_not result.value.key?("lazy")
+    assert_not result.value.key?("bad")
+  end
+
   test "a wrong ID prefix or a malformed ID is not found" do
     assert_equal "Not found", call_tool("get_person", user: user(:admin), person_id: @alpha.neat_id).error
     assert_equal "Not found", call_tool("get_person", user: user(:admin), person_id: "nonsense").error
@@ -84,10 +114,10 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
 
   test "an extension's keys are added and can't replace the profile's own" do
     seen = []
-    Mcp.person_extensions << ->(subject, viewer) { seen << [ subject, viewer ]; { fields: { "team_number" => "1747" }, name: "Hijacked" } }
+    Mcp.person_extensions << ->(subject, viewer) { seen << [ subject, viewer ]; { fields: { "example_key" => "example" }, name: "Hijacked" } }
     value = get(:alpha_manager, :ward).value
 
-    assert_equal({ "team_number" => "1747" }, value["fields"])
+    assert_equal({ "example_key" => "example" }, value["fields"])
     assert_equal "Ward World", value["name"]
     assert_equal [ [ person(:ward), person(:alpha_manager) ] ], seen
   end

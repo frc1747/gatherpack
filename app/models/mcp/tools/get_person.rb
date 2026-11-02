@@ -47,7 +47,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
 
     result = {
       id: person.neat_id,
-      name: person.display_name,
+      name: person_json(person)[:name],
       first_name: person.first_name,
       last_name: person.last_name,
       bio: person.bio,
@@ -88,15 +88,20 @@ class Mcp::Tools::GetPerson < Mcp::Tool
     end
   end
 
-  # An extension that raises, or returns something other than a Hash, adds
-  # nothing: the profile is still returned.
+  # An extension that raises (even a ScriptError), returns something other than
+  # a Hash, or returns a value that can't be turned into JSON adds nothing: the
+  # profile is still returned. Each runs in a savepoint, so a failed query
+  # inside one doesn't abort the request's transaction.
   def extensions_json(person)
     Mcp.person_extensions.each_with_object({}) do |extension, merged|
-      extra = extension.call(person, ctx.person)
-      raise TypeError, "returned #{extra.class}, not a Hash" unless extra.is_a?(Hash)
+      extra = ActiveRecord::Base.transaction(requires_new: true) do
+        value = extension.call(person, ctx.person)
+        raise TypeError, "returned #{value.class}, not a Hash" unless value.is_a?(Hash)
 
-      merged.merge!(extra.symbolize_keys)
-    rescue => e
+        value.as_json.symbolize_keys
+      end
+      merged.merge!(extra)
+    rescue StandardError, ScriptError => e
       Rails.logger.error("[MCP] get_person extension failed (request #{ctx.request_id}): #{e.class}: #{e.message}")
     end
   end

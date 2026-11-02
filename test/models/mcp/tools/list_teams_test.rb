@@ -58,6 +58,16 @@ class Mcp::Tools::ListTeamsTest < ActiveSupport::TestCase
     assert_equal "Not found", call_tool("list_teams", user: user(:admin), parent_id: person(:admin).neat_id).error
   end
 
+  test "a parent the viewer can't see is null" do
+    hidden = create_world_team("SecretParent")
+    create_world_team("Open Child", parent: hidden).update!(join_permission: :has_account)
+    found = ->(viewer) { items(call_tool("list_teams", user: user(viewer))).find { |team| team["name"] == "Open Child" } }
+
+    assert_nil found.call(:beta_member)["parent"]
+    assert_nil found.call(:guardian)["parent"]
+    assert_equal "SecretParent", found.call(:admin).dig("parent", "name")
+  end
+
   test "limit truncates" do
     result = call_tool("list_teams", user: user(:admin), limit: 1)
 
