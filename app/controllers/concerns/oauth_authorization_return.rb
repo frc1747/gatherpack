@@ -3,8 +3,8 @@
 # anyone further than /oauth/authorize already could.
 module OauthAuthorizationReturn
   # The location is kept in the session cookie, which browsers drop above 4KB.
-  # Counted as JSON, as stored: & becomes &, and encrypting the session
-  # nearly doubles it. This leaves room for the rest of the session.
+  # Counted as JSON, as stored: each & becomes a six-byte escape, and encrypting
+  # the session nearly doubles it. This leaves room for the rest of the session.
   MAX_STORED_BYTES = 1500
 
   def self.accepts?(location)

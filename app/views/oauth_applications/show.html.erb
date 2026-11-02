@@ -15,7 +15,7 @@
 
       <% if flash[:client_secret] %>
         <dt class="col-sm-3">Client Secret</dt>
-        <dd class="col-sm-9">
+        <dd class="col-sm-9" data-controller="reload-on-restore" data-action="pageshow@window->reload-on-restore#reload">
           <%= render "copyable_value", value: flash[:client_secret], label: "Client Secret" %>
           <div class="text-warning mt-1"><small>This secret will not be shown again. Copy it now.</small></div>
         </dd>

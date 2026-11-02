@@ -102,6 +102,30 @@ class OauthAdminTest < ApplicationSystemTestCase
     assert_no_text "This secret will not be shown again"
   end
 
+  test "Back after a full-page navigation doesn't bring the secret back" do
+    visit setup_path
+    assert_text "Setup Tools"
+
+    page.go_back
+
+    assert_text "Client ID"
+    assert_no_text @secret
+    assert_no_text "This secret will not be shown again"
+  end
+
+  test "Back after signing out doesn't bring the secret back" do
+    visit setup_path
+    assert_text "Setup Tools"
+    click_on "Sign Out"
+    assert_no_text "Setup Tools"
+
+    page.go_back
+    page.go_back
+
+    assert_no_text "This secret will not be shown again"
+    assert_no_text @secret
+  end
+
   test "a request just under the limit survives the different-account control" do
     application = OauthApplication.find_by!(name: "Clipboard App")
     other = User.create!(email: "just-under-other@example.com", password: "Password1!")
