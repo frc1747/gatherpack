@@ -88,16 +88,28 @@ class OauthAdminTest < ApplicationSystemTestCase
     assert_no_text "Clipboard App"
   end
 
-  test "the consent page's different-account control signs out and leads to sign-in" do
+  test "the secret appears once on the page" do
+    assert_equal 1, page.text.scan(@secret).size
+  end
+
+  test "the consent page's different-account control signs out and returns to the request" do
     application = OauthApplication.find_by!(name: "Clipboard App")
-    visit oauth_authorization_path(client_id: application.uid, redirect_uri: "https://example.com/callback", response_type: "code")
+    other = User.create!(email: "other-account@example.com", password: "Password1!")
+    visit oauth_authorization_path(client_id: application.uid, redirect_uri: "https://example.com/callback", response_type: "code", state: "abc123")
     assert_text "Signed in as"
+    assert_no_text other.email
 
     click_on "Use a different account"
 
     assert_current_path new_user_session_path
-    visit oauth_applications_path
-    assert_current_path new_user_session_path
+    fill_in "Email", with: other.email
+    fill_in "Password", with: "Password1!"
+    click_on "Sign in"
+
+    assert_text "Signed in as #{other.email}"
+    assert_equal "/oauth/authorize", URI(current_url).path
+    assert_includes URI(current_url).query, "state=abc123"
+    assert_includes URI(current_url).query, "client_id=#{application.uid}"
   end
 
   private

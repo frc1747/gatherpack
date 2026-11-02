@@ -74,7 +74,6 @@ en:
         signed_in_as: 'Signed in as %{name} (%{email})'
         signed_in_as_email: 'Signed in as %{email}'
         use_different_account: 'Use a different account'
-        use_different_account_hint: 'This signs you out. After signing in, start again from %{application}.'
       show:
         title: 'Authorization code:'
       form_post:

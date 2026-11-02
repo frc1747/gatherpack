@@ -50,32 +50,133 @@ class Doorkeeper::AuthorizationsControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", oauth_authorization_path, count: 0
   end
 
-  test "the different-account control signs out with a valid token and leads to sign-in" do
+  test "a signed-out visit comes back to the same request after signing in" do
+    request_path = authorize_path("https://one.example.com/callback", state: "abc 123", code_challenge: "xyz")
+    user = User.create!(email: "returning@example.com", password: "Password1!")
+
+    get request_path
+    assert_redirected_to new_user_session_url
+
+    post user_session_path, params: { user: { email: user.email, password: "Password1!" } }
+    assert_redirected_to "http://localhost#{request_path}"
+
+    follow_redirect!
+    assert_response :success
+    assert_select "p", text: "Signed in as #{user.email}"
+    assert_select "form[action=?][method=post] input[name=state][value=?]", oauth_authorization_path, "abc 123"
+    assert_select "form[action=?][method=post] input[name=client_id][value=?]", oauth_authorization_path, @application.uid
+  end
+
+  test "a signed-out visit comes back to the same request after signing in with a provider" do
+    request_path = authorize_path("https://one.example.com/callback", state: "abc123")
+    user = User.create!(email: "provider@example.com", password: "Password1!", provider: "discord", uid: "provider-uid")
+    auth = OmniAuth::AuthHash.new(provider: "discord", uid: "provider-uid", info: { email: user.email, first_name: "Pro", last_name: "Vider" })
+
+    get request_path
+    assert_redirected_to new_user_session_url
+
+    get "/users/auth/discord/callback", env: { "omniauth.auth" => auth }
+    assert_redirected_to "http://localhost#{request_path}"
+  end
+
+  test "signing in without an authorization request still goes home" do
+    user = User.create!(email: "plain@example.com", password: "Password1!")
+
+    post user_session_path, params: { user: { email: user.email, password: "Password1!" } }
+
+    assert_redirected_to root_url
+  end
+
+  test "a signed-out POST to the endpoint isn't stored as a return location" do
+    user = User.create!(email: "poster@example.com", password: "Password1!")
+
+    post oauth_authorization_path, params: { client_id: @application.uid }
+    assert_redirected_to new_user_session_url
+
+    post user_session_path, params: { user: { email: user.email, password: "Password1!" } }
+    assert_redirected_to root_url
+  end
+
+  test "an authorization request too long for the session isn't stored" do
+    long_path = authorize_path("https://one.example.com/callback", state: "x" * OauthAuthorizationReturn::MAX_LENGTH)
+    user = User.create!(email: "long@example.com", password: "Password1!")
+
+    get long_path
+    assert_redirected_to new_user_session_url
+
+    post user_session_path, params: { user: { email: user.email, password: "Password1!" } }
+    assert_redirected_to root_url
+  end
+
+  test "the different-account control signs out with a valid token and returns to the request" do
+    request_path = authorize_path("https://one.example.com/callback", state: "abc 123")
+    other = User.create!(email: "other-account@example.com", password: "Password1!")
+
     with_forgery_protection do
       sign_in @user
-      get authorize_path("https://one.example.com/callback")
+      get request_path
       assert_response :success
 
       form = css_select("form[action='#{destroy_user_session_path}']").first
       assert_equal "false", form["data-turbo"]
       assert_equal "delete", form.at_css("input[name=_method]")["value"]
       assert_includes form.at_css("input[type=submit]")["value"], "Use a different account"
+      assert_equal request_path, form.at_css("input[name=oauth_return_to]")["value"]
       token = form.at_css("input[name=authenticity_token]")["value"]
 
-      delete destroy_user_session_path, params: { authenticity_token: token }
-      assert_redirected_to root_path
-      follow_redirect!
-      assert_redirected_to new_user_session_path
+      delete destroy_user_session_path, params: { authenticity_token: token, oauth_return_to: request_path }
+      assert_redirected_to "http://localhost#{request_path}"
 
-      get authorize_path("https://one.example.com/callback")
+      follow_redirect!
       assert_redirected_to new_user_session_url
+
+      get new_user_session_path
+      token = css_select("form[action='#{user_session_path}'] input[name=authenticity_token]").first["value"]
+      post user_session_path, params: { authenticity_token: token, user: { email: other.email, password: "Password1!" } }
+      assert_redirected_to "http://localhost#{request_path}"
+
+      follow_redirect!
+      assert_response :success
+      assert_select "p", text: "Signed in as #{other.email}"
+      assert_select "form[action=?][method=post] input[name=state][value=?]", oauth_authorization_path, "abc 123"
     end
+  end
+
+  test "a sign-out return value that isn't the authorization endpoint is ignored" do
+    [
+      "https://evil.example.com/oauth/authorize",
+      "//evil.example.com/oauth/authorize",
+      "http://localhost/oauth/authorize",
+      "/people",
+      "/oauth/authorize/native",
+      "/oauth/authorized",
+      "/oauth/authorize/../../people",
+      "/oauth/authorize\n/people",
+      "javascript:alert(1)",
+      "",
+      nil,
+      { "path" => "/oauth/authorize" }
+    ].each do |location|
+      sign_in @user
+
+      delete destroy_user_session_path, params: { oauth_return_to: location }
+
+      assert_redirected_to root_url, "followed #{location.inspect}"
+    end
+  end
+
+  test "signing out from elsewhere still goes home" do
+    sign_in @user
+
+    delete destroy_user_session_path
+
+    assert_redirected_to root_url
   end
 
   private
 
-  def authorize_path(redirect_uri)
-    oauth_authorization_path(client_id: @application.uid, redirect_uri: redirect_uri, response_type: "code", scope: "user_read")
+  def authorize_path(redirect_uri, **extra)
+    oauth_authorization_path(client_id: @application.uid, redirect_uri: redirect_uri, response_type: "code", scope: "user_read", **extra)
   end
 
   def with_forgery_protection

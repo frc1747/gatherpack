@@ -55,9 +55,9 @@
 
         <div class="mt-3">
           <%= form_tag destroy_user_session_path, method: :delete, data: { turbo: false } do %>
+            <%= hidden_field_tag :oauth_return_to, request.fullpath, id: nil %>
             <%= submit_tag t(".use_different_account"), class: "btn btn-link p-0" %>
           <% end %>
-          <small class="text-muted"><%= t(".use_different_account_hint", application: @pre_auth.client.name) %></small>
         </div>
       </div>
     </div>

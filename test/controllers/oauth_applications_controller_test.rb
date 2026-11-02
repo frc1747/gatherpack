@@ -102,6 +102,8 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
     follow_redirect!
 
     assert_response :success
+    assert_equal 1, response.body.scan(secret).size
+    assert_select ".alert", text: /successfully created/
     assert_select "[data-controller=clipboard]", count: 2
     assert_select "[data-clipboard-target=source]", text: secret
     assert_select "button[type=button][data-action='clipboard#copy'][aria-label='Copy Client Secret']", text: "Copy"
