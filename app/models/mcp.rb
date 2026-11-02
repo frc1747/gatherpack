@@ -68,6 +68,7 @@ module Mcp
 
   @tools = {}
   @person_extensions = []
+  @person_filters = []
 
   class << self
     def register_tool(klass)
@@ -88,6 +89,7 @@ module Mcp
     def reset!
       @tools = {}
       @person_extensions = []
+      @person_filters = []
     end
 
     # Callables (person, viewer) -> Hash whose keys get_person adds to its
@@ -100,6 +102,17 @@ module Mcp
     # logged and left out of that call; the rest still apply.
     def person_extensions
       @person_extensions
+    end
+
+    # Callables (person, viewer) -> Array of the keys in
+    # Mcp::Tools::GetPerson::PROFILE_FIELD_KEYS that get_person may return for
+    # this viewer. The others are left out; with several filters, a key must be
+    # kept by all of them. One that raises or returns something other than an
+    # Array is logged and keeps nothing.
+    #
+    #   Mcp.person_filters << ->(person, viewer) { %w[email gender] }
+    def person_filters
+      @person_filters
     end
 
     def tools

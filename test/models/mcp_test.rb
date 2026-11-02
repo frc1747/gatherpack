@@ -90,6 +90,14 @@ class McpTest < ActiveSupport::TestCase
     Rails.application.reloader.prepare!
   end
 
+  test "reset clears the person filters" do
+    Mcp.person_filters << ->(_person, _viewer) { [] }
+    Mcp.reset!
+    assert_empty Mcp.person_filters
+  ensure
+    Rails.application.reloader.prepare!
+  end
+
   test "running to_prepare again, as a code reload does, doesn't raise and keeps the tools" do
     tools = Mcp.tools
     Rails.application.reloader.prepare!
