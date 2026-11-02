@@ -27,6 +27,8 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   PROFILE_KEYS = Mcp::Tools::GetPerson::PROFILE_FIELD_KEYS
+  WITHHELD_KEYS = %w[email phone_number address birthday].freeze
+  ADULT_BIRTHDAY = Date.new(1990, 5, 6)
 
   # Makes Person.method_defined?(:readable_fields_for) answer as given.
   def stub_field_rules(defined)
@@ -36,9 +38,14 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     end
   end
 
-  def fill_profile(target)
-    person(target).update!(phone_number: "555-0100", address: "1 Main St", birthday: Date.new(2012, 5, 6),
+  # An adult: filters and field rules are about whatever Mcp::MinorRule leaves.
+  def fill_profile(target, birthday: ADULT_BIRTHDAY)
+    person(target).update!(phone_number: "555-0100", address: "1 Main St", birthday: birthday,
       dietary_restrictions: "None", shirt_size: "M", gender: "Other", bio: "Hello")
+  end
+
+  def make_adult(target)
+    person(target).update!(birthday: ADULT_BIRTHDAY)
   end
 
   def capture_log
@@ -61,13 +68,13 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "an admin sees the profile, contact details, teams, badges and relationships" do
-    person(:ward).update!(phone_number: "555-0100", address: "1 Main St", birthday: Date.new(2012, 5, 6), shirt_size: "M")
+    person(:ward).update!(phone_number: "555-0100", address: "1 Main St", birthday: ADULT_BIRTHDAY, shirt_size: "M")
     value = get(:admin, :ward).value
 
     assert_equal person(:ward).neat_id, value["id"]
     assert_equal "Ward World", value["name"]
     assert_equal "ward@example.com", value["email"]
-    assert_equal [ "555-0100", "1 Main St", "2012-05-06", "M" ], value.values_at("phone_number", "address", "birthday", "shirt_size")
+    assert_equal [ "555-0100", "1 Main St", "1990-05-06", "M" ], value.values_at("phone_number", "address", "birthday", "shirt_size")
     assert_equal [ { "id" => @alpha.neat_id, "name" => "Alpha", "manager" => false, "membership_id" => Membership.find_by!(person: person(:ward), team: @alpha).neat_id } ], value["teams"]
     assert_equal [], value["badges"]
     assert_equal [ { "label" => "Parent of", "person" => { "id" => person(:guardian).neat_id, "name" => "Guardian World" } } ],
@@ -75,6 +82,8 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "a team manager sees a member, and the manager flag" do
+    make_adult(:alpha_member)
+
     assert_equal "alphamember@example.com", get(:alpha_manager, :alpha_member).value["email"]
     assert_equal [ true ], get(:alpha_manager, :alpha_manager).value["teams"].map { |team| team["manager"] }
   end
@@ -118,11 +127,12 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     with_feature(:badges, false) { assert_not get(:admin, :beta_member).value.key?("badges") }
   end
 
-  test "a person without a user has no email" do
-    Person.create!(first_name: "No", last_name: "User")
-    nobody = Person.find_by!(first_name: "No")
+  test "an adult without a user has an empty email" do
+    nobody = Person.create!(first_name: "No", last_name: "User", birthday: ADULT_BIRTHDAY)
+    value = call_tool("get_person", user: user(:admin), person_id: nobody.neat_id).value
 
-    assert_nil call_tool("get_person", user: user(:admin), person_id: nobody.neat_id).value["email"]
+    assert value.key?("email")
+    assert_nil value["email"]
   end
 
   test "a person with no display name is named by their names, then their ID" do
@@ -201,7 +211,7 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     fill_profile(:ward)
     value = get(:alpha_member, :ward).value
 
-    assert_equal [ "ward@example.com", "555-0100", "2012-05-06", "1 Main St", "None", "M", "Other" ], value.values_at(*PROFILE_KEYS)
+    assert_equal [ "ward@example.com", "555-0100", "1990-05-06", "1 Main St", "None", "M", "Other" ], value.values_at(*PROFILE_KEYS)
 
     person(:ward).update!(phone_number: nil)
     value = get(:alpha_member, :ward).value
@@ -246,6 +256,7 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "with two filters a key must be kept by both" do
+    make_adult(:ward)
     Mcp.person_filters << ->(_subject, _viewer) { %w[email phone_number gender] }
     Mcp.person_filters << ->(_subject, _viewer) { %w[phone_number gender address] }
 
@@ -338,10 +349,117 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "field rules with a filter follow the filter" do
+    make_adult(:ward)
     stub_field_rules(true)
     Mcp.person_filters << ->(_subject, _viewer) { %w[email] }
 
     assert_equal %w[email], PROFILE_KEYS & get(:alpha_member, :ward).value.keys
+  end
+
+  # --- Minors (Mcp::MinorRule)
+
+  # Admin, manager, guardian and self. The guardian shares the team: being a
+  # guardian alone doesn't open the profile.
+  def minor_viewers
+    Membership.create!(person: person(:guardian), team: @alpha)
+    %i[admin alpha_manager guardian ward]
+  end
+
+  def assert_contact_details_withheld(value)
+    assert_empty WITHHELD_KEYS & value.keys
+    assert_equal [ "None", "M", "Other", "Hello" ], value.values_at("dietary_restrictions", "shirt_size", "gender", "bio")
+    assert_equal [ @alpha.neat_id ], value["teams"].map { |team| team["id"] }
+    assert value.key?("relationships")
+    assert value.key?("badges")
+  end
+
+  test "every viewer gets no contact details for a 16-year-old, and the other keys remain" do
+    fill_profile(:ward, birthday: 16.years.ago.to_date)
+
+    minor_viewers.each { |viewer| assert_contact_details_withheld(get(viewer, :ward).value) }
+  end
+
+  test "every viewer gets no contact details for someone with no birthday on file" do
+    fill_profile(:ward, birthday: nil)
+
+    minor_viewers.each { |viewer| assert_contact_details_withheld(get(viewer, :ward).value) }
+  end
+
+  test "every viewer gets an adult's contact details" do
+    fill_profile(:ward)
+
+    minor_viewers.each do |viewer|
+      assert_equal [ "ward@example.com", "555-0100", "1 Main St", "1990-05-06" ], get(viewer, :ward).value.values_at(*WITHHELD_KEYS), viewer
+    end
+  end
+
+  test "the details are withheld the day before the 18th birthday and returned on it" do
+    fill_profile(:ward, birthday: Date.new(2008, 5, 6))
+
+    travel_to(Time.utc(2026, 5, 5, 12)) { assert_contact_details_withheld(get(:admin, :ward).value) }
+    travel_to(Time.utc(2026, 5, 6, 12)) { assert_empty WITHHELD_KEYS - get(:admin, :ward).value.keys }
+  end
+
+  test "the birthday check uses the app's time zone" do
+    fill_profile(:ward, birthday: Date.new(2008, 3, 12))
+
+    travel_to Time.utc(2026, 3, 11, 12) do
+      with_settings(time_zone: "Pacific/Auckland") { assert_empty WITHHELD_KEYS - get(:admin, :ward).value.keys }
+      with_settings(time_zone: "Etc/UTC") { assert_contact_details_withheld(get(:admin, :ward).value) }
+    end
+  end
+
+  test "a filter that keeps every key doesn't bring a minor's details back" do
+    fill_profile(:ward, birthday: 16.years.ago.to_date)
+    Mcp.person_filters << ->(_subject, _viewer) { PROFILE_KEYS.dup }
+
+    minor_viewers.each { |viewer| assert_contact_details_withheld(get(viewer, :ward).value) }
+  end
+
+  test "with a filter, an adult's keys follow the filter" do
+    fill_profile(:ward)
+    Mcp.person_filters << ->(_subject, _viewer) { %w[email gender] }
+
+    assert_equal %w[email gender], PROFILE_KEYS & get(:admin, :ward).value.keys
+  end
+
+  test "a filter's omissions still apply to a minor's other keys" do
+    fill_profile(:ward, birthday: 16.years.ago.to_date)
+    Mcp.person_filters << ->(_subject, _viewer) { %w[email shirt_size] }
+
+    assert_equal %w[shirt_size], PROFILE_KEYS & get(:admin, :ward).value.keys
+  end
+
+  test "an extension can't put back a minor's details" do
+    fill_profile(:ward, birthday: 16.years.ago.to_date)
+    Mcp.person_extensions << ->(_subject, _viewer) { { email: "x@example.com", phone_number: "555-0199", address: "2 Main St", birthday: "2010-01-01", extra: true } }
+    value = get(:admin, :ward).value
+
+    assert_contact_details_withheld(value)
+    assert_equal true, value["extra"]
+  end
+
+  test "the rule isn't a filter: field rules with no filter still omit every key, for an adult too" do
+    fill_profile(:ward)
+    stub_field_rules(true)
+
+    assert_profile_without_fields(get(:admin, :ward))
+    assert_empty Mcp.person_filters
+    # Only a build with field rules has a reason to register one.
+    assert_empty @saved_filters unless Person.public_method_defined?(:readable_fields_for)
+  end
+
+  test "a minor's result gives no reason per person, only fewer keys" do
+    fill_profile(:alpha_member)
+    fill_profile(:ward, birthday: 16.years.ago.to_date)
+
+    assert_equal get(:admin, :alpha_member).value.keys - WITHHELD_KEYS, get(:admin, :ward).value.keys
+  end
+
+  test "the description says these keys can be missing, in general terms" do
+    description = Mcp::Tools::GetPerson.description
+
+    assert_match(/Email, phone number, address and birthday are never given here for anyone under 18 or with no birthday on file/, description)
   end
 
   test "membership IDs go only to viewers who may remove the membership, and not for an inherited team" do
@@ -380,7 +498,7 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "empty contact details come back as null" do
-    person(:ward).update_columns(bio: "", phone_number: "", address: "", dietary_restrictions: "", shirt_size: "", gender: "")
+    person(:ward).update_columns(birthday: ADULT_BIRTHDAY, bio: "", phone_number: "", address: "", dietary_restrictions: "", shirt_size: "", gender: "")
     value = get(:alpha_manager, :ward).value
 
     %w[bio phone_number address dietary_restrictions shirt_size gender].each do |key|

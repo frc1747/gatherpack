@@ -5,7 +5,9 @@
 # Mcp.person_filters entry leaves a key out, and an omitted key is not the same
 # as null, which means empty. If a filter fails, or the build has field-level
 # read rules and no filter, all of those keys are omitted and the rest of the
-# profile is still returned. Teams are the person's teams and their ancestors
+# profile is still returned. After the filters, Mcp::MinorRule leaves out email,
+# phone number, address and birthday for a minor, whoever the viewer is, which is
+# narrower than the page. Teams are the person's teams and their ancestors
 # that are in policy_scope(Team), with the manager flag from the person's own
 # memberships. Badges are the person's badges in policy_scope(Badge), and only
 # while the badges feature is on. membership_id and badge_assignment_id are what
@@ -28,7 +30,9 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   description "A person's profile as you can see it: name, contact details, bio, the teams they belong to " \
     "(with whether they manage each), their badges and their relationships to other people. " \
     "Membership and badge assignment IDs are given only where you may remove them. " \
-    "Fields you can't see are left out; null means the field is empty."
+    "Fields you can't see are left out; null means the field is empty. " \
+    "Email, phone number, address and birthday are never given here for anyone under 18 or with no birthday on file, " \
+    "whoever is asking, so they can be left out even for someone whose details you can see in the app."
   scope :read
   input_schema(properties: { person_id: { type: "string", description: "Person ID (per_...)" } }, required: [ "person_id" ])
   output_schema(
@@ -75,6 +79,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
     }
     result[:badges] = badges_json(person) if GatherPack::Features.enabled?(:badges)
     hidden = PROFILE_FIELD_KEYS - kept_profile_keys(person)
+    hidden |= Mcp::MinorRule::WITHHELD_KEYS if Mcp.withhold_contact_details?(person)
     # After the merge, so an extension can't put back a key that was left out.
     extensions_json(person).merge(result).except(*hidden.map(&:to_sym))
   end
