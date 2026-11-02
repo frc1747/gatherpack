@@ -14,10 +14,24 @@
 # people outside the viewer's teams), else "Not found". Rows are in the page's
 # order with same-named people ordered by ID, and the per-response check runs
 # only until the limit is passed.
+#
+# Narrower than the page for a minor (Mcp.withhold_contact_details?), whoever the
+# viewer is: answers to contact questions are left out of that person's list, with
+# no per-person reason. The person judged is the response's subject, whoever filled
+# it in, and each row is judged alone. A contact question is linked to built-in
+# email, phone number, address or birthday (by system_source, not key: the phone
+# field's key is "phone"), or has the phone or email type, its person field's type
+# if it has one. Those are the only types that say what an answer holds: a date
+# may be any date, and an address is free text, so those and other free-text
+# answers can't be judged and stay.
 class Mcp::Tools::FormAnswers < Mcp::Tool
+  WITHHELD_DATA_TYPES = %w[phone email].freeze
+
   tool_name "form_answers"
   description "A form's submitted answers per person (by last name), question by question. Only people whose response you may read, " \
-    "and answers you may see; a hidden answer has readable: false and no value. Optionally only one person."
+    "and answers you may see; a hidden answer has readable: false and no value. " \
+    "Email, phone number, address and birthday questions, and any phone or email question, are left out for anyone under 18 or with no birthday on file, whoever is asking. " \
+    "Optionally only one person."
   scope :read
   feature :forms
   input_schema(
@@ -99,13 +113,22 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
 
   def row_json(report, row)
     submission = row.submission
+    questions = report.questions
+    questions = questions.reject { |question| contact_question?(question) } if Mcp.withhold_contact_details?(row.person)
     {
       person: person_json(row.person),
       submission: { number: submission.number, submitted_at: time_json(submission.submitted_at), form_version: submission.form_version },
-      answers: report.questions.map do |question|
+      answers: questions.map do |question|
         readable = report.readable?(row, question)
         { question_id: question.neat_id, label: question.label.to_s, readable: readable, answer: readable ? report.answer(row, question) : nil }
       end
     }
+  end
+
+  def contact_question?(question)
+    source = question.person_field&.system_source
+    return true if source && Mcp::MinorRule::WITHHELD_KEYS.include?(source.delete_prefix("user."))
+
+    WITHHELD_DATA_TYPES.include?(question.value_type.data_type)
   end
 end
