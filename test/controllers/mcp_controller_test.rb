@@ -451,6 +451,59 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # --- Core write tools
+
+  WRITE_TOOLS = %w[assign_badge remove_badge add_team_member remove_team_member record_checkin create_event].freeze
+
+  test "tools/list shows the write tools only with mcp_write and mcp_write_enabled" do
+    read = mcp_token(user(:admin))
+    write = mcp_token(user(:admin), scopes: "mcp_write")
+
+    with_settings(mcp_write_enabled: "true") do
+      assert_empty WRITE_TOOLS & tool_names(mcp_post(read, "tools/list"))
+      listed = mcp_post(write, "tools/list").dig("result", "tools")
+      assert_empty WRITE_TOOLS - listed.map { |tool| tool["name"] }
+
+      hints = listed.select { |tool| WRITE_TOOLS.include?(tool["name"]) }.to_h { |tool| [ tool["name"], tool.dig("annotations", "destructiveHint") ] }
+      assert_equal %w[remove_badge remove_team_member], hints.select { |_name, hint| hint }.keys
+    end
+    with_settings(mcp_write_enabled: "false") do
+      assert_empty WRITE_TOOLS & tool_names(mcp_post(write, "tools/list"))
+    end
+  end
+
+  test "assign_badge runs as the token's user and logs the assignment" do
+    with_settings(mcp_write_enabled: "true") do
+      body = mcp_post(mcp_token(user(:admin), scopes: "mcp_write"), "tools/call",
+        { name: "assign_badge", arguments: { person_id: person(:alpha_member).neat_id, badge_id: @access_badge.neat_id } })
+
+      assert_equal false, body.dig("result", "isError")
+      assignment = BadgeAssignment.find_by!(person: person(:alpha_member), badge: @access_badge)
+      assert_equal assignment.neat_id, body.dig("result", "structuredContent", "id")
+      assert_equal user(:admin).id.to_s, AuditLog.where(item_type: "BadgeAssignment", item_id: assignment.id).last.whodunnit
+
+      log = McpToolCall.order(:created_at).last
+      assert_equal [ "assign_badge", "ok", "BadgeAssignment", assignment.id ], [ log.tool, log.outcome, log.changed_type, log.changed_id ]
+    end
+  end
+
+  test "remove_team_member runs as the token's user and logs the membership" do
+    membership = Membership.find_by!(person: person(:alpha_member), team: @alpha)
+
+    with_settings(mcp_write_enabled: "true") do
+      body = mcp_post(mcp_token(user(:alpha_manager), scopes: "mcp_write"), "tools/call",
+        { name: "remove_team_member", arguments: { membership_id: membership.neat_id } })
+
+      assert_equal false, body.dig("result", "isError")
+      assert_not Membership.exists?(membership.id)
+      version = AuditLog.where(item_type: "Membership", item_id: membership.id, event: "destroy").last
+      assert_equal user(:alpha_manager).id.to_s, version.whodunnit
+
+      log = McpToolCall.order(:created_at).last
+      assert_equal [ "Membership", membership.id ], [ log.changed_type, log.changed_id ]
+    end
+  end
+
   test "tools run in the app's time zone" do
     tool = Class.new(Mcp::Tool) do
       tool_name "test_zone"
