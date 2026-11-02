@@ -31,8 +31,9 @@ Rails.application.config.to_prepare do
       Settings.instance.send(:add_setting, *args)
     end
   end
-  register_setting.call(:mcp_allowed_badge, :string, "MCP: allowed badge", "", "MCP",
-    "Neat ID (bdg_...) of the badge whose holders can connect. Blank: every member.")
+  # :mcp_badge renders as McpBadgeInput (a select by name) on the settings page.
+  register_setting.call(:mcp_allowed_badge, :mcp_badge, "MCP: allowed badge", "", "MCP",
+    "Only people with this badge can connect. Every member: no limit.")
   register_setting.call(:mcp_write_enabled, :boolean, "MCP: allow changes", "false", "MCP",
     "Off: MCP clients can only read. Clients connected while this was off must reconnect to make changes.")
 
