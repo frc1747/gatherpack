@@ -42,9 +42,51 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     @form.form_questions.find_by!(key: key)
   end
 
-  def edit_question(key, **attributes)
-    patch form_question_path(@form, question(key)), params: { form_question: attributes }
+  def edit_question(key, form: @form, **attributes)
+    patch form_question_path(form, form.form_questions.find_by!(key: key)), params: { form_question: attributes }
     assert_response :see_other
+  end
+
+  def signed_in_as(name)
+    sign_out :user
+    sign_in user(name)
+    yield
+  ensure
+    sign_out :user
+    sign_in user(:alpha_manager)
+  end
+
+  def save_answers(form, subject, answers, submit: false)
+    params = { form_response: { answers: answers } }
+    params[:submit] = "1" if submit
+    patch form_response_path(form, person(subject)), params: params
+    assert_response :see_other
+  end
+
+  def form_answers_values(form, name, viewer: :alpha_manager)
+    result = call_tool("form_answers", user: user(viewer), form_id: form.neat_id)
+    item = result.value["items"].find { |entry| entry["person"]["name"] == name }
+    assert item, "#{name} should have an answer in effect"
+    item["answers"].map { |answer| answer["answer"] }
+  end
+
+  # A form nobody has submitted yet, so nothing but the audit history can say what
+  # its questions were.
+  def unsubmitted_form
+    form = create_world_form("Unsubmitted", @alpha)
+    form.form_questions.create!(kind: :input, key: "linked_phone", label: "Linked phone", person_field: PersonField.system_field("phone_number"), profile_mode: :prefill)
+    form.form_questions.create!(kind: :input, key: "own_phone", label: "Own phone", data_type: :phone)
+    form.form_questions.create!(kind: :input, key: "pick", label: "Pick", data_type: :string)
+    form
+  end
+
+  def assert_no_contact_in_snapshot(form, subject, key)
+    submission = form.response_for(person(subject)).active_submission
+    assert submission, "the answer should be in effect"
+    snapshot = submission.content["questions"].find { |entry| entry["key"] == key }
+    assert_equal "string", snapshot["type"]
+    assert_not_includes %w[ phone ], snapshot["person_field"]
+    submission
   end
 
   def answers_for(name)
@@ -184,6 +226,208 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
       call_tool("form_answers", user: user(:alpha_manager), form_id: @form.neat_id)
     end
     loads
+  end
+
+  test "an edit on a form waiting for a signature, and the resubmit it forces, keep the answer out for a minor" do
+    form = unsubmitted_form
+    signature = form.form_questions.create!(kind: :signature, key: "consent", label: "Consent", signer: :guardian)
+    answers = { linked_phone: "555-0101", pick: "kept" }
+
+    signed_in_as(:guardian) { save_answers(form, :ward, answers, submit: true) }
+    submission = form.response_for(person(:ward)).form_submissions.sole
+    assert submission.pending?
+    assert_equal "phone", submission.content["questions"].find { |entry| entry["key"] == "linked_phone" }["person_field"]
+
+    edit_question("linked_phone", form: form, person_field_id: "")
+    assert submission.reload.draft?, "the edit sends it back to draft"
+
+    signed_in_as(:guardian) do
+      save_answers(form, :ward, answers, submit: true)
+      post sign_form_response_path(form, person(:ward)), params: { question_id: signature.id, typed_name: "Guardian World" }
+      assert_response :see_other
+    end
+
+    assert_equal submission, form.response_for(person(:ward)).form_submissions.sole, "there is still one submission"
+    stored = assert_no_contact_in_snapshot(form, :ward, "linked_phone")
+    assert_equal "555-0101", stored.answers["linked_phone"]
+    assert_equal [ "kept" ], form_answers_values(form, "Ward World").compact
+  end
+
+  test "a draft saved before the edit keeps typed answers out for a minor, and an adult keeps them" do
+    form = unsubmitted_form
+    answers = { linked_phone: "555-0101", own_phone: "555-0102", pick: "kept" }
+    signed_in_as(:guardian) { save_answers(form, :ward, answers) }
+    signed_in_as(:alpha_member) { save_answers(form, :alpha_member, answers) }
+
+    edit_question("linked_phone", form: form, person_field_id: "")
+    edit_question("own_phone", form: form, person_field_id: @custom_text.id, profile_mode: "prefill")
+
+    signed_in_as(:guardian) { post submit_form_response_path(form, person(:ward)) }
+    signed_in_as(:alpha_member) { post submit_form_response_path(form, person(:alpha_member)) }
+
+    stored = assert_no_contact_in_snapshot(form, :ward, "linked_phone")
+    assert_equal [ "555-0101", "555-0102" ], stored.answers.values_at("linked_phone", "own_phone")
+    assert_equal [ "kept" ], form_answers_values(form, "Ward World")
+    assert_equal [ "555-0101", "555-0102", "kept" ], form_answers_values(form, "AlphaMember World")
+  end
+
+  test "a draft that took its number from the profile keeps it out for a minor" do
+    person(:ward).update!(phone_number: "555-7777")
+    form = unsubmitted_form
+    signed_in_as(:guardian) { save_answers(form, :ward, { pick: "kept" }) }
+    assert_equal "555-7777", form.response_for(person(:ward)).open_submission.answers["linked_phone"]
+
+    edit_question("linked_phone", form: form, person_field_id: "")
+    signed_in_as(:guardian) { post submit_form_response_path(form, person(:ward)) }
+
+    stored = assert_no_contact_in_snapshot(form, :ward, "linked_phone")
+    assert_equal "555-7777", stored.answers["linked_phone"]
+    assert_equal [ "kept" ], form_answers_values(form, "Ward World")
+  end
+
+  test "a question removed and added back while a draft is open keeps the answer out for a minor" do
+    form = unsubmitted_form
+    signed_in_as(:guardian) { save_answers(form, :ward, { own_phone: "555-0102", pick: "kept" }) }
+
+    delete form_question_path(form, form.form_questions.find_by!(key: "own_phone"))
+    assert_response :see_other
+    post form_questions_path(form), params: { form_question: { kind: "input", label: "Own phone", data_type: "string" } }
+    assert_response :redirect
+
+    signed_in_as(:guardian) { post submit_form_response_path(form, person(:ward)) }
+
+    assert_equal "555-0102", form.response_for(person(:ward)).active_submission.answers["own_phone"]
+    assert_not_includes form_answers_values(form, "Ward World"), "555-0102"
+  end
+
+  test "a question linked by mistake and corrected stays out for minors, and adults keep it" do
+    form = unsubmitted_form
+    plain = form.form_questions.create!(kind: :input, key: "shoe", label: "Shoe", data_type: :string)
+    edit_question("shoe", form: form, person_field_id: PersonField.system_field("address").id, profile_mode: "prefill")
+    edit_question("shoe", form: form, person_field_id: "")
+    assert_nil plain.reload.person_field_id
+
+    respond_to_form(Form.find(form.id), :ward, as: :guardian, answers: { shoe: "42", pick: "kept" })
+    respond_to_form(Form.find(form.id), :alpha_member, as: :alpha_member, answers: { shoe: "42", pick: "kept" })
+
+    assert_not_includes form_answers_values(form, "Ward World"), "42"
+    assert_includes form_answers_values(form, "AlphaMember World"), "42"
+  end
+
+  test "a question's history on one form doesn't affect the same key on another" do
+    form = unsubmitted_form
+    edit_question("linked_phone", form: form, person_field_id: "")
+    other = create_world_form("Other", @alpha)
+    other.form_questions.create!(kind: :input, key: "linked_phone", label: "Linked phone", data_type: :string)
+    respond_to_form(Form.find(other.id), :ward, as: :guardian, answers: { linked_phone: "not contact" })
+
+    assert_equal [ "not contact" ], form_answers_values(other, "Ward World")
+  end
+
+  test "another form's question that only mentions this form's ID in its text doesn't count" do
+    form = unsubmitted_form
+    form.form_questions.create!(kind: :input, key: "shared_key", label: "Shared", data_type: :string)
+    other = create_world_form("Other", @alpha)
+    mention = other.form_questions.create!(kind: :input, key: "shared_key", label: "See #{form.id}", data_type: :phone)
+    mention.update!(label: "Renamed")
+    respond_to_form(Form.find(form.id), :ward, as: :guardian, answers: { shared_key: "x1", pick: "kept" })
+
+    assert_includes form_answers_values(form, "Ward World"), "x1"
+  end
+
+  test "an earlier version linked to a custom phone field counts, and one to a custom text field doesn't" do
+    form = unsubmitted_form
+    custom_phone = PersonField.create!(name: "Custom phone", data_type: :phone, read_permission: "everyone", write_permission: "everyone")
+    form.form_questions.create!(kind: :input, key: "was_phone", label: "Was phone", data_type: :string)
+    form.form_questions.create!(kind: :input, key: "was_text", label: "Was text", data_type: :string)
+    edit_question("was_phone", form: form, person_field_id: custom_phone.id, profile_mode: "prefill")
+    edit_question("was_phone", form: form, person_field_id: "")
+    edit_question("was_text", form: form, person_field_id: @custom_text.id, profile_mode: "prefill")
+    edit_question("was_text", form: form, person_field_id: "")
+
+    respond_to_form(Form.find(form.id), :ward, as: :guardian, answers: { was_phone: "x1", was_text: "x2", pick: "kept" })
+
+    assert_equal [ "x2", "kept" ].sort, form_answers_values(form, "Ward World").compact.sort
+  end
+
+  test "an earlier link to a field since deleted can't be judged and counts as contact" do
+    form = unsubmitted_form
+    gone = PersonField.create!(name: "Gone", data_type: :string, read_permission: "everyone", write_permission: "everyone")
+    form.form_questions.create!(kind: :input, key: "was_gone", label: "Was gone", data_type: :string)
+    edit_question("was_gone", form: form, person_field_id: gone.id, profile_mode: "prefill")
+    edit_question("was_gone", form: form, person_field_id: "")
+    gone.update!(archived_at: Time.current)
+    gone.destroy!
+    assert_not PersonField.exists?(gone.id)
+
+    respond_to_form(Form.find(form.id), :ward, as: :guardian, answers: { was_gone: "x1", pick: "kept" })
+
+    assert_equal [ "kept" ], form_answers_values(form, "Ward World").compact
+  end
+
+  def with_captured_log
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    yield
+    io.string
+  ensure
+    Rails.logger = original
+  end
+
+  def assert_minor_answers_empty_adult_kept
+    log = with_captured_log do
+      result = call_tool("form_answers", user: user(:alpha_manager), form_id: @form.neat_id)
+      assert_not result.error?
+      items = result.value["items"].to_h { |item| [ item["person"]["name"], item["answers"] ] }
+      assert_empty items.fetch("Ward World")
+      assert_includes items.fetch("AlphaMember World").map { |answer| answer["answer"] }, "555-0102"
+    end
+    assert_includes log, "[MCP] form_answers can't read question history for form #{@form.id}"
+  end
+
+  test "unparsable question history leaves a minor's answers empty, keeps an adult's, and logs it" do
+    AuditLog.create!(item_type: "FormQuestion", item_id: SecureRandom.uuid, event: "update", object: "form_id: #{@form.id}\nkey: [unclosed")
+
+    assert_minor_answers_empty_adult_kept
+  end
+
+  test "question history that isn't a record leaves a minor's answers empty" do
+    AuditLog.create!(item_type: "FormQuestion", item_id: SecureRandom.uuid, event: "update", object: "just #{@form.id}")
+
+    assert_minor_answers_empty_adult_kept
+  end
+
+  test "a version with no key leaves a minor's answers empty" do
+    AuditLog.create!(item_type: "FormQuestion", item_id: SecureRandom.uuid, event: "update", object: { "form_id" => @form.id, "data_type" => 7 }.to_yaml)
+
+    assert_minor_answers_empty_adult_kept
+  end
+
+  test "an unreachable audit database leaves a minor's answers empty, keeps an adult's, and logs it" do
+    AuditLog.define_singleton_method(:where) { |*| raise ActiveRecord::ConnectionNotEstablished, "audit database down" }
+
+    assert_minor_answers_empty_adult_kept
+  ensure
+    AuditLog.singleton_class.remove_method(:where)
+  end
+
+  def question_history_loads
+    loads = 0
+    counter = ->(*, payload) { loads += 1 if payload[:sql].include?("object") && payload[:sql].include?("LIKE") }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+      call_tool("form_answers", user: user(:alpha_manager), form_id: @form.neat_id)
+    end
+    loads
+  end
+
+  test "the question history is loaded once for many minors, and not at all for adults" do
+    person(:alpha_member).update!(birthday: 16.years.ago.to_date)
+    assert_equal 1, question_history_loads
+
+    person(:alpha_member).update!(birthday: Date.new(1990, 5, 6))
+    person(:ward).update!(birthday: Date.new(1990, 5, 6))
+    assert_equal 0, question_history_loads
   end
 
   test "an archived built-in field in a snapshot still counts" do
