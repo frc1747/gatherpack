@@ -6,16 +6,17 @@
 # controls) are not returned. The parent and sub-teams are returned only where
 # they are in policy_scope(Team) (the full view shows the parent and all
 # sub-teams; the public view shows neither). Members are the direct members
-# who are in policy_scope(Person), with the manager flag, at most `limit`: the
-# members tab lists everyone under the team to any viewer of the team, which
-# an open team would turn into a roster of people the viewer can't otherwise
-# see. A member of the team can see all its direct members anyway, so for them
-# the list is complete. membership_id is what remove_team_member takes; it's null
-# unless the viewer may remove that membership (the tool's own destroy? check).
+# who are in policy_scope(Person), with the manager flag, at most `limit`, and
+# only where the page would show the roster: TeamsController#show renders
+# show_public unless policy(team).show_full?, and show_public lists managers
+# but not members. Every direct member has show_full?, so without it the list
+# is empty. membership_id is what remove_team_member takes; it's null unless the viewer may remove that membership (the tool's own destroy? check).
 class Mcp::Tools::GetTeam < Mcp::Tool
   tool_name "get_team"
   description "A team you can see: description, type, parent team, sub-teams, managers and the members you can see " \
-    "(with whether they manage the team, and the membership ID if you may remove them), ordered by last name."
+    "(with whether they manage the team, and the membership ID if you may remove them), ordered by last name. " \
+    "As on the team page, the member list is only for admins, architects, members and managers of the team (or a parent team); " \
+    "anyone else sees the managers and no members."
   scope :read
   input_schema(
     properties: { team_id: { type: "string", description: "Team ID (tm_...)" }, limit: limit_property },
@@ -40,7 +41,8 @@ class Mcp::Tools::GetTeam < Mcp::Tool
   def call(team_id:, limit: DEFAULT_LIMIT)
     team = ctx.find(Team, team_id)
     members = team.memberships.where(person_id: ctx.policy_scope(Person).select(:id)).joins(:person).includes(:person)
-      .order("people.last_name", "people.first_name", "memberships.id")
+    members = members.none unless ctx.allowed?(team, :show_full?)
+    members = members.order("people.last_name", "people.first_name", "memberships.id")
     listed = list(members, limit: limit) do |membership|
       person_json(membership.person).merge(manager: membership.manager == true,
         membership_id: ctx.allowed?(membership, :destroy?) ? membership.neat_id : nil)
