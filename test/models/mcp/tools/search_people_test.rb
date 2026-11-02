@@ -68,6 +68,31 @@ class Mcp::Tools::SearchPeopleTest < ActiveSupport::TestCase
     assert_empty result.value["items"]
   end
 
+  test "team filter on an open team lists the roster only where the team page shows it" do
+    root = create_world_team("Root")
+    @alpha.update!(parent: root, join_permission: :has_account)
+    Membership.create!(person: person(:beta_member), team: root, manager: true)
+    search = ->(viewer) { names(call_tool("search_people", user: user(viewer), query: "World", team_id: @alpha.neat_id)).sort }
+    everyone = %w[AlphaManager AlphaMember Ward]
+
+    assert_equal everyone, search.call(:admin)
+    assert_equal everyone, search.call(:alpha_manager)
+    assert_equal everyone, search.call(:beta_member), "manager of a parent team"
+    assert_equal everyone, search.call(:alpha_member)
+    assert_equal everyone, search.call(:ward)
+    assert_empty search.call(:badge_holder), "member of a different team"
+    assert_empty search.call(:guardian), "a viewer in no team"
+  end
+
+  test "team filter on an open team doesn't list a person the viewer has in common with it" do
+    @alpha.update!(join_permission: :has_account)
+    Membership.create!(person: person(:badge_holder), team: @alpha)
+    search = ->(viewer) { names(call_tool("search_people", user: user(viewer), query: "World", team_id: @alpha.neat_id)) }
+
+    assert_includes search.call(:admin), "BadgeHolder"
+    assert_empty search.call(:beta_member)
+  end
+
   test "a wrong ID prefix is not found" do
     result = call_tool("search_people", user: user(:admin), query: "World", team_id: person(:admin).neat_id)
 
