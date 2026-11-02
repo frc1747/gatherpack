@@ -49,4 +49,11 @@ Rails.application.config.to_prepare do
   Mcp.reset!
   Mcp.register_tool(Mcp::Tools::Whoami)
   Mcp.register_tool(Mcp::Tools::SearchPeople)
+
+  # People, teams, badges
+  Mcp.register_tool(Mcp::Tools::GetPerson)
+  Mcp.register_tool(Mcp::Tools::ListTeams)
+  Mcp.register_tool(Mcp::Tools::GetTeam)
+  Mcp.register_tool(Mcp::Tools::ListBadges)
+  Mcp.register_tool(Mcp::Tools::GetBadge)
 end

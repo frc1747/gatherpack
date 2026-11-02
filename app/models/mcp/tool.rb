@@ -228,8 +228,10 @@ class Mcp::Tool
     raise Mcp::InvalidArgument, message
   end
 
+  # The name falls back to first and last name, then the ID, for a person
+  # without a display name, so the name is always a string.
   def person_json(person)
-    { id: person.neat_id, name: person.display_name }
+    { id: person.neat_id, name: person.display_name.presence || [ person.first_name, person.last_name ].compact_blank.join(" ").presence || person.neat_id }
   end
 
   def team_json(team)
