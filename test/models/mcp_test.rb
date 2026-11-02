@@ -74,12 +74,10 @@ class McpTest < ActiveSupport::TestCase
   end
 
   test "reset empties the registry" do
-    tools = Mcp.tools
     Mcp.reset!
     assert_empty Mcp.tools
   ensure
-    Mcp.reset!
-    tools.each { |tool| Mcp.register_tool(tool) }
+    Rails.application.reloader.prepare!
   end
 
   test "reset clears the person extensions" do

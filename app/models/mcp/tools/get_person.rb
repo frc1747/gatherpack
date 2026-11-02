@@ -89,7 +89,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   end
 
   # An extension that raises (even a ScriptError), returns something other than
-  # a Hash, or returns a value that can't be turned into JSON adds nothing: the
+  # a Hash, or returns a value that can't be turned into JSON (such as invalid UTF-8) adds nothing: the
   # profile is still returned. Each runs in a savepoint, so a failed query
   # inside one doesn't abort the request's transaction.
   def extensions_json(person)
@@ -98,7 +98,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
         value = extension.call(person, ctx.person)
         raise TypeError, "returned #{value.class}, not a Hash" unless value.is_a?(Hash)
 
-        value.as_json.symbolize_keys
+        value.as_json.symbolize_keys.tap { |json| JSON.generate(json) }
       end
       merged.merge!(extra)
     rescue StandardError, ScriptError => e

@@ -98,6 +98,7 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     Mcp.person_extensions << ->(_subject, _viewer) { { lazy: Person.where("no_such_column = 1") } }
     Mcp.person_extensions << ->(_subject, _viewer) { { bad: exploding } }
     Mcp.person_extensions << ->(_subject, _viewer) { raise NotImplementedError, "later" }
+    Mcp.person_extensions << ->(_subject, _viewer) { { blob: "\xFF".b.force_encoding("UTF-8") } }
     Mcp.person_extensions << ->(_subject, _viewer) { { extra: true } }
     result = get(:admin, :ward)
 
@@ -105,6 +106,8 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     assert_equal [ true, "Ward World" ], result.value.values_at("extra", "name")
     assert_not result.value.key?("lazy")
     assert_not result.value.key?("bad")
+    assert_not result.value.key?("blob")
+    assert_nothing_raised { result.to_response }
   end
 
   test "a wrong ID prefix or a malformed ID is not found" do
