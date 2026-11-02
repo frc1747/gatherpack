@@ -10,9 +10,10 @@ module Mcp::Tools::SignupFormat
       name: { type: "string" },
       start_time: { type: "string" },
       end_time: { type: %w[string null] },
-      location: { type: %w[string null] }
+      location: { type: %w[string null] },
+      time_unset: { type: "boolean", description: "The event has no time yet: the times run 00:00 to 23:59 and mean only the date" }
     },
-    required: %w[id name start_time end_time location]
+    required: %w[id name start_time end_time location time_unset]
   }.freeze
 
   POSITION_SCHEMA = {
@@ -33,8 +34,8 @@ module Mcp::Tools::SignupFormat
     required: %w[id title]
   }.freeze
 
-  # A sign-up as the page shows it. on_behalf_of and note are added by the
-  # tool only for those who may see them.
+  # A sign-up as the page shows it. status, on_behalf_of and note are added by
+  # the tool only for those who may see them.
   SIGNUP_SCHEMA = {
     type: "object",
     properties: {
@@ -46,14 +47,25 @@ module Mcp::Tools::SignupFormat
       quantity: { type: %w[integer null] },
       note: { type: %w[string null] }
     },
-    required: %w[id status person answer quantity]
+    required: %w[id person answer quantity]
   }.freeze
 
   private
 
   def event_json(event)
     { id: event.neat_id, name: event.name, start_time: time_json(event.start_time), end_time: time_json(event.end_time),
-      location: event.location.presence }
+      location: event.location.presence, time_unset: SignupNotices.time_unset?(event.start_time, event.end_time) }
+  end
+
+  # Whether the event hasn't started yet; an event with no time set counts as
+  # upcoming for its whole day.
+  def upcoming?(event, now = Time.current)
+    event.start_time >= now || (SignupNotices.time_unset?(event.start_time, event.end_time) && event.end_time >= now)
+  end
+
+  # Whether the viewer takes the sign-up, made it, or it's on their behalf.
+  def involved?(signup)
+    [ signup.person_id, signup.signed_up_by_id, signup.on_behalf_of_id ].include?(ctx.person&.id)
   end
 
   def position_json(position)
@@ -61,10 +73,14 @@ module Mcp::Tools::SignupFormat
       unit: (position.unit.presence if position.items?) }
   end
 
-  # Quantity is only set for item sign-ups, as the page shows it.
-  def signup_json(signup)
-    { id: signup.neat_id, status: signup.status, person: person_json(signup.person), answer: signup.answer.presence,
-      quantity: (signup.quantity if signup.signup_position.items?) }
+  # Quantity is only set for item sign-ups, as the page shows it. The status
+  # is for organizers and those involved: the page lists active and fulfilled
+  # sign-ups alike to everyone else.
+  def signup_json(signup, status: false)
+    json = { id: signup.neat_id, person: person_json(signup.person), answer: signup.answer.presence,
+             quantity: (signup.quantity if signup.signup_position.items?) }
+    json[:status] = signup.status if status
+    json
   end
 
   # Places or units taken by active and fulfilled sign-ups, from the loaded

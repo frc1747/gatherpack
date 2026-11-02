@@ -44,18 +44,48 @@ class Mcp::Tools::PersonSignupsTest < ActiveSupport::TestCase
     assert_equal 2, signups(:alpha_manager, :ward).value["items"].size
   end
 
-  test "a member sees a teammate's sign-up only where names are shown, never notes" do
-    result = signups(:ward, :alpha_member)
+  test "a plain teammate sees a sign-up only under the person who takes the place, without on-behalf-of or notes" do
+    alpha_member = signups(:alpha_plain, :alpha_member)
+    ward = signups(:alpha_plain, :ward)
 
-    assert_equal [ [ "Bake Sale", "Cashier" ], [ "Bake Sale", "Cookies" ] ], labels(result).sort
-    assert result.value["items"].none? { |item| item.key?("note") }
+    assert_equal [ [ "Bake Sale", "Cashier" ], [ "Bake Sale", "Cookies" ] ], labels(alpha_member).sort
+    assert((alpha_member.value["items"] + ward.value["items"]).none? { |item| item.key?("on_behalf_of") || item.key?("note") })
+    assert_equal [ [ "Bake Sale", "Cashier" ] ], labels(ward)
   end
 
-  test "a sign-up taken for a teammate on someone's behalf isn't shown under the one it's on behalf of" do
-    other = call_tool("person_signups", user: user(:alpha_manager), person_id: person(:ward).neat_id)
+  test "a names-for-organizers sheet hides a teammate's sign-up from a plain member" do
+    assert_not_includes labels(signups(:alpha_plain, :alpha_member)), [ "Quiet Sale", "Helper" ]
+  end
 
-    assert_equal [ "Cashier" ], other.value["items"].map { |item| item["position"]["name"] }.first(1)
-    assert_equal [ "AlphaMember World" ], other.value["items"].select { |item| item["position"]["name"] == "Cookies" }.map { |item| item["person"]["name"] }
+  test "a plain teammate doesn't see a no-show or any status; organizers do" do
+    assert_empty signups(:alpha_plain, :late).value["items"].reject { |item| item["sheet"]["title"] == "Quiet Sale" }
+    assert_equal [ "no_show", "active" ], signups(:admin, :late).value["items"].map { |item| item["status"] }
+    assert signups(:alpha_plain, :alpha_member).value["items"].none? { |item| item.key?("status") }
+    assert_equal [ "active" ], signups(:alpha_member, :alpha_member).value["items"].map { |item| item["status"] }.uniq
+  end
+
+  test "someone who made a sign-up sees it even where names are hidden" do
+    assert_equal [ [ "Quiet Sale", "Helper" ] ], labels(signups(:alpha_plain, :late))
+    assert_empty signups(:ward, :late).value["items"]
+  end
+
+  test "a turned-off slot's sign-up is hidden from a plain teammate, kept for organizers and the person" do
+    @bake_day_cashier.signup_slot.update!(disabled: true)
+
+    assert_equal [ [ "Bake Sale", "Cookies" ] ], labels(signups(:alpha_plain, :alpha_member))
+    assert_includes labels(signups(:alpha_manager, :alpha_member)), [ "Bake Sale", "Cashier" ]
+    assert_includes labels(signups(:alpha_member, :alpha_member)), [ "Bake Sale", "Cashier" ]
+  end
+
+  test "an event with no time set is upcoming for its whole day and flagged" do
+    day = create_signups_event("Date Only", @alpha, Time.utc(2026, 3, 12, 0, 0)).tap { |event| event.update!(end_time: Time.utc(2026, 3, 12, 23, 59)) }
+    @sheet.signup_sheet_events.create!(event: day)
+    @sheet.sync_slots!
+    create_signup(@cashier, :alpha_manager, day)
+
+    item = signups(:admin, :alpha_manager).value["items"].first
+    assert_equal [ "Date Only", true ], [ item["event"]["name"], item["event"]["time_unset"] ]
+    assert_equal false, signups(:admin, :ward).value["items"].first["event"]["time_unset"]
   end
 
   test "a person sees their own sign-ups, on a names-for-organizers sheet too" do

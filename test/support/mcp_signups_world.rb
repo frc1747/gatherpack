@@ -8,6 +8,8 @@
 # organizer grant. Tests travel_to MCP_SIGNUPS_NOW.
 #
 #   organizer: in Alpha with the grant badge, listed on the Bake Sale
+#   alpha_plain: in Alpha, in no sign-up unless a test adds one; late: in Alpha,
+#   a no-show on Bake Day Cookies and a sign-up on the Quiet Sale made by alpha_plain
 #   "Bake Sale" (Alpha, open, names for everyone, sign up for related people
 #   through Parent of): events Past Sale (3/10), Bake Day (3/14) and Clean-up
 #   (3/15), positions Cashier (2 places) and Cookies (5 dozen, asks "Flavor?").
@@ -15,7 +17,7 @@
 #     Bake Day Cookies: alpha_member for ward, 2 dozen "Oat"
 #     Clean-up Cashier: alpha_manager (cancelled)
 #     Past Sale Cashier: alpha_member
-#   "Quiet Sale" (Alpha, open, names for organizers only): alpha_member, Cashier at Bake Day
+#   "Quiet Sale" (Alpha, open, names for organizers only): alpha_member and late, Helper at Bake Day
 #   "Draft Sale", "Closed Sale" (Alpha) and "Old Sale" (archived): no sign-ups
 #   "Beta Sale" (Beta, open): beta_member, Cashier at Beta Day (3/16)
 module McpSignupsWorld
@@ -31,6 +33,9 @@ module McpSignupsWorld
     @organizer_badge = create_world_badge("Sheet Organizer")
     BadgeAssignment.create!(badge: @organizer_badge, person: person(:organizer))
 
+    @people[:alpha_plain] = create_world_person("AlphaPlain", @alpha)
+    @people[:late] = create_world_person("Late", @alpha)
+
     @past_event = create_signups_event("Past Sale", @alpha, Time.utc(2026, 3, 10, 10, 0))
     @bake_day = create_signups_event("Bake Day", @alpha, Time.utc(2026, 3, 14, 10, 0))
     @cleanup = create_signups_event("Clean-up", @alpha, Time.utc(2026, 3, 15, 10, 0))
@@ -45,10 +50,12 @@ module McpSignupsWorld
     @ward_cookies = create_signup(@cookies, :alpha_member, @bake_day, on_behalf_of: person(:ward), quantity: 2, answer: "Oat")
     @cancelled = create_signup(@cashier, :alpha_manager, @cleanup, status: :cancelled)
     @past_signup = create_signup(@cashier, :alpha_member, @past_event)
+    @no_show = create_signup(@cookies, :late, @bake_day, status: :no_show)
 
     @quiet_sheet = create_signups_sheet("Quiet Sale", @alpha, [ @bake_day ], names_permission: :organizers)
     @quiet_sheet.signup_positions.create!(name: "Helper")
     @quiet_signup = create_signup(@quiet_sheet.signup_positions.first, :alpha_member, @bake_day)
+    @quiet_made = create_signup(@quiet_sheet.signup_positions.first, :late, @bake_day, signed_up_by: person(:alpha_plain))
 
     @draft_sheet = create_signups_sheet("Draft Sale", @alpha, [ @bake_day ], status: :draft)
     @closed_sheet = create_signups_sheet("Closed Sale", @alpha, [ @bake_day ], status: :closed)

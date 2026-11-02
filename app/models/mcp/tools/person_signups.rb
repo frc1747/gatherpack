@@ -10,8 +10,11 @@
 # and otherwise only when the sheet shows names to the viewer
 # (SignupSheet#names_visible_to?), the sign-up is active or fulfilled, and
 # the person is the one in the place (a slot lists the person, never whom
-# it's on behalf of). Ordered by event start. Where unsure the sign-up is
-# left out.
+# it's on behalf of), and the slot isn't turned off (the page hides those).
+# status goes to organizers and those involved only; the page lists active and
+# fulfilled sign-ups alike to others. An event with no time set counts as
+# upcoming for its whole day. Ordered by event start. Where unsure the
+# sign-up is left out.
 class Mcp::Tools::PersonSignups < Mcp::Tool
   include Mcp::Tools::SignupFormat
 
@@ -43,7 +46,7 @@ class Mcp::Tools::PersonSignups < Mcp::Tool
             quantity: { type: %w[integer null] },
             note: { type: %w[string null] }
           },
-          required: %w[id status sheet event position person answer quantity]
+          required: %w[id sheet event position person answer quantity]
         }
       },
       truncated: { type: "boolean" }
@@ -57,7 +60,8 @@ class Mcp::Tools::PersonSignups < Mcp::Tool
 
     sheets = ctx.policy_scope(SignupSheet).visible
     signups = Signup.live.where(person_id: person.id).or(Signup.live.where(on_behalf_of_id: person.id))
-    signups = signups.joins(signup_slot: %i[ event signup_position ]).where(events: { start_time: Time.current.. })
+    now = Time.current
+    signups = signups.joins(signup_slot: %i[ event signup_position ]).where("events.start_time >= :now OR events.end_time >= :now", now: now)
       .where(signup_positions: { signup_sheet_id: sheets.select(:id) })
     includes = [ :person, :on_behalf_of, { signup_slot: [ :event, { signup_position: :signup_sheet } ] } ]
 
@@ -65,7 +69,7 @@ class Mcp::Tools::PersonSignups < Mcp::Tool
     visible = signups.includes(*includes).select do |signup|
       sheet = signup.signup_sheet
       sheet_ok[sheet.id] = ctx.allowed?(sheet, :show?) unless sheet_ok.key?(sheet.id)
-      sheet_ok[sheet.id] && shown?(signup, sheet, person)
+      upcoming?(signup.event, now) && sheet_ok[sheet.id] && shown?(signup, sheet, person)
     end
 
     list(Signup.where(id: visible.map(&:id)).joins(signup_slot: :event).includes(*includes).order("events.start_time", :created_at, :id), limit: limit) do |signup|
@@ -77,16 +81,16 @@ class Mcp::Tools::PersonSignups < Mcp::Tool
 
   def shown?(signup, sheet, person)
     return true if ctx.allowed?(sheet, :roster?)
-    return true if [ signup.person_id, signup.signed_up_by_id, signup.on_behalf_of_id ].include?(ctx.person&.id)
+    return true if involved?(signup)
 
-    (signup.active? || signup.fulfilled?) && signup.person_id == person.id && sheet.names_visible_to?(ctx.person)
+    (signup.active? || signup.fulfilled?) && signup.person_id == person.id && !signup.signup_slot.disabled? && sheet.names_visible_to?(ctx.person)
   end
 
   def signup_item(signup)
     sheet = signup.signup_sheet
-    involved = [ signup.person_id, signup.signed_up_by_id, signup.on_behalf_of_id ].include?(ctx.person&.id)
+    involved = involved?(signup)
     organizer = ctx.allowed?(sheet, :roster?)
-    json = signup_json(signup).merge(sheet: { id: sheet.neat_id, title: sheet.title }, event: event_json(signup.event),
+    json = signup_json(signup, status: organizer || involved).merge(sheet: { id: sheet.neat_id, title: sheet.title }, event: event_json(signup.event),
       position: position_json(signup.signup_position))
     json[:on_behalf_of] = person_json(signup.on_behalf_of) if (organizer || involved) && signup.on_behalf_of && signup.on_behalf_of_id != signup.person_id
     json[:note] = signup.note.presence if organizer
