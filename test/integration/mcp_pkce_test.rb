@@ -272,6 +272,17 @@ class McpPkceTest < ActionDispatch::IntegrationTest
     assert_select "form[method=post] input[name=code_challenge_method][value=S256]"
   end
 
+  test "supported: mcp_write can still be asked for while writes are off and not advertised" do
+    with_settings(mcp_write_enabled: "false") do
+      with_pkce_supported(true) do
+        get "/oauth/authorize", params: authorize_params(@public_app, scope: "mcp_read mcp_write", **s256)
+      end
+    end
+
+    assert_response :success
+    assert_includes response.body, "Make changes in GatherPack through an AI assistant"
+  end
+
   test "supported: non-MCP requests are unchanged" do
     with_pkce_supported(true) do
       [ @public_app, @confidential_app ].each do |app|

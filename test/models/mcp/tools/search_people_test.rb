@@ -40,6 +40,17 @@ class Mcp::Tools::SearchPeopleTest < ActiveSupport::TestCase
       "teams" => [ { "id" => @beta.neat_id, "name" => "Beta" } ] }, item)
   end
 
+  test "only the name is matched, so contact details can't confirm who someone is" do
+    # One is a minor, one an adult: finding either by these would say whose they are.
+    { ward: 16.years.ago.to_date, alpha_member: Date.new(1990, 5, 6) }.each do |target, birthday|
+      person(target).update!(phone_number: "555-0100", address: "1 Main St", birthday: birthday)
+
+      [ "555-0100", "1 Main St", user(target).email, birthday.iso8601 ].each do |query|
+        assert_empty call_tool("search_people", user: user(:admin), query: query).value["items"], query
+      end
+    end
+  end
+
   test "teams the viewer can't see are left out" do
     @beta.update!(join_permission: :added_by_admin)
     Membership.create!(person: person(:alpha_member), team: @beta)
