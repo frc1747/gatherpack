@@ -3,7 +3,7 @@
 
 <div class="form-inputs">
   <%= f.input :name %>
-  <%= f.input :redirect_uri %>
+  <%= f.input :redirect_uri, hint: "You can add more than one. Separate them with a space or a new line." %>
   <%= f.input :selected_scopes, as: :check_boxes, collection: Doorkeeper.configuration.scopes %>
   <%= f.input :confidential %>
 </div>

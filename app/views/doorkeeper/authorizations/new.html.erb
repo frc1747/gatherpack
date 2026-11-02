@@ -9,6 +9,15 @@
           <%= safe_join([ t(".prompt_before"), content_tag(:strong, @pre_auth.client.name), t(".prompt_after") ]) %>
         </p>
 
+        <% owner_name = current_resource_owner.person&.display_name.presence %>
+        <p>
+          <% if owner_name %>
+            <%= t(".signed_in_as", name: owner_name, email: current_resource_owner.email) %>
+          <% else %>
+            <%= t(".signed_in_as_email", email: current_resource_owner.email) %>
+          <% end %>
+        </p>
+
         <% if @pre_auth.scopes.count > 0 %>
           <h5 class="mt-3"><%= t(".able_to") %></h5>
           <ul>
@@ -42,6 +51,13 @@
             <%= hidden_field_tag :code_challenge_method, @pre_auth.code_challenge_method, id: nil %>
             <%= submit_tag t("doorkeeper.authorizations.buttons.deny"), class: "btn btn-danger" %>
           <% end %>
+        </div>
+
+        <div class="mt-3">
+          <%= form_tag destroy_user_session_path, method: :delete, data: { turbo: false } do %>
+            <%= submit_tag t(".use_different_account"), class: "btn btn-link p-0" %>
+          <% end %>
+          <small class="text-muted"><%= t(".use_different_account_hint", application: @pre_auth.client.name) %></small>
         </div>
       </div>
     </div>

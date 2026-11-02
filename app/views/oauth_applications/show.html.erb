@@ -10,13 +10,12 @@
       <dd class="col-sm-9"><%= @oauth_application.name %></dd>
 
       <dt class="col-sm-3">Client ID</dt>
-      <dd class="col-sm-9"><tt><%= @oauth_application.uid %></tt></dd>
+      <dd class="col-sm-9"><%= render "copyable_value", value: @oauth_application.uid, label: "Client ID" %></dd>
 
       <% if flash[:client_secret] %>
         <dt class="col-sm-3">Client Secret</dt>
         <dd class="col-sm-9">
-          <tt><%= flash[:client_secret] %></tt>
-          <button class="btn btn-sm btn-secondary ms-2" data-controller="clipboard" data-action="clipboard#copy" data-clipboard-text-value="<%= flash[:client_secret] %>">Copy</button>
+          <%= render "copyable_value", value: flash[:client_secret], label: "Client Secret" %>
           <div class="text-warning mt-1"><small>This secret will not be shown again. Copy it now.</small></div>
         </dd>
       <% end %>
