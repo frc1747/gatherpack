@@ -94,6 +94,33 @@ class Mcp::Tools::RemoveSignupTest < ActionDispatch::IntegrationTest
     assert_nil remove(:alpha_plain, @quiet_made).error
   end
 
+  test "on_behalf_of goes to organizers and those involved, not a relative no page shows it to" do
+    sheet = create_signups_sheet("Anyone Sale", @alpha, [ @cleanup ], on_behalf_of_mode: :anyone, others_relationship_type_ids: [ @parent_of.id ])
+    slot = sheet.signup_positions.create!(name: "Helper").signup_slots.find_by!(event: @cleanup)
+    sign_in user(:ward)
+    post signup_sheet_signups_path(sheet), params: { signup: { signup_slot_id: slot.id, person_id: person(:ward).id, on_behalf_of_id: person(:alpha_plain).id } }
+    sign_out user(:ward)
+    signup = Signup.find_by!(signup_slot: slot, person: person(:ward), on_behalf_of: person(:alpha_plain))
+
+    sign_in user(:guardian)
+    get signup_sheet_path(sheet)
+    assert_response :success
+    assert_no_match "AlphaPlain", response.body
+    sign_out user(:guardian)
+
+    result = remove(:guardian, signup)
+    assert_nil result.error
+    assert_equal "Ward World", result.value.dig("person", "name")
+    assert_not result.value.key?("on_behalf_of")
+    assert_no_match "AlphaPlain", result.value.to_json
+
+    signup.update_columns(status: Signup.statuses[:active])
+    assert_equal "AlphaPlain World", remove(:ward, signup).value.dig("on_behalf_of", "name")
+
+    signup.update_columns(status: Signup.statuses[:active])
+    assert_equal "AlphaPlain World", remove(:alpha_manager, signup).value.dig("on_behalf_of", "name")
+  end
+
   test "a member can't cancel someone else's sign-up" do
     assert_not_removed("Not allowed", :alpha_plain, @bake_day_cashier)
     assert_equal "denied", McpToolCall.order(:created_at).last.outcome

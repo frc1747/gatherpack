@@ -11,6 +11,10 @@
 #
 # Against the pages: an organizer cancelling their own sign-up could use the member page,
 # which sends no email; here they get the roster's.
+#
+# on_behalf_of is returned to organizers and to those involved in the sign-up. destroy?
+# also lets someone cancel the sign-up of a person they could sign up, and no page shows
+# that viewer who it's on behalf of, so they don't get it here (get_signup_sheet line 15).
 class Mcp::Tools::RemoveSignup < Mcp::Tool
   include Mcp::Tools::SignupFormat
 
@@ -25,13 +29,14 @@ class Mcp::Tools::RemoveSignup < Mcp::Tool
     properties: { signup_id: { type: "string", description: "The sign-up's ID (sup_)" } },
     required: [ "signup_id" ]
   )
-  output_schema(Mcp::Tools::PlaceSignup::RESULT_SCHEMA)
+  output_schema(Mcp::Tools::PlaceSignup::RESULT_SCHEMA.merge(required: Mcp::Tools::PlaceSignup::RESULT_SCHEMA[:required] - [ "on_behalf_of" ]))
 
   def call(signup_id:)
     signup = ctx.find(Signup.all, signup_id)
     not_found! unless ctx.allowed?(signup.signup_sheet, :show?)
 
-    if ctx.allowed?(signup, :place?)
+    organizer = ctx.allowed?(signup, :place?)
+    if organizer
       invalid_argument!("#{person_json(signup.person)[:name]}'s sign-up was already cancelled") if signup.cancelled?
 
       signup.cancel!
@@ -42,11 +47,12 @@ class Mcp::Tools::RemoveSignup < Mcp::Tool
     end
 
     changed!(signup)
-    signup_json(signup, status: true).merge(
-      on_behalf_of: person_json(signup.on_behalf_of || signup.person),
+    json = signup_json(signup, status: true).merge(
       sheet: { id: signup.signup_sheet.neat_id, title: signup.signup_sheet.title },
       event: event_json(signup.event),
       position: position_json(signup.signup_position)
     )
+    json[:on_behalf_of] = person_json(signup.on_behalf_of || signup.person) if organizer || involved?(signup)
+    json
   end
 end
