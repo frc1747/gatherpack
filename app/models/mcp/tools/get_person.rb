@@ -8,7 +8,11 @@
 # profile is still returned. Teams are the person's teams and their ancestors
 # that are in policy_scope(Team), with the manager flag from the person's own
 # memberships. Badges are the person's badges in policy_scope(Badge), and only
-# while the badges feature is on.
+# while the badges feature is on. membership_id and badge_assignment_id are what
+# remove_team_member and remove_badge take; each is null unless the viewer may
+# remove that record (the tool's own check: destroy?, and for a badge assignment
+# RemoveBadge.removable?), and membership_id is also null for a team the person
+# only inherits.
 # Relationships are policy_scope(person.relationships), each with the other
 # person (named even when the viewer can't open their profile, as the page
 # does) and the label the page shows for them. Admin and architect flags, tokens,
@@ -23,6 +27,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   tool_name "get_person"
   description "A person's profile as you can see it: name, contact details, bio, the teams they belong to " \
     "(with whether they manage each), their badges and their relationships to other people. " \
+    "Membership and badge assignment IDs are given only where you may remove them. " \
     "Fields you can't see are left out; null means the field is empty."
   scope :read
   input_schema(properties: { person_id: { type: "string", description: "Person ID (per_...)" } }, required: [ "person_id" ])
@@ -41,8 +46,8 @@ class Mcp::Tools::GetPerson < Mcp::Tool
       dietary_restrictions: { type: %w[string null] },
       shirt_size: { type: %w[string null] },
       gender: { type: %w[string null] },
-      teams: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, manager: { type: "boolean" } }, required: %w[id name manager] } },
-      badges: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } }, required: %w[id name] } },
+      teams: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, manager: { type: "boolean" }, membership_id: { type: %w[string null] } }, required: %w[id name manager membership_id] } },
+      badges: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, badge_assignment_id: { type: %w[string null] } }, required: %w[id name badge_assignment_id] } },
       relationships: { type: "array", items: { type: "object", properties: { label: { type: "string" }, person: REF_SCHEMA }, required: %w[label person] } }
     },
     required: %w[id name teams relationships]
@@ -58,13 +63,13 @@ class Mcp::Tools::GetPerson < Mcp::Tool
       first_name: person.first_name,
       last_name: person.last_name,
       bio: person.bio,
-      email: person.user&.email,
-      phone_number: person.phone_number,
+      email: person.user&.email.presence,
+      phone_number: person.phone_number.presence,
       birthday: date_json(person.birthday),
-      address: person.address,
-      dietary_restrictions: person.dietary_restrictions,
-      shirt_size: person.shirt_size,
-      gender: person.gender,
+      address: person.address.presence,
+      dietary_restrictions: person.dietary_restrictions.presence,
+      shirt_size: person.shirt_size.presence,
+      gender: person.gender.presence,
       teams: teams_json(person),
       relationships: relationships_json(person)
     }
@@ -104,14 +109,19 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   end
 
   def teams_json(person)
-    managed = person.memberships.where(manager: true).pluck(:team_id)
+    memberships = person.memberships.index_by(&:team_id)
     ctx.policy_scope(person.all_ancestor_teams).order(:name, :id).map do |team|
-      team_json(team).merge(manager: managed.include?(team.id))
+      membership = memberships[team.id]
+      team_json(team).merge(manager: membership&.manager == true, membership_id: membership && ctx.allowed?(membership, :destroy?) ? membership.neat_id : nil)
     end
   end
 
   def badges_json(person)
-    ctx.policy_scope(person.badges).order(:name, :id).map { |badge| { id: badge.neat_id, name: badge.name } }
+    assignments = person.badge_assignments.index_by(&:badge_id)
+    ctx.policy_scope(person.badges).order(:name, :id).map do |badge|
+      assignment = assignments.fetch(badge.id)
+      { id: badge.neat_id, name: badge.name, badge_assignment_id: Mcp::Tools::RemoveBadge.removable?(ctx, assignment) ? assignment.neat_id : nil }
+    end
   end
 
   def relationships_json(person)
