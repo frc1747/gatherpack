@@ -131,13 +131,13 @@ class Mcp::Tools::GetPersonFieldsTest < ActiveSupport::TestCase
 
   test "built-in fields are returned with their value, a restricted one only to those who may read it" do
     PersonField.ensure_system_fields!
-    @subject.update!(phone_number: "555-0100", birthday: Date.new(2012, 5, 6))
+    @subject.update!(phone_number: "555-0100", birthday: Date.new(1990, 5, 6))
     PersonField.find_by!(system_source: "phone_number").update!(read_permission: :self_and_leaders)
     find = ->(viewer, key) { call_tool("get_person_fields", user: user(viewer), person_id: @subject.neat_id).value["groups"].flat_map { |g| g["fields"] }.find { |f| f["key"] == key } }
 
     assert_equal({ "key" => "phone", "name" => "Phone", "type" => "phone", "value" => "555-0100" }, find.call(:alpha_manager, "phone"))
     assert_nil find.call(:ward, "phone")
-    assert_equal "2012-05-06", find.call(:ward, "birthday")["value"]
+    assert_equal "1990-05-06", find.call(:ward, "birthday")["value"]
     assert_equal "alphamember@example.com", find.call(:ward, "email")["value"]
   end
 

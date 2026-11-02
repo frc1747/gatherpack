@@ -14,7 +14,7 @@ class Mcp::Tools::GetPersonFilterTest < ActionDispatch::IntegrationTest
     build_mcp_world
     PersonField.ensure_system_fields!
     @subject = person(:alpha_member)
-    @subject.update!(phone_number: "555-0100", address: "1 Main St", birthday: Date.new(2012, 5, 6),
+    @subject.update!(phone_number: "555-0100", address: "1 Main St", birthday: Date.new(1990, 5, 6),
       dietary_restrictions: "Peanuts", shirt_size: "M", gender: "F")
   end
 
@@ -80,6 +80,22 @@ class Mcp::Tools::GetPersonFilterTest < ActionDispatch::IntegrationTest
       assert_equal %w[email gender shirt_size], returned(:ward).sort
       assert_not call_tool("get_person", user: user(:ward), person_id: @subject.neat_id).value.key?("fields")
     end
+  end
+
+  test "a minor's contact keys are left out for every viewer, though the filter keeps them" do
+    [ 16.years.ago.to_date, nil ].each do |birthday|
+      @subject.update!(birthday: birthday)
+      %i[admin alpha_manager ward alpha_member].each do |viewer|
+        assert_equal (KEYS - Mcp::MinorRule::WITHHELD_KEYS).sort, returned(viewer).sort, "#{viewer}, birthday #{birthday.inspect}"
+      end
+    end
+  end
+
+  test "the filter still narrows what's left of a minor's keys" do
+    @subject.update!(birthday: 16.years.ago.to_date)
+    field("shirt_size").update!(read_permission: :self_and_leaders, write_permission: :self_and_leaders)
+    assert_equal %w[dietary_restrictions gender], returned(:ward).sort
+    assert_equal %w[dietary_restrictions gender shirt_size], returned(:alpha_manager).sort
   end
 
   test "get_person matches the profile page for a teammate" do
