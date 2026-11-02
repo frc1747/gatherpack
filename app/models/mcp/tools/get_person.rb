@@ -62,7 +62,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
       name: person_json(person)[:name],
       first_name: person.first_name,
       last_name: person.last_name,
-      bio: person.bio,
+      bio: person.bio.presence,
       email: person.user&.email.presence,
       phone_number: person.phone_number.presence,
       birthday: date_json(person.birthday),
@@ -119,8 +119,8 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   def badges_json(person)
     assignments = person.badge_assignments.index_by(&:badge_id)
     ctx.policy_scope(person.badges).order(:name, :id).map do |badge|
-      assignment = assignments.fetch(badge.id)
-      { id: badge.neat_id, name: badge.name, badge_assignment_id: Mcp::Tools::RemoveBadge.removable?(ctx, assignment) ? assignment.neat_id : nil }
+      assignment = assignments[badge.id]
+      { id: badge.neat_id, name: badge.name, badge_assignment_id: assignment && Mcp::Tools::RemoveBadge.removable?(ctx, assignment) ? assignment.neat_id : nil }
     end
   end
 
