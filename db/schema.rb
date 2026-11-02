@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_13_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -510,6 +510,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_120000) do
     t.string "address"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "mcp_tool_calls", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "oauth_application_id"
+    t.string "tool", null: false
+    t.jsonb "arguments", default: {}, null: false
+    t.string "outcome", null: false
+    t.string "error_message"
+    t.string "changed_type"
+    t.uuid "changed_id"
+    t.integer "duration_ms"
+    t.datetime "created_at", null: false
+    t.index ["created_at"], name: "index_mcp_tool_calls_on_created_at"
+    t.index ["oauth_application_id"], name: "index_mcp_tool_calls_on_oauth_application_id"
+    t.index ["user_id"], name: "index_mcp_tool_calls_on_user_id"
   end
 
   create_table "membership_applications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1039,6 +1055,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_120000) do
   add_foreign_key "lego_lottery_drawing_tickets", "people"
   add_foreign_key "mailbox_assignments", "mailboxes"
   add_foreign_key "mailbox_messages", "mailboxes"
+  add_foreign_key "mcp_tool_calls", "oauth_applications", on_delete: :nullify
+  add_foreign_key "mcp_tool_calls", "users"
   add_foreign_key "membership_applications", "people"
   add_foreign_key "membership_applications", "teams"
   add_foreign_key "memberships", "people"
