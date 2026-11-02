@@ -368,6 +368,27 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     end
   end
 
+  test "on a self-service badge, a plain member gets the ID of their own assignment only" do
+    badge = create_world_badge_with(:has_account)
+    own = BadgeAssignment.create!(badge: badge, person: person(:alpha_member))
+    teammate = BadgeAssignment.create!(badge: badge, person: person(:ward))
+    id_for = ->(viewer, holder) { get(viewer, holder).value["badges"].find { |row| row["id"] == badge.neat_id }["badge_assignment_id"] }
+
+    assert_equal own.neat_id, id_for.call(:alpha_member, :alpha_member)
+    assert_nil id_for.call(:alpha_member, :ward)
+    assert_equal teammate.neat_id, id_for.call(:alpha_manager, :ward)
+  end
+
+  test "empty contact details come back as null" do
+    person(:ward).update_columns(phone_number: "", address: "", dietary_restrictions: "", shirt_size: "", gender: "")
+    value = get(:alpha_manager, :ward).value
+
+    %w[phone_number address dietary_restrictions shirt_size gender].each do |key|
+      assert value.key?(key), key
+      assert_nil value[key], key
+    end
+  end
+
   test "badge assignment IDs go only to viewers who may remove the assignment" do
     badge = create_world_badge_with(:added_by_manager, team: @alpha)
     assignment = BadgeAssignment.create!(badge: badge, person: person(:ward))
@@ -380,7 +401,8 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "a badge assignment ID is there exactly when remove_badge accepts it" do
-    [ @access_badge, create_world_badge_with(:added_by_manager, team: @alpha), create_world_badge_with(:has_account) ].each do |badge|
+    [ @access_badge, create_world_badge_with(:added_by_manager, team: @alpha), create_world_badge_with(:has_account),
+      create_world_badge_with(:added_by_manager_or_self), create_world_badge_with(:added_by_admin_or_self) ].each do |badge|
       target = BadgeAssignment.create!(badge: badge, person: person(:ward))
 
       %i[admin alpha_manager alpha_member ward].each do |viewer|

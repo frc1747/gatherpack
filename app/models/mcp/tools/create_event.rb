@@ -11,7 +11,7 @@
 # team-less event); ends_at is required and must be after starts_at (the model only refuses
 # an end before the start). Times are ISO 8601; without an offset, they're in the app's time zone.
 class Mcp::Tools::CreateEvent < Mcp::Tool
-  ISO8601_TIME = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(?<offset>Z|[+-]\d{2}(:?\d{2})?)?\z/
+  ISO8601_TIME = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(?<offset>Z|[+-]\d{2}(:?[0-5]\d)?)?\z/
 
   tool_name "create_event"
   description "Create an event for a team you manage. starts_at and ends_at are ISO 8601 date-times " \

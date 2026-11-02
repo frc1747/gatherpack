@@ -17,6 +17,12 @@
 class Mcp::Tools::AssignBadge < Mcp::Tool
   SELF_SERVICE_PERMISSIONS = %w[added_by_admin_or_self added_by_manager_or_self has_account].freeze
 
+  # The rule on a self-service badge, for giving it and for taking it away: a
+  # non-admin may only choose themselves or people they manage.
+  def self.may_choose?(ctx, badge, person)
+    SELF_SERVICE_PERMISSIONS.exclude?(badge.permission) || person == ctx.person || ctx.person.can_manage(person)
+  end
+
   tool_name "assign_badge"
   description "Give a person a badge. Team badges need the person on the badge's team. " \
     "On a badge open to self-service, you can choose only yourself or people you manage, unless you're an admin. Returns the new assignment."
@@ -40,7 +46,7 @@ class Mcp::Tools::AssignBadge < Mcp::Tool
     badge = ctx.find(Badge, badge_id)
     assignment = badge.badge_assignments.build(person: person)
     ctx.authorize!(assignment, :create?)
-    raise Mcp::NotAllowed if SELF_SERVICE_PERMISSIONS.include?(badge.permission) && person != ctx.person && !ctx.person.can_manage(person)
+    raise Mcp::NotAllowed unless self.class.may_choose?(ctx, badge, person)
 
     invalid_argument!(assignment.errors.full_messages.to_sentence) unless assignment.save
 

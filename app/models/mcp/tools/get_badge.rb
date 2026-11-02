@@ -7,7 +7,7 @@
 # every viewer on the "...or self" and "has account" permissions, so
 # BadgeAssignmentPolicy#index? isn't used here, nor is its Scope (scope.all).
 # badge_assignment_id is what remove_badge takes; it's null unless the viewer may
-# remove that assignment (the tool's own destroy? check).
+# remove that assignment (the tool's own check, RemoveBadge.removable?).
 class Mcp::Tools::GetBadge < Mcp::Tool
   tool_name "get_badge"
   description "A badge you can see: description, type, team and the holders you can see, ordered by last name, " \
@@ -43,7 +43,7 @@ class Mcp::Tools::GetBadge < Mcp::Tool
     holders = badge.people.where(id: ctx.policy_scope(Person).select(:id))
     holder_count = holders.count
     listed = list(holders.order(:last_name, :first_name, :id), limit: limit) { |person| person }
-    assignments = badge.badge_assignments.where(person_id: listed[:items].map(&:id)).index_by(&:person_id)
+    assignments = badge.badge_assignments.where(person_id: listed[:items].map(&:id)).includes(:person).index_by(&:person_id)
 
     {
       id: badge.neat_id,
@@ -56,7 +56,7 @@ class Mcp::Tools::GetBadge < Mcp::Tool
       holder_count: holder_count,
       holders: listed[:items].map do |person|
         assignment = assignments.fetch(person.id)
-        person_json(person).merge(badge_assignment_id: ctx.allowed?(assignment, :destroy?) ? assignment.neat_id : nil)
+        person_json(person).merge(badge_assignment_id: Mcp::Tools::RemoveBadge.removable?(ctx, assignment) ? assignment.neat_id : nil)
       end,
       truncated: listed[:truncated]
     }

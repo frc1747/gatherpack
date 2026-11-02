@@ -1,11 +1,11 @@
 # Adds a person to a team, as MembershipsController#create does on the team route.
 #
 # Mirrors: set_team_or_person (line 99, the team in policy_scope(Team)), create (lines
-# 45-47: build, authorize create?, save). MembershipPolicy#create? is the whole rule,
-# whatever the team's join permission: admins and the team's managers (ancestors' too)
-# may add anyone, and set manager. Anyone else may only add themselves to a team that
-# is open to any account ("has_account"), never as a manager; on any other join
-# permission, requires_approval included, they're refused. The flag is passed to the
+# 45-47: build, authorize create?, save). MembershipPolicy#create? decides who may add
+# to the team, whatever its join permission (who they may add is narrower, below):
+# admins and the team's managers (ancestors' too), who may set manager. Anyone else may
+# only add themselves to a team that is open to any account ("has_account"), never as a
+# manager; on any other join permission, requires_approval included, they're refused. The flag is passed to the
 # policy, so manager: true from someone who can't set it refuses the call rather than
 # being dropped. The model's duplicate validation comes back as an invalid-argument error.
 #

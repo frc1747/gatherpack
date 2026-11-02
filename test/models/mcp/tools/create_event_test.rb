@@ -80,7 +80,7 @@ class Mcp::Tools::CreateEventTest < ActionDispatch::IntegrationTest
   end
 
   test "an out-of-range offset is refused, not read as local time" do
-    %w[+24:00 -24:00 +30:00 -99:00 +12:60 +05:99].each do |offset|
+    %w[+24:00 -24:00 +30:00 -99:00 +12:60 +05:99 +0560 -0560 +0599].each do |offset|
       assert_refused(/starts_at must be an ISO 8601/, Event) { create_event(:admin, starts_at: "#{STARTS}#{offset}", ends_at: "2030-01-01T00:00:00") }
     end
   end

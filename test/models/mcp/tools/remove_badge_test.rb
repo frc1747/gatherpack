@@ -76,10 +76,53 @@ class Mcp::Tools::RemoveBadgeTest < ActionDispatch::IntegrationTest
     assert_refused("Not found", BadgeAssignment) { remove(:guardian, assignment) }
   end
 
-  test "open badges can be removed from anyone the viewer can see, as on the page" do
-    assignment = BadgeAssignment.create!(badge: create_world_badge_with(:added_by_manager_or_self), person: person(:ward))
+  SELF_SERVICE = %i[added_by_admin_or_self added_by_manager_or_self has_account].freeze
 
-    assert_nil remove(:alpha_member, assignment).error
+  test "on a self-service badge, a plain member removes only their own" do
+    SELF_SERVICE.each do |permission|
+      badge = create_world_badge_with(permission)
+      own = BadgeAssignment.create!(badge: badge, person: person(:alpha_member))
+      teammate = BadgeAssignment.create!(badge: badge, person: person(:ward))
+      manager = BadgeAssignment.create!(badge: badge, person: person(:alpha_manager))
+
+      assert_refused("Not allowed", BadgeAssignment) { remove(:alpha_member, teammate) }
+      assert_refused("Not allowed", BadgeAssignment) { remove(:alpha_member, manager) }
+      assert_nil remove(:alpha_member, own).error, permission
+    end
+  end
+
+  test "on a self-service badge, a manager removes their own or that of people they manage, not others they can see" do
+    parent = create_world_team("Parent")
+    kid = create_world_team("Kid", parent: parent)
+    sibling = create_world_team("Sibling", parent: parent)
+    @people[:kid_manager] = create_world_person("KidManager", kid, manager: true)
+    @people[:kid_member] = create_world_person("KidMember", kid)
+    @people[:sibling_member] = create_world_person("SiblingMember", sibling)
+
+    SELF_SERVICE.each do |permission|
+      badge = create_world_badge_with(permission)
+      own = BadgeAssignment.create!(badge: badge, person: person(:kid_manager))
+      managed = BadgeAssignment.create!(badge: badge, person: person(:kid_member))
+      other = BadgeAssignment.create!(badge: badge, person: person(:sibling_member))
+
+      assert_refused("Not allowed", BadgeAssignment) { remove(:kid_manager, other) }
+      assert_nil remove(:kid_manager, managed).error, permission
+      assert_nil remove(:kid_manager, own).error, permission
+    end
+  end
+
+  test "on a self-service badge, an admin removes anyone's" do
+    SELF_SERVICE.each do |permission|
+      assignment = BadgeAssignment.create!(badge: create_world_badge_with(permission), person: person(:beta_member))
+
+      assert_nil remove(:admin, assignment).error, permission
+    end
+  end
+
+  test "a badge that isn't self-service isn't held to the self-service rule" do
+    badge = create_world_badge_with(:added_by_current_member, team: @alpha)
+
+    assert_nil remove(:alpha_member, BadgeAssignment.create!(badge: badge, person: person(:ward))).error
   end
 
   test "invalid and wrong-prefix IDs are not found" do
@@ -114,7 +157,7 @@ class Mcp::Tools::RemoveBadgeTest < ActionDispatch::IntegrationTest
       [ :alpha_manager, @alpha_assignment ],
       [ :alpha_manager, in_alpha ],
       [ :alpha_member, @alpha_assignment ],
-      [ :alpha_member, open_in_alpha ],
+      [ :alpha_manager, open_in_alpha ],
       [ :badge_holder, @holder_assignment ],
       [ :beta_member, @alpha_assignment ],
       [ :guardian, @alpha_assignment ]
@@ -128,7 +171,18 @@ class Mcp::Tools::RemoveBadgeTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # The one difference: the page doesn't check the holder, but this result names them.
+  # The page passes everyone on a self-service badge, whoever holds it.
+  test "it refuses to remove a teammate's self-service badge, where the page goes through" do
+    assignment = BadgeAssignment.create!(badge: create_world_badge_with(:has_account), person: person(:alpha_manager))
+    page = page_changes_rows?(BadgeAssignment, as: user(:alpha_member)) do
+      delete badge_badge_assignment_path(assignment.badge, assignment)
+    end
+
+    assert page
+    assert_refused("Not allowed", BadgeAssignment) { remove(:alpha_member, assignment) }
+  end
+
+  # The page doesn't check the holder, but this result names them.
   test "it refuses a holder the viewer can't see, where the page goes through" do
     assignment = BadgeAssignment.create!(badge: create_world_badge_with(:has_account), person: person(:ward))
     page = page_changes_rows?(BadgeAssignment, as: user(:guardian)) do
