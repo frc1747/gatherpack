@@ -154,6 +154,51 @@ class Mcp::Tools::PlaceSignupTest < ActionDispatch::IntegrationTest
     assert_refused("Answer \"Which car?\"", Signup) { place(:alpha_plain, :alpha_plain, slot_of(question, @cleanup)) }
   end
 
+  test "an exact repeat of the viewer's own sign-up is refused, with no new row or email, though the page places again" do
+    [ [ :organizer, :alpha_plain ], [ :alpha_plain, :alpha_plain ], [ :guardian, :ward ] ].each do |viewer, taker|
+      assert_nil place(viewer, taker).error
+      name = person(taker).display_name
+
+      assert_empty(emails_from { assert_refused("You already signed up #{name} for this slot", Signup) { place(viewer, taker) } })
+      assert_equal "error", McpToolCall.order(:created_at).last.outcome
+      assert page_changes_rows?(Signup, as: user(viewer)) { page_place(viewer, taker, @open_slot) }
+      Signup.where(signup_slot: @open_slot, person: person(taker)).destroy_all
+    end
+  end
+
+  test "a repeat on a full slot says it's a repeat" do
+    last = @sheet.signup_positions.create!(name: "Treasurer", capacity: 1).signup_slots.find_by!(event: @cleanup)
+    assert_nil place(:alpha_plain, :alpha_plain, last).error
+
+    assert_refused("You already signed up AlphaPlain World for this slot", Signup) { place(:alpha_plain, :alpha_plain, last) }
+  end
+
+  test "a place made by someone else still goes through, as on the page" do
+    slot = @sheet.signup_positions.create!(name: "Greeter").signup_slots.find_by!(event: @cleanup)
+    assert_nil place(:guardian, :ward, slot).error
+
+    assert page_changes_rows?(Signup, as: user(:organizer)) { page_place(:organizer, :ward, slot) }
+    assert_difference("Signup.count") { assert_nil place(:organizer, :ward, slot).error }
+    assert page_changes_rows?(Signup, as: user(:ward)) { page_place(:ward, :ward, slot) }
+    assert_difference("Signup.count") { assert_nil place(:ward, :ward, slot).error }
+  end
+
+  test "someone else's place on a sheet that hides names isn't revealed by a refusal" do
+    @quiet_sheet.update!(others_relationship_type_ids: [ @parent_of.id ])
+    slot = slot_of(@quiet_sheet.signup_positions.first, @bake_day)
+    Signup.create!(signup_slot: slot, person: person(:ward), signed_up_by: person(:organizer))
+
+    assert_difference("Signup.count") { assert_nil place(:guardian, :ward, slot).error }
+  end
+
+  test "a sign-up to another person's behalf, or one no longer active, isn't a repeat" do
+    Signup.create!(signup_slot: @open_slot, person: person(:alpha_plain), signed_up_by: person(:alpha_plain), on_behalf_of: person(:ward))
+    assert_difference("Signup.count") { assert_nil place(:alpha_plain, :alpha_plain).error }
+
+    Signup.find_by!(signup_slot: @open_slot, on_behalf_of: person(:alpha_plain)).cancel!
+    assert_difference("Signup.count") { assert_nil place(:alpha_plain, :alpha_plain).error }
+  end
+
   test "invalid and wrong-prefix IDs are not found" do
     [ "nonsense", "susl_nonsense", @alpha.neat_id ].each do |bad|
       assert_refused("Not found", Signup) { call_tool("place_signup", user: user(:admin), slot_id: bad, person_id: person(:ward).neat_id) }

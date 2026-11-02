@@ -17,6 +17,15 @@
 # no quantity or answer, so an item position or one with a required question comes back
 # as an invalid argument, as an empty form does.
 #
+# Also narrower: an exact repeat is refused, where the pages place the person again. A
+# client that lost a response or repeats a call can't see the sheet the way a person
+# does, and a repeat would send every email twice and could take the last place from
+# someone else. A repeat is an active sign-up in the slot with the same person and
+# on-behalf-of, made by the viewer. Only the viewer's own count, so a refusal can't reveal
+# someone else's place on a sheet that hides names; one made by someone else still goes
+# through, as on the page. The check is inside the slot's lock, so parallel repeats can't
+# pass it together.
+#
 # A person is looked up among those the viewer could sign up, or else in
 # policy_scope(Person): someone the viewer can't see is "Not found", whatever their
 # place on the sheet. A ward needn't be in the guardian's person scope to be signed up,
@@ -37,7 +46,8 @@ class Mcp::Tools::PlaceSignup < Mcp::Tool
   tool_name "place_signup"
   description "Sign a person up for a slot on a sign-up sheet: yourself or someone you may sign up, or anyone the sheet is open to if you " \
     "organize it. Capacity and the position's rules always apply, and no one can override a rule here. Positions for items or with a required " \
-    "question can't be taken here. Everyone on the sign-up gets the usual email. Returns the new sign-up."
+    "question can't be taken here. Unlike the sign-up pages, this refuses an exact repeat of an active sign-up you made in the slot. " \
+    "Everyone on the sign-up gets the usual email. Returns the new sign-up."
   scope :write
   feature :signups
   input_schema(
@@ -65,7 +75,13 @@ class Mcp::Tools::PlaceSignup < Mcp::Tool
       ctx.authorize!(Signup.new(signup_slot: slot, person: person, signed_up_by: ctx.person, on_behalf_of: person), :create?)
     end
 
-    signup = Signup.place!(slot: slot, person: person, signed_up_by: ctx.person, on_behalf_of: person)
+    signup = slot.with_lock do
+      if slot.signups.active.exists?(person_id: person.id, on_behalf_of_id: person.id, signed_up_by_id: ctx.person.id)
+        invalid_argument!("You already signed up #{person_json(person)[:name]} for this slot")
+      end
+
+      Signup.place!(slot: slot, person: person, signed_up_by: ctx.person, on_behalf_of: person)
+    end
 
     changed!(signup)
     signup_result(signup)
