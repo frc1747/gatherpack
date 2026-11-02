@@ -41,6 +41,59 @@ class Mcp::Tools::FormStatusTest < ActiveSupport::TestCase
     assert_equal 3, status(:coordinator).value["items"].size
   end
 
+  test "a manager of one team sees only the people they can read on a form that asks two" do
+    value = status(:alpha_manager, @cross).value
+
+    assert_equal [ "AlphaManager World", "AlphaMember World", "Ward World" ], names(status(:alpha_manager, @cross))
+    assert_equal 3, value["counts"]["assigned"]
+    assert_equal 1, value["counts"]["submitted"]
+    assert_equal 6, status(:admin, @cross).value["counts"]["assigned"]
+  end
+
+  test "a person named by a rule outside the viewer's reach is not listed" do
+    value = status(:alpha_manager, @named).value
+
+    assert_empty value["items"]
+    assert_equal 0, value["counts"]["assigned"]
+    assert_equal 0, value["counts"]["submitted"]
+    assert_equal 1, status(:admin, @named).value["counts"]["submitted"]
+  end
+
+  test "a read level of self leaves a manager only their own row" do
+    value = status(:alpha_manager, @private).value
+
+    assert_equal [ "AlphaManager World" ], names(status(:alpha_manager, @private))
+    assert_equal 1, value["counts"]["assigned"]
+    assert_equal 0, value["counts"]["submitted"]
+  end
+
+  test "a grant limited to a team covers only that team's people" do
+    value = status(:alpha_member, @cross).value
+
+    assert_equal [ "AlphaManager World", "AlphaMember World", "Ward World" ], names(status(:alpha_member, @cross))
+    assert_equal 1, value["counts"]["submitted"]
+  end
+
+  test "withdrawn, draft-only and no longer asked responses are not submitted, and the last is not assigned" do
+    value = status(:admin, @mixed).value
+
+    assert_equal 3, value["counts"]["assigned"]
+    assert_equal 1, value["counts"]["submitted"]
+    assert_equal({ "complete" => 1, "withdrawn" => 1, "draft" => 1, "no_longer_asked" => 1 }, value["counts"]["by_status"].reject { |_, n| n.zero? })
+    assert_nil value["items"].find { |entry| entry["status"] == "withdrawn" }["submitted_at"]
+  end
+
+  test "people with the same name come in ID order" do
+    twins = 2.times.map do |n|
+      user = User.create!(email: "twin#{n}@example.com", password: "Password1!")
+      Person.create!(user: user, first_name: "Twin", last_name: "World").tap { |twin| Membership.create!(person: twin, team: @alpha) }
+    end
+
+    result = status(:admin, status: "not_started")
+
+    assert_equal twins.sort_by(&:id).map(&:neat_id), result.value["items"].select { |entry| entry["person"]["name"] == "Twin World" }.map { |entry| entry["person"]["id"] }
+  end
+
   test "a person in the audience is not allowed" do
     assert_equal "Not allowed", status(:alpha_member).error
   end

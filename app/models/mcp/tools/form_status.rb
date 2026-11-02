@@ -71,7 +71,7 @@ class Mcp::Tools::FormStatus < Mcp::Tool
     ctx.authorize!(form, :results?)
 
     report = FormReport.new(form, viewer: ctx.person)
-    rows = report.rows
+    rows = in_stable_order(report.rows)
     shown = status ? rows.select { |row| row.status == status } : rows
     limit = limit.to_i.clamp(1, MAX_LIMIT)
 
@@ -88,6 +88,12 @@ class Mcp::Tools::FormStatus < Mcp::Tool
   end
 
   private
+
+  # FormReport's order, with people of the same name ordered by ID.
+  def in_stable_order(rows)
+    rows.chunk_while { |a, b| a.person.last_name == b.person.last_name && a.person.first_name == b.person.first_name }
+      .flat_map { |same| same.sort_by { |row| row.person.id } }
+  end
 
   def row_json(row)
     { person: person_json(row.person), status: row.status, submitted_at: time_json(row.submission&.submitted_at) }

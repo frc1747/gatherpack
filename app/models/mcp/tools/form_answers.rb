@@ -9,9 +9,11 @@
 # the viewer may not see comes back with readable: false and no value, the
 # page's "·". Only the active submission is read, never an unsubmitted update,
 # and signatures and "profile changed" notes are left out. Differs from the page
-# in nothing else; person_id narrows to one person, who must be in
-# policy_scope(Person) and, if the viewer can't read their response, simply
-# has no items.
+# in nothing else; person_id narrows to one person, who must be among the people the viewer may read on this form
+# (Form#readable_subjects_for, not policy_scope(Person): a read grant reaches
+# people outside the viewer's teams), else "Not found". Rows are in the page's
+# order with same-named people ordered by ID, and the per-response check runs
+# only until the limit is passed.
 class Mcp::Tools::FormAnswers < Mcp::Tool
   tool_name "form_answers"
   description "A form's submitted answers per person (by last name), question by question. Only people whose response you may read, " \
@@ -74,11 +76,11 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
   def call(form_id:, person_id: nil, limit: DEFAULT_LIMIT)
     form = ctx.find(Form.all, form_id)
     ctx.authorize!(form, :results?)
-    only = person_id && [ ctx.find(Person, person_id).id ]
+    only = person_id && [ ctx.find(form.readable_subjects_for(ctx.person), person_id).id ]
 
     report = FormReport.new(form, viewer: ctx.person, only: only)
-    rows = report.rows.select { |row| row.submission && ctx.allowed?(row.response, :show?) }
     limit = limit.to_i.clamp(1, MAX_LIMIT)
+    rows = in_stable_order(report.rows).lazy.select { |row| row.submission && ctx.allowed?(row.response, :show?) }.first(limit + 1)
 
     {
       form: { id: form.neat_id, title: form.title },
@@ -88,6 +90,12 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
   end
 
   private
+
+  # FormReport's order, with people of the same name ordered by ID.
+  def in_stable_order(rows)
+    rows.chunk_while { |a, b| a.person.last_name == b.person.last_name && a.person.first_name == b.person.first_name }
+      .flat_map { |same| same.sort_by { |row| row.person.id } }
+  end
 
   def row_json(report, row)
     submission = row.submission

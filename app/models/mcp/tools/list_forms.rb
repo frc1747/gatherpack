@@ -4,12 +4,17 @@
 # wards may read a response to (FormResponsePolicy#show?, the index's own "My
 # Forms" entries, so a closed form needs a response from that person); and
 # open and closed forms the viewer can show (FormPolicy#show?, "Shared with
-# You"). The counts are the viewer's to see only for a form they manage
-# (FormPolicy#manage?): assigned is everyone the form asks, submitted those
-# with an answer in effect (an active submission). For any other form counts is
-# null, so the tool never says more than the page does. can_see_results says
-# whether form_status and form_answers will work for the form
-# (FormPolicy#results?). status defaults to all.
+# You"). The counts are shown only for a form the viewer manages
+# (FormPolicy#manage?), and only over the people whose responses the viewer can
+# read (Form#readable_subjects_for, the people FormReport lists), so they agree
+# with form_status: assigned is those of them the form asks now, submitted those
+# with an answer in effect (an active submission). The counts are queries over
+# that relation, so their cost doesn't grow with the audience. For any other
+# form counts is null. The team shows only where the index shows it (FormPolicy#show?,
+# "Shared with You" and "Manage Forms"), the opening time only to those who manage the
+# form (its edit tab); both are null otherwise. can_see_results says whether
+# form_status and form_answers will work for the form (FormPolicy#results?).
+# status defaults to all.
 class Mcp::Tools::ListForms < Mcp::Tool
   STATUSES = %w[open closed all].freeze
 
@@ -35,7 +40,7 @@ class Mcp::Tools::ListForms < Mcp::Tool
           properties: {
             id: { type: "string" },
             title: { type: "string" },
-            team: REF_SCHEMA,
+            team: { anyOf: [ REF_SCHEMA, { type: "null" } ] },
             status: { type: "string" },
             opens_at: { type: [ "string", "null" ] },
             closes_at: { type: [ "string", "null" ] },
@@ -69,23 +74,24 @@ class Mcp::Tools::ListForms < Mcp::Tool
   private
 
   def form_json(form)
+    managed = ctx.allowed?(form, :manage?)
     {
       id: form.neat_id,
       title: form.title,
-      team: team_json(form.team),
+      team: ctx.allowed?(form, :show?) ? team_json(form.team) : nil,
       status: form.status,
-      opens_at: time_json(form.opens_at),
+      opens_at: managed ? time_json(form.opens_at) : nil,
       closes_at: time_json(form.closes_at),
       can_see_results: ctx.allowed?(form, :results?),
-      counts: ctx.allowed?(form, :manage?) ? counts(form) : nil
+      counts: managed ? counts(form) : nil
     }
   end
 
   def counts(form)
-    asked = form.audience.select(:id)
+    asked = form.readable_subjects_for(ctx.person).where(id: form.audience.select(:id))
     {
-      assigned: form.audience.count,
-      submitted: form.form_responses.where(subject_id: asked).where.not(active_submission_id: nil).count
+      assigned: asked.count,
+      submitted: form.form_responses.where(subject_id: asked.select(:id)).where.not(active_submission_id: nil).count
     }
   end
 
