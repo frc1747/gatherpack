@@ -121,6 +121,17 @@ class Mcp::Tools::RemoveSignupTest < ActionDispatch::IntegrationTest
     assert_equal "AlphaPlain World", remove(:alpha_manager, signup).value.dig("on_behalf_of", "name")
   end
 
+  test "on_behalf_of is who the sign-up is on behalf of, not the person taking it" do
+    result = remove(:alpha_member, @ward_cookies)
+    assert_equal person(:alpha_member).neat_id, result.value.dig("person", "id")
+    assert_equal person(:ward).neat_id, result.value.dig("on_behalf_of", "id")
+
+    @ward_cookies.update_columns(status: Signup.statuses[:active])
+    result = remove(:organizer, @ward_cookies)
+    assert_equal person(:ward).neat_id, result.value.dig("on_behalf_of", "id")
+    assert_equal person(:alpha_member).neat_id, result.value.dig("person", "id")
+  end
+
   test "a member can't cancel someone else's sign-up" do
     assert_not_removed("Not allowed", :alpha_plain, @bake_day_cashier)
     assert_equal "denied", McpToolCall.order(:created_at).last.outcome
@@ -205,6 +216,15 @@ class Mcp::Tools::RemoveSignupTest < ActionDispatch::IntegrationTest
     assert_equal [ user(:guardian).email, user(:ward).email ].sort, emails.map(&:first)
     assert_match "Sign-up cancelled: Cashier, Bake Day", emails.first[1]
     assert_equal page, emails
+  end
+
+  test "an organizer cancelling their own sign-up gets the roster's email" do
+    own = create_signup(@cashier, :organizer, @cleanup)
+
+    emails = emails_from { assert_nil remove(:organizer, own).error }
+
+    assert_equal [ user(:organizer).email ], emails.map(&:first)
+    assert_match "Organizer World cancelled Organizer World&#39;s sign-up", emails.first[2]
   end
 
   test "a member's cancel sends no email, as on the page" do

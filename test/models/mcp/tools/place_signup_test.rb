@@ -116,6 +116,50 @@ class Mcp::Tools::PlaceSignupTest < ActionDispatch::IntegrationTest
     assert_refused("Not found", Signup) { place(:alpha_plain, :beta_member) }
   end
 
+  # A sheet open to Alpha and Beta: beta_member is in its audience, and outside
+  # the person scope of everyone in Alpha.
+  def build_wide_sheet
+    sheet = create_signups_sheet("Wide Sale", @alpha, [ @cleanup ], created_by: person(:organizer))
+    [ @alpha, @beta ].each { |team| sheet.signup_audience_rules.create!(effect: :include, target_type: :team, team: team) }
+    sheet.signup_positions.create!(name: "Helper").signup_slots.find_by!(event: @cleanup)
+  end
+
+  def nonexistent_person_id
+    Person.new(id: SecureRandom.uuid).neat_id
+  end
+
+  def place_id(viewer, slot, person_id)
+    call_tool("place_signup", user: user(viewer), slot_id: slot.neat_id, person_id: person_id)
+  end
+
+  test "a member gets the same answer for a hidden person, in the audience or not, as for no one at all" do
+    wide = build_wide_sheet
+    assert_nil mcp_context(user(:alpha_plain)).policy_scope(Person).find_by(id: person(:beta_member).id)
+    assert wide.signup_sheet.open_to?(person(:beta_member))
+    assert_not @sheet.open_to?(person(:beta_member))
+
+    assert_refused("Not found", Signup) { place(:alpha_plain, :beta_member, wide) }
+    assert_refused("Not found", Signup) { place(:alpha_plain, :beta_member, @open_slot) }
+    assert_refused("Not found", Signup) { place_id(:alpha_plain, wide, nonexistent_person_id) }
+    assert_refused("Not found", Signup) { place_id(:alpha_plain, @open_slot, nonexistent_person_id) }
+  end
+
+  test "an organizer places a hidden person in the audience, as the roster does" do
+    wide = build_wide_sheet
+    assert_nil mcp_context(user(:organizer)).policy_scope(Person).find_by(id: person(:beta_member).id)
+
+    assert page_changes_rows?(Signup, as: user(:organizer)) { page_place(:organizer, :beta_member, wide) }
+    result = place(:organizer, :beta_member, wide)
+
+    assert_nil result.error
+    assert_equal person(:beta_member), result.changed.person
+  end
+
+  test "an organizer gets the same answer for a hidden person outside the audience as for no one at all" do
+    assert_refused("Not found", Signup) { place(:organizer, :beta_member) }
+    assert_refused("Not found", Signup) { place_id(:organizer, @open_slot, nonexistent_person_id) }
+  end
+
   test "a full slot is refused for an organizer and a member" do
     assert_refused("This slot is full", Signup) { place(:organizer, :alpha_plain, @full_slot) }
     assert_refused("This slot is full", Signup) { place(:alpha_plain, :alpha_plain, @full_slot) }

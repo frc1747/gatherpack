@@ -30,6 +30,8 @@
 # policy_scope(Person): someone the viewer can't see is "Not found", whatever their
 # place on the sheet. A ward needn't be in the guardian's person scope to be signed up,
 # nor anyone in the audience in the organizer's, as the pages don't ask that either.
+# No read tool lists the audience, so an organizer can place an audience member outside
+# their person scope only if they already have the ID. The roster form lists them all.
 class Mcp::Tools::PlaceSignup < Mcp::Tool
   include Mcp::Tools::SignupFormat
 
