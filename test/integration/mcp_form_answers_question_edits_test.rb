@@ -101,6 +101,91 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     assert_left_out_for_the_minor_only("own_phone")
   end
 
+  # A new submission starts from the last one's answers, and its own snapshot
+  # holds the edited question.
+  def resubmit(subject, answers: { "pick" => "kept" })
+    submission = respond_to_form(Form.find(@form.id), subject, as: subject == :ward ? :guardian : subject, answers: answers)
+    assert_equal 2, submission.number
+    submission
+  end
+
+  def assert_carried_forward(key)
+    submission = resubmit(:ward)
+
+    assert_equal ANSWERS.fetch(key), submission.answers[key]
+    assert_not_includes contact_keys_in(submission), key
+    assert_left_out_for_the_minor_only(key)
+  end
+
+  def contact_keys_in(submission)
+    submission.content["questions"].select { |snapshot| snapshot["type"].in?(%w[ phone email ]) || snapshot["person_field"].in?(%w[ email phone address birthday ]) }.map { |snapshot| snapshot["key"] }
+  end
+
+  test "resubmitting after unlinking built-in phone keeps it out for a minor" do
+    edit_question("linked_phone", person_field_id: "")
+
+    assert_carried_forward("linked_phone")
+  end
+
+  test "resubmitting after linking a typed phone question to a custom text field keeps it out for a minor" do
+    edit_question("own_phone", person_field_id: @custom_text.id, profile_mode: "prefill")
+
+    assert_carried_forward("own_phone")
+  end
+
+  test "resubmitting after removing a typed phone question and adding a text one with the same key keeps it out for a minor" do
+    delete form_question_path(@form, question("own_phone"))
+    post form_questions_path(@form), params: { form_question: { kind: "input", label: "Own phone", data_type: "string" } }
+
+    assert_carried_forward("own_phone")
+  end
+
+  test "a value entered again under a question that is now plain stays out for a minor" do
+    edit_question("linked_phone", person_field_id: "")
+    submission = resubmit(:ward, answers: { "linked_phone" => "not a phone" })
+
+    assert_equal "not a phone", submission.answers["linked_phone"]
+    assert_not_includes answers_for("Ward World").values, "not a phone"
+  end
+
+  test "an adult's resubmitted answer stays after the same edit" do
+    edit_question("linked_phone", person_field_id: "")
+    resubmit(:alpha_member)
+
+    assert_equal "555-0101", answers_for("AlphaMember World")[question("linked_phone").neat_id]
+  end
+
+  test "one response's earlier submissions don't affect another's" do
+    edit_question("linked_phone", person_field_id: "")
+    other = create_world_form("Other", @alpha)
+    other.form_questions.create!(kind: :input, key: "linked_phone", label: "Linked phone", data_type: :string)
+    other.form_questions.reset
+    respond_to_form(other, :ward, as: :guardian, answers: { "linked_phone" => "not contact" })
+
+    result = call_tool("form_answers", user: user(:admin), form_id: other.neat_id, person_id: person(:ward).neat_id)
+    assert_equal [ "not contact" ], result.value["items"].first["answers"].map { |answer| answer["answer"] }
+  end
+
+  test "the submissions are not loaded per row" do
+    edit_question("own_phone", person_field_id: "")
+    resubmit(:ward)
+    resubmit(:alpha_member)
+    one_minor = submission_loads
+    person(:alpha_member).update!(birthday: 16.years.ago.to_date)
+
+    assert_equal one_minor, submission_loads
+    assert_not_includes answers_for("AlphaMember World").values, "555-0102"
+  end
+
+  def submission_loads
+    loads = 0
+    counter = ->(*, payload) { loads += 1 if payload[:sql].include?('FROM "form_submissions"') }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+      call_tool("form_answers", user: user(:alpha_manager), form_id: @form.neat_id)
+    end
+    loads
+  end
+
   test "an archived built-in field in a snapshot still counts" do
     edit_question("linked_address", person_field_id: "")
     PersonField.system_field("address").update!(archived_at: Time.current)

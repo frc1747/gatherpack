@@ -24,9 +24,12 @@
 # if it has one. Those are the only types that say what an answer holds: a date
 # may be any date, and an address is free text, so those and other free-text
 # answers can't be judged and stay. A question is judged as it is now and as it was
-# in the submission's own snapshot (content["questions"]), since answers are stored
-# by key and a question can be unlinked, relinked, or removed and added back after
-# it was answered. A submission with no snapshot is judged as the question is now.
+# in the snapshot (content["questions"]) of each of the response's submissions,
+# current or earlier: answers are stored by key, a question can be unlinked,
+# relinked, or removed and added back after it was answered, and a new submission
+# starts from the last one's answers. So a value entered again under a question
+# that is now plain stays out too, failing closed. A submission with no snapshot
+# adds nothing to judge by. FormReport preloads the submissions.
 class Mcp::Tools::FormAnswers < Mcp::Tool
   WITHHELD_DATA_TYPES = %w[phone email].freeze
 
@@ -119,7 +122,7 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
     submission = row.submission
     questions = report.questions
     if Mcp.withhold_contact_details?(row.person)
-      answered_as_contact = contact_snapshot_keys(submission)
+      answered_as_contact = contact_snapshot_keys(row.response)
       questions = questions.reject { |question| contact_question?(question) || answered_as_contact.include?(question.key) }
     end
     {
@@ -136,11 +139,11 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
     contact?(question.person_field&.system_source, question.value_type.data_type)
   end
 
-  # The keys of questions that counted as contact when this submission was made.
-  def contact_snapshot_keys(submission)
-    Array(submission.content["questions"])
+  # The keys of questions that counted as contact in any of this response's submissions.
+  def contact_snapshot_keys(response)
+    response.form_submissions.flat_map { |submission| Array(submission.content["questions"]) }
       .select { |snapshot| contact?(system_sources[snapshot["person_field"]], snapshot["type"]) }
-      .map { |snapshot| snapshot["key"] }
+      .map { |snapshot| snapshot["key"] }.to_set
   end
 
   # Built-in fields by key, archived ones too, for reading snapshots. Built-in
