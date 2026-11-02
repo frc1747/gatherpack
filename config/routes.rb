@@ -167,6 +167,16 @@ Rails.application.routes.draw do
     end
 
     resources :oauth_applications
+
+    # MCP server (feature_mcp); its controllers answer 404 while the feature is off.
+    scope format: false do
+      post "mcp", to: "mcp#create", as: :mcp
+      match "mcp", to: "mcp#method_not_allowed", via: %i[get delete]
+      get "mcp/calls", to: "mcp/calls#index", as: :mcp_calls
+      get ".well-known/oauth-protected-resource", to: "mcp/metadata#protected_resource"
+      get ".well-known/oauth-protected-resource/mcp", to: "mcp/metadata#protected_resource"
+      get ".well-known/oauth-authorization-server", to: "mcp/metadata#authorization_server"
+    end
   end
 
   if GatherPack::Features.enabled?(:qa)
