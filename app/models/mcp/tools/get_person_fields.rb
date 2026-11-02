@@ -4,7 +4,8 @@
 # person.readable_fields_for(viewer) with show_on_profile set, which is what
 # people/_fields renders (PersonPolicy#readable_person_fields). That covers
 # each read level, guardianship, and badge grants. Values are returned as
-# stored for the field's type; a field with no value is null. The built-in
+# stored for the field's type; a field with no value is null (an unset
+# boolean is false, as the page shows "No"). The built-in
 # contact and detail fields are included under their sections when the viewer
 # may read them, as on the page. Needs the person_fields feature.
 #
@@ -12,7 +13,7 @@
 # Mcp.person_extensions (see config/initializers/mcp_person_fields.rb).
 class Mcp::Tools::GetPersonFields < Mcp::Tool
   tool_name "get_person_fields"
-  description "A person's custom profile fields that you can see, grouped by section, each with its type and value."
+  description "A person's profile fields that you can see, built-in and custom, grouped by section, each with its type and value."
   scope :read
   feature :person_fields
   input_schema(properties: { person_id: { type: "string", description: "Person ID (per_...)" } }, required: [ "person_id" ])
@@ -34,7 +35,7 @@ class Mcp::Tools::GetPersonFields < Mcp::Tool
                   key: { type: "string" },
                   name: { type: "string" },
                   type: { type: "string" },
-                  value: { description: "null when empty; a list for multi_select; YYYY-MM-DD for date" }
+                  value: { description: "null when empty (false for an unset boolean); a list for multi_select; YYYY-MM-DD for date" }
                 },
                 required: %w[key name type value]
               }
@@ -60,7 +61,7 @@ class Mcp::Tools::GetPersonFields < Mcp::Tool
   def self.field_json(person, field, rows)
     value = field.system? ? person.field_value(field) : field.cast(rows[field.id]&.value)
     value = value.iso8601 if value.is_a?(Date)
-    value = nil if value == []
+    value = nil if value == [] || value == ""
     { key: field.key, name: field.name, type: field.data_type, value: value }
   end
 

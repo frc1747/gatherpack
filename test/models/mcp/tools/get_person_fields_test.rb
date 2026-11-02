@@ -97,6 +97,57 @@ class Mcp::Tools::GetPersonFieldsTest < ActiveSupport::TestCase
     assert_not_includes names, "Allergies"
   end
 
+  test "self, self and leaders and guardians levels reach the right viewers" do
+    only_self = PersonField.create!(name: "Mine", data_type: :string, read_permission: :self, write_permission: :admin)
+    self_leaders = PersonField.create!(name: "Mine and leaders", data_type: :string, read_permission: :self_and_leaders, write_permission: :admin)
+    guardians = PersonField.create!(name: "For guardians", data_type: :string, read_permission: :guardians, write_permission: :admin)
+    [ only_self, self_leaders, guardians ].each { |field| @subject.set_field_value(field, "v") }
+
+    assert_equal [ "Mine", "Mine and leaders" ], fields(:alpha_member).grep(/Mine/).sort
+    assert_equal [ "Mine and leaders" ], fields(:alpha_manager).grep(/Mine/)
+    assert_empty fields(:ward).grep(/Mine|guardians/)
+    assert_includes fields(@guardian), "For guardians"
+    assert_not_includes fields(:alpha_member), "For guardians"
+    assert_includes fields(:alpha_manager), "For guardians"
+    assert_empty fields(@guardian).grep(/Mine/)
+  end
+
+  test "a guardian on no shared team reads guardian fields; an expired guardianship is Not found" do
+    family = PersonField.create!(name: "Family only", data_type: :string, read_permission: :family, write_permission: :admin)
+    kid = create_world_person("Kid", @alpha)
+    kid.update!(birthday: Date.current - 10.years)
+    kid.set_field_value(family, "v")
+    lone = create_world_person("LoneGuardian")
+    minor = RelationshipType.create!(parent_label: "Minor guardian of", child_label: "Minor ward of", permission: :added_by_admin, guardianship: :minor)
+    Relationship.create!(parent: lone, child: kid, relationship_type: minor, created_by: person(:admin))
+
+    result = call_tool("get_person_fields", user: lone.user, person_id: kid.neat_id)
+    assert_includes result.value["groups"].flat_map { |group| group["fields"] }.map { |f| f["name"] }, "Family only"
+
+    with_settings(guardianship_age_limit: "5") do
+      assert_equal "Not found", call_tool("get_person_fields", user: lone.user, person_id: kid.neat_id).error
+    end
+  end
+
+  test "built-in fields are returned with their value, a restricted one only to those who may read it" do
+    PersonField.ensure_system_fields!
+    @subject.update!(phone_number: "555-0100", birthday: Date.new(2012, 5, 6))
+    PersonField.find_by!(system_source: "phone_number").update!(read_permission: :self_and_leaders)
+    find = ->(viewer, key) { call_tool("get_person_fields", user: user(viewer), person_id: @subject.neat_id).value["groups"].flat_map { |g| g["fields"] }.find { |f| f["key"] == key } }
+
+    assert_equal({ "key" => "phone", "name" => "Phone", "type" => "phone", "value" => "555-0100" }, find.call(:alpha_manager, "phone"))
+    assert_nil find.call(:ward, "phone")
+    assert_equal "2012-05-06", find.call(:ward, "birthday")["value"]
+    assert_equal "alphamember@example.com", find.call(:ward, "email")["value"]
+  end
+
+  test "an empty string is null" do
+    PersonField.ensure_system_fields!
+    @subject.update_column(:dietary_restrictions, "")
+    value = call_tool("get_person_fields", user: user(:admin), person_id: @subject.neat_id).value
+    assert_nil value["groups"].flat_map { |g| g["fields"] }.find { |f| f["key"] == "dietary_restrictions" }["value"]
+  end
+
   test "an empty field is null and a multi select is a list" do
     choice = PersonField.create!(name: "Tags", data_type: :multi_select, choices: %w[a b], read_permission: :everyone, write_permission: :admin)
     @subject.set_field_value(choice, %w[a b])
@@ -104,6 +155,9 @@ class Mcp::Tools::GetPersonFieldsTest < ActiveSupport::TestCase
     value = call_tool("get_person_fields", user: user(:admin), person_id: other.neat_id).value
     all = value["groups"].flat_map { |group| group["fields"] }
     assert_nil all.find { |field| field["name"] == "Nickname" }["value"]
+    empty = PersonField.create!(name: "Empty tags", data_type: :multi_select, choices: %w[a b], read_permission: :everyone, write_permission: :admin)
+    @subject.set_field_value(empty, [])
+    assert_nil call_tool("get_person_fields", user: user(:admin), person_id: @subject.neat_id).value["groups"].flat_map { |g| g["fields"] }.find { |f| f["name"] == "Empty tags" }["value"]
     assert_equal [ "a", "b" ], call_tool("get_person_fields", user: user(:admin), person_id: @subject.neat_id).value["groups"].flat_map { |group| group["fields"] }.find { |field| field["name"] == "Tags" }["value"]
   end
 
