@@ -81,7 +81,16 @@ class Mcp::Tools::SearchPeopleTest < ActiveSupport::TestCase
     assert_equal everyone, search.call(:alpha_member)
     assert_equal everyone, search.call(:ward)
     assert_empty search.call(:badge_holder), "member of a different team"
-    assert_empty search.call(:guardian), "a viewer with a person in common with the team"
+    assert_empty search.call(:guardian), "a viewer in no team"
+  end
+
+  test "team filter on an open team doesn't list a person the viewer has in common with it" do
+    @alpha.update!(join_permission: :has_account)
+    Membership.create!(person: person(:badge_holder), team: @alpha)
+    search = ->(viewer) { names(call_tool("search_people", user: user(viewer), query: "World", team_id: @alpha.neat_id)) }
+
+    assert_includes search.call(:admin), "BadgeHolder"
+    assert_empty search.call(:beta_member)
   end
 
   test "a wrong ID prefix is not found" do

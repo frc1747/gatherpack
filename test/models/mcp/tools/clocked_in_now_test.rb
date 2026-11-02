@@ -65,6 +65,42 @@ class Mcp::Tools::ClockedInNowTest < ActiveSupport::TestCase
     assert_equal [ "BetaMember World" ], names.call(:beta_member), "a manager who isn't on Alpha's full page"
   end
 
+  test "a manager of sub-teams filtering on the parent gets the members of the sub-teams they can list" do
+    root = create_world_team("Root")
+    root.update!(join_permission: :has_account)
+    cone = create_world_team("Cone", parent: root)
+    ctwo = create_world_team("Ctwo", parent: root)
+    sub_mgr = create_world_person("SubMgr", cone, manager: true)
+    Membership.create!(person: sub_mgr, team: ctwo, manager: true)
+    sub_plain = create_world_person("SubPlain", cone)
+    worker_one = create_world_person("WorkerOne", cone)
+    worker_two = create_world_person("WorkerTwo", ctwo)
+    root_period = create_world_period("Root March", root)
+    root_manager = create_world_person("RootManager", root, manager: true)
+    [ sub_mgr, sub_plain, worker_one, worker_two ].each { |person| create_world_punch(person, root_period, 9, nil) }
+    names = ->(viewer) { call_tool("clocked_in_now", user: viewer.user, team_id: root.neat_id).value["items"].map { |item| item["person"]["name"].split.first }.sort }
+
+    assert_equal %w[SubMgr SubPlain WorkerOne WorkerTwo], names.call(sub_mgr)
+    assert_equal %w[SubMgr SubPlain WorkerOne WorkerTwo], names.call(root_manager), "manager of the parent team"
+    assert_equal %w[SubMgr SubPlain WorkerOne WorkerTwo], names.call(person(:admin))
+
+    Membership.create!(person: person(:badge_holder), team: cone)
+    create_world_punch(person(:badge_holder), @beta_period, 9, nil)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    assert_empty names.call(person(:beta_member)), "an outside manager gets nothing for someone they manage who joins the team"
+  end
+
+  test "a plain member who manages someone elsewhere keeps the filter on their own team" do
+    Membership.create!(person: person(:beta_member), team: @alpha)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    Membership.create!(person: person(:alpha_member), team: @beta)
+    create_world_punch(person(:alpha_member), @alpha_period, 32, nil)
+
+    items = call_tool("clocked_in_now", user: user(:beta_member), team_id: @alpha.neat_id).value["items"]
+
+    assert_equal %w[AlphaMember BetaMember], items.map { |item| item["person"]["name"].split.first }.sort
+  end
+
   test "a plain member is not allowed" do
     assert_equal "Not allowed", call_tool("clocked_in_now", user: user(:beta_member)).error
   end

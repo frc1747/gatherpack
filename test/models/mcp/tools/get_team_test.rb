@@ -93,10 +93,18 @@ class Mcp::Tools::GetTeamTest < ActionDispatch::IntegrationTest
     assert_equal everyone, member_names(show_team(:alpha_member, @alpha))
     assert_equal everyone, member_names(show_team(:ward, @alpha))
     assert_empty member_names(show_team(:badge_holder, @alpha)), "member of a different team"
-    assert_empty member_names(show_team(:guardian, @alpha)), "a viewer with a person in common with the team"
+    assert_empty member_names(show_team(:guardian, @alpha)), "a viewer in no team"
   end
 
-  test "a viewer without show_full? still sees the managers and their own row" do
+  test "a viewer with a person in common with an open team isn't shown that person" do
+    @alpha.update!(join_permission: :has_account)
+    Membership.create!(person: person(:badge_holder), team: @alpha)
+
+    assert_includes member_names(show_team(:admin, @alpha)), "BadgeHolder"
+    assert_empty member_names(show_team(:beta_member, @alpha))
+  end
+
+  test "a viewer without show_full? still sees the managers and no members" do
     @alpha.update!(join_permission: :has_account)
     Membership.find_by!(person: person(:alpha_member), team: @alpha).update!(manager: true)
     value = show_team(:guardian, @alpha).value
@@ -107,6 +115,7 @@ class Mcp::Tools::GetTeamTest < ActionDispatch::IntegrationTest
 
   test "the full member list goes exactly to those the team page renders in full" do
     @alpha.update!(join_permission: :has_account)
+    Membership.create!(person: person(:badge_holder), team: @alpha)
 
     %i[admin alpha_manager alpha_member ward beta_member badge_holder guardian].each do |viewer|
       sign_in user(viewer)
@@ -115,7 +124,7 @@ class Mcp::Tools::GetTeamTest < ActionDispatch::IntegrationTest
       sign_out user(viewer)
 
       assert_response :success
-      assert_equal full_page, member_names(show_team(viewer, @alpha)).size == 3, viewer
+      assert_equal full_page, member_names(show_team(viewer, @alpha)).any?, viewer
     end
   end
 

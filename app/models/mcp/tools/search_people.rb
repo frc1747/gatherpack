@@ -3,8 +3,10 @@
 # The team filter takes a team in policy_scope(Team) and matches its direct
 # members, but only where the team page shows the roster (TeamsController#show
 # renders show_public, which lists no members, unless policy(team).show_full?).
-# Without show_full? it matches just the viewer, if they are a member, so the
-# answer is the same whether or not the viewer belongs to the team. The badge filter needs the badges feature and a badge in
+# Every direct member has show_full?, so without it the filter matches nobody.
+# That covers the team's list and the filter only: each person's own teams (below)
+# stay as their profile page shows them to this viewer. The badge filter needs
+# the badges feature and a badge in
 # policy_scope(Badge), and matches its holders; results stay within
 # policy_scope(Person) either way, so neither filter reveals anyone the
 # people index wouldn't. Each person's teams are their direct teams that are
@@ -17,7 +19,7 @@ class Mcp::Tools::SearchPeople < Mcp::Tool
   input_schema(
     properties: {
       query: { type: "string", minLength: 1, description: "Part of the person's name" },
-      team_id: { type: "string", description: "Only direct members of this team (tm_ ID); for a team whose member list you can't see, only yourself" },
+      team_id: { type: "string", description: "Only direct members of this team (tm_ ID); nobody for a team whose member list you can't see (you are not an admin, member or manager of it)" },
       badge_id: { type: "string", description: "Only holders of this badge (bdg_ ID)" },
       limit: limit_property
     },
@@ -64,7 +66,7 @@ class Mcp::Tools::SearchPeople < Mcp::Tool
 
   def team_member_ids(team)
     members = Membership.where(team: team)
-    members = members.where(person_id: ctx.person.id) unless ctx.allowed?(team, :show_full?)
+    members = members.none unless ctx.allowed?(team, :show_full?)
     members.select(:person_id)
   end
 

@@ -65,6 +65,45 @@ class Mcp::Tools::TimeClockHoursTest < ActiveSupport::TestCase
     assert_equal %w[BetaMember], names.call(:beta_member), "a manager who isn't on Alpha's full page"
   end
 
+  test "a manager of sub-teams filtering on the parent gets the members of the sub-teams they can list" do
+    root = create_world_team("Root")
+    root.update!(join_permission: :has_account)
+    cone = create_world_team("Cone", parent: root)
+    ctwo = create_world_team("Ctwo", parent: root)
+    sub_mgr = create_world_person("SubMgr", cone, manager: true)
+    Membership.create!(person: sub_mgr, team: ctwo, manager: true)
+    sub_plain = create_world_person("SubPlain", cone)
+    worker_one = create_world_person("WorkerOne", cone)
+    worker_two = create_world_person("WorkerTwo", ctwo)
+    root_period = create_world_period("Root March", root)
+    root_manager = create_world_person("RootManager", root, manager: true)
+    [ sub_mgr, sub_plain, worker_one, worker_two ].each { |person| create_world_punch(person, root_period, 9, 11) }
+    names = lambda do |viewer|
+      result = call_tool("time_clock_hours", user: viewer.user, from: "2026-03-01", to: "2026-03-31", team_id: root.neat_id)
+      by_name(result).keys.sort
+    end
+
+    assert_equal %w[SubMgr SubPlain WorkerOne WorkerTwo], names.call(sub_mgr)
+    assert_equal %w[SubPlain], names.call(sub_plain), "a viewer on a sub-team still gets themself"
+    assert_equal %w[SubMgr SubPlain WorkerOne WorkerTwo], names.call(root_manager), "manager of the parent team"
+    assert_equal %w[SubMgr SubPlain WorkerOne WorkerTwo], names.call(person(:admin))
+    assert_equal %w[WorkerOne], names.call(worker_one)
+
+    Membership.create!(person: person(:badge_holder), team: cone)
+    create_world_punch(person(:badge_holder), @beta_period, 9, 11)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    assert_empty names.call(person(:beta_member)),
+      "an outside manager gets nothing for someone they manage who joins the team"
+  end
+
+  test "a plain member who manages someone elsewhere keeps the filter on their own team" do
+    Membership.create!(person: person(:beta_member), team: @alpha)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    Membership.create!(person: person(:alpha_member), team: @beta)
+
+    assert_equal %w[AlphaMember BetaMember], by_name(hours(:beta_member, team_id: @alpha.neat_id)).keys.sort
+  end
+
   test "a team outside the viewer's scope is not found" do
     @alpha.update!(join_permission: :added_by_admin)
 
