@@ -26,6 +26,28 @@ class Mcp::Tools::GetTeamTest < ActiveSupport::TestCase
       value["members"].map { |member| [ member["name"].split.first, member["manager"] ] }
   end
 
+  test "membership IDs go only to viewers who may remove the membership" do
+    ids = ->(viewer) { get(viewer, @alpha).value["members"].map { |member| member["membership_id"] } }
+    all = @alpha.memberships.joins(:person).order("people.last_name", "people.first_name", "memberships.id").map(&:neat_id)
+
+    assert_equal all, ids.call(:admin)
+    assert_equal all, ids.call(:alpha_manager)
+    assert_equal [ nil, nil, nil ], ids.call(:alpha_member)
+    assert_equal [ nil, nil, nil ], ids.call(:ward)
+  end
+
+  test "a membership ID is there exactly when remove_team_member accepts it" do
+    target = Membership.find_by!(person: person(:ward), team: @alpha)
+    @alpha.update!(join_permission: :has_account)
+
+    %i[admin alpha_manager alpha_member ward beta_member guardian].each do |viewer|
+      listed = get(viewer, @alpha).value["members"].find { |member| member["id"] == person(:ward).neat_id }
+      removed = changes_rows?(Membership) { call_tool("remove_team_member", user: user(viewer), membership_id: target.neat_id) }
+
+      assert_equal removed, listed&.dig("membership_id") == target.neat_id, viewer
+    end
+  end
+
   test "a sub-team shows its parent" do
     child = create_world_team("Alpha Child", parent: @alpha)
 
