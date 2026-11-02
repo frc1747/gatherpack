@@ -67,6 +67,7 @@ module Mcp
   SCOPES = %w[mcp_read mcp_write].freeze
 
   @tools = {}
+  @person_extensions = []
 
   class << self
     def register_tool(klass)
@@ -86,6 +87,19 @@ module Mcp
 
     def reset!
       @tools = {}
+      @person_extensions = []
+    end
+
+    # Callables (person, viewer) -> Hash whose keys get_person adds to its
+    # result, viewer being the token's Person. A connector registers one in its
+    # to_prepare block:
+    #
+    #   Mcp.person_extensions << ->(person, viewer) { { fields: ... } }
+    #
+    # It can't replace a key get_person returns itself. One that raises is
+    # logged and left out of that call; the rest still apply.
+    def person_extensions
+      @person_extensions
     end
 
     def tools
