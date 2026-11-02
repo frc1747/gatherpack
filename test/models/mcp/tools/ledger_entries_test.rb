@@ -89,4 +89,19 @@ class Mcp::Tools::LedgerEntriesTest < ActiveSupport::TestCase
   test "it is off with the ledger feature" do
     with_feature(:ledger, false) { assert_equal "Feature off", entries(:admin, @alpha_ledger).error }
   end
+
+  test "a partial or malformed date is refused" do
+    assert_equal "to must be a date like 2026-03-31", entries(:admin, @alpha_ledger, to: "2026-03").error
+    assert_equal "from must be a date like 2026-03-31", entries(:admin, @alpha_ledger, from: "9" * 200).error
+  end
+
+  test "dates are in the app's time zone" do
+    @alpha_dues.update_columns(created_at: Time.utc(2026, 3, 11, 3, 30))
+    with_settings(time_zone: "America/Detroit") do
+      result = entries(:admin, @alpha_ledger, from: "2026-03-10", to: "2026-03-10")
+
+      assert_equal [ "Dues" ], remarks(result)
+      assert_equal "2026-03-10", result.value["items"].sole["date"]
+    end
+  end
 end

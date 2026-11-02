@@ -86,12 +86,14 @@ class Mcp::Tools::ListEvents < Mcp::Tool
     first = parse_date(from, "from")
     last = parse_date(to, "to")
     invalid_argument!("to can't be before from") if last < first
-    invalid_argument!("The window can be at most #{MAX_WINDOW_DAYS} days") if (last - first).to_i > MAX_WINDOW_DAYS
+    invalid_argument!("The window can be at most #{MAX_WINDOW_DAYS} days") if (last - first).to_i >= MAX_WINDOW_DAYS
 
     first.in_time_zone.beginning_of_day..last.in_time_zone.end_of_day
   end
 
   def parse_date(value, name)
+    raise Date::Error unless value.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
     Date.iso8601(value)
   rescue Date::Error
     invalid_argument!("#{name} must be a date like 2026-03-31")

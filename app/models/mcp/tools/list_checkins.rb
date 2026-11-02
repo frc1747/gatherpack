@@ -1,11 +1,14 @@
-# A person's check-ins in a date window, as the profile's Recent Activity
-# shows their events. The person is looked up in policy_scope(Person) and
+# A person's check-ins in a date window. No page lists a person's past
+# check-ins (the profile's Recent Activity lists only their upcoming events),
+# so the rule is the profile's: the person is looked up in policy_scope(Person) and
 # must pass PersonPolicy#show? (PeopleController#set_person, and
-# PersonPolicy#recent_activity? is an alias of show?). The page lists
-# policy_scope(@person.events), so only check-ins at events in
-# policy_scope(Event) are returned. CheckinPolicy::Scope returns every row and
+# PersonPolicy#recent_activity? is an alias of show?), and only check-ins at
+# events in policy_scope(Event) are returned, as that page restricts events
+# (policy_scope(@person.events)); anyone who can open such an event's page sees
+# who checked in. CheckinPolicy::Scope returns every row and
 # isn't used. The window is on the event's start time, from and to inclusive,
-# at most 366 days. Notes and field responses are left out.
+# at most 366 days. Notes, field responses and when a check-in was made are
+# left out: no page shows them.
 class Mcp::Tools::ListCheckins < Mcp::Tool
   MAX_WINDOW_DAYS = 366
 
@@ -36,10 +39,9 @@ class Mcp::Tools::ListCheckins < Mcp::Tool
               type: "object",
               properties: { id: { type: "string" }, name: { type: "string" }, start_time: { type: "string" } },
               required: %w[id name start_time]
-            },
-            checked_in_at: { type: "string" }
+            }
           },
-          required: %w[checkin_id event checked_in_at]
+          required: %w[checkin_id event]
         }
       },
       truncated: { type: "boolean" }
@@ -58,8 +60,7 @@ class Mcp::Tools::ListCheckins < Mcp::Tool
     list(checkins, limit: limit) do |checkin|
       {
         checkin_id: checkin.neat_id,
-        event: { id: checkin.event.neat_id, name: checkin.event.name, start_time: time_json(checkin.event.start_time) },
-        checked_in_at: time_json(checkin.created_at)
+        event: { id: checkin.event.neat_id, name: checkin.event.name, start_time: time_json(checkin.event.start_time) }
       }
     end
   end
@@ -71,12 +72,14 @@ class Mcp::Tools::ListCheckins < Mcp::Tool
     first = parse_date(from, "from")
     last = parse_date(to, "to")
     invalid_argument!("to can't be before from") if last < first
-    invalid_argument!("The window can be at most #{MAX_WINDOW_DAYS} days") if (last - first).to_i > MAX_WINDOW_DAYS
+    invalid_argument!("The window can be at most #{MAX_WINDOW_DAYS} days") if (last - first).to_i >= MAX_WINDOW_DAYS
 
     first.in_time_zone.beginning_of_day..last.in_time_zone.end_of_day
   end
 
   def parse_date(value, name)
+    raise Date::Error unless value.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
     Date.iso8601(value)
   rescue Date::Error
     invalid_argument!("#{name} must be a date like 2026-03-31")

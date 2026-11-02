@@ -82,6 +82,8 @@ class Mcp::Tools::LedgerEntries < Mcp::Tool
   end
 
   def parse_date(value, name)
+    raise Date::Error unless value.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
     Date.iso8601(value)
   rescue Date::Error
     invalid_argument!("#{name} must be a date like 2026-03-31")

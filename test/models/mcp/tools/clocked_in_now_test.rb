@@ -68,4 +68,29 @@ class Mcp::Tools::ClockedInNowTest < ActiveSupport::TestCase
   test "it is off with time tracking" do
     with_feature(:time_tracking, false) { assert_equal "Feature off", call_tool("clocked_in_now", user: user(:admin)).error }
   end
+
+  test "a punch that hasn't started is not listed" do
+    create_world_punch(person(:alpha_member), @alpha_period, 24 * 20, nil)
+
+    assert_equal [ "AlphaManager World", "BetaMember World" ], call_tool("clocked_in_now", user: user(:admin)).value["items"].map { |item| item["person"]["name"] }
+  end
+
+  test "a period the viewer can't see is not named" do
+    Membership.create!(person: person(:alpha_member), team: @beta)
+    create_world_punch(person(:alpha_member), @beta_period, 34, nil)
+    items = call_tool("clocked_in_now", user: user(:alpha_manager)).value["items"]
+    item = items.find { |i| i["person"]["name"] == "AlphaMember World" }
+
+    assert_nil item["period"]
+    assert_equal "Beta March", call_tool("clocked_in_now", user: user(:admin)).value["items"].find { |i| i["person"]["name"] == "AlphaMember World" }["period"]["name"]
+  end
+
+  test "a team filter includes members of its sub-teams" do
+    child = Team.create!(name: "Alpha Juniors", team_type: team_types(:one), parent: @alpha)
+    junior = create_world_person("Junior", child)
+    create_world_punch(junior, @everyone_period, 34, nil)
+    items = call_tool("clocked_in_now", user: user(:admin), team_id: @alpha.neat_id).value["items"]
+
+    assert_includes items.map { |item| item["person"]["name"] }, "Junior World"
+  end
 end

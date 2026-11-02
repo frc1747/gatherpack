@@ -10,15 +10,20 @@
 # policy_scope(Team) and people are the members of the team and its sub-teams.
 # Punches count by their start time, from and to inclusive, at most 366 days.
 # Each punch's hours are the page's own (punch.hours, rounded to 0.05 as the
-# page rounds them); an open punch counts to now (hours_so_far) and the person is
-# flagged clocked_in.
+# page rounds them). An open punch counts up to now or the end of `to`,
+# whichever is earlier, and sets open_in_window; that is about this window
+# only, clocked_in_now is the live answer. An open punch that hasn't started
+# yet (a start time in the future) is left out entirely. Hours come from every
+# period the viewer can see, not only the filtered team's.
 class Mcp::Tools::TimeClockHours < Mcp::Tool
   MAX_WINDOW_DAYS = 366
 
   tool_name "time_clock_hours"
   description "Hours on the time clock between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days apart) for one " \
-    "person or the members of one team, per person, counting only punches in time clock periods you can see. " \
-    "Open punches are counted up to now and flagged."
+    "person or the members of one team, per person, counting punches in all time clock periods you can see, " \
+    "not only that team's. An open punch that started in the window is counted up to now or the end of `to`, " \
+    "whichever is earlier, and sets open_in_window: that says something about this window only; " \
+    "use clocked_in_now to see who is clocked in at the moment."
   scope :read
   feature :time_tracking
   input_schema(
@@ -42,10 +47,10 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
             person: REF_SCHEMA,
             hours: { type: "number" },
             open_hours: { type: "number" },
-            clocked_in: { type: "boolean" },
+            open_in_window: { type: "boolean" },
             punches: { type: "integer" }
           },
-          required: %w[person hours open_hours clocked_in punches]
+          required: %w[person hours open_hours open_in_window punches]
         }
       },
       truncated: { type: "boolean" }
@@ -69,25 +74,27 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
 
     punches = ctx.policy_scope(TimeClockPunch)
       .where(time_clock_period_id: ctx.policy_scope(TimeClockPeriod).select(:id), start_time: window)
+      .where("time_clock_punches.end_time IS NOT NULL OR time_clock_punches.start_time <= ?", Time.current)
     people = people.where(id: punches.select(:person_id))
 
     result = list(people.order(:last_name, :first_name, :id), limit: limit) { |record| record }
     by_person = punches.where(person_id: result[:items].map(&:id)).group_by(&:person_id)
 
-    result.merge(items: result[:items].map { |record| hours_json_for(record, by_person.fetch(record.id, [])) })
+    result.merge(items: result[:items].map { |record| hours_json_for(record, by_person.fetch(record.id, []), window.end) })
   end
 
   private
 
-  def hours_json_for(person, punches)
+  def hours_json_for(person, punches, window_end)
     open, closed = punches.partition { |punch| punch.end_time.nil? }
     closed_hours = closed.sum(&:hours)
-    open_hours = open.sum(&:hours_so_far)
+    counted_until = [ Time.current, window_end ].min
+    open_hours = open.sum { |punch| ((counted_until - punch.start_time) / 3600 * 20).round / 20.0 }
     {
       person: person_json(person),
       hours: hours_json(closed_hours + open_hours),
       open_hours: hours_json(open_hours),
-      clocked_in: open.any?,
+      open_in_window: open.any?,
       punches: punches.size
     }
   end
@@ -97,12 +104,14 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
     first = parse_date(from, "from")
     last = parse_date(to, "to")
     invalid_argument!("to can't be before from") if last < first
-    invalid_argument!("The window can be at most #{MAX_WINDOW_DAYS} days") if (last - first).to_i > MAX_WINDOW_DAYS
+    invalid_argument!("The window can be at most #{MAX_WINDOW_DAYS} days") if (last - first).to_i >= MAX_WINDOW_DAYS
 
     first.in_time_zone.beginning_of_day..last.in_time_zone.end_of_day
   end
 
   def parse_date(value, name)
+    raise Date::Error unless value.match?(/\A\d{4}-\d{2}-\d{2}\z/)
+
     Date.iso8601(value)
   rescue Date::Error
     invalid_argument!("#{name} must be a date like 2026-03-31")

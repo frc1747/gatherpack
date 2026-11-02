@@ -72,8 +72,8 @@ class Mcp::Tools::ListEventsTest < ActiveSupport::TestCase
   end
 
   test "a window of more than 366 days is refused" do
-    assert_equal "The window can be at most 366 days", call_tool("list_events", user: user(:admin), from: "2025-01-01", to: "2026-01-03").error
-    assert_not call_tool("list_events", user: user(:admin), from: "2025-01-01", to: "2026-01-02").error?
+    assert_equal "The window can be at most 366 days", call_tool("list_events", user: user(:admin), from: "2025-01-01", to: "2026-01-02").error
+    assert_not call_tool("list_events", user: user(:admin), from: "2025-01-01", to: "2026-01-01").error?
   end
 
   test "bad dates and a reversed window are refused" do
@@ -87,5 +87,19 @@ class Mcp::Tools::ListEventsTest < ActiveSupport::TestCase
 
   test "it is off with the events feature" do
     with_feature(:events, false) { assert_equal "Feature off", list(:admin).error }
+  end
+
+  test "a partial or malformed date is refused" do
+    assert_equal "to must be a date like 2026-03-31", call_tool("list_events", user: user(:admin), from: "2026-03-01", to: "2026-03").error
+    assert_equal "from must be a date like 2026-03-31", call_tool("list_events", user: user(:admin), from: "9" * 200, to: "2026-03-31").error
+    assert_equal "from must be a date like 2026-03-31", call_tool("list_events", user: user(:admin), from: "20260301", to: "2026-03-31").error
+  end
+
+  test "the window is in the app's time zone" do
+    @alpha_event.update_columns(start_time: Time.utc(2026, 3, 11, 3, 30))
+    with_settings(time_zone: "America/Detroit") do
+      assert_equal [ "Alpha Meeting" ], names(call_tool("list_events", user: user(:admin), from: "2026-03-10", to: "2026-03-10"))
+      assert_equal [ "Beta Meeting" ], names(call_tool("list_events", user: user(:admin), from: "2026-03-11", to: "2026-03-11"))
+    end
   end
 end
