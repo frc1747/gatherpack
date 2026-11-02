@@ -22,7 +22,8 @@ class Mcp::Tools::GetPerson < Mcp::Tool
 
   tool_name "get_person"
   description "A person's profile as you can see it: name, contact details, bio, the teams they belong to " \
-    "(with whether they manage each), their badges and their relationships to other people."
+    "(with whether they manage each), their badges and their relationships to other people. " \
+    "Fields you can't see are left out; null means the field is empty."
   scope :read
   input_schema(properties: { person_id: { type: "string", description: "Person ID (per_...)" } }, required: [ "person_id" ])
   output_schema(
@@ -88,7 +89,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
     Mcp.person_filters.empty? && Person.method_defined?(:readable_fields_for)
   end
 
-  # Runs in a savepoint, as extensions_json does. The "|| []" covers a filter
+  # Runs in a savepoint, as extensions_json does. The "|| raise" covers a filter
   # raising ActiveRecord::Rollback, which the transaction swallows.
   def keys_kept_by(filter, person)
     ActiveRecord::Base.transaction(requires_new: true) do
@@ -96,7 +97,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
       raise TypeError, "returned #{keys.class}, not an Array" unless keys.is_a?(Array)
 
       keys.map(&:to_s)
-    end || []
+    end || raise("rolled back")
   rescue StandardError, ScriptError => e
     Rails.logger.error("[MCP] get_person filter failed (request #{ctx.request_id}): #{e.class}: #{e.message}")
     []

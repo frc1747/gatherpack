@@ -311,11 +311,14 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     assert_match(/filter failed.*StatementInvalid/, logged)
   end
 
-  test "a filter that raises Rollback omits the keys" do
+  test "a filter that raises Rollback omits the keys and is logged" do
     fill_profile(:ward)
     Mcp.person_filters << ->(_subject, _viewer) { raise ActiveRecord::Rollback }
+    result = nil
+    logged = capture_log { result = get(:alpha_member, :ward) }
 
-    assert_profile_without_fields(get(:alpha_member, :ward))
+    assert_profile_without_fields(result)
+    assert_match(/filter failed.*rolled back/, logged)
   end
 
   test "one failing filter omits the keys even when another keeps them" do
