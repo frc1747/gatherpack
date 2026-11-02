@@ -57,6 +57,17 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "signed out with the feature off is a 404 too" do
+    with_feature(:mcp, false) do
+      get mcp_calls_path
+      assert_response :not_found
+    end
+    with_feature(:oauth_provider, false) do
+      get mcp_calls_path
+      assert_response :not_found
+    end
+  end
+
   test "the setup page links to it for admins only" do
     sign_in user(:admin)
     get setup_path

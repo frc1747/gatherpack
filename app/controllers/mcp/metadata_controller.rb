@@ -14,7 +14,7 @@ class Mcp::MetadataController < ActionController::API
   end
 
   # Advertises PKCE and public clients ("none") only where they are enforced;
-  # see Mcp::RequirePkce.
+  # see Mcp::AuthorizationChecks.
   def authorization_server
     document = {
       issuer: request.base_url,

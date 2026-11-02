@@ -28,6 +28,152 @@ class McpPkceTest < ActionDispatch::IntegrationTest
     { code_challenge: CHALLENGE, code_challenge_method: "S256" }
   end
 
+  def assert_invalid_scope
+    assert_response :bad_request
+    assert_includes response.body, I18n.t("doorkeeper.errors.messages.invalid_scope")
+  end
+
+  def code_from_redirect
+    Rack::Utils.parse_query(URI(response.location).query).fetch("code")
+  end
+
+  def mcp_headers_for(token)
+    { "Authorization" => "Bearer #{token}", "Content-Type" => "application/json", "Accept" => "application/json, text/event-stream" }
+  end
+
+  def refresh_params(app, token, **extra)
+    { grant_type: "refresh_token", refresh_token: token.refresh_token, client_id: app.uid, client_secret: app.plaintext_secret }.merge(extra)
+  end
+
+  def refreshable_token(app, scopes)
+    Doorkeeper::AccessToken.create!(resource_owner_id: user(:alpha_member).id, application_id: app.id, scopes: scopes, expires_in: 2.hours, use_refresh_token: true)
+  end
+
+  # --- Which applications can ask for an MCP scope
+
+  test "an application with blank scopes can't ask for an MCP scope" do
+    blank = OauthApplication.create!(name: "Blank", redirect_uri: "https://client.example.com/callback", scopes: "", confidential: true)
+
+    with_pkce_supported(false) do
+      get "/oauth/authorize", params: authorize_params(blank, scope: "mcp_write")
+      assert_invalid_scope
+
+      assert_no_difference "Doorkeeper::AccessGrant.count" do
+        post "/oauth/authorize", params: authorize_params(blank, scope: "mcp_write")
+      end
+      assert_invalid_scope
+
+      get "/oauth/authorize", params: authorize_params(blank, scope: "user_read")
+      assert_response :success
+    end
+  end
+
+  test "an application whose scopes list only mcp_read can't ask for mcp_write" do
+    app = OauthApplication.create!(name: "Read only", redirect_uri: "https://client.example.com/callback", scopes: "mcp_read", confidential: true)
+
+    with_pkce_supported(false) do
+      get "/oauth/authorize", params: authorize_params(app, scope: "mcp_read mcp_write")
+      assert_invalid_scope
+
+      get "/oauth/authorize", params: authorize_params(app, scope: "mcp_read")
+      assert_response :success
+    end
+  end
+
+  test "with the feature off, MCP scopes are refused and other scopes unchanged" do
+    with_pkce_supported(false) do
+      with_feature(:mcp, false) do
+        get "/oauth/authorize", params: authorize_params(@confidential_app, scope: "mcp_read")
+        assert_invalid_scope
+
+        assert_no_difference "Doorkeeper::AccessGrant.count" do
+          post "/oauth/authorize", params: authorize_params(@confidential_app, scope: "mcp_read")
+        end
+        assert_invalid_scope
+
+        get "/oauth/authorize", params: authorize_params(@confidential_app, scope: "user_read")
+        assert_response :success
+      end
+    end
+  end
+
+  # --- How scope reaches the check
+
+  test "an omitted scope falls back to the default scope, or invalid_scope for an MCP-only application" do
+    mcp_only = OauthApplication.create!(name: "MCP only", redirect_uri: "https://client.example.com/callback", scopes: "mcp_read", confidential: true)
+
+    with_pkce_supported(false) do
+      get "/oauth/authorize", params: authorize_params(@public_app, scope: "").except(:scope)
+      assert_response :success
+      assert_includes response.body, "Read your profile"
+      assert_not_includes response.body, "AI assistant"
+
+      get "/oauth/authorize", params: authorize_params(mcp_only, scope: "").except(:scope)
+      assert_invalid_scope
+    end
+  end
+
+  test "an array or hash scope is dropped and grants no MCP scope" do
+    with_pkce_supported(false) do
+      [ [ "mcp_read" ], { a: "mcp_read" } ].each do |scope|
+        get "/oauth/authorize", params: authorize_params(@public_app, scope: scope)
+
+        assert_response :success
+        assert_includes response.body, "Read your profile"
+        assert_not_includes response.body, "AI assistant"
+      end
+    end
+  end
+
+  # Rails merges query parameters over the body, and the check and Doorkeeper
+  # both read params, so they can't be given different scopes.
+  test "the check and the grant see the same scope when query and body differ" do
+    with_pkce_supported(false) do
+      assert_no_difference "Doorkeeper::AccessGrant.count" do
+        post "/oauth/authorize?scope=mcp_read", params: authorize_params(@public_app, scope: "user_read")
+      end
+      assert_response :bad_request
+
+      post "/oauth/authorize?scope=user_read", params: authorize_params(@public_app, scope: "mcp_read")
+      assert_redirected_to(/code=/)
+      assert_equal "user_read", Doorkeeper::AccessGrant.by_token(code_from_redirect).scopes.to_s
+    end
+  end
+
+  # --- Refresh and code exchange can't widen
+
+  test "a refresh keeps the token working on /mcp" do
+    token = refreshable_token(@confidential_app, "mcp_read")
+
+    post "/oauth/token", params: refresh_params(@confidential_app, token)
+    assert_response :success
+    assert_equal "mcp_read", response.parsed_body["scope"]
+
+    post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json, headers: mcp_headers_for(response.parsed_body["access_token"])
+    assert_response :success
+  end
+
+  test "a refresh can't widen to an MCP scope or to writes" do
+    post "/oauth/token", params: refresh_params(@confidential_app, refreshable_token(@confidential_app, "user_read"), scope: "mcp_read")
+    assert_response :bad_request
+    assert_equal "invalid_scope", response.parsed_body["error"]
+
+    post "/oauth/token", params: refresh_params(@confidential_app, refreshable_token(@confidential_app, "mcp_read"), scope: "mcp_write")
+    assert_response :bad_request
+    assert_equal "invalid_scope", response.parsed_body["error"]
+  end
+
+  test "a scope on the code exchange is ignored" do
+    with_pkce_supported(false) do
+      post "/oauth/authorize", params: authorize_params(@confidential_app, scope: "mcp_read")
+      post "/oauth/token", params: { grant_type: "authorization_code", code: code_from_redirect, client_id: @confidential_app.uid,
+        client_secret: @confidential_app.plaintext_secret, redirect_uri: @confidential_app.redirect_uri, scope: "mcp_write" }
+    end
+
+    assert_response :success
+    assert_equal "mcp_read", response.parsed_body["scope"]
+  end
+
   # --- Grants table without PKCE columns
 
   test "unsupported: a public client asking for an MCP scope is refused" do
@@ -129,7 +275,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
   test "a confidential client's code exchange gives a token that works on /mcp" do
     with_pkce_supported(false) do
       post "/oauth/authorize", params: authorize_params(@confidential_app, scope: "mcp_read")
-      code = Rack::Utils.parse_query(URI(response.location).query).fetch("code")
+      code = code_from_redirect
 
       post "/oauth/token", params: { grant_type: "authorization_code", code: code, client_id: @confidential_app.uid,
         client_secret: @confidential_app.plaintext_secret, redirect_uri: @confidential_app.redirect_uri }

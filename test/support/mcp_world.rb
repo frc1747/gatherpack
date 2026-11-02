@@ -13,7 +13,7 @@
 # for each test, in a throwaway settings store. Turn it off again with
 # with_feature(:mcp, false) { }.
 #
-#   call_tool("search_people", user: user(:admin), query: "World")  # => Mcp::Tool::Result
+#   call_tool("search_people", user: user(:admin), query: "World")   # => Mcp::Tool::Result
 #   mcp_post(mcp_token(user(:admin)), "tools/list")                  # => parsed JSON-RPC response
 module McpWorld
   def self.included(base)
@@ -50,13 +50,28 @@ module McpWorld
   end
 
   # Runs a tool the way the server does (scope, feature and argument checks,
-  # call log) and returns its Mcp::Tool::Result. A successful result is
-  # checked against the tool's output schema.
-  def call_tool(name, user:, scopes: "mcp_read", **arguments)
+  # time zone, audit user, call log) and returns its Mcp::Tool::Result.
+  #
+  # By default the token has the tool's own scope and a write tool has writes
+  # switched on, so a refusal comes from the tool's permission check. To test
+  # those two gates, pass scopes: or writes_enabled: false.
+  #
+  # Fails the test if a successful result doesn't match the tool's output
+  # schema, or a successful write tool didn't call changed!.
+  def call_tool(name, user:, scopes: nil, writes_enabled: nil, **arguments)
     tool = Mcp.tool(name) || flunk("No MCP tool #{name}")
-    result = tool.run(mcp_context(user, scopes: scopes), arguments)
-    if !result.error? && tool.output_schema
-      MCP::Tool::OutputSchema.new(tool.output_schema).validate_result(result.value)
+    scopes ||= tool.write? ? "mcp_write" : "mcp_read"
+    writes_enabled = true if writes_enabled.nil? && tool.write?
+    context = mcp_context(user, scopes: scopes)
+    result = if writes_enabled.nil?
+      tool.run(context, arguments)
+    else
+      with_settings(mcp_write_enabled: writes_enabled.to_s) { tool.run(context, arguments) }
+    end
+
+    unless result.error?
+      MCP::Tool::OutputSchema.new(tool.output_schema).validate_result(result.value) if tool.output_schema
+      flunk("MCP write tool #{name} succeeded without calling changed!") if tool.write? && result.changed.nil?
     end
     result
   end

@@ -1,6 +1,7 @@
 # The MCP call log (admins). 404 while the MCP feature is off.
 class Mcp::CallsController < InternalController
-  before_action { head :not_found unless Mcp::Access.enabled? }
+  # Prepended so signed-out requests get the 404 too, not the sign-in redirect.
+  prepend_before_action { head :not_found unless Mcp::Access.enabled? }
 
   def index
     authorize McpToolCall

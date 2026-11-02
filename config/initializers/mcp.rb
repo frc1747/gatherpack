@@ -23,8 +23,7 @@ Rails.application.config.to_prepare do
     )
   )
 
-  # Settings.register comes from a fork branch this one doesn't depend on;
-  # fall back to Settings' own add_setting (same argument order).
+  # Settings.register may not exist; fall back to add_setting (same argument order).
   register_setting = lambda do |*args|
     if Settings.respond_to?(:register)
       Settings.register(*args)
@@ -44,7 +43,7 @@ Rails.application.config.to_prepare do
     Doorkeeper.config.scopes.add(scope)
   end
 
-  Doorkeeper::AuthorizationsController.include(Mcp::RequirePkce)
+  Doorkeeper::AuthorizationsController.include(Mcp::AuthorizationChecks)
 
   # Core tools, one line each, in the order tools/list shows them.
   Mcp.reset!

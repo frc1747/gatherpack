@@ -1,7 +1,8 @@
 # Answers one stateless MCP request: builds an MCP SDK server (the `mcp` gem's
-# MCP::Server) holding only the tools ctx may call, and hands it the request. tools/list therefore lists only those tools, and calling any other
-# tool is an "Invalid params" protocol error (data: "Tool not found"); a
-# registered tool refused that way is still logged as denied.
+# MCP::Server) holding only the tools ctx may call, and hands it the request.
+# tools/list therefore lists only those tools, and calling any other tool is
+# an "Invalid params" protocol error (data: "Tool not found"); a registered
+# tool refused that way is still logged as denied.
 class Mcp::Server
   INSTRUCTIONS = "GatherPack data, read and changed as the signed-in member, within their permissions. " \
     "Records are identified by neat IDs with a type prefix (per_ person, tm_ team, bdg_ badge, evt_ event); " \
@@ -62,16 +63,16 @@ class Mcp::Server
 
     arguments = params["arguments"].is_a?(Hash) ? params["arguments"] : {}
     result = unrun_result(tool, arguments)
-    Mcp::CallLog.record(ctx: ctx, tool: tool.tool_name, arguments: arguments, result: result) if result
+    Mcp::CallLog.record(ctx: ctx, tool: tool, arguments: arguments, result: result) if result
   rescue JSON::ParserError, EncodingError
     nil
   end
 
   def unrun_result(tool, arguments)
     if tools.exclude?(tool)
-      Mcp::Tool::Result.new(value: nil, error: "Not available to this token", outcome: :denied)
+      Mcp::Tool::Result.new(error: "Not available to this token", outcome: :denied)
     elsif tool.missing_arguments(arguments).any?
-      Mcp::Tool::Result.new(value: nil, error: "Missing required arguments: #{tool.missing_arguments(arguments).join(", ")}", outcome: :error)
+      Mcp::Tool::Result.new(error: "Missing required arguments: #{tool.missing_arguments(arguments).join(", ")}", outcome: :error)
     end
   end
 end

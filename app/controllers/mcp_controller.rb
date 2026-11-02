@@ -14,9 +14,7 @@ class McpController < ActionController::API
 
   def create
     ctx = Mcp::Context.new(user: @user, scopes: @token.scopes.to_a, application: @token.application, request_id: request.request_id)
-    status, headers, body = PaperTrail.request(whodunnit: @user.id) do
-      Time.use_zone(Settings[:time_zone].presence || "UTC") { Mcp::Server.new(ctx).handle(request) }
-    end
+    status, headers, body = Mcp::Server.new(ctx).handle(request)
     # The transport only answers with a stream for subscriptions, which this server doesn't offer.
     return render_jsonrpc_error(:method_not_allowed, "Streams aren't supported") unless body.respond_to?(:each)
 

@@ -59,6 +59,11 @@ module Mcp
 
   class DuplicateTool < StandardError; end
 
+  # A mistake in a tool's code, such as relying on a default-true policy.
+  # Mcp::Tool.run logs it and raises it again rather than turning it into a
+  # tool result, so the tool fails in every test that reaches it.
+  class ToolBug < ArgumentError; end
+
   SCOPES = %w[mcp_read mcp_write].freeze
 
   @tools = {}
@@ -67,6 +72,8 @@ module Mcp
     def register_tool(klass)
       name = klass.tool_name.to_s
       raise ArgumentError, "#{klass} has no tool_name" if name.blank?
+      raise ArgumentError, "MCP tool #{name} must declare a description" if klass.description.blank?
+      raise ArgumentError, "MCP tool #{name} must declare a scope (:read or :write)" if klass.scope.nil?
       raise DuplicateTool, "MCP tool #{name} is already registered" if @tools.key?(name)
 
       @tools[name] = klass
@@ -104,9 +111,21 @@ module Mcp
       GatherPack::Features.all.any? { |feature| feature.key == key }
     end
 
-    # Looks a record up by neat ID within scope (a relation or a model).
-    # Returns nil for a blank or malformed ID, an ID with another model's
-    # prefix, or a record outside scope.
+    # Whether a JSON value holds a NUL character at any depth. Postgres can't
+    # store one in jsonb or text.
+    def contains_nul?(value)
+      case value
+      when String then value.include?("\0")
+      when Hash then value.any? { |key, item| contains_nul?(key.to_s) || contains_nul?(item) }
+      when Array then value.any? { |item| contains_nul?(item) }
+      else false
+      end
+    end
+
+    # Looks a record up by neat ID within scope (a relation or a model),
+    # applying no policy: tools use Mcp::Context#find, which does. Returns nil
+    # for a blank or malformed ID, an ID with another model's prefix, or a
+    # record outside scope.
     def find_by_neat_id(scope, neat_id)
       klass = scope.is_a?(Class) ? scope : scope.klass
       return nil unless neat_id.is_a?(String) && klass.respond_to?(:_neat_id) && klass._neat_id

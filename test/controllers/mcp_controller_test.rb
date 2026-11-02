@@ -48,12 +48,42 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.headers["WWW-Authenticate"], "resource_metadata="
   end
 
-  test "an expired or revoked token gets 401" do
+  test "a revoked token gets 401" do
     token = mcp_token(user(:admin))
     token.revoke
     mcp_post(token, "tools/list")
 
     assert_response :unauthorized
+    assert_includes response.headers["WWW-Authenticate"], %(error="invalid_token")
+  end
+
+  test "an expired token gets 401" do
+    token = mcp_token(user(:admin))
+    token.update!(created_at: 3.hours.ago)
+    mcp_post(token, "tools/list")
+
+    assert_response :unauthorized
+    assert_includes response.headers["WWW-Authenticate"], %(error="invalid_token")
+  end
+
+  # The test env's null_store can't count, so the store's answer is stubbed.
+  test "over the rate limit gets 429, keyed by token" do
+    token = mcp_token(user(:admin))
+    keys = []
+    store = McpController.cache_store
+    store.define_singleton_method(:increment) do |key, *, **|
+      keys << key
+      121
+    end
+    begin
+      body = mcp_post(token, "tools/list")
+    ensure
+      store.singleton_class.send(:remove_method, :increment)
+    end
+
+    assert_response :too_many_requests
+    assert_equal "Too many requests", body.dig("error", "message")
+    assert_equal [ "rate-limit:mcp:#{token.id}" ], keys
   end
 
   test "a token with no resource owner gets 401, even with a signed-in session" do
@@ -320,6 +350,45 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Missing required arguments: query/, log.error_message)
   end
 
+  test "a NUL in a junk argument can't keep a call out of the log" do
+    with_tool(WRITE_TOOL) do
+      with_settings(mcp_write_enabled: "true") do
+        assert_difference "McpToolCall.count", 1 do
+          assert_no_difference "BadgeAssignment.count" do
+            body = mcp_post(mcp_token(user(:admin), scopes: "mcp_write"), "tools/call",
+              { name: "test_assign_badge", arguments: { person_id: person(:alpha_member).neat_id, badge_id: @access_badge.neat_id, note: "\u0000" } })
+            assert_equal true, body.dig("result", "isError")
+          end
+        end
+      end
+    end
+  end
+
+  test "a large junk argument isn't stored" do
+    assert_difference "McpToolCall.count", 1 do
+      mcp_post(mcp_token(user(:admin)), "tools/call", { name: "whoami", arguments: { junk: "x" * 100_000 } })
+    end
+
+    assert_response :success
+    assert_equal({}, McpToolCall.order(:created_at).last.arguments)
+  end
+
+  test "a tool bug over HTTP is a generic internal error" do
+    tool = Class.new(Mcp::Tool) do
+      tool_name "test_http_bug"
+      description "Test tool"
+      scope :read
+      define_method(:call) { { rows: ctx.policy_scope(Checkin).count } }
+    end
+    with_tool(tool) do
+      body = mcp_post(mcp_token(user(:admin)), "tools/call", { name: "test_http_bug" })
+
+      assert_equal(-32603, body.dig("error", "code"))
+      assert_not_includes response.body, "CheckinPolicy"
+      assert_equal "error", McpToolCall.order(:created_at).last.outcome
+    end
+  end
+
   test "a call whose schema check fails is logged once" do
     assert_difference "McpToolCall.count", 1 do
       body = mcp_post(mcp_token(user(:admin)), "tools/call", { name: "search_people", arguments: { query: "a", limit: 0 } })
@@ -331,6 +400,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     tool = Class.new(Mcp::Tool) do
       tool_name "test_boom"
       description "Test tool"
+      scope :read
       define_method(:call) { raise "secret detail" }
     end
     with_tool(tool) do
@@ -345,6 +415,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     tool = Class.new(Mcp::Tool) do
       tool_name "test_zone"
       description "Test tool"
+      scope :read
       define_method(:call) { { zone: Time.zone.name } }
     end
     with_tool(tool) do

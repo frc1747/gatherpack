@@ -4,15 +4,15 @@
 #
 #   class Mcp::Tools::SearchPeople < Mcp::Tool
 #     tool_name "search_people"
-#     description "Find people by name."
-#     scope :read                 # or :write
+#     description "Find people by name."  # required
+#     scope :read                 # or :write; required
 #     feature :badges             # GatherPack feature key(s) that must be on; omit for core
 #     input_schema(properties: { query: { type: "string" } }, required: [ "query" ])
 #     output_schema(...)          # optional, describes what #call returns
 #
 #     def call(query:)
 #       people = ctx.policy_scope(Person) ...
-#       list(people, limit: 25) { |person| person_json(person) }
+#       list(people.order(:last_name, :id), limit: 25) { |person| person_json(person) }
 #     end
 #   end
 #
@@ -22,6 +22,11 @@
 # tool error; a Pundit::NotAuthorizedError becomes "Not allowed". Any other
 # exception is logged with the request id and returned as "Internal error".
 # A write tool calls changed!(record) so the call log records what changed.
+# ctx.policy_scope, ctx.authorize! and list raise Mcp::ToolBug for a check that
+# wouldn't protect anything; that isn't a tool result, it fails the test.
+#
+# Tools run in the app's time zone with the token's user as the audit log user.
+# Format values with time_json, date_json, hours_json and money_json.
 #
 # Tools don't use the MCP SDK directly: Mcp::Server adapts them with to_sdk.
 class Mcp::Tool
@@ -36,8 +41,13 @@ class Mcp::Tool
   }.freeze
 
   # The outcome of one call. value is the JSON-ready result (string keys),
-  # error the message returned when the call failed.
-  Result = Data.define(:value, :error, :outcome) do
+  # error the message returned when the call failed, changed the record a
+  # write tool changed.
+  Result = Data.define(:value, :error, :outcome, :changed) do
+    def initialize(outcome:, value: nil, error: nil, changed: nil)
+      super
+    end
+
     def error?
       !error.nil?
     end
@@ -61,7 +71,7 @@ class Mcp::Tool
     end
 
     def scope(value = nil)
-      return @scope || :read if value.nil?
+      return @scope if value.nil?
       raise ArgumentError, "scope must be :read or :write" unless %i[read write].include?(value)
 
       @scope = value
@@ -99,7 +109,7 @@ class Mcp::Tool
     end
 
     def annotations
-      { read_only_hint: !write?, destructive_hint: destructive?, idempotent_hint: !write?, open_world_hint: false }
+      { read_only_hint: scope == :read, destructive_hint: destructive?, idempotent_hint: scope == :read, open_world_hint: false }
     end
 
     # Input schema property for a list limit.
@@ -121,28 +131,33 @@ class Mcp::Tool
     end
 
     # Runs the tool for ctx with arguments as the client sent them, logs the
-    # call, and returns a Result.
+    # call, and returns a Result. An Mcp::ToolBug is logged and raised again.
     def run(ctx, arguments)
       arguments = (arguments || {}).to_h.deep_stringify_keys
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       tool = new(ctx)
-      result = begin
+      bug = nil
+      result = ctx.in_request do
         raise problem(ctx) if problem(ctx)
 
         validate_arguments!(arguments)
         value = tool.call(**arguments.slice(*argument_names).symbolize_keys)
-        Result.new(value: value.as_json, error: nil, outcome: :ok)
+        Result.new(value: value.as_json, outcome: :ok)
       rescue Mcp::Error => e
-        Result.new(value: nil, error: e.message, outcome: e.outcome)
+        Result.new(error: e.message, outcome: e.outcome)
       rescue Pundit::NotAuthorizedError
-        Result.new(value: nil, error: "Not allowed", outcome: :denied)
+        Result.new(error: "Not allowed", outcome: :denied)
       rescue => e
         Rails.logger.error("[MCP] #{tool_name} failed (request #{ctx.request_id}): #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
-        Result.new(value: nil, error: "Internal error", outcome: :error)
+        bug = e if e.is_a?(Mcp::ToolBug)
+        Result.new(error: "Internal error", outcome: :error)
       end
+      result = result.with(changed: tool.changed_record)
 
-      Mcp::CallLog.record(ctx: ctx, tool: tool_name, arguments: arguments, result: result, changed: tool.changed_record,
+      Mcp::CallLog.record(ctx: ctx, tool: self, arguments: arguments, result: result,
         duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round)
+      raise bug if bug
+
       result
     end
 
@@ -173,6 +188,8 @@ class Mcp::Tool
     end
 
     def validate_arguments!(arguments)
+      raise Mcp::InvalidArgument, "Arguments can't contain NUL characters" if Mcp.contains_nul?(arguments)
+
       missing = missing_arguments(arguments)
       raise Mcp::InvalidArgument, "Missing required arguments: #{missing.join(", ")}" if missing.any?
 
@@ -218,9 +235,34 @@ class Mcp::Tool
     { id: team.neat_id, name: team.name }
   end
 
-  # The first limit records of relation (already ordered) as
-  # { items:, truncated: }, each item built by the block.
+  # ISO 8601 in the app's time zone.
+  def time_json(time)
+    time&.in_time_zone&.iso8601
+  end
+
+  # YYYY-MM-DD; a time is taken in the app's time zone.
+  def date_json(date)
+    date&.in_time_zone&.to_date&.iso8601
+  end
+
+  # Decimal hours, rounded to 0.01.
+  def hours_json(hours)
+    hours&.to_f&.round(2)
+  end
+
+  # A Money or integer cents as { cents:, formatted: }.
+  def money_json(amount)
+    return nil if amount.nil?
+
+    money = amount.is_a?(Money) ? amount : Money.new(amount)
+    { cents: money.cents, formatted: money.format }
+  end
+
+  # The first limit records of relation as { items:, truncated: }, each item
+  # built by the block. The relation must be ordered, so pages are stable.
   def list(relation, limit:, &block)
+    raise Mcp::ToolBug, "#{self.class} must order the relation it lists" if relation.order_values.empty?
+
     limit = limit.to_i.clamp(1, MAX_LIMIT)
     records = relation.limit(limit + 1).to_a
     { items: records.first(limit).map(&block), truncated: records.size > limit }
