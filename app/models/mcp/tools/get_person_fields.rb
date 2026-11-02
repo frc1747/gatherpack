@@ -1,0 +1,73 @@
+# One person's custom profile fields, as the profile page shows them to this
+# viewer: the person must be in policy_scope(Person) and PersonPolicy#show?
+# must allow it (as get_person does), then only the fields in
+# person.readable_fields_for(viewer) with show_on_profile set, which is what
+# people/_fields renders (PersonPolicy#readable_person_fields). That covers
+# each read level, guardianship, and badge grants. Values are returned as
+# stored for the field's type; a field with no value is null. The built-in
+# contact and detail fields are included under their sections when the viewer
+# may read them, as on the page. Needs the person_fields feature.
+#
+# get_person adds the same groups as its "fields" key through
+# Mcp.person_extensions (see config/initializers/mcp_person_fields.rb).
+class Mcp::Tools::GetPersonFields < Mcp::Tool
+  tool_name "get_person_fields"
+  description "A person's custom profile fields that you can see, grouped by section, each with its type and value."
+  scope :read
+  feature :person_fields
+  input_schema(properties: { person_id: { type: "string", description: "Person ID (per_...)" } }, required: [ "person_id" ])
+  output_schema(
+    type: "object",
+    properties: {
+      person: Mcp::Tool::REF_SCHEMA,
+      groups: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: %w[string null], description: "Section name; null for fields outside any section" },
+            fields: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  key: { type: "string" },
+                  name: { type: "string" },
+                  type: { type: "string" },
+                  value: { description: "null when empty; a list for multi_select; YYYY-MM-DD for date" }
+                },
+                required: %w[key name type value]
+              }
+            }
+          },
+          required: %w[name fields]
+        }
+      }
+    },
+    required: %w[person groups]
+  )
+
+  # The groups for a person the viewer may already see. Shared with the
+  # get_person extension. Viewer is a Person.
+  def self.groups_for(person, viewer)
+    fields = person.readable_fields_for(viewer).select(&:show_on_profile)
+    rows = person.person_field_values.index_by(&:person_field_id)
+    fields.group_by(&:person_field_group).map do |group, group_fields|
+      { name: group&.name, fields: group_fields.map { |field| field_json(person, field, rows) } }
+    end
+  end
+
+  def self.field_json(person, field, rows)
+    value = field.system? ? person.field_value(field) : field.cast(rows[field.id]&.value)
+    value = value.iso8601 if value.is_a?(Date)
+    value = nil if value == []
+    { key: field.key, name: field.name, type: field.data_type, value: value }
+  end
+
+  def call(person_id:)
+    person = ctx.find(Person, person_id)
+    ctx.authorize!(person, :show?)
+
+    { person: person_json(person), groups: self.class.groups_for(person, ctx.person) }
+  end
+end
