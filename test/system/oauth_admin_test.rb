@@ -17,6 +17,7 @@ class OauthAdminTest < ApplicationSystemTestCase
     visit new_oauth_application_path
     fill_in "Name", with: "Clipboard App"
     fill_in "oauth_application_redirect_uri", with: "https://example.com/callback"
+    check "oauth_application_selected_scopes_user_read"
     click_on "Create"
     assert_text "This secret will not be shown again"
     @secret = secret_source.text
@@ -86,6 +87,37 @@ class OauthAdminTest < ApplicationSystemTestCase
 
     assert_text "OAuth application was successfully destroyed."
     assert_no_text "Clipboard App"
+  end
+
+  test "browser Back doesn't bring the secret back" do
+    click_on "Back to OAuth Applications"
+    assert_text "OAuth Applications"
+    assert_no_text @secret
+
+    page.go_back
+
+    assert_text "Clipboard App"
+    assert_text "Client ID"
+    assert_no_text @secret
+    assert_no_text "This secret will not be shown again"
+  end
+
+  test "a request just under the limit survives the different-account control" do
+    application = OauthApplication.find_by!(name: "Clipboard App")
+    other = User.create!(email: "just-under-other@example.com", password: "Password1!")
+    base = oauth_authorization_path(client_id: application.uid, redirect_uri: "https://example.com/callback", response_type: "code")
+    request_path = "#{base}&state=#{"x" * (OauthAuthorizationReturn::MAX_STORED_BYTES - "#{base}&state=".to_json.bytesize)}"
+    visit request_path
+    assert_text "Signed in as"
+
+    click_on "Use a different account"
+    assert_current_path new_user_session_path
+    fill_in "Email", with: other.email
+    fill_in "Password", with: "Password1!"
+    click_on "Sign in"
+
+    assert_text "Signed in as #{other.email}"
+    assert_equal "/oauth/authorize", URI(current_url).path
   end
 
   test "the secret appears once on the page" do

@@ -4,6 +4,6 @@
 <div class="form-inputs">
   <%= f.input :name %>
   <%= f.input :redirect_uri, hint: "You can add more than one. Separate them with a space or a new line." %>
-  <%= f.input :selected_scopes, as: :check_boxes, collection: Doorkeeper.configuration.scopes %>
+  <%= f.input :selected_scopes, as: :check_boxes, collection: Doorkeeper.configuration.scopes.to_a | f.object.selected_scopes, error: f.object.errors[:selected_scopes].first %>
   <%= f.input :confidential %>
 </div>

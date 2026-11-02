@@ -42,6 +42,21 @@ class Doorkeeper::AuthorizationsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an application already without scopes still authorizes until it's edited" do
+    @application.update_columns(scopes: "")
+    sign_in @user
+
+    get authorize_path("https://one.example.com/callback")
+    assert_response :success
+
+    assert_difference -> { Doorkeeper::AccessGrant.count } do
+      post oauth_authorization_path, params: {
+        client_id: @application.uid, redirect_uri: "https://one.example.com/callback", response_type: "code", scope: "user_read"
+      }
+    end
+    assert_match %r{\Ahttps://one\.example\.com/callback\?code=}, response.location
+  end
+
   test "a redirect URI that isn't registered is refused" do
     sign_in @user
     get authorize_path("https://evil.example.com/callback")
@@ -97,8 +112,67 @@ class Doorkeeper::AuthorizationsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_url
   end
 
+  test "the limit counts the bytes stored, not the bytes in the link" do
+    fits = authorize_path_stored_at(OauthAuthorizationReturn::MAX_STORED_BYTES)
+    too_long = authorize_path_stored_at(OauthAuthorizationReturn::MAX_STORED_BYTES + 1)
+
+    assert OauthAuthorizationReturn.accepts?(fits)
+    assert_not OauthAuthorizationReturn.accepts?(too_long)
+    assert_not OauthAuthorizationReturn.accepts?("#{oauth_authorization_path}?#{"&" * 800}")
+    assert_not OauthAuthorizationReturn.accepts?("#{oauth_authorization_path}?x=\xFF")
+  end
+
+  test "a link that would overflow the session cookie still reaches sign-in" do
+    user = User.create!(email: "ampersands@example.com", password: "Password1!")
+
+    [ "&k=v" * 300, "&" * 800 ].each do |junk|
+      get "#{authorize_path("https://one.example.com/callback")}#{junk}"
+
+      assert_redirected_to new_user_session_url
+      assert_session_cookie_fits
+    end
+
+    post user_session_path, params: { user: { email: user.email, password: "Password1!" } }
+    assert_redirected_to root_url
+  end
+
+  test "a link just under the limit returns after signing in" do
+    user = User.create!(email: "just-under@example.com", password: "Password1!")
+
+    [ :state, :ampersands ].each do |padding|
+      request_path = authorize_path_stored_at(OauthAuthorizationReturn::MAX_STORED_BYTES, padding: padding)
+
+      get request_path
+      assert_redirected_to new_user_session_url
+      assert_session_cookie_fits
+
+      post user_session_path, params: { user: { email: user.email, password: "Password1!" } }
+      assert_redirected_to "http://localhost#{request_path}"
+      assert_session_cookie_fits
+
+      sign_out user
+    end
+  end
+
+  test "a link just under the limit returns through the different-account control" do
+    other = User.create!(email: "just-under-other@example.com", password: "Password1!")
+    request_path = authorize_path_stored_at(OauthAuthorizationReturn::MAX_STORED_BYTES, padding: :ampersands)
+    sign_in @user
+
+    delete destroy_user_session_path, params: { oauth_return_to: request_path }
+    assert_redirected_to "http://localhost#{request_path}"
+    assert_session_cookie_fits
+
+    follow_redirect!
+    assert_redirected_to new_user_session_url
+    assert_session_cookie_fits
+
+    post user_session_path, params: { user: { email: other.email, password: "Password1!" } }
+    assert_redirected_to "http://localhost#{request_path}"
+  end
+
   test "an authorization request too long for the session isn't stored" do
-    long_path = authorize_path("https://one.example.com/callback", state: "x" * OauthAuthorizationReturn::MAX_LENGTH)
+    long_path = authorize_path_stored_at(OauthAuthorizationReturn::MAX_STORED_BYTES + 1)
     user = User.create!(email: "long@example.com", password: "Password1!")
 
     get long_path
@@ -146,6 +220,8 @@ class Doorkeeper::AuthorizationsControllerTest < ActionDispatch::IntegrationTest
     [
       "https://evil.example.com/oauth/authorize",
       "//evil.example.com/oauth/authorize",
+      "///oauth/authorize",
+      "////oauth/authorize",
       "http://localhost/oauth/authorize",
       "/people",
       "/oauth/authorize/native",
@@ -177,6 +253,28 @@ class Doorkeeper::AuthorizationsControllerTest < ActionDispatch::IntegrationTest
 
   def authorize_path(redirect_uri, **extra)
     oauth_authorization_path(client_id: @application.uid, redirect_uri: redirect_uri, response_type: "code", scope: "user_read", **extra)
+  end
+
+  def authorize_path_stored_at(bytes, padding: :state)
+    base = authorize_path("https://one.example.com/callback")
+
+    case padding
+    when :state
+      path = "#{base}&state=#{"x" * (bytes - "#{base}&state=".to_json.bytesize)}"
+    when :ampersands
+      filler = "&k=v" * ((bytes - base.to_json.bytesize) / "&k=v".to_json.delete('"').bytesize)
+      path = "#{base}#{filler}"
+      path += "x" * (bytes - path.to_json.bytesize)
+    end
+
+    assert_equal bytes, path.to_json.bytesize
+    path
+  end
+
+  def assert_session_cookie_fits
+    Array(response.headers["Set-Cookie"]).flat_map { |header| header.split("\n") }.each do |cookie|
+      assert_operator cookie.bytesize, :<, 4096
+    end
   end
 
   def with_forgery_protection

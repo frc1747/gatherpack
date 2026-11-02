@@ -96,7 +96,7 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
 
   test "show offers a copy button for the secret without repeating it in an attribute" do
     sign_in @admin
-    post oauth_applications_path, params: { oauth_application: { name: "New App", redirect_uri: "https://example.com/new" } }
+    post oauth_applications_path, params: { oauth_application: { name: "New App", redirect_uri: "https://example.com/new", selected_scopes: [ "", "user_read" ] } }
     secret = flash[:client_secret]
     assert_predicate secret, :present?
     follow_redirect!
@@ -109,6 +109,18 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
     assert_select "button[type=button][data-action='clipboard#copy'][aria-label='Copy Client Secret']", text: "Copy"
     assert_select "[data-clipboard-text-value]", count: 0
     assert_select "button[value=?]", secret, count: 0
+  end
+
+  test "the page isn't cached by Turbo while the secret is on it" do
+    sign_in @admin
+    post oauth_applications_path, params: { oauth_application: { name: "New App", redirect_uri: "https://example.com/new", selected_scopes: [ "", "user_read" ] } }
+    follow_redirect!
+
+    assert_select "head meta[name=turbo-cache-control][content=no-cache]"
+
+    get response.request.path
+    assert_response :success
+    assert_select "meta[name=turbo-cache-control]", count: 0
   end
 
   test "show offers a copy button for the client id and no secret after the first view" do
@@ -127,6 +139,87 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select ".oauth_application_redirect_uri", text: /Separate them with a space or a new line/
+  end
+
+  test "creating an application with no scopes is refused" do
+    sign_in @admin
+
+    assert_no_difference -> { OauthApplication.count } do
+      post oauth_applications_path, params: { oauth_application: { name: "No Scopes", redirect_uri: "https://example.com/new", selected_scopes: [ "" ] } }
+    end
+
+    assert_response :unprocessable_entity
+    assert_select ".oauth_application_selected_scopes .invalid-feedback", text: "Choose at least one scope."
+  end
+
+  test "unticking every scope on edit is refused and leaves the stored scopes alone" do
+    sign_in @admin
+
+    patch oauth_application_path(@application), params: { oauth_application: { name: "Renamed", selected_scopes: [ "" ] } }
+
+    assert_response :unprocessable_entity
+    assert_select ".oauth_application_selected_scopes .invalid-feedback", text: "Choose at least one scope."
+    @application.reload
+    assert_equal "Scoped App", @application.name
+    assert_equal %w[user_read teams_read], @application.scopes.to_a
+  end
+
+  test "an application already without scopes must choose some when edited" do
+    @application.update_columns(scopes: "")
+    sign_in @admin
+
+    patch oauth_application_path(@application), params: { oauth_application: { name: "Renamed", selected_scopes: [ "" ] } }
+    assert_response :unprocessable_entity
+    assert_equal "Scoped App", @application.reload.name
+
+    patch oauth_application_path(@application), params: { oauth_application: { name: "Renamed", selected_scopes: [ "", "user_read" ] } }
+    assert_redirected_to oauth_application_path(@application)
+    assert_equal %w[user_read], @application.reload.scopes.to_a
+  end
+
+  test "the edit page ticks a stored scope that is no longer configured" do
+    @application.update!(scopes: "user_read legacy_scope")
+    sign_in @admin
+    get edit_oauth_application_path(@application)
+
+    assert_response :success
+    assert_select "input[type=checkbox][value=user_read][checked]"
+    assert_select "input[type=checkbox][value=legacy_scope][checked]"
+    assert_select "input[type=checkbox][value=teams_read]:not([checked])"
+  end
+
+  test "saving unchanged keeps stored scopes that are no longer configured" do
+    [ "user_read legacy_scope", "legacy_only" ].each do |stored|
+      @application.update!(scopes: stored)
+      sign_in @admin
+      get edit_oauth_application_path(@application)
+      ticked = css_select("input[type=checkbox][name='oauth_application[selected_scopes][]'][checked]").map { |box| box["value"] }
+
+      patch oauth_application_path(@application), params: { oauth_application: { name: "Renamed", selected_scopes: [ "" ] + ticked } }
+
+      assert_redirected_to oauth_application_path(@application)
+      assert_equal stored.split.sort, @application.reload.scopes.to_a.sort
+    end
+  end
+
+  test "a stored scope that is no longer configured can be unticked" do
+    @application.update!(scopes: "user_read legacy_scope")
+    sign_in @admin
+
+    patch oauth_application_path(@application), params: { oauth_application: { name: "Scoped App", selected_scopes: [ "", "user_read" ] } }
+
+    assert_equal %w[user_read], @application.reload.scopes.to_a
+  end
+
+  test "conditions on columns that aren't allowlisted are ignored" do
+    sign_in @admin
+
+    { secret_start: "no-such-secret", uid_cont: "no-such-uid", redirect_uri_cont: "no-such-uri" }.each do |condition, value|
+      get oauth_applications_path, params: { q: { condition => value } }
+
+      assert_response :success
+      assert_select "a[href=?]", oauth_application_path(@application), text: "Scoped App"
+    end
   end
 
   test "the edit page ticks the scopes the application has" do
@@ -150,15 +243,6 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
     @application.reload
     assert_equal "Renamed", @application.name
     assert_equal %w[user_read teams_read], @application.scopes.to_a
-  end
-
-  test "unticking every scope clears them" do
-    sign_in @admin
-
-    patch oauth_application_path(@application), params: { oauth_application: { name: "Scoped App", selected_scopes: [ "" ] } }
-
-    assert_redirected_to oauth_application_path(@application)
-    assert_empty @application.reload.scopes.to_a
   end
 
   private

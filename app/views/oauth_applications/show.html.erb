@@ -1,4 +1,5 @@
 <% breadcrumb @oauth_application %>
+<% turbo_exempts_page_from_cache if flash[:client_secret] %>
 
 <div class="card">
   <div class="card-header">
