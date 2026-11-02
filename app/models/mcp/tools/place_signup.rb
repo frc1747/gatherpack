@@ -32,24 +32,29 @@
 # nor anyone in the audience in the organizer's, as the pages don't ask that either.
 # No read tool lists the audience, so an organizer can place an audience member outside
 # their person scope only if they already have the ID. The roster form lists them all.
+#
+# The result names who made the sign-up (signed_up_by, always the viewer here) beside
+# the person taking it and on_behalf_of, so a client can't read on_behalf_of as the actor.
 class Mcp::Tools::PlaceSignup < Mcp::Tool
   include Mcp::Tools::SignupFormat
 
   RESULT_SCHEMA = {
     type: "object",
     properties: Mcp::Tools::SignupFormat::SIGNUP_SCHEMA[:properties].merge(
+      signed_up_by: Mcp::Tools::SignupFormat::SIGNED_UP_BY_SCHEMA,
       sheet: Mcp::Tools::SignupFormat::SHEET_REF_SCHEMA,
       event: Mcp::Tools::SignupFormat::EVENT_SCHEMA,
       position: Mcp::Tools::SignupFormat::POSITION_SCHEMA
     ),
-    required: %w[id status person on_behalf_of answer quantity sheet event position]
+    required: %w[id status person signed_up_by on_behalf_of answer quantity sheet event position]
   }.freeze
 
   tool_name "place_signup"
   description "Sign a person up for a slot on a sign-up sheet: yourself or someone you may sign up, or anyone the sheet is open to if you " \
     "organize it. Capacity and the position's rules always apply, and no one can override a rule here. Positions for items or with a required " \
     "question can't be taken here. Unlike the sign-up pages, this refuses an exact repeat of an active sign-up you made in the slot. " \
-    "Everyone on the sign-up gets the usual email. Returns the new sign-up."
+    "Everyone on the sign-up gets the usual email. Returns the new sign-up: person is who takes the place, signed_up_by is you, and " \
+    "on_behalf_of is whose behalf it is for, which here is the person taking it."
   scope :write
   feature :signups
   input_schema(
@@ -95,6 +100,7 @@ class Mcp::Tools::PlaceSignup < Mcp::Tool
 
   def signup_result(signup)
     signup_json(signup, status: true).merge(
+      signed_up_by: (person_json(signup.signed_up_by) if signup.signed_up_by),
       on_behalf_of: person_json(signup.on_behalf_of),
       sheet: { id: signup.signup_sheet.neat_id, title: signup.signup_sheet.title },
       event: event_json(signup.event),

@@ -14,13 +14,14 @@
 # status goes to organizers and those involved only; the page lists active and
 # fulfilled sign-ups alike to others. An event with no time set counts as
 # upcoming for its whole day. Ordered by event start. Where unsure the
-# sign-up is left out.
+# sign-up is left out. signed_up_by is not returned: no page names who made a
+# sign-up to anyone.
 class Mcp::Tools::PersonSignups < Mcp::Tool
   include Mcp::Tools::SignupFormat
 
   tool_name "person_signups"
   description "A person's upcoming sign-ups (taken by them or on their behalf), soonest first, limited to those the sign-up " \
-    "sheets show to you."
+    "sheets show to you. on_behalf_of, where shown to you, is whose behalf the place is for, by default the person taking it."
   scope :read
   feature :signups
   input_schema(
@@ -41,7 +42,7 @@ class Mcp::Tools::PersonSignups < Mcp::Tool
             event: EVENT_SCHEMA,
             position: POSITION_SCHEMA,
             person: REF_SCHEMA,
-            on_behalf_of: REF_SCHEMA,
+            on_behalf_of: ON_BEHALF_OF_SCHEMA,
             answer: { type: %w[string null] },
             quantity: { type: %w[integer null] },
             note: { type: %w[string null] }

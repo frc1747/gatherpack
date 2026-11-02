@@ -84,6 +84,11 @@ class Mcp::Tools::RemoveSignupTest < ActionDispatch::IntegrationTest
     assert_nil remove(:alpha_manager, @ward_cashier).error
   end
 
+  test "signed_up_by is never returned, as no page names the signer" do
+    assert_not remove(:organizer, @ward_cashier).value.key?("signed_up_by")
+    assert_not remove(:alpha_plain, @quiet_made).value.key?("signed_up_by")
+  end
+
   test "a member cancels their own sign-up" do
     assert_nil remove(:alpha_member, @bake_day_cashier).error
     assert @bake_day_cashier.reload.cancelled?

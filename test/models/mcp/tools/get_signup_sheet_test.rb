@@ -24,6 +24,15 @@ class Mcp::Tools::GetSignupSheetTest < ActiveSupport::TestCase
     slot(value, event, position)["signups"].map { |signup| signup["person"]["name"] }
   end
 
+  test "signed_up_by is never returned: no page names who made a sign-up" do
+    [ :admin, :organizer, :guardian, :ward, :alpha_member ].each do |viewer|
+      value = get(viewer).value
+      rows = value["events"].flat_map { |item| item["slots"] }.flat_map { |item| item["signups"] } + value["my_signups"]
+      assert rows.any?
+      assert rows.none? { |row| row.key?("signed_up_by") }, "#{viewer} was told who signed someone up"
+    end
+  end
+
   test "the sheet, its events and slots come in page order" do
     value = get(:alpha_member).value
 

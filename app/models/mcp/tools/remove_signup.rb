@@ -15,13 +15,14 @@
 # on_behalf_of is returned to organizers and to those involved in the sign-up. destroy?
 # also lets someone cancel the sign-up of a person they could sign up, and no page shows
 # that viewer who it's on behalf of, so they don't get it here (get_signup_sheet line 15).
+# signed_up_by is not returned: neither sign-up page names who made a sign-up to anyone.
 class Mcp::Tools::RemoveSignup < Mcp::Tool
   include Mcp::Tools::SignupFormat
 
   tool_name "remove_signup"
   description "Cancel a sign-up. It stays on the roster as cancelled. You can cancel your own and those of people you may sign up, until the " \
     "sheet's cutoff before the event. An organizer can cancel any sign-up on their sheet, past the cutoff too, and the people on it get an email. " \
-    "Returns the cancelled sign-up."
+    "Returns the cancelled sign-up; on_behalf_of, where shown to you, is whose behalf the place was for, by default the person who held it."
   scope :write
   feature :signups
   destructive
@@ -29,7 +30,10 @@ class Mcp::Tools::RemoveSignup < Mcp::Tool
     properties: { signup_id: { type: "string", description: "The sign-up's ID (sup_)" } },
     required: [ "signup_id" ]
   )
-  output_schema(Mcp::Tools::PlaceSignup::RESULT_SCHEMA.merge(required: Mcp::Tools::PlaceSignup::RESULT_SCHEMA[:required] - [ "on_behalf_of" ]))
+  output_schema(Mcp::Tools::PlaceSignup::RESULT_SCHEMA.merge(
+    properties: Mcp::Tools::PlaceSignup::RESULT_SCHEMA[:properties].except(:signed_up_by),
+    required: Mcp::Tools::PlaceSignup::RESULT_SCHEMA[:required] - %w[on_behalf_of signed_up_by]
+  ))
 
   def call(signup_id:)
     signup = ctx.find(Signup.all, signup_id)
