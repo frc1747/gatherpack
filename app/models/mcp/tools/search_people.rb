@@ -19,7 +19,7 @@ class Mcp::Tools::SearchPeople < Mcp::Tool
   input_schema(
     properties: {
       query: { type: "string", minLength: 1, description: "Part of the person's name" },
-      team_id: { type: "string", description: "Only direct members of this team (tm_ ID); nobody for a team whose member list you can't see (you are not an admin, member or manager of it)" },
+      team_id: { type: "string", description: "Only direct members of this team (tm_ ID); nobody for a team whose member list you can't see (you are not an admin, architect, member or manager of it)" },
       badge_id: { type: "string", description: "Only holders of this badge (bdg_ ID)" },
       limit: limit_property
     },

@@ -11,7 +11,7 @@
 # The page has no team filter, so the roster rule of the team page applies
 # (TeamsController#show shows members only if policy(team).show_full?): the
 # filter matches the members of each team in that subtree where the viewer has
-# show_full?, plus the viewer if they are in the subtree at all.
+# show_full? and the viewer can see the team.
 # Punches count by their start time, from and to inclusive, at most 366 days.
 # Each punch's hours are the page's own (punch.hours, rounded to 0.05 as the
 # page rounds them). An open punch counts up to now or the end of `to`,
@@ -24,7 +24,7 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
 
   tool_name "time_clock_hours"
   description "Hours on the time clock between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days, both ends counted) for one " \
-    "person or the members of one team and its sub-teams, counting the teams whose member list you can see (as admin, member or manager) and yourself, per person, counting punches in all time clock periods you can see, " \
+    "person or the members of one team and its sub-teams, counting only the teams whose member list you can see (as admin, architect, member or manager), per person, counting punches in all time clock periods you can see, " \
     "not only that team's. An open punch that started in the window is counted up to now or the end of `to`, " \
     "whichever is earlier, and sets open_in_window: that says something about this window only; " \
     "use clocked_in_now to see who is clocked in at the moment."
@@ -74,9 +74,8 @@ class Mcp::Tools::TimeClockHours < Mcp::Tool
       people = people.where(id: person.id)
     else
       team = ctx.find(ctx.policy_scope(Team), team_id)
-      listed = ([ team ] + team.all_descendants).select { |t| ctx.allowed?(t, :show_full?) }
+      listed = ctx.policy_scope(Team).where(id: [ team.id ] + team.all_descendant_ids).select { |t| ctx.allowed?(t, :show_full?) }
       people = people.where(id: Membership.where(team_id: listed.map(&:id)).select(:person_id))
-        .or(people.where(id: team.descendant_member_ids.where(people: { id: ctx.person.id })))
     end
 
     punches = ctx.policy_scope(TimeClockPunch)

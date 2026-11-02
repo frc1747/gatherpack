@@ -8,12 +8,12 @@
 # members. The page has no team filter, so the roster rule of the team page
 # applies (TeamsController#show shows members only if policy(team).show_full?):
 # the filter matches the members of each team in that subtree where the viewer
-# has show_full?, plus the viewer if they are in the subtree at all. Longest-open first. Narrower than the page: a punch that hasn't
-# started yet (a start time in the future) isn't listed.
+# has show_full? and the viewer can see. Longest-open first. Narrower than the
+# page: a punch that hasn't started yet (a start time in the future) isn't listed.
 class Mcp::Tools::ClockedInNow < Mcp::Tool
   tool_name "clocked_in_now"
   description "People who are clocked in right now (an open time clock punch), since when and for how long, " \
-    "longest first. For admins and team managers. Optionally only members of one team and its sub-teams, counting the teams whose member list you can see (as admin, member or manager) and yourself."
+    "longest first. For admins and team managers. Optionally only members of one team and its sub-teams, counting only the teams whose member list you can see (as admin, architect, member or manager)."
   scope :read
   feature :time_tracking
   input_schema(
@@ -65,8 +65,7 @@ class Mcp::Tools::ClockedInNow < Mcp::Tool
 
   def team_member_ids(team_id)
     team = ctx.find(ctx.policy_scope(Team), team_id)
-    listed = ([ team ] + team.all_descendants).select { |t| ctx.allowed?(t, :show_full?) }
-    Person.where(id: Membership.where(team_id: listed.map(&:id)).select(:person_id))
-      .or(Person.where(id: team.descendant_member_ids.where(people: { id: ctx.person.id }))).select(:id)
+    listed = ctx.policy_scope(Team).where(id: [ team.id ] + team.all_descendant_ids).select { |t| ctx.allowed?(t, :show_full?) }
+    Membership.where(team_id: listed.map(&:id)).select(:person_id)
   end
 end

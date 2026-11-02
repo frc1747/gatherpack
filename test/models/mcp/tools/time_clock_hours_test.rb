@@ -104,6 +104,18 @@ class Mcp::Tools::TimeClockHoursTest < ActiveSupport::TestCase
     assert_equal %w[AlphaMember BetaMember], by_name(hours(:beta_member, team_id: @alpha.neat_id)).keys.sort
   end
 
+
+  test "a plain member of a parent team doesn't get a closed sub-team's roster through it" do
+    parent = create_world_team("ParentT")
+    closed = create_world_team("ChildT", parent: parent)
+    Membership.create!(person: person(:beta_member), team: parent)
+    Membership.find_by!(person: person(:beta_member), team: @beta).update!(manager: true)
+    Membership.create!(person: person(:badge_holder), team: closed)
+    create_world_punch(person(:badge_holder), @beta_period, 9, 11)
+
+    assert_equal %w[BetaMember], by_name(hours(:beta_member, team_id: parent.neat_id)).keys
+  end
+
   test "a team outside the viewer's scope is not found" do
     @alpha.update!(join_permission: :added_by_admin)
 
