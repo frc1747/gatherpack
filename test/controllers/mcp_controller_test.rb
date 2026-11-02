@@ -119,6 +119,46 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.headers["WWW-Authenticate"], %(scope="mcp_read")
   end
 
+  test "a token gets 403 once its application no longer lists its MCP scopes" do
+    token = mcp_token(user(:admin), scopes: "mcp_read mcp_write")
+    mcp_post(token, "tools/list")
+    assert_response :success
+
+    mcp_application.update!(scopes: "")
+    mcp_post(token, "tools/list")
+
+    assert_response :forbidden
+    assert_includes response.headers["WWW-Authenticate"], %(error="insufficient_scope")
+  end
+
+  test "an application narrowed to mcp_read narrows its tokens at once" do
+    token = mcp_token(user(:admin), scopes: "mcp_read mcp_write")
+    mcp_application.update!(scopes: "mcp_read")
+
+    with_tool(WRITE_TOOL) do
+      with_settings(mcp_write_enabled: "true") do
+        assert_not_includes tool_names(mcp_post(token, "tools/list")), "test_assign_badge"
+
+        assert_no_difference "BadgeAssignment.count" do
+          body = mcp_post(token, "tools/call", { name: "test_assign_badge", arguments: { person_id: person(:alpha_member).neat_id, badge_id: @access_badge.neat_id } })
+          assert_equal(-32602, body.dig("error", "code"))
+        end
+
+        whoami = mcp_post(token, "tools/call", { name: "whoami" }).dig("result", "structuredContent")
+        assert_equal [ "mcp_read" ], whoami["scopes"]
+        assert_equal false, whoami["writes_enabled"]
+      end
+    end
+  end
+
+  test "an mcp_read token gets 403 when its application lists only mcp_write" do
+    token = mcp_token(user(:admin), scopes: "mcp_read")
+    mcp_application.update!(scopes: "mcp_write")
+    mcp_post(token, "tools/list")
+
+    assert_response :forbidden
+  end
+
   test "feature off is a 404, whatever the token" do
     with_feature(:mcp, false) do
       mcp_post(mcp_token(user(:admin)), "tools/list")

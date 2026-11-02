@@ -10,6 +10,7 @@ class Mcp::Context
     ArchitectPolicy::Scope
     BadgeAssignmentPolicy::Scope
     CheckinPolicy::Scope
+    LedgerEntryLinkPolicy::Scope
     LedgerPaymentPolicy::Scope
     LedgerTransferPolicy::Scope
     OauthApplicationPolicy::Scope
@@ -18,6 +19,18 @@ class Mcp::Context
 
   # ApplicationPolicy queries that only call another query.
   DELEGATING_QUERIES = { new?: :create?, edit?: :update?, destroy?: :update? }.freeze
+
+  # Queries a policy defines whose whole body calls a query only
+  # ApplicationPolicy implements, so they allow everyone too. Gate on a policy
+  # scope instead: the summary page, for one, relies on
+  # policy_scope(TimeClockPeriod), not on summary?.
+  FORWARDING_QUERIES = %w[
+    QuestionPolicy#upvote?
+    TeamPolicy#badges?
+    TeamPolicy#events?
+    TeamPolicy#pages?
+    TimeClockPeriodPolicy#summary?
+  ].freeze
 
   attr_reader :user, :person, :scopes, :application, :request_id
 
@@ -64,16 +77,19 @@ class Mcp::Context
   end
 
   # Raises Pundit::NotAuthorizedError, which a tool call returns as
-  # "Not allowed". Raises Mcp::ToolBug for a query only ApplicationPolicy
-  # implements, since that allows everyone.
-  def authorize!(record, query)
-    query = query.to_sym
-    policy = Pundit.policy!(user, record)
-    unless policy_defines?(policy, query)
-      raise Mcp::ToolBug, "#{policy.class} doesn't define #{query}, so ApplicationPolicy allows everyone"
-    end
+  # "Not allowed". Raises Mcp::ToolBug for a query that allows everyone: one
+  # only ApplicationPolicy implements, or one in FORWARDING_QUERIES. policy_class
+  # names the policy where the page uses one other than the record's own.
+  def authorize!(record, query, policy_class: nil)
+    guarded_policy(record, query, policy_class)
+    Pundit.authorize(user, record, query.to_sym, policy_class: policy_class)
+  end
 
-    Pundit.authorize(user, record, query)
+  # The same check as a condition, for rules like "all holders if allowed,
+  # otherwise only those in scope". Same guard and same policy_class as
+  # #authorize!; use this rather than calling a policy directly.
+  def allowed?(record, query, policy_class: nil)
+    guarded_policy(record, query, policy_class).public_send(query.to_sym) ? true : false
   end
 
   # The record with this neat ID in scope, or Mcp::NotFound: a wrong prefix
@@ -86,6 +102,21 @@ class Mcp::Context
   end
 
   private
+
+  def guarded_policy(record, query, policy_class)
+    query = query.to_sym
+    policy = policy_class ? policy_class.new(user, record) : Pundit.policy!(user, record)
+    unless policy_defines?(policy, query)
+      raise Mcp::ToolBug, "#{policy.class} doesn't define #{query}, so ApplicationPolicy allows everyone"
+    end
+
+    owner = policy.method(query).owner
+    if FORWARDING_QUERIES.include?("#{owner}##{query}")
+      raise Mcp::ToolBug, "#{owner}##{query} only calls a default query, so it allows everyone"
+    end
+
+    policy
+  end
 
   def policy_defines?(policy, query)
     return true unless policy.method(query).owner == ApplicationPolicy

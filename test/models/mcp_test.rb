@@ -25,6 +25,28 @@ class McpTest < ActiveSupport::TestCase
     end
   end
 
+  # The lines of a method's body, without blanks and comments. Doesn't read
+  # one-line defs; the policies have none.
+  def method_body(method)
+    file, line = method.source_location
+    lines = File.readlines(file)
+    closing = "#{lines[line - 1][/\A\s*/]}end"
+    lines[line..].take_while { |text| text.rstrip != closing }.map(&:strip).reject { |text| text.empty? || text.start_with?("#") }
+  end
+
+  # Whether a policy query comes down to one only ApplicationPolicy implements.
+  def allows_everyone?(policy, query)
+    method = policy.instance_method(query)
+    if method.owner == ApplicationPolicy
+      delegate = Mcp::Context::DELEGATING_QUERIES[query]
+      return delegate.nil? || allows_everyone?(policy, delegate)
+    end
+
+    body = method_body(method)
+    forwarded = body.first&.to_sym
+    body.size == 1 && body.first.match?(/\A[a-z_]+\?\z/) && policy.method_defined?(forwarded) && allows_everyone?(policy, forwarded)
+  end
+
   # A read tool whose #call is the block, run on the tool instance.
   def read_tool(name, &block)
     Class.new(Mcp::Tool) do
@@ -194,12 +216,73 @@ class McpTest < ActiveSupport::TestCase
   test "the unfiltered list matches the policies whose resolve is unconditional" do
     Rails.application.eager_load!
     unconditional = ApplicationPolicy.descendants.map { |policy| policy.const_get(:Scope) }.uniq.select do |scope|
-      location = scope.instance_method(:resolve).source_location
-      body = File.readlines(location[0])[location[1]..].take_while { |line| line !~ /^\s*end$/ }.map(&:strip)
+      body = method_body(scope.instance_method(:resolve))
       body.size == 1 && body.first.match?(/\Ascope(\.all)?\z/)
     end
 
     assert_equal Mcp::Context::UNFILTERED_SCOPES.sort, unconditional.map(&:name).sort
+  end
+
+  test "the forwarding list matches the policy queries that only call a default query" do
+    Rails.application.eager_load!
+    forwarding = ApplicationPolicy.descendants.flat_map do |policy|
+      policy.public_instance_methods(false).select { |query| query.end_with?("?") && allows_everyone?(policy, query) }
+        .map { |query| "#{policy}##{query}" }
+    end
+
+    assert_equal Mcp::Context::FORWARDING_QUERIES.sort, forwarding.sort
+  end
+
+  test "method_body ignores comment lines" do
+    assert_equal [ "scope.all" ], method_body(LedgerEntryLinkPolicy::Scope.instance_method(:resolve))
+  end
+
+  test "policy_scope refuses LedgerEntryLink, whose resolve has a comment above scope.all" do
+    assert_raises(Mcp::ToolBug) { mcp_context(user(:alpha_member)).policy_scope(LedgerEntryLink) }
+  end
+
+  test "authorize! and allowed? refuse a query that forwards to a default" do
+    ctx = mcp_context(user(:alpha_member))
+    period = TimeClockPeriod.new(team: @beta)
+
+    assert_raises(Mcp::ToolBug) { ctx.authorize!(period, :summary?) }
+    assert_raises(Mcp::ToolBug) { ctx.allowed?(period, :summary?) }
+    %i[badges? pages? events?].each do |query|
+      assert_raises(Mcp::ToolBug) { ctx.authorize!(@beta, query) }
+      assert_raises(Mcp::ToolBug) { ctx.allowed?(@beta, query) }
+    end
+    assert_raises(Mcp::ToolBug) { ctx.authorize!(Question.new, :upvote?) }
+  end
+
+  test "allowed? answers as a condition, using the policy's own rule" do
+    assert_equal true, mcp_context(user(:admin)).allowed?(@alpha, :show_full?)
+    assert_equal true, mcp_context(user(:alpha_member)).allowed?(@alpha, :show_full?)
+    assert_equal false, mcp_context(user(:beta_member)).allowed?(@alpha, :show_full?)
+    assert_equal true, mcp_context(user(:alpha_manager)).allowed?(@alpha, :manage_members?)
+    assert_equal false, mcp_context(user(:alpha_member)).allowed?(@alpha, :manage_members?)
+  end
+
+  test "allowed? refuses a query only ApplicationPolicy implements" do
+    assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).allowed?(@alpha, :show?) }
+    assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).allowed?(BareRecord.new, :destroy?) }
+  end
+
+  test "policy_class names the policy a page uses, for both checks" do
+    admin = mcp_context(user(:admin))
+    member = mcp_context(user(:alpha_member))
+
+    assert_raises(Mcp::ToolBug) { admin.authorize!(@access_badge, :index?) } # BadgePolicy has no index?
+    assert_equal true, admin.allowed?(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
+    assert_equal false, member.allowed?(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
+    assert admin.authorize!(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
+    assert_raises(Pundit::NotAuthorizedError) { member.authorize!(@access_badge, :index?, policy_class: BadgeAssignmentPolicy) }
+  end
+
+  test "the guard applies to the policy_class it's given" do
+    ctx = mcp_context(user(:admin))
+
+    assert_raises(Mcp::ToolBug) { ctx.authorize!(@access_badge, :show?, policy_class: BarePolicy) }
+    assert_raises(Mcp::ToolBug) { ctx.allowed?(@access_badge, :show?, policy_class: BarePolicy) }
   end
 
   test "authorize! refuses a query only ApplicationPolicy implements" do

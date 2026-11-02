@@ -22,8 +22,9 @@
 # tool error; a Pundit::NotAuthorizedError becomes "Not allowed". Any other
 # exception is logged with the request id and returned as "Internal error".
 # A write tool calls changed!(record) so the call log records what changed.
-# ctx.policy_scope, ctx.authorize! and list raise Mcp::ToolBug for a check that
-# wouldn't protect anything; that isn't a tool result, it fails the test.
+# ctx.policy_scope, ctx.authorize!, ctx.allowed? and list raise Mcp::ToolBug for
+# a check that wouldn't protect anything; that isn't a tool result, it fails the
+# test. For a condition use ctx.allowed?, not the policy directly.
 #
 # Tools run in the app's time zone with the token's user as the audit log user.
 # Format values with time_json, date_json, hours_json and money_json.

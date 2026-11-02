@@ -153,6 +153,17 @@ class McpPkceTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "a refresh after the application's scopes are cleared gives no MCP access" do
+    token = refreshable_token(@confidential_app, "mcp_write")
+    @confidential_app.update!(scopes: "")
+
+    post "/oauth/token", params: refresh_params(@confidential_app, token)
+    assert_response :success
+
+    post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json, headers: mcp_headers_for(response.parsed_body["access_token"])
+    assert_response :forbidden
+  end
+
   test "a refresh can't widen to an MCP scope or to writes" do
     post "/oauth/token", params: refresh_params(@confidential_app, refreshable_token(@confidential_app, "user_read"), scope: "mcp_read")
     assert_response :bad_request

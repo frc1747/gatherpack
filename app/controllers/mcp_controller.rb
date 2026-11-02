@@ -13,7 +13,7 @@ class McpController < ActionController::API
   before_action :check_access, only: :create
 
   def create
-    ctx = Mcp::Context.new(user: @user, scopes: @token.scopes.to_a, application: @token.application, request_id: request.request_id)
+    ctx = Mcp::Context.new(user: @user, scopes: @mcp_scopes, application: @token.application, request_id: request.request_id)
     status, headers, body = Mcp::Server.new(ctx).handle(request)
     # The transport only answers with a stream for subscriptions, which this server doesn't offer.
     return render_jsonrpc_error(:method_not_allowed, "Streams aren't supported") unless body.respond_to?(:each)
@@ -50,7 +50,12 @@ class McpController < ActionController::API
     @user = User.find_by(id: @token.resource_owner_id) if @token&.accessible?
     return render_unauthorized if @user.nil?
 
-    unless Mcp::SCOPES.any? { |scope| @token.scopes.exists?(scope) }
+    # Only scopes the application still lists count, so narrowing an application
+    # takes effect at once, on tokens and refreshes it has already issued.
+    application_scopes = @token.application&.scopes
+    @mcp_scopes = Mcp::SCOPES.select { |scope| @token.scopes.exists?(scope) && application_scopes&.exists?(scope) }
+
+    if @mcp_scopes.empty?
       response.set_header("WWW-Authenticate", %(Bearer error="insufficient_scope", scope="mcp_read", resource_metadata="#{resource_metadata_url}"))
       render_jsonrpc_error(:forbidden, "This token has no MCP scope")
     end
