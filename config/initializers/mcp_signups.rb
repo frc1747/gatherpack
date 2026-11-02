@@ -6,4 +6,6 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::ListSignupSheets)
   Mcp.register_tool(Mcp::Tools::GetSignupSheet)
   Mcp.register_tool(Mcp::Tools::PersonSignups)
+  Mcp.register_tool(Mcp::Tools::PlaceSignup)
+  Mcp.register_tool(Mcp::Tools::RemoveSignup)
 end
