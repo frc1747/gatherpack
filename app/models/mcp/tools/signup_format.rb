@@ -36,7 +36,7 @@ module Mcp::Tools::SignupFormat
 
   # Whose behalf a sign-up is for: by default the person taking the place, not
   # the one who acted (that is signed_up_by, which only place_signup returns,
-  # as no page names the signer to anyone).
+  # as no sign-up page names the signer to anyone).
   ON_BEHALF_OF_SCHEMA = Mcp::Tool::REF_SCHEMA.merge(
     description: "Whose behalf the place is for, by default the person taking it. Not who made the sign-up."
   ).freeze

@@ -14,7 +14,7 @@
 # status goes to organizers and those involved only; the page lists active and
 # fulfilled sign-ups alike to others. An event with no time set counts as
 # upcoming for its whole day. Ordered by event start. Where unsure the
-# sign-up is left out. signed_up_by is not returned: no page names who made a
+# sign-up is left out. signed_up_by is not returned: no sign-up page names who made a
 # sign-up to anyone.
 class Mcp::Tools::PersonSignups < Mcp::Tool
   include Mcp::Tools::SignupFormat

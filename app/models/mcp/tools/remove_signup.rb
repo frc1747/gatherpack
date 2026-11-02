@@ -13,8 +13,9 @@
 # which sends no email; here they get the roster's.
 #
 # on_behalf_of is returned to organizers and to those involved in the sign-up. destroy?
-# also lets someone cancel the sign-up of a person they could sign up, and no page shows
-# that viewer who it's on behalf of, so they don't get it here (get_signup_sheet line 15).
+# also lets someone cancel the sign-up of a person they could sign up. The edit page
+# shows that viewer who it's on behalf of; the tool is narrower and withholds it, which
+# is allowed (get_signup_sheet line 15).
 # signed_up_by is not returned: neither sign-up page names who made a sign-up to anyone.
 class Mcp::Tools::RemoveSignup < Mcp::Tool
   include Mcp::Tools::SignupFormat

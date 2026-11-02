@@ -12,11 +12,11 @@
 # sign-ups. Organizers (roster?) get the roster's view instead: every sign-up
 # in any status, with who it is on behalf of (when not the person) and the
 # organizer note, and slots turned off that still hold sign-ups, with
-# disabled: true. Others never see on-behalf-of, notes or who made a
-# sign-up on a slot. my_signups are the viewer's own, as the page's My sign-ups
+# disabled: true. Others never see on-behalf-of or notes
+# on a slot. my_signups are the viewer's own, as the page's My sign-ups
 # card shows them: sign-ups the viewer takes, made, or that are on their
 # behalf, not cancelled, with status and who it's for, but not who made it
-# (neither the card nor the roster prints that, so signed_up_by is never returned). `limit` (default 25, at most 100) caps the
+# (neither the sign-up pages nor the roster print that, so signed_up_by is never returned). `limit` (default 25, at most 100) caps the
 # events, each slot's sign-ups and my_signups, each with a truncated flag.
 class Mcp::Tools::GetSignupSheet < Mcp::Tool
   include Mcp::Tools::SignupFormat

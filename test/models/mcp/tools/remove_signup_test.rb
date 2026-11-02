@@ -84,9 +84,16 @@ class Mcp::Tools::RemoveSignupTest < ActionDispatch::IntegrationTest
     assert_nil remove(:alpha_manager, @ward_cashier).error
   end
 
-  test "signed_up_by is never returned, as no page names the signer" do
+  test "signed_up_by is never returned, as no sign-up page names the signer" do
     assert_not remove(:organizer, @ward_cashier).value.key?("signed_up_by")
     assert_not remove(:alpha_plain, @quiet_made).value.key?("signed_up_by")
+  end
+
+  test "signed_up_by is not returned to the taker of a sign-up someone else made, nor to a relative who didn't make it" do
+    assert_not remove(:late, @quiet_made).value.key?("signed_up_by")
+
+    by_ward = create_signup(@cashier, :ward, @cleanup)
+    assert_not remove(:guardian, by_ward).value.key?("signed_up_by")
   end
 
   test "a member cancels their own sign-up" do
@@ -99,7 +106,7 @@ class Mcp::Tools::RemoveSignupTest < ActionDispatch::IntegrationTest
     assert_nil remove(:alpha_plain, @quiet_made).error
   end
 
-  test "on_behalf_of goes to organizers and those involved, not a relative no page shows it to" do
+  test "on_behalf_of goes to organizers and those involved, not a relative the tool is narrower for" do
     sheet = create_signups_sheet("Anyone Sale", @alpha, [ @cleanup ], on_behalf_of_mode: :anyone, others_relationship_type_ids: [ @parent_of.id ])
     slot = sheet.signup_positions.create!(name: "Helper").signup_slots.find_by!(event: @cleanup)
     sign_in user(:ward)
