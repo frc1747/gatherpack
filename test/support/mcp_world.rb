@@ -184,7 +184,7 @@ module McpWorld
   def apply_settings(values)
     settings = Settings.instance
     original_store = settings.store
-    settings.store = PStore.new(Rails.root.join("tmp", "test-settings-#{Process.pid}.pstore").to_s)
+    settings.store = PStore.new(Rails.root.join("tmp", "test-settings-#{Process.pid}.pstore").to_s, true)
     previous = values.keys.to_h { |key| [ key, Settings.get(key).instance_variable_get(:@value) ] }
     values.each { |key, value| Settings[key] = value }
     lambda do

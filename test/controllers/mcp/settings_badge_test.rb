@@ -33,8 +33,8 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "#{SELECT} option:first-child[value='']", "Every member"
-    assert_select "#{SELECT} option[value='#{@access_badge.neat_id}']", "MCP Access"
-    assert_select "#{SELECT} option[value='#{@other_badge.neat_id}']", "Other Badge"
+    assert_select "#{SELECT} option[value='#{@access_badge.neat_id}']", "MCP Access (no team)"
+    assert_select "#{SELECT} option[value='#{@other_badge.neat_id}']", "Other Badge (Alpha)"
     assert_select "#{SELECT} option[selected]", 1
     assert_select "#{SELECT} option[selected][value='']"
     assert_no_match(/bdg_\.\.\./, response.body)
@@ -130,8 +130,8 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
     get settings_path
 
     assert_select "#{SELECT} option[value='']", 1
-    assert_select "#{SELECT} option[value='#{fake_blank.neat_id}']", "every Member (badge, Beta)"
-    assert_select "#{SELECT} option[value='#{fake_missing.neat_id}']", "Missing badge (no one can connect) (badge, no team)"
+    assert_select "#{SELECT} option[value='#{fake_blank.neat_id}']", "every Member (Beta)"
+    assert_select "#{SELECT} option[value='#{fake_missing.neat_id}']", "Missing badge (no one can connect) (no team)"
   end
 
   test "a badge named like the missing option doesn't hide a real missing badge" do
@@ -142,7 +142,7 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
 
       assert_select "#{SELECT} option[selected]", 1
       assert_select "#{SELECT} option[selected][value='bdg_gone']", "Missing badge (no one can connect)"
-      assert_select "#{SELECT} option[value='#{fake.neat_id}']", /\(badge, no team\)/
+      assert_select "#{SELECT} option[value='#{fake.neat_id}']", "Missing badge (no one can connect) (no team)"
     end
   end
 
@@ -157,8 +157,8 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
 
     labels = css_select("#{SELECT} option").map(&:text)
     assert_equal labels.uniq, labels
-    assert_select "#{SELECT} option[value='#{a.neat_id}']", /Same \(Beta\) \(Sam\)/
-    assert_select "#{SELECT} option[value='#{c.neat_id}']", /\(Two\) \(bdg_/
+    assert_select "#{SELECT} option[value='#{a.neat_id}']", /\ASame \(Beta\) \(Sam\)\z/
+    assert_select "#{SELECT} option[value='#{c.neat_id}']", /Same \(Beta\) \(Two\) \(bdg_/
   end
 
   test "badge and team names are escaped" do
@@ -202,7 +202,7 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
       get settings_path
 
       assert_select "#{SELECT} option[selected]", 1
-      assert_select "#{SELECT} option[selected][value='#{free.neat_id}']", "Free (members can give this to themselves)"
+      assert_select "#{SELECT} option[selected][value='#{free.neat_id}']", "Free (Alpha) (members can give this to themselves)"
     end
   end
 
@@ -228,6 +228,85 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
     assert Mcp::Access.writes_enabled?
 
     write_behind_cache(:feature_mcp, "false")
+    assert_not Mcp::Access.enabled?
+  end
+
+  test "a badge name with invisible characters can't pass for Every member" do
+    fake = create_world_badge("Every\u200B member")
+    sign_in user(:admin)
+    get settings_path
+
+    labels = css_select("#{SELECT} option").map(&:text)
+    assert_equal labels.uniq, labels
+    assert_select "#{SELECT} option[value='']", "Every member"
+    assert_select "#{SELECT} option[value='#{fake.neat_id}']", "Every\u200B member (no team)"
+  end
+
+  test "a self-service note can't make two labels read alike" do
+    free = create_world_badge("Free", team: @alpha)
+    free.update_columns(permission: Badge.permissions.fetch(:added_by_manager_or_self))
+    create_world_badge("Free (Alpha) (members can give this to themselves)", team: @alpha)
+    with_settings(mcp_allowed_badge: free.neat_id) do
+      sign_in user(:admin)
+      get settings_path
+
+      labels = css_select("#{SELECT} option").map(&:text)
+      assert_equal labels.uniq, labels
+    end
+  end
+
+  test "reading while another thread saves raises nothing" do
+    errors = Queue.new
+    readers = Array.new(5) do
+      Thread.new do
+        50.times do
+          Mcp::Access.enabled?
+          Mcp::Access.writes_enabled?
+          Mcp::Access.stored_setting(:mcp_allowed_badge)
+        end
+      rescue => e
+        errors << e
+      end
+    end
+    writer = Thread.new do
+      20.times { |i| Settings[:mcp_allowed_badge] = (i.even? ? @access_badge.neat_id : "") }
+    rescue => e
+      errors << e
+    end
+    (readers + [ writer ]).each(&:join)
+
+    assert_empty Array.new(errors.size) { errors.pop }
+  end
+
+  test "the settings page refreshes MCP's settings from the store" do
+    write_behind_cache(:feature_mcp, "false")
+    write_behind_cache(:feature_oauth_provider, "false")
+    write_behind_cache(:mcp_write_enabled, "true")
+    sign_in user(:admin)
+    get settings_path
+
+    assert_select "select[name='settings[feature_mcp]'] option[selected][value='false']"
+    assert_select "select[name='settings[mcp_write_enabled]'] option[selected][value='true']"
+    assert_select "select[name='settings[feature_oauth_provider]'] option[selected][value='false']"
+  end
+
+  test "a full-form save from a stale worker doesn't turn MCP back on" do
+    Settings[:feature_mcp] = "true"
+    write_behind_cache(:feature_mcp, "false")
+    sign_in user(:admin)
+    get settings_path
+    form = css_select("select[name^='settings[feature_mcp'], select[name^='settings[mcp_write'], select[name^='settings[feature_oauth']").to_h do |select|
+      [ select["name"][/\[(.+)\]/, 1], select.at_css("option[selected]")["value"] ]
+    end
+    post update_settings_path, params: { settings: form }
+
+    assert_equal "false", Mcp::Access.stored_setting(:feature_mcp)
+    assert_not Mcp::Access.enabled?
+  end
+
+  test "oauth_provider switched off through another worker applies here" do
+    write_behind_cache(:feature_oauth_provider, "false")
+
     assert_not Mcp::Access.enabled?
   end
 

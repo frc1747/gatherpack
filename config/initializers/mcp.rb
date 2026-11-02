@@ -3,6 +3,10 @@
 # mcp_write scopes. See app/models/mcp.rb for the tool registry and how
 # connector initializers (config/initializers/mcp_<feature>.rb) add tools.
 Rails.application.config.to_prepare do
+  # Mcp::Access reads the settings store on every request, so transactions
+  # must wait for each other instead of raising when requests overlap.
+  Settings.instance.store = PStore.new(Settings.instance.store.path, true)
+
   GatherPack::Features.register(
     GatherPack::Feature.new(
       key: :mcp,
@@ -45,6 +49,10 @@ Rails.application.config.to_prepare do
     Doorkeeper.config.optional_scopes.add(scope)
     Doorkeeper.config.scopes.add(scope)
   end
+
+  # A worker's copy of these settings can be stale; refresh before the page
+  # shows them, so a full-form save from here can't write old values back.
+  SettingsController.before_action(only: :index) { Mcp::Access.refresh_settings }
 
   Doorkeeper::AuthorizationsController.include(Mcp::AuthorizationChecks)
 
