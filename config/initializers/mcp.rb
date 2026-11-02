@@ -56,4 +56,13 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::GetTeam)
   Mcp.register_tool(Mcp::Tools::ListBadges)
   Mcp.register_tool(Mcp::Tools::GetBadge)
+
+  # Events, time, ledgers
+  Mcp.register_tool(Mcp::Tools::ListEvents)
+  Mcp.register_tool(Mcp::Tools::GetEvent)
+  Mcp.register_tool(Mcp::Tools::ListCheckins)
+  Mcp.register_tool(Mcp::Tools::TimeClockHours)
+  Mcp.register_tool(Mcp::Tools::ClockedInNow)
+  Mcp.register_tool(Mcp::Tools::ListLedgers)
+  Mcp.register_tool(Mcp::Tools::LedgerEntries)
 end
