@@ -146,7 +146,8 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
         whoami = mcp_post(token, "tools/call", { name: "whoami" }).dig("result", "structuredContent")
         assert_equal [ "mcp_read" ], whoami["scopes"]
-        assert_equal false, whoami["writes_enabled"]
+        assert_equal true, whoami["writes_enabled"]
+        assert_equal false, whoami["can_write"]
       end
     end
   end
@@ -469,6 +470,19 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     end
     with_settings(mcp_write_enabled: "false") do
       assert_empty WRITE_TOOLS & tool_names(mcp_post(write, "tools/list"))
+    end
+  end
+
+  test "a token with mcp_write issued while writes were on gets no write tools once they're off" do
+    token = with_settings(mcp_write_enabled: "true") { mcp_token(user(:admin), scopes: "mcp_read mcp_write") }
+
+    with_settings(mcp_write_enabled: "false") do
+      assert_empty WRITE_TOOLS & tool_names(mcp_post(token, "tools/list"))
+      assert_no_difference -> { BadgeAssignment.count } do
+        body = mcp_post(token, "tools/call", { name: "assign_badge", arguments: { person_id: person(:alpha_member).neat_id, badge_id: @access_badge.neat_id } })
+
+        assert body.key?("error")
+      end
     end
   end
 

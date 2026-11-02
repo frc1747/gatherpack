@@ -6,17 +6,31 @@ class Mcp::MetadataControllerTest < ActionDispatch::IntegrationTest
 
   setup { host! "localhost" }
 
-  test "protected resource metadata" do
+  def assert_protected_resource_scopes(scopes)
     [ "/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp" ].each do |path|
       get path
       assert_response :success
       assert_equal({
         "resource" => "http://localhost/mcp",
         "authorization_servers" => [ "http://localhost" ],
-        "scopes_supported" => %w[mcp_read mcp_write],
+        "scopes_supported" => scopes,
         "bearer_methods_supported" => [ "header" ]
       }, response.parsed_body)
     end
+  end
+
+  def authorization_server_scopes
+    get "/.well-known/oauth-authorization-server"
+    assert_response :success
+    response.parsed_body["scopes_supported"]
+  end
+
+  test "protected resource metadata advertises both scopes while writes are on" do
+    with_settings(mcp_write_enabled: "true") { assert_protected_resource_scopes(%w[mcp_read mcp_write]) }
+  end
+
+  test "protected resource metadata advertises only mcp_read while writes are off" do
+    with_settings(mcp_write_enabled: "false") { assert_protected_resource_scopes(%w[mcp_read]) }
   end
 
   test "authorization server metadata" do
@@ -28,11 +42,25 @@ class Mcp::MetadataControllerTest < ActionDispatch::IntegrationTest
     assert_equal "http://localhost/oauth/authorize", json["authorization_endpoint"]
     assert_equal "http://localhost/oauth/token", json["token_endpoint"]
     assert_equal "http://localhost/oauth/revoke", json["revocation_endpoint"]
-    assert_includes json["scopes_supported"], "mcp_read"
-    assert_includes json["scopes_supported"], "mcp_write"
-    assert_includes json["scopes_supported"], "user_read"
     assert_equal [ "code" ], json["response_types_supported"]
     assert_equal %w[authorization_code refresh_token], json["grant_types_supported"]
+  end
+
+  test "authorization server metadata advertises every scope while writes are on" do
+    with_settings(mcp_write_enabled: "true") do
+      assert_equal Doorkeeper.config.scopes.to_a, authorization_server_scopes
+      assert_includes authorization_server_scopes, "mcp_read"
+      assert_includes authorization_server_scopes, "mcp_write"
+      assert_includes authorization_server_scopes, "user_read"
+    end
+  end
+
+  test "authorization server metadata leaves out only mcp_write while writes are off" do
+    with_settings(mcp_write_enabled: "false") do
+      assert_equal Doorkeeper.config.scopes.to_a - [ "mcp_write" ], authorization_server_scopes
+      assert_includes authorization_server_scopes, "mcp_read"
+      assert_includes authorization_server_scopes, "user_read"
+    end
   end
 
   test "without PKCE support, neither PKCE nor public clients are advertised" do

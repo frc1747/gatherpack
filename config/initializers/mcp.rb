@@ -34,7 +34,7 @@ Rails.application.config.to_prepare do
   register_setting.call(:mcp_allowed_badge, :string, "MCP: allowed badge", "", "MCP",
     "Neat ID (bdg_...) of the badge whose holders can connect. Blank: every member.")
   register_setting.call(:mcp_write_enabled, :boolean, "MCP: allow changes", "false", "MCP",
-    "Off: MCP clients can only read.")
+    "Off: MCP clients can only read. Clients connected while this was off must reconnect to make changes.")
 
   # Scopes: Doorkeeper's config isn't frozen, and every scope check reads
   # Doorkeeper.config.scopes (memoized default + optional), so add to both.
