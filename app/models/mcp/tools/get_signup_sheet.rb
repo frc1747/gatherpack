@@ -1,7 +1,7 @@
 # One sign-up sheet as its page shows it (SignupSheetsController#show). The
 # sheet must be in policy_scope(SignupSheet) and SignupSheetPolicy#show?
 # must allow it. Events are the sheet's, oldest first (from, YYYY-MM-DD, starts
-# at that day), each with its slots (positions at that event, in position
+# at that day; it also starts my_signups there), each with its slots (positions at that event, in position
 # order); slots turned off are left out, as the page does. Every viewer gets
 # each slot's cap, filled count and open places. Who holds the places follows
 # the page: with names_visible (SignupSheet#names_visible_to?: organizers, or
@@ -23,7 +23,7 @@ class Mcp::Tools::GetSignupSheet < Mcp::Tool
 
   tool_name "get_signup_sheet"
   description "One sign-up sheet you can see: team, status, description, its events and, for each event, the positions with " \
-    "capacity, filled and open places (`from` and `limit` page through events). Who holds each place is listed only where the " \
+    "capacity, filled and open places (`from` and `limit` page through events and my_signups). Who holds each place is listed only where the " \
     "sheet shows names to you (organizers also see every status, on-behalf-of, notes and turned-off slots). my_signups are yours."
   scope :read
   feature :signups
@@ -106,13 +106,14 @@ class Mcp::Tools::GetSignupSheet < Mcp::Tool
     names_visible = sheet.names_visible_to?(viewer)
     limit = limit.to_i.clamp(1, MAX_LIMIT)
     events = sheet.events.order(:start_time, :id)
-    events = events.where(start_time: parse_date(from).in_time_zone.beginning_of_day..) if from
+    since = from && parse_date(from).in_time_zone.beginning_of_day
+    events = events.where(start_time: since..) if since
     events = events.limit(limit + 1).to_a
     shown_events = events.first(limit)
     slots = sheet.signup_slots.where(event_id: shown_events.map(&:id)).includes(signup_position: :signup_position_rules, signups: %i[ person on_behalf_of ])
       .select { |slot| !slot.disabled? || (organizer && slot.signups.any?) }
       .sort_by { |slot| [ slot.signup_position.position, slot.signup_position.created_at ] }.group_by(&:event_id)
-    mine, mine_truncated = my_signups(sheet, viewer, limit)
+    mine, mine_truncated = my_signups(sheet, viewer, limit, since)
 
     {
       id: sheet.neat_id,
@@ -169,12 +170,14 @@ class Mcp::Tools::GetSignupSheet < Mcp::Tool
     json
   end
 
-  # The viewer's first `limit` sign-ups and whether there are more.
-  def my_signups(sheet, viewer, limit)
+  # The viewer's first `limit` sign-ups for events starting at or after since
+  # (when given), and whether there are more.
+  def my_signups(sheet, viewer, limit, since)
     return [ [], false ] if viewer.nil?
 
     signups = sheet.signups.live
     signups = signups.where(person_id: viewer.id).or(signups.where(signed_up_by_id: viewer.id)).or(signups.where(on_behalf_of_id: viewer.id))
+    signups = signups.joins(signup_slot: :event).where(events: { start_time: since.. }) if since
     sorted = signups.includes(:person, :on_behalf_of, signup_slot: %i[ event signup_position ]).to_a
       .sort_by { |signup| [ signup.event.start_time, signup.signup_position.position, signup.created_at, signup.id ] }
     items = sorted.first(limit).map do |signup|

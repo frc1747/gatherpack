@@ -133,4 +133,10 @@ class Mcp::Tools::PersonSignupsTest < ActiveSupport::TestCase
       assert_equal "Feature off", signups(:admin, :ward).error
     end
   end
+
+  test "an event that has started but not ended is not upcoming" do
+    travel_to Time.utc(2026, 3, 14, 11, 0)
+    assert_empty signups(:admin, :ward).value["items"]
+    assert_empty signups(:admin, :alpha_member).value["items"].select { |item| item["event"]["name"] == "Bake Day" }
+  end
 end

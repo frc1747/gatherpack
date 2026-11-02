@@ -225,4 +225,28 @@ class Mcp::Tools::GetSignupSheetTest < ActiveSupport::TestCase
       assert_equal "Feature off", get(:admin).error
     end
   end
+
+  test "from also starts my sign-ups, so later ones can be reached" do
+    value = get(:alpha_member, from: "2026-03-14", limit: 1).value
+
+    assert_equal [ [ "Bake Day", "Cashier" ] ], value["my_signups"].map { |signup| [ signup["event"]["name"], signup["position"]["name"] ] }
+    assert value["my_signups_truncated"]
+    assert_equal [ "Bake Day", "Bake Day" ], get(:alpha_member, from: "2026-03-14").value["my_signups"].map { |signup| signup["event"]["name"] }
+    assert_empty get(:alpha_member, from: "2026-03-16").value["my_signups"]
+  end
+
+  test "from is read in the app's time zone" do
+    with_settings(time_zone: "America/Detroit") do
+      late = create_signups_event("Late Show", @alpha, Time.utc(2026, 3, 25, 3, 30))
+      @sheet.signup_sheet_events.create!(event: late)
+      @sheet.sync_slots!
+      create_signup(@cashier, :alpha_member, late)
+      names = ->(from) { get(:alpha_member, from: from).value["events"].map { |item| item["event"]["name"] } }
+
+      assert_includes names.("2026-03-24"), "Late Show"
+      assert_not_includes names.("2026-03-25"), "Late Show"
+      assert_equal [ "Late Show" ], get(:alpha_member, from: "2026-03-24").value["my_signups"].map { |signup| signup["event"]["name"] }
+      assert_empty get(:alpha_member, from: "2026-03-25").value["my_signups"]
+    end
+  end
 end
