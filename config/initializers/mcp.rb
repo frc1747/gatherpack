@@ -14,16 +14,7 @@ Rails.application.config.to_prepare do
       description: "Let members' AI clients read and change data as the member, within their permissions",
       default_enabled: false,
       toggleable: true,
-      setup_section: "People",
-      nav_position: 90,
-      setup_items: [
-        GatherPack::Feature::SetupItem.new(
-          label: "MCP Calls",
-          path: :mcp_calls_path,
-          # The route exists only while oauth_provider was on at boot.
-          policy_check: ->(view) { view.admin? && view.respond_to?(:mcp_calls_path) }
-        )
-      ]
+      nav_position: 90
     )
   )
 
