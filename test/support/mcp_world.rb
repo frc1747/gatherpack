@@ -184,7 +184,10 @@ module McpWorld
   def apply_settings(values)
     settings = Settings.instance
     original_store = settings.store
-    settings.store = PStore.new(Rails.root.join("tmp", "test-settings-#{Process.pid}.pstore").to_s, true)
+    path = Rails.root.join("tmp", "test-settings-#{Process.pid}.pstore").to_s
+    # Access checks read the store, so nothing a test wrote may reach the next one.
+    File.delete(path) if File.exist?(path) && original_store.instance_variable_get(:@filename) != path
+    settings.store = PStore.new(path, true)
     previous = values.keys.to_h { |key| [ key, Settings.get(key).instance_variable_get(:@value) ] }
     values.each { |key, value| Settings[key] = value }
     lambda do
