@@ -19,7 +19,8 @@ The test is the routine work an admin or team manager does on the site today:
 | Credit or correct commitment progress by hand | Read only | `add_commitment_adjustment`, `remove_commitment_adjustment` (§5.7) |
 | Enter a form answer someone gave on paper | Read only | `save_form_answers` (§5.8) |
 | Schedule or fix a meeting | `create_event` only | `update_event`, `remove_event` (§5.3) |
-| Read reports kept as Pages | Not possible | `list_pages`, `get_page` (§5.9) |
+| Read reports kept as Pages, and their source | Not possible | `list_pages`, `get_page`, `get_page_source` (§5.9) |
+| Post an announcement | Not possible | `create_announcement` (§5.10) |
 
 Work that edits code or configuration, imports files, or reaches the database or servers stays out of MCP (§3).
 
@@ -27,7 +28,7 @@ Work that edits code or configuration, imports files, or reaches the database or
 
 `mcp-spec.md` §1 stands, with these changes:
 
-1. **A write shows and changes nothing a page wouldn't.** Each write names the page action it mirrors and applies that action's policy call, its permitted attributes, and whatever the controller filters. Where a page silently drops a change it doesn't allow (`PeopleController#person_params` and `limit_to_manageable`, `Person#assign_field_values` for unwritable fields), the tool refuses that part and names it. It never reports success for a change it didn't make.
+1. **Parity with the app.** A tool lets a member do exactly what the app lets that member do: no more, and no less. Each tool names the page action it mirrors and applies that action's policy call, its permitted attributes, and whatever the controller filters. MCP adds no rules of its own, with two exceptions: the owner's decision on minors' contact details (§2.4), and refusing an action the app would crash on (named where it applies). If the app's own rules disagree between two pages that do the same thing, the tool follows the one that allows the action, and the disagreement goes to the backlog as an app bug. Where a page silently drops a change it doesn't allow (`PeopleController#person_params` and `limit_to_manageable`, `Person#assign_field_values` for unwritable fields), the tool refuses that part and names it. It never reports success for a change it didn't make.
 2. **Bulk writes only where a page has the same bulk action.** Principle 4 ("one change per write call") gets one exception. A tool may change several records when an existing page or the kiosk does the same thing in one action: clocking out a period or all periods (kiosk Time Management), Mark all brought (sign-up roster). Such a tool:
    - takes a `dry_run` boolean (default `false`) that returns exactly what would change without changing it;
    - changes at most 200 records per call and refuses beyond that;
@@ -44,13 +45,13 @@ Work that edits code or configuration, imports files, or reaches the database or
 
 | Area | Reason |
 |---|---|
-| Hooks, Reports, Variables, dynamic Page source, Widget ERB and JavaScript | Stored code that runs in the app process. Changing it through an AI client would put code execution behind a chat. Rendered Page output is in scope, read only (§5.9). |
+| Changing Hooks, Reports, Variables, Page source, Widget ERB and JavaScript | Stored code that runs in the app process. Changing it through an AI client would put code execution behind a chat. Page output and Page source are in scope, read only (§5.9). |
 | Settings, Gateways, OAuth applications, Themes, feature flags | Site configuration and secrets. One mistaken call would change the whole site. |
 | Audit Log and MCP Calls | Admin-only logs of everyone's activity. They stay as locked down as they are; no tool reads them. |
 | Users' admin and architect flags, impersonation, deleting a person or a login | Escalation and irreversible removal. These stay on the pages. |
 | Ledger, budget, payment and transfer writes | Money. The ledger read tools stay (`list_ledgers`, `ledger_entries`). |
 | Mailboxes and mailbox messages | Other people's email, and attachments. |
-| Sending email outside an existing flow | Tools never send mail of their own. Mail that a mirrored page action already sends (sign-up notices, confirmation of a moved sign-up) is still sent, as on the page. |
+| Sending email outside an existing flow | Tools never send mail of their own. Mail that a mirrored page action already sends (sign-up notices, a moved sign-up, a new announcement) is still sent, as on the page. |
 | Building forms, sign-up sheets, positions, slots and commitments | Many-field builders with previews. A client should hand an organizer a link instead. Reconsider after the trial (§11). |
 | Imports from files (PDF rosters, CSV exports) | The client reads the file and makes single calls. No upload tool. |
 
@@ -99,9 +100,10 @@ Built-in profile details other than these (phone, birthday, address) are person 
 |---|---|---|---|
 | `update_team_member` | `membership_id`, `manager` | Sets or clears the manager flag | `MembershipsController#update` with `MembershipPolicy#update?` |
 | `list_membership_applications` | `team_id?` | Pending applications the viewer can act on | `policy_scope(MembershipApplication)` and `index?`, as the page |
-| `decide_membership_application` | `membership_application_id`, `decision` (`approved`/`denied`) | Approves (creating the membership) or denies, as the team's applications page does | `MembershipApplicationsController#update` (`approve!` / `deny!`) with `MembershipApplicationPolicy#update?`. Withdrawing (`#destroy`) is the applicant's own act and isn't offered |
-| `update_event` | `event_id`, any of `name`, `description`, `starts_at`, `ends_at`, `location`, `event_type_id`, `locked`, `time_clock_period_id` | Changes the given attributes. Time changes reschedule sign-up reminders and notify sign-ups, as an edit on the page does | `EventsController#update` with `EventPolicy#update?`; `team_id` isn't changeable here |
-| `remove_event` | `event_id` | Removes an event with no check-ins and no sign-ups | `EventsController#destroy` with `EventPolicy#destroy?`. Refuses when check-ins exist (deleting one fails today, BL-005) or when sign-ups exist, naming the count |
+| `decide_membership_application` | `membership_application_id`, `decision` (`approved`/`denied`) | Approves (creating the membership) or denies, as the team's applications page does | `MembershipApplicationsController#update` (`approve!` / `deny!`) with `MembershipApplicationPolicy#update?` |
+| `withdraw_membership_application` | `membership_application_id` | Withdraws it, as the applicant's page does | `MembershipApplicationsController#destroy` with `MembershipApplicationPolicy#destroy?` |
+| `update_event` | `event_id`, any of `name`, `description`, `starts_at`, `ends_at`, `location`, `event_type_id`, `team_id`, `locked`, `time_clock_period_id`, `checkin_limit` | Changes the given attributes. Time changes reschedule sign-up reminders and notify sign-ups, as an edit on the page does | `EventsController#update` with `EventPolicy#update?`, authorized the way the controller does, including for a new team |
+| `remove_event` | `event_id` | Removes the event, with what the page's delete removes along with it | `EventsController#destroy` with `EventPolicy#destroy?`. Refuses when check-ins exist, naming the count, because the page's delete fails then (BL-005); drop the refusal when BL-005 is fixed |
 | `remove_checkin` | `checkin_id` | Removes the check-in (the page's Checkout). Sign-ups it fulfilled stay fulfilled, as on the page | `CheckinsController#destroy` with `CheckinPolicy#destroy?` |
 | `update_checkin` | `checkin_id`, `notes?`, `field_responses?` (`{ checkin_field_id: response }`) | Changes notes and check-in field answers | `CheckinsController#update` and `#field_update` with `CheckinPolicy#update?` and `CheckinFieldResponsePolicy#update?`; notes only if `show_notes?` |
 
@@ -114,28 +116,28 @@ Built-in profile details other than these (phone, birthday, address) are person 
 | `list_time_clock_periods` | `active?` (default true) | Periods with team, dates, permission level, open punch count | `policy_scope(TimeClockPeriod)` |
 | `list_punches` | `person_id?`, `period_id?`, `from`, `to`, `flagged?` | Punches with person, period, start, end, hours, note, flag. Window ≤ 366 days | `policy_scope(TimeClockPunch)` (punches index); `flagged: true` needs `TimeClockPunchPolicy#flagged?` |
 | `record_punch` | `person_id`, `period_id?`, `starts_at`, `ends_at?`, `note?` | Creates a punch; open if `ends_at` is missing | `TimeClockPunchesController#create` with `TimeClockPunchPolicy#create?` |
-| `update_punch` | `punch_id`, any of `starts_at`, `ends_at`, `period_id`, `note` | Changes it. Moving it to another person isn't offered | `TimeClockPunchesController#update` with `update?` |
+| `update_punch` | `punch_id`, any of `starts_at`, `ends_at`, `period_id`, `person_id`, `note` | Changes it | `TimeClockPunchesController#update`: `create?` when it moves to another person, otherwise `update?`, as the controller does |
 | `remove_punch` | `punch_id` | Removes it | `TimeClockPunchesController#destroy` with `destroy?` |
 | `clock_out` (bulk) | One of `person_id`, `period_id`, `all: true`; `dry_run?` | Closes open punches now, each capped at its period's end of day, as the kiosk does. `all` covers every period on the teams the viewer manages (admins: every period). Returns changed and skipped punches | The kiosk's `punch_out`, `punch_out_period` and `punch_out_all`, with the per-punch rule in §5.4.1 |
-| `list_tokens` | `person_id` | The person's tokens, values masked to the last four characters | `policy_scope(person.tokens)`, as the profile page lists them |
+| `list_tokens` | `person_id` | The person's tokens, values masked with a clue (§5.4.2) | `policy_scope(person.tokens)`, as the profile page lists them |
 | `add_token` | `person_id`, `value` | Adds a token to the person. Refuses a value already in use, without saying whose it is | `TokensController#create` with `TokenPolicy#create?`; the value runs through `Token`'s own normalization (`rfidify`) |
 | `remove_token` | `token_id` | Removes it | `TokensController#destroy` with `TokenPolicy#destroy?` |
 
 #### 5.4.1 Who may clock out whom
 
-The kiosk's two buttons disagree today (BL-027). Per period, Clock Out needs `TimeClockPeriodPolicy#edit?`, which the private series denies on *added by admin* periods. All Periods closes every open punch on the teams the scanned manager manages. `clock_out` follows one rule for all three forms:
+The kiosk already lets a manager close every open punch on the teams they manage (All Periods), so `clock_out` does the same (§2.1). The per-period Clock Out button refuses that on *added by admin* periods, which is an app bug (BL-027), not a rule to copy. One rule for all three forms:
 
 - Admins: any open punch.
-- Managers: open punches in periods whose team they manage, including *added by admin* periods. That matches the kiosk's All Periods and the mass clock-out managers already use, and closing a punch can't credit anyone extra time. Their own open punch too.
+- Managers: open punches in periods whose team they manage, including *added by admin* periods, as All Periods does. Their own open punch too.
 - Anyone else: their own open punch only.
 
-`update_punch` keeps `TimeClockPunchPolicy#update?`, so editing times stays as strict as the page. Fixing BL-027 should bring the kiosk's per-period button onto this same rule, in the series that introduced it.
+`update_punch` uses `TimeClockPunchPolicy#update?`, as the punch edit page does. Fixing BL-027 brings the kiosk's per-period button onto the All Periods rule, in the series that introduced it.
 
 Closed punches keep `created_by` as it was; whodunnit and the call log record who closed them. This differs from the kiosk, which overwrites `created_by` with `"kiosk"`.
 
 #### 5.4.2 Token values
 
-A token value is what a card or tag carries. Whoever knows it can clock in as that person at the kiosk. So `list_tokens` masks values, and `add_token` takes a value the client supplies (a scanned card, or one it generates in the organization's format) but never echoes it back in full. The call log stores `add_token`'s value masked too. That is the one exception to §8's "arguments as given".
+A token value is what a card or tag carries. Whoever knows it can clock in as that person at the kiosk. So values are never returned in full. Each is masked with a clue: its length, its first two and last two characters, and the rest as dots (`17••••••••34`, 12 characters). That is enough to tell a scan card from an RFID tag, or match a card in hand, without making a working copy. `add_token` takes a value the client supplies (a scanned card, or one it generates in the organization's format) and returns it masked the same way. The call log stores it masked too: the one exception to §8's "arguments as given".
 
 ### 5.5 Person fields (`feature/mcp-person-fields`)
 
@@ -169,10 +171,9 @@ A token value is what a card or tag carries. Whoever knows it can clock in as th
 | Tool | Inputs | Effect / returns | Mirrors |
 |---|---|---|---|
 | `get_form` | `form_id` | Questions in order, with type, options and required. For a person: their response's state (not started, draft, submitted, signed) | `FormPolicy#show?`; the response by `FormResponsePolicy#show?` |
-| `save_form_answers` | `form_id`, `person_id`, `answers` (`{ question_id: value }`), `submit?` | Saves a draft of the given answers. With `submit`, submits, as the person's Submit does. Answers mapped to person fields update them under §5.5's rules. Signature questions are refused | `FormResponsesController#update` and `#submit` with `FormResponsePolicy#update?` and `submit?`, so only those the page lets answer (the person, a guardian, or an organizer the policy allows) |
+| `save_form_answers` | `form_id`, `person_id`, `answers` (`{ question_id: value }`), `submit?` | Saves a draft of the given answers. With `submit`, submits, as the person's Submit does. Answers mapped to person fields update them under §5.5's rules | `FormResponsesController#update` and `#submit` with `FormResponsePolicy#update?` and `submit?`, so only those the page lets answer (the person, a guardian, or an organizer the policy allows) |
 | `withdraw_form_response` | `form_id`, `person_id` | As the page's Withdraw | `#withdraw` with `withdraw?` |
-
-Signing stays on the page: a signature is the person's own act.
+| `sign_form_response` | `form_id`, `person_id`, and the fields the page's Sign asks for | Signs, as the page does, recording the signer as the token's user | `#sign` with `FormResponsePolicy#sign?`. The tool's description says it records a signature in the member's name, so the client confirms with the member first |
 
 ### 5.9 Pages (`feature/mcp`, read)
 
@@ -180,6 +181,7 @@ Signing stays on the page: a signature is the person's own act.
 |---|---|---|---|
 | `list_pages` | — | Pages the viewer can open: title, id, team, whether dynamic | `policy_scope(Page)` and `PagePolicy#show?`. Leave out content previews (BL-001) |
 | `get_page` | `page_id`, `params?` (query string pairs) | The page as the viewer would see it, converted to plain text with tables kept as Markdown tables. Dynamic pages render their ERB as the viewer, exactly as a GET of the page does | `PagesController#show`. Render through the same path, so a dynamic page's own permission logic runs |
+| `get_page_source` | `page_id` | The page's stored content (Markdown, or ERB for a dynamic page), with title, viewer and editor levels, team, and whether it is dynamic | The page's edit screen: `PagePolicy#update?`. Read only; changing the source stays on the page |
 
 `get_page` runs stored ERB. That is what viewing the page already does, as the same user and with the same output. The tool adds no way to change the source. Renders that take longer than 10 s are stopped and reported. Output over 200 KB is cut, with `truncated: true`.
 
@@ -188,6 +190,7 @@ Signing stays on the page: a signature is the person's own act.
 | Tool | Inputs | Returns | Mirrors |
 |---|---|---|---|
 | `list_announcements` | `team_id?`, `limit?` | Announcements the viewer can see, newest first | `policy_scope(Announcement)` |
+| `create_announcement` (write) | `title`, `content` (Markdown), `team_id?`, `starts_at?`, `ends_at?`, `notify_now?` | Creates it and runs `AnnouncementNotificationRouter`, so it notifies its audience as the page does. Returns it with the number of people notified | `AnnouncementsController#create` with `AnnouncementPolicy#create?` and the page's permitted attributes. The description says it notifies people, so the client confirms the text first |
 | `list_calendar_notes` | `from`, `to`, `person_id?` | Calendar notes in range | `policy_scope(CalendarNote)` |
 | `list_questions` | `team_id?`, `open?` | Questions with reply counts | `policy_scope(Question)` |
 | `get_question` | `question_id` | The question and its replies | `QuestionPolicy#show?`, replies as the page lists them |
@@ -218,8 +221,12 @@ As `mcp-spec.md` §12, for every new tool: admin, team manager, plain member on 
 - `create_person` with `email`: login created, no password in the result, call log or Rails log.
 - `clock_out`: `dry_run` changes nothing and lists the same punches a real run closes. A manager closes punches on an *added by admin* period of their team, but not on another team's. Caps at period end of day. Over 200 refuses.
 - `move_signup` sends the same notices as the roster's Move (assert enqueued `SendEmailJob`s).
-- `add_token`: duplicate value refused without naming the holder; value masked in result and log.
+- `add_token`: duplicate value refused without naming the holder; value masked (length, first two and last two characters) in result and log.
 - `get_page`: a dynamic page renders as the viewer (a page that prints `current_user`'s name shows the token's user). A page the viewer can't open is "Not found". A slow render is stopped.
+- `get_page_source`: an editor gets the source; a viewer who can open the page but not edit it gets "Not allowed".
+- `create_announcement`: notifications go out as from the page (assert the router ran and the same jobs were enqueued).
+- `update_punch` to another person needs `create?` for that person.
+- Parity: for each write, one case the page allows and one it refuses, through both the page's request and the tool, with the same outcome.
 - Bulk tools: skipped records listed with reasons; one call log row with every changed record.
 
 ## 10. Phases
@@ -231,17 +238,13 @@ Ordered by how much routine work each one moves off the servers:
 | 1 | `feature/mcp`, `feature/mcp-person-fields` | Bulk-write support and call log migration (§2.2, §6). `create_person`, `update_person`, `find_duplicate_people`, `add_login` (§5.1, §5.2). `list_person_fields`, `update_person_fields` (§5.5) |
 | 2 | `feature/mcp` | Time clock and tokens (§5.4), including `clock_out` |
 | 3 | `feature/mcp-signups`, `feature/mcp-commitments`, `feature/mcp` | §5.6, §5.7, then §5.3's check-in and event writes, in parallel (disjoint branches) |
-| 4 | `feature/mcp`, `feature/mcp-forms` | Relationships (§5.2), membership writes (§5.3), form answers (§5.8) |
-| 5 | `feature/mcp` | Reads: §5.9, §5.10 |
+| 4 | `feature/mcp`, `feature/mcp-forms` | Relationships (§5.2), membership writes (§5.3), form answers and signing (§5.8) |
+| 5 | `feature/mcp` | Pages, output and source (§5.9); §5.10, including `create_announcement` |
 | 6 | hbr/platform | Catalog and sample data updates (a period with open punches to clock out, a token, a pending membership application, a static and a dynamic Page), FORK.md rows, help text |
 
 Each phase ships with writes still behind `mcp_write_enabled`, so a build can carry new tools before any are used.
 
 ## 11. Open questions
 
-1. **Clock-out rule** (§5.4.1): follow the kiosk's All Periods (managers close punches on *added by admin* periods of their teams), as written, or the stricter per-punch `update?`? The stricter rule leaves non-admin managers unable to clock anyone out on the periods most organizations use for meetings.
-2. **Rendered pages** (§5.9): include `get_page` at all? It's the only way a client can read report Pages, and it adds nothing a browser can't do. But its output is whatever the page's author wrote, including any data the page shows without checking.
-3. **Token values** (§5.4.2): masked as written, or hidden entirely from `list_tokens`?
-4. **Builders** (§3): after the trial, is there demand for creating sign-up sheets or form copies ("copy last year's sheet with new dates")? If so, copying an existing record is a much smaller tool than a builder.
-5. **Announcements**: read only, as written, or also create? Creating one emails its audience.
-6. **Which account connects.** Tools act as the connected member. A connector signed in as a member who isn't an admin can make few of these changes, and that is by design. Organizations that want an AI client to do admin work should connect it with an admin's account and keep the allowed badge narrow.
+1. **Builders** (§3): after the trial, is there demand for creating sign-up sheets or form copies ("copy last year's sheet with new dates")? If so, copying an existing record is a much smaller tool than a builder.
+2. **Which account connects.** Tools act as the connected member. A connector signed in as a member who isn't an admin can make few of these changes, and that is by design. Organizations that want an AI client to do admin work should connect it with an admin's account and keep the allowed badge narrow.
