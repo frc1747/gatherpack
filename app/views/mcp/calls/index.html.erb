@@ -42,14 +42,14 @@
           <tr id="<%= dom_id call %>">
             <td><%= l call.created_at, format: :short %></td>
             <td><%= call.user.person&.display_name || call.user.email %></td>
-            <td><code><%= call.tool %></code></td>
+            <td><tt><%= call.tool %></tt></td>
             <td>
               <%= call.outcome %>
               <% if call.error_message.present? %>
                 <br><small class="text-muted"><%= call.error_message %></small>
               <% end %>
             </td>
-            <td><code><%= truncate call.arguments.to_json, length: 120 %></code></td>
+            <td><tt><%= truncate call.arguments.to_json, length: 120 %></tt></td>
             <td><%= "#{call.changed_type} #{call.changed_id}" if call.changed_type.present? %></td>
             <td><%= "#{call.duration_ms} ms" if call.duration_ms %></td>
           </tr>
