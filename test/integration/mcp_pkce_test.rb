@@ -155,7 +155,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
 
   test "a refresh after the application's scopes are cleared gives no MCP access" do
     token = refreshable_token(@confidential_app, "mcp_write")
-    @confidential_app.update!(scopes: "")
+    @confidential_app.update_columns(scopes: "")
 
     post "/oauth/token", params: refresh_params(@confidential_app, token)
     assert_response :success

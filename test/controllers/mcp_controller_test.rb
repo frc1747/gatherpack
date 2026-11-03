@@ -124,7 +124,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(token, "tools/list")
     assert_response :success
 
-    mcp_application.update!(scopes: "")
+    mcp_application.update_columns(scopes: "")
     mcp_post(token, "tools/list")
 
     assert_response :forbidden
