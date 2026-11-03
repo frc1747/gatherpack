@@ -247,3 +247,12 @@ feature/ransack-associations-default:
     Fixes the Hooks, Variables, Reports, Event Types, Team Types and
     Mailboxes lists, which showed an error after upstream's latest update.
   audience: Admins
+
+feature/settings-read-through:
+  title: Saved settings apply everywhere at once
+  emoji: "⚙️"
+  description: >-
+    A setting saved on the Settings page used to reach only one server process
+    until a restart, so some pages kept the old value. Every process now picks
+    up the change on its next request.
+  audience: Admins who change settings
