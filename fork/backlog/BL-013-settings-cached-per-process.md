@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | waiting |
+| Status | started |
 | Added | 2026-10-09 |
 | Upstream base checked | `86ab397` |
-| Planned branch | `feature/settings-read-through` |
+| Branch | `feature/settings-read-through` (see `FORK.md`) |
 | Upstream issue / PR | none yet |
 
 ## Summary
