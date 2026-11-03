@@ -168,7 +168,34 @@ class OauthAdminTest < ApplicationSystemTestCase
     assert_includes URI(current_url).query, "client_id=#{application.uid}"
   end
 
+  test "inline code stays readable on the list and the consent page" do
+    application = OauthApplication.find_by!(name: "Clipboard App")
+
+    visit oauth_applications_path
+    wait_for_code_editor_pass
+    assert_selector "td code", text: application.uid.first(17)
+    assert_selector "td code", text: "https://example.com/callback"
+    assert_no_selector ".cm-editor"
+
+    visit oauth_authorization_path(client_id: application.uid, redirect_uri: "https://example.com/callback", response_type: "code")
+    wait_for_code_editor_pass
+    assert_selector "h2 code", text: "Clipboard App"
+    assert_no_selector ".cm-editor"
+  end
+
+  test "a code block still becomes the read-only editor" do
+    visit report_path(reports(:one))
+
+    assert_selector ".cm-editor .cm-content", text: reports(:one).code
+    assert_no_selector "code"
+  end
+
   private
+
+  # code_editor.js looks for code elements every 500 ms.
+  def wait_for_code_editor_pass
+    sleep 0.7
+  end
 
   def copy_button
     find("button[aria-label='Copy Client Secret']")
