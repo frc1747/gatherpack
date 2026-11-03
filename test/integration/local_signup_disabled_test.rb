@@ -3,14 +3,18 @@ require "test_helper"
 class LocalSignupDisabledTest < ActionDispatch::IntegrationTest
   setup do
     host! "localhost"
-    @setting = Settings.get(:local_signup)
-    @original_value = @setting.instance_variable_get(:@value)
-    @setting.instance_variable_set(:@value, "false")
+    @original_local_signup = Settings[:local_signup].to_s
+    @original_store = Settings.instance.store
+    Settings.instance.store = PStore.new(Rails.root.join("tmp", "local-signup-test-#{Process.pid}.pstore").to_s)
+    Settings[:local_signup] = "false"
     Rails.application.reload_routes!
   end
 
   teardown do
-    @setting.instance_variable_set(:@value, @original_value)
+    Settings[:local_signup] = @original_local_signup
+    store_path = Settings.instance.store.path
+    Settings.instance.store = @original_store
+    File.delete(store_path) if File.exist?(store_path)
     Rails.application.reload_routes!
   end
 
