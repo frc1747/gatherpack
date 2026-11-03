@@ -19,8 +19,10 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", "MCP Calls"
     assert_select "tbody tr", 2
-    assert_select "tbody tr:first-child code", "search_people"
+    assert_select "tbody tr:first-child tt", "search_people"
     assert_includes response.body, "secretname"
+    # code_editor.js empties a code element with no pre inside it.
+    assert_select "tbody code", false
   end
 
   test "an admin filters by user and tool" do
@@ -28,11 +30,11 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
 
     get mcp_calls_path, params: { q: { user_id_eq: user(:alpha_member).id } }
     assert_select "tbody tr", 1
-    assert_select "tbody tr code", "whoami"
+    assert_select "tbody tr tt", "whoami"
 
     get mcp_calls_path, params: { q: { tool_eq: "search_people" } }
     assert_select "tbody tr", 1
-    assert_select "tbody tr code", "search_people"
+    assert_select "tbody tr tt", "search_people"
   end
 
   test "a member is refused" do
@@ -68,14 +70,28 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the setup page links to it for admins only" do
+  test "admins reach it from the sidebar, right after the audit log" do
     sign_in user(:admin)
     get setup_path
-    assert_select "a[href=?]", mcp_calls_path
 
-    sign_out user(:admin)
+    links = css_select(".sidebar a").pluck("href")
+    assert_equal links.index(audit_logs_path) + 1, links.index(mcp_calls_path)
+    assert_select "a[href=?]", mcp_calls_path, 1, "only the sidebar links to it, not the setup page"
+  end
+
+  test "members don't get the sidebar link" do
     sign_in user(:alpha_member)
-    get setup_path
+    get root_path
+
     assert_select "a[href=?]", mcp_calls_path, 0
+  end
+
+  test "the sidebar link goes away when the feature is off" do
+    sign_in user(:admin)
+    with_feature(:mcp, false) do
+      get setup_path
+
+      assert_select "a[href=?]", mcp_calls_path, 0
+    end
   end
 end
