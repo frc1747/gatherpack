@@ -62,7 +62,9 @@ class Mcp::PageRender
   attr_reader :ctx, :page, :params
 
   # A Rendered, or the Mcp::Error to raise. Exception, as this is the top of a thread and
-  # a page's ERB can raise anything (SystemStackError, SystemExit).
+  # a page's ERB can raise anything (SystemStackError, SystemExit). The log has the class
+  # and backtrace but not the message, which can quote a param (Integer(params[:x])), and
+  # the cause's class, as a template wraps what its code raises.
   def render_outcome
     Rails.application.executor.wrap do
       ctx.in_request { limiting_statements { convert(dispatch) } }
@@ -76,7 +78,7 @@ class Mcp::PageRender
   rescue ActiveRecord::RecordNotFound
     Mcp::NotFound.new
   rescue Exception => e
-    Rails.logger.error("[MCP] get_page failed on #{page.neat_id} (request #{ctx.request_id}): #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
+    Rails.logger.error("[MCP] get_page failed on #{page.neat_id} (request #{ctx.request_id}): #{(e.cause || e).class}\n#{e.backtrace&.first(10)&.join("\n")}")
     Mcp::Error.new("This page couldn't be rendered")
   end
 
