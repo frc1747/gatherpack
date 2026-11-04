@@ -46,7 +46,7 @@ x-app-environment: &app-environment
   WEB_CONCURRENCY: "${WEB_CONCURRENCY:-2}"
   RAILS_LOG_LEVEL: "${RAILS_LOG_LEVEL:-info}"
   TZ: "${TZ:-UTC}"
-  MCP_ENVIRONMENT: "${MCP_ENVIRONMENT:-}"
+  GP_ENVIRONMENT: "${GP_ENVIRONMENT:-}"
   MISSION_CONTROL_JOBS_HTTP_BASIC_AUTH_USER: "${JOBS_DASHBOARD_USER:-gatherpack}"
 
 # Shared configuration for every container that runs the app image.
