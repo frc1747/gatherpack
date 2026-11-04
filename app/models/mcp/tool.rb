@@ -17,7 +17,7 @@
 #   end
 #
 # #call returns a Hash; it is sent as JSON (structuredContent plus the same
-# JSON as a text block). Raise Mcp::NotFound, Mcp::NotAllowed or
+# JSON as a text block), followed by Mcp::Environment's notice. Raise Mcp::NotFound, Mcp::NotAllowed or
 # Mcp::InvalidArgument (or call not_found!, invalid_argument!) to return a
 # tool error; a Pundit::NotAuthorizedError becomes "Not allowed". Any other
 # exception is logged with the request id and returned as "Internal error".
@@ -67,9 +67,9 @@ class Mcp::Tool
 
     def to_response
       if error?
-        MCP::Tool::Response.new([ { type: "text", text: error } ], error: true)
+        MCP::Tool::Response.new([ { type: "text", text: error }, Mcp::Environment.notice_block ], error: true, meta: Mcp::Environment.meta)
       else
-        MCP::Tool::Response.new([ { type: "text", text: JSON.generate(value) } ], structured_content: value)
+        MCP::Tool::Response.new([ { type: "text", text: JSON.generate(value) }, Mcp::Environment.notice_block ], structured_content: value, meta: Mcp::Environment.meta)
       end
     end
   end
