@@ -59,47 +59,27 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
     assert_unchanged(@admin_punch) { assert_equal "Not allowed", update(:alpha_manager, @admin_punch, note: "no").error }
   end
 
-  test "a plain member on another team, and a guardian, can't reach it" do
-    assert_unchanged(@punch) { assert_equal "Not found", update(:beta_member, @punch, note: "no").error }
-    assert_unchanged(@punch) { assert_equal "Not found", update(:guardian, @punch, note: "no").error }
-  end
-
-  test "a member edits their own punch in no period, but not their own in an added by admin period" do
-    assert_nil update(:beta_member, @own, note: "Changed").error
-
-    closed = create_world_punch(person(:beta_member), @beta_period, 20, 21)
-    assert_unchanged(closed) { assert_equal "Not allowed", update(:beta_member, closed, note: "no").error }
-  end
-
-  test "a member can't close their own open punch in any period the policy lets them edit" do
-    Membership.find_or_create_by!(person: person(:beta_member), team: @beta)
-    open_punches = [
-      TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9)),
-      TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk",
-        time_clock_period: TimeClockPeriod.create!(name: "Beta Members", team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_team_member)),
-      TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk",
-        time_clock_period: TimeClockPeriod.create!(name: "Beta Users", team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_user))
-    ]
-
-    open_punches.each do |punch|
-      assert_unchanged(punch) { assert_equal "Not allowed", update(:beta_member, punch, ends_at: "2026-03-11T10:00:00").error }
-      assert_nil update(:beta_member, punch, note: "Still open").error
+  test "someone who manages no team changes nothing, and isn't told what exists" do
+    [ :beta_member, :guardian ].each do |viewer|
+      assert_unchanged(@punch) { assert_equal "Not allowed", update(viewer, @punch, note: "no").error }
     end
   end
 
-  test "a member can't hand their open punch to a teammate" do
+  test "a member changes nothing on their own punch, open or closed, in any period" do
     Membership.find_or_create_by!(person: person(:beta_member), team: @beta)
     Membership.find_or_create_by!(person: person(:badge_holder), team: @beta)
-    period = TimeClockPeriod.create!(name: "Beta Members", team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_team_member)
-    open = TimeClockPunch.create!(person: person(:beta_member), time_clock_period: period, start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk")
+    periods = [ nil ] + %i[added_by_user added_by_team_member added_by_manager added_by_admin].map do |permission|
+      TimeClockPeriod.create!(name: permission.to_s, team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: permission)
+    end
 
-    assert_unchanged(open) { assert_equal "Not allowed", update(:beta_member, open, person_id: person(:badge_holder).neat_id).error }
-  end
-
-  test "a member can still change the end of a closed punch, and can't reopen one and close it again" do
-    assert_nil update(:beta_member, @own, ends_at: "2026-03-10T11:00:00").error
-    assert_nil update(:beta_member, @own, ends_at: nil).error
-    assert_unchanged(@own) { assert_equal "Not allowed", update(:beta_member, @own, ends_at: "2026-03-10T11:00:00").error }
+    periods.each do |period|
+      [ nil, Time.utc(2026, 3, 11, 10) ].each do |end_time|
+        punch = TimeClockPunch.create!(person: person(:beta_member), time_clock_period: period, start_time: Time.utc(2026, 3, 11, 9), end_time: end_time, created_by: "kiosk")
+        [ { ends_at: "2026-03-11T11:00:00" }, { ends_at: nil }, { starts_at: "2026-03-12T09:00:00" }, { note: "no" }, { person_id: person(:badge_holder).neat_id }, { period_id: nil } ].each do |change|
+          assert_unchanged(punch) { assert_equal "Not allowed", update(:beta_member, punch, **change).error, change }
+        end
+      end
+    end
   end
 
   test "managers and admins close open punches they can edit" do
@@ -120,8 +100,9 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
     assert_equal person(:alpha_member), @punch.reload.person
 
     assert_unchanged(@punch) { assert_equal "Not found", update(:alpha_manager, @punch, person_id: person(:beta_member).neat_id).error }
-    own = TimeClockPunch.create!(person: person(:badge_holder), start_time: Time.utc(2026, 3, 10, 9))
-    assert_unchanged(own) { assert_equal "Not allowed", update(:badge_holder, own, person_id: person(:beta_member).neat_id).error }
+    Membership.create!(person: person(:alpha_manager), team: @beta)
+    own = TimeClockPunch.create!(person: person(:alpha_manager), start_time: Time.utc(2026, 3, 10, 9))
+    assert_unchanged(own) { assert_equal "Not allowed", update(:alpha_manager, own, person_id: person(:beta_member).neat_id).error }
   end
 
   test "moving to another person needs create? where the policy defines it; other changes don't" do
@@ -182,9 +163,7 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
       [ :admin, @admin_punch, true ],
       [ :alpha_manager, @punch, true ],
       [ :alpha_manager, @admin_punch, false ],
-      [ :beta_member, @punch, false ],
-      [ :beta_member, @own, true ],
-      [ :guardian, @punch, false ]
+      [ :admin, @own, true ]
     ].each do |viewer, punch, expected|
       page = note_changes?(punch) do
         sign_in user(viewer)

@@ -6,7 +6,7 @@
 # - Managers: open punches in periods whose team they manage (all_managed_teams, as
 #   TimeKiosk#managed_periods), including "added by admin" periods, as All Periods does.
 #   Their own open punch too.
-# - Anyone else: nothing, by owner decision (Mcp::PunchRecords#may_close_punches?). They
+# - Anyone else: nothing, by owner decision (Mcp::PunchRecords#may_enter_punches?). They
 #   clock out at the kiosk.
 #
 # So this is wider than TimeClockPunchPolicy#update?, which update_punch uses. A punch in
@@ -48,7 +48,7 @@ class Mcp::Tools::ClockOut < Mcp::Tool
   output_schema(bulk_output_schema(Mcp::PunchRecords::SCHEMA))
 
   def call(person_id: nil, period_id: nil, all: false, dry_run: false)
-    raise Mcp::NotAllowed unless may_close_punches?
+    raise Mcp::NotAllowed unless may_enter_punches?
 
     invalid_argument!("Give exactly one of person_id, period_id or all: true") unless [ person_id, period_id, all.presence ].compact.one?
 
