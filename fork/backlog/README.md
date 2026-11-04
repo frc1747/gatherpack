@@ -34,7 +34,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | waiting | 2026-10-13 |
 | [BL-025](BL-025-drift-check-upstream-ci.md) | The drift check doesn't notice when upstream itself is broken | fork-only | medium | waiting | 2026-10-23 |
 | [BL-026](BL-026-organizer-placements-look-like-yours.md) | Placing someone as an organizer looks like signing up yourself | upstream feature | medium | waiting | 2026-10-29 |
-| [BL-027](BL-027-kiosk-period-clock-out-refused.md) | Kiosk "Clock Out" for one period silently does nothing for mentors | fork-only | medium | waiting | 2026-11-01 |
+| [BL-027](BL-027-kiosk-period-clock-out-refused.md) | Kiosk "Clock Out" for one period silently does nothing for mentors | fork-only | medium | started | 2026-11-01 |
 | [BL-028](BL-028-members-edit-own-punches.md) | Members can enter and change their own time clock punches by hand | upstream bug | medium | waiting | 2026-11-04 |
 
 ## Fields

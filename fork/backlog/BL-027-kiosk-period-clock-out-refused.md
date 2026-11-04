@@ -4,11 +4,13 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | waiting |
+| Status | started |
 | Added | 2026-11-01 |
 | Fork code checked | `v0.0.0-hbr.25` (`e8d61506`); upstream `3fa5700e` for comparison |
-| Planned branch | none yet (a fix to the security series, see Fork strategy notes) |
+| Planned branch | none (fixed on the private release line in `v0.0.0-hbr.30`, on staging; see Fork strategy notes) |
 | Upstream issue / PR | none (upstream doesn't have the bug) |
+
+**Fixed in `v0.0.0-hbr.30`, not yet in production.** Update the gphelp guide when it ships. Parent-team managers can clock out sub-team periods. Still open: an admin's All Periods at the kiosk doesn't cover team-less periods, though MCP's `clock_out` does.
 
 ## Summary
 
