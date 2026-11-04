@@ -51,6 +51,14 @@ class Mcp::Tools::AddRelationshipTest < ActionDispatch::IntegrationTest
     assert_refused("Not allowed", Relationship, AuditLog) { add(:guardian, :guardian, :ward, @by_manager) }
   end
 
+  test "at least one side must be in the viewer's scope, being related to both isn't enough" do
+    Relationship.create!(parent: person(:guardian), child: person(:beta_member), relationship_type: @parent_of, created_by: person(:admin))
+
+    assert_refused("Not found", Relationship, AuditLog) { add(:guardian, :ward, :beta_member, @by_user) }
+    assert_refused("Not found", Relationship, AuditLog) { add(:guardian, :beta_member, :ward, @by_user) }
+    assert_difference("Relationship.count", 1) { assert_nil add(:ward, :alpha_member, :guardian, @by_user).error }
+  end
+
   test "someone already related goes through on the page too" do
     page = page_changes_rows?(Relationship, as: user(:guardian)) do
       post person_relationships_path(person(:guardian)), params: { relationship: { start_node: "#{@by_user.id}:p", child_id: person(:ward).id } }

@@ -14,14 +14,15 @@
 # lines 17 and 24) and is reached from a profile in it, while the POST looks up no one's permission
 # (Person.find, line 44, and the permitted parent_id and child_id). The result names both, so this keeps
 # to the form's list plus those a relationship already connects to the viewer, who may have no team in
-# common any more. Two lookups, since the scope's distinct rules out .or. The type isn't scoped: the
+# common any more. Two lookups, since the scope's distinct rules out .or. At least one side must be in
+# the scope, as the form's profile is, so being related to both isn't enough. The type isn't scoped: the
 # model decides.
 class Mcp::Tools::AddRelationship < Mcp::Tool
   include Mcp::RelationshipRecords
 
   tool_name "add_relationship"
   description "Record a relationship between two people, as Add Relationship does on a person's Relationships page. " \
-    "A relationship type you may not add between these people is \"Not allowed\"; someone you can't see and aren't already related to is \"Not found\". Returns it with both people."
+    "A relationship type you may not add between these people is \"Not allowed\"; someone you can't see and aren't already related to is \"Not found\", as is a pair with neither person one you can see. Returns it with both people."
   scope :write
   input_schema(
     properties: {
@@ -34,9 +35,13 @@ class Mcp::Tools::AddRelationship < Mcp::Tool
   output_schema(Mcp::RelationshipRecords::SCHEMA)
 
   def call(parent_id:, child_id:, relationship_type_id:)
+    parent = find_person(parent_id)
+    child = find_person(child_id)
+    not_found! unless [ parent, child ].any? { |side| ctx.policy_scope(Person).exists?(id: side.id) }
+
     relationship = Relationship.new(
-      parent: find_person(parent_id),
-      child: find_person(child_id),
+      parent: parent,
+      child: child,
       relationship_type: ctx.find(RelationshipType.all, relationship_type_id),
       created_by: ctx.person
     )
