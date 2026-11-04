@@ -77,7 +77,7 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
     assert_equal [ "555-0100", "1 Main St", "1990-05-06", "M" ], value.values_at("phone_number", "address", "birthday", "shirt_size")
     assert_equal [ { "id" => @alpha.neat_id, "name" => "Alpha", "manager" => false, "membership_id" => Membership.find_by!(person: person(:ward), team: @alpha).neat_id } ], value["teams"]
     assert_equal [], value["badges"]
-    assert_equal [ { "label" => "Parent of", "person" => { "id" => person(:guardian).neat_id, "name" => "Guardian World" } } ],
+    assert_equal [ { "label" => "Parent of", "person" => { "id" => person(:guardian).neat_id, "name" => "Guardian World" }, "relationship_id" => Relationship.find_by!(child: person(:ward)).neat_id } ],
       value["relationships"]
   end
 
@@ -99,9 +99,17 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   end
 
   test "a guardian sees their own profile with the ward, but not the ward's profile" do
-    assert_equal [ { "label" => "Child of", "person" => { "id" => person(:ward).neat_id, "name" => "Ward World" } } ],
+    assert_equal [ { "label" => "Child of", "person" => { "id" => person(:ward).neat_id, "name" => "Ward World" }, "relationship_id" => Relationship.find_by!(child: person(:ward)).neat_id } ],
       get(:guardian, :guardian).value["relationships"]
     assert_equal "Not found", get(:guardian, :ward).error
+  end
+
+  test "relationship_id is given only to those who may remove it" do
+    teammate = Relationship.create!(parent: person(:alpha_member), child: person(:ward), relationship_type: @parent_of, created_by: person(:admin))
+    ids = ->(viewer, subject) { get(viewer, subject).value["relationships"].map { |item| item["relationship_id"] } }
+
+    assert_equal [ teammate.neat_id ], ids.call(:alpha_member, :alpha_member)
+    assert_equal [ nil ], ids.call(:alpha_manager, :alpha_member)
   end
 
   test "relationships outside the viewer's scope are left out" do
