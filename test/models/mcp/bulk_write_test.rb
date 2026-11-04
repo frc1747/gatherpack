@@ -1,0 +1,147 @@
+require "test_helper"
+require_relative "../../support/mcp_world"
+
+# Mcp::Tool's bulk support, through a tool of its own: sets a bio on every person in
+# a team, skipping those the viewer can't update, as a real bulk tool would skip.
+class Mcp::BulkWriteTest < ActiveSupport::TestCase
+  include McpWorld
+
+  class SetBios < Mcp::Tool
+    tool_name "test_set_bios"
+    description "Set bios"
+    scope :write
+    bulk
+    input_schema(properties: { bio: { type: "string" }, dry_run: dry_run_property }, required: %w[bio])
+    output_schema(bulk_output_schema(REF_SCHEMA))
+
+    def self.people = @people
+    def self.people=(people)
+      @people = people
+    end
+
+    def call(bio:, dry_run: false)
+      bulk_write(self.class.people, dry_run: dry_run, check: ->(person) { ctx.authorize!(person, :update?) }, json: ->(person) { person_json(person) }) do |person|
+        raise "boom" if bio == "boom" && person.first_name == "Second"
+        if bio == "unsaved" && person.first_name == "Second"
+          person.errors.add(:base, "Can't save this one")
+          next false
+        end
+
+        person.update(bio: bio)
+      end
+    end
+  end
+
+  setup do
+    build_mcp_world
+    @first = person(:alpha_member)
+    @second = person(:ward)
+    @second.update!(first_name: "Second")
+    @elsewhere = person(:beta_member)
+    SetBios.people = [ @first, @second, @elsewhere ]
+  end
+
+  def run_bulk(viewer, **arguments)
+    with_tool(SetBios) { call_tool("test_set_bios", user: user(viewer), **arguments) }
+  end
+
+  def last_call
+    McpToolCall.where(tool: "test_set_bios").order(:created_at).last
+  end
+
+  test "it changes what the viewer may, lists the rest with reasons, and logs one row with every changed record" do
+    result = nil
+    assert_difference("McpToolCall.count", 1) { result = run_bulk(:alpha_manager, bio: "New") }
+
+    assert_equal [ @first.neat_id, @second.neat_id ], result.value["changed"].map { |item| item["id"] }
+    assert_equal [ { "id" => @elsewhere.neat_id, "reason" => "Not allowed" } ], result.value["skipped"]
+    assert_equal false, result.value["dry_run"]
+    assert_equal "New", @first.reload.bio
+    assert_nil @elsewhere.reload.bio
+
+    assert_nil last_call.changed_type
+    assert_nil last_call.changed_id
+    assert_equal [ { "type" => "Person", "id" => @first.id }, { "type" => "Person", "id" => @second.id } ], last_call.changed_records
+    assert_equal "ok", last_call.outcome
+  end
+
+  test "a dry run changes nothing, lists the same records as a real run, and logs an empty list" do
+    audit_rows = AuditLog.count
+    dry = run_bulk(:alpha_manager, bio: "New", dry_run: true)
+
+    assert_nil @first.reload.bio
+    assert_equal audit_rows, AuditLog.count
+    assert_equal true, dry.value["dry_run"]
+    assert_empty last_call.changed_records
+    assert_nil last_call.changed_type
+    assert_equal true, last_call.arguments["dry_run"]
+
+    real = run_bulk(:alpha_manager, bio: "New", dry_run: false)
+    assert_equal dry.value.except("dry_run"), real.value.except("dry_run")
+  end
+
+  test "dry_run takes only a boolean" do
+    %w[no true].each do |value|
+      assert_predicate run_bulk(:admin, bio: "New", dry_run: value), :error?
+      assert_nil @first.reload.bio
+    end
+  end
+
+  test "exactly the limit goes through and one more refuses the whole call, dry run or not" do
+    SetBios.people = Array.new(Mcp::Tool::BULK_LIMIT) { @first }
+    assert_equal Mcp::Tool::BULK_LIMIT, run_bulk(:admin, bio: "New", dry_run: true).value["changed"].size
+
+    SetBios.people = Array.new(Mcp::Tool::BULK_LIMIT + 1) { @first }
+    [ true, false ].each do |dry_run|
+      result = run_bulk(:admin, bio: "Over", dry_run: dry_run)
+      assert_match(/201 records.*at most 200/, result.error)
+      assert_empty last_call.changed_records
+      assert_nil @first.reload.bio
+    end
+  end
+
+  test "records the viewer can't change don't count toward the limit" do
+    SetBios.people = Array.new(Mcp::Tool::BULK_LIMIT + 1) { @elsewhere } + [ @first ]
+
+    result = run_bulk(:alpha_manager, bio: "New")
+
+    assert_equal 1, result.value["changed"].size
+    assert_equal Mcp::Tool::BULK_LIMIT + 1, result.value["skipped"].size
+  end
+
+  test "a record that fails to save is skipped with why, and the others go ahead" do
+    result = run_bulk(:admin, bio: "unsaved")
+
+    assert_equal [ { "id" => @second.neat_id, "reason" => "Can't save this one" } ], result.value["skipped"]
+    assert_equal [ @first.neat_id, @elsewhere.neat_id ], result.value["changed"].map { |item| item["id"] }
+    assert_equal [ @first.id, @elsewhere.id ], last_call.changed_records.map { |record| record["id"] }
+  end
+
+  test "an unexpected failure still logs what had already changed" do
+    result = run_bulk(:admin, bio: "boom")
+
+    assert_equal "Internal error", result.error
+    assert_equal "boom", @first.reload.bio
+    assert_equal [ @first.id ], last_call.changed_records.map { |record| record["id"] }
+  end
+
+  test "a tool that hasn't declared bulk can't use it, and a bulk tool must take dry_run" do
+    tool = Class.new(Mcp::Tool) do
+      tool_name "test_not_bulk"
+      description "Not bulk"
+      scope :write
+      def call = bulk_write([], json: :itself.to_proc)
+    end
+    with_settings(mcp_write_enabled: "true") do
+      assert_raises(Mcp::ToolBug) { tool.run(mcp_context(user(:admin), scopes: "mcp_write"), {}) }
+    end
+
+    no_dry_run = Class.new(Mcp::Tool) do
+      tool_name "test_no_dry_run"
+      description "No dry run"
+      scope :write
+      bulk
+    end
+    assert_raises(ArgumentError) { Mcp.register_tool(no_dry_run) }
+  end
+end

@@ -21,7 +21,8 @@
 # Mcp::InvalidArgument (or call not_found!, invalid_argument!) to return a
 # tool error; a Pundit::NotAuthorizedError becomes "Not allowed". Any other
 # exception is logged with the request id and returned as "Internal error".
-# A write tool calls changed!(record) so the call log records what changed.
+# A write tool calls changed!(record) so the call log records what changed;
+# changed!(record, *others) when one action also created or changed others.
 # ctx.policy_scope, ctx.authorize!, ctx.allowed? and list raise Mcp::ToolBug for
 # a check that wouldn't protect anything; that isn't a tool result, it fails the
 # test. For a condition use ctx.allowed?, not the policy directly.
@@ -29,10 +30,19 @@
 # Tools run in the app's time zone with the token's user as the audit log user.
 # Format values with time_json, date_json, hours_json and money_json.
 #
+# A bulk tool (only where a page has the same bulk action) declares `bulk`, takes
+# dry_run: dry_run_property, and does its work through bulk_write, which returns
+# { changed:, skipped: [{ id:, reason: }], dry_run: } for output_schema(bulk_output_schema(item)).
+#
+# mask_argument(:value, with: ->(value) { ... }) stores an argument masked in the
+# call log. Masking doesn't reach the Rails log: that's filter_parameters.
+#
 # Tools don't use the MCP SDK directly: Mcp::Server adapts them with to_sdk.
 class Mcp::Tool
   DEFAULT_LIMIT = 25
   MAX_LIMIT = 100
+  BULK_LIMIT = 200
+  MASKED = "[masked]".freeze
 
   # Output schema of person_json and team_json.
   REF_SCHEMA = {
@@ -43,9 +53,10 @@ class Mcp::Tool
 
   # The outcome of one call. value is the JSON-ready result (string keys),
   # error the message returned when the call failed, changed the record a
-  # write tool changed.
-  Result = Data.define(:value, :error, :outcome, :changed) do
-    def initialize(outcome:, value: nil, error: nil, changed: nil)
+  # write tool changed, changed_records every record the call changed (a bulk
+  # tool's changed stays nil: there's no one record).
+  Result = Data.define(:value, :error, :outcome, :changed, :changed_records) do
+    def initialize(outcome:, value: nil, error: nil, changed: nil, changed_records: [])
       super
     end
 
@@ -90,10 +101,15 @@ class Mcp::Tool
       @features || []
     end
 
-    def input_schema(properties: nil, required: [])
+    # closed: true refuses arguments not listed, by name. For a write tool whose
+    # page takes more than the tool does, so a client's phone number isn't dropped
+    # with a success. Otherwise undeclared arguments are ignored.
+    def input_schema(properties: nil, required: [], closed: false)
       return @input_schema || { type: "object", properties: {} } if properties.nil?
 
       @input_schema = { type: "object", properties: properties, required: required.map(&:to_s) }
+      @input_schema[:additionalProperties] = false if closed
+      @input_schema
     end
 
     def output_schema(schema = nil)
@@ -111,6 +127,45 @@ class Mcp::Tool
 
     def annotations
       { read_only_hint: scope == :read, destructive_hint: destructive?, idempotent_hint: scope == :read, open_world_hint: false }
+    end
+
+    # Marks a write tool as changing several records in one call. See bulk_write.
+    def bulk
+      @bulk = true
+    end
+
+    def bulk?
+      write? && @bulk == true
+    end
+
+    # Input schema property every bulk tool takes.
+    def dry_run_property
+      { type: "boolean", description: "List what would change without changing it (default false)" }
+    end
+
+    # Output schema of bulk_write, item_schema describing one changed record.
+    def bulk_output_schema(item_schema)
+      {
+        type: "object",
+        properties: {
+          changed: { type: "array", items: item_schema },
+          skipped: {
+            type: "array",
+            items: { type: "object", properties: { id: { type: "string" }, reason: { type: "string" } }, required: %w[id reason] }
+          },
+          dry_run: { type: "boolean" }
+        },
+        required: %w[changed skipped dry_run]
+      }
+    end
+
+    # Stores these arguments in the call log as with.call(value). The default keeps nothing.
+    def mask_argument(*names, with: ->(_value) { MASKED })
+      names.each { |name| masked_arguments[name.to_s] = with }
+    end
+
+    def masked_arguments
+      @masked_arguments ||= {}
     end
 
     # Input schema property for a list limit.
@@ -153,7 +208,7 @@ class Mcp::Tool
         bug = e if e.is_a?(Mcp::ToolBug)
         Result.new(error: "Internal error", outcome: :error)
       end
-      result = result.with(changed: tool.changed_record)
+      result = result.with(changed: tool.changed_record, changed_records: tool.changed_records)
 
       Mcp::CallLog.record(ctx: ctx, tool: self, arguments: arguments, result: result,
         duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round)
@@ -204,10 +259,11 @@ class Mcp::Tool
     end
   end
 
-  attr_reader :ctx, :changed_record
+  attr_reader :ctx, :changed_record, :changed_records
 
   def initialize(ctx)
     @ctx = ctx
+    @changed_records = []
   end
 
   def call(**)
@@ -216,8 +272,60 @@ class Mcp::Tool
 
   private
 
-  def changed!(record)
+  # record goes in the call log's changed_type and changed_id; it and others in its
+  # changed_records.
+  def changed!(record, *others)
     @changed_record = record
+    @changed_records = [ record, *others ]
+  end
+
+  # Does one bulk action, for a tool that declared `bulk`:
+  #
+  #   bulk_write(punches, dry_run: dry_run,
+  #     check: ->(punch) { raise Mcp::NotAllowed unless may_close?(punch) },
+  #     json: ->(punch) { punch_json(punch) }) { |punch| punch.update(end_time: end_of(punch)) }
+  #
+  # check runs for every record, with the same rule as the single-record tool. If it
+  # raises a refusal, the record is skipped with that message as its reason. More than
+  # BULK_LIMIT records passing it refuses the whole call before anything changes.
+  #
+  # With dry_run, nothing else runs: changed lists the records that passed check, and
+  # the call log's changed_records stays empty. So check has to include whatever could
+  # still refuse a record for dry_run to promise the same list as a real run.
+  #
+  # Otherwise the block writes each record in its own save (never update_all, so hooks
+  # fire). A record whose block returns false, or raises a refusal or a validation
+  # error, is skipped, and the others still go ahead. Each change reaches the call log
+  # as it's made, so the log is right even if a later record fails with an exception.
+  def bulk_write(records, json:, dry_run: false, check: nil, &write)
+    raise Mcp::ToolBug, "#{self.class} must declare bulk to use bulk_write" unless self.class.bulk?
+
+    skipped = []
+    writable = records.select { |record| bulk_outcome(record, skipped) { check&.call(record) } }
+    if writable.size > BULK_LIMIT
+      raise Mcp::InvalidArgument, "This would change #{writable.size} records, and a call can change at most #{BULK_LIMIT}"
+    end
+
+    changed = writable.select do |record|
+      next true if dry_run
+
+      bulk_outcome(record, skipped) do
+        raise Mcp::InvalidArgument, record.errors.full_messages.to_sentence if write.call(record) == false
+      end.tap { |written| @changed_records << record if written }
+    end
+    { changed: changed.map(&json), skipped: skipped, dry_run: dry_run }
+  end
+
+  # Whether the block finished; if it refused, adds the record and why to skipped.
+  def bulk_outcome(record, skipped)
+    yield
+    true
+  rescue Mcp::Error, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved, ActiveRecord::RecordNotDestroyed => e
+    skipped << { id: record.neat_id, reason: e.message }
+    false
+  rescue Pundit::NotAuthorizedError
+    skipped << { id: record.neat_id, reason: Mcp::NotAllowed.new.message }
+    false
   end
 
   def not_found!
