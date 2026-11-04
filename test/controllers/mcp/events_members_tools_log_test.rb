@@ -49,6 +49,14 @@ class Mcp::EventsMembersToolsLogTest < ActionDispatch::IntegrationTest
     %w[Secret1 Secret2 Secret3 Secret4].each { |value| assert_not_includes log, value }
   end
 
+  test "so are the near-misses: the model's and the page's own names for answers" do
+    log = log_of({ checkin_id: @checkin.neat_id, answer: "Secret1", checkin_field_responses: "Secret2", checkin_field_responses_attributes: { "0" => { response: "Secret3" } }, fields: { @field.neat_id => "Secret4" } })
+
+    assert_includes @response_body.to_json, "isError"
+    assert_includes log, @checkin.neat_id
+    %w[Secret1 Secret2 Secret3 Secret4].each { |value| assert_not_includes log, value }
+  end
+
   test "the new tools are listed for a write token, and only the reads for a read one" do
     new_tools = %w[update_team_member list_membership_applications decide_membership_application withdraw_membership_application update_event remove_event remove_checkin update_checkin list_relationship_types add_relationship remove_relationship]
     with_settings(mcp_write_enabled: "true") do

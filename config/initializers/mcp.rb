@@ -11,9 +11,10 @@ Rails.application.config.filter_parameters += %w[first_name last_name display_na
 # client may send a value under another name, which is refused only after the log line.
 # These match substrings, so token also hides token_id, which is no loss.
 Rails.application.config.filter_parameters += %w[value note token rfid card].map { |name| "params.arguments.#{name}" }
-# Check-in notes and answers can say anything. These match substrings, so response also
-# hides field_responses, and the misnames are here since they're refused after the log line.
-Rails.application.config.filter_parameters += %w[notes field_responses response answers].map { |name| "params.arguments.#{name}" }
+# Check-in notes and answers can say anything. Each entry matches names that start with it,
+# so response doesn't hide field_responses, and answer and checkin_field_responses cover their
+# longer forms. The misnames are here since they're refused only after the log line.
+Rails.application.config.filter_parameters += %w[notes field_responses response answer checkin_field_responses fields].map { |name| "params.arguments.#{name}" }
 
 Rails.application.config.to_prepare do
   # Mcp::Access reads the settings store on every request, so transactions

@@ -41,7 +41,30 @@ class Mcp::Tools::AddRelationshipTest < ActionDispatch::IntegrationTest
 
   test "someone the viewer can't see is not found, for a member on another team and a guardian" do
     assert_refused("Not found", Relationship, AuditLog) { add(:beta_member, :beta_member, :ward, @by_user) }
-    assert_refused("Not found", Relationship, AuditLog) { add(:guardian, :guardian, :ward, @by_user) }
+    assert_refused("Not found", Relationship, AuditLog) { add(:guardian, :guardian, :alpha_member, @by_user) }
+  end
+
+  test "someone the viewer is already related to can be named, from either side, though they're out of scope" do
+    assert_difference("Relationship.count", 1) { assert_nil add(:guardian, :guardian, :ward, @by_user).error }
+    assert_difference("Relationship.count", 1) { assert_nil add(:ward, :guardian, :ward, @by_user).error }
+    assert_refused("Not found", Relationship, AuditLog) { add(:guardian, :ward, :alpha_member, @by_user) }
+    assert_refused("Not allowed", Relationship, AuditLog) { add(:guardian, :guardian, :ward, @by_manager) }
+  end
+
+  test "someone already related goes through on the page too" do
+    page = page_changes_rows?(Relationship, as: user(:guardian)) do
+      post person_relationships_path(person(:guardian)), params: { relationship: { start_node: "#{@by_user.id}:p", child_id: person(:ward).id } }
+    end
+    tool = changes_rows?(Relationship) { add(:guardian, :guardian, :ward, @by_user) }
+
+    assert page
+    assert tool
+  end
+
+  test "a build's consent rule, which reports on the relationship as a whole, is not allowed" do
+    with_permission_check(proc { errors.add(:base, "Only the child or an admin can add this relationship") }) do
+      assert_refused("Not allowed", Relationship, AuditLog) { add(:alpha_member, :alpha_member, :ward, @by_user) }
+    end
   end
 
   test "a person can't be related to themselves" do
@@ -80,5 +103,17 @@ class Mcp::Tools::AddRelationshipTest < ActionDispatch::IntegrationTest
 
       assert_equal page, tool, "#{viewer} adding #{type.parent_label}"
     end
+  end
+
+  private
+
+  def with_permission_check(rule)
+    original = Relationship.instance_method(:permission_check)
+    Relationship.define_method(:permission_check, &rule)
+    Relationship.send(:private, :permission_check)
+    yield
+  ensure
+    Relationship.define_method(:permission_check, original)
+    Relationship.send(:private, :permission_check)
   end
 end

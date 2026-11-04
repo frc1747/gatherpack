@@ -42,12 +42,10 @@ class Mcp::Tools::RemoveEventTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # PaperTrail writes its destroy row to the versions database first, and a failed destroy
-  # can't take it back, on the page or here. The check-ins refusal comes before that.
-  test "a foreign key failure from another table is refused without a count" do
+  test "a foreign key failure from another table is refused without a count, leaving no audit row" do
     Hook.create!(name: "Blocks", event: "events - destroy", code: "raise ActiveRecord::InvalidForeignKey, 'other table'")
 
-    assert_refused("Other records still refer to this event, so it can't be removed", Event) { remove(:admin) }
+    assert_refused("Other records still refer to this event, so it can't be removed", Event, AuditLog) { remove(:admin) }
   end
 
   test "a plain member sees it but can't remove it" do
