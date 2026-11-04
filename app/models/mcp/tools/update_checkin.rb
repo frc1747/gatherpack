@@ -17,7 +17,8 @@
 # On a build with those rules, CheckinPolicy#show_notes? gates notes and
 # CheckinFieldResponsePolicy#update? takes over from the rule above (here that policy has no
 # update?, and ApplicationPolicy's allows everyone). A field's read level limits this too, for
-# reading and writing, as the build's form does (CheckinField#readable_by?). A field linked to a
+# reading and writing, as the build's form does (CheckinField#readable_by?), and one they can't
+# read is "Not found", so the refusal doesn't name it. A field linked to a
 # person field holds that person's value, which may be contact details, and stores no answer of its
 # own: it's neither returned nor written, which keeps it out of Mcp::MinorRule's way.
 class Mcp::Tools::UpdateCheckin < Mcp::Tool
@@ -68,18 +69,21 @@ class Mcp::Tools::UpdateCheckin < Mcp::Tool
     refuse_line_breaks!("notes", notes[:notes])
     answers = answers_by_field(checkin, field_responses)
 
-    saved = Checkin.transaction { write(checkin, notes, answers) }
+    saved = AuditLog.transaction { Checkin.transaction { write(checkin, notes, answers) } }
     changed!(*saved) if saved.any?
     checkin_json(checkin)
   end
 
   private
 
-  # Everything that can refuse, before anything is written: the versions database isn't part of
-  # the transaction below, so a rollback wouldn't take back an audit row.
+  # What the tool refuses itself, before anything is written. What only the model can refuse (its
+  # check-in limit, whose validation first fills in blank answers) is in call's transactions, one
+  # for each database, since audit rows live in their own.
   def answers_by_field(checkin, field_responses)
     fields = checkin.event.event_type.checkin_fields
     answers = field_responses.to_h { |field_id, answer| [ ctx.find(fields, field_id), answer ] }
+    raise Mcp::NotFound unless answers.keys.all? { |field| readable?(checkin, field) }
+
     answers.each { |field, answer| refuse_line_breaks!(field.name, answer) }
     refused = answers.keys.reject { |field| may_answer?(checkin, field) }
     raise Mcp::NotAllowed, "Not allowed: #{refused.map(&:name).to_sentence}" if refused.any?
@@ -88,7 +92,7 @@ class Mcp::Tools::UpdateCheckin < Mcp::Tool
   end
 
   def may_answer?(checkin, field)
-    return false if field.try(:linked?) || !readable?(checkin, field)
+    return false if field.try(:linked?)
 
     answer = checkin.checkin_field_responses.detect { |response| response.checkin_field_id == field.id } ||
       CheckinFieldResponse.new(checkin: checkin, checkin_field: field)

@@ -119,6 +119,15 @@ class Mcp::Tools::UpdateCheckinTest < ActionDispatch::IntegrationTest
     assert_nil @checkin.reload.notes
   end
 
+  test "a refusal at the limit leaves no audit row for the blank answers the model fills in first" do
+    @checkin.refresh_fields
+    CheckinField.create!(event_type: @type, name: "Added later", permission: :added_by_user)
+    @checkin = Checkin.find(@checkin.id)
+    @event.update!(checkin_limit: 1)
+
+    assert_refused(/checkin limit/, AuditLog, CheckinFieldResponse) { update(:admin, notes: "Nope") }
+  end
+
   test "changing nothing reports no change" do
     result = with_settings(mcp_write_enabled: "true") { Mcp.tool("update_checkin").run(mcp_context(user(:admin), scopes: "mcp_write"), { checkin_id: @checkin.neat_id, notes: nil }) }
 
@@ -163,7 +172,8 @@ class Mcp::Tools::UpdateCheckinTest < ActionDispatch::IntegrationTest
     @checkin.checkin_field_responses.find_by!(checkin_field: @admin_field).update!(response: "Hidden value")
 
     with_policy_query(CheckinField, :readable_by?, proc { |_viewer, _person| name != "Admin only" }) do
-      assert_unchanged("Not allowed: Admin only") { update(:admin, field_responses: { @admin_field.neat_id => "A" }) }
+      assert_unchanged("Not found") { update(:admin, field_responses: { @admin_field.neat_id => "A" }) }
+      assert_unchanged("Not found") { update(:admin, field_responses: { @admin_field.neat_id => "a\nb" }) }
 
       result = update(:admin, notes: "Fine")
       assert_equal [ "Open" ], result.value["field_responses"].map { |item| item["name"] }

@@ -8,7 +8,9 @@
 # Only a pending one, as the page offers (_application line 29, show line 52). The PATCH has
 # no such check: approving twice raises there, and denying an approved one would leave the
 # membership in place. A validation approve! or deny! raises, which the page shows as a
-# crash, comes back as an invalid-argument error with nothing changed.
+# crash, comes back as an invalid-argument error with nothing changed. The application's own is
+# asked first: approve! creates the membership before it saves the application, and a rollback
+# wouldn't take back the membership's audit row or the hooks that ran.
 class Mcp::Tools::DecideMembershipApplication < Mcp::Tool
   include Mcp::MembershipApplicationRecords
 
@@ -29,6 +31,8 @@ class Mcp::Tools::DecideMembershipApplication < Mcp::Tool
     application = ctx.find(MembershipApplication, membership_application_id)
     ctx.authorize!(application, :update?)
     invalid_argument!("This application is already #{application.status}") unless application.pending?
+
+    invalid_argument!(application.errors.full_messages.to_sentence) unless application.valid?
 
     decide(application, decision)
     application_json(application)
