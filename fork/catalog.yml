@@ -248,6 +248,70 @@ feature/ransack-associations-default:
     Mailboxes lists, which showed an error after upstream's latest update.
   audience: Admins
 
+feature/oauth-admin-fixes:
+  title: Set up OAuth apps without surprises
+  emoji: "🔑"
+  description: >-
+    Admins reach OAuth Applications from the setup page, copy a client ID or
+    secret with one click, and edit an application without losing its scopes.
+    The consent page names the account being used, with a way to switch.
+  audience: Admins who connect other apps, and members who approve them
+
+feature/mcp:
+  title: Ask an AI client about GatherPack
+  emoji: "🤖"
+  description: >-
+    Members can connect an AI client, such as Claude, to their own account and
+    ask it about people, teams, badges, events, check-ins, hours, ledgers and
+    pages, or have it add people, fix punches, clock everyone out and post
+    announcements. It sees and does only what that member may, and every call is listed for
+    admins under MCP Calls. Changes stay off until an admin allows them.
+  audience: Members who use an AI client, and the admins who set it up
+  settings:
+    - name: "MCP: allowed badge"
+      key: mcp_allowed_badge
+      default: blank (every member)
+    - name: "MCP: allow changes"
+      key: mcp_write_enabled
+      default: "false"
+    - name: "MCP: read dynamic pages"
+      key: mcp_dynamic_pages_enabled
+      default: "false"
+
+feature/mcp-person-fields:
+  title: AI clients respect custom person fields
+  emoji: "🗂️"
+  description: >-
+    A connected AI client can read and change the custom person fields a member
+    may read and change, and the field privacy rules apply to contact details on
+    a profile too.
+  audience: Members who use an AI client
+
+feature/mcp-forms:
+  title: Ask an AI client about forms
+  emoji: "📝"
+  description: >-
+    A connected AI client can list forms and say who has and hasn't submitted,
+    and read the answers the member may see.
+  audience: Members who use an AI client
+
+feature/mcp-signups:
+  title: Ask an AI client about sign-ups
+  emoji: "📋"
+  description: >-
+    A connected AI client can show sheets, open places and who signed up. When
+    an admin allows changes, it can place and cancel sign-ups under the same
+    rules, and with the same emails, as the sign-up pages.
+  audience: Members who use an AI client
+
+feature/mcp-commitments:
+  title: Ask an AI client about commitments
+  emoji: "🤝"
+  description: >-
+    A connected AI client can list commitments and show progress for the people
+    the member may see.
+  audience: Members who use an AI client
+
 feature/settings-read-through:
   title: Saved settings apply everywhere at once
   emoji: "⚙️"

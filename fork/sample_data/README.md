@@ -146,10 +146,12 @@ Cards `10000001` to `10000032`, one per Northwind person in last-name order. Typ
 
 **Time kiosk.** Open the Time Kiosk and type the card numbers above. To try auto clock-in, in Settings → Time Clock turn off **Kiosk: Allow Unassigned Punches**, then scan Ella (one period: clocked in immediately) and Kate (two periods: she chooses). Set **Kiosk: Return to Welcome After** to 10 to see the screen clear itself, and **Kiosk: Who Can Open the Kiosk** to Kiosk to limit it to `kiosk@` (and admins).
 
+**MCP server** (Setup → MCP Calls, as an admin). Three calls are already in the log. `admin@` and `manager@` hold the AI Client Access badge, so only they can connect. The Northwind AI Client OAuth application has its client ID and secret on its page; add `http://localhost:3000/mcp` as a connector, or change the redirect URI to suit your client. Turn on **MCP: allow changes** in Settings to try the write tools. Gina has an open punch for `clock_out`, Grace has a pending application to Volunteer Applicants, and Volunteer Handbook and My Team Count are a static and a dynamic Page. Turn on **MCP: read dynamic pages** to read the second through `get_page`.
+
 ## Safety
 
 - It refuses to run if any login is outside `@example.com`, or any person exists that neither this data nor `db/seeds.rb` creates. The message names what it found. `SAMPLE_DATA_FORCE=1` loads it anyway; don't do that on a real site.
-- It turns on the Custom Person Fields, Forms, Widgets, Sign-up Sheets and Commitments features, and sets Guardianship Age Limit, Form Creator Badge, Sign-up Sheet Organizers and Commitment Organizers.
+- It turns on the Custom Person Fields, Forms, Widgets, Sign-up Sheets, Commitments, OAuth Provider and MCP server features, and sets Guardianship Age Limit, Form Creator Badge, Sign-up Sheet Organizers, Commitment Organizers and MCP: allowed badge. MCP changes stay off.
 - Nothing it creates is a Hook, so loading it runs no admin-written code beyond any Hooks already on the site.
 
 ## Adding data for a feature
