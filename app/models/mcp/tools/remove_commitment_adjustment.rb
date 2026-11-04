@@ -3,7 +3,7 @@
 # Mirrors: set_commitment (line 36, Commitment.find, the adjustment's commitment, found
 # as the commitment page is, by CommitmentPolicy#show?), destroy (lines 29-30: the
 # adjustment within the commitment, authorize destroy?, destroy!). The policy,
-# CommitmentAdjustmentPolicy#destroy? (line 93), is create?: the commitment's
+# CommitmentAdjustmentPolicy#destroy? (line 10), is create?: the commitment's
 # organizers, but not for their own family's credit (self-approval), named in the
 # refusal as the page names it.
 #
@@ -12,7 +12,7 @@
 # feature.
 class Mcp::Tools::RemoveCommitmentAdjustment < Mcp::Tool
   tool_name "remove_commitment_adjustment"
-  description "Remove a manual commitment adjustment, by the ID commitment_progress shows an organizer. " \
+  description "Remove a manual commitment adjustment, as Remove in the commitment page's progress table does, by the ID commitment_progress shows an organizer. " \
     "Only the commitment's organizers, and not for their own family's credit: that is \"Not allowed\"; one you can't see is \"Not found\". " \
     "Returns the person's progress as commitment_progress shows it."
   scope :write

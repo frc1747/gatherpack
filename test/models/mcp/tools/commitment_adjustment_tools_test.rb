@@ -106,11 +106,16 @@ class Mcp::Tools::CommitmentAdjustmentToolsTest < ActionDispatch::IntegrationTes
     assert_unchanged(/Credits must be other than 0/) { add(:admin, :alpha_member, credits: 0) }
     assert_unchanged(/Reason can't be blank/) { add(:admin, :alpha_member, reason: "") }
     assert_unchanged(/Reason can't be blank/) { add(:admin, :alpha_member, reason: "  ") }
-    [ 1.5, "2", nil, true, 2.0, 2**31, -(2**31) - 1, Float::INFINITY ].each do |credits|
-      assert_unchanged(/\S/) { add(:admin, :alpha_member, credits: credits) }
+    { 1.5 => /not an integer/, "2" => /not an integer/, nil => /not an integer/, true => /not an integer/,
+      2.0 => /must be an integer/, 2**31 => /greater than/, -(2**31) - 1 => /less than/ }.each do |credits, error|
+      assert_unchanged(error) { add(:admin, :alpha_member, credits: credits) }
     end
     assert_equal "credits is out of range", add(:admin, :alpha_member, credits: Float::INFINITY).error
     assert_nil add(:admin, :alpha_member, credits: 2**31 - 1).error
+  end
+
+  test "removal is marked destructive" do
+    assert Mcp.tool("remove_commitment_adjustment").annotations[:destructive_hint]
   end
 
   test "a closed schema refuses other arguments by name" do

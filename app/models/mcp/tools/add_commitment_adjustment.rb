@@ -6,7 +6,7 @@
 # build through the commitment with adjustment_params, i.e. credits and reason, and
 # created_by the viewer's person; the person is owing_person, line 42, one of the
 # commitment's owing_people, otherwise nil; authorize create?), then save. The policy,
-# CommitmentAdjustmentPolicy#create? (line 89), is the commitment's organizers
+# CommitmentAdjustmentPolicy#create? (line 6), is the commitment's organizers
 # (CommitmentPolicy#manage?) unless the person is the organizer, a relative, or in a
 # group with either (Commitment#self_or_relative_in_group?): "Another organizer needs
 # to adjust your own family's credit", named in the refusal as the page names it.
