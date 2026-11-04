@@ -39,11 +39,31 @@ class Mcp::Tools::RemovePunchTest < ActionDispatch::IntegrationTest
   end
 
   test "a member removes their own in no period, but not their own in an added by admin period" do
-    own = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 10, 9))
+    own = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 10, 9), end_time: Time.utc(2026, 3, 10, 10))
     assert_nil remove(:beta_member, own).error
 
     in_period = create_world_punch(person(:beta_member), @beta_period, 20, 21)
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { remove(:beta_member, in_period) }
+  end
+
+  test "a member can't delete their own open punch, in any period the policy lets them edit" do
+    Membership.find_or_create_by!(person: person(:beta_member), team: @beta)
+    no_period = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9))
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { remove(:beta_member, no_period) }
+
+    %i[added_by_user added_by_team_member].each do |permission|
+      period = TimeClockPeriod.create!(name: permission.to_s, team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: permission)
+      punch = TimeClockPunch.create!(person: person(:beta_member), time_clock_period: period, start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk")
+      assert_refused("Not allowed", TimeClockPunch, AuditLog) { remove(:beta_member, punch) }
+    end
+  end
+
+  test "managers and admins delete open punches they can edit" do
+    open = create_world_punch(person(:ward), @manager_period, 30, nil)
+    assert_nil remove(:alpha_manager, open).error
+
+    other = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9))
+    assert_nil remove(:admin, other).error
   end
 
   test "a read token and the setting being off refuse it, and a bad ID is not found" do
