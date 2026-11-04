@@ -11,6 +11,8 @@ Rails.application.config.filter_parameters += %w[first_name last_name display_na
 # client may send a value under another name, which is refused only after the log line.
 # These match substrings, so token also hides token_id, which is no loss.
 Rails.application.config.filter_parameters += %w[value note token rfid card].map { |name| "params.arguments.#{name}" }
+# A page's query string can hold anything the page takes.
+Rails.application.config.filter_parameters += [ "params.arguments.params" ]
 
 Rails.application.config.to_prepare do
   # Mcp::Access reads the settings store on every request, so transactions
@@ -101,4 +103,15 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::ListTokens)
   Mcp.register_tool(Mcp::Tools::AddToken)
   Mcp.register_tool(Mcp::Tools::RemoveToken)
+
+  # Pages and reads
+  Mcp.register_tool(Mcp::Tools::ListPages)
+  Mcp.register_tool(Mcp::Tools::GetPage)
+  Mcp.register_tool(Mcp::Tools::GetPageSource)
+  Mcp.register_tool(Mcp::Tools::ListAnnouncements)
+  Mcp.register_tool(Mcp::Tools::CreateAnnouncement)
+  Mcp.register_tool(Mcp::Tools::ListCalendarNotes)
+  Mcp.register_tool(Mcp::Tools::ListQuestions)
+  Mcp.register_tool(Mcp::Tools::GetQuestion)
+  Mcp.register_tool(Mcp::Tools::ListEventCheckinFields)
 end
