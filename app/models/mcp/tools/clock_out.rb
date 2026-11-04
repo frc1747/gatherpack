@@ -78,6 +78,7 @@ class Mcp::Tools::ClockOut < Mcp::Tool
   # ask, and rolls back, so both go through the flagged page's own scopes. No save: nothing
   # runs a hook or reaches the audit log.
   def flags_when_closed(dry_run)
+    return nil unless ctx.allowed?(TimeClockPunch, :flagged?)
     return flags_by_punch(chosen_punches) unless dry_run
 
     flags = nil

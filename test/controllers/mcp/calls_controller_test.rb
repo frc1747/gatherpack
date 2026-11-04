@@ -71,6 +71,17 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "170000000034"
   end
 
+  test "a removed token shows as text, not a link to a page that's gone" do
+    token = Token.create!(tokenable: person(:ward), value: "170000000034")
+    token_id = token.id
+    with_settings(mcp_write_enabled: "true") { assert_nil Mcp.tool("remove_token").run(mcp_context(user(:admin), scopes: "mcp_write"), { token_id: token.neat_id }).error }
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child a[href=?]", token_path(token_id), false
+    assert_includes css_select("tbody tr:first-child").text, "Token #{token_id}"
+  end
+
   test "a single change links too, and a call from before changed_records still shows" do
     McpToolCall.create!(user: user(:admin), tool: "older", outcome: "ok", changed_type: "Person", changed_id: person(:ward).id)
     sign_in user(:admin)

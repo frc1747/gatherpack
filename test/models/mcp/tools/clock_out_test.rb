@@ -161,6 +161,24 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     assert_equal [ "too_long" ], clock_out(:admin, person_id: person(:ward).neat_id).value["changed"].first["flags"]
   end
 
+  def punch_updates
+    count = 0
+    counter = ->(*, payload) { count += 1 if payload[:sql].match?(/\AUPDATE "time_clock_punches"/) }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
+    count
+  end
+
+  test "a dry run writes nothing for flags the viewer can't see, and once for those who can" do
+    create_world_punch(person(:beta_member), @beta_period, 34, nil)
+
+    member = nil
+    assert_equal 0, punch_updates { member = clock_out(:beta_member, person_id: person(:beta_member).neat_id, dry_run: true) }
+    assert_equal 2, member.value["changed"].size
+    member.value["changed"].each { |item| assert_nil item["flags"] }
+
+    assert_equal 2, punch_updates { clock_out(:admin, person_id: person(:beta_member).neat_id, dry_run: true) }
+  end
+
   test "an admin's all covers a team-less period too" do
     loose = create_world_punch(person(:guardian), @everyone_period, 33, nil)
 
