@@ -1,12 +1,15 @@
 require "nokogiri"
 
 # Rendered page HTML as plain text, with tables as Markdown tables, for get_page. What
-# the page hides from a browser stays out too. Nokogiri is already here through Rails, so
+# the page hides from a browser stays out too, and a form control gives the value it
+# shows, as that may be all a page says about the answer. Nokogiri is already here through Rails, so
 # this needs no gem of its own, and it does only what get_page needs.
 module Mcp::PageText
-  SKIPPED = %w[button embed head iframe input link meta noscript object script select style svg template textarea title].freeze
+  SKIPPED = %w[button embed head iframe link meta noscript object script style svg template title].freeze
   PARAGRAPHS = %w[blockquote dl fieldset figure h1 h2 h3 h4 h5 h6 p].freeze
-  LINES = %w[address article aside caption center dd details div dt figcaption footer form header legend main nav section summary].freeze
+  LINES = %w[address article aside center dd details div dt figcaption footer form header legend main nav section summary].freeze
+  # Inputs with no value on show: a button's value is its label, and a file input's is unused.
+  UNSHOWN_INPUTS = %w[button file hidden image password reset submit].freeze
   HIDDEN_STYLE = /(\A|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden)/i
   # d-none d-md-block shows on a wider screen, so only a plain d-none counts as hidden.
   RESPONSIVE_DISPLAY = /\bd-(sm|md|lg|xl|xxl)-/
@@ -32,8 +35,11 @@ module Mcp::PageText
       when "br" then "\n"
       when "hr" then "\n\n"
       when "img" then node["alt"].to_s
+      when "input" then input_text(node)
+      when "select" then select_text(node)
+      when "textarea" then node.text
       when "pre" then "\n\n#{text_of(node, **context, preformatted: true)}\n\n"
-      when "table" then in_cell ? " #{table_rows(node).flatten.join(" ")} " : "\n\n#{table(node)}\n\n"
+      when "table" then in_cell ? " #{[ caption(node), *table_rows(node).flatten ].compact_blank.join(" ")} " : "\n\n#{table(node)}\n\n"
       when "ul", "ol" then "\n#{list(node, context)}\n"
       when *PARAGRAPHS then "\n\n#{text_of(node, **context)}\n\n"
       when *LINES then "\n#{text_of(node, **context)}\n"
@@ -52,6 +58,23 @@ module Mcp::PageText
       classes.split.include?("d-none") && !classes.match?(RESPONSIVE_DISPLAY)
     end
 
+    def input_text(node)
+      type = node["type"].to_s.downcase
+      return "" if UNSHOWN_INPUTS.include?(type)
+      return node.key?("checked") ? "[x]" : "[ ]" if %w[checkbox radio].include?(type)
+
+      node["value"].to_s
+    end
+
+    # What a browser shows as chosen: of several marked selected the last, and of none the
+    # first option that can be chosen, unless it's a multiple select, which may have none.
+    def select_text(node)
+      options = node.css("option")
+      selected = options.select { |option| option.key?("selected") }
+      chosen = node.key?("multiple") ? selected : [ selected.last || options.find { |option| !option.key?("disabled") } ].compact
+      chosen.map { |option| option.text.gsub(/\s+/, " ").strip }.join(", ")
+    end
+
     def list(node, context)
       items = node.element_children.select { |child| child.name == "li" && !hidden?(child) }
       items.each_with_index.map do |item, index|
@@ -61,7 +84,15 @@ module Mcp::PageText
     end
 
     def table(node)
-      rows = table_rows(node)
+      [ caption(node), table_markdown(table_rows(node)) ].compact_blank.join("\n\n")
+    end
+
+    def caption(node)
+      element = node.at_xpath("./caption")
+      element && !hidden?(element) ? text_of(element, in_cell: true).gsub(/\s+/, " ").strip : ""
+    end
+
+    def table_markdown(rows)
       return "" if rows.empty?
 
       width = rows.map(&:size).max
@@ -72,7 +103,7 @@ module Mcp::PageText
     # Each row's cells as text, a colspan's extra columns blank. A table in a cell flattens
     # to its cells' text, as Markdown has no nested tables.
     def table_rows(node)
-      rows = node.xpath("./tr | ./thead/tr | ./tbody/tr | ./tfoot/tr").reject { |row| hidden?(row) }
+      rows = node.xpath("./tr | ./thead/tr | ./tbody/tr | ./tfoot/tr").reject { |row| hidden?(row) || hidden?(row.parent) }
       rows.map { |row| table_row(row) }.reject(&:empty?)
     end
 

@@ -29,6 +29,18 @@ class Mcp::Tools::GetPageSourceTest < ActionDispatch::IntegrationTest
     }, source(:admin, @pages[:dynamic]).value)
   end
 
+  test "reading dynamic pages being off changes nothing here, and the ERB still doesn't run" do
+    page = create_page("Probe", dynamic: true, content: "<% raise 'ran' %>")
+
+    [ "false", "true" ].each do |setting|
+      with_settings(mcp_dynamic_pages_enabled: setting) do
+        assert_equal "<% raise 'ran' %>", source(:admin, page).value["content"]
+        assert_equal "Not allowed", source(:alpha_member, page).error
+        assert_equal "Not found", source(:guardian, @pages[:dynamic]).error
+      end
+    end
+  end
+
   test "a team manager gets the source of their team's pages" do
     assert_equal "the body of Alpha for team", source(:alpha_manager, @pages[:alpha_team]).value["content"]
     assert_equal({ "id" => @alpha.neat_id, "name" => "Alpha" }, source(:alpha_manager, @pages[:alpha_managers]).value["team"])
