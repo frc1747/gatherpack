@@ -36,7 +36,7 @@ class Mcp::Server
     MCP::Server.new(
       name: "gatherpack",
       version: defined?(GATHERPACK_VERSION) ? GATHERPACK_VERSION.to_s : "unknown",
-      instructions: INSTRUCTIONS,
+      instructions: "#{Mcp::Environment.notice} #{INSTRUCTIONS}",
       tools: tools.map { |tool| tool.to_sdk(ctx) },
       capabilities: { tools: { listChanged: false } },
       configuration: MCP::Configuration.new(
