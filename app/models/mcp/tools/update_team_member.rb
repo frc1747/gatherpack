@@ -3,8 +3,9 @@
 # Mirrors: set_team_or_person (lines 99-100: the team in policy_scope(Team), or the person in
 # policy_scope(Person), depending on the route), set_membership (line 104, authorize update?),
 # update (line 69). MembershipPolicy#update? is admins and the team's managers, ancestors'
-# managers included. Of membership_params (line 109) only manager is taken: no page moves a
-# membership to another person or team. Nothing protects a manager's own flag on the page, so
+# managers included. Of membership_params (line 109) only manager is taken: no page offers moving
+# a membership to another person or team, and the schema is closed, so team_id or person_id is
+# refused by name rather than dropped. Nothing protects a manager's own flag on the page, so
 # nothing does here.
 class Mcp::Tools::UpdateTeamMember < Mcp::Tool
   tool_name "update_team_member"
@@ -16,7 +17,8 @@ class Mcp::Tools::UpdateTeamMember < Mcp::Tool
       membership_id: { type: "string", description: "The membership's ID (mbr_)" },
       manager: { type: "boolean", description: "Whether they manage the team" }
     },
-    required: %w[membership_id manager]
+    required: %w[membership_id manager],
+    closed: true
   )
   output_schema(
     type: "object",

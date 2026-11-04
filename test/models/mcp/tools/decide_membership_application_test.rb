@@ -74,6 +74,29 @@ class Mcp::Tools::DecideMembershipApplicationTest < ActionDispatch::IntegrationT
     assert_unchanged(/does not require approval/) { decide(:admin, "denied") }
   end
 
+  test "a team that stopped requiring approval refuses either decision, with no audit row or hook" do
+    @alpha.update!(join_permission: :has_account)
+    Thread.current[:mcp_hook_model] = nil
+    Hook.create!(name: "MCP test hook", event: "memberships - create", code: "Thread.current[:mcp_hook_model] = model")
+
+    assert_unchanged(/does not require approval/) { decide(:admin) }
+    assert_unchanged(/does not require approval/) { decide(:admin, "denied") }
+    assert_nil Thread.current[:mcp_hook_model]
+  ensure
+    Thread.current[:mcp_hook_model] = nil
+  end
+
+  test "a guardian can't decide their ward's application, with the tool or on the page" do
+    @application = MembershipApplication.create!(person: person(:ward), team: @alpha)
+
+    assert_unchanged("Not found") { decide(:guardian) }
+
+    sign_in user(:guardian)
+    patch team_membership_application_path(@alpha, @application), params: { status: "approved" }
+    sign_out user(:guardian)
+    assert @application.reload.pending?
+  end
+
   test "it allows and refuses as the page does" do
     [ [ :admin, "approved", :approved ], [ :alpha_manager, "denied", :denied ], [ :ward, "approved", :pending ], [ :beta_member, "denied", :pending ], [ :guardian, "approved", :pending ] ].each do |viewer, decision, expected|
       sign_in user(viewer)
