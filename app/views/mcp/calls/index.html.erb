@@ -50,7 +50,20 @@
               <% end %>
             </td>
             <td><tt><%= truncate call.arguments.to_json, length: 120 %></tt></td>
-            <td><%= "#{call.changed_type} #{call.changed_id}" if call.changed_type.present? %></td>
+            <td>
+              <% changed = call.changed_list %>
+              <% if changed.size > 1 %>
+                <details>
+                  <summary><%= pluralize changed.size, "record" %></summary>
+                  <% changed.each do |record| %>
+                    <div><%= changed_record_link record %></div>
+                  <% end %>
+                </details>
+              <% elsif changed.any? %>
+                <div>1 record</div>
+                <%= changed_record_link changed.first %>
+              <% end %>
+            </td>
             <td><%= "#{call.duration_ms} ms" if call.duration_ms %></td>
           </tr>
         <% end %>

@@ -57,7 +57,7 @@ module McpWorld
   # those two gates, pass scopes: or writes_enabled: false.
   #
   # Fails the test if a successful result doesn't match the tool's output
-  # schema, or a successful write tool didn't call changed!.
+  # schema, or a successful write tool that isn't bulk didn't call changed!.
   def call_tool(name, user:, scopes: nil, writes_enabled: nil, **arguments)
     tool = Mcp.tool(name) || flunk("No MCP tool #{name}")
     scopes ||= tool.write? ? "mcp_write" : "mcp_read"
@@ -71,7 +71,7 @@ module McpWorld
 
     unless result.error?
       MCP::Tool::OutputSchema.new(tool.output_schema).validate_result(result.value) if tool.output_schema
-      flunk("MCP write tool #{name} succeeded without calling changed!") if tool.write? && result.changed.nil?
+      flunk("MCP write tool #{name} succeeded without calling changed!") if tool.write? && !tool.bulk? && result.changed.nil?
     end
     result
   end
@@ -276,6 +276,19 @@ module McpWorld
     changes_rows?(model, &block)
   ensure
     sign_out as
+  end
+
+  # Gives policy_class this query for the duration of the block, as a build whose
+  # policy defines it would have, and puts back whatever was there.
+  def with_policy_query(policy_class, query, rule)
+    defined_here = policy_class.instance_methods(false).include?(query)
+    original = policy_class.instance_method(query) if defined_here
+    policy_class.send(:remove_method, query) if defined_here
+    policy_class.define_method(query, &rule)
+    yield
+  ensure
+    policy_class.send(:remove_method, query)
+    policy_class.define_method(query, original) if original
   end
 
   # Asserts that the event is in the hook catalog and that a hook on it runs, with
