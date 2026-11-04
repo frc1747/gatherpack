@@ -77,6 +77,15 @@ class Mcp::Tools::ListPunchesTest < ActiveSupport::TestCase
     assert_nil punches(:beta_member).value["items"].find { |item| item["id"] == noted.neat_id }["note"]
   end
 
+  test "a manager on a period they can edit, and a member on their own punch in no period, get the note" do
+    managed_period = TimeClockPeriod.create!(name: "Alpha Managers", team: @alpha, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_manager)
+    managed = TimeClockPunch.create!(person: person(:ward), time_clock_period: managed_period, start_time: Time.utc(2026, 3, 5, 9), note: "Managed note", created_by: "kiosk")
+    own = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 5, 9), note: "Own note")
+
+    assert_equal "Managed note", punches(:alpha_manager).value["items"].find { |item| item["id"] == managed.neat_id }["note"]
+    assert_equal "Own note", punches(:beta_member).value["items"].find { |item| item["id"] == own.neat_id }["note"]
+  end
+
   test "the window is inclusive, at most 366 days, and must be real dates" do
     assert_equal 6, punches(:admin, from: "2026-03-10", to: "2026-03-11").value["items"].size
     assert_empty punches(:admin, from: "2026-03-12", to: "2026-03-12").value["items"]

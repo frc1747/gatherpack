@@ -22,6 +22,8 @@
 # for a manager that check refuses an "added by admin" period, so this sets "kiosk" as the
 # kiosk does: nothing stores it, and the audit log's user and the call log say who closed
 # the punch. valid_times still applies, so one that would end before it starts is skipped.
+#
+# flags are those the punch has once closed, in a dry run too: see flags_when_closed.
 class Mcp::Tools::ClockOut < Mcp::Tool
   include Mcp::PunchRecords
 
@@ -48,9 +50,10 @@ class Mcp::Tools::ClockOut < Mcp::Tool
 
     now = Time.current
     flags = nil
+    @closing = []
     bulk_write(open_punches(person_id, period_id, all), dry_run: dry_run,
       check: ->(punch) { may_close?(punch) && closes_cleanly?(punch, now) },
-      json: ->(punch) { punch_json(punch, flags ||= flags_by_punch(chosen_punches)) }) { |punch| punch.save }
+      json: ->(punch) { punch_json(punch, flags ||= flags_when_closed(dry_run)) }) { |punch| punch.save }
   end
 
   private
@@ -71,6 +74,21 @@ class Mcp::Tools::ClockOut < Mcp::Tool
 
   attr_reader :chosen_punches
 
+  # A real run has stored the end times. A dry run stores them for as long as it takes to
+  # ask, and rolls back, so both go through the flagged page's own scopes. No save: nothing
+  # runs a hook or reaches the audit log.
+  def flags_when_closed(dry_run)
+    return flags_by_punch(chosen_punches) unless dry_run
+
+    flags = nil
+    TimeClockPunch.transaction(requires_new: true) do
+      @closing.each { |punch| TimeClockPunch.where(id: punch.id).update_all(end_time: punch.end_time) }
+      flags = flags_by_punch(chosen_punches)
+      raise ActiveRecord::Rollback
+    end
+    flags
+  end
+
   def managed_periods
     TimeClockPeriod.where(team_id: managed_team_ids)
   end
@@ -90,6 +108,6 @@ class Mcp::Tools::ClockOut < Mcp::Tool
     punch.created_by = "kiosk"
     invalid_argument!(punch.errors.full_messages.to_sentence) unless punch.valid?
 
-    true
+    @closing << punch
   end
 end

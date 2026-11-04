@@ -13,7 +13,7 @@ class Mcp::Tools::RecordPunch < Mcp::Tool
 
   tool_name "record_punch"
   description "Add a time clock punch, as New Time Clock Punch does; it stays open if ends_at is left out. " \
-    "You can record for yourself and people you manage; a period's permission can refuse that with \"Not allowed\", and someone you can't see is \"Not found\". " \
+    "You can record for yourself and people you manage, and for teammates in an \"added by team member\" period; anyone else in view, or what a period's permission doesn't allow, gets \"Not allowed\", and someone you can't see \"Not found\". " \
     "Returns the punch as list_punches shows it."
   scope :write
   feature :time_tracking

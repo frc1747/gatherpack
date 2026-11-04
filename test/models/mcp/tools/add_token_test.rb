@@ -93,8 +93,13 @@ class Mcp::Tools::AddTokenTest < ActionDispatch::IntegrationTest
     assert_refused(/value/, Token) { call_tool("add_token", user: user(:admin), person_id: person(:ward).neat_id) }
     assert_refused(/.+/, Token) { add(:admin, :ward, 123456) }
     assert_refused(/line breaks/, Token) { add(:admin, :ward, "12345\n") }
+    assert_refused(/line breaks/, Token) { add(:admin, :ward, "12\r345") }
     assert_refused(/NUL/, Token) { add(:admin, :ward, "12\u00003456") }
     assert_refused("Not found", Token) { call_tool("add_token", user: user(:admin), person_id: @beta.neat_id, value: VALUE) }
+  end
+
+  test "a tab is taken, as the page's input can send one" do
+    assert_equal "11\t22", add(:admin, :ward, "11\t22").changed.reload.value
   end
 
   test "a value sent in the wrong type isn't stored in the log either" do

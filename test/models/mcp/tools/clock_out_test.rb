@@ -148,8 +148,43 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     assert_empty McpToolCall.order(:created_at).last.changed_records
     assert_equal MCP_TIME_NOW.iso8601, preview.value["changed"].first["end_time"]
     real = clock_out(:alpha_manager, period_id: @alpha_period.neat_id)
-    assert_equal changed_ids(real).sort, changed_ids(preview).sort
     assert_equal 3, changed_ids(real).size
+    assert_equal real.value["changed"].sort_by { |item| item["id"] }, preview.value["changed"].sort_by { |item| item["id"] }
+  end
+
+  test "a dry run shows the flags a punch will have once closed, and leaves it as it was" do
+    preview = clock_out(:admin, person_id: person(:ward).neat_id, dry_run: true)
+
+    assert_equal [ "too_long" ], preview.value["changed"].first["flags"]
+    assert_nil @ward_open.reload.end_time
+    assert_equal [ "still_clocked_in" ], call_tool("list_punches", user: user(:admin), from: "2026-03-11", to: "2026-03-11", person_id: person(:ward).neat_id).value["items"].first["flags"]
+    assert_equal [ "too_long" ], clock_out(:admin, person_id: person(:ward).neat_id).value["changed"].first["flags"]
+  end
+
+  test "an admin's all covers a team-less period too" do
+    loose = create_world_punch(person(:guardian), @everyone_period, 33, nil)
+
+    assert_includes changed_ids(clock_out(:admin, all: true)), loose.neat_id
+    assert_equal MCP_TIME_NOW, loose.reload.end_time
+  end
+
+  test "a manager of a parent team closes a sub-team's period, as the kiosk's managed periods do" do
+    parent = create_world_team("Parent")
+    kid = create_world_team("Kid", parent: parent)
+    @people[:parent_manager] = create_world_person("ParentManager", parent, manager: true)
+    @people[:kid_member] = create_world_person("KidMember", kid)
+    period = create_world_period("Kid March", kid)
+    punch = create_world_punch(person(:kid_member), period, 33, nil)
+
+    assert_equal [ punch.neat_id ], changed_ids(clock_out(:parent_manager, all: true))
+    assert_equal MCP_TIME_NOW, punch.reload.end_time
+  end
+
+  test "a manager closes the open punch of someone who has since left their team" do
+    Membership.find_by!(person: person(:ward), team: @alpha).destroy!
+
+    assert_includes changed_ids(clock_out(:alpha_manager, all: true)), @ward_open.neat_id
+    assert_equal MCP_TIME_NOW, @ward_open.reload.end_time
   end
 
   test "each punch is capped at the end of its period's last day" do
@@ -235,7 +270,7 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
 
   def kiosk(viewer, **params)
     sign_in user(viewer)
-    post time_kiosk_path, params: { time_kiosk: { person_id: person(viewer).id, **params } }
+    post time_kiosk_path, params: { time_kiosk: { person_id: person(viewer).id, person_ref: person(viewer).signed_id(purpose: :time_kiosk, expires_in: 5.minutes), **params } }
     sign_out user(viewer)
   end
 
@@ -262,7 +297,7 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
 
   test "the same end time as the kiosk, capped or not" do
     travel_to Time.utc(2026, 4, 5, 12)
-    kiosk(:alpha_manager, tool: "punch_out", time_clock_punch_id: @ward_open.id)
+    kiosk(:ward, tool: "punch_out", time_clock_punch_id: @ward_open.id)
     page = @ward_open.reload.end_time
 
     other = create_world_punch(person(:alpha_member), @alpha_period, 33, nil)

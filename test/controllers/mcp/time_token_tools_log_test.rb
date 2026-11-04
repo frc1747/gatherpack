@@ -41,6 +41,14 @@ class Mcp::TimeTokenToolsLogTest < ActionDispatch::IntegrationTest
     assert_not_includes log, "770000000011"
   end
 
+  test "a value sent under another name isn't in the log either, though it's refused" do
+    log = log_of("add_token", { person_id: person(:ward).neat_id, value: "660000000011", token_value: "550000000044", rfid: "440000000055", card: "330000000066", card_number: "220000000077", token: "110000000088" })
+
+    assert_includes @response_body.to_json, "isError"
+    %w[660000000011 550000000044 440000000055 330000000066 220000000077 110000000088].each { |value| assert_not_includes log, value }
+    assert_includes log, person(:ward).neat_id
+  end
+
   test "a punch's note isn't in the log, stored or refused" do
     arguments = { person_id: person(:ward).neat_id, starts_at: "2026-03-11T18:00:00", note: "Notesecret" }
 

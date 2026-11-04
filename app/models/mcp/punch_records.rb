@@ -17,8 +17,14 @@ module Mcp::PunchRecords
   }.freeze
 
   # Times the page takes in the app's time zone; an offset is honored. Four-digit
-  # years only, and a time is required: a bare date isn't a clock time.
-  TIME_FORMAT = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+  # years only, and a time is required: a bare date isn't a clock time. Ruby would roll
+  # an impossible date over and ignore an impossible offset, so neither gets through:
+  # parse_time checks the date, and this the time and offset.
+  TIME_FORMAT = /\A\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-](0\d|1[0-4]):?[0-5]\d)?\z/
+
+  # What a form's single-line input can't send. It strips line breaks only, so a pasted
+  # tab does get through.
+  SINGLE_LINE_REFUSED = /[[:cntrl:]&&[^\t]]/
 
   private
 
@@ -90,13 +96,13 @@ module Mcp::PunchRecords
   def parse_time(value, name)
     raise ArgumentError unless value.match?(TIME_FORMAT)
 
+    Date.iso8601(value[0, 10])
     Time.zone.iso8601(value)
   rescue ArgumentError
     invalid_argument!("#{name} must be a time like 2026-03-31T18:00:00")
   end
 
-  # The form's single-line input doesn't send line breaks or control characters.
   def refuse_control_characters!(name, value)
-    invalid_argument!("#{name} can't contain line breaks or control characters") if value&.match?(/[[:cntrl:]]/)
+    invalid_argument!("#{name} can't contain line breaks or control characters") if value&.match?(Mcp::PunchRecords::SINGLE_LINE_REFUSED)
   end
 end

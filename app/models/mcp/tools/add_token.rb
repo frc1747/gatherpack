@@ -13,7 +13,7 @@ class Mcp::Tools::AddToken < Mcp::Tool
   include Mcp::TokenRecords
 
   tool_name "add_token"
-  description "Give a person a scan card or tag, as New Token does, for admins and managers; anyone else gets \"Not allowed\". " \
+  description "Give a person a scan card or tag, as New Token does, for admins and managers; anyone else in view gets \"Not allowed\", and someone you can't see is \"Not found\". " \
     "A value already in use is refused, without saying whose it is. The value is normalized as the page does and returned masked, like list_tokens."
   scope :write
   feature :tokens
@@ -32,7 +32,7 @@ class Mcp::Tools::AddToken < Mcp::Tool
     person = ctx.find(Person, person_id)
     token = Token.new(tokenable: person, value: value)
     ctx.authorize!(token, :create?)
-    invalid_argument!("The value can't contain line breaks or control characters") if value.match?(/[[:cntrl:]]/)
+    invalid_argument!("The value can't contain line breaks or control characters") if value.match?(Mcp::PunchRecords::SINGLE_LINE_REFUSED)
     invalid_argument!("That value is already in use") if Token.exists?(value: [ value, Token.rfidify(value) ])
     invalid_argument!(token.errors.full_messages.to_sentence) unless token.save
 

@@ -10,6 +10,7 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
     build_mcp_world
     build_mcp_time_world
     @manager_period = TimeClockPeriod.create!(name: "Alpha Managers", team: @alpha, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_manager)
+    @other_period = TimeClockPeriod.create!(name: "Alpha Other", team: @alpha, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_manager)
     @punch = create_world_punch(person(:ward), @manager_period, 10, 12)
     @admin_punch = create_world_punch(person(:ward), @alpha_period, 14, 16)
     @own = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 10, 9), end_time: Time.utc(2026, 3, 10, 10), note: "Mine")
@@ -87,6 +88,26 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
       assert_nil update(:alpha_manager, @punch, note: "No move").error
       assert_nil update(:admin, @punch, person_id: person(:alpha_member).neat_id).error
     end
+  end
+
+  test "moving to another period needs create? where the policy defines it" do
+    with_policy_query(TimeClockPunchPolicy, :create?, -> { user.admin }) do
+      assert_unchanged(@punch) { assert_equal "Not allowed", update(:alpha_manager, @punch, period_id: @other_period.neat_id).error }
+      assert_nil update(:admin, @punch, period_id: @other_period.neat_id).error
+    end
+  end
+
+  test "sending back the punch's own person or period isn't a lookup, or a move" do
+    with_policy_query(PersonPolicy::Scope, :resolve, -> { scope.none }) do
+      assert_nil update(:alpha_manager, @punch, person_id: person(:ward).neat_id, note: "Same person").error
+    end
+    with_policy_query(TimeClockPeriodPolicy::Scope, :resolve, -> { scope.none }) do
+      assert_nil update(:alpha_manager, @punch, period_id: @manager_period.neat_id, note: "Same period").error
+      assert_equal "Not found", update(:alpha_manager, @punch, period_id: @alpha_period.neat_id).error
+    end
+    assert_equal person(:ward), @punch.reload.person
+    assert_equal @manager_period, @punch.time_clock_period
+    assert_equal "Same period", @punch.note
   end
 
   test "a period's permission and rules come back, and nothing changes" do

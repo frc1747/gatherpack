@@ -74,6 +74,13 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_member, :ward) }
   end
 
+  test "team members don't record for each other in any other period on their team" do
+    period = period_with(:added_by_user, @alpha, "Alpha Anyone")
+
+    assert_nil record(:alpha_member, :alpha_member, period: period).error
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_member, :ward, period: period) }
+  end
+
   test "a guardian can't reach their ward" do
     assert_refused("Not found", TimeClockPunch, AuditLog) { record(:guardian, :ward) }
     assert_nil record(:guardian, :guardian).error
@@ -95,6 +102,23 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
     assert_refused(/.+/, TimeClockPunch) { record(:admin, :ward, end_time: ENDS) }
     assert_refused(/line breaks/, TimeClockPunch) { record(:admin, :ward, note: "one\ntwo") }
     assert_refused("Not found", TimeClockPunch) { call_tool("record_punch", user: user(:admin), person_id: "per_nonsense", starts_at: STARTS) }
+  end
+
+  test "an impossible time is refused, not rolled over to another one" do
+    [ "2026-02-30T10:00", "2026-03-11T18:00:00+25:00", "2026-03-11T18:00:00+12:60", "2026-03-11T24:00:00", "2026-03-11T18:60:00", "2026-03-11T18:00:60", "2026-03-11T18:00:00 tomorrow" ].each do |bad|
+      assert_refused("starts_at must be a time like 2026-03-31T18:00:00", TimeClockPunch) { record(:admin, :ward, starts_at: bad) }
+    end
+    [ "2026-03-11T18:00", "2026-03-11T18:00:00", "2026-03-11T18:00:00.5Z", "2026-03-11T18:00:00Z", "2026-03-11T18:00:00+14:00", "2026-03-11T18:00:00-0500" ].each do |good|
+      assert_nil record(:admin, :ward, starts_at: good).error, good
+    end
+  end
+
+  test "a tab in a note is taken, as the page's input can send one" do
+    assert_equal "tab\there", record(:admin, :ward, note: "tab\there").changed.note
+    post_note = page_changes_rows?(TimeClockPunch, as: user(:admin)) do
+      post time_clock_punches_path, params: { time_clock_punch: { person_id: person(:ward).id, start_time: STARTS, note: "tab\there" } }
+    end
+    assert post_note
   end
 
   test "an offset is honored, and a bare time is in the site's zone" do

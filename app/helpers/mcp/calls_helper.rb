@@ -6,7 +6,8 @@ module Mcp::CallsHelper
     "Person" => :person_path,
     "Team" => :team_path,
     "Badge" => :badge_path,
-    "Event" => :event_path
+    "Event" => :event_path,
+    "Token" => :token_path
   }.freeze
 
   # A link to a { "type", "id" } entry of McpToolCall#changed_list, or its text

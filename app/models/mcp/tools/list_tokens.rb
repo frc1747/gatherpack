@@ -7,7 +7,7 @@ class Mcp::Tools::ListTokens < Mcp::Tool
   include Mcp::TokenRecords
 
   tool_name "list_tokens"
-  description "A person's scan cards and tags, as their profile lists them. Values are always masked (first two and last two characters, length), for everyone; someone you can see but whose tokens you can't comes back empty."
+  description "A person's scan cards and tags, as their profile lists them. Values are always masked (first two and last two characters, length), for everyone. Someone you can see but whose tokens you can't comes back empty; someone you can't see is \"Not found\"."
   scope :read
   feature :tokens
   input_schema(

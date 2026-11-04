@@ -61,6 +61,16 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_includes css_select("tbody tr:first-child").text, "User #{user(:ward).id}"
   end
 
+  test "a changed token links to its page" do
+    token = Token.create!(tokenable: person(:ward), value: "170000000034")
+    McpToolCall.create!(user: user(:admin), tool: "add_token", outcome: "ok", changed_type: "Token", changed_id: token.id, changed_records: [ { type: "Token", id: token.id } ])
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child a[href=?]", token_path(token.id), "Token #{token.id}"
+    assert_not_includes response.body, "170000000034"
+  end
+
   test "a single change links too, and a call from before changed_records still shows" do
     McpToolCall.create!(user: user(:admin), tool: "older", outcome: "ok", changed_type: "Person", changed_id: person(:ward).id)
     sign_in user(:admin)
