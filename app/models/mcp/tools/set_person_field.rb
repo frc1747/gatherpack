@@ -11,6 +11,8 @@
 # set either, whoever is asking. That also stops a minor's birthday being changed
 # to an adult's, which would lift the rule. The result never gives the old value.
 class Mcp::Tools::SetPersonField < Mcp::Tool
+  include Mcp::PersonFieldInput
+
   tool_name "set_person_field"
   description "Set one profile field on a person, following the same rules as editing their profile: the field's write level decides who can change it. " \
     "Use the field's key from get_person_fields. This replaces the current value. Send null to clear it, true or false for a yes/no field, " \
@@ -64,42 +66,5 @@ class Mcp::Tools::SetPersonField < Mcp::Tool
     changed!(field.system? ? person : rows[field.id] || row_before) if now != before
 
     Mcp::Tools::GetPersonFields.field_json(person, field, rows).merge(person: person_json(person), changed: now != before)
-  end
-
-  private
-
-  # The save stays blocked by a blank required field, as on the page, but the
-  # message can't name a field withheld from this person. The call still fails
-  # until that field is filled in, which the viewer, who can write it on the page,
-  # could find out there.
-  def save_problem(person, minor)
-    if minor
-      withheld = person.writable_fields_for(ctx.person).select { |field| Mcp::Tools::GetPersonFields.contact_detail?(field) }.map(&:key)
-      return "Another required field is blank; complete it on their profile page." if person.errors.attribute_names.map(&:to_s).intersect?(withheld)
-    end
-
-    person.errors.full_messages.to_sentence
-  end
-
-  # What the form would send for this value. The form can only send a checkbox,
-  # a list of choices, or one line of text, so refuse anything else rather than
-  # let the field's conversion guess: "no" would cast to true.
-  def form_input(field, value)
-    case field.data_type
-    when "boolean"
-      invalid_argument!("#{field.name} takes true or false") unless [ true, false, nil ].include?(value)
-      value ? "1" : "0"
-    when "multi_select"
-      choices = value.nil? ? [] : Array(value)
-      invalid_argument!("#{field.name} takes a list of choices") unless choices.all? { |choice| choice.is_a?(String) && choice.present? }
-      choices
-    when "integer"
-      invalid_argument!("#{field.name} takes a whole number") unless value.nil? || value.is_a?(Integer) || value.is_a?(String)
-      value.to_s
-    else
-      invalid_argument!("#{field.name} takes text") unless value.nil? || value.is_a?(String)
-      invalid_argument!("#{field.name} takes one line") if field.data_type != "text" && value.to_s.match?(/[[:cntrl:]]/)
-      value.to_s
-    end
   end
 end
