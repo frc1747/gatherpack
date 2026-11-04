@@ -82,6 +82,12 @@ Gem: `mcp` (the official Ruby SDK, `modelcontextprotocol/ruby-sdk`), added to th
 - CSRF: not applicable (token auth, no cookies); make sure the controller doesn't fall back to a session user.
 - Rate limit with Rails `rate_limit`: 120 requests per minute per token. Confirm the cache store supports it in production (SolidCache or memory); if not, skip and note it.
 
+Environment: AI clients need to know whether they're working on the live system, and staging and demo copies can't tell from `RAILS_ENV` or their copied settings. `GP_ENVIRONMENT` (`production` or `non-production`) sets it.
+
+- On a production build, only an explicit `non-production` says it isn't live; unset or anything else means `production`. A development or test build defaults to `non-production`.
+- Every tool result, success or error, carries a text block after its own content naming the environment, because that is what clients show the model. It also carries `_meta["gatherpack/environment"]` for the client's own code. `structuredContent` and the JSON text block stay as they were, so output schemas don't change.
+- The server instructions open with the same notice. That is all a client gets for calls the SDK answers without running a tool (an unknown tool, a missing required argument), where nothing has changed.
+
 Routes: one block in `config/routes.rb`, inside the existing `if GatherPack::Features.enabled?(:oauth_provider)` block (MCP requires it). Routes are drawn whatever `feature_mcp` says; controllers return 404 while it's off, so toggling the flag doesn't need a restart.
 
 ## 6. Registry and tool classes
@@ -213,6 +219,7 @@ Page: `/mcp/calls`, admin only (`McpToolCallPolicy < AdminPolicy`), newest first
 - `Gemfile` (+ regenerated `Gemfile.lock`).
 - `config/initializers/doorkeeper.rb` only if §4.1's runtime scope registration doesn't work.
 - `db/schema.rb`: regenerated, the new table only (schema hygiene in `fork-feature`).
+- `docker-compose.production.yml`, `.env.production.example`: `GP_ENVIRONMENT` (§5).
 
 Connector branches touch no upstream files of their own.
 
