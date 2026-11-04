@@ -1,4 +1,4 @@
-# Tells AI clients whether this server is the live system. MCP_ENVIRONMENT sets it,
+# Tells AI clients whether this server is the live system. GP_ENVIRONMENT sets it,
 # because staging and demo copies also run with RAILS_ENV=production and a copy of
 # the live settings. Only an explicit "non-production" says a production build isn't
 # live, so a missing or mistyped value can't make live data look safe to change.
@@ -15,7 +15,7 @@ module Mcp::Environment
 
   class << self
     def current
-      case ENV["MCP_ENVIRONMENT"].to_s.strip.downcase
+      case ENV["GP_ENVIRONMENT"].to_s.strip.downcase
       when NON_PRODUCTION then NON_PRODUCTION
       when "" then Rails.env.production? ? PRODUCTION : NON_PRODUCTION
       else PRODUCTION

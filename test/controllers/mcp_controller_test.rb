@@ -232,9 +232,9 @@ class McpControllerTest < ActionDispatch::IntegrationTest
 
   test "instructions and every tool result say which environment this is" do
     token = mcp_token(user(:alpha_member))
-    original = ENV["MCP_ENVIRONMENT"]
+    original = ENV["GP_ENVIRONMENT"]
     { "production" => /Environment: production\./, "non-production" => /Environment: non-production\./ }.each do |value, notice|
-      ENV["MCP_ENVIRONMENT"] = value
+      ENV["GP_ENVIRONMENT"] = value
 
       init = mcp_post(token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } })
       assert_match notice, init.dig("result", "instructions")
@@ -251,7 +251,7 @@ class McpControllerTest < ActionDispatch::IntegrationTest
       assert_equal value, refused.dig("_meta", "gatherpack/environment")
     end
   ensure
-    ENV["MCP_ENVIRONMENT"] = original
+    ENV["GP_ENVIRONMENT"] = original
   end
 
   test "a batch is refused: Streamable HTTP takes one message per POST" do
