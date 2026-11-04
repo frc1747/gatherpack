@@ -252,6 +252,41 @@ class Mcp::Tools::UpdateSignupTest < ActionDispatch::IntegrationTest
     assert_equal user(:guardian).id.to_s, @ward_cashier.versions.where(event: "update").last.whodunnit
   end
 
+  test "an on-behalf-of a new taker just changed comes back to a viewer not involved in the sign-up" do
+    relate_to_guardian(:late)
+    theirs = create_signup(@cashier, :ward, @cleanup)
+
+    result = update_signup(:guardian, theirs, person_id: person(:late).neat_id)
+
+    assert_nil result.error
+    assert_equal [ person(:late), person(:late) ], [ theirs.reload.person, theirs.on_behalf_of ]
+    assert_equal "Late World", result.value.dig("on_behalf_of", "name")
+  end
+
+  test "resending the current taker doesn't reveal an on-behalf-of the viewer isn't shown" do
+    theirs = create_signup(@cashier, :ward, @cleanup, on_behalf_of: person(:alpha_plain))
+
+    result = update_signup(:guardian, theirs, person_id: person(:ward).neat_id)
+
+    assert_nil result.error
+    assert_not result.value.key?("on_behalf_of")
+    assert_no_match "AlphaPlain", result.value.to_json
+    assert_equal person(:alpha_plain), theirs.reload.on_behalf_of
+  end
+
+  test "a new taker rechecks a kept on-behalf-of outside the choices, as on the page" do
+    relate_to_guardian(:late)
+    signup = create_signup(@cashier, :ward, @cleanup, signed_up_by: person(:guardian), on_behalf_of: person(:beta_member))
+    kept = [ person(:ward).id, person(:beta_member).id ]
+
+    assert_equal kept, after(signup, :person_id, :on_behalf_of_id) { page_update(:guardian, signup, person_id: person(:late).id, on_behalf_of_id: person(:beta_member).id) }
+    assert_response :unprocessable_entity
+
+    assert_not_updated("You can't sign up on behalf of #{person(:beta_member).identifier_name}", :guardian, signup,
+      person_id: person(:late).neat_id, on_behalf_of_id: person(:beta_member).neat_id)
+    assert_equal kept, signup.reload.attributes.values_at("person_id", "on_behalf_of_id")
+  end
+
   test "a new taker can come with an on-behalf-of, kept or blank, as on the page" do
     relate_to_guardian(:late)
     late = person(:late)

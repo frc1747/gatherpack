@@ -114,7 +114,7 @@ class Mcp::Tools::UpdateSignup < Mcp::Tool
     return roster_result(signup) if ctx.allowed?(sheet, :roster?)
 
     json = signup_json(signup, status: true).merge(signup_context(signup))
-    json[:on_behalf_of] = person_json(signup.on_behalf_of || signup.person) if involved?(signup) || details.key?(:on_behalf_of_id)
+    json[:on_behalf_of] = person_json(signup.on_behalf_of || signup.person) if involved?(signup) || details.key?(:on_behalf_of_id) || signup.saved_change_to_on_behalf_of_id?
     json[:note] = signup.note.presence if details.key?(:note)
     json
   end
