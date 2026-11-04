@@ -77,6 +77,13 @@ module Mcp::PunchRecords
     punch.person == ctx.person || ctx.person.can_manage(punch.person) || team_member_period?(punch.time_clock_period)
   end
 
+  # Closing an open punch through MCP is for admins and managers only, by owner decision:
+  # a member could otherwise end their own punch from anywhere. Stricter than the page
+  # (BL-028) and the kiosk, where the card scan is the check.
+  def may_close_punches?
+    ctx.user.admin || ctx.person.manager?
+  end
+
   def team_member_period?(period)
     period&.team.present? && period.added_by_team_member? && ctx.person.all_teams.include?(period.team)
   end

@@ -6,13 +6,15 @@
 # - Managers: open punches in periods whose team they manage (all_managed_teams, as
 #   TimeKiosk#managed_periods), including "added by admin" periods, as All Periods does.
 #   Their own open punch too.
-# - Anyone else: their own open punch only.
+# - Anyone else: nothing, by owner decision (Mcp::PunchRecords#may_close_punches?). The
+#   kiosk lets them close their own only with a card scan, which a token can't stand in for.
 #
 # So this is wider than TimeClockPunchPolicy#update?, which update_punch uses. A punch in
-# no period can only be closed by an admin or its owner here; a manager uses update_punch.
+# no period can only be closed by an admin or its owner, if a manager, here; a manager uses
+# update_punch for the rest.
 #
 # all: true covers the periods only, as All Periods does: every period for an admin, the
-# managed teams' for a manager, so nothing for anyone else. A punch in no period, or a
+# managed teams' for a manager. A punch in no period, or a
 # manager's own in another team's period, needs person_id.
 #
 # A punch the viewer can neither see nor close isn't listed at all: a skipped entry would
@@ -29,7 +31,7 @@ class Mcp::Tools::ClockOut < Mcp::Tool
 
   tool_name "clock_out"
   description "Clock people out, as the kiosk's Clock Out does, for one person, one period or all: true, each punch ending now or at the end of its period's last day. " \
-    "Admins close any open punch, managers those in their teams' periods, everyone their own; others you can see are skipped as \"Not allowed\". " \
+    "Admins close any open punch, managers those in their teams' periods and their own; others you can see are skipped as \"Not allowed\". Anyone else is \"Not allowed\" and clocks out at the kiosk. " \
     "Use dry_run first to see what would change."
   scope :write
   feature :time_tracking
@@ -46,6 +48,8 @@ class Mcp::Tools::ClockOut < Mcp::Tool
   output_schema(bulk_output_schema(Mcp::PunchRecords::SCHEMA))
 
   def call(person_id: nil, period_id: nil, all: false, dry_run: false)
+    raise Mcp::NotAllowed unless may_close_punches?
+
     invalid_argument!("Give exactly one of person_id, period_id or all: true") unless [ person_id, period_id, all.presence ].compact.one?
 
     now = Time.current
