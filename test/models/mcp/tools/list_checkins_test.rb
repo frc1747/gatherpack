@@ -29,6 +29,13 @@ class Mcp::Tools::ListCheckinsTest < ActiveSupport::TestCase
     assert_equal %w[checkin_id event], item.keys.sort
   end
 
+  test "checkin_id is given only to those who may remove that check-in" do
+    assert list(:admin, :ward).value["items"].first["checkin_id"].present?
+    assert list(:alpha_manager, :ward).value["items"].first["checkin_id"].present?
+    assert list(:ward, :ward).value["items"].first["checkin_id"].present?
+    assert_nil list(:alpha_member, :ward).value["items"].first["checkin_id"]
+  end
+
   test "a team manager sees check-ins at events they can see, not team-less ones" do
     assert_equal [ "Alpha Meeting" ], event_names(list(:alpha_manager, :alpha_member))
   end
