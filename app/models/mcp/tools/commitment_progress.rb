@@ -22,6 +22,8 @@
 # alone, as PersonCommitmentsController does, since the commitment decides.
 # A source's confirmed credit is its records after the ratio and cap
 # (per, credits, max_credits, partial, capped), so records may outnumber it.
+# Each adjustment carries adjustment_id when the viewer may remove it
+# (CommitmentAdjustmentPolicy#destroy?, the rule remove_commitment_adjustment applies).
 # Needs the commitments feature.
 class Mcp::Tools::CommitmentProgress < Mcp::Tool
   AMOUNT = { type: "integer" }.freeze
@@ -75,7 +77,7 @@ class Mcp::Tools::CommitmentProgress < Mcp::Tool
             },
             adjustments: {
               type: "array",
-              items: { type: "object", properties: { person: REF_SCHEMA, credits: AMOUNT, reason: { type: "string" } }, required: %w[person credits reason] }
+              items: { type: "object", properties: { adjustment_id: { type: "string" }, person: REF_SCHEMA, credits: AMOUNT, reason: { type: "string" } }, required: %w[person credits reason] }
             },
             records: {
               type: "array",
@@ -100,13 +102,31 @@ class Mcp::Tools::CommitmentProgress < Mcp::Tool
     organizer = ctx.allowed?(commitment, :progress?)
     rows =
       if person_id
-        [ detailed(person_progress(commitment, person_id, organizer)) ]
+        [ detailed(person_progress(commitment, Mcp.find_by_neat_id(Person, person_id) || not_found!, organizer)) ]
       elsif organizer
         commitment.progress(commitment.owing_people.order(:last_name, :first_name, :id)).values.uniq.select { |progress| matches?(progress, filter) }.map { |progress| summary(progress) }
       else
         [ detailed(commitment.progress_seen_by(ctx.person) || not_found!) ]
       end
 
+    render(commitment, rows, limit)
+  end
+
+  # One person's detailed row, as call gives it with person_id, for the tools that
+  # change their adjustments: no rows if the person no longer owes the commitment
+  # (a removal can leave that), since the change has been made by then.
+  def result_for(commitment, person)
+    progress = begin
+      person_progress(commitment, person, ctx.allowed?(commitment, :progress?))
+    rescue Mcp::NotFound
+      nil
+    end
+    render(commitment, progress ? [ detailed(progress) ] : [], 1)
+  end
+
+  private
+
+  def render(commitment, rows, limit)
     limit = limit.to_i.clamp(1, MAX_LIMIT)
     {
       commitment: {
@@ -118,10 +138,7 @@ class Mcp::Tools::CommitmentProgress < Mcp::Tool
     }
   end
 
-  private
-
-  def person_progress(commitment, person_id, organizer)
-    person = Mcp.find_by_neat_id(Person, person_id) || not_found!
+  def person_progress(commitment, person, organizer)
     return commitment.progress_seen_by(person) || not_found! if person.id == ctx.person.id
 
     allowed = organizer || commitment.group_relative_of?(ctx.person, person)
@@ -170,6 +187,10 @@ class Mcp::Tools::CommitmentProgress < Mcp::Tool
 
   def adjustment_json(progress, adjustment)
     member = progress.members.find { |candidate| candidate.id == adjustment.person_id }
-    { person: person_json(member), credits: adjustment.credits, reason: adjustment.reason }
+    # The policy reads the adjustment's commitment, which would otherwise be loaded
+    # again, with its groups, for each adjustment.
+    adjustment.association(:commitment).target = progress.commitment
+    json = { person: person_json(member), credits: adjustment.credits, reason: adjustment.reason }
+    ctx.allowed?(adjustment, :destroy?) ? { adjustment_id: adjustment.neat_id }.merge(json) : json
   end
 end

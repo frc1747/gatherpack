@@ -54,7 +54,7 @@ class Mcp::Tools::CommitmentProgressTest < ActiveSupport::TestCase
       row = rows(viewer).find { |r| names(r).include?("Ward World") }
 
       assert_equal [ { "person" => { "id" => person(:ward).neat_id, "name" => "Ward World" }, "credits" => 1, "reason" => "Covered a shift" } ],
-        row["adjustments"], viewer
+        row["adjustments"].map { |a| a.except("adjustment_id") }, viewer
     end
     [ :ward, :guardian ].each do |viewer|
       assert_equal [ "Covered a shift" ], rows(viewer).sole["adjustments"].map { |a| a["reason"] }, viewer
