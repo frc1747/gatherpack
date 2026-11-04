@@ -1,0 +1,159 @@
+require "test_helper"
+require_relative "../../../support/mcp_world"
+
+class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
+  include Devise::Test::IntegrationHelpers
+  include McpWorld
+
+  STARTS = "2026-03-11T18:00:00".freeze
+  ENDS = "2026-03-11T20:00:00".freeze
+
+  setup do
+    host! "localhost"
+    build_mcp_world
+    build_mcp_time_world
+    @manager_period = period_with(:added_by_manager, @alpha, "Alpha Managers")
+    @member_period = period_with(:added_by_team_member, @alpha, "Alpha Members")
+    @open_period = period_with(:added_by_user, nil, "Anyone")
+    travel_to MCP_TIME_NOW
+  end
+
+  def period_with(permission, team, name)
+    TimeClockPeriod.create!(name: name, team: team, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: permission)
+  end
+
+  def record(viewer, holder, period: nil, **options)
+    arguments = { person_id: person(holder).neat_id, starts_at: STARTS, **options }
+    arguments[:period_id] = period.neat_id if period
+    call_tool("record_punch", user: user(viewer), **arguments)
+  end
+
+  test "an admin records for anyone in any period, and gets the punch back as list_punches shows it" do
+    result = record(:admin, :beta_member, period: @beta_period, ends_at: ENDS, note: "From paper")
+
+    punch = result.changed
+    assert_equal person(:beta_member), punch.person
+    assert_equal @beta_period, punch.time_clock_period
+    assert_equal Time.utc(2026, 3, 11, 18), punch.start_time
+    assert_equal "From paper", punch.note
+    listed = call_tool("list_punches", user: user(:admin), from: "2026-03-11", to: "2026-03-11").value["items"].find { |item| item["id"] == punch.neat_id }
+    assert_equal listed, result.value
+    assert_equal 2.0, result.value["hours"]
+    assert_equal user(:admin).id.to_s, punch.versions.last.whodunnit
+  end
+
+  test "leaving out ends_at leaves it open" do
+    result = record(:admin, :ward, period: @alpha_period)
+
+    assert_nil result.changed.end_time
+    assert_nil result.value["end_time"]
+  end
+
+  test "a team manager records for their people in a manager period, and themselves" do
+    assert_nil record(:alpha_manager, :ward, period: @manager_period).error
+    assert_nil record(:alpha_manager, :alpha_manager, period: @manager_period).error
+    assert_nil record(:alpha_manager, :ward).error
+  end
+
+  test "a manager can't record in an added by admin period, or for someone on another team" do
+    assert_refused(/\ANot allowed: Time clock period does not meet/, TimeClockPunch, AuditLog) { record(:alpha_manager, :ward, period: @alpha_period) }
+    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:alpha_manager, :beta_member) }
+  end
+
+  test "a plain member records for themselves where the period allows, and no one else" do
+    assert_nil record(:beta_member, :beta_member).error
+    assert_nil record(:beta_member, :beta_member, period: @open_period).error
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :badge_holder) }
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :badge_holder, period: @open_period) }
+    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:beta_member, :alpha_member) }
+    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:beta_member, :beta_member, period: @alpha_period) }
+  end
+
+  test "team members record for each other in an added by team member period" do
+    assert_nil record(:alpha_member, :ward, period: @member_period).error
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_member, :ward) }
+  end
+
+  test "a guardian can't reach their ward" do
+    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:guardian, :ward) }
+    assert_nil record(:guardian, :guardian).error
+  end
+
+  test "the model's rules come back: team membership, the period's dates and the order of the times" do
+    assert_refused(/not a member of the team/, TimeClockPunch) { record(:admin, :beta_member, period: @alpha_period) }
+    assert_refused(/cannot start before period start time/, TimeClockPunch) { record(:admin, :ward, period: @alpha_period, starts_at: "2026-02-01T10:00:00") }
+    assert_refused(/cannot end after period end time/, TimeClockPunch) { record(:admin, :ward, period: @alpha_period, ends_at: "2026-04-02T10:00:00") }
+    assert_refused(/cannot end before start time/, TimeClockPunch) { record(:admin, :ward, ends_at: "2026-03-11T17:00:00") }
+  end
+
+  test "malformed input is refused cleanly" do
+    [ "soon", "2026-03-11", "2026-13-01T10:00:00", "99999-01-01T00:00:00Z", "" ].each do |bad|
+      assert_refused("starts_at must be a time like 2026-03-31T18:00:00", TimeClockPunch) { record(:admin, :ward, starts_at: bad) }
+      assert_refused("ends_at must be a time like 2026-03-31T18:00:00", TimeClockPunch) { record(:admin, :ward, ends_at: bad) }
+    end
+    assert_refused(/starts_at/, TimeClockPunch) { call_tool("record_punch", user: user(:admin), person_id: person(:ward).neat_id) }
+    assert_refused(/.+/, TimeClockPunch) { record(:admin, :ward, end_time: ENDS) }
+    assert_refused(/line breaks/, TimeClockPunch) { record(:admin, :ward, note: "one\ntwo") }
+    assert_refused("Not found", TimeClockPunch) { call_tool("record_punch", user: user(:admin), person_id: "per_nonsense", starts_at: STARTS) }
+  end
+
+  test "an offset is honored, and a bare time is in the site's zone" do
+    assert_equal Time.utc(2026, 3, 11, 23), record(:admin, :ward, starts_at: "2026-03-11T18:00:00-05:00").changed.start_time
+    with_settings(time_zone: "Eastern Time (US & Canada)") do
+      assert_equal Time.utc(2026, 3, 11, 22), record(:admin, :ward).changed.start_time
+    end
+  end
+
+  test "a read token and the setting being off refuse it, and so does the feature" do
+    assert_refused("Not allowed", TimeClockPunch) { record(:admin, :ward, scopes: "mcp_read") }
+    assert_refused("Writes disabled", TimeClockPunch) { record(:admin, :ward, writes_enabled: false) }
+    with_feature(:time_tracking, false) { assert_refused("Feature off", TimeClockPunch) { record(:admin, :ward) } }
+  end
+
+  test "a hook on the model runs, as on the page" do
+    Thread.current[:mcp_hook_model] = nil
+    Hook.create!(name: "MCP test hook", event: "time_clock_punches - create", code: "Thread.current[:mcp_hook_model] = model")
+
+    assert_equal record(:admin, :ward).changed, Thread.current[:mcp_hook_model]
+  ensure
+    Thread.current[:mcp_hook_model] = nil
+  end
+
+  test "it allows and refuses as the page does" do
+    [
+      [ :admin, :beta_member, @beta_period ],
+      [ :admin, :beta_member, @alpha_period ],
+      [ :alpha_manager, :ward, @manager_period ],
+      [ :alpha_manager, :ward, @alpha_period ],
+      [ :alpha_manager, :alpha_manager, nil ],
+      [ :alpha_member, :ward, @member_period ],
+      [ :alpha_member, :alpha_member, @manager_period ],
+      [ :beta_member, :beta_member, @alpha_period ],
+      [ :guardian, :guardian, @open_period ]
+    ].each do |viewer, holder, period|
+      page = page_changes_rows?(TimeClockPunch, as: user(viewer)) do
+        post time_clock_punches_path, params: { time_clock_punch: { person_id: person(holder).id, time_clock_period_id: period&.id, start_time: STARTS } }
+      end
+      tool = changes_rows?(TimeClockPunch) { record(viewer, holder, period: period) }
+
+      assert_equal page, tool, "#{viewer} recording for #{holder} in #{period&.name}"
+    end
+  end
+
+  # The policy has no create?, so the POST checks no person. The form offers only
+  # people the viewer manages, and themselves.
+  test "it refuses a person the form doesn't offer, where a hand-made POST goes through" do
+    page = page_changes_rows?(TimeClockPunch, as: user(:beta_member)) do
+      post time_clock_punches_path, params: { time_clock_punch: { person_id: person(:badge_holder).id, start_time: STARTS } }
+    end
+
+    assert page
+    assert_refused("Not allowed", TimeClockPunch) { record(:beta_member, :badge_holder) }
+  end
+
+  test "a build whose policy defines create? applies it too" do
+    with_policy_query(TimeClockPunchPolicy, :create?, -> { false }) do
+      assert_refused("Not allowed", TimeClockPunch) { record(:admin, :ward) }
+    end
+  end
+end
