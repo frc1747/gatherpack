@@ -2,13 +2,13 @@ require "test_helper"
 
 class Mcp::EnvironmentTest < ActiveSupport::TestCase
   def with_environment(value, rails_env: "production")
-    original = ENV["MCP_ENVIRONMENT"]
+    original = ENV["GP_ENVIRONMENT"]
     original_rails_env = Rails.env
-    ENV["MCP_ENVIRONMENT"] = value
+    ENV["GP_ENVIRONMENT"] = value
     Rails.env = rails_env
     yield
   ensure
-    ENV["MCP_ENVIRONMENT"] = original
+    ENV["GP_ENVIRONMENT"] = original
     Rails.env = original_rails_env
   end
 
