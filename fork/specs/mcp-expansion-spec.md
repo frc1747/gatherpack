@@ -28,7 +28,7 @@ Work that edits code or configuration, imports files, or reaches the database or
 
 `mcp-spec.md` §1 stands, with these changes:
 
-1. **Parity with the app.** A tool lets a member do exactly what the app lets that member do: no more, and no less. Each tool names the page action it mirrors and applies that action's policy call, its permitted attributes, and whatever the controller filters. MCP adds no rules of its own, with two exceptions: the owner's decision on minors' contact details (§2.4), and refusing an action the app would crash on (named where it applies). If the app's own rules disagree between two pages that do the same thing, the tool follows the one that allows the action, and the disagreement goes to the backlog as an app bug. Where a page silently drops a change it doesn't allow (`PeopleController#person_params` and `limit_to_manageable`, `Person#assign_field_values` for unwritable fields), the tool refuses that part and names it. It never reports success for a change it didn't make.
+1. **Parity with the app.** A tool lets a member do exactly what the app lets that member do: no more, and no less. Each tool names the page action it mirrors and applies that action's policy call, its permitted attributes, and whatever the controller filters. MCP adds no rules of its own, with three exceptions: the owner's decision on minors' contact details (§2.4), dynamic pages behind a setting (§5.9), and refusing an action the app would crash on (named where it applies). If the app's own rules disagree between two pages that do the same thing, the tool follows the one that allows the action, and the disagreement goes to the backlog as an app bug. Where a page silently drops a change it doesn't allow (`PeopleController#person_params` and `limit_to_manageable`, `Person#assign_field_values` for unwritable fields), the tool refuses that part and names it. It never reports success for a change it didn't make.
 2. **Bulk writes only where a page has the same bulk action.** Principle 4 ("one change per write call") gets one exception. A tool may change several records when an existing page or the kiosk does the same thing in one action: clocking out a period or all periods (kiosk Time Management), Mark all brought (sign-up roster). Such a tool:
    - takes a `dry_run` boolean (default `false`) that returns exactly what would change without changing it;
    - changes at most 200 records per call and refuses beyond that;
@@ -129,9 +129,9 @@ The kiosk already lets a manager close every open punch on the teams they manage
 
 - Admins: any open punch.
 - Managers: open punches in periods whose team they manage, including *added by admin* periods, as All Periods does. Their own open punch too.
-- Anyone else: their own open punch only.
+- Anyone else: none, not even their own. They clock out at the kiosk.
 
-`update_punch` uses `TimeClockPunchPolicy#update?`, as the punch edit page does. Fixing BL-027 brings the kiosk's per-period button onto the All Periods rule, in the series that introduced it.
+Punches come from the kiosk, or from an admin or manager by hand. Members don't report their own time, so `record_punch`, `update_punch` and `remove_punch` also refuse anyone who manages no team. This is an owner decision and is stricter than the page, which still allows these in some periods (BL-028). For admins and managers, `update_punch` uses `TimeClockPunchPolicy#update?`, as the punch edit page does. Fixing BL-027 brings the kiosk's per-period button onto the All Periods rule, in the series that introduced it.
 
 Closed punches keep `created_by` as it was; whodunnit and the call log record who closed them. This differs from the kiosk, which overwrites `created_by` with `"kiosk"`.
 
@@ -183,7 +183,7 @@ A token value is what a card or tag carries. Whoever knows it can clock in as th
 | `get_page` | `page_id`, `params?` (query string pairs) | The page as the viewer would see it, converted to plain text with tables kept as Markdown tables. Dynamic pages render their ERB as the viewer, exactly as a GET of the page does | `PagesController#show`. Render through the same path, so a dynamic page's own permission logic runs |
 | `get_page_source` | `page_id` | The page's stored content (Markdown, or ERB for a dynamic page), with title, viewer and editor levels, team, and whether it is dynamic | The page's edit screen: `PagePolicy#update?`. Read only; changing the source stays on the page |
 
-`get_page` runs stored ERB. That is what viewing the page already does, as the same user and with the same output. The tool adds no way to change the source. Renders that take longer than 10 s are stopped and reported. Output over 200 KB is cut, with `truncated: true`.
+`get_page` runs stored ERB. That is what viewing the page already does, as the same user and with the same output. The tool adds no way to change the source. Rendered output can't be filtered reliably, and ERB can print minors' contact details, so `get_page` refuses dynamic pages unless the setting `mcp_dynamic_pages_enabled` is on (default off). Static pages, `list_pages` and `get_page_source` don't depend on it. Renders that take longer than 10 s are stopped and reported. Output over 200 KB is cut, with `truncated: true`.
 
 ### 5.10 Remaining reads (`feature/mcp`)
 
@@ -219,7 +219,7 @@ As `mcp-spec.md` §12, for every new tool: admin, team manager, plain member on 
 - Each write's refusal case returns "Not allowed" or "Not found" and changes nothing. Assert the record and PaperTrail versions are unchanged.
 - `update_person` and `update_person_fields`: a field the page would drop is refused by name; a withheld field for a minor is refused; a partial set leaves other fields alone.
 - `create_person` with `email`: login created, no password in the result, call log or Rails log.
-- `clock_out`: `dry_run` changes nothing and lists the same punches a real run closes. A manager closes punches on an *added by admin* period of their team, but not on another team's. Caps at period end of day. Over 200 refuses.
+- `clock_out`: `dry_run` changes nothing and lists the same punches a real run closes. A manager closes punches on an *added by admin* period of their team, but not on another team's. Someone who manages no team is refused in every form, as they are by `record_punch`, `update_punch` and `remove_punch`. Caps at period end of day. Over 200 refuses.
 - `move_signup` sends the same notices as the roster's Move (assert enqueued `SendEmailJob`s).
 - `add_token`: duplicate value refused without naming the holder; value masked (length, first two and last two characters) in result and log.
 - `get_page`: a dynamic page renders as the viewer (a page that prints `current_user`'s name shows the token's user). A page the viewer can't open is "Not found". A slow render is stopped.

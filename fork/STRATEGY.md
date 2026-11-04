@@ -239,4 +239,4 @@ Do all feature work in that feature's worktree. Remove a worktree with `git work
 4. Inventory existing fork work (for example the Resend email gateway and field-level permissions) and split it into `feature/*` branches based on `upstream/main`, recording each in `FORK.md`.
 5. Add the CI workflows described above.
 6. Run the first rebuild, run the suite, and cut the first `-hbr.1` tag once it's green.
-7. Set the fork's default branch to `hbr/platform`, and enable branch protection on `main` (no direct pushes) and on `hbr/platform` (PR required).
+7. Set the fork's default branch to `hbr/platform`, and enable branch protection on `main` (no direct pushes). Documentation and bookkeeping on `hbr/platform` (specs, pitches, backlog, `FORK.md`, catalog, sample data) is pushed directly, without a PR. Ask first for scripts, CI and the manifest order.
