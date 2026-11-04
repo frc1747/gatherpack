@@ -7,16 +7,22 @@
 # (form_responses/edit.html.erb:60-79): what isn't an answer, and the answerable ones
 # passing FormAccess#question_readable?.
 #
-# Answers aren't returned: form_answers reads those. Narrower than the page for a
-# minor (Mcp::MinorRule), whoever the viewer is: contact questions are left out, by
-# the rule in Mcp::Tools::FormAnswers, with no per-person reason. The list without
-# person_id holds no one's details, so the rule has nothing to judge there.
+# With person_id each of those questions has its answer, from the unsubmitted or
+# unsigned version if there is one, else the active one: what the response page shows
+# as History and above its Sign box (show.html.erb:44-45), and what form_answers can't
+# reach, as it reads active versions and needs FormPolicy#results?. Earlier and withdrawn
+# versions aren't returned, nor what a new draft would start from.
+#
+# Narrower than the page for a minor (Mcp::MinorRule), whoever the viewer is: contact
+# questions and their answers are left out, by the rule in Mcp::Tools::FormAnswers,
+# with no per-person reason. The list without person_id holds no one's details, so the
+# rule has nothing to judge there.
 class Mcp::Tools::GetForm < Mcp::Tool
   include Mcp::FormResponses
 
   tool_name "get_form"
   description "A form's questions in order, with each one's type, options and whether it is required, as its pages show them. " \
-    "Give person_id (your own, or someone you may answer for) for the questions shown to that person and where their response stands; " \
+    "Give person_id (your own, or someone you may answer for) for the questions shown to that person, their answers you may read, and where their response stands; " \
     "it's needed unless you can see the form's results. " \
     "Questions linked to the built-in email, phone, address or birthday fields, questions of phone or email type, and questions that were either of those earlier " \
     "are left out for anyone under 18 or with no birthday on file, whoever is asking. " \

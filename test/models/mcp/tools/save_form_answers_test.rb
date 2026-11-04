@@ -159,6 +159,97 @@ class Mcp::Tools::SaveFormAnswersTest < ActiveSupport::TestCase
     assert_match(/notes/, result.error)
   end
 
+  def leaders_only_form(required:)
+    form = create_world_form("Leaders fill", @alpha)
+    @leader_note = form.form_questions.create!(kind: :input, label: "Leader note", data_type: :string, write_permission: "leaders", required: required)
+    form.form_questions.reset
+    form
+  end
+
+  test "someone the page offers no Submit can't complete an empty response" do
+    [ false, true ].each do |required|
+      form = leaders_only_form(required: required)
+
+      [ { submit: true }, { submit: false } ].each do |options|
+        result = assert_nothing_changes { save_answers(:alpha_member, :alpha_member, {}, form: form, **options) }
+        assert_equal "Not allowed", result.error
+      end
+      assert_nil form.form_responses.find_by(subject: person(:alpha_member))
+      form.destroy!
+    end
+  end
+
+  test "whoever the form leaves its questions to answers and submits them" do
+    form = leaders_only_form(required: true)
+
+    result = save_answers(:alpha_manager, :alpha_member, { @leader_note => "seen" }, form: form, submit: true)
+
+    assert_nil result.error
+    assert_equal "complete", result.value.dig("response", "status")
+  end
+
+  test "a form with nothing to answer can be submitted, as on the page" do
+    form = create_world_form("Read me", @alpha)
+    form.form_questions.create!(kind: :statement, body: "Please note.")
+    form.form_questions.reset
+
+    result = save_answers(:alpha_member, :alpha_member, {}, form: form, submit: true)
+
+    assert_nil result.error
+    assert_equal "complete", result.value.dig("response", "status")
+  end
+
+  test "the result has the saved answers" do
+    result = save_answers(:alpha_member, :alpha_member, { @comment => "first" })
+
+    assert_equal "first", result.value["questions"].find { |question| question["label"] == "Comment" }["answer"]
+  end
+
+  # A pending response for ward with one of its two signatures given.
+  def partly_signed_response
+    second = @consent_form.form_questions.create!(kind: :signature, label: "Second", signer: :guardian)
+    @consent_form.form_questions.reset
+    respond_to_form(@consent_form, :ward, as: :guardian, answers: { "choice" => "Red" })
+    call_tool("sign_form_response", user: user(:guardian), form_id: @consent_form.neat_id, person_id: person(:ward).neat_id, question_id: second.neat_id, typed_name: "Guardian World")
+    submission_of(@consent_form, :ward).form_signatures.first
+  end
+
+  test "a signature revoked by changing an answer is logged as changed" do
+    signature = partly_signed_response
+
+    result = save_answers(:guardian, :ward, { @comment => "changed" })
+
+    assert_nil result.error
+    assert_equal [ submission_of(@consent_form, :ward), signature ], result.changed_records
+    assert_not signature.reload.standing?
+  end
+
+  test "a signature revoked before a refused submit is logged as changed too" do
+    signature = partly_signed_response
+
+    result = save_answers(:guardian, :ward, { @choice => nil }, submit: true)
+
+    assert_match(/Still needed/, result.error)
+    assert_includes result.changed_records, signature
+    assert_not signature.reload.standing?
+  end
+
+  test "a save that revokes nothing logs only the submission" do
+    result = save_answers(:alpha_member, :alpha_member, { @comment => "first" })
+
+    assert_equal [ submission_of(@consent_form, :alpha_member) ], result.changed_records
+  end
+
+  test "submit logs the completion badge it grants" do
+    badge = create_world_badge("Done", team: @alpha)
+    plain_form.update!(completion_badge: badge)
+
+    result = save_answers(:alpha_member, :alpha_member, { @plain_pick => "x" }, form: plain_form, submit: true)
+
+    assert_nil result.error
+    assert_includes result.changed_records, BadgeAssignment.find_by!(badge: badge, person: person(:alpha_member))
+  end
+
   test "submit activates a form with nothing left to sign, for the page's status and who submitted" do
     plain_form
     result = save_answers(:alpha_member, :alpha_member, { @plain_pick => "x" }, form: plain_form, submit: true)
@@ -253,6 +344,7 @@ class Mcp::Tools::SaveFormAnswersTest < ActiveSupport::TestCase
   test "an answer that couldn't reach the profile is reported, not claimed" do
     form = create_world_form("Sizes", @alpha)
     size = form.form_questions.create!(kind: :input, label: "Size", person_field: @size_field, profile_mode: :update_profile)
+    form.form_questions.create!(kind: :input, label: "Note", data_type: :string)
     form.form_questions.reset
     @size_field.update!(write_permission: "self")
     save_answers(:alpha_member, :alpha_member, { size => "XL" }, form: form)

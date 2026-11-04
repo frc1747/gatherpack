@@ -5,8 +5,9 @@
 # The person is found among all people, as the page does, because a form's own levels
 # decide who is reachable: a read grant reaches people outside the viewer's teams.
 #
-# A minor's contact questions (Mcp::FormContactQuestions) are left out of the result
-# and can't be answered here, whoever is asking, with no reason given per person.
+# A minor's contact questions (Mcp::FormContactQuestions) are left out of the result,
+# answers included, and can't be answered here, whoever is asking, with no reason given
+# per person.
 module Mcp::FormResponses
   include Mcp::FormContactQuestions
 
@@ -25,7 +26,8 @@ module Mcp::FormResponses
       signer: { type: [ "string", "null" ], description: "Who signs a signature question, in words" },
       writable: { type: "boolean", description: "Whether you may answer this for the person (only with person_id)" },
       signed: { type: "boolean", description: "Whether this version has this signature (only with person_id)" },
-      can_sign: { type: "boolean", description: "Whether you may give this signature (only with person_id)" }
+      can_sign: { type: "boolean", description: "Whether you may give this signature (only with person_id)" },
+      answer: { description: "The answer in the unsubmitted or unsigned version if there is one, else the one in effect; null when unanswered (only with person_id, and only on what can be answered)" }
     },
     required: %w[id kind label body required type options hint saves_to_profile signer]
   }.freeze
@@ -56,7 +58,7 @@ module Mcp::FormResponses
           submitted_at: { type: [ "string", "null" ] },
           waiting_for: { type: "array", items: { type: "string" } },
           not_copied_to_profile: { type: "array", items: { type: "string" }, description: "Questions whose answer in effect couldn't be saved to the profile" },
-          can_update: { type: "boolean" },
+          can_update: { type: "boolean", description: "Whether you may answer or submit: false on a form that leaves every question to someone else" },
           can_withdraw: { type: "boolean" },
           can_sign: { type: "boolean" }
         },
@@ -88,6 +90,15 @@ module Mcp::FormResponses
     FormAccess.new(ctx.person, response.subject, response.form)
   end
 
+  # Whether the fill page offers Save and Submit (edit.html.erb:6 and :105): the viewer
+  # can write a question, or the form has none to answer. Counted before the minor rule,
+  # as the page counts them.
+  def fill_page_offers_submit?(response)
+    questions = response.form.answerable_questions
+    access = access_for(response)
+    questions.empty? || questions.any? { |question| access.question_writable?(question) }
+  end
+
   # What a tool may show or take for this person, among answerable questions.
   def open_questions(response)
     questions = response.form.answerable_questions
@@ -106,9 +117,12 @@ module Mcp::FormResponses
   end
 
   # With a response, the questions the fill page shows (edit.html.erb): those that
-  # aren't answers, and the answerable ones the viewer may read.
+  # aren't answers, and the answerable ones the viewer may read, each with its answer.
+  # The response page's History shows anyone who may read the response its draft or
+  # pending version (show.html.erb, _answers.html.erb), question by question, so the
+  # open version is read for all of them.
   def questions_json(form, response)
-    return form.form_questions.includes(:person_field).map { |question| question_json(question) } unless response
+    return listed_questions_json(form) unless response
 
     access = access_for(response)
     open = open_questions(response)
@@ -116,7 +130,20 @@ module Mcp::FormResponses
     form.form_questions.includes(:person_field).filter_map do |question|
       next if question.answerable? && !(open.include?(question) && access.question_readable?(question))
 
-      question_json(question).merge(writable: access.question_writable?(question), signed: !!submission&.signature_for(question), can_sign: access.can_sign?(question))
+      json = question_json(question).merge(writable: access.question_writable?(question), signed: !!submission&.signature_for(question), can_sign: access.can_sign?(question))
+      question.answerable? ? json.merge(answer: submission&.answer(question)) : json
+    end
+  end
+
+  # Without a person, every question: the results and totals pages show each one's
+  # label and options. An answerable question's help text shows only on the form's
+  # editor (FormPolicy#update?) and the fill page, so the rest get it only for a
+  # question they may read for someone, by the results page's check on each cell.
+  def listed_questions_json(form)
+    readers = FormReport.new(form, viewer: ctx.person).rows.map(&:access) unless ctx.allowed?(form, :update?)
+    form.form_questions.includes(:person_field).map do |question|
+      hidden = readers && question.answerable? && readers.none? { |access| access.question_readable?(question) }
+      hidden ? question_json(question).merge(body: nil) : question_json(question)
     end
   end
 
@@ -151,7 +178,7 @@ module Mcp::FormResponses
       submitted_at: time_json(open&.pending? ? open.submitted_at : active&.submitted_at),
       waiting_for: open&.pending? ? waiting_for(response, open) : [],
       not_copied_to_profile: not_copied_to_profile(response, active),
-      can_update: ctx.allowed?(response, :update?),
+      can_update: ctx.allowed?(response, :update?) && fill_page_offers_submit?(response),
       can_withdraw: ctx.allowed?(response, :withdraw?),
       can_sign: ctx.allowed?(response, :sign?)
     }
@@ -180,5 +207,22 @@ module Mcp::FormResponses
     return [] unless submission.active? && submission.form.answerable_questions.any? { |question| question.update_profile? && submission.profile_skipped.exclude?(question.key) }
 
     [ submission.subject ]
+  end
+
+  # What a write can change besides its submission, read before it for also_changed.
+  def side_state(response)
+    { signature_ids: FormSignature.standing.where(form_submission_id: response.form_submissions.map(&:id)).ids, badge: completion_assignment(response) }
+  end
+
+  # The signatures revoked since side_state, and the completion badge's assignment if
+  # sync_status! granted or removed it.
+  def also_changed(response, before)
+    badge = completion_assignment(response)
+    FormSignature.where(id: before[:signature_ids]).reject(&:standing?) + (badge == before[:badge] ? [] : [ badge || before[:badge] ])
+  end
+
+  def completion_assignment(response)
+    badge = response.form.completion_badge
+    badge && BadgeAssignment.find_by(badge: badge, person: response.subject)
   end
 end

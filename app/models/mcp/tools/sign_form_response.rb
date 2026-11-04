@@ -17,11 +17,13 @@ class Mcp::Tools::SignFormResponse < Mcp::Tool
   tool_name "sign_form_response"
   description "Records a signature in the member's name, so confirm with the member first. " \
     "Signs a submitted response as Sign on the response's page does, recording you as the signer, in the role get_form's can_sign allows: yourself, a guardian, or a leader recording a paper form. " \
+    "get_form with person_id shows the answers being signed, apart from any you can't read or that are withheld for a minor, and the signature covers those too. " \
     "typed_name must be your own full name, as on your account. " \
     "Changing the answers later needs a new signature. " \
     "Refusals: Not found for a form, person or question you can't see, Not allowed for a signature you may not give, or a response with nothing waiting for your signature."
   scope :write
   feature :forms
+  destructive
   mask_argument :typed_name
   input_schema(
     properties: {
@@ -43,6 +45,7 @@ class Mcp::Tools::SignFormResponse < Mcp::Tool
 
     access = access_for(response)
     submission = response.open_submission
+    before = side_state(response)
     error = submission.sign!(question, signer: ctx.person, typed_name: typed_name, access: access, user_agent: user_agent)
     if error
       raise Mcp::NotAllowed unless access.can_sign?(question)
@@ -51,7 +54,7 @@ class Mcp::Tools::SignFormResponse < Mcp::Tool
     end
 
     submission.reload
-    changed!(submission.signature_for(question), submission, *profile_records(submission))
+    changed!(submission.signature_for(question), submission, *profile_records(submission), *also_changed(response, before))
     form_json(form, response)
   end
 

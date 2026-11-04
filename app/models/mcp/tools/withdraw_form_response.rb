@@ -30,8 +30,9 @@ class Mcp::Tools::WithdrawFormResponse < Mcp::Tool
     authorize_response!(response, :withdraw?)
 
     submission = response.active_submission
+    before = side_state(response)
     submission.withdraw!(by: ctx.person)
-    changed!(submission)
+    changed!(submission, *also_changed(response, before))
     form_json(form, response)
   end
 end

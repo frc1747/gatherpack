@@ -41,6 +41,25 @@ class Mcp::Tools::WithdrawFormResponseTest < ActiveSupport::TestCase
     assert_nil withdraw(:admin, :alpha_member).error
   end
 
+  test "the revoked signatures and the removed completion badge are logged as changed" do
+    badge = create_world_badge("Done", team: @alpha)
+    @consent_form.update!(completion_badge: badge)
+    respond_to_form(@consent_form, :alpha_member, as: :alpha_member, answers: { "choice" => "Red" })
+    call_tool("sign_form_response", user: user(:alpha_member), form_id: @consent_form.neat_id, person_id: person(:alpha_member).neat_id, question_id: @signature.neat_id, typed_name: "AlphaMember World")
+    assignment = BadgeAssignment.find_by!(badge: badge, person: person(:alpha_member))
+    signature = submission_of(@consent_form, :alpha_member).form_signatures.first
+
+    result = withdraw(:alpha_member, :alpha_member, form: @consent_form)
+
+    assert_nil result.error
+    assert_equal [ submission_of(@consent_form, :alpha_member), signature, assignment ], result.changed_records
+    assert_not signature.reload.standing?
+    assert_nil BadgeAssignment.find_by(badge: badge, person: person(:alpha_member))
+    row = McpToolCall.where(tool: "withdraw_form_response").order(:created_at).last
+    assert_includes row.changed_records, { "type" => "BadgeAssignment", "id" => assignment.id }
+    assert_includes row.changed_records, { "type" => "FormSignature", "id" => signature.id }
+  end
+
   test "a plain member on another team gets Not found and nothing changes" do
     result = assert_nothing_changes { withdraw(:beta_member, :alpha_member) }
 
