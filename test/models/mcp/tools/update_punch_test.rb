@@ -87,6 +87,15 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a member can't hand their open punch to a teammate" do
+    Membership.find_or_create_by!(person: person(:beta_member), team: @beta)
+    Membership.find_or_create_by!(person: person(:badge_holder), team: @beta)
+    period = TimeClockPeriod.create!(name: "Beta Members", team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_team_member)
+    open = TimeClockPunch.create!(person: person(:beta_member), time_clock_period: period, start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk")
+
+    assert_unchanged(open) { assert_equal "Not allowed", update(:beta_member, open, person_id: person(:badge_holder).neat_id).error }
+  end
+
   test "a member can still change the end of a closed punch, and can't reopen one and close it again" do
     assert_nil update(:beta_member, @own, ends_at: "2026-03-10T11:00:00").error
     assert_nil update(:beta_member, @own, ends_at: nil).error

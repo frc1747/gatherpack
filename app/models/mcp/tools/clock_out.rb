@@ -6,8 +6,8 @@
 # - Managers: open punches in periods whose team they manage (all_managed_teams, as
 #   TimeKiosk#managed_periods), including "added by admin" periods, as All Periods does.
 #   Their own open punch too.
-# - Anyone else: nothing, by owner decision (Mcp::PunchRecords#may_close_punches?). The
-#   kiosk lets them close their own only with a card scan, which a token can't stand in for.
+# - Anyone else: nothing, by owner decision (Mcp::PunchRecords#may_close_punches?). They
+#   clock out at the kiosk.
 #
 # So this is wider than TimeClockPunchPolicy#update?, which update_punch uses. A punch in
 # no period can only be closed by an admin or its owner, if a manager, here; a manager uses
@@ -82,7 +82,6 @@ class Mcp::Tools::ClockOut < Mcp::Tool
   # ask, and rolls back, so both go through the flagged page's own scopes. No save: nothing
   # runs a hook or reaches the audit log.
   def flags_when_closed(dry_run)
-    return nil unless ctx.allowed?(TimeClockPunch, :flagged?)
     return flags_by_punch(chosen_punches) unless dry_run
 
     flags = nil
