@@ -1,6 +1,6 @@
 module Mcp::CallsHelper
-  # Types with a page of their own at one ID. A membership's page also needs its team
-  # (see below). Others (a badge assignment, a login) aren't linked: a login is reached
+  # Types with a page of their own at one ID. A membership's page also needs its team,
+  # and a token, which a tool can remove, is linked only while it exists (see below). Others (a badge assignment, a login) aren't linked: a login is reached
   # from its person, listed in the same row.
   CHANGED_RECORD_PATHS = {
     "Person" => :person_path,
@@ -21,6 +21,7 @@ module Mcp::CallsHelper
 
   def changed_record_path(record)
     return changed_membership_path(record["id"]) if record["type"] == "Membership"
+    return changed_token_path(record["id"]) if record["type"] == "Token"
 
     helper = CHANGED_RECORD_PATHS[record["type"]]
     public_send(helper, record["id"]) if helper && respond_to?(helper)
@@ -31,5 +32,10 @@ module Mcp::CallsHelper
   def changed_membership_path(id)
     team_id = Membership.where(id: id).pick(:team_id)
     team_membership_path(team_id, id) if team_id
+  end
+
+  # Nil once the token has been removed, or while its feature is off.
+  def changed_token_path(id)
+    token_path(id) if respond_to?(:token_path) && Token.exists?(id: id)
   end
 end

@@ -7,6 +7,10 @@
 # take are here too: a client may send them, and it's refused only after the log line.
 Rails.application.config.filter_parameters += %w[first_name last_name display_name bio phone_number address birthday gender shirt_size dietary_restrictions]
   .map { |name| "params.arguments.#{name}" }
+# A token's value logs its holder in at the kiosk; a punch's note can say anything. A
+# client may send a value under another name, which is refused only after the log line.
+# These match substrings, so token also hides token_id, which is no loss.
+Rails.application.config.filter_parameters += %w[value note token rfid card].map { |name| "params.arguments.#{name}" }
 
 Rails.application.config.to_prepare do
   # Mcp::Access reads the settings store on every request, so transactions
@@ -86,4 +90,15 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::RemoveTeamMember)
   Mcp.register_tool(Mcp::Tools::RecordCheckin)
   Mcp.register_tool(Mcp::Tools::CreateEvent)
+
+  # Time clock
+  Mcp.register_tool(Mcp::Tools::ListTimeClockPeriods)
+  Mcp.register_tool(Mcp::Tools::ListPunches)
+  Mcp.register_tool(Mcp::Tools::RecordPunch)
+  Mcp.register_tool(Mcp::Tools::UpdatePunch)
+  Mcp.register_tool(Mcp::Tools::RemovePunch)
+  Mcp.register_tool(Mcp::Tools::ClockOut)
+  Mcp.register_tool(Mcp::Tools::ListTokens)
+  Mcp.register_tool(Mcp::Tools::AddToken)
+  Mcp.register_tool(Mcp::Tools::RemoveToken)
 end
