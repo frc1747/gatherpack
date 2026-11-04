@@ -42,8 +42,6 @@ class Mcp::Tool
   DEFAULT_LIMIT = 25
   MAX_LIMIT = 100
   BULK_LIMIT = 200
-  # What the integer columns behind tool arguments hold.
-  MAX_INTEGER = 2**31 - 1
   MASKED = "[masked]".freeze
 
   # Output schema of person_json and team_json.
@@ -56,9 +54,10 @@ class Mcp::Tool
   # The outcome of one call. value is the JSON-ready result (string keys),
   # error the message returned when the call failed, changed the record a
   # write tool changed, changed_records every record the call changed (a bulk
-  # tool's changed stays nil: there's no one record).
-  Result = Data.define(:value, :error, :outcome, :changed, :changed_records) do
-    def initialize(outcome:, value: nil, error: nil, changed: nil, changed_records: [])
+  # tool's changed stays nil: there's no one record), log_note something for the
+  # call log's error_message that isn't an error returned to the client.
+  Result = Data.define(:value, :error, :outcome, :changed, :changed_records, :log_note) do
+    def initialize(outcome:, value: nil, error: nil, changed: nil, changed_records: [], log_note: nil)
       super
     end
 
@@ -205,12 +204,13 @@ class Mcp::Tool
         Result.new(error: e.message, outcome: e.outcome)
       rescue Pundit::NotAuthorizedError
         Result.new(error: "Not allowed", outcome: :denied)
-      rescue => e
+      rescue StandardError, ScriptError => e
+        # ScriptError too: hooks are eval'ed, and the call must still get its log row.
         Rails.logger.error("[MCP] #{tool_name} failed (request #{ctx.request_id}): #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
         bug = e if e.is_a?(Mcp::ToolBug)
         Result.new(error: "Internal error", outcome: :error)
       end
-      result = result.with(changed: tool.changed_record, changed_records: tool.changed_records)
+      result = result.with(changed: tool.changed_record, changed_records: tool.changed_records, log_note: tool.log_note)
 
       Mcp::CallLog.record(ctx: ctx, tool: self, arguments: arguments, result: result,
         duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round)
@@ -251,7 +251,7 @@ class Mcp::Tool
       missing = missing_arguments(arguments)
       raise Mcp::InvalidArgument, "Missing required arguments: #{missing.join(", ")}" if missing.any?
 
-      refuse_out_of_range_integers!(input_schema, arguments, nil)
+      refuse_non_finite_integers!(input_schema, arguments, nil)
       sdk_input_schema.validate_arguments(arguments)
     rescue MCP::Tool::InputSchema::ValidationError => e
       raise Mcp::InvalidArgument, e.message
@@ -259,20 +259,20 @@ class Mcp::Tool
       raise Mcp::InvalidArgument, "A number is out of range"
     end
 
-    # JSON numbers have no limit: 1e400 parses to Infinity, which the schema check
-    # can't handle, and a large whole number would fail on its way to a column. The
-    # check follows the schema, so it covers nested integers and types like
-    # %w[integer null], and leaves everything else to the schema check.
-    def refuse_out_of_range_integers!(schema, value, name)
+    # 1e400 in JSON parses to Infinity, which the schema check can't handle on an
+    # integer. This follows the schema, so it covers nested integers and types like
+    # %w[integer null]. Range is each schema's own: declare a maximum on an integer
+    # bound for an integer column, since not all of them are (a person field's isn't).
+    def refuse_non_finite_integers!(schema, value, name)
       case value
       when Hash
-        value.each { |key, item| (property = schema[:properties]&.dig(key.to_sym)) && refuse_out_of_range_integers!(property, item, key) }
+        value.each { |key, item| (property = schema[:properties]&.dig(key.to_sym)) && refuse_non_finite_integers!(property, item, key) }
       when Array
-        value.each { |item| schema[:items] && refuse_out_of_range_integers!(schema[:items], item, name) }
+        value.each { |item| schema[:items] && refuse_non_finite_integers!(schema[:items], item, name) }
       when Numeric
         return unless Array(schema[:type]).map(&:to_s).include?("integer")
 
-        raise Mcp::InvalidArgument, "#{name} is out of range" unless value.finite? && value.abs <= MAX_INTEGER
+        raise Mcp::InvalidArgument, "#{name} is out of range" unless value.finite?
       end
     end
 
@@ -286,6 +286,12 @@ class Mcp::Tool
   def initialize(ctx)
     @ctx = ctx
     @changed_records = []
+    @unexpected_failures = 0
+  end
+
+  # For the call log: how a bulk call went wrong where its result is still a success.
+  def log_note
+    "#{@unexpected_failures} #{"record".pluralize(@unexpected_failures)} failed unexpectedly" if @unexpected_failures.positive?
   end
 
   def call(**)
@@ -305,13 +311,15 @@ class Mcp::Tool
   # required, so a tool can't leave out the preview or the permission check:
   #
   #   bulk_write(punches, dry_run: dry_run,
-  #     check: ->(punch) { raise Mcp::NotAllowed unless may_close?(punch) },
+  #     check: ->(punch) { may_close?(punch) },
   #     json: ->(punch) { punch_json(punch) }) { |punch| punch.update(end_time: end_of(punch)) }
   #
-  # check runs for every record, with the same rule as the single-record tool. If it
-  # raises a refusal, the record is skipped with that message as its reason. Any other
-  # exception from it ends the call, before anything has changed. More than BULK_LIMIT
-  # records passing it refuses the whole call.
+  # check runs for every record, with the same rule as the single-record tool. A record
+  # passes only if check returns something truthy: anything else skips it as "Not
+  # allowed". ctx.allowed? and ctx.authorize! both work as they are. If check raises a
+  # refusal, the record is skipped with that message as its reason. Any other exception
+  # from it ends the call, before anything has changed. More than BULK_LIMIT records
+  # passing it refuses the whole call.
   #
   # With dry_run, nothing else runs: changed lists the records that passed check, and
   # the call log's changed_records stays empty. So check has to include whatever could
@@ -320,15 +328,16 @@ class Mcp::Tool
   # Otherwise the block writes each record in its own save (never update_all, so hooks
   # fire). A record whose block returns false, or raises a refusal or a validation
   # error, is skipped with why, and the others still go ahead. So does one that fails
-  # unexpectedly (an admin's hook, say): it's logged, and skipped as "Internal error",
-  # so the client still learns what did change. Only an Mcp::ToolBug ends the call.
+  # unexpectedly (an admin's hook, even one with a syntax error): it's logged, skipped
+  # as "Internal error" so the client still learns what did change, and counted in the
+  # call log's error_message, whose outcome stays ok. Only an Mcp::ToolBug ends the call.
   def bulk_write(records, json:, dry_run:, check:, &write)
     raise Mcp::ToolBug, "#{self.class} must declare bulk to use bulk_write" unless self.class.bulk?
     raise Mcp::ToolBug, "#{self.class} must pass bulk_write a boolean dry_run" unless [ true, false ].include?(dry_run)
     raise Mcp::ToolBug, "#{self.class} must pass bulk_write a callable check" unless check.respond_to?(:call)
 
     skipped = []
-    writable = records.select { |record| bulk_outcome(record, skipped) { check.call(record) } }
+    writable = records.select { |record| bulk_outcome(record, skipped) { check.call(record) || raise(Mcp::NotAllowed) } }
     if writable.size > BULK_LIMIT
       raise Mcp::InvalidArgument, "This would change #{writable.size} records, and a call can change at most #{BULK_LIMIT}"
     end
@@ -349,7 +358,8 @@ class Mcp::Tool
     end
   rescue Mcp::ToolBug
     raise
-  rescue => e
+  rescue StandardError, ScriptError => e
+    @unexpected_failures += 1
     Rails.logger.error("[MCP] #{self.class.tool_name} failed on #{record.class.name} #{record.id} (request #{ctx.request_id}): #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
     skipped << { id: record.neat_id, reason: "Internal error" }
     false

@@ -80,6 +80,51 @@ class Mcp::BulkWriteTest < ActiveSupport::TestCase
     assert_equal dry.value.except("dry_run"), real.value.except("dry_run")
   end
 
+  # ctx.allowed? answers false rather than raising, so a false check has to skip.
+  test "a check that returns false or nil skips the record, dry run or not" do
+    [ ->(tool, person) { tool.ctx.allowed?(person, :update?) }, ->(_tool, _person) { nil } ].each do |rule|
+      tool = Class.new(Mcp::Tool) do
+        tool_name "test_condition_check"
+        description "Checks with a condition"
+        scope :write
+        bulk
+        input_schema(properties: { dry_run: dry_run_property })
+        define_method(:call) do |dry_run: false|
+          bulk_write(SetBios.people, dry_run: dry_run, check: ->(person) { rule.call(self, person) }, json: ->(person) { person_json(person) }) { |person| person.update(bio: "Written") }
+        end
+      end
+
+      [ true, false ].each do |dry_run|
+        result = with_settings(mcp_write_enabled: "true") { tool.run(mcp_context(user(:guardian), scopes: "mcp_write"), dry_run: dry_run) }
+
+        assert_empty result.value["changed"]
+        assert_equal [ "Not allowed" ], result.value["skipped"].map { |item| item["reason"] }.uniq
+        assert_equal 3, result.value["skipped"].size
+        assert_empty result.changed_records
+      end
+      assert_nil @elsewhere.reload.bio
+    end
+  end
+
+  test "a check using ctx.allowed? lets through what it allows" do
+    tool = Class.new(Mcp::Tool) do
+      tool_name "test_allowed_check"
+      description "Checks with ctx.allowed?"
+      scope :write
+      bulk
+      input_schema(properties: { dry_run: dry_run_property })
+      define_method(:call) do |dry_run: false|
+        bulk_write(SetBios.people, dry_run: dry_run, check: ->(person) { ctx.allowed?(person, :update?) }, json: ->(person) { person_json(person) }) { |person| person.update(bio: "Written") }
+      end
+    end
+
+    result = with_settings(mcp_write_enabled: "true") { tool.run(mcp_context(user(:alpha_manager), scopes: "mcp_write"), {}) }
+
+    assert_equal [ @first.neat_id, @second.neat_id ], result.value["changed"].map { |item| item["id"] }
+    assert_equal [ { "id" => @elsewhere.neat_id, "reason" => "Not allowed" } ], result.value["skipped"]
+    assert_nil @elsewhere.reload.bio
+  end
+
   test "dry_run takes only a boolean" do
     %w[no true].each do |value|
       assert_predicate run_bulk(:admin, bio: "New", dry_run: value), :error?
@@ -128,6 +173,96 @@ class Mcp::BulkWriteTest < ActiveSupport::TestCase
     assert_nil @second.reload.bio
     assert_equal [ @first.id, @elsewhere.id ], last_call.changed_records.map { |record| record["id"] }
     assert_equal "ok", last_call.outcome
+    assert_equal "1 record failed unexpectedly", last_call.error_message
+  end
+
+  test "a call where every record fails unexpectedly says how many, with an empty list" do
+    Hook.create!(name: "MCP test hook", event: "people - update", code: "raise 'hook failed'")
+
+    result = run_bulk(:admin, bio: "Hooked")
+
+    assert_empty result.value["changed"]
+    assert_equal 3, result.value["skipped"].size
+    assert_empty last_call.changed_records
+    assert_equal "ok", last_call.outcome
+    assert_equal "3 records failed unexpectedly", last_call.error_message
+  end
+
+  test "skips that aren't unexpected leave no note" do
+    run_bulk(:alpha_manager, bio: "New")
+    assert_nil last_call.error_message
+
+    run_bulk(:admin, bio: "unsaved")
+    assert_nil last_call.error_message
+
+    run_bulk(:admin, bio: "boom", dry_run: true)
+    assert_nil last_call.error_message
+  end
+
+  test "a hook with a syntax error is skipped like any other failure, and the call gets its row" do
+    Hook.create!(name: "MCP test hook", event: "people - update", code: ")(")
+    McpToolCall.delete_all
+
+    result = run_bulk(:admin, bio: "Hooked")
+
+    assert_empty result.value["changed"]
+    assert_equal 3, result.value["skipped"].size
+    assert_equal [ "Internal error" ], result.value["skipped"].map { |item| item["reason"] }.uniq
+    assert_equal 1, McpToolCall.count
+    assert_equal "3 records failed unexpectedly", last_call.error_message
+    assert_nil @first.reload.bio
+  end
+
+  test "a ScriptError on one record leaves the others changed and logged" do
+    tool = Class.new(SetBios) do
+      tool_name "test_set_bios_script_error"
+      description "Raises a ScriptError"
+      scope :write
+      bulk
+      input_schema(properties: { dry_run: dry_run_property })
+
+      def call(dry_run: false)
+        bulk_write(SetBios.people, dry_run: dry_run, check: ->(_person) { true }, json: ->(person) { person_json(person) }) do |person|
+          raise SyntaxError, "bad hook" if person.first_name == "Second"
+
+          person.update(bio: "Written")
+        end
+      end
+    end
+
+    result = with_settings(mcp_write_enabled: "true") { tool.run(mcp_context(user(:admin), scopes: "mcp_write"), {}) }
+    call = McpToolCall.where(tool: "test_set_bios_script_error").sole
+
+    assert_equal [ @first.neat_id, @elsewhere.neat_id ], result.value["changed"].map { |item| item["id"] }
+    assert_equal [ { "id" => @second.neat_id, "reason" => "Internal error" } ], result.value["skipped"]
+    assert_equal [ @first.id, @elsewhere.id ], call.changed_records.map { |record| record["id"] }
+    assert_equal "1 record failed unexpectedly", call.error_message
+  end
+
+  test "a ScriptError in a single-record tool is an internal error with a log row" do
+    tool = Class.new(Mcp::Tool) do
+      tool_name "test_script_error"
+      description "Raises a ScriptError"
+      scope :read
+
+      def call = raise(SyntaxError, "bad hook")
+    end
+
+    result = tool.run(mcp_context(user(:admin)), {})
+
+    assert_equal "Internal error", result.error
+    assert_equal "error", McpToolCall.where(tool: "test_script_error").sole.outcome
+  end
+
+  test "a hook with a syntax error on a single write rolls back, and the call gets its row" do
+    Hook.create!(name: "MCP test hook", event: "people - update", code: ")(")
+    person(:ward).update_column(:bio, "Before")
+
+    assert_difference("McpToolCall.where(tool: 'update_person').count", 1) do
+      assert_equal "Internal error", call_tool("update_person", user: user(:admin), person_id: person(:ward).neat_id, bio: "Changed").error
+    end
+    assert_equal "Before", person(:ward).reload.bio
+    assert_equal "error", McpToolCall.where(tool: "update_person").order(:created_at).last.outcome
   end
 
   test "a hook that raises on one record leaves that record unsaved, and the others go ahead" do
@@ -149,7 +284,7 @@ class Mcp::BulkWriteTest < ActiveSupport::TestCase
       input_schema(properties: { bio: { type: "string" }, dry_run: dry_run_property }, required: %w[bio])
 
       def call(bio:, dry_run: false)
-        bulk_write(SetBios.people, dry_run: dry_run, check: ->(_person) { }, json: ->(person) { person_json(person) }) do |person|
+        bulk_write(SetBios.people, dry_run: dry_run, check: ->(_person) { true }, json: ->(person) { person_json(person) }) do |person|
           raise Mcp::ToolBug, "a bug" if person.first_name == "Second"
 
           person.update(bio: bio)
@@ -170,7 +305,7 @@ class Mcp::BulkWriteTest < ActiveSupport::TestCase
       input_schema(properties: { dry_run: dry_run_property })
 
       def call(dry_run: false)
-        bulk_write(SetBios.people.first(1), dry_run: dry_run, check: ->(_person) { }, json: ->(person) { person_json(person) }) { false }
+        bulk_write(SetBios.people.first(1), dry_run: dry_run, check: ->(_person) { true }, json: ->(person) { person_json(person) }) { false }
       end
     end
 
@@ -183,7 +318,7 @@ class Mcp::BulkWriteTest < ActiveSupport::TestCase
   # Each a tool that would have written with no permission check, or during a dry run.
   {
     "no check" => ->(people, dry_run, writer) { writer.send(:bulk_write, people, dry_run: dry_run, json: :neat_id.to_proc) { |person| person.update(bio: "Written") } },
-    "no dry_run" => ->(people, _dry_run, writer) { writer.send(:bulk_write, people, check: ->(_person) { }, json: :neat_id.to_proc) { |person| person.update(bio: "Written") } }
+    "no dry_run" => ->(people, _dry_run, writer) { writer.send(:bulk_write, people, check: ->(_person) { true }, json: :neat_id.to_proc) { |person| person.update(bio: "Written") } }
   }.each do |name, body|
     test "a tool leaving out bulk_write's #{name} fails and writes nothing" do
       tool = Class.new(Mcp::Tool) do
@@ -204,7 +339,7 @@ class Mcp::BulkWriteTest < ActiveSupport::TestCase
   end
 
   test "a tool passing bulk_write a nil check or dry_run is a bug" do
-    [ { dry_run: nil, check: ->(_person) { } }, { dry_run: true, check: nil } ].each do |options|
+    [ { dry_run: nil, check: ->(_person) { true } }, { dry_run: true, check: nil } ].each do |options|
       tool = Class.new(Mcp::Tool) do
         tool_name "test_nil_bulk"
         description "Nil"

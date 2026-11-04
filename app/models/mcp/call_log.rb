@@ -32,7 +32,7 @@ module Mcp::CallLog
         tool: tool.tool_name,
         arguments: arguments,
         outcome: result.outcome.to_s,
-        error_message: result.error&.delete("\0")&.truncate(MAX_ARGUMENT_LENGTH),
+        error_message: [ result.error, result.log_note ].compact.join("; ").presence&.delete("\0")&.truncate(MAX_ARGUMENT_LENGTH),
         changed_type: result.changed&.class&.name,
         changed_id: result.changed&.id,
         changed_records: result.changed_records.map { |record| { type: record.class.name, id: record.id } },

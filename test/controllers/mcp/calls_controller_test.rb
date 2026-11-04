@@ -71,6 +71,14 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tbody tr:nth-child(2) a", 0
   end
 
+  test "a call with unexpected failures shows its note, though its outcome is ok" do
+    McpToolCall.create!(user: user(:admin), tool: "bulk", outcome: "ok", error_message: "2 records failed unexpectedly")
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child small", "2 records failed unexpectedly"
+  end
+
   test "a real create_person call shows its records" do
     call_tool("create_person", user: user(:admin), first_name: "New", last_name: "Comer", email: "new@example.com", team_id: @alpha.neat_id)
     created = Person.find_by!(first_name: "New")
