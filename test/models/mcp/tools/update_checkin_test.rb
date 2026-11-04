@@ -185,12 +185,17 @@ class Mcp::Tools::UpdateCheckinTest < ActionDispatch::IntegrationTest
     @checkin.refresh_fields
     @checkin.checkin_field_responses.find_by!(checkin_field: @admin_field).update!(response: "555-0100")
 
-    with_policy_query(CheckinField, :linked?, proc { name == "Admin only" }) do
-      assert_unchanged("Not allowed: Admin only") { update(:admin, field_responses: { @admin_field.neat_id => "A" }) }
+    # linked? is faked and these fields have no person field behind them, so a build
+    # with read levels can't work out who may read them. Whether a linked field is
+    # readable isn't what this test is about.
+    with_policy_query(CheckinField, :readable_by?, proc { |*| true }) do
+      with_policy_query(CheckinField, :linked?, proc { name == "Admin only" }) do
+        assert_unchanged("Not allowed: Admin only") { update(:admin, field_responses: { @admin_field.neat_id => "A" }) }
 
-      result = update(:admin, notes: "Fine")
-      assert_equal [ "Open" ], result.value["field_responses"].map { |item| item["name"] }
-      assert_not_includes result.value.to_json, "555-0100"
+        result = update(:admin, notes: "Fine")
+        assert_equal [ "Open" ], result.value["field_responses"].map { |item| item["name"] }
+        assert_not_includes result.value.to_json, "555-0100"
+      end
     end
   end
 
