@@ -89,45 +89,35 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     assert_equal MCP_TIME_NOW, own.reload.end_time
   end
 
-  test "anyone else closes only their own" do
-    result = clock_out(:beta_member, person_id: person(:beta_member).neat_id)
-
-    assert_equal [ @beta_open.neat_id ], changed_ids(result)
-    assert_equal MCP_TIME_NOW, @beta_open.reload.end_time
-  end
-
-  test "a member's period clock-out closes their own, and doesn't show a teammate's" do
+  test "someone who manages no team closes nothing, not even their own, in any form" do
     teammate = create_world_punch(person(:badge_holder), @beta_period, 33, nil)
+    forms = [ { person_id: person(:beta_member).neat_id }, { person_id: person(:badge_holder).neat_id }, { period_id: @beta_period.neat_id }, { all: true } ]
 
-    result = clock_out(:beta_member, period_id: @beta_period.neat_id)
-
-    assert_equal [ @beta_open.neat_id ], changed_ids(result)
-    assert_empty result.value["skipped"]
+    assert_no_difference(-> { open_count }, "AuditLog.count") do
+      forms.each do |form|
+        assert_equal "Not allowed", clock_out(:beta_member, **form).error, form
+        assert_equal "Not allowed", clock_out(:beta_member, **form, dry_run: true).error, form
+      end
+    end
+    assert_nil @beta_open.reload.end_time
     assert_nil teammate.reload.end_time
   end
 
-  test "asking about a teammate doesn't say whether they're clocked in" do
-    create_world_punch(person(:badge_holder), @beta_period, 33, nil)
-
-    result = clock_out(:beta_member, person_id: person(:badge_holder).neat_id)
-
-    assert_equal({ "changed" => [], "skipped" => [], "dry_run" => false }, result.value)
-  end
-
-  test "a member's all changes nothing: they manage no team" do
-    assert_no_difference(-> { open_count }) do
-      assert_equal({ "changed" => [], "skipped" => [], "dry_run" => false }, clock_out(:beta_member, all: true).value)
-    end
-  end
-
-  test "a guardian can't reach their ward, and has nothing of their own" do
-    assert_equal "Not found", clock_out(:guardian, person_id: person(:ward).neat_id).error
-    assert_equal "Not found", clock_out(:guardian, period_id: @alpha_period.neat_id).error
-    assert_empty clock_out(:guardian, all: true).value["changed"]
+  test "a guardian closes nothing, and isn't told whether a ward is clocked in" do
+    assert_equal "Not allowed", clock_out(:guardian, person_id: person(:ward).neat_id).error
+    assert_equal "Not allowed", clock_out(:guardian, period_id: @alpha_period.neat_id).error
+    assert_equal "Not allowed", clock_out(:guardian, all: true).error
     assert_nil @ward_open.reload.end_time
   end
 
-  test "a punch in no period: an admin or its owner closes it by person, and all leaves it" do
+  test "a manager closes their own punch in no period" do
+    own = TimeClockPunch.create!(person: person(:alpha_manager), start_time: Time.utc(2026, 3, 11, 8))
+
+    assert_includes changed_ids(clock_out(:alpha_manager, person_id: person(:alpha_manager).neat_id)), own.neat_id
+    assert_equal MCP_TIME_NOW, own.reload.end_time
+  end
+
+  test "a punch in no period: an admin closes it by person, a manager of the person can't, and all leaves it" do
     loose = TimeClockPunch.create!(person: person(:ward), start_time: Time.utc(2026, 3, 11, 8))
 
     assert_not_includes changed_ids(clock_out(:alpha_manager, all: true, dry_run: true)), loose.neat_id
@@ -168,15 +158,11 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     count
   end
 
-  test "a dry run writes nothing for flags the viewer can't see, and once for those who can" do
+  test "a dry run asks for flags once, and writes nothing that lasts" do
     create_world_punch(person(:beta_member), @beta_period, 34, nil)
 
-    member = nil
-    assert_equal 0, punch_updates { member = clock_out(:beta_member, person_id: person(:beta_member).neat_id, dry_run: true) }
-    assert_equal 2, member.value["changed"].size
-    member.value["changed"].each { |item| assert_nil item["flags"] }
-
     assert_equal 2, punch_updates { clock_out(:admin, person_id: person(:beta_member).neat_id, dry_run: true) }
+    assert_equal 2, TimeClockPunch.where(person: person(:beta_member), end_time: nil).count
   end
 
   test "an admin's all covers a team-less period too" do

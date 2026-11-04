@@ -71,6 +71,40 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
     assert_unchanged(closed) { assert_equal "Not allowed", update(:beta_member, closed, note: "no").error }
   end
 
+  test "a member can't close their own open punch in any period the policy lets them edit" do
+    Membership.find_or_create_by!(person: person(:beta_member), team: @beta)
+    open_punches = [
+      TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9)),
+      TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk",
+        time_clock_period: TimeClockPeriod.create!(name: "Beta Members", team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_team_member)),
+      TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9), created_by: "kiosk",
+        time_clock_period: TimeClockPeriod.create!(name: "Beta Users", team: @beta, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_user))
+    ]
+
+    open_punches.each do |punch|
+      assert_unchanged(punch) { assert_equal "Not allowed", update(:beta_member, punch, ends_at: "2026-03-11T10:00:00").error }
+      assert_nil update(:beta_member, punch, note: "Still open").error
+    end
+  end
+
+  test "a member can still change the end of a closed punch, and can't reopen one and close it again" do
+    assert_nil update(:beta_member, @own, ends_at: "2026-03-10T11:00:00").error
+    assert_nil update(:beta_member, @own, ends_at: nil).error
+    assert_unchanged(@own) { assert_equal "Not allowed", update(:beta_member, @own, ends_at: "2026-03-10T11:00:00").error }
+  end
+
+  test "managers and admins close open punches they can edit" do
+    open = create_world_punch(person(:ward), @manager_period, 30, nil)
+    assert_nil update(:alpha_manager, open, ends_at: "2026-03-11T12:00:00").error
+    assert_not_nil open.reload.end_time
+
+    own = TimeClockPunch.create!(person: person(:alpha_manager), start_time: Time.utc(2026, 3, 11, 9))
+    assert_nil update(:alpha_manager, own, ends_at: "2026-03-11T12:00:00").error
+
+    other = TimeClockPunch.create!(person: person(:beta_member), start_time: Time.utc(2026, 3, 11, 9))
+    assert_nil update(:admin, other, ends_at: "2026-03-11T12:00:00").error
+  end
+
   test "moving a punch to another person needs that person: see, then may record for" do
     moved = update(:alpha_manager, @punch, person_id: person(:alpha_member).neat_id)
     assert_nil moved.error
