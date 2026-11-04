@@ -8,7 +8,7 @@
 | Added | 2026-10-09 |
 | Upstream base checked | `86ab397` |
 | Branch | `feature/settings-read-through` (see `FORK.md`) |
-| Upstream issue / PR | none yet |
+| Upstream issue / PR | Issue [#543](https://github.com/GatherPack/gatherpack/issues/543), PR [#544](https://github.com/GatherPack/gatherpack/pull/544) |
 
 ## Summary
 
