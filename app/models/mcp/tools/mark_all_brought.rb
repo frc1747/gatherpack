@@ -8,6 +8,8 @@
 # and show an error. Here each saves on its own and a failure is listed in skipped, as
 # bulk_write does for every bulk tool. A sheet the viewer can't see is "Not found".
 #
+# Each row shows the status a real run gives it, so a dry_run row matches that run's.
+#
 # A repeat finds nothing left to mark, as on the page: only active sign-ups are taken.
 class Mcp::Tools::MarkAllBrought < Mcp::Tool
   include Mcp::Tools::SignupRosterFormat
@@ -40,6 +42,6 @@ class Mcp::Tools::MarkAllBrought < Mcp::Tool
 
     bulk_write(signups, dry_run: dry_run,
       check: ->(signup) { ctx.allowed?(signup, :mark?) || raise(Mcp::NotAllowed, SignupSheet::SELF_APPROVAL_REASON) },
-      json: ->(signup) { roster_result(signup) }) { |signup| signup.update(status: :fulfilled) }
+      json: ->(signup) { roster_result(signup).merge(status: "fulfilled") }) { |signup| signup.update(status: :fulfilled) }
   end
 end

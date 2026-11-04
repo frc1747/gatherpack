@@ -170,7 +170,6 @@ class Mcp::Tools::UpdateSignupTest < ActionDispatch::IntegrationTest
   end
 
   test "the page's other fields are refused by name, not dropped" do
-    assert_not_updated(/person_id/, :admin, @bake_day_cashier, person_id: person(:late).neat_id)
     assert_not_updated(/signup_slot_id/, :admin, @bake_day_cashier, note: "x", signup_slot_id: "susl_1")
     assert_not_updated(/status/, :admin, @bake_day_cashier, status: "cancelled")
   end
@@ -212,11 +211,118 @@ class Mcp::Tools::UpdateSignupTest < ActionDispatch::IntegrationTest
   end
 
   test "the roster has no on-behalf-of, so an organizer's change is refused by name where the page drops it" do
-    error = "Not allowed: on_behalf_of_id. The roster can't change whose behalf a sign-up is on"
+    error = "Not allowed: on_behalf_of_id. The roster can't change who takes a sign-up or whose behalf it's on"
     assert_not_updated(error, :organizer, @bake_day_cashier, on_behalf_of_id: person(:ward).neat_id, note: "x")
 
     page_update(:organizer, @bake_day_cashier, on_behalf_of_id: person(:ward).id, note: "x")
     assert_equal [ person(:alpha_member), "x" ], [ @bake_day_cashier.reload.on_behalf_of, @bake_day_cashier.note ]
+  end
+
+  test "the current on-behalf-of stays allowed for someone the viewer can't see, as on the page" do
+    signup = create_signup(@cashier, :ward, @cleanup, signed_up_by: person(:guardian), on_behalf_of: person(:beta_member))
+    assert_not Pundit.policy_scope!(user(:guardian), Person).exists?(id: person(:beta_member).id)
+    expected = [ "Kept", person(:beta_member).id ]
+
+    assert_equal expected, after(signup, :note, :on_behalf_of_id) { page_update(:guardian, signup, on_behalf_of_id: person(:beta_member).id, note: "Kept") }
+    assert_equal expected, after(signup, :note, :on_behalf_of_id) { assert_nil update_signup(:guardian, signup, on_behalf_of_id: person(:beta_member).neat_id, note: "Kept").error }
+  end
+
+  test "an on-behalf-of just set comes back to a viewer not involved in the sign-up" do
+    relate_to_guardian(:late)
+    theirs = create_signup(@cashier, :ward, @cleanup)
+
+    result = update_signup(:guardian, theirs, on_behalf_of_id: person(:late).neat_id)
+
+    assert_nil result.error
+    assert_equal person(:late), theirs.reload.on_behalf_of
+    assert_equal "Late World", result.value.dig("on_behalf_of", "name")
+  end
+
+  test "a guardian gives a place to another ward, on the new ward's behalf, as on the page" do
+    relate_to_guardian(:late)
+    expected = [ person(:late).id, person(:late).id ]
+
+    assert_equal expected, after(@ward_cashier, :person_id, :on_behalf_of_id) { page_update(:guardian, @ward_cashier, person_id: person(:late).id) }
+
+    result = update_signup(:guardian, @ward_cashier, person_id: person(:late).neat_id)
+    assert_nil result.error
+    assert_equal expected, @ward_cashier.reload.attributes.values_at("person_id", "on_behalf_of_id")
+    assert_equal "Late World", result.value.dig("person", "name")
+    assert_equal "Late World", result.value.dig("on_behalf_of", "name")
+    assert_equal user(:guardian).id.to_s, @ward_cashier.versions.where(event: "update").last.whodunnit
+  end
+
+  test "a new taker can come with an on-behalf-of, kept or blank, as on the page" do
+    relate_to_guardian(:late)
+    late = person(:late)
+    ward = person(:ward)
+
+    assert_equal [ late.id, ward.id ], after(@ward_cashier, :person_id, :on_behalf_of_id) { page_update(:guardian, @ward_cashier, person_id: late.id, on_behalf_of_id: ward.id) }
+    assert_equal [ late.id, ward.id ], after(@ward_cashier, :person_id, :on_behalf_of_id) { update_signup(:guardian, @ward_cashier, person_id: late.neat_id, on_behalf_of_id: ward.neat_id) }
+
+    assert_equal [ late.id, late.id ], after(@ward_cashier, :person_id, :on_behalf_of_id) { page_update(:guardian, @ward_cashier, person_id: late.id, on_behalf_of_id: "") }
+    assert_equal [ late.id, late.id ], after(@ward_cashier, :person_id, :on_behalf_of_id) { update_signup(:guardian, @ward_cashier, person_id: late.neat_id, on_behalf_of_id: nil) }
+  end
+
+  test "resending the current taker changes nothing else, even one the viewer can't sign up or see" do
+    signup = create_signup(@cashier, :beta_member, @cleanup, signed_up_by: person(:guardian), on_behalf_of: person(:ward))
+    assert_not Pundit.policy_scope!(user(:guardian), Person).exists?(id: person(:beta_member).id)
+    expected = [ person(:beta_member).id, person(:ward).id, "Kept" ]
+
+    assert_equal expected, after(signup, :person_id, :on_behalf_of_id, :note) { page_update(:guardian, signup, person_id: person(:beta_member).id, note: "Kept") }
+    assert_equal expected, after(signup, :person_id, :on_behalf_of_id, :note) { assert_nil update_signup(:guardian, signup, person_id: person(:beta_member).neat_id, note: "Kept").error }
+  end
+
+  test "a taker the viewer can't sign up is refused; one they can't see is not found" do
+    assert_not_updated("You can't sign up #{person(:ward).identifier_name} on this sheet", :alpha_member, @bake_day_cashier, person_id: person(:ward).neat_id)
+    assert_not_updated("Not found", :alpha_member, @bake_day_cashier, person_id: person(:beta_member).neat_id)
+    assert_not_updated("Not found", :alpha_member, @bake_day_cashier, person_id: "per_nonsense")
+    assert_not_updated("Not found", :alpha_member, @bake_day_cashier, person_id: @alpha.neat_id)
+    assert_equal [ person(:alpha_member).id ], after(@bake_day_cashier, :person_id) { page_update(:alpha_member, @bake_day_cashier, person_id: person(:ward).id) }
+  end
+
+  test "a blank person_id is refused by name where the page ignores it" do
+    assert_not_updated("person_id can't be blank", :alpha_member, @bake_day_cashier, person_id: "")
+    assert_not_updated(/person_id/, :alpha_member, @bake_day_cashier, person_id: nil)
+    assert_equal [ person(:alpha_member).id ], after(@bake_day_cashier, :person_id) { page_update(:alpha_member, @bake_day_cashier, person_id: "") }
+  end
+
+  test "an organizer on their own sign-up takes the member page's taker check" do
+    own = create_signup(@cashier, :organizer, @cleanup)
+
+    assert_not_updated("You can't sign up #{person(:ward).identifier_name} on this sheet", :organizer, own, person_id: person(:ward).neat_id)
+    assert_equal [ own.person_id ], after(own, :person_id) { page_update(:organizer, own, person_id: person(:ward).id) }
+  end
+
+  test "the roster has no taker, so an organizer's change is refused by name where the page drops it" do
+    assert_not_updated("Not allowed: person_id. The roster can't change who takes a sign-up or whose behalf it's on", :organizer, @bake_day_cashier, person_id: person(:late).neat_id, note: "x")
+
+    page_update(:organizer, @bake_day_cashier, person_id: person(:late).id, note: "x")
+    assert_equal [ person(:alpha_member), "x" ], [ @bake_day_cashier.reload.person, @bake_day_cashier.note ]
+  end
+
+  test "a new taker meets the position's rules and a slot turned off, as on the page" do
+    relate_to_guardian(:late)
+    license = create_world_badge("License")
+    @cashier.signup_position_rules.create!(kind: :badge, badge_ids: [ license.id ])
+
+    assert_equal [ person(:ward).id ], after(@ward_cashier, :person_id) { page_update(:guardian, @ward_cashier, person_id: person(:late).id) }
+    result = assert_not_updated(/License|badge/i, :guardian, @ward_cashier, person_id: person(:late).neat_id)
+    assert_not_equal "Internal error", result.error
+
+    @cashier.signup_position_rules.destroy_all
+    @ward_cashier.signup_slot.update!(disabled: true)
+    assert_equal [ person(:ward).id ], after(@ward_cashier, :person_id) { page_update(:guardian, @ward_cashier, person_id: person(:late).id) }
+    assert_not_updated("This slot is turned off", :guardian, @ward_cashier, person_id: person(:late).neat_id)
+  end
+
+  test "changing the taker sends no email, as on the page" do
+    relate_to_guardian(:late)
+    clear_enqueued_jobs
+    after(@ward_cashier, :person_id) { page_update(:guardian, @ward_cashier, person_id: person(:late).id) }
+    assert_nil update_signup(:guardian, @ward_cashier, person_id: person(:late).neat_id).error
+
+    assert_empty enqueued_jobs.select { |job| job[:job] == SendEmailJob }
   end
 
   test "a member's result leaves out the note and an on-behalf-of they aren't involved in, unless they just set it" do

@@ -18,7 +18,7 @@ module Mcp::Tools::SignupRosterFormat
   # RESULT_SCHEMA for a retry-safe action, saying whether this call made a difference.
   CHANGE_RESULT_SCHEMA = RESULT_SCHEMA.merge(
     properties: RESULT_SCHEMA[:properties].merge(
-      changed: { type: "boolean", description: "False if the sign-up was already in that state, so this call changed nothing and sent nothing" }
+      changed: { type: "boolean", description: "False if the sign-up was already in that state, so this call saved nothing new and sent no notices, though signups - update hooks ran again, as on the page" }
     ),
     required: RESULT_SCHEMA[:required] + %w[changed]
   ).freeze

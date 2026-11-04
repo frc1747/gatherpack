@@ -42,7 +42,7 @@ class Mcp::SignupToolsLogTest < ActionDispatch::IntegrationTest
     log = logged_line_for(:alpha_plain, { signup_id: @ward_cookies.neat_id, answer: "Answersecret", note: "Notesecret" })
     %w[Answersecret Notesecret].each { |value| assert_not_includes log, value }
 
-    log = logged_line_for(:admin, { signup_id: @ward_cookies.neat_id, answer: "Answersecret", note: "Notesecret", person_id: "per_1" })
+    log = logged_line_for(:admin, { signup_id: @ward_cookies.neat_id, answer: "Answersecret", note: "Notesecret", signup_slot_id: "susl_1" })
     %w[Answersecret Notesecret].each { |value| assert_not_includes log, value }
     assert_nil @ward_cookies.reload.note
   end

@@ -24,6 +24,13 @@ class Mcp::Tools::MarkSignupTest < ActionDispatch::IntegrationTest
     sign_out user(viewer)
   end
 
+  # As call_tool, for a call that may make no change, which call_tool doesn't allow.
+  def run_mark(viewer, signup, status)
+    with_settings(mcp_write_enabled: "true") do
+      Mcp.tool("mark_signup").run(mcp_context(user(viewer), scopes: "mcp_write"), { signup_id: signup.neat_id, status: status })
+    end
+  end
+
   def assert_not_marked(error, viewer, signup, status = "fulfilled", **options)
     before = signup.reload.attributes
     result = assert_refused(error, Signup, AuditLog) { mark(viewer, signup, status, **options) }
@@ -129,15 +136,25 @@ class Mcp::Tools::MarkSignupTest < ActionDispatch::IntegrationTest
     assert @bake_day_cashier.reload.fulfilled?
     assert_equal versions, @bake_day_cashier.versions.count
 
-    Thread.current[:mcp_hook_runs] = 0
-    Hook.create!(name: "Count", event: "signups - fulfilled", code: "Thread.current[:mcp_hook_runs] += 1")
-    result = mark(:organizer, @bake_day_cashier)
+    Thread.current[:mcp_hook_runs] = Hash.new(0)
+    Hook.create!(name: "Status", event: "signups - fulfilled", code: "Thread.current[:mcp_hook_runs][:status] += 1")
+    Hook.create!(name: "Update", event: "signups - update", code: "Thread.current[:mcp_hook_runs][:update] += 1")
+
+    page_mark(:organizer, @bake_day_cashier, "fulfilled")
+    assert_equal({ update: 1 }, Thread.current[:mcp_hook_runs])
+
+    result = run_mark(:organizer, @bake_day_cashier, "fulfilled")
 
     assert_nil result.error
     assert_equal false, result.value["changed"]
     assert_equal "fulfilled", result.value["status"]
     assert_equal versions, @bake_day_cashier.reload.versions.count
-    assert_equal 0, Thread.current[:mcp_hook_runs]
+    assert_equal({ update: 2 }, Thread.current[:mcp_hook_runs])
+
+    assert_nil result.changed
+    assert_empty result.changed_records
+    log = McpToolCall.order(:created_at).last
+    assert_equal [ "mark_signup", "ok", nil, nil, [] ], [ log.tool, log.outcome, log.changed_type, log.changed_id, log.changed_records ]
   ensure
     Thread.current[:mcp_hook_runs] = nil
   end

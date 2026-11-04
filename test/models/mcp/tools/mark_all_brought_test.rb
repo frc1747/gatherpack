@@ -95,6 +95,19 @@ class Mcp::Tools::MarkAllBroughtTest < ActionDispatch::IntegrationTest
     assert_equal "denied", McpToolCall.where(tool: "mark_all_brought").order(:created_at).first.outcome
   end
 
+  test "another sheet's sign-ups at the same event are left, by the tool and the page" do
+    other_sheet = create_signups_sheet("Other", @alpha, [ @bake_day ])
+    other = create_signup(other_sheet.signup_positions.create!(name: "Pies", kind: :items, unit: "pies"), :alpha_plain, @bake_day)
+
+    assert_not_includes marked_by { page_mark_all(:admin) }, other.id
+    assert_not_includes marked_by { mark_all(:admin) }, other.id
+
+    result = mark_all(:admin)
+    assert_not_includes changed_ids(result), other.neat_id
+    assert_empty result.value["skipped"]
+    assert other.reload.active?
+  end
+
   test "an event not on the sheet is not found, and so are bad IDs" do
     assert_none_marked("Not found", :admin, @sheet, @beta_day)
     assert_refused("Not found", Signup) { call_tool("mark_all_brought", user: user(:admin), sheet_id: "sush_nonsense", event_id: @bake_day.neat_id) }
@@ -118,7 +131,8 @@ class Mcp::Tools::MarkAllBroughtTest < ActionDispatch::IntegrationTest
     assert_equal true, log.arguments["dry_run"]
 
     real = mark_all(:organizer, dry_run: false)
-    assert_equal changed_ids(real), changed_ids(preview)
+    assert_equal real.value["changed"], preview.value["changed"]
+    assert_equal [ "fulfilled" ], preview.value["changed"].map { |item| item["status"] }.uniq
     assert_equal real.value["skipped"], preview.value["skipped"]
   end
 

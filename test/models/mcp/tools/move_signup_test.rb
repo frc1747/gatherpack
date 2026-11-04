@@ -26,6 +26,13 @@ class Mcp::Tools::MoveSignupTest < ActionDispatch::IntegrationTest
     call_tool("move_signup", user: user(viewer), signup_id: signup.neat_id, slot_id: slot.neat_id, **options)
   end
 
+  # As call_tool, for a call that may make no change, which call_tool doesn't allow.
+  def run_move(viewer, signup, slot)
+    with_settings(mcp_write_enabled: "true") do
+      Mcp.tool("move_signup").run(mcp_context(user(viewer), scopes: "mcp_write"), { signup_id: signup.neat_id, slot_id: slot.neat_id })
+    end
+  end
+
   def page_move(viewer, signup, slot, override_rules: false)
     sign_in user(viewer)
     params = { signup: { signup_slot_id: slot.id } }
@@ -212,13 +219,26 @@ class Mcp::Tools::MoveSignupTest < ActionDispatch::IntegrationTest
     assert_empty(emails_from { page_move(:organizer, @bake_day_cashier, @full_slot) })
     assert_equal @full_slot, @bake_day_cashier.reload.signup_slot
 
+    Thread.current[:mcp_hook_runs] = 0
+    Hook.create!(name: "Update", event: "signups - update", code: "Thread.current[:mcp_hook_runs] += 1")
+    page_move(:organizer, @bake_day_cashier, @full_slot)
+    assert_equal 1, Thread.current[:mcp_hook_runs]
+
     result = nil
-    emails = emails_from { result = move(:organizer, @bake_day_cashier, @full_slot) }
+    emails = emails_from { result = run_move(:organizer, @bake_day_cashier, @full_slot) }
     assert_nil result.error
     assert_equal false, result.value["changed"]
     assert_empty emails
     assert_equal versions, @bake_day_cashier.reload.versions.count
     assert_equal @full_slot, @bake_day_cashier.signup_slot
+    assert_equal 2, Thread.current[:mcp_hook_runs]
+
+    assert_nil result.changed
+    assert_empty result.changed_records
+    log = McpToolCall.order(:created_at).last
+    assert_equal [ "move_signup", "ok", nil, nil, [] ], [ log.tool, log.outcome, log.changed_type, log.changed_id, log.changed_records ]
+  ensure
+    Thread.current[:mcp_hook_runs] = nil
   end
 
   test "repeating a move sends its notices once, and tells the client the second did nothing" do
@@ -227,7 +247,7 @@ class Mcp::Tools::MoveSignupTest < ActionDispatch::IntegrationTest
     assert_equal true, first.value["changed"]
 
     second = nil
-    assert_empty(emails_from { second = move(:organizer, @bake_day_cashier) })
+    assert_empty(emails_from { second = run_move(:organizer, @bake_day_cashier, @open_slot) })
     assert_equal false, second.value["changed"]
   end
 

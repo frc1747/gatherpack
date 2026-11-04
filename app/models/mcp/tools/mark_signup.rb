@@ -9,15 +9,15 @@
 # The controller takes any of the three from any status other than cancelled, though the
 # page's buttons offer only Fulfilled and No-show on an active sign-up and Undo otherwise.
 # This follows the controller. Marking it with the status it already has does what the
-# page does: it saves nothing new. Here the result says changed: false, so a repeated
-# call is safe to retry.
+# page does: it saves nothing new, though signups - update hooks run again. Here the result
+# says changed: false and the call log records no change, so a repeated call is safe to retry.
 class Mcp::Tools::MarkSignup < Mcp::Tool
   include Mcp::Tools::SignupRosterFormat
 
   tool_name "mark_signup"
   description "Mark a sign-up fulfilled (\"Brought\" for items), no_show (\"Not brought\" for items, once the event has started) or back to active, as the roster's " \
     "Mark buttons do: you get \"Not allowed\" on a sheet you don't organize or for your own family's sign-up, \"Not found\" for a sheet you can't see. " \
-    "Marking it with the status it already has changes nothing and returns changed: false."
+    "Marking it with the status it already has saves nothing new, though signups - update hooks run again, as on the page, and returns changed: false."
   scope :write
   feature :signups
   input_schema(
@@ -39,7 +39,7 @@ class Mcp::Tools::MarkSignup < Mcp::Tool
 
     before = signup.status
     signup.update!(status: status)
-    changed!(signup)
+    changed!(signup) if before != status
 
     roster_result(signup).merge(changed: before != status)
   rescue ActiveRecord::RecordInvalid => e
