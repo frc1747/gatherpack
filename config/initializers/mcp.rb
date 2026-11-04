@@ -11,6 +11,9 @@ Rails.application.config.filter_parameters += %w[first_name last_name display_na
 # client may send a value under another name, which is refused only after the log line.
 # These match substrings, so token also hides token_id, which is no loss.
 Rails.application.config.filter_parameters += %w[value note token rfid card].map { |name| "params.arguments.#{name}" }
+# Check-in notes and answers can say anything. These match substrings, so response also
+# hides field_responses, and the misnames are here since they're refused after the log line.
+Rails.application.config.filter_parameters += %w[notes field_responses response answers].map { |name| "params.arguments.#{name}" }
 
 Rails.application.config.to_prepare do
   # Mcp::Access reads the settings store on every request, so transactions
@@ -101,4 +104,17 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::ListTokens)
   Mcp.register_tool(Mcp::Tools::AddToken)
   Mcp.register_tool(Mcp::Tools::RemoveToken)
+
+  # Events and members
+  Mcp.register_tool(Mcp::Tools::UpdateTeamMember)
+  Mcp.register_tool(Mcp::Tools::ListMembershipApplications)
+  Mcp.register_tool(Mcp::Tools::DecideMembershipApplication)
+  Mcp.register_tool(Mcp::Tools::WithdrawMembershipApplication)
+  Mcp.register_tool(Mcp::Tools::UpdateEvent)
+  Mcp.register_tool(Mcp::Tools::RemoveEvent)
+  Mcp.register_tool(Mcp::Tools::RemoveCheckin)
+  Mcp.register_tool(Mcp::Tools::UpdateCheckin)
+  Mcp.register_tool(Mcp::Tools::ListRelationshipTypes)
+  Mcp.register_tool(Mcp::Tools::AddRelationship)
+  Mcp.register_tool(Mcp::Tools::RemoveRelationship)
 end

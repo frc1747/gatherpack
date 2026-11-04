@@ -20,7 +20,9 @@
 # only inherits.
 # Relationships are policy_scope(person.relationships), each with the other
 # person (named even when the viewer can't open their profile, as the page
-# does) and the label the page shows for them. Admin and architect flags, tokens,
+# does) and the label the page shows for them. relationship_id is what
+# remove_relationship takes, null unless the viewer may remove it (destroy?, as the page's
+# Delete link asks). Admin and architect flags, tokens,
 # ledgers and time clock hours are not returned.
 #
 # Mcp.person_extensions add keys (person fields, for one); see Mcp.
@@ -34,7 +36,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
   description "A person's profile as you can see it: name, contact details, bio, the teams they belong to " \
     "(with whether they manage each), their badges and their relationships to other people. " \
     "First and last name are given only where you may edit the person. " \
-    "Membership and badge assignment IDs are given only where you may remove them. " \
+    "Membership, badge assignment and relationship IDs are given only where you may remove them. " \
     "Fields you can't see are left out; null means the field is empty. " \
     "Email, phone number, address and birthday are never given here for anyone under 18 or with no birthday on file, " \
     "whoever is asking, so they can be left out even for someone whose details you can see in the app."
@@ -57,7 +59,7 @@ class Mcp::Tools::GetPerson < Mcp::Tool
       gender: { type: %w[string null] },
       teams: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, manager: { type: "boolean" }, membership_id: { type: %w[string null] } }, required: %w[id name manager membership_id] } },
       badges: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, badge_assignment_id: { type: %w[string null] } }, required: %w[id name badge_assignment_id] } },
-      relationships: { type: "array", items: { type: "object", properties: { label: { type: "string" }, person: REF_SCHEMA }, required: %w[label person] } }
+      relationships: { type: "array", items: { type: "object", properties: { label: { type: "string" }, person: REF_SCHEMA, relationship_id: { type: %w[string null] } }, required: %w[label person relationship_id] } }
     },
     required: %w[id name teams relationships]
   )
@@ -140,7 +142,8 @@ class Mcp::Tools::GetPerson < Mcp::Tool
       host_is_parent = relationship.parent_id == person.id
       {
         label: host_is_parent ? relationship.relationship_type.child_label : relationship.relationship_type.parent_label,
-        person: person_json(host_is_parent ? relationship.child : relationship.parent)
+        person: person_json(host_is_parent ? relationship.child : relationship.parent),
+        relationship_id: ctx.allowed?(relationship, :destroy?) ? relationship.neat_id : nil
       }
     end
   end
