@@ -1,3 +1,10 @@
+# Tests freeze the clock, which gives every call log row in a test the same created_at,
+# so "the latest row" would be arbitrary. Keep rows in the order they were written.
+McpToolCall.before_create do
+  latest = McpToolCall.maximum(:created_at)
+  self.created_at = [ created_at || Time.current, latest && latest + 0.000001 ].compact.max
+end
+
 # The world for MCP tests:
 #
 #   Alpha: alpha_manager (manager), alpha_member, ward
