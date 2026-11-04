@@ -8,12 +8,13 @@
 # Mcp::PunchRecords#authorize_recording! for the gate this uses instead, the form's person
 # list. Narrower than the POST in that, and because the person and period must be in
 # policy_scope(Person) and policy_scope(TimeClockPeriod), as the form's searches are.
+# It also needs an admin or a manager (Mcp::PunchRecords#may_enter_punches?), unlike the page.
 class Mcp::Tools::RecordPunch < Mcp::Tool
   include Mcp::PunchRecords
 
   tool_name "record_punch"
   description "Add a time clock punch, as New Time Clock Punch does; it stays open if ends_at is left out. " \
-    "You can record for yourself and people you manage, and for teammates in an \"added by team member\" period; anyone else in view, or what a period's permission doesn't allow, gets \"Not allowed\", and someone you can't see \"Not found\". " \
+    "For admins and managers, who can record for themselves and people they manage, and for teammates in an \"added by team member\" period; anyone else in view, or what a period's permission doesn't allow, gets \"Not allowed\", and someone you can't see \"Not found\". " \
     "Returns the punch as list_punches shows it."
   scope :write
   feature :time_tracking
@@ -31,6 +32,8 @@ class Mcp::Tools::RecordPunch < Mcp::Tool
   output_schema(Mcp::PunchRecords::SCHEMA)
 
   def call(person_id:, starts_at:, period_id: nil, ends_at: nil, note: nil)
+    raise Mcp::NotAllowed unless may_enter_punches?
+
     punch = TimeClockPunch.new(person: ctx.find(Person, person_id))
     punch.time_clock_period = ctx.find(TimeClockPeriod, period_id) if period_id
     authorize_recording!(punch)

@@ -60,30 +60,28 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
     assert_refused("Not found", TimeClockPunch, AuditLog) { record(:alpha_manager, :beta_member) }
   end
 
-  test "a plain member records for themselves where the period allows, and no one else" do
-    assert_nil record(:beta_member, :beta_member).error
-    assert_nil record(:beta_member, :beta_member, period: @open_period).error
-    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :badge_holder) }
-    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :badge_holder, period: @open_period) }
-    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:beta_member, :alpha_member) }
-    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:beta_member, :beta_member, period: @alpha_period) }
+  test "someone who manages no team records nothing, for themselves or anyone" do
+    [ nil, @open_period, @beta_period, @alpha_period, @member_period ].each do |period|
+      assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :beta_member, period: period) }
+      assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :beta_member, period: period, ends_at: ENDS) }
+      assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:beta_member, :badge_holder, period: period) }
+    end
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_member, :ward, period: @member_period) }
   end
 
-  test "team members record for each other in an added by team member period" do
-    assert_nil record(:alpha_member, :ward, period: @member_period).error
-    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_member, :ward) }
+  test "a manager records for a teammate they don't manage only in an added by team member period" do
+    Membership.create!(person: person(:alpha_manager), team: @beta)
+    member_period = period_with(:added_by_team_member, @beta, "Beta Members")
+    user_period = period_with(:added_by_user, @beta, "Beta Users")
+
+    assert_nil record(:alpha_manager, :beta_member, period: member_period).error
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_manager, :beta_member, period: user_period) }
+    assert_nil record(:alpha_manager, :alpha_manager, period: user_period).error
   end
 
-  test "team members don't record for each other in any other period on their team" do
-    period = period_with(:added_by_user, @alpha, "Alpha Anyone")
-
-    assert_nil record(:alpha_member, :alpha_member, period: period).error
-    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_member, :ward, period: period) }
-  end
-
-  test "a guardian can't reach their ward" do
-    assert_refused("Not found", TimeClockPunch, AuditLog) { record(:guardian, :ward) }
-    assert_nil record(:guardian, :guardian).error
+  test "a guardian records nothing" do
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:guardian, :ward) }
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:guardian, :guardian) }
   end
 
   test "the model's rules come back: team membership, the period's dates and the order of the times" do
@@ -150,10 +148,7 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
       [ :alpha_manager, :ward, @manager_period ],
       [ :alpha_manager, :ward, @alpha_period ],
       [ :alpha_manager, :alpha_manager, nil ],
-      [ :alpha_member, :ward, @member_period ],
-      [ :alpha_member, :alpha_member, @manager_period ],
-      [ :beta_member, :beta_member, @alpha_period ],
-      [ :guardian, :guardian, @open_period ]
+      [ :admin, :guardian, @open_period ]
     ].each do |viewer, holder, period|
       page = page_changes_rows?(TimeClockPunch, as: user(viewer)) do
         post time_clock_punches_path, params: { time_clock_punch: { person_id: person(holder).id, time_clock_period_id: period&.id, start_time: STARTS } }
@@ -162,17 +157,6 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
 
       assert_equal page, tool, "#{viewer} recording for #{holder} in #{period&.name}"
     end
-  end
-
-  # The policy has no create?, so the POST checks no person. The form offers only
-  # people the viewer manages, and themselves.
-  test "it refuses a person the form doesn't offer, where a hand-made POST goes through" do
-    page = page_changes_rows?(TimeClockPunch, as: user(:beta_member)) do
-      post time_clock_punches_path, params: { time_clock_punch: { person_id: person(:badge_holder).id, start_time: STARTS } }
-    end
-
-    assert page
-    assert_refused("Not allowed", TimeClockPunch) { record(:beta_member, :badge_holder) }
   end
 
   test "a build whose policy defines create? applies it too" do
