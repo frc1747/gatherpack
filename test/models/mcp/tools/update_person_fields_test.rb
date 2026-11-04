@@ -409,6 +409,21 @@ class Mcp::Tools::UpdatePersonFieldsTest < ActiveSupport::TestCase
     end
   end
 
+  test "a date string too long to be a date is refused, built-in or custom, not an internal error" do
+    date = PersonField.create!(name: "Physical", data_type: :date, read_permission: :everyone, write_permission: :admin)
+
+    [ "birthday", "physical" ].each do |key|
+      [ "1" * 129, "2026-05-01#{" " * 200}", "1" * 5_000 ].each do |value|
+        result = assert_unchanged(:admin, { key => value })
+
+        assert_equal "#{key.capitalize} isn't a valid date", result.error
+        assert_equal "error", result.outcome.to_s
+      end
+    end
+    assert_equal ADULT, Person.find(@subject.id).birthday
+    assert_nil stored(date)
+  end
+
   test "an ordinary birthday still works" do
     assert_nil update(:admin, { "birthday" => "1990-05-06" }).error
     assert_equal Date.new(1990, 5, 6), Person.find(@subject.id).birthday

@@ -16,7 +16,7 @@ class Mcp::Tools::ListPersonFields < Mcp::Tool
   tool_name "list_person_fields"
   description "The profile fields, built-in and custom, with their key, name, section, type, choices, range, whether they're required, " \
     "and whether you can write them for anyone. Use the key with get_person_fields, set_person_field and update_person_fields. " \
-    "Admins get every active field; anyone else gets the fields they can see on some person's profile. Archived fields are left out."
+    "Admins get every active field; anyone else gets the fields they can see on a profile, and hidden ones they can write, which get_person_fields doesn't return. Archived fields are left out."
   scope :read
   feature :person_fields
   input_schema(properties: {})

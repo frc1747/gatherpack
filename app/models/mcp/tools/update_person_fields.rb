@@ -16,8 +16,9 @@
 #
 # Narrower than the page: a minor's contact details never go through MCP (Mcp::MinorRule),
 # as in set_person_field, which this shares its value handling with (Mcp::PersonFieldInput).
-# Also, a built-in date (the birthday) outside the range Postgres can store is refused
-# without quoting it; the page crashes on it (ActiveRecord::StatementInvalid).
+# Also, a date string over 128 characters, and a built-in date (the birthday) outside the
+# range Postgres can store, are refused without quoting them; the page crashes on both
+# (ArgumentError, ActiveRecord::StatementInvalid).
 class Mcp::Tools::UpdatePersonFields < Mcp::Tool
   include Mcp::PersonFieldInput
   include Mcp::PersonWrites
@@ -84,10 +85,15 @@ class Mcp::Tools::UpdatePersonFields < Mcp::Tool
 
   private
 
-  # Postgres dates run from 4713 BC to 5874897 AD. A custom field keeps its date as
-  # JSON text, so only a built-in column can overflow.
+  # Date.iso8601 raises a plain ArgumentError past 128 characters, which no date needs,
+  # so a longer string is refused for any date field. Past that, Postgres dates run from
+  # 4713 BC to 5874897 AD; a custom field keeps its date as JSON text, so only a built-in
+  # column can overflow.
   def refuse_unstorable_date!(field, input)
-    return unless field.system? && field.type_date? && input.is_a?(String)
+    return unless field.type_date? && input.is_a?(String)
+
+    invalid_argument!("#{field.name} isn't a valid date") if input.length > 128
+    return unless field.system?
 
     date = Date.iso8601(input.strip)
     invalid_argument!("#{field.name} isn't a valid date") unless date.between?(Date.new(-4712, 1, 1), Date.new(5_874_897, 12, 31))

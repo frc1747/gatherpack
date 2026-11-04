@@ -112,10 +112,16 @@ class Mcp::Tools::ListPersonFieldsTest < ActiveSupport::TestCase
     assert_includes list(:admin).keys, "custody_note"
   end
 
-  test "a hidden field the viewer can write is still listed" do
+  test "the description says hidden fields they can write are listed" do
+    assert_match(/hidden ones they can write, which get_person_fields doesn't return/, Mcp.tool("list_person_fields").description)
+  end
+
+  test "a hidden field the viewer can write is still listed, though get_person_fields doesn't return it" do
     PersonField.create!(name: "Hidden Mine", data_type: :string, read_permission: :everyone, write_permission: :self, show_on_profile: false)
 
     assert_equal true, list(:alpha_member)["hidden_mine"]["writable"]
+    groups = call_tool("get_person_fields", user: user(:alpha_member), person_id: person(:alpha_member).neat_id).value["groups"]
+    assert_not_includes groups.flat_map { |group| group["fields"] }.map { |field| field["key"] }, "hidden_mine"
   end
 
   test "an admin sees a field of a team that has no members yet" do
