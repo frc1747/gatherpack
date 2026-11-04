@@ -227,6 +227,9 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
     write_behind_cache(:mcp_write_enabled, "true")
     assert Mcp::Access.writes_enabled?
 
+    write_behind_cache(:mcp_dynamic_pages_enabled, "true")
+    assert Mcp::Access.dynamic_pages_enabled?
+
     write_behind_cache(:feature_mcp, "false")
     assert_not Mcp::Access.enabled?
   end
