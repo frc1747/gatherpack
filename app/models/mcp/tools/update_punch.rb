@@ -5,8 +5,8 @@
 # as a blank does on the form. A blank start time crashes the model on a period punch, so
 # starts_at takes only a time.
 #
-# The one difference from the page: giving an open punch an end time, or moving it to
-# another person, needs an admin or a manager (Mcp::PunchRecords#may_close_punches?).
+# The one difference from the page: it needs an admin or a manager
+# (Mcp::PunchRecords#may_enter_punches?).
 #
 # The spec asks for create? when a punch moves to another person, "as the controller
 # does". This build's controller checks nothing more and its policy has no create?, so the
@@ -17,7 +17,7 @@ class Mcp::Tools::UpdatePunch < Mcp::Tool
 
   tool_name "update_punch"
   description "Change a time clock punch, as Edit does on the Time Clock page; only what you send changes. " \
-    "A punch you can see but not edit, or one you'd move to someone you don't manage, is \"Not allowed\"; a period's permission can refuse it too. Only admins and managers can give an open punch an end time or move it to another person. " \
+    "For admins and managers. A punch you can see but not edit, or one you'd move to someone you don't manage, is \"Not allowed\"; a period's permission can refuse it too. " \
     "Returns the punch as list_punches shows it."
   scope :write
   feature :time_tracking
@@ -38,12 +38,13 @@ class Mcp::Tools::UpdatePunch < Mcp::Tool
   CHANGES = %i[starts_at ends_at period_id person_id note].freeze
 
   def call(punch_id:, **changes)
+    raise Mcp::NotAllowed unless may_enter_punches?
+
     invalid_argument!("Give at least one of #{CHANGES.to_sentence(last_word_connector: " or ")}") if changes.empty?
 
     punch = ctx.find(TimeClockPunch, punch_id)
     ctx.authorize!(punch, :update?)
     assign_changes(punch, changes)
-    raise Mcp::NotAllowed if ending?(punch) && !may_close_punches?
     authorize_move!(punch)
     save_punch!(punch)
 
@@ -60,10 +61,6 @@ class Mcp::Tools::UpdatePunch < Mcp::Tool
     punch.start_time = parse_time(changes[:starts_at], "starts_at") if changes.key?(:starts_at)
     punch.end_time = changes[:ends_at] && parse_time(changes[:ends_at], "ends_at") if changes.key?(:ends_at)
     punch.note = changes[:note] if changes.key?(:note)
-  end
-
-  def ending?(punch)
-    punch.end_time_was.nil? && (punch.end_time.present? || punch.person_id_changed?)
   end
 
   # The punch's own period may be one the viewer can't look up; naming it again isn't a move.
