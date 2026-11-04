@@ -43,6 +43,15 @@ class Mcp::Tools::WithdrawMembershipApplicationTest < ActionDispatch::Integratio
     assert_refused("Not found", MembershipApplication, AuditLog) { withdraw(:beta_member) }
   end
 
+  test "a guardian can't withdraw their ward's application, with the tool or on the page" do
+    ward_application = MembershipApplication.create!(person: person(:ward), team: @alpha)
+    tool = call_tool("withdraw_membership_application", user: user(:guardian), membership_application_id: ward_application.neat_id)
+
+    assert_equal "Not found", tool.error
+    assert_not page_changes_rows?(MembershipApplication, as: user(:guardian)) { delete person_membership_application_path(person(:ward), ward_application) }
+    assert MembershipApplication.exists?(ward_application.id)
+  end
+
   test "a read token and the setting being off refuse it" do
     assert_refused("Not allowed", MembershipApplication) { withdraw(:admin, scopes: "mcp_read") }
     assert_refused("Writes disabled", MembershipApplication) { withdraw(:admin, writes_enabled: false) }
