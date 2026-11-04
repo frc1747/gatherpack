@@ -8,13 +8,15 @@
 # who checked in. CheckinPolicy::Scope returns every row and
 # isn't used. The window is on the event's start time, from and to inclusive,
 # at most 366 days. Notes and field responses are left out as narrower than
-# the pages; no page shows when a check-in was made.
+# the pages; no page shows when a check-in was made. checkin_id is null unless the viewer
+# may remove that check-in (destroy?, as the page's Checkout link asks).
 class Mcp::Tools::ListCheckins < Mcp::Tool
   MAX_WINDOW_DAYS = 366
 
   tool_name "list_checkins"
   description "A person's check-ins at events you can see, for events starting between `from` and `to` " \
-    "(YYYY-MM-DD, inclusive, at most 366 days, both ends counted), newest event first."
+    "(YYYY-MM-DD, inclusive, at most 366 days, both ends counted), newest event first. " \
+    "Each check-in's ID is given only where you may remove it."
   scope :read
   feature :events
   input_schema(
@@ -34,7 +36,7 @@ class Mcp::Tools::ListCheckins < Mcp::Tool
         items: {
           type: "object",
           properties: {
-            checkin_id: { type: "string" },
+            checkin_id: { type: %w[string null] },
             event: {
               type: "object",
               properties: { id: { type: "string" }, name: { type: "string" }, start_time: { type: "string" } },
@@ -59,7 +61,7 @@ class Mcp::Tools::ListCheckins < Mcp::Tool
 
     list(checkins, limit: limit) do |checkin|
       {
-        checkin_id: checkin.neat_id,
+        checkin_id: ctx.allowed?(checkin, :destroy?) ? checkin.neat_id : nil,
         event: { id: checkin.event.neat_id, name: checkin.event.name, start_time: time_json(checkin.event.start_time) }
       }
     end
