@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -361,6 +361,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_01_120000) do
     t.uuid "changed_id"
     t.integer "duration_ms"
     t.datetime "created_at", null: false
+    t.jsonb "changed_records", default: [], null: false
     t.index ["created_at"], name: "index_mcp_tool_calls_on_created_at"
     t.index ["oauth_application_id"], name: "index_mcp_tool_calls_on_oauth_application_id"
     t.index ["user_id"], name: "index_mcp_tool_calls_on_user_id"

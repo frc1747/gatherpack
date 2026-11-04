@@ -101,6 +101,15 @@ class Mcp::Context
     Mcp.find_by_neat_id(scope, neat_id) || raise(Mcp::NotFound)
   end
 
+  # Whether the record's policy has this query itself, rather than from
+  # ApplicationPolicy's default. For a check that exists only on some builds, or a page
+  # relying on the default: apply the build's rule where there is one, and gate on the
+  # parent record regardless.
+  def defines?(record, query)
+    policy = Pundit.policy!(user, record)
+    policy.respond_to?(query) && policy_defines?(policy, query.to_sym)
+  end
+
   private
 
   def guarded_policy(record, query, policy_class)

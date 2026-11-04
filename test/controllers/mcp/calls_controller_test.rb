@@ -25,6 +25,71 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tbody code", false
   end
 
+  test "a call shows how many records it changed and links those with a page" do
+    membership = Membership.find_by!(person: person(:ward), team: @alpha)
+    McpToolCall.create!(user: user(:admin), tool: "several", outcome: "ok", changed_records: [
+      { type: "Person", id: person(:ward).id }, { type: "Team", id: @alpha.id }, { type: "Membership", id: membership.id }
+    ])
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child summary", "3 records"
+    assert_select "tbody tr:first-child a[href=?]", person_path(person(:ward).id), "Person #{person(:ward).id}"
+    assert_select "tbody tr:first-child a[href=?]", team_path(@alpha.id)
+    assert_select "tbody tr:first-child a", 3
+    assert_select "tbody tr:first-child a[href=?]", team_membership_path(@alpha.id, membership.id), "Membership #{membership.id}"
+
+    get person_path(person(:ward).id)
+    assert_response :success
+    get team_membership_path(@alpha.id, membership.id)
+    assert_response :success
+  end
+
+  test "a membership that has since been removed shows as text, and a login isn't linked" do
+    gone = Membership.create!(person: person(:beta_member), team: @alpha)
+    gone_id = gone.id
+    gone.destroy!
+    McpToolCall.create!(user: user(:admin), tool: "several", outcome: "ok", changed_records: [
+      { type: "Membership", id: gone_id }, { type: "User", id: user(:ward).id }
+    ])
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_response :success
+    assert_select "tbody tr:first-child a", 0
+    assert_includes css_select("tbody tr:first-child").text, "Membership #{gone_id}"
+    assert_includes css_select("tbody tr:first-child").text, "User #{user(:ward).id}"
+  end
+
+  test "a single change links too, and a call from before changed_records still shows" do
+    McpToolCall.create!(user: user(:admin), tool: "older", outcome: "ok", changed_type: "Person", changed_id: person(:ward).id)
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child", /1 record/
+    assert_select "tbody tr:first-child a[href=?]", person_path(person(:ward).id)
+    assert_select "tbody tr:nth-child(2) a", 0
+  end
+
+  test "a call with unexpected failures shows its note, though its outcome is ok" do
+    McpToolCall.create!(user: user(:admin), tool: "bulk", outcome: "ok", error_message: "2 records failed unexpectedly")
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child small", "2 records failed unexpectedly"
+  end
+
+  test "a real create_person call shows its records" do
+    call_tool("create_person", user: user(:admin), first_name: "New", last_name: "Comer", email: "new@example.com", team_id: @alpha.neat_id)
+    created = Person.find_by!(first_name: "New")
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child summary", "3 records"
+    assert_select "tbody tr:first-child a[href=?]", person_path(created.id)
+    assert_not_includes response.body.downcase, "password"
+  end
+
   test "an admin filters by user and tool" do
     sign_in user(:admin)
 
