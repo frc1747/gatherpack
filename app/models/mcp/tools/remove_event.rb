@@ -6,7 +6,8 @@
 # Check-ins refuse it, with the count: has_many :checkins has no dependent option, so the
 # page's destroy! raises on the foreign key there. That's the only refusal the page doesn't
 # give in words; drop it if that foreign key failure is fixed. The same failure from any other
-# table (a connector's) is refused without a count.
+# table (a connector's) is refused without a count. PaperTrail writes the destroy row to its own
+# database first, so the transaction there takes it back; the page's delete leaves it.
 class Mcp::Tools::RemoveEvent < Mcp::Tool
   include Mcp::EventRecords
 
@@ -32,7 +33,7 @@ class Mcp::Tools::RemoveEvent < Mcp::Tool
     invalid_argument!("This event has #{count} #{"check-in".pluralize(count)}, so it can't be removed") if count.positive?
 
     shown = event_json(event)
-    event.destroy!
+    AuditLog.transaction { event.destroy! }
 
     changed!(event)
     shown.merge(removed: true)

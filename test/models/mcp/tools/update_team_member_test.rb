@@ -60,6 +60,12 @@ class Mcp::Tools::UpdateTeamMemberTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "moving it to another person or team is refused by name, with nothing changed" do
+    assert_unchanged(/team_id/) { update(:admin, team_id: @beta.neat_id) }
+    assert_unchanged(/person_id/) { update(:admin, person_id: person(:ward).neat_id) }
+    assert_equal [ person(:alpha_member), @alpha ], [ @membership.reload.person, @membership.team ]
+  end
+
   test "it runs the membership's hooks" do
     assert_hook_runs("memberships - update") { update(:admin) }
   end
