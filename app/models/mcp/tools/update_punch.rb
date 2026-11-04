@@ -5,9 +5,8 @@
 # as a blank does on the form. A blank start time crashes the model on a period punch, so
 # starts_at takes only a time.
 #
-# The one difference from the page: giving an open punch an end time needs an admin or a
-# manager (Mcp::PunchRecords#may_close_punches?), so a member can't end their own from
-# anywhere. The page still allows it in some cases (BL-028).
+# The one difference from the page: giving an open punch an end time, or moving it to
+# another person, needs an admin or a manager (Mcp::PunchRecords#may_close_punches?).
 #
 # The spec asks for create? when a punch moves to another person, "as the controller
 # does". This build's controller checks nothing more and its policy has no create?, so the
@@ -18,7 +17,7 @@ class Mcp::Tools::UpdatePunch < Mcp::Tool
 
   tool_name "update_punch"
   description "Change a time clock punch, as Edit does on the Time Clock page; only what you send changes. " \
-    "A punch you can see but not edit, or one you'd move to someone you don't manage, is \"Not allowed\"; a period's permission can refuse it too. Only admins and managers can give an open punch an end time. " \
+    "A punch you can see but not edit, or one you'd move to someone you don't manage, is \"Not allowed\"; a period's permission can refuse it too. Only admins and managers can give an open punch an end time or move it to another person. " \
     "Returns the punch as list_punches shows it."
   scope :write
   feature :time_tracking
@@ -44,7 +43,7 @@ class Mcp::Tools::UpdatePunch < Mcp::Tool
     punch = ctx.find(TimeClockPunch, punch_id)
     ctx.authorize!(punch, :update?)
     assign_changes(punch, changes)
-    raise Mcp::NotAllowed if closing?(punch) && !may_close_punches?
+    raise Mcp::NotAllowed if ending?(punch) && !may_close_punches?
     authorize_move!(punch)
     save_punch!(punch)
 
@@ -63,8 +62,8 @@ class Mcp::Tools::UpdatePunch < Mcp::Tool
     punch.note = changes[:note] if changes.key?(:note)
   end
 
-  def closing?(punch)
-    punch.end_time_was.nil? && punch.end_time.present?
+  def ending?(punch)
+    punch.end_time_was.nil? && (punch.end_time.present? || punch.person_id_changed?)
   end
 
   # The punch's own period may be one the viewer can't look up; naming it again isn't a move.

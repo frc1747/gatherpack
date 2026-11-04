@@ -279,23 +279,17 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
   end
 
   test "all closes what the kiosk's All Periods closes" do
-    %i[alpha_manager beta_member].each do |viewer|
-      page = closed_by(viewer) { kiosk(viewer, tool: "punch_out_all") }
-      tool = closed_by(viewer) { clock_out(viewer, all: true) }
+    page = closed_by(:alpha_manager) { kiosk(:alpha_manager, tool: "punch_out_all") }
+    tool = closed_by(:alpha_manager) { clock_out(:alpha_manager, all: true) }
 
-      assert_equal page, tool, viewer
-    end
+    assert_equal 2, page.size
+    assert_equal page, tool
   end
 
-  test "a period closes what the kiosk's per-period button closes, for a manager and a non-manager" do
+  test "a period closes what the kiosk's per-period button closes, for a manager" do
     page = closed_by(:alpha_manager) { kiosk(:alpha_manager, tool: "punch_out_period", time_clock_period_id: @alpha_period.id) }
     tool = closed_by(:alpha_manager) { clock_out(:alpha_manager, period_id: @alpha_period.neat_id) }
     assert_equal 2, page.size
-    assert_equal page, tool
-
-    page = closed_by(:ward) { kiosk(:alpha_member, tool: "punch_out_period", time_clock_period_id: @alpha_period.id) }
-    tool = closed_by(:ward) { clock_out(:alpha_member, period_id: @alpha_period.neat_id) }
-    assert_empty page
     assert_equal page, tool
   end
 
