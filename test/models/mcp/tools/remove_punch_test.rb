@@ -33,6 +33,12 @@ class Mcp::Tools::RemovePunchTest < ActionDispatch::IntegrationTest
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { remove(:alpha_manager, @admin_punch) }
   end
 
+  test "a manager can't reach a punch outside their scope" do
+    beta_punch = create_world_punch(person(:beta_member), @beta_period, 20, 21)
+
+    assert_refused("Not found", TimeClockPunch, AuditLog) { remove(:alpha_manager, beta_punch) }
+  end
+
   test "someone who manages no team removes nothing, and isn't told what exists" do
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { remove(:beta_member, @punch) }
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { remove(:guardian, @punch) }
