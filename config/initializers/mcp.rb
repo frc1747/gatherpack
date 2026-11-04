@@ -2,6 +2,12 @@
 # GatherPack data as the member, through OAuth tokens with the mcp_read and
 # mcp_write scopes. See app/models/mcp.rb for the tool registry and how
 # connector initializers (config/initializers/mcp_<feature>.rb) add tools.
+# Personal details in tool arguments stay out of the Rails log, as the pages' own
+# params do. Matches both the params and the wrapper's copy. Those the tools don't
+# take are here too: a client may send them, and it's refused only after the log line.
+Rails.application.config.filter_parameters += %w[first_name last_name display_name bio phone_number address birthday gender shirt_size dietary_restrictions]
+  .map { |name| "params.arguments.#{name}" }
+
 Rails.application.config.to_prepare do
   # Mcp::Access reads the settings store on every request, so transactions
   # must wait for each other instead of raising when requests overlap.
@@ -51,6 +57,7 @@ Rails.application.config.to_prepare do
   Mcp.reset!
   Mcp.register_tool(Mcp::Tools::Whoami)
   Mcp.register_tool(Mcp::Tools::SearchPeople)
+  Mcp.register_tool(Mcp::Tools::FindDuplicatePeople)
 
   # People, teams, badges
   Mcp.register_tool(Mcp::Tools::GetPerson)
@@ -70,6 +77,9 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::LedgerEntries)
 
   # Writes
+  Mcp.register_tool(Mcp::Tools::CreatePerson)
+  Mcp.register_tool(Mcp::Tools::UpdatePerson)
+  Mcp.register_tool(Mcp::Tools::AddLogin)
   Mcp.register_tool(Mcp::Tools::AssignBadge)
   Mcp.register_tool(Mcp::Tools::RemoveBadge)
   Mcp.register_tool(Mcp::Tools::AddTeamMember)

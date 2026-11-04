@@ -76,6 +76,7 @@ module Mcp
       raise ArgumentError, "#{klass} has no tool_name" if name.blank?
       raise ArgumentError, "MCP tool #{name} must declare a description" if klass.description.blank?
       raise ArgumentError, "MCP tool #{name} must declare a scope (:read or :write)" if klass.scope.nil?
+      raise ArgumentError, "MCP bulk tool #{name} must take dry_run" if klass.bulk? && klass.argument_names.exclude?("dry_run")
       raise DuplicateTool, "MCP tool #{name} is already registered" if @tools.key?(name)
 
       @tools[name] = klass
