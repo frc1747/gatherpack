@@ -55,6 +55,38 @@ class Mcp::Tools::AddLoginTest < ActionDispatch::IntegrationTest
     assert_not_includes McpToolCall.order(:created_at).last.attributes.to_json, "client-sent"
   end
 
+  test "the password is the random token, and differs per login" do
+    original = Devise.method(:friendly_token)
+    Devise.define_singleton_method(:friendly_token) { |_length = 20| "random-token-for-this-test" }
+    begin
+      add_login(:admin, @beta_new)
+    ensure
+      Devise.define_singleton_method(:friendly_token, original)
+    end
+    assert @beta_new.reload.user.valid_password?("random-token-for-this-test".first(20))
+
+    add_login(:admin, @alpha_new, email: "other@example.com")
+    assert_not @alpha_new.reload.user.valid_password?("random-token-for-this-test".first(20))
+  end
+
+  test "a failure after the login is saved leaves no login, no link and no audit row" do
+    Person.define_method(:update!) { |*| raise ActiveRecord::RecordNotUnique, "lost a race" }
+    audit_rows = AuditLog.count
+    begin
+      assert_equal "Email has already been taken", add_login(:admin, @alpha_new, email: "race@example.com").error
+    ensure
+      Person.send(:remove_method, :update!)
+    end
+
+    assert_not User.exists?(email: "race@example.com")
+    assert_nil @alpha_new.reload.user_id
+    assert_equal audit_rows, AuditLog.count
+  end
+
+  test "an email too long for the index is refused before anything is saved" do
+    assert_no_login("Email is too long") { add_login(:admin, @alpha_new, email: "#{"a" * 9_000}@example.com") }
+  end
+
   test "it works for a minor, whose email stays out of the result" do
     @beta_new.update!(birthday: 10.years.ago.to_date)
 

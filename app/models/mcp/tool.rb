@@ -42,6 +42,8 @@ class Mcp::Tool
   DEFAULT_LIMIT = 25
   MAX_LIMIT = 100
   BULK_LIMIT = 200
+  # What the integer columns behind tool arguments hold.
+  MAX_INTEGER = 2**31 - 1
   MASKED = "[masked]".freeze
 
   # Output schema of person_json and team_json.
@@ -249,9 +251,29 @@ class Mcp::Tool
       missing = missing_arguments(arguments)
       raise Mcp::InvalidArgument, "Missing required arguments: #{missing.join(", ")}" if missing.any?
 
+      refuse_out_of_range_integers!(input_schema, arguments, nil)
       sdk_input_schema.validate_arguments(arguments)
     rescue MCP::Tool::InputSchema::ValidationError => e
       raise Mcp::InvalidArgument, e.message
+    rescue FloatDomainError
+      raise Mcp::InvalidArgument, "A number is out of range"
+    end
+
+    # JSON numbers have no limit: 1e400 parses to Infinity, which the schema check
+    # can't handle, and a large whole number would fail on its way to a column. The
+    # check follows the schema, so it covers nested integers and types like
+    # %w[integer null], and leaves everything else to the schema check.
+    def refuse_out_of_range_integers!(schema, value, name)
+      case value
+      when Hash
+        value.each { |key, item| (property = schema[:properties]&.dig(key.to_sym)) && refuse_out_of_range_integers!(property, item, key) }
+      when Array
+        value.each { |item| schema[:items] && refuse_out_of_range_integers!(schema[:items], item, name) }
+      when Numeric
+        return unless Array(schema[:type]).map(&:to_s).include?("integer")
+
+        raise Mcp::InvalidArgument, "#{name} is out of range" unless value.finite? && value.abs <= MAX_INTEGER
+      end
     end
 
     def sdk_input_schema
@@ -279,15 +301,17 @@ class Mcp::Tool
     @changed_records = [ record, *others ]
   end
 
-  # Does one bulk action, for a tool that declared `bulk`:
+  # Does one bulk action, for a tool that declared `bulk`. dry_run and check are
+  # required, so a tool can't leave out the preview or the permission check:
   #
   #   bulk_write(punches, dry_run: dry_run,
   #     check: ->(punch) { raise Mcp::NotAllowed unless may_close?(punch) },
   #     json: ->(punch) { punch_json(punch) }) { |punch| punch.update(end_time: end_of(punch)) }
   #
   # check runs for every record, with the same rule as the single-record tool. If it
-  # raises a refusal, the record is skipped with that message as its reason. More than
-  # BULK_LIMIT records passing it refuses the whole call before anything changes.
+  # raises a refusal, the record is skipped with that message as its reason. Any other
+  # exception from it ends the call, before anything has changed. More than BULK_LIMIT
+  # records passing it refuses the whole call.
   #
   # With dry_run, nothing else runs: changed lists the records that passed check, and
   # the call log's changed_records stays empty. So check has to include whatever could
@@ -295,13 +319,16 @@ class Mcp::Tool
   #
   # Otherwise the block writes each record in its own save (never update_all, so hooks
   # fire). A record whose block returns false, or raises a refusal or a validation
-  # error, is skipped, and the others still go ahead. Each change reaches the call log
-  # as it's made, so the log is right even if a later record fails with an exception.
-  def bulk_write(records, json:, dry_run: false, check: nil, &write)
+  # error, is skipped with why, and the others still go ahead. So does one that fails
+  # unexpectedly (an admin's hook, say): it's logged, and skipped as "Internal error",
+  # so the client still learns what did change. Only an Mcp::ToolBug ends the call.
+  def bulk_write(records, json:, dry_run:, check:, &write)
     raise Mcp::ToolBug, "#{self.class} must declare bulk to use bulk_write" unless self.class.bulk?
+    raise Mcp::ToolBug, "#{self.class} must pass bulk_write a boolean dry_run" unless [ true, false ].include?(dry_run)
+    raise Mcp::ToolBug, "#{self.class} must pass bulk_write a callable check" unless check.respond_to?(:call)
 
     skipped = []
-    writable = records.select { |record| bulk_outcome(record, skipped) { check&.call(record) } }
+    writable = records.select { |record| bulk_outcome(record, skipped) { check.call(record) } }
     if writable.size > BULK_LIMIT
       raise Mcp::InvalidArgument, "This would change #{writable.size} records, and a call can change at most #{BULK_LIMIT}"
     end
@@ -309,11 +336,23 @@ class Mcp::Tool
     changed = writable.select do |record|
       next true if dry_run
 
-      bulk_outcome(record, skipped) do
-        raise Mcp::InvalidArgument, record.errors.full_messages.to_sentence if write.call(record) == false
-      end.tap { |written| @changed_records << record if written }
+      bulk_write_one(record, skipped, &write).tap { |written| @changed_records << record if written }
     end
     { changed: changed.map(&json), skipped: skipped, dry_run: dry_run }
+  end
+
+  def bulk_write_one(record, skipped)
+    bulk_outcome(record, skipped) do
+      next unless yield(record) == false
+
+      raise Mcp::InvalidArgument, record.errors.full_messages.to_sentence.presence || "Not saved"
+    end
+  rescue Mcp::ToolBug
+    raise
+  rescue => e
+    Rails.logger.error("[MCP] #{self.class.tool_name} failed on #{record.class.name} #{record.id} (request #{ctx.request_id}): #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
+    skipped << { id: record.neat_id, reason: "Internal error" }
+    false
   end
 
   # Whether the block finished; if it refused, adds the record and why to skipped.

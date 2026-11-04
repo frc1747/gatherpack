@@ -5,7 +5,7 @@
 # Personal details in tool arguments stay out of the Rails log, as the pages' own
 # params do. Matches both the params and the wrapper's copy. Those the tools don't
 # take are here too: a client may send them, and it's refused only after the log line.
-Rails.application.config.filter_parameters += %w[first_name last_name display_name bio phone_number address birthday]
+Rails.application.config.filter_parameters += %w[first_name last_name display_name bio phone_number address birthday gender shirt_size dietary_restrictions]
   .map { |name| "params.arguments.#{name}" }
 
 Rails.application.config.to_prepare do

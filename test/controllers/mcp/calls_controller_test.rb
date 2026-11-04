@@ -36,11 +36,29 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tbody tr:first-child summary", "3 records"
     assert_select "tbody tr:first-child a[href=?]", person_path(person(:ward).id), "Person #{person(:ward).id}"
     assert_select "tbody tr:first-child a[href=?]", team_path(@alpha.id)
-    assert_select "tbody tr:first-child a", 2
-    assert_includes css_select("tbody tr:first-child").text, "Membership #{membership.id}"
+    assert_select "tbody tr:first-child a", 3
+    assert_select "tbody tr:first-child a[href=?]", team_membership_path(@alpha.id, membership.id), "Membership #{membership.id}"
 
     get person_path(person(:ward).id)
     assert_response :success
+    get team_membership_path(@alpha.id, membership.id)
+    assert_response :success
+  end
+
+  test "a membership that has since been removed shows as text, and a login isn't linked" do
+    gone = Membership.create!(person: person(:beta_member), team: @alpha)
+    gone_id = gone.id
+    gone.destroy!
+    McpToolCall.create!(user: user(:admin), tool: "several", outcome: "ok", changed_records: [
+      { type: "Membership", id: gone_id }, { type: "User", id: user(:ward).id }
+    ])
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_response :success
+    assert_select "tbody tr:first-child a", 0
+    assert_includes css_select("tbody tr:first-child").text, "Membership #{gone_id}"
+    assert_includes css_select("tbody tr:first-child").text, "User #{user(:ward).id}"
   end
 
   test "a single change links too, and a call from before changed_records still shows" do

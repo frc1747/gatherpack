@@ -75,7 +75,9 @@ class Mcp::Tools::FindDuplicatePeopleTest < ActiveSupport::TestCase
 
   test "bad types and limits are refused, and the limit truncates" do
     assert_predicate find(:admin, first_name: 7), :error?
-    assert_predicate find(:admin, limit: 1e400), :error?
+    assert_equal "limit is out of range", find(:admin, limit: 1e400).error
+    assert_equal "limit is out of range", find(:admin, limit: -Float::INFINITY).error
+    assert_equal "error", McpToolCall.order(:created_at).last.outcome
     2.times { Person.create!(first_name: "Ward", last_name: "World") }
     result = find(:admin, limit: 2)
     assert_equal 2, result.value["items"].size

@@ -23,12 +23,14 @@ class Mcp::Tools::CreatePersonTest < ActionDispatch::IntegrationTest
     result
   end
 
-  def with_generated_password(password)
-    original = Spicy::Proton.method(:pair)
-    Spicy::Proton.define_singleton_method(:pair) { password }
+  GENERATED_PASSWORD = "secret-generated-password-value".first(20)
+
+  def with_generated_password
+    original = Devise.method(:friendly_token)
+    Devise.define_singleton_method(:friendly_token) { |_length = 20| "secret-generated-password-value" }
     yield
   ensure
-    Spicy::Proton.define_singleton_method(:pair, original)
+    Devise.define_singleton_method(:friendly_token, original)
   end
 
   test "an admin creates a person with no team, and gets them back as get_person shows them" do
@@ -67,17 +69,17 @@ class Mcp::Tools::CreatePersonTest < ActionDispatch::IntegrationTest
   end
 
   test "no password reaches the call log or the audit log, even when a client sends one" do
-    with_generated_password("secret-generated-pair") do
+    with_generated_password do
       result = call_tool("create_person", user: user(:admin), first_name: "New", last_name: "Comer", email: "new@example.com")
       assert_not result.error?
     end
 
     call = McpToolCall.where(tool: "create_person").order(:created_at).last
     assert_equal({ "first_name" => "New", "last_name" => "Comer", "email" => "new@example.com" }, call.arguments)
-    assert_not_includes call.attributes.to_json, "secret-generated-pair"
+    assert_not_includes call.attributes.to_json, GENERATED_PASSWORD
     user = User.find_by!(email: "new@example.com")
-    assert_not_includes AuditLog.where(item_type: "User", item_id: user.id).map(&:attributes).to_json, "secret-generated-pair"
-    assert Devise::Encryptor.compare(User, user.encrypted_password, "secret-generated-pair"), "the generated password is the login's"
+    assert_not_includes AuditLog.where(item_type: "User", item_id: user.id).map(&:attributes).to_json, GENERATED_PASSWORD
+    assert user.valid_password?(GENERATED_PASSWORD), "the password is the random token, not the page's word pair"
 
     assert_nothing_created(/password/) { call_tool("create_person", user: user(:admin), first_name: "A", last_name: "B", password: "client-sent") }
     assert_not_includes McpToolCall.order(:created_at).last.attributes.to_json, "client-sent"
@@ -91,18 +93,37 @@ class Mcp::Tools::CreatePersonTest < ActionDispatch::IntegrationTest
     assert_nothing_created(/Email has already been taken/) { create_person(:admin, email: orphan.email) }
   end
 
+  test "an email too long for the index is refused before anything is saved" do
+    assert_nothing_created("Email is too long") { create_person(:admin, email: "#{"a" * 9_000}@example.com") }
+    assert_not_includes McpToolCall.order(:created_at).last.error_message, "aaa"
+  end
+
+  test "a hook on the new person sees the email, as from the page" do
+    Thread.current[:mcp_hook_email] = nil
+    Hook.create!(name: "MCP test hook", event: "people - create", code: "Thread.current[:mcp_hook_email] = model.email")
+
+    sign_in user(:admin)
+    post people_path, params: { person: { first_name: "Page", last_name: "Made", email: "hook-page@example.com" } }
+    sign_out user(:admin)
+    assert_equal "hook-page@example.com", Thread.current[:mcp_hook_email]
+
+    create_person(:admin, email: "hook-tool@example.com")
+    assert_equal "hook-tool@example.com", Thread.current[:mcp_hook_email]
+  ensure
+    Thread.current[:mcp_hook_email] = nil
+  end
+
   test "a failure after the first save leaves nothing behind, and hook-free checks come first" do
     Thread.current[:mcp_hook_model] = nil
     Hook.create!(name: "MCP test hook", event: "people - create", code: "Thread.current[:mcp_hook_model] = model")
     assert_nothing_created(/already been taken/) { create_person(:admin, email: user(:ward).email) }
     assert_nil Thread.current[:mcp_hook_model], "a refusal found up front doesn't fire hooks"
 
-    membership_save = Membership.instance_method(:save!)
     Membership.define_method(:save!) { |**| raise ActiveRecord::RecordNotUnique, "lost a race" }
     begin
       assert_equal "Email has already been taken", create_person(:admin, email: "race@example.com", team_id: @alpha.neat_id).error
     ensure
-      Membership.define_method(:save!, membership_save)
+      Membership.send(:remove_method, :save!)
     end
     assert_not Person.exists?(first_name: "New"), "the person rolled back"
     assert_not User.exists?(email: "race@example.com"), "the login rolled back"

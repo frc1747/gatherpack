@@ -101,6 +101,14 @@ class Mcp::Tools::UpdatePersonTest < ActionDispatch::IntegrationTest
     assert_equal "denied", McpToolCall.order(:created_at).last.outcome
   end
 
+  test "the refused email is stored masked in the call log" do
+    update(:admin, :ward, email: "kept-out@example.com")
+
+    call = McpToolCall.where(tool: "update_person").order(:created_at).last
+    assert_equal Mcp::Tool::MASKED, call.arguments["email"]
+    assert_not_includes call.attributes.to_json, "kept-out"
+  end
+
   test "someone who can't update the person learns nothing about email" do
     assert_unchanged("Not allowed", :ward) { update(:alpha_member, :ward, email: "changed@example.com") }
     assert_unchanged("Not found", :ward) { update(:beta_member, :ward, email: "changed@example.com") }
@@ -159,7 +167,7 @@ class Mcp::Tools::UpdatePersonTest < ActionDispatch::IntegrationTest
         sign_out user(:admin)
 
         assert_unchanged(/\AA required profile field is blank/, :ward) { update(:admin, :ward, first_name: "Changed") }
-        assert_equal "A required profile field is blank; complete it on their profile page",
+        assert_equal Mcp::Tools::CreatePerson::NEW_PERSON_REQUIRED_BLANK,
           call_tool("create_person", user: user(:admin), first_name: "New", last_name: "Comer").error
         assert_not Person.exists?(first_name: "New")
       end

@@ -22,6 +22,8 @@ class Mcp::Tools::UpdatePerson < Mcp::Tool
     "A login's email can't be changed here for anyone: that's the person's Change Email/Password page. " \
     "Returns the person as get_person shows them."
   scope :write
+  # It can't be used for anyone, so it isn't kept either.
+  mask_argument :email
   input_schema(
     properties: {
       person_id: { type: "string", description: "The person's ID (per_)" },

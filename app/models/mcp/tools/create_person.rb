@@ -1,8 +1,13 @@
 # Creates a person, as PeopleController#create does (lines 39-52): Person.new with
 # the permitted attributes, save, and with an email User.create with a generated
-# Spicy::Proton password. The password is never returned or logged; the person uses
-# Forgot password. No mail is sent, as on the page (User has no confirmable, and
-# Devise's change notifications are off).
+# password. The password is never returned or logged; the person uses Forgot password.
+# No mail is sent, as on the page (User has no confirmable, and Devise's change
+# notifications are off).
+#
+# The password differs from the page's on purpose. The page uses a Spicy::Proton word
+# pair because an admin reads it out from the flash. Here nobody ever sees it, and a
+# word pair could be guessed online until the person resets it, so this uses the same
+# random token as add_login.
 #
 # Who may: the page authorizes create? (line 40), which PersonPolicy doesn't define
 # on every build, and a default that allows everyone isn't a rule (Mcp::Context).
@@ -18,6 +23,9 @@
 # Duplicates aren't refused, as on the page; clients call find_duplicate_people first.
 class Mcp::Tools::CreatePerson < Mcp::Tool
   include Mcp::PersonWrites
+
+  # This tool can't take the field's value, and the person doesn't exist yet.
+  NEW_PERSON_REQUIRED_BLANK = "A required profile field is blank; create this person with New Person on the People page instead".freeze
 
   tool_name "create_person"
   description "Create a person, as the People page's New Person does, with a login if you give an email and a team membership if you give a team, all or nothing. " \
@@ -46,16 +54,16 @@ class Mcp::Tools::CreatePerson < Mcp::Tool
     refuse_control_characters!(first_name: first_name, last_name: last_name, display_name: display_name)
     invalid_argument!("manager needs team_id") if manager && team_id.nil?
 
-    person = Person.new({ first_name: first_name, last_name: last_name, display_name: display_name }.compact)
+    person = Person.new({ first_name: first_name, last_name: last_name, display_name: display_name, email: email }.compact)
     ctx.authorize!(person, :create?) if ctx.defines?(person, :create?)
     membership = build_membership(person, team_id, manager)
     raise Mcp::NotAllowed unless membership || ctx.user.admin?
 
-    user = build_user(email)
+    user = email.present? ? build_login(email) : nil # A blank email makes no login, as the form's hint says.
     invalid_argument!(membership.errors.full_messages.to_sentence) if membership && !membership.valid?
 
     in_all_databases do
-      save_person(person)
+      save_person(person, required_blank: NEW_PERSON_REQUIRED_BLANK)
       if user
         user.person = person
         user.save!
@@ -79,14 +87,5 @@ class Mcp::Tools::CreatePerson < Mcp::Tool
     membership = ctx.find(Team, team_id).memberships.build(person: person, manager: manager == true)
     ctx.authorize!(membership, :create?)
     membership
-  end
-
-  # A blank email makes no login, as the form's hint says.
-  def build_user(email)
-    return nil if email.blank?
-
-    user = User.new(email: email, password: Spicy::Proton.pair)
-    invalid_argument!(user.errors.full_messages.to_sentence) unless user.valid?
-    user
   end
 end

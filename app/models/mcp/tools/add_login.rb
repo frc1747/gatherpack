@@ -38,8 +38,7 @@ class Mcp::Tools::AddLogin < Mcp::Tool
     authorize_login_for!(person)
     invalid_argument!("This person already has a login") if person.user_id.present?
 
-    user = User.new(email: email, password: Devise.friendly_token[0, 20])
-    invalid_argument!(user.errors.full_messages.to_sentence) unless user.valid?
+    user = build_login(email)
 
     in_all_databases do
       user.save!
