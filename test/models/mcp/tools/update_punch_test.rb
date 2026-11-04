@@ -59,6 +59,12 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
     assert_unchanged(@admin_punch) { assert_equal "Not allowed", update(:alpha_manager, @admin_punch, note: "no").error }
   end
 
+  test "a manager can't reach a punch outside their scope" do
+    beta_punch = create_world_punch(person(:beta_member), @beta_period, 20, 21)
+
+    assert_unchanged(beta_punch) { assert_equal "Not found", update(:alpha_manager, beta_punch, note: "no").error }
+  end
+
   test "someone who manages no team changes nothing, and isn't told what exists" do
     [ :beta_member, :guardian ].each do |viewer|
       assert_unchanged(@punch) { assert_equal "Not allowed", update(viewer, @punch, note: "no").error }

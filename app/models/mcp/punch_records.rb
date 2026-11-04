@@ -65,8 +65,8 @@ module Mcp::PunchRecords
 
   # TimeClockPunchPolicy doesn't define create?, so the POST lets anyone record a punch
   # for anyone. The gate is the form's person list instead: "managed_people me"
-  # (_form line 7). And a team's members may record for each other in an "added by team
-  # member" period, as update? and the model's permission_check accept. A build whose
+  # (_form line 7). And a manager may record for a teammate they don't manage in an "added
+  # by team member" period, as update? and the model's permission_check accept. A build whose
   # policy defines create? applies that too.
   def authorize_recording!(punch)
     ctx.authorize!(punch, :create?) if ctx.defines?(punch, :create?)
