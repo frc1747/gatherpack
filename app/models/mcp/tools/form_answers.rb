@@ -41,7 +41,7 @@
 # minor's answers come back empty and the failure is logged. Changes that skip the
 # audit trail, such as update_columns in a script, leave nothing to judge by.
 class Mcp::Tools::FormAnswers < Mcp::Tool
-  WITHHELD_DATA_TYPES = %w[phone email].freeze
+  include Mcp::FormContactQuestions
 
   tool_name "form_answers"
   description "A form's submitted answers per person (by last name), question by question. Only people whose response you may read, " \
@@ -143,62 +143,6 @@ class Mcp::Tools::FormAnswers < Mcp::Tool
   end
 
   def questions_for_minor(report, row)
-    earlier = earlier_contact_keys(report.form)
-    return [] if earlier.nil?
-
-    answered_as_contact = contact_snapshot_keys(row.response)
-    report.questions.reject { |question| contact_question?(question) || answered_as_contact.include?(question.key) || earlier.include?(question.key) }
-  end
-
-  def contact_question?(question)
-    contact?(question.person_field&.system_source, question.value_type.data_type)
-  end
-
-  # The keys of questions that counted as contact in any of this response's submissions.
-  def contact_snapshot_keys(response)
-    response.form_submissions.flat_map { |submission| Array(submission.content["questions"]) }
-      .select { |snapshot| contact?(system_sources[snapshot["person_field"]], snapshot["type"]) }
-      .map { |snapshot| snapshot["key"] }.to_set
-  end
-
-  # The keys of questions on this form with an earlier version that counted as
-  # contact, or nil if the history can't be read. Each version's object is the
-  # question before that change, and the question as it is now is judged separately.
-  # The form's ID is only inside object, the one way to reach a removed question.
-  def earlier_contact_keys(form)
-    return @earlier_contact_keys if defined?(@earlier_contact_keys)
-
-    @earlier_contact_keys = begin
-      states = AuditLog.where(item_type: "FormQuestion").where("object LIKE ?", "%#{form.id}%").pluck(:object)
-        .map { |object| PaperTrail.serializer.load(object) }
-      raise ArgumentError, "unreadable question version" unless states.all?(Hash)
-
-      states = states.select { |state| state["form_id"] == form.id }
-      fields = PersonField.where(id: states.filter_map { |state| state["person_field_id"] }).index_by(&:id)
-      states.select { |state| contact_state?(state, fields) }.map { |state| state.fetch("key") }.to_set
-    rescue => e
-      Rails.logger.error("[MCP] form_answers can't read question history for form #{form.id} (request #{ctx.request_id}): #{e.class}: #{e.message}")
-      nil
-    end
-  end
-
-  def contact_state?(state, fields)
-    field_id = state["person_field_id"]
-    return contact?(nil, FormQuestion.data_types.key(state["data_type"]) || state["data_type"]) unless field_id
-
-    field = fields[field_id]
-    field.nil? || contact?(field.system_source, field.data_type)
-  end
-
-  # Built-in fields by key, archived ones too, for reading snapshots. Built-in
-  # fields can't be deleted, and a key missing here is a custom field or none.
-  def system_sources
-    @system_sources ||= PersonField.system.pluck(:key, :system_source).to_h
-  end
-
-  def contact?(source, data_type)
-    return true if source && Mcp::MinorRule::WITHHELD_KEYS.include?(source.delete_prefix("user."))
-
-    WITHHELD_DATA_TYPES.include?(data_type)
+    questions_open_for_minor(report.questions, report.form, row.response)
   end
 end
