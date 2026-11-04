@@ -165,6 +165,33 @@ class Mcp::Tools::SignFormResponseTest < ActiveSupport::TestCase
     assert_match(/records a signature in the member's name/i, Mcp::Tools::SignFormResponse.description)
   end
 
+  test "it's marked destructive, so clients ask first" do
+    assert_equal true, Mcp::Tools::SignFormResponse.annotations[:destructive_hint]
+  end
+
+  test "the last signature logs the completion badge it grants" do
+    badge = create_world_badge("Consented", team: @alpha)
+    @consent_form.update!(completion_badge: badge)
+
+    sign_form(:guardian, :ward, "Guardian World")
+
+    assignment = BadgeAssignment.find_by!(badge: badge, person: person(:ward))
+    row = McpToolCall.where(tool: "sign_form_response").order(:created_at).last
+    assert_includes row.changed_records, { "type" => "BadgeAssignment", "id" => assignment.id }
+  end
+
+  test "a signature that isn't the last logs no badge" do
+    @consent_form.update!(completion_badge: create_world_badge("Consented", team: @alpha))
+    second = @consent_form.form_questions.create!(kind: :signature, label: "Second", signer: :guardian)
+    @consent_form.form_questions.reset
+    respond_to_form(@consent_form, :ward, as: :guardian, answers: {})
+
+    result = sign_form(:guardian, :ward, "Guardian World", question: second)
+
+    assert_nil result.error
+    assert_empty result.changed_records.grep(BadgeAssignment)
+  end
+
   test "an argument the page doesn't ask for is refused by name" do
     result = assert_nothing_changes do
       call_tool("sign_form_response", user: user(:guardian), form_id: @consent_form.neat_id, person_id: person(:ward).neat_id,

@@ -121,11 +121,136 @@ class Mcp::Tools::GetFormTest < ActiveSupport::TestCase
     assert_equal "complete", response["status"]
   end
 
-  test "it returns no answers" do
-    result = get_form(:alpha_member, @lunch, :alpha_member)
+  def answers(result)
+    result.value["questions"].select { |question| question.key?("answer") }.to_h { |question| [ question["label"], question["answer"] ] }
+  end
 
+  test "with a person, the answers the viewer may read, and only on what can be answered" do
+    assert_equal({ "Sandwich" => "Slim 4", "Notes" => "no onions", "Allergies" => "peanut" }, answers(get_form(:alpha_member, @lunch, :alpha_member)))
+
+    consent = get_form(:alpha_member, @consent_form, :alpha_member)
+    assert_equal [ nil ], answers(consent).values.uniq
+    assert_not consent.value["questions"].last.key?("answer")
+  end
+
+  test "a question the viewer can't read keeps its answer out" do
+    coordinator = get_form(:coordinator, @lunch, :alpha_member)
+    assert_equal "Slim 4", answers(coordinator)["Sandwich"]
+    assert_not_includes coordinator.value.to_json, "peanut"
+
+    guardian = get_form(:guardian, @lunch, :ward)
+    assert_equal({ "Sandwich" => "Big John" }, answers(guardian))
+  end
+
+  test "without a person there are no answers" do
+    result = get_form(:admin, @lunch)
+
+    assert_empty answers(result)
     assert_not_includes result.value.to_json, "no onions"
-    assert_not_includes result.value.to_json, "peanut"
+  end
+
+  test "a signer reads what they're asked to sign" do
+    respond_to_form(@consent_form, :ward, as: :guardian, answers: { "choice" => "Red", "comment" => "for the trip" })
+
+    result = get_form(:guardian, @consent_form, :ward)
+
+    assert_equal true, result.value.dig("response", "can_sign")
+    assert_equal "Red", answers(result)["Choice"]
+    assert_equal "for the trip", answers(result)["Comment"]
+  end
+
+  test "an unsubmitted update's answers show over those in effect" do
+    plain_form
+    respond_to_form(plain_form, :alpha_member, as: :alpha_member, answers: { "pick" => "first" })
+    assert_equal "first", answers(get_form(:alpha_member, plain_form, :alpha_member))["Pick"]
+
+    save_answers(:alpha_member, :alpha_member, { @plain_pick => "second" }, form: plain_form)
+
+    result = get_form(:alpha_member, plain_form, :alpha_member)
+    assert_equal "second", answers(result)["Pick"]
+    assert_equal true, result.value.dig("response", "update_in_progress")
+  end
+
+  test "a withdrawn response has no answers to show" do
+    respond_to_form(plain_form, :alpha_member, as: :alpha_member, answers: { "pick" => "first" })
+    call_tool("withdraw_form_response", user: user(:alpha_member), form_id: plain_form.neat_id, person_id: person(:alpha_member).neat_id)
+
+    assert_equal({ "Pick" => nil }, answers(get_form(:alpha_member, plain_form, :alpha_member)))
+  end
+
+  test "a date answer comes as YYYY-MM-DD and a yes/no as true" do
+    form = create_world_form("Typed", @alpha)
+    form.form_questions.create!(kind: :input, label: "Day", data_type: :date)
+    form.form_questions.create!(kind: :acknowledgment, label: "Tick")
+    form.form_questions.reset
+    respond_to_form(form, :alpha_member, as: :alpha_member, answers: { "day" => "2026-03-04", "tick" => "1" })
+
+    assert_equal({ "Day" => "2026-03-04", "Tick" => true }, answers(get_form(:alpha_member, form, :alpha_member)))
+  end
+
+  test "a minor's contact answer stays out, whoever asks, and an adult's is returned" do
+    respond_to_form(@consent_form, :ward, as: :guardian, answers: { "choice" => "Red", "own_phone" => "317-555-0100" })
+    respond_to_form(@consent_form, :alpha_member, as: :alpha_member, answers: { "choice" => "Red", "own_phone" => "317-555-0100" })
+
+    %i[ admin alpha_manager guardian ward ].each do |viewer|
+      result = get_form(viewer, @consent_form, :ward)
+      assert_equal "Red", answers(result)["Choice"], "as #{viewer}"
+      assert_no_match(/555.?0100/, result.value.to_json, "as #{viewer}")
+    end
+    assert_match(/555.?0100/, answers(get_form(:alpha_member, @consent_form, :alpha_member))["Own phone"])
+  end
+
+  test "if the history can't be read, a minor's answers all stay out" do
+    respond_to_form(@consent_form, :ward, as: :guardian, answers: { "choice" => "Red" })
+
+    without_question_history do
+      assert_empty answers(get_form(:admin, @consent_form, :ward))
+    end
+  end
+
+  test "someone a form leaves every question to others can't update, though they may read it" do
+    form = create_world_form("Leaders fill", @alpha)
+    form.form_questions.create!(kind: :input, label: "Leader note", data_type: :string, write_permission: "leaders")
+    form.form_questions.reset
+
+    assert_equal false, get_form(:alpha_member, form, :alpha_member).value.dig("response", "can_update")
+    assert_equal true, get_form(:alpha_manager, form, :alpha_member).value.dig("response", "can_update")
+  end
+
+  test "a form with nothing to answer can be updated" do
+    form = create_world_form("Read me", @alpha)
+    form.form_questions.create!(kind: :statement, body: "Please note.")
+    form.form_questions.reset
+
+    assert_equal true, get_form(:alpha_member, form, :alpha_member).value.dig("response", "can_update")
+  end
+
+  test "a minor whose only writable question is withheld can still update, as the page counts it" do
+    form = create_world_form("Phone only", @alpha)
+    form.form_questions.create!(kind: :input, label: "Phone", data_type: :phone)
+    form.form_questions.reset
+
+    assert_equal true, get_form(:guardian, form, :ward).value.dig("response", "can_update")
+  end
+
+  test "without a person, help text is left out for a question the viewer can't read for anyone" do
+    @notes.update!(body: "Anything we should know?")
+    @allergy_question.update!(body: "List everything.")
+    body = ->(result, label) { result.value["questions"].find { |question| question["label"] == label }["body"] }
+
+    coordinator = get_form(:coordinator, @lunch)
+    assert_nil body.call(coordinator, "Allergies")
+    assert_equal "Allergies", coordinator.value["questions"].last["label"]
+    assert_equal "Anything we should know?", body.call(coordinator, "Notes")
+    assert_equal "List everything.", body.call(get_form(:alpha_manager, @lunch), "Allergies")
+  end
+
+  test "without a person, what isn't an answer keeps its text for anyone who sees the form" do
+    statement = @lunch.form_questions.create!(kind: :statement, body: "Lunch is at noon.")
+    @lunch.form_questions.reset
+
+    listed = get_form(:coordinator, @lunch).value["questions"].find { |question| question["id"] == statement.neat_id }
+    assert_equal "Lunch is at noon.", listed["body"]
   end
 
   test "contact questions are left out for a minor, whoever asks, and stay for an adult" do

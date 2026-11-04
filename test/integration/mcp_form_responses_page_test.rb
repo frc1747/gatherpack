@@ -120,6 +120,7 @@ class McpFormResponsesPageTest < ActionDispatch::IntegrationTest
   test "a mapped answer reaches the profile the same on both, and an unwritable one doesn't" do
     form = create_world_form("Sizes", @alpha)
     size = form.form_questions.create!(kind: :input, label: "Size", person_field: @size_field, profile_mode: :update_profile)
+    form.form_questions.create!(kind: :input, label: "Note", data_type: :string)
     form.form_questions.reset
 
     values = []
@@ -187,16 +188,69 @@ class McpFormResponsesPageTest < ActionDispatch::IntegrationTest
     assert_empty by_name[:submissions].first[:signatures]
   end
 
-  test "who may fill in matches the page's edit screen for each kind of viewer" do
-    { alpha_member: :alpha_member, alpha_manager: :alpha_member, admin: :alpha_member, guardian: :ward, beta_member: :alpha_member, coordinator: :alpha_member }.each do |viewer, subject|
-      sign_in user(viewer)
-      get edit_form_response_path(@lunch, person(subject))
-      page_allowed = response.successful?
-      sign_out user(viewer)
+  # Whether the edit page loads and offers its Submit button.
+  def page_offers_submit?(form, viewer, subject)
+    sign_in user(viewer)
+    get edit_form_response_path(form, person(subject))
+    response.successful? && css_select("[name=submit]").any?
+  ensure
+    sign_out user(viewer)
+  end
 
+  test "who may fill in matches the page's Submit button for each kind of viewer" do
+    { alpha_member: :alpha_member, alpha_manager: :alpha_member, admin: :alpha_member, guardian: :ward, beta_member: :alpha_member, coordinator: :alpha_member }.each do |viewer, subject|
       tool = call_tool("get_form", user: user(viewer), form_id: @lunch.neat_id, person_id: person(subject).neat_id)
-      assert_equal page_allowed, tool.value&.dig("response", "can_update") == true, "#{viewer} for #{subject}"
+      assert_equal page_offers_submit?(@lunch, viewer, subject), tool.value&.dig("response", "can_update") == true, "#{viewer} for #{subject}"
     end
+  end
+
+  test "the tool takes a submit exactly when the page offers the button" do
+    leaders = create_world_form("Leaders fill", @alpha)
+    leaders.form_questions.create!(kind: :input, label: "Leader note", data_type: :string, write_permission: "leaders")
+    nothing = create_world_form("Read me", @alpha)
+    nothing.form_questions.create!(kind: :statement, body: "Please note.")
+    phone = create_world_form("Phone only", @alpha)
+    phone.form_questions.create!(kind: :input, label: "Phone", data_type: :phone)
+    [ leaders, nothing, phone ].each { |form| form.form_questions.reset }
+
+    { [ leaders, :alpha_member, :alpha_member ] => false, [ leaders, :alpha_manager, :alpha_member ] => true,
+      [ nothing, :alpha_member, :alpha_member ] => true, [ phone, :guardian, :ward ] => true }.each do |(form, viewer, subject), expected|
+      assert_equal expected, page_offers_submit?(form, viewer, subject), "page: #{form.title} as #{viewer}"
+      assert_equal expected, call_tool("get_form", user: user(viewer), form_id: form.neat_id, person_id: person(subject).neat_id).value.dig("response", "can_update"), "get_form: #{form.title} as #{viewer}"
+
+      result = call_tool("save_form_answers", user: user(viewer), form_id: form.neat_id, person_id: person(subject).neat_id, answers: {}, submit: true)
+      assert_equal expected, result.error.nil?, "save: #{form.title} as #{viewer}: #{result.error}"
+    end
+  end
+
+  test "a signer reads the same pending answers on the page and through the tool" do
+    respond_to_form(@consent_form, :ward, as: :guardian, answers: { "choice" => "Red", "comment" => "for the trip" })
+
+    sign_in user(:guardian)
+    get form_response_path(@consent_form, person(:ward))
+    assert_response :success
+    assert_includes response.body, "signing these answers"
+    assert_includes response.body, "for the trip"
+    sign_out user(:guardian)
+
+    questions = call_tool("get_form", user: user(:guardian), form_id: @consent_form.neat_id, person_id: person(:ward).neat_id).value["questions"]
+    assert_equal "for the trip", questions.find { |question| question["label"] == "Comment" }["answer"]
+  end
+
+  test "someone who can only read sees a draft's readable answers on the page, and the same through the tool" do
+    @lunch.form_responses.find_by(subject: person(:alpha_member)).active_submission.withdraw!(by: person(:alpha_member))
+    respond_to_form(@lunch, :alpha_member, as: :alpha_member, answers: { "sandwich" => "Big John", "allergies" => "peanut" }, submit: false)
+
+    sign_in user(:coordinator)
+    get form_response_path(@lunch, person(:alpha_member))
+    assert_response :success
+    assert_includes response.body, "Big John"
+    assert_not_includes response.body, "peanut"
+    sign_out user(:coordinator)
+
+    json = call_tool("get_form", user: user(:coordinator), form_id: @lunch.neat_id, person_id: person(:alpha_member).neat_id).value
+    assert_equal "Big John", json["questions"].find { |question| question["label"] == "Sandwich" }["answer"]
+    assert_not_includes json.to_json, "peanut"
   end
 
   test "the page and get_form show the same answerable questions for a viewer" do

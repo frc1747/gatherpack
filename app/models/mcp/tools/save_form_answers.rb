@@ -8,6 +8,11 @@
 # says what was saved. test/integration/mcp_form_responses_page_test.rb compares
 # outcomes through the real controller.
 #
+# The page offers Save and Submit only to someone who can write a question, or on a
+# form with none to answer (edit.html.erb:105); others read that it's for someone else
+# to fill in. The action itself doesn't check, so a hand-made request gets past the
+# page. Here it's Not allowed, before anything changes.
+#
 # Page answers are keyed by question key; here by question ID, as get_form lists them.
 # assign_answers drops an answer to a question the viewer can't write without a word,
 # which the tool refuses by name before anything changes. A question the viewer can't
@@ -39,7 +44,7 @@ class Mcp::Tools::SaveFormAnswers < Mcp::Tool
   tool_name "save_form_answers"
   description "Save answers to a form for a person, as Save for later on the form's page does; with submit: true, also submit them, as its Submit does. " \
     "Takes answers by question ID from get_form: a string, true or false for a yes/no, a whole number, a list for multiple choice, YYYY-MM-DD for a date, null to clear. " \
-    "Only the given answers change. Changing a submitted version's answers removes any signatures already given. " \
+    "Only the given answers change; the result has the saved answers. Changing a submitted version's answers removes any signatures already given. " \
     "If submit finds required answers missing, the answers stay saved as a draft and the refusal lists what's missing by question. " \
     "Answers to questions that update the profile are saved there when the response becomes complete. " \
     "Contact questions (see get_form) can't be answered for anyone under 18 or with no birthday on file. " \
@@ -64,17 +69,19 @@ class Mcp::Tools::SaveFormAnswers < Mcp::Tool
     form = find_form(form_id)
     response = find_response(form, person_id)
     authorize_response!(response, :update?)
+    raise Mcp::NotAllowed unless fill_page_offers_submit?(response)
 
     access = access_for(response)
     input = page_input(response, access, answers)
+    before = side_state(response)
     submission = save_draft(response, access, input)
-    changed!(submission)
+    changed!(submission, *also_changed(response, before))
     return form_json(form, response) unless submit
 
     errors = submission.submit!(ctx.person, access)
     refuse_missing!(response, errors) if errors.any?
 
-    changed!(submission, *profile_records(submission))
+    changed!(submission, *profile_records(submission), *also_changed(response, before))
     form_json(form, response)
   end
 
