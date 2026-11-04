@@ -14,6 +14,8 @@ Rails.application.config.filter_parameters += %w[value note token rfid card].map
 # Check-in notes and answers can say anything. These match substrings, so response also
 # hides field_responses, and the misnames are here since they're refused after the log line.
 Rails.application.config.filter_parameters += %w[notes field_responses response answers].map { |name| "params.arguments.#{name}" }
+# A page's query string can hold anything the page takes.
+Rails.application.config.filter_parameters += [ "params.arguments.params" ]
 
 Rails.application.config.to_prepare do
   # Mcp::Access reads the settings store on every request, so transactions
@@ -117,4 +119,14 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::ListRelationshipTypes)
   Mcp.register_tool(Mcp::Tools::AddRelationship)
   Mcp.register_tool(Mcp::Tools::RemoveRelationship)
+  # Pages and reads
+  Mcp.register_tool(Mcp::Tools::ListPages)
+  Mcp.register_tool(Mcp::Tools::GetPage)
+  Mcp.register_tool(Mcp::Tools::GetPageSource)
+  Mcp.register_tool(Mcp::Tools::ListAnnouncements)
+  Mcp.register_tool(Mcp::Tools::CreateAnnouncement)
+  Mcp.register_tool(Mcp::Tools::ListCalendarNotes)
+  Mcp.register_tool(Mcp::Tools::ListQuestions)
+  Mcp.register_tool(Mcp::Tools::GetQuestion)
+  Mcp.register_tool(Mcp::Tools::ListEventCheckinFields)
 end
