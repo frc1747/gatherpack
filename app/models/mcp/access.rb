@@ -14,6 +14,10 @@ module Mcp::Access
       stored_setting(:mcp_write_enabled) == "true"
     end
 
+    def dynamic_pages_enabled?
+      stored_setting(:mcp_dynamic_pages_enabled) == "true"
+    end
+
     # The setting as saved in the store, not the per-process copy, which a
     # save through another web worker leaves stale. Used for the settings that
     # decide who can connect.
@@ -24,7 +28,7 @@ module Mcp::Access
     end
 
     # Settings this module decides on, refreshed on the settings page.
-    SETTING_KEYS = %i[feature_mcp feature_oauth_provider mcp_write_enabled mcp_allowed_badge].freeze
+    SETTING_KEYS = %i[feature_mcp feature_oauth_provider mcp_write_enabled mcp_dynamic_pages_enabled mcp_allowed_badge].freeze
 
     # Sets this process's cached copies from the store, without writing, so a
     # page rendered here shows (and a full-form save keeps) what was saved

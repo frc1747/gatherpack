@@ -4,6 +4,10 @@
 # permission rule and the app's pages aren't affected. There is no setting for now;
 # this file is the one place to change if that becomes configuration.
 #
+# One exception, an administrator's choice: a dynamic page's ERB can print these details
+# by any route, so its output can't be filtered. get_page refuses dynamic pages unless
+# mcp_dynamic_pages_enabled is on, and with it on they pass through as the page shows them.
+#
 # A person counts as a minor if they are under 18 today in the app's time zone,
 # or their age is unknown: no birthday on file, or one more than 120 years ago,
 # which nothing validates and a short year in a date field can produce. The app

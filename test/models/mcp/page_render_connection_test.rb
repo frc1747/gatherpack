@@ -30,7 +30,7 @@ class Mcp::PageRenderConnectionTest < ActiveSupport::TestCase
   end
 
   def page_for(content)
-    call_tool("get_page", user: @viewer, page_id: erb_page(content).neat_id)
+    with_settings(mcp_dynamic_pages_enabled: "true") { call_tool("get_page", user: @viewer, page_id: erb_page(content).neat_id) }
   end
 
   def statement_timeout

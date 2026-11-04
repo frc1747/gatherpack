@@ -4,8 +4,9 @@
 # start_time, end_time, team_id and notify_now; authorize create?; save; run
 # AnnouncementNotificationRouter). AnnouncementPolicy#create? is admins, and managers of
 # the announcement's team: a team-less one, which goes to everyone, is admin only. The
-# dates default as the new form fills them in (line 17). The model doesn't require the end
-# to be after the start, so neither does this. The router sends only with notify_now, and
+# dates default as the new form fills them in (line 17), except that a later start moves
+# the default end with it, so a defaulted one gets shown. The model doesn't require a given
+# end to be after the start, so neither does this. The router sends only with notify_now, and
 # reports nothing back, so notified counts the emails it enqueued.
 #
 # The schema is closed: the page calls its dates start_time and end_time, and a client
@@ -15,7 +16,7 @@ class Mcp::Tools::CreateAnnouncement < Mcp::Tool
 
   tool_name "create_announcement"
   description "Post an announcement, as New Announcement does on the Announcements page. With notify_now it emails everyone on the team and its sub-teams, or everyone " \
-    "if it has no team, so confirm the text first. Only admins can post without a team; \"Not allowed\" for a team you don't manage. Returns it with the number of people notified."
+    "if it has no team, so confirm the text first. Only admins can post without a team; \"Not allowed\" for a team you don't manage, \"Not found\" for a team you can't see. Returns it with the number of people notified."
   scope :write
   input_schema(
     properties: {
@@ -23,7 +24,7 @@ class Mcp::Tools::CreateAnnouncement < Mcp::Tool
       content: { type: "string", description: "The text, in Markdown" },
       team_id: { type: "string", description: "The team's ID (tm_). Without one it goes to everyone (admins only)" },
       starts_at: { type: "string", description: "First shown, ISO 8601 date-time (default now)" },
-      ends_at: { type: "string", description: "Last shown, ISO 8601 date-time (default a week from now)" },
+      ends_at: { type: "string", description: "Last shown, ISO 8601 date-time (default a week after now, or after starts_at if that's later)" },
       notify_now: { type: "boolean", description: "Email the audience now (default false)" }
     },
     required: %w[title content],
@@ -41,7 +42,7 @@ class Mcp::Tools::CreateAnnouncement < Mcp::Tool
     ctx.authorize!(announcement, :create?)
 
     announcement.start_time = starts_at ? parse_time(starts_at, "starts_at") : Time.current
-    announcement.end_time = ends_at ? parse_time(ends_at, "ends_at") : Time.current + 1.week
+    announcement.end_time = ends_at ? parse_time(ends_at, "ends_at") : [ announcement.start_time, Time.current ].max + 1.week
     invalid_argument!(announcement.errors.full_messages.to_sentence) unless announcement.save
 
     changed!(announcement)

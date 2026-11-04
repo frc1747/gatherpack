@@ -7,6 +7,9 @@ class Mcp::Tools::GetPageTest < ActionDispatch::IntegrationTest
   include McpWorld
   include McpPageWorld
 
+  # Set by a page's ERB, to show whether it ran.
+  cattr_accessor :erb_ran
+
   setup do
     host! "localhost"
     build_mcp_world
@@ -14,7 +17,72 @@ class Mcp::Tools::GetPageTest < ActionDispatch::IntegrationTest
   end
 
   def page_for(viewer, page, **options)
+    with_settings(mcp_dynamic_pages_enabled: "true") { page_with_setting_as_is(viewer, page, **options) }
+  end
+
+  def page_with_setting_as_is(viewer, page, **options)
     call_tool("get_page", user: user(viewer), page_id: page.neat_id, **options)
+  end
+
+  def probe_page(viewer: "user")
+    self.erb_ran = false
+    erb_page("<% Mcp::Tools::GetPageTest.erb_ran = true %>ran", viewer: viewer)
+  end
+
+  test "reading dynamic pages is off by default" do
+    assert_equal "false", Settings.get(:mcp_dynamic_pages_enabled).default_value
+    assert_equal "MCP", Settings.get(:mcp_dynamic_pages_enabled).group
+    assert_not Mcp::Access.dynamic_pages_enabled?
+
+    result = page_with_setting_as_is(:admin, probe_page)
+
+    assert_equal Mcp::Tools::GetPage::DYNAMIC_PAGES_OFF, result.error
+    assert_not erb_ran
+  end
+
+  test "with the setting off a dynamic page is refused, naming the setting, and no ERB runs" do
+    page = probe_page
+
+    with_settings(mcp_dynamic_pages_enabled: "false") do
+      %i[admin alpha_manager alpha_member beta_member guardian].each do |viewer|
+        result = page_with_setting_as_is(viewer, page, params: { term: "x" })
+
+        assert_match(/\ANot allowed/, result.error, viewer)
+        assert_includes result.error, "MCP: read dynamic pages"
+        assert_equal "denied", McpToolCall.order(:created_at).last.outcome
+      end
+    end
+
+    assert_not erb_ran
+    assert_includes Mcp.tool("get_page").description, "MCP: read dynamic pages"
+  end
+
+  test "with the setting on a dynamic page renders" do
+    page = probe_page
+
+    result = with_settings(mcp_dynamic_pages_enabled: "true") { page_with_setting_as_is(:alpha_member, page) }
+
+    assert_nil result.error
+    assert_equal "ran", result.value["content"]
+    assert erb_ran
+  end
+
+  test "with the setting off a page the viewer can't open stays not found, and no ERB runs" do
+    page = probe_page(viewer: "admin")
+
+    with_settings(mcp_dynamic_pages_enabled: "false") do
+      assert_equal "Not found", page_with_setting_as_is(:alpha_member, page).error
+      assert_equal "Not found", page_with_setting_as_is(:guardian, @pages[:dynamic]).error
+      assert_equal Mcp::Tools::GetPage::DYNAMIC_PAGES_OFF, page_with_setting_as_is(:admin, page).error
+    end
+
+    assert_not erb_ran
+  end
+
+  test "with the setting off a static page still reads" do
+    with_settings(mcp_dynamic_pages_enabled: "false") do
+      assert_includes page_with_setting_as_is(:alpha_member, @pages[:members]).value["content"], "the body of For members"
+    end
   end
 
   test "each role opens what its level allows, and anything else is not found" do
@@ -136,6 +204,8 @@ class Mcp::Tools::GetPageTest < ActionDispatch::IntegrationTest
     assert_equal "error", McpToolCall.order(:created_at).last.outcome
     assert_not_includes McpToolCall.order(:created_at).last.error_message, "secret"
     assert_includes io.string, page.neat_id
+    assert_includes io.string, "RuntimeError"
+    assert_not_includes io.string, "the secret detail"
   ensure
     Rails.logger.stop_broadcasting_to(sink)
   end
