@@ -230,6 +230,30 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     assert_equal result["structuredContent"], JSON.parse(result.dig("content", 0, "text"))
   end
 
+  test "instructions and every tool result say which environment this is" do
+    token = mcp_token(user(:alpha_member))
+    original = ENV["MCP_ENVIRONMENT"]
+    { "production" => /Environment: production\./, "non-production" => /Environment: non-production\./ }.each do |value, notice|
+      ENV["MCP_ENVIRONMENT"] = value
+
+      init = mcp_post(token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } })
+      assert_match notice, init.dig("result", "instructions")
+
+      ok = mcp_post(token, "tools/call", { name: "whoami", arguments: {} })["result"]
+      assert_equal false, ok["isError"]
+      assert_equal ok["structuredContent"], JSON.parse(ok.dig("content", 0, "text"))
+      assert_match notice, ok.dig("content", 1, "text")
+      assert_equal value, ok.dig("_meta", "gatherpack/environment")
+
+      refused = mcp_post(token, "tools/call", { name: "get_person", arguments: { person_id: "per_nosuchperson" } })["result"]
+      assert_equal true, refused["isError"]
+      assert_match notice, refused.dig("content", 1, "text")
+      assert_equal value, refused.dig("_meta", "gatherpack/environment")
+    end
+  ensure
+    ENV["MCP_ENVIRONMENT"] = original
+  end
+
   test "a batch is refused: Streamable HTTP takes one message per POST" do
     token = mcp_token(user(:alpha_member))
     post "/mcp", params: [ { jsonrpc: "2.0", id: 1, method: "ping" }, { jsonrpc: "2.0", id: 2, method: "tools/list" } ].to_json,
