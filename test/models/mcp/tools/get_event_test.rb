@@ -22,6 +22,14 @@ class Mcp::Tools::GetEventTest < ActiveSupport::TestCase
     assert_equal %w[checkin_id person], value["attendees"].first.keys.sort
   end
 
+  test "checkin_id is given only to those who may remove that check-in" do
+    ids = ->(viewer) { get(viewer, @alpha_event).value["attendees"].to_h { |a| [ a["person"]["name"], a["checkin_id"].present? ] } }
+
+    assert_equal({ "AlphaMember World" => true, "Ward World" => true }, ids.call(:admin))
+    assert_equal({ "AlphaMember World" => true, "Ward World" => true }, ids.call(:alpha_manager))
+    assert_equal({ "AlphaMember World" => true, "Ward World" => false }, ids.call(:alpha_member))
+  end
+
   test "a team manager sees their team's event" do
     assert_equal "Alpha Meeting", get(:alpha_manager, @alpha_event).value["name"]
   end
