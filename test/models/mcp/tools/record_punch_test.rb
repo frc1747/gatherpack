@@ -79,6 +79,18 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
     assert_nil record(:alpha_manager, :alpha_manager, period: user_period).error
   end
 
+  test "a manager records for a teammate in an added by team member period, as the page does" do
+    Membership.create!(person: person(:alpha_manager), team: @beta)
+    member_period = period_with(:added_by_team_member, @beta, "Beta Members")
+    arguments = { person_id: person(:beta_member).id, time_clock_period_id: member_period.id, start_time: STARTS }
+
+    page = page_changes_rows?(TimeClockPunch, as: user(:alpha_manager)) { post time_clock_punches_path, params: { time_clock_punch: arguments } }
+    tool = changes_rows?(TimeClockPunch) { record(:alpha_manager, :beta_member, period: member_period) }
+
+    assert page
+    assert_equal page, tool
+  end
+
   test "a guardian records nothing" do
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:guardian, :ward) }
     assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:guardian, :guardian) }
