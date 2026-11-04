@@ -106,7 +106,8 @@ class Mcp::Tools::UpdatePersonFieldsTest < ActiveSupport::TestCase
           assert_nil result.error, "#{viewer} on #{key}"
           assert stored(fields[key]).present?, "#{viewer} on #{key}"
         else
-          assert_includes [ "Not allowed: #{key}", "Not allowed", "Not found" ], result.error, "#{viewer} on #{key}"
+          assert_includes [ "Not allowed: #{key}", "Not found" ], result.error, "#{viewer} on #{key}" unless viewer == :ward
+          assert_equal "Not allowed", result.error, "#{viewer} on #{key}" if viewer == :ward
           assert_empty Array(stored(fields[key]).presence), "#{viewer} on #{key}"
         end
       end
@@ -235,8 +236,9 @@ class Mcp::Tools::UpdatePersonFieldsTest < ActiveSupport::TestCase
     assert_equal [ "555-0199", "2 Elm St", Date.new(1981, 2, 3) ], [ reloaded.phone_number, reloaded.address, reloaded.birthday ]
 
     [ "phone_number", "address", "birthday" ].each { |source| built_in(source).update!(read_permission: :everyone, write_permission: :leaders) }
-    %i[alpha_member ward beta_member].each do |viewer|
-      assert_includes [ "Not allowed: phone, address, and birthday", "Not allowed", "Not found" ], assert_unchanged(viewer, { "phone" => "555-0100", "address" => "3 Oak", "birthday" => "1990-01-01" }).error
+    assert_equal "Not allowed", assert_unchanged(:ward, { "phone" => "555-0100" }).error
+    %i[alpha_member beta_member].each do |viewer|
+      assert_includes [ "Not allowed: phone, address, and birthday", "Not found" ], assert_unchanged(viewer, { "phone" => "555-0100", "address" => "3 Oak", "birthday" => "1990-01-01" }).error
     end
     assert_nil update(:alpha_manager, { "phone" => "555-0100", "address" => "3 Oak" }).error
   end
@@ -366,5 +368,49 @@ class Mcp::Tools::UpdatePersonFieldsTest < ActiveSupport::TestCase
     assert_equal "Internal error", result.error
     assert_nil stored(@notes)
     assert_nil stored(@self_field)
+  end
+
+  CONTACT_KEYS = %w[phone address birthday email].freeze
+
+  def group_keys(result)
+    result.value["groups"].flat_map { |group| group["fields"] }.map { |field| field["key"] }
+  end
+
+  test "a minor's result has no contact details, whoever asks" do
+    @subject.update!(birthday: 10.years.ago.to_date, phone_number: "555-0100", address: "1 Main St")
+
+    [ :admin, :alpha_manager ].each do |viewer|
+      @subject.set_field_value(@notes, nil)
+      result = update(viewer, { "notes" => "Quiet" })
+      assert_nil result.error
+      assert_empty group_keys(result) & CONTACT_KEYS, viewer.to_s
+      assert_includes group_keys(result), "dietary_restrictions"
+    end
+  end
+
+  test "an adult made a minor by the same call gets no contact details back" do
+    built_in("phone_number").update!(read_permission: :everyone)
+    @subject.update!(phone_number: "555-0100")
+
+    result = update(:admin, { "notes" => "x", "birthday" => 5.years.ago.to_date.iso8601 })
+
+    assert_nil result.error
+    assert_empty group_keys(result) & CONTACT_KEYS
+    assert_not_includes result.to_response.content.to_s, "555-0100"
+  end
+
+  test "a birthday outside what the database can store is refused without quoting it" do
+    [ "5874898-01-01", "+9999999-01-01", "-4800-01-01" ].each do |value|
+      result = assert_unchanged(:admin, { "birthday" => value })
+
+      assert_equal "Birthday isn't a valid date", result.error
+      assert_equal "error", result.outcome.to_s
+      assert_equal ADULT, Person.find(@subject.id).birthday
+    end
+  end
+
+  test "an ordinary birthday still works" do
+    assert_nil update(:admin, { "birthday" => "1990-05-06" }).error
+    assert_equal Date.new(1990, 5, 6), Person.find(@subject.id).birthday
   end
 end

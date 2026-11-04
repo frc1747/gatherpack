@@ -1,13 +1,14 @@
 # The person field definitions, for a client that is about to read or write them. The
 # page for this, PersonFieldsController#index, is admin-only (PersonFieldPolicy is an
 # AdminPolicy, whose scope returns every row), so there's no policy to apply to a
-# non-admin, who meets definitions only on the profile and edit forms: there they see
-# the fields they can read or write, with their name, section, type, choices and
-# required mark. So an admin gets every field in use (PersonFieldsController#index, without
-# archived: custom fields only while the feature is on, no archived ones), and
-# anyone else gets the fields they can read for at least one person they can see
-# (PersonField#readable_subjects_for, which "must agree with PersonFieldAccess for every
-# subject", within policy_scope(Person)), with no permission levels or badge grants. "writable" is the same question
+# non-admin, who meets definitions only on the profile and edit forms. So an admin gets
+# every field in use, as that page lists them (custom fields only while the feature is
+# on, no archived ones), whether or not anyone it applies to exists yet. Anyone else gets
+# a field only if a page would show it to them: they can read it for at least one person
+# they can see (PersonField#readable_subjects_for, which "must agree with
+# PersonFieldAccess for every subject", within policy_scope(Person)) and it is shown on
+# the profile (people/_fields), or they can write it for someone they can see (the edit
+# form). No permission levels or badge grants are given. "writable" is the same question
 # for writing, and says nothing about a particular person: update_person_fields decides
 # that, and refuses a minor's contact details whoever asks (Mcp::MinorRule). The
 # built-in email is never writable.
@@ -46,11 +47,16 @@ class Mcp::Tools::ListPersonFields < Mcp::Tool
 
   def call
     viewer = ctx.person
-    visible = ctx.policy_scope(Person)
     fields = PersonField.in_use.ordered.includes(:person_field_group, :team, person_field_badge_grants: :badge).to_a
-    fields = fields.select { |field| visible.where(id: field.readable_subjects_for(viewer).select(:id)).exists? }
+    return { fields: fields.map { |field| field_json(field, !field.system_read_only?) } } if viewer.admin?
 
-    { fields: fields.map { |field| field_json(field, visible.where(id: field.writable_subjects_for(viewer).select(:id)).exists?) } }
+    visible = ctx.policy_scope(Person)
+    listed = fields.filter_map do |field|
+      writable = visible.where(id: field.writable_subjects_for(viewer).select(:id)).exists?
+      readable = field.show_on_profile && visible.where(id: field.readable_subjects_for(viewer).select(:id)).exists?
+      [ field, writable ] if writable || readable
+    end
+    { fields: listed.map { |field, writable| field_json(field, writable) } }
   end
 
   private

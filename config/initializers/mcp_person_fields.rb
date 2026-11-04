@@ -4,7 +4,13 @@
 # get_person's contact details. Named to sort after mcp.rb, which resets the registry.
 # The page's values are filtered by name (person_field_values); a tool's aren't.
 # set_person_field's is "value", update_person_fields' is "values" (a whole object).
-Rails.application.config.filter_parameters += [ "params.arguments.value", "params.arguments.values" ]
+# A closed schema refuses an argument only after Rails has logged it, so the likely
+# misnames of "values" and the built-in phone's key are covered too. Custom field keys
+# can't be listed.
+Rails.application.config.filter_parameters += %w[
+  params.arguments.value params.arguments.values params.arguments.phone
+  params.arguments.fields params.arguments.field_values params.arguments.changes
+]
 
 Rails.application.config.to_prepare do
   next unless Mcp.feature_registered?(:person_fields)

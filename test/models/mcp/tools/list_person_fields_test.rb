@@ -98,4 +98,42 @@ class Mcp::Tools::ListPersonFieldsTest < ActiveSupport::TestCase
       call_tool("list_person_fields", user: user(:admin))
     end
   end
+
+  test "a field no page shows the viewer is left out, even if they could read it" do
+    relationship = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin, guardianship: :minor)
+    Relationship.create!(parent: person(:guardian), child: person(:ward), relationship_type: relationship, created_by: person(:admin))
+    PersonField.create!(name: "Custody Note", data_type: :select, choices_text: "Sole\nJoint", read_permission: :guardians,
+      write_permission: :admin, show_on_profile: false)
+    shown = PersonField.create!(name: "Pickup Note", data_type: :text, read_permission: :guardians, write_permission: :admin)
+
+    guardian = list(:guardian)
+    assert_not_includes guardian.keys, "custody_note"
+    assert_includes guardian.keys, shown.key
+    assert_includes list(:admin).keys, "custody_note"
+  end
+
+  test "a hidden field the viewer can write is still listed" do
+    PersonField.create!(name: "Hidden Mine", data_type: :string, read_permission: :everyone, write_permission: :self, show_on_profile: false)
+
+    assert_equal true, list(:alpha_member)["hidden_mine"]["writable"]
+  end
+
+  test "an admin sees a field of a team that has no members yet" do
+    empty = Team.create!(name: "Empty", team_type: team_types(:one))
+    PersonField.create!(name: "Empty Team Field", data_type: :string, read_permission: :everyone, write_permission: :admin, team: empty)
+
+    assert_equal true, list(:admin)["empty_team_field"]["writable"]
+    assert_not_includes list(:alpha_manager).keys, "empty_team_field"
+  end
+
+  test "writable counts only people the viewer can see" do
+    field = PersonField.create!(name: "Beta Write", data_type: :string, read_permission: :admin, write_permission: :admin, team: @beta)
+    PersonFieldBadgeGrant.create!(person_field: field, badge: @access_badge, access: :write)
+    holder = create_world_person("AlphaHolder", @alpha)
+    BadgeAssignment.create!(badge: @access_badge, person: holder)
+
+    assert_not_includes list(:alpha_member).keys, "beta_write"
+    assert_equal true, list(:badge_holder)["beta_write"]["writable"]
+    assert_not_includes call_tool("list_person_fields", user: holder.user).value["fields"].map { |f| f["key"] }, "beta_write"
+  end
 end

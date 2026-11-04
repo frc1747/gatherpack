@@ -21,7 +21,6 @@ class McpUpdatePersonFieldsPageTest < ActionDispatch::IntegrationTest
     @eligible = PersonField.create!(name: "Eligible", data_type: :boolean, read_permission: :everyone, write_permission: :admin)
     @size = PersonField.create!(name: "Jacket", data_type: :select, choices_text: "S\nM", read_permission: :everyone, write_permission: :self)
     @many = PersonField.create!(name: "Sports", data_type: :multi_select, choices_text: "Golf\nTennis", read_permission: :everyone, write_permission: :self)
-    @viewers = [ user(:admin), user(:alpha_manager), user(:alpha_member), user(:ward) ]
   end
 
   teardown { @restore_person_fields&.call }
@@ -74,6 +73,26 @@ class McpUpdatePersonFieldsPageTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an empty value clears a field on the page and null clears it through the tool" do
+    %w[notes phone].each do |key|
+      prepare = lambda do
+        reset
+        Person.find(@subject.id).update!(phone_number: "555-0100")
+        Person.find(@subject.id).set_field_value(@notes, "Old")
+      end
+      prepare.call
+      sign_in user(:admin)
+      patch person_path(@subject), params: { person: { person_field_values: { key => "" } } }
+      sign_out user(:admin)
+      page = snapshot
+      prepare.call
+      call_tool("update_person_fields", user: user(:admin), person_id: @subject.neat_id, values: { key => nil })
+
+      assert_equal page, snapshot, key
+      assert_nil snapshot[key == "notes" ? 0 : 5], key
+    end
+  end
+
   test "a value the page refuses is refused by the tool, and neither stores any of the call" do
     [ { "nickname" => "Sam", "jacket" => "XL" }, { "nickname" => "Sam", "sports" => [ "Chess" ] }, { "nickname" => "Sam", "birthday" => "someday" } ].each do |form|
       before = by_page(user(:admin), {})
@@ -116,12 +135,17 @@ class McpUpdatePersonFieldsPageTest < ActionDispatch::IntegrationTest
 
   test "the values stay out of the request log, whether the call is allowed or refused" do
     [ user(:admin), user(:alpha_member) ].each do |viewer|
-      logged = nil
-      subscriber = ->(*, payload) { logged = payload[:params].to_s if payload[:controller] == "McpController" }
+      logged = +""
+      subscriber = ->(*, payload) { logged << payload[:params].to_s if payload[:controller] == "McpController" }
       with_settings(mcp_write_enabled: "true") do
         ActiveSupport::Notifications.subscribed(subscriber, "process_action.action_controller") do
           mcp_post(mcp_token(viewer, scopes: "mcp_write"), "tools/call",
             { name: "update_person_fields", arguments: { person_id: @subject.neat_id, values: { "notes" => "555-867-5309", "nickname" => "Hidden Nick" } } })
+          # Undeclared arguments are refused only after Rails has logged them.
+          [ { phone: "555-867-5309" }, { fields: { phone: "555-867-5309" } }, { field_values: { notes: "555-867-5309" } }, { changes: { notes: "555-867-5309" } } ].each do |extra|
+            mcp_post(mcp_token(viewer, scopes: "mcp_write"), "tools/call",
+              { name: "update_person_fields", arguments: { person_id: @subject.neat_id }.merge(extra) })
+          end
         end
       end
 
