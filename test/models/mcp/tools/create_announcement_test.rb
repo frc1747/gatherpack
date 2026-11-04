@@ -76,6 +76,20 @@ class Mcp::Tools::CreateAnnouncementTest < ActionDispatch::IntegrationTest
     assert_nil post_as(:admin, starts_at: "2026-04-02T09:00:00Z", ends_at: "2026-04-01T09:00:00Z").error
   end
 
+  test "without an end, it's shown for a week from its start, or from now if it has started" do
+    freeze_time do
+      assert_equal 1.week.from_now, post_as(:admin).changed.end_time
+
+      start = 1.month.from_now
+      result = post_as(:admin, starts_at: start.iso8601)
+      assert_equal start.change(usec: 0), result.changed.start_time
+      assert_equal start.change(usec: 0) + 1.week, result.changed.end_time
+
+      past = 1.month.ago
+      assert_equal 1.week.from_now, post_as(:admin, starts_at: past.iso8601).changed.end_time
+    end
+  end
+
   test "malformed times, and blank or wrongly typed values, change nothing" do
     [ "tomorrow", "2026-02-31T09:00:00", "2026-04-01", "" ].each do |bad|
       assert_refused(/starts_at must be a time/, Announcement, AuditLog) { post_as(:admin, starts_at: bad) }

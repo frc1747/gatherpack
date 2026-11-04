@@ -48,6 +48,8 @@ Rails.application.config.to_prepare do
     "Only people with this badge can connect. Every member: no limit.")
   register_setting.call(:mcp_write_enabled, :boolean, "MCP: allow changes", "false", "MCP",
     "Off: MCP clients can only read. Clients connected while this was off must reconnect to make changes.")
+  register_setting.call(:mcp_dynamic_pages_enabled, :boolean, "MCP: read dynamic pages", "false", "MCP",
+    "Off: MCP clients can read static pages only. Dynamic pages can show minors' contact details, which MCP otherwise withholds.")
 
   # Scopes: Doorkeeper's config isn't frozen, and every scope check reads
   # Doorkeeper.config.scopes (memoized default + optional), so add to both.
