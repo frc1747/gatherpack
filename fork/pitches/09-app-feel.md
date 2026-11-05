@@ -8,6 +8,16 @@ reach a phone. This stays on the Hotwire stack GatherPack already uses
 (Turbo and Stimulus), which is built for this and is barely used for it
 today. No screens are rewritten, and no separate front end is needed.
 
+## What it might look like
+
+This is a concept mockup with sample data. The phone screens are drawn,
+not captured from real devices, and they aren't a final design. Smoother
+page changes can't be shown in a still image, so this covers only the phone
+features: a reminder on the lock screen, the app on the home screen, and
+the settings for choosing which reminders to get.
+
+![Concept mockups of a lock screen notification, a home screen icon and notification settings](images/09-phone-features.png)
+
 ## Problem
 
 Pages can flicker or jump as they change, which makes a site feel old even
