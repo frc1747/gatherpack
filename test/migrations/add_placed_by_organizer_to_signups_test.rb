@@ -1,6 +1,6 @@
 require "test_helper"
 require_relative "../support/signups_world"
-require Rails.root.join("db/migrate/20261105120000_add_placed_by_organizer_to_signups")
+require Rails.root.join("db/migrate/20261105120100_add_placed_by_organizer_to_signups")
 
 # Runs the migration down and back up inside the test's transaction.
 class AddPlacedByOrganizerToSignupsTest < ActiveSupport::TestCase
