@@ -58,6 +58,6 @@ hook = Hook.find_or_create_by!(name: "Test Hook",
                                event: "announcement - update",
                                code: "\"Test Hook Content\"")
 5.times do |time|
-  badge_assignment = BadgeAssignment.find_or_create_by!(person: persons[time * 2], badge: badge)
-  membership = Membership.find_or_create_by!(team: team, person: persons[time * 2], manager: false)
+  Membership.find_or_create_by!(team: team, person: persons[time * 2], manager: false)
+  BadgeAssignment.find_or_create_by!(person: persons[time * 2], badge: badge)
 end
