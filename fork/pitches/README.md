@@ -15,6 +15,7 @@ backlog instead. Full specs, where they exist, are separate.
 | 5 | [Sign-ups and commitments](05-signups.md) | Let people claim shifts and items at events, and track what each person or family owes from check-ins and sign-ups | Large, mostly new files: 16 migrations, 5 upstream files, flags off by default. Requires extension registries (4 more upstream files) | Sign-up sheets and commitments spec |
 | 6 | [MCP server](06-mcp-server.md) | Let a member's AI client read and change GatherPack data, signed in as that member and within their permissions | Medium, mostly new files. One migration; 2–3 upstream files; flag off by default. Requires the OAuth provider | [MCP server spec](../specs/mcp-spec.md) |
 | 7 | [Theming and a modern skin](07-theming-and-modern-skin.md) | Pick a brand color and logo and get a consistent, modern look and sign-in page, with page markup and logic unchanged | Medium, mostly new files. One migration; 4 upstream files; flag off by default | None |
+| 8 | [My GatherPack](08-my-gatherpack.md) | Organize the app around what each person needs to do: a to-do home, a menu per person, a family view, and phone versions of the top tasks | Medium to large, in independent parts. No migrations expected; a few upstream files; flag off by default. Follows the modern skin | None |
 
 ## How they relate
 
