@@ -20,3 +20,9 @@ feature/signups-widget
 feature/test-hosts
 feature/ransack-associations-default
 feature/pagination-labels
+feature/mcp
+feature/mcp-person-fields
+feature/mcp-forms
+feature/mcp-signups
+feature/mcp-commitments
+feature/oauth-admin-fixes
