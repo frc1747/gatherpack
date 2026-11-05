@@ -29,6 +29,13 @@ Hbr::SampleData.feature "feature/person-fields" do |s|
   guardian.call(paula, s.person("Kate"))
   guardian.call(owen, s.person("Olive"))
 
+  # An emergency contact: no guardianship, but leaders who can see Grace see Owen's phone and email.
+  contact_type = s.upsert!(RelationshipType, { parent_label: "Emergency Contact", child_label: "Contact For" },
+    permission: "added_by_manager", guardianship: "none", show_contact_details: true)
+  unless Relationship.exists?(parent: owen, child: s.person("Grace"), relationship_type: contact_type)
+    Relationship.create!(parent: owen, child: s.person("Grace"), relationship_type: contact_type, created_by: admin)
+  end
+
   s.login!(:member, "member", "Ella", "Brown")
 
   health = PersonFieldGroup.find_or_create_by!(name: "Health") { |group| group.position = (PersonFieldGroup.maximum(:position) || -1) + 1 }
