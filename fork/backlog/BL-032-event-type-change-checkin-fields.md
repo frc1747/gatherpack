@@ -22,6 +22,15 @@ When an event's type changes, `Event#update_checkins` is meant to call `refresh_
 
 Fixing the condition makes a type change delete the old type's answers right away, for every check-in. That's the intended design, but it destroys data on a dropdown change. Options: fix it as intended (and say so in the event form when the type changes and check-ins have answers), or keep the answers and only add the new type's fields. Ask upstream which they mean.
 
+## Decision (2026-11-05): keep the answers
+
+Keep the old type's answers so switching the type back restores them. They aren't orphans: each still belongs to its check-in and to a field of the old type.
+
+- Fix the condition (`saved_change_to_event_type_id?`) so the new type's blank responses are added on a type change.
+- Stop `Checkin#refresh_fields` deleting responses for fields not on the current type (today it uses `delete`, which skips the audit log, so they can't be recovered). Screens that list responses (check-in form, Arrange, Print, exports) show only the current type's fields.
+- Old answers go only when the old event type is deleted (BL-031 asks first).
+- Ask upstream which they intended before proposing it there.
+
 ## Hooks
 
 `checkin_field_responses - create/destroy` would fire for the added and removed responses.
