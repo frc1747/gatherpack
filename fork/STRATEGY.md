@@ -116,6 +116,10 @@ Example: the 2026-10-23 sync took a red `upstream/main` (ransack 6 and a bundle 
 
 The script refuses to resolve conflicts itself on purpose. The one exception is the schema version line, which `bin/fork-merge-schema` resolves (see "Recurring conflict hotspots"). If two features conflict with each other, resolve it by rebasing the later branch onto the earlier one and declaring the dependency, or by extracting the shared change into its own small branch that both depend on.
 
+### Replaced templates
+
+A feature can replace a template through the view override seam: a file at `app/view_overrides/<key>/<path>` replaces `app/views/<path>` while that feature is active. The replacement doesn't pick up later changes to its original. After the changelog commit, `bin/fork-rebuild` runs `bin/fork-override-check`, which compares each original on the new build against `fork/view-overrides.lock` and prints any that changed, with the diff. It only warns: it never stops the rebuild and changes nothing in the build. After reviewing a change and updating the replacement if needed, run `bin/fork-override-check --ref origin/hbr/integration --accept <override path>` in `platform/` and commit the lock. Tests: `ruby test/fork/fork_override_check_test.rb` (no database needed).
+
 ### The HBR changelog
 
 After the last merge, `bin/fork-rebuild` runs `bin/fork-changelog`, which writes `HBR-CHANGELOG.md` at the root of the integration branch, and commits it as `Update HBR changelog`. That generated commit is the only commit on `hbr/integration` that isn't a merge; the script makes it, so the script is still the only writer of the branch. The file is a catalog of the build: the release it will be, the upstream base, a Mermaid diagram of the merge order and dependencies, one card per manifest feature, what's new since the previous `v*-hbr.*` tag, and the disabled and retired features.

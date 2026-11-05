@@ -85,4 +85,8 @@ fi
 git add "${changelog}"
 git commit --quiet --no-verify -m "Update HBR changelog"
 
+# Warns about replaced templates whose originals changed. It never stops the
+# rebuild, and changes nothing in the build.
+"${toplevel}/bin/fork-override-check" || echo "bin/fork-override-check could not run; check replaced templates by hand." >&2
+
 echo "Integration branch rebuilt from upstream/main at $(git rev-parse --short upstream/main)"

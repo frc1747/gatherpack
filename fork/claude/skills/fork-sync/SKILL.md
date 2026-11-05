@@ -27,7 +27,7 @@ grep -v '^#' fork/features.txt                                            # mani
    - **Frozen branches** (open upstream PR): don't rebase, don't push, even with `--force-with-lease`. Let the rebuild merge them as they are. If one conflicts in the rebuild, stop and ask.
 4. Check each `proposed` feature for upstream acceptance and update its lifecycle (`FORK.md`).
 5. Push rebased branches with `--force-with-lease`.
-6. Rebuild: `bin/fork-rebuild` (in `~/dev/gatherpack/integration/`). It stops on the first conflict; fix it on the feature branch (or declare a dependency) and rerun. Never fix it on integration.
+6. Rebuild: `bin/fork-rebuild` (in `~/dev/gatherpack/integration/`). It stops on the first conflict; fix it on the feature branch (or declare a dependency) and rerun. Never fix it on integration. Read its last lines: "Replaced templates to review" means an original changed under a replacement template. Update the replacement on its feature branch if needed, then accept it (`fork/STRATEGY.md`, "Replaced templates").
 7. Full suite + RuboCop on `hbr/integration` (`gp-test`, integration worktree, `PARALLEL_WORKERS=4` on gp-test-pg). Then `git push --force-with-lease origin hbr/integration`.
 8. Update `FORK.md` and push it to `hbr/platform` directly (bookkeeping needs no PR).
 
