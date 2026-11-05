@@ -3,7 +3,9 @@
 # anyone else's address, and nothing is sent (but nothing fails) when no
 # gateway is set up. A sign-up's notices go to the person taking the place,
 # whoever signed them up and whoever it's on behalf of, if they have an
-# email address. Nothing is sent while Sign-up Sheets are turned off.
+# email address. An organizer who placed someone from the roster is left out,
+# unless no one else has an address. Nothing is sent while Sign-up Sheets
+# are turned off.
 class SignupNotices
   include ERB::Util
 
@@ -35,7 +37,8 @@ class SignupNotices
   end
 
   # To the person, the signer and whoever it's on behalf of, when a sign-up
-  # is made.
+  # is made. Not the organizer who placed them from the roster, unless no one
+  # else has an address.
   def confirmation(signup)
     deliver(recipients(signup), "Signed up: #{signup.signup_position.name}, #{signup.event.name}") do
       "<p>#{h(taker_phrase(signup))} signed up for <strong>#{h(signup.signup_position.name)}</strong> " \
@@ -57,15 +60,15 @@ class SignupNotices
   def event_changed(event, start_time_was:, end_time_was:)
     signups = Signup.active.joins(:signup_slot).where(signup_slots: { event_id: event.id })
       .includes(:person, :signed_up_by, :on_behalf_of, signup_slot: { signup_position: :signup_sheet })
-    sheets_by_person = Hash.new { |hash, person| hash[person] = [] }
-    signups.each { |signup| recipients(signup).compact.each { |person| sheets_by_person[person] |= [ signup.signup_sheet ] } }
+    places_by_person = Hash.new { |hash, person| hash[person] = [] }
+    signups.each { |signup| recipients(signup).compact.each { |person| places_by_person[person] |= [ [ signup.signup_sheet, signup.person ] ] } }
     was = self.class.when_text(event, start_time: start_time_was, end_time: end_time_was)
     now = self.class.when_text(event)
 
-    deliver(sheets_by_person.keys, "Time changed: #{event.name}") do |person|
+    deliver(places_by_person.keys, "Time changed: #{event.name}") do |person|
       "<p>The time of <strong>#{h(event.name)}</strong> has changed.</p>" \
         "<p>It was: #{h(was)}<br>It's now: <strong>#{h(now)}</strong>#{h(", #{event.location}") if event.location.present?}</p>" \
-        "<p>You're signed up for it on #{sheets_by_person[person].map { |sheet| link_to_sheet(sheet) }.to_sentence}. " \
+        "<p>#{places_by_person[person].map { |sheet, taker| "#{taker == person ? "You're" : "#{h(taker.display_name)} is"} signed up for it on #{link_to_sheet(sheet)}." }.join(" ")} " \
         "If you can't make the new time, please cancel or tell the organizers.</p>"
     end
   end
@@ -119,6 +122,11 @@ class SignupNotices
   end
 
   def recipients(signup)
+    others = [ signup.person, signup.on_behalf_of ]
+    # An organizer placing someone from the roster isn't told about it,
+    # unless no one else could be, so the place is never announced to nobody.
+    return others if signup.placed_by_organizer? && others.any? { |person| person&.user&.email.present? }
+
     [ signup.person, signup.signed_up_by, signup.on_behalf_of ]
   end
 
