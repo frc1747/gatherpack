@@ -32,3 +32,4 @@ feature/blocked-delete-message
 feature/kiosk-period-less-punches
 feature/alert-flash-style
 feature/event-destroy-checkins
+feature/event-type-checkin-fields

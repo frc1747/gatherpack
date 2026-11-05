@@ -26,6 +26,16 @@ A relationship type with guardianship "None" may already be most of this. Check 
 
 If leaders can already see the contact's name and number, this item is just guidance: "use a type with no guardianship" (BL-022's hint) and close it.
 
+## Step 1 result (2026-11-04, against `hbr/integration` `1a858820`)
+
+A type with guardianship "None" already does most of it, but not the contact details, so step 2 is needed for those only.
+
+- **Leaders see the contact's name.** The Relationships tab (`app/views/people/relationships.html.erb:10`) lists every relationship of the child (`Person#relationships`, unscoped); a contact the viewer can't open shows as an italic name with "You don't have permission" (`:14-22`).
+- **Leaders can't reach the contact's phone or email.** The tab shows neither. The contact's profile is outside `PersonPolicy` scope for a leader who doesn't manage them (`app/policies/person_policy.rb:7,13`), and the phone field's read levels (`leaders`, `guardians`, `family`, `team` in `app/models/audience_levels.rb:48-50`) never reach a non-teammate who isn't a ward. Only `everyone` or a badge grant would.
+- **The contact gains nothing about the child** beyond the child's name on their own Relationships tab. One configuration gotcha: a sign-up sheet whose "sign up others" types include that relationship type lets the contact sign the child up (`app/models/signup_sheet.rb:152-157`).
+
+So step 2 stands as written: a per-type "Show contact details to people who can see the child" column, default off, and the Relationships tab shows the other person's phone and email to anyone who passes `show?` on the child, without a profile link.
+
 ## Step 2: if something is missing
 
 The smallest change that fits:
