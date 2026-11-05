@@ -70,6 +70,13 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     assert_select "input[name=?][disabled]", "signup_position[kind]", count: 2
     assert_select ".form-text", text: "Can't change while people are signed up."
 
+    # The disabled radios aren't sent, only the collection's hidden blank.
+    patch signup_sheet_signup_position_path(@sheet, @position), params: { signup_position: { kind: "", name: "Till" } }
+    assert_redirected_to edit_signup_sheet_path(@sheet, anchor: "positions")
+    assert @position.reload.people?
+    assert_equal "Till", @position.name
+    @position.update!(name: "Cashier")
+
     patch signup_sheet_signup_position_path(@sheet, @position), params: { signup_position: { kind: "items", name: "Till" } }
     assert_response :unprocessable_entity
     assert_select ".invalid-feedback, .error", text: /can't change while people are signed up/

@@ -33,7 +33,7 @@ class SignupPositionsController < InternalController
       redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), status: :see_other
     elsif kind_change_refused?
       render :edit, status: :unprocessable_entity
-    elsif @signup_position.update(signup_position_params)
+    elsif @signup_position.update(update_params)
       redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), notice: "#{@signup_position.name} saved.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -75,15 +75,21 @@ class SignupPositionsController < InternalController
     # Usage and caps count places for people and quantities for items, so
     # the kind can't change once anyone is signed up.
     def kind_change_refused?
-      kind = signup_position_params[:kind]
+      kind = update_params[:kind]
       return false if kind.blank? || kind == @signup_position.kind || !@signup_position.signups.live.exists?
 
-      @signup_position.assign_attributes(signup_position_params.except(:kind))
+      @signup_position.assign_attributes(update_params.except(:kind))
       @signup_position.errors.add(:kind, "can't change while people are signed up")
       true
     end
 
     def signup_position_params
       params.require(:signup_position).permit(:name, :description, :kind, :unit, :capacity, :question, :question_required)
+    end
+
+    # While the kind is locked its radios are disabled, so the form sends
+    # only the collection's hidden blank; that keeps the saved kind.
+    def update_params
+      signup_position_params.reject { |key, value| key == "kind" && value.blank? }
     end
 end
