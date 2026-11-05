@@ -26,3 +26,4 @@ feature/mcp-forms
 feature/mcp-signups
 feature/mcp-commitments
 feature/oauth-admin-fixes
+feature/seeds-membership-order

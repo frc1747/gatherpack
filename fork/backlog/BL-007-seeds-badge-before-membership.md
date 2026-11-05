@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | waiting |
+| Status | started (`feature/seeds-membership-order`, see `FORK.md`) |
 | Added | 2026-10-05 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/seeds-membership-order` |
