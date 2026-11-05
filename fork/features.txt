@@ -38,4 +38,5 @@ feature/event-time-display
 feature/person-team-ids
 feature/profile-all-teams
 feature/event-type-change-answers
+feature/settings-read-through
 feature/hook-catalog-models
