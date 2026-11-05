@@ -35,7 +35,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-028](BL-028-members-edit-own-punches.md) | Members can enter and change their own time clock punches by hand | upstream bug | medium | waiting | 2026-11-04 |
 | [BL-029](BL-029-alert-flash-unstyled.md) | Error messages sent as `alert` show with no colour | upstream bug | low | started | 2026-11-04 |
 | [BL-030](BL-030-refused-delete-audit-row.md) | A refused delete still writes a "destroy" audit entry | upstream bug | low | waiting | 2026-11-04 |
-| [BL-031](BL-031-event-type-delete-checkin-fields.md) | Deleting an event type that has check-in fields crashes | upstream bug | low | waiting | 2026-11-04 |
+| [BL-031](BL-031-event-type-delete-checkin-fields.md) | Deleting an event type that has check-in fields crashes | upstream bug | low | started | 2026-11-04 |
+| [BL-032](BL-032-event-type-change-checkin-fields.md) | Changing an event's type doesn't update its check-ins' fields | upstream bug | low | waiting | 2026-11-04 |
 
 ## Fields
 

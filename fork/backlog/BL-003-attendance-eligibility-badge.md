@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | blocked |
+| Status | blocked (on hold 2026-11-04: the attendance report Page is the source of record; this item may be dropped) |
 | Added | 2026-10-03 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/attendance-eligibility` |

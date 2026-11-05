@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/event-type-checkin-fields`, see `FORK.md`) |
 | Added | 2026-11-04 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
-| Planned branch | none yet |
+| Branch | `feature/event-type-checkin-fields` (from `upstream/main`) |
 | Upstream issue / PR | none |
 
 ## Summary

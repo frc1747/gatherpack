@@ -382,3 +382,12 @@ feature/event-destroy-checkins:
     button says how many check-ins will go, instead of failing until every
     attendee is checked out by hand.
   audience: Admins and team managers
+
+feature/event-type-checkin-fields:
+  title: Delete an event type that has check-in questions
+  emoji: "🗂️"
+  description: >-
+    An event type with no events can now be deleted even if it has check-in
+    questions; they go with it. If any of those questions still has answers,
+    the delete is refused with a message saying why.
+  audience: Admins
