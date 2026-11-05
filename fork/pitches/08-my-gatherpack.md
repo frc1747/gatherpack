@@ -63,9 +63,12 @@ but not what the page shows or how many steps a task takes.
   Anyone who manages something also gets a separate Manage area, showing
   only what they can manage. The menu changes what is shown, not what is
   allowed: permissions still decide access.
-- **A family view.** A guardian sees each child, with that child's forms,
-  shifts, commitments and upcoming events, and can act for them wherever
-  guardians already can. Guardian parts appear only for people who are
+- **A family view.** A guardian sees each child, with what they're already
+  allowed to see of that child's forms, shifts, commitments and events, and
+  can act for them wherever guardians already can. Today's rules don't show
+  a guardian their child's team events, or commitments counted per person,
+  such as the meeting hours in the mockup. Showing those is a separate
+  permission decision. Guardian parts appear only for people who are
   guardians.
 - **Phone versions of the top tasks.** Filling out a form, claiming a
   shift, checking hours and reading the calendar. On these screens, tables

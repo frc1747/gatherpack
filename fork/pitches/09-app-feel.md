@@ -29,10 +29,12 @@ code points to these likely causes:
 - **The whole page is replaced on every click and save.** No page uses
   Turbo's morphing, and nothing stays in place between pages, including
   the sidebar.
-- **Some actions do a real full reload.** There are 19 Turbo opt-outs
-  across 14 files, including the dashboard, calendar, time clock and
-  sidebar. Some are needed, such as sign-in and external login providers.
-  Others may not be.
+- **Some actions do a real full reload.** There are 49 Turbo opt-outs
+  across 34 files. Thirty are links in list rows, such as a person's name
+  in People, so clicking one reloads the whole page. They were added to
+  stop an error from the frame around those lists, and Turbo has a direct
+  way to fix that error without a reload. Some others are needed, such as
+  sign-in and external login providers.
 - **The dashboard appears twice.** On a return visit it draws a cached
   copy, then replaces it about half a second later.
 - **Dashboard pieces arrive late.** The calendar and widgets load after
@@ -72,8 +74,9 @@ someone's access has changed. Without a connection, the app shows a plain
   and scroll preservation for same-page refreshes, mark the sidebar
   `data-turbo-permanent` with a small Stimulus controller to keep its active
   link correct, use `no-preview` on pages with live data, and add
-  placeholders for late-loading cards. Review each Turbo opt-out and remove
-  the ones no longer needed.
+  placeholders for late-loading cards. Point list links out of their frame
+  with `data-turbo-frame="_top"`, and review the other opt-outs one at a
+  time.
 - **Assets.** Host Font Awesome and the fonts locally. Trimming icons isn't
   simple, because admins choose icons by name, so the full set stays and
   relies on caching.
@@ -83,8 +86,8 @@ someone's access has changed. Without a connection, the app shows a plain
   unregisters it, so a bad version can't get stuck on devices.
 - **Notifications.** A new table stores each person's device subscriptions,
   using standard Web Push with no outside account required. Existing
-  reminders, such as `FormScheduleJob` and `SignupReminderJob`, add it as a
-  delivery channel. Messages carry a short title and a link, with no
+  reminders, such as `FormReminderSender` and `SignupReminderJob`, add it as a
+  delivery channel. Keys are set up in a gateway, as email is. Messages carry a short title and a link, with no
   personal details on the lock screen. Permission is requested only after
   someone chooses to turn it on.
 
@@ -102,7 +105,7 @@ someone's access has changed. Without a connection, the app shows a plain
 
 **Size:** Small to medium, in independent parts. Smoothness and assets need
 no migrations and touch a few layouts and templates. Notifications need one
-migration, one gem and new keys in server configuration. Flags off by default.
+migration and one gem, with no server configuration. Flags off by default.
 
 ## Risks
 
