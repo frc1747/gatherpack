@@ -373,3 +373,12 @@ feature/alert-flash-style:
     Messages that say something went wrong now show in a red box with a
     warning sign, instead of as plain text that was easy to miss.
   audience: Everyone
+
+feature/event-destroy-checkins:
+  title: Delete an event that has check-ins
+  emoji: "🗑️"
+  description: >-
+    Deleting an event now removes its check-ins with it, and the Delete
+    button says how many check-ins will go, instead of failing until every
+    attendee is checked out by hand.
+  audience: Admins and team managers
