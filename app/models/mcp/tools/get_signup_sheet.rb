@@ -15,7 +15,7 @@
 # disabled: true. Others never see on-behalf-of or notes
 # on a slot. my_signups are the viewer's own, as the page's My sign-ups
 # card shows them: sign-ups the viewer takes, made, or that are on their
-# behalf, not cancelled, with status and who it's for, but not who made it
+# behalf (placing someone from the roster doesn't count as making theirs), not cancelled, with status and who it's for, but not who made it
 # (neither the sign-up pages nor the roster print that, so signed_up_by is never returned). `limit` (default 25, at most 100) caps the
 # events, each slot's sign-ups and my_signups, each with a truncated flag.
 class Mcp::Tools::GetSignupSheet < Mcp::Tool
@@ -177,7 +177,8 @@ class Mcp::Tools::GetSignupSheet < Mcp::Tool
     return [ [], false ] if viewer.nil?
 
     signups = sheet.signups.live
-    signups = signups.where(person_id: viewer.id).or(signups.where(signed_up_by_id: viewer.id)).or(signups.where(on_behalf_of_id: viewer.id))
+    signups = signups.where(person_id: viewer.id).or(signups.where(on_behalf_of_id: viewer.id))
+      .or(signups.where(signed_up_by_id: viewer.id, placed_by_organizer: false))
     signups = signups.joins(signup_slot: :event).where(events: { start_time: since.. }) if since
     sorted = signups.includes(:person, :on_behalf_of, signup_slot: %i[ event signup_position ]).to_a
       .sort_by { |signup| [ signup.event.start_time, signup.signup_position.position, signup.created_at, signup.id ] }
