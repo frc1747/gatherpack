@@ -146,7 +146,7 @@ This is the same pattern as forms' `forms_creator_badge` and `forms_creator_high
 
 ### 3.7 Notices
 
-Reuse the mailer and the forms reminders pattern: confirmation on sign-up (to the person, the signer and on-behalf-of person), a reminder a set number of days before (sheet setting, default 2), and a notice when an event's time or date changes or an organizer cancels or moves a sign-up. Organizers can message everyone signed up for a date; the email goes out without showing addresses to the organizer.
+Reuse the mailer and the forms reminders pattern: confirmation on sign-up (to the person, the signer and on-behalf-of person; an organizer who placed it from the roster isn't a recipient of this or any later notice or message unless nobody else on it has an email address), a reminder a set number of days before (sheet setting, default 2), and a notice when an event's time or date changes or an organizer cancels or moves a sign-up. Organizers can message everyone signed up for a date; the email goes out without showing addresses to the organizer.
 
 ### 3.8 Experiences
 

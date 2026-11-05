@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | started (sheet part on `feature/signups` `9274b2f2`; dashboard card and notice mails still to do) |
+| Status | started (sheet and notices on `feature/signups` `890708dc`, card on `feature/signups-widget` `afd6bf83`; MCP left) |
 | Added | 2026-10-29 |
 | Upstream commit checked | `3fa5700` (`upstream/main`); code is on `feature/signups` `8f79447` and `feature/signups-widget` `8432bc6` |
 | Planned branch | `feature/signups` (lists and wording); `feature/signups-widget` picks the change up for the dashboard card |
@@ -34,8 +34,8 @@ Per rule 10, the list change in step 1 changes behaviour. Decided 2026-11-05: it
 
 ## Left after the sheet part (2026-11-05)
 
-- **Dashboard card** (`feature/signups-widget`, `SignupsSummary#all_signups`): same split; leave out roster placements. MCP `person_signups` / `get_signup_sheet` use their own queries too.
-- **Notice mails:** `SignupNotices#recipients` (`app/services/signup_notices.rb:121`) still includes `signed_up_by`, so an organizer who places 30 students gets their confirmations and reminders. Leave the organizer out when `placed_by_organizer`.
+- **Dashboard card:** done (`afd6bf83`). **MCP** `person_signups` / `get_signup_sheet` still use their own queries and include roster placements as the organizer's.
+- **Notice mails:** done (`890708dc`): the placing organizer is left out of notices and organizer messages, unless nobody else on the place has an email address.
 - **Guardian who is also an organizer:** placing their own child from the roster takes it off their list (the flag records where it was made). Accepted; they can use the member dialog instead.
 
 ## Testing
