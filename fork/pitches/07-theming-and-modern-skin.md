@@ -124,9 +124,11 @@ Not recommended:
   so would the 54 test assertions that select on these class names,
   making every upstream merge a conflict.
 
-**Size:** Medium, mostly new files. One reversible migration, 4 upstream
-files (the CSS build script, the theme partial, the theme edit page, the
-theme controller's permitted fields), flag off by default. Each screen redesigned after that is one new
+**Size:** Medium, mostly new files. Two reversible migrations (each
+person's light or dark choice, and the theme choices), 6 upstream files
+(the CSS build script, the theme partial, one line in the sidebar, the
+theme edit page, the theme controller's permitted fields, and routes),
+flags off by default. Each screen redesigned after that is one new
 override file.
 
 ## Risks
