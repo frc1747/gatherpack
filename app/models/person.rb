@@ -67,11 +67,11 @@ class Person < ApplicationRecord
   end
 
   def all_team_ids
-    direct_team_ids = teams.select(:id)
+    direct_team_ids = teams.ids
     managed_team_ids = memberships.where(manager: true).select(:team_id)
     descendant_ids = Team.where(id: managed_team_ids).flat_map(&:all_descendants).map(&:id)
     ancestor_ids = Team.where(id: direct_team_ids).flat_map(&:all_ancestors).map(&:id)
-    direct_team_ids + descendant_ids + ancestor_ids
+    (direct_team_ids + descendant_ids + ancestor_ids).uniq
   end
 
   def all_ancestor_teams
@@ -79,9 +79,9 @@ class Person < ApplicationRecord
   end
 
   def all_ancestor_team_ids
-    direct_team_ids = teams.select(:id)
+    direct_team_ids = teams.ids
     ancestor_ids = Team.where(id: direct_team_ids).flat_map(&:all_ancestors).map(&:id)
-    direct_team_ids + ancestor_ids
+    (direct_team_ids + ancestor_ids).uniq
   end
 
   def all_managed_teams
