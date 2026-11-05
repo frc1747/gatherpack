@@ -248,6 +248,15 @@ feature/ransack-associations-default:
     Mailboxes lists, which showed an error after upstream's latest update.
   audience: Admins
 
+feature/pagination-labels:
+  title: Page links read normally again
+  emoji: "📄"
+  description: >-
+    The First, Previous, Next and Last links under long lists showed raw
+    codes such as "&laquo; First" after upstream's latest update. They read
+    as arrows and words again.
+  audience: Everyone
+
 feature/oauth-admin-fixes:
   title: Set up OAuth apps without surprises
   emoji: "🔑"
