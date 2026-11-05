@@ -1,6 +1,8 @@
 # Spec: My GatherPack
 
-Status: rev. 1, 2026-11-04. Not built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `762f902c`. Decisions are in §12; open questions are in §13.
+Status: rev. 2, 2026-11-04. Not built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `762f902c`. Decisions are in §12; open questions are in §13.
+
+Rev. 2: guardians get two additions, a ward's team events on the family page and a ward's per-person commitments (§7.3, decision 7).
 
 Depends on the override seam in [`modern-skin-spec.md`](modern-skin-spec.md) §5. The screens use ordinary Bootstrap classes, so they work with or without the skin, but they should ship after it.
 
@@ -22,7 +24,7 @@ The test is whether people can do these on their own phones without help:
 
 ### 1.1 Non-goals
 
-- New data or new permissions, except where §7.3 asks for a decision.
+- New data or new permissions, except the two guardian additions in §7.3.
 - Replacing management screens. Rarely used admin pages stay desktop-first.
 - Native apps, install and notifications. Those are in [`app-feel-spec.md`](app-feel-spec.md).
 
@@ -55,6 +57,7 @@ Before building, watch three or four members and a guardian do the §1 tasks on 
 | `feature/my-gatherpack` | `feature/view-overrides` + `feature/nav-item-visible` | Flag, override folder, section registry, menu, home, family page, phone screens that are upstream-only |
 | `feature/my-gatherpack-forms` | `feature/my-gatherpack` + `feature/forms` | Forms sections and the phone form |
 | `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups and commitments sections and the phone sheet |
+| `feature/commitments-guardian-view` | `feature/commitments` + `feature/mcp-commitments` | A ward's per-person commitments (§7.3) |
 | Small `feature/*` branches | `upstream/main` | One per cleanup item (§8), each with its own backlog entry |
 
 A `+` means the second branch is merged in, as a declared dependency. The core branch can't reference forms or sign-ups code, since upstream may not have them. So those sections are connectors, the same pattern as `feature/mcp-forms` and `feature/mcp-signups`.
@@ -159,20 +162,26 @@ One card per ward, in name order, with a heading line ("1 thing needs you" or "A
 | Forms | `ward_form_entries`, `to_do?` first | Existing form page |
 | Sign-ups | `Signup.active` where `person`, `on_behalf_of` or `signed_up_by` is this ward, on sheets the viewer may see | Existing sheet |
 | Commitments | `PersonCommitmentsPolicy.new(user, ward).visible_commitments` | Existing commitments page |
-| Upcoming events | `policy_scope(Event)` for the ward's teams | Existing event page |
+| Upcoming events | Events on the ward's teams, next 5 (§7.3) | Event page only if `policy_scope(Event)` already includes it |
 
 Below the cards, "What your family owes" shows grouped commitments through `Commitment#progress_seen_by`, with a link to open shifts.
 
-All of it goes through existing policies and helpers. A test checks each row against the same person's profile, so the family page never shows more than that person could already see.
+Forms, sign-ups and commitments go through policies and helpers, so those pages and this one always agree. A test checks each of those rows against the same person's profile. Events are the one row with its own rule (§7.3).
 
-### 7.3 Two gaps that need a decision
+### 7.3 Two guardian additions
 
-The mockup shows more than today's rules allow, so the default build is narrower than the picture:
+Today's rules hide two things the mockup shows. Decided 2026-11-04: guardians should see both. Each covers current wards only (`Person#wards`), so it ends when a guardianship does.
 
-1. **A ward's events.** `EventPolicy::Scope` limits a guardian to their own teams' events. A parent who isn't on the child's team sees no upcoming events for them.
-2. **A ward's per-person commitments.** A guardian sees these only when the commitment is grouped through a relationship type. "62 of 80 meeting hours" won't appear for a commitment counted per person.
+1. **A ward's team events.**
+   - `EventPolicy::Scope` limits a guardian to their own teams' events, and it **isn't widened**. That scope also decides which events are listed elsewhere, and an event page shows its check-in list, with other families' children on it. A guardian needs to know when and where, not who else came.
+   - Instead, `MyGatherpack::WardEvents` selects upcoming events on `ward.all_teams`, and the family page shows title, time and place only. The row links to the event page only when the viewer's `policy_scope(Event)` already includes that event.
+   - This depends only on `feature_my_gatherpack`, because the family page is the only thing it changes.
+2. **A ward's per-person commitments.**
+   - `PersonCommitmentsPolicy#visible_commitments` gains one more case, a viewer who is the person's guardian. The page already shows progress and nothing more of the person, and that stays true.
+   - It takes a setting, `commitments_guardians_see_progress` ("Guardians see their children's commitments"), default off, because it changes an existing page and profile tab.
+   - Three places repeat this rule and must stay in step: `Commitments::SignupHint`, `Mcp::Tools::CommitmentProgress` and the commitments profile tab.
 
-**Default: no change.** Those rows are simply missing where the rule withholds them. Widening either is a permission change affecting the existing pages too, so it needs a decision and its own branch and tests. A guardian seeing their minor child's events and required hours is a reasonable change, but it should be a choice, not a side effect of a redesign. Hours from the time clock stay out for the same reason.
+Time clock punches stay out. `TimeClockPunchPolicy::Scope` is unchanged, so hours on the family page are what a commitment counts. The mockup's meeting hours are that kind.
 
 ## 8. Phone screens and cleanup
 
@@ -219,7 +228,7 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 1. **Menu and `visible`** (§5). The largest visible gain for the least work, and every later part builds on it.
 2. **Home** (§6), with its connectors.
 3. **Phone frame** (§8.1).
-4. **Family page** (§7), after any decision on §7.3.
+4. **Family page** (§7), with `feature/commitments-guardian-view`.
 5. **Phone screens** (§8.2), one at a time, in Phase 0's order.
 6. **Cleanup items** (§8.3), at any time. They don't depend on the flag.
 
@@ -229,7 +238,8 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 - **Role matrix for the menu.** Member, guardian, team manager, Forms creator, organizer, admin, and an impersonated member: each sees exactly the expected groups. An unknown item lands in More.
 - **Destinations are still guarded.** A member with no Manage section who requests a manager page gets what they get today.
 - **Home:** each section shows or hides by feature flag; empty state; sort order; the ward label; widget slots still render; nothing shown to one person leaks to another in a shared fixture world.
-- **Family:** no wards redirects; each ward shows only policy-allowed rows; an expired guardianship disappears; §7.3's two gaps stay closed unless decided otherwise.
+- **Family:** no wards redirects; each ward shows only policy-allowed rows; an expired guardianship removes that ward's events and commitments; a ward's event shows title, time and place but no check-ins, and links only if the viewer can already reach it; a ward's team event doesn't appear in the guardian's events list or calendar.
+- **Guardian commitments:** with the setting off, nothing changes. With it on, a guardian sees a ward's per-person commitment on the page, the profile tab, the sign-up hint and through MCP; a non-guardian relative and a former guardian don't.
 - **Query budget** (§6.3), as a measured check with the demo database, not a unit test.
 - **Phone:** system tests at 390 px for each of the top four tasks, completing the task through to saved data, with the flag on and with the skin on and off.
 - **Rollback:** flag off renders today's dashboard and sidebar.
@@ -238,7 +248,7 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 
 **Hooks.** No new models, so no catalog entries, and no new events. These screens read data and hand off to existing pages, whose hooks fire as usual.
 
-**MCP.** Nothing to add; the data is reachable through existing tools.
+**MCP.** Tools match the app. `feature/commitments-guardian-view` updates `commitment_progress` to the same rule as the page. `get_person` gains the ward's upcoming events for a guardian, with the same three fields, in a connector branch once the family page ships.
 
 **Sample data.** `fork/sample_data/features/my-gatherpack.rb` makes one Northwind guardian with two wards: one child with a form due and a shift to claim, one all caught up. It also adds a member clocked in with a commitment partly met, and a Forms creator who manages no team, so each state in §10 can be viewed. Connector branches add their records to their own files.
 
@@ -250,11 +260,10 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 4. **The home replaces the template, not the route.** `root_path` still works, and the flag restores the original.
 5. **Sections register themselves.** That keeps the core free of forms and sign-ups code, and is how a future feature gets a place on the home page.
 6. **Family is read and link, not a second way to act.** Actions open the existing page, so there's only one path for each, and one set of rules.
-7. **Permissions don't widen as a side effect** (§7.3).
+7. **Two deliberate additions for guardians, and no others** (§7.3). A ward's team events appear as title, time and place on the family page, with the event scope unchanged, because event pages list other children. A ward's per-person commitments appear behind a setting. Time clock punches stay out.
 8. **No personalization settings for the menu.** One well-chosen list beats several ways to arrange it.
 
 ## 13. Open questions
 
-1. **§7.3.** Should a guardian see their ward's team events, and their per-person commitments such as meeting hours? Default: no change. The mockup assumes yes.
-2. **Announcements on phones.** Are they in the tab bar's More, or only on Home? Default: both. Phase 0 can settle it.
-3. **Do members need People in the short list?** Default: More. Phase 0 can settle it.
+1. **Announcements on phones.** Are they in the tab bar's More, or only on Home? Default: both. Phase 0 can settle it.
+2. **Do members need People in the short list?** Default: More. Phase 0 can settle it.

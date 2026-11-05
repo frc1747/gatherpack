@@ -107,9 +107,9 @@ An override doesn't pick up later changes to its original. Feature branches can'
 
 - `fork/view-overrides.lock` on `hbr/platform` lists each override with the Git blob hash of its original, as of the last review.
 - `bin/fork-override-check`, run by `bin/fork-rebuild` after the merge, compares them and prints each changed original with its diff. A change is a warning to review, not a failure.
-- After a review, `bin/fork-override-check --accept <path>` updates the lock.
+- After a review, `bin/fork-override-check --ref origin/hbr/integration --accept <path>`, run in `platform/`, updates the lock.
 
-The script and the `fork-rebuild` change are fork tooling, so they need the owner's approval before they're added.
+This is built and on `hbr/platform` (`fork/STRATEGY.md`, "Replaced templates"). Each new override shows as "not reviewed yet" until it's accepted.
 
 ## 6. Skin stylesheet (`feature/modern-skin`)
 
@@ -311,7 +311,6 @@ The other Devise pages get the new layout without their own overrides. The Doork
 1. **The look.** `feature/view-overrides` and `feature/modern-skin`, with fixed palettes, color mode, sign-in and preview. Review on the staging copy in both modes and both widths (§10). Its review decides whether the look stands before anyone builds phase 2.
 2. **Coverage fixes.** Whatever the visual pass finds, including the audit of stored Pages and widgets.
 3. **The choices.** `feature/theme-palette`.
-4. **Override drift check.** `bin/fork-override-check`, which should be in place by the end of phase 1 if owner approval comes in time. It must exist before My GatherPack adds more overrides.
 
 ## 12. Decisions
 
