@@ -9,7 +9,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | ID | Title | Kind | Priority | Status | Added |
 |---|---|---|---|---|---|
 | [BL-001](BL-001-page-index-permissions.md) | Page list ignores the Viewer setting and leaks content previews | upstream bug (security) | high | waiting | 2026-10-03 |
-| [BL-002](BL-002-period-hours-date-bounds.md) | Period hours skip meetings near the period's last day | upstream bug | low | waiting | 2026-10-03 |
+| [BL-002](BL-002-period-hours-date-bounds.md) | Period hours skip meetings near the period's last day | upstream bug | low | started | 2026-10-03 |
 | [BL-003](BL-003-attendance-eligibility-badge.md) | Keep a travel-eligibility badge in sync with attendance | fork-only | medium | blocked | 2026-10-03 |
 | [BL-004](BL-004-version-in-sidebar.md) | Show the deployed version under "powered by GatherPack" | upstream feature | low | started | 2026-10-03 |
 | [BL-005](BL-005-event-delete-with-checkins.md) | Deleting an event that has check-ins crashes | upstream bug | medium | waiting | 2026-10-04 |
@@ -25,7 +25,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-016](BL-016-inline-code-blanked.md) | Inline code in Markdown shows up as an empty code editor | upstream bug | low | started | 2026-10-10 |
 | [BL-017](BL-017-event-time-tba-all-day.md) | Events with no known time: "Time TBA" and all-day events | upstream feature | low | waiting | 2026-10-11 |
 | [BL-018](BL-018-settings-and-hook-registries.md) | Let features register their own settings and hook events | upstream feature | medium | started | 2026-10-11 |
-| [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | waiting | 2026-10-11 |
+| [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | started | 2026-10-11 |
 | [BL-022](BL-022-guardianship-grants-hint.md) | Say what guardianship grants, where it's set | upstream feature | medium | waiting | 2026-10-13 |
 | [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | waiting | 2026-10-13 |
 | [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | waiting | 2026-10-13 |
@@ -33,6 +33,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-026](BL-026-organizer-placements-look-like-yours.md) | Placing someone as an organizer looks like signing up yourself | upstream feature | medium | waiting | 2026-10-29 |
 | [BL-027](BL-027-kiosk-period-clock-out-refused.md) | Kiosk "Clock Out" for one period silently does nothing for mentors | fork-only | medium | started | 2026-11-01 |
 | [BL-028](BL-028-members-edit-own-punches.md) | Members can enter and change their own time clock punches by hand | upstream bug | medium | waiting | 2026-11-04 |
+| [BL-029](BL-029-alert-flash-unstyled.md) | Error messages sent as `alert` show with no colour | upstream bug | low | waiting | 2026-11-04 |
+| [BL-030](BL-030-refused-delete-audit-row.md) | A refused delete still writes a "destroy" audit entry | upstream bug | low | waiting | 2026-11-04 |
 
 ## Fields
 

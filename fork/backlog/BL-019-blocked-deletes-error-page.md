@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/blocked-delete-message`, see `FORK.md`) |
 | Added | 2026-10-11 |
 | Upstream base checked | `86ab397` |
 | Planned branch | `feature/blocked-delete-message` (from `upstream/main`) |

@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/period-hours-date-bounds`, see `FORK.md`) |
 | Added | 2026-10-03 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/period-hours-date-bounds` |
