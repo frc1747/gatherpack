@@ -45,7 +45,7 @@ class SignupSheetsController < InternalController
     @positions = @signup_sheet.signup_positions.to_a
     @signups = Signup.where(signup_slot_id: @signup_sheet.signup_slots.select(:id))
       .joins(signup_slot: %i[ event signup_position ])
-      .includes(:person, :on_behalf_of, signup_slot: [ :event, { signup_position: :signup_position_rules } ])
+      .includes({ person: :user }, :on_behalf_of, :signed_up_by, signup_slot: [ :event, { signup_position: :signup_position_rules } ])
       .order("events.start_time", "signup_positions.position", "signups.created_at")
     @signups = @signups.where(signup_slots: { event_id: params[:event_id] }) if params[:event_id].present?
     @signups = @signups.where(signup_slots: { signup_position_id: params[:signup_position_id] }) if params[:signup_position_id].present?
@@ -111,11 +111,13 @@ class SignupSheetsController < InternalController
       @team_choices = Team.where(id: ids).order(:name).to_a
     end
 
-    # Sign-ups the person takes, made, or that are on their behalf.
+    # Sign-ups the person takes, made, or that are on their behalf. Placing
+    # someone from the roster doesn't count as making their sign-up.
     def signups_involving(signups, person)
       return signups.none if person.nil?
 
-      signups.where(person_id: person.id).or(signups.where(signed_up_by_id: person.id)).or(signups.where(on_behalf_of_id: person.id))
+      signups.where(person_id: person.id).or(signups.where(on_behalf_of_id: person.id))
+        .or(signups.where(signed_up_by_id: person.id, placed_by_organizer: false))
     end
 
     def signup_sheet_params
