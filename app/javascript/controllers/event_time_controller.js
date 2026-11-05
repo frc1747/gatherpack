@@ -34,10 +34,22 @@ export default class extends Controller {
     if (!date) return
 
     const start = this.startTarget.value
+    const end = this.endTarget.value
     this.startTarget.value = `${date}T${start.slice(11) || "00:00"}`
-    if (this.endTarget.value) {
-      this.endTarget.value = `${date}T${this.endTarget.value.slice(11)}`
+    if (start && end) {
+      this.endTarget.value = `${this.shiftDate(end.slice(0, 10), this.daysBetween(start.slice(0, 10), date))}T${end.slice(11)}`
     }
+  }
+
+  // Date-only strings parse as UTC, so daylight saving can't change the count.
+  daysBetween(from, to) {
+    return Math.round((Date.parse(to) - Date.parse(from)) / 86400000)
+  }
+
+  shiftDate(date, days) {
+    const shifted = new Date(date)
+    shifted.setUTCDate(shifted.getUTCDate() + days)
+    return shifted.toISOString().slice(0, 10)
   }
 
   get timed() {
