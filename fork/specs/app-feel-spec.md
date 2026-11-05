@@ -1,6 +1,8 @@
 # Spec: App feel
 
-Status: rev. 1, 2026-11-04. Not built. Pitch: [`09-app-feel.md`](../pitches/09-app-feel.md). Code facts checked against integration `762f902c` and `turbo-rails` 2.0.23. Decisions are in §11; open questions are in §12.
+Status: rev. 2, 2026-11-04. Not built. Pitch: [`09-app-feel.md`](../pitches/09-app-feel.md). Code facts checked against integration `762f902c` and `turbo-rails` 2.0.23. Decisions are in §11; open questions are in §12.
+
+Rev. 2: automatic reminders for forms coming due and for what people still owe are in scope (§8.8, decision 10).
 
 Independent of [`modern-skin-spec.md`](modern-skin-spec.md) and [`my-gatherpack-spec.md`](my-gatherpack-spec.md), and could ship first.
 
@@ -51,6 +53,8 @@ Record real use on a real phone and a desktop, against the staging copy: clickin
 | `feature/phone-notifications-forms` | core + `feature/forms` | Form reminders | Same flag | With forms |
 | `feature/phone-notifications-signups` | core + `feature/signups` | Shift reminders | Same flag | With sign-ups |
 | `feature/phone-notifications-commitments` | core + `feature/commitments` | Commitment emails | Same flag | With commitments |
+| `feature/forms-auto-reminders` | `feature/forms` | Reminder before a form's deadline (§8.8) | `feature_forms_auto_reminders`, off | With forms |
+| `feature/commitment-monthly-reminders` | `feature/commitments` | Monthly reminder of what's owed (§8.8) | `feature_commitment_monthly_reminders`, off | With commitments |
 
 Each ships separately. **`feature/turbo-frame-links` goes first:** it's the smallest change and it may be the largest improvement.
 
@@ -68,6 +72,7 @@ Each ships separately. **`feature/turbo-frame-links` goes first:** it's the smal
 | `app/views/pwa/service-worker.js` | installable-app | Renamed to `.js.erb`, real content |
 | `Gemfile`, `Gemfile.lock` | phone-notifications | `web-push` |
 | `config/routes.rb` | phone-notifications | Subscription and settings routes |
+| `config/recurring.yml` | the two reminder branches | One job each |
 
 ## 5. Smooth pages
 
@@ -253,7 +258,7 @@ Connector branches register their own, and the settings page lists whatever's re
 
 ### 8.5 What sends in the first version
 
-These attach to sends that exist today. Nothing new is scheduled.
+These attach to sends that exist today. §8.8 adds the two automatic ones.
 
 | Topic | Label | Source | When | Branch |
 |---|---|---|---|---|
@@ -264,7 +269,7 @@ These attach to sends that exist today. Nothing new is scheduled.
 
 Connectors `prepend` a small module on the service, with no edits to upstream or feature code beyond that. The announcement router sends to everyone on a team; since it may be many people, the jobs are queued as today's emails are.
 
-**The mockup shows more than this.** Its settings page says "A few days before the deadline" and "A reminder once a month", and neither exists as an automatic send, by email or otherwise. Phase 5 covers them if wanted. Until then, the page's labels match §8.5.
+The mockup's settings page says "A few days before the deadline" and "A reminder once a month". Those hints describe §8.8, and a hint appears only once its reminder branch is on. Until then, the labels match the table above.
 
 ### 8.6 Settings page
 
@@ -292,6 +297,29 @@ The browser's permission prompt appears only when someone turns on the first tog
 
 Controllers inherit `InternalController` and authorize against `current_user`'s own rows, in a new `PushSubscriptionPolicy`.
 
+### 8.8 Automatic reminders
+
+Neither of these exists today, by email or otherwise. They send **email first**, and a phone notification too for anyone who has opted in. They work without phone notifications, so they can ship before them. Each is off until a leader turns it on for a specific form or commitment, so turning on the flag sends nothing by itself.
+
+**Forms coming due** (`feature/forms-auto-reminders`)
+
+- One reversible migration on `forms`: `auto_reminder_days` (integer, not null, default 0, meaning none, the same convention as a sign-up sheet's `reminder_days`) and `auto_reminded_at` (datetime).
+- On the form's edit page, near the deadline: "Remind people who haven't answered [3] days before the deadline." New forms start at 3 and existing forms at 0, so an open form never starts sending because of a deploy. It's hidden when the form has no deadline.
+- Once set, the form page says who and when: "An automatic reminder goes out November 9 to people who haven't answered."
+- `FormAutoReminderJob`, hourly in `config/recurring.yml`, finds open forms inside their window with `auto_reminded_at` null and a deadline still ahead. It stamps `auto_reminded_at` under a row lock before sending, so a retry can't send twice. It does nothing while forms or the flag are off.
+- It sends through `FormReminderSender`, so wording, guardian rules and the `FormReminder` record match a manual send. `sent_by` is null, which the column allows, and the form's reminder history shows it as "Automatic". Guardian nudging follows the manual default (off on a form's first reminder, on after that). Guardians who must act are always included.
+- **Who still owes:** the manual path gets this from `FormReport`, which is built for one viewer. The job has no viewer, so the "not complete" list is extracted into something both can call, with a test that the two agree.
+- Moving the deadline later clears `auto_reminded_at`, so the new date gets its own reminder. Manual reminders don't affect it. Whoever sends one by hand a day earlier may want to set this to 0.
+
+**What people still owe** (`feature/commitment-monthly-reminders`)
+
+- One reversible migration on `commitments`: `monthly_reminder` (boolean, default false) and `monthly_reminded_on` (date).
+- On the commitment's edit page: "Remind people who still owe, once a month."
+- `CommitmentMonthlyReminderJob` runs at 9:00 AM on the 1st of each month. It covers running commitments with the box ticked and not yet stamped for this month, and stamps each one as it goes.
+- It sends **one email per person, however many commitments they owe**, listing each with what's left (`commitment_summary`) and a link to their commitments page. People who've met everything get nothing. Recipients are the same as the organizer's manual message (the open progress's `members`, with a login), so grouped commitments reach each member of the family.
+- Phone topic: `commitments`, one notification per person: "You still owe on 2 commitments", with no amounts on the lock screen.
+- It's skipped with no email gateway, and when the flag or feature is off. A missed month isn't made up later.
+
 ## 9. Phases
 
 0. **Reproduce and measure** (§3).
@@ -299,7 +327,7 @@ Controllers inherit `InternalController` and authorize against `current_user`'s 
 2. **Smooth pages** (§5.2–5.5). Start with the icon check; everything else depends on it.
 3. **Local assets** (§6) and **install** (§7), in either order. Test the off switch on real devices before any release.
 4. **Notifications** (§8) core and connectors. Pilot on the staging copy, with real phones, on both platforms, before production.
-5. **Automatic reminders, if wanted.** A `FormDueReminderJob`, and a monthly reminder of what's owed. These are new messages for email too, and need their own settings to avoid surprising anyone. Not started without a decision.
+5. **Automatic reminders** (§8.8). Independent of phases 1–4, so these can move earlier, since they help people with email alone.
 
 ## 10. Tests, hooks and sample data
 
@@ -312,13 +340,15 @@ Controllers inherit `InternalController` and authorize against `current_user`'s 
 - **PushChannel:** each "does nothing" case; job per subscription; 410 deletes the row; retries are limited; no gateway causes no error; the payload has only title and path; a non-local path is refused.
 - **Subscriptions:** sign-out deletes; sync never creates or moves; explicit opt-in moves; impersonation refused; another user's row can't be touched.
 - **Connectors:** each source sends one push per enabled recipient, and still sends its email when push fails.
+- **Form reminders:** sends once inside the window and not before; nothing for 0, no deadline, a closed form, or the flag off; a concurrent job doesn't double-send; a later deadline re-arms it; complete responses get nothing; the job's list matches the manual screen's; history shows "Automatic".
+- **Monthly reminders:** one email for someone owing three commitments; none for someone who has met them; an unticked or ended commitment is left out; a second run in the same month sends nothing.
 - **Lighthouse or Chrome DevTools** on the staging copy for installability and the §6 numbers, recorded before and after. A manual check, not CI.
 
-**Hooks.** `PushSubscription` and `PushPreference` don't include `CanBeHooked`: they're device plumbing, and a hook's `model` would expose keys to stored code. `Gateway::WebPushGateway` inherits the existing `gateways` hook. No new events. The reminders that trigger a push have their own hooks where they already exist.
+**Hooks.** `PushSubscription` and `PushPreference` don't include `CanBeHooked`: they're device plumbing, and a hook's `model` would expose keys to stored code. `Gateway::WebPushGateway` inherits the existing `gateways` hook. No new events. The reminders that trigger a push have their own hooks where they already exist. The two new jobs write no new models; a form reminder is recorded in `form_reminders` as today.
 
 **MCP.** No tools. Sending a push to people from an AI client adds nothing that `create_announcement` doesn't already cover.
 
-**Sample data.** `feature/smooth-pages`, `local-assets` and `turbo-frame-links` need nothing. `installable-app.rb` sets a Northwind short name. `phone-notifications.rb` creates the gateway and preferences for one person, but no subscription, as those only come from a real device.
+**Sample data.** `feature/smooth-pages`, `local-assets` and `turbo-frame-links` need nothing. `installable-app.rb` sets a Northwind short name. `phone-notifications.rb` creates the gateway and preferences for one person, but no subscription, as those only come from a real device. `forms-auto-reminders.rb` sets a Northwind form with a deadline next week to 3 days. `commitment-monthly-reminders.rb` ticks the box on one commitment.
 
 ## 11. Decisions
 
@@ -331,11 +361,10 @@ Controllers inherit `InternalController` and authorize against `current_user`'s 
 7. **The service worker caches only digested assets and the offline page,** and the off switch ships in the first version.
 8. **Push keys live in a Gateway, not server config.** Same place admins set up email, with no deploy or restart. This changes the pitch's first idea.
 9. **Push goes on top of email.** People choose topics. Permission is asked only after someone turns it on.
-10. **The first version adds no new reminders.** It delivers existing messages to a new place, so nobody gets more messages than today unless they opt in.
+10. **Automatic reminders are in scope, and opt-in per form and per commitment.** Decided 2026-11-04. They're email first, on their own branches, and nothing sends until a leader sets them. Existing open forms start off. Phone notifications themselves still reach only people who opt in.
 
 ## 12. Open questions
 
-1. **Automatic form-due and monthly "still owed" reminders (Phase 5).** Wanted? The mockup implies yes. Default: not in the first version.
-2. **Announcements default.** Default: off once someone opts in, as in the mockup, since a whole-team announcement can reach many people.
-3. **Do minors get phone notifications on the same terms?** They opt in themselves, as adults do, and payloads carry no personal details. Default: yes.
-4. **Which phones to test on.** Needs at least one real iPhone (iOS 16.4 or later, installed) and one Android phone.
+1. **Announcements default.** Default: off once someone opts in, as in the mockup, since a whole-team announcement can reach many people.
+2. **Do minors get phone notifications on the same terms?** They opt in themselves, as adults do, and payloads carry no personal details. Default: yes.
+3. **Which phones to test on.** Needs at least one real iPhone (iOS 16.4 or later, installed) and one Android phone.
