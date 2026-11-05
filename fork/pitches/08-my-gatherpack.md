@@ -10,6 +10,23 @@ for their children, and the most common tasks work well on a phone. Data
 and permissions don't change, because these screens rearrange what
 GatherPack already knows.
 
+## What it might look like
+
+These are concept mockups with made-up people and sample data, drawn to
+show the idea. They aren't built screens or a final design, and the
+research in the first step below could change them.
+
+**Member home on a computer.** What to do comes first, followed by what's
+coming up and progress for the season. The menu is short, and Manage appears
+only for someone who manages something.
+
+![Concept mockup of a member's home page on a computer](images/08-home-desktop.png)
+
+**On a phone.** A member's home in light mode, and a guardian's family view
+in dark mode.
+
+![Concept mockups of a member's home and a guardian's family view on phones](images/08-phones.png)
+
 ## Problem
 
 Most screens are built for the person managing the records. Members and
