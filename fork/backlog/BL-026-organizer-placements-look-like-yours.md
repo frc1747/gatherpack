@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | waiting |
+| Status | started (sheet part on `feature/signups` `9274b2f2`; dashboard card and notice mails still to do) |
 | Added | 2026-10-29 |
 | Upstream commit checked | `3fa5700` (`upstream/main`); code is on `feature/signups` `8f79447` and `feature/signups-widget` `8432bc6` |
 | Planned branch | `feature/signups` (lists and wording); `feature/signups-widget` picks the change up for the dashboard card |
@@ -31,6 +31,12 @@ The data model is fine: `person`, `signed_up_by` and `on_behalf_of` already sepa
 4. **Optional:** after an admin adds someone, the flash could add "It's on their dashboard, not yours," the first time or every time.
 
 Per rule 10, the list change in step 1 changes behaviour. Decided 2026-11-05: it sits behind the existing `feature_signups` flag (no new flag).
+
+## Left after the sheet part (2026-11-05)
+
+- **Dashboard card** (`feature/signups-widget`, `SignupsSummary#all_signups`): same split; leave out roster placements. MCP `person_signups` / `get_signup_sheet` use their own queries too.
+- **Notice mails:** `SignupNotices#recipients` (`app/services/signup_notices.rb:121`) still includes `signed_up_by`, so an organizer who places 30 students gets their confirmations and reminders. Leave the organizer out when `placed_by_organizer`.
+- **Guardian who is also an organizer:** placing their own child from the roster takes it off their list (the flag records where it was made). Accepted; they can use the member dialog instead.
 
 ## Testing
 
