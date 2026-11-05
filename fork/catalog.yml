@@ -408,3 +408,19 @@ feature/event-time-display:
     announced. Event pages, team pages and the calendar show it that way
     instead of a made-up time.
   audience: Event organizers and everyone reading the calendar
+
+feature/person-team-ids:
+  title: Team lists that add up
+  emoji: "🧮"
+  description: >-
+    Fixes a behind-the-scenes mix-up in how a person's teams are listed, so
+    checks like "is this person on that team?" give the right answer.
+  audience: Admins
+
+feature/profile-all-teams:
+  title: See all of someone's teams
+  emoji: "🪪"
+  description: >-
+    A member's profile now lists every team they're on. Teams you can't open
+    show without a link.
+  audience: Everyone
