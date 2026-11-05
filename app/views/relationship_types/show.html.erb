@@ -6,6 +6,9 @@
   </div>
   <div class="card-body">
     <p><b>Guardianship:</b> <%= RelationshipType::GUARDIANSHIP_LABELS[@relationship_type.guardianship] %></p>
+    <% if @relationship_type.guardianship? %>
+      <div class="form-text mb-3"><%= render "guardian_grants" %></div>
+    <% end %>
     <table class="table table-striped">
       <thead>
         <tr>
