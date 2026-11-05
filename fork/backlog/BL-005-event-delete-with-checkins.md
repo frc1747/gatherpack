@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | waiting |
+| Status | started (`feature/event-destroy-checkins`, see `FORK.md`) |
 | Added | 2026-10-04 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/event-destroy-checkins` |
