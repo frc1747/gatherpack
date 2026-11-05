@@ -83,27 +83,15 @@ class SignupCheckinTest < ActiveSupport::TestCase
     Thread.current[:signup_hooks] = nil
   end
 
-  test "deleting a check-in puts the sign-ups it fulfilled back to active" do
+  test "checking out (deleting the check-in) leaves the sign-ups it fulfilled fulfilled" do
     signup = create_world_signup(@cashier, :student)
-    pie = create_world_signup(@dessert, :student, quantity: 1, status: :fulfilled)
     checkin = Checkin.create!(person: person(:student), event: @event)
     assert signup.reload.fulfilled?
 
     checkin.destroy!
 
-    assert signup.reload.active?
-    assert pie.reload.fulfilled?, "item sign-ups aren't touched by check-ins"
-  end
-
-  test "deleting a check-in leaves a sign-up an organizer marked fulfilled" do
-    marked_before = create_world_signup(@cashier, :student)
-    marked_before.update!(status: :fulfilled)
-    checkin = Checkin.create!(person: person(:student), event: @event)
-    assert_nil marked_before.reload.fulfilled_by_checkin_id
-
-    checkin.destroy!
-
-    assert marked_before.reload.fulfilled?
+    assert signup.reload.fulfilled?
+    assert_equal checkin.id, signup.fulfilled_by_checkin_id
   end
 
   test "an organizer re-marking a check-in's fulfilment makes it theirs" do
@@ -114,8 +102,15 @@ class SignupCheckinTest < ActiveSupport::TestCase
     signup.update!(status: :no_show)
     signup.update!(status: :fulfilled)
     assert_nil signup.fulfilled_by_checkin_id
+  end
 
-    checkin.destroy!
-    assert signup.reload.fulfilled?
+  test "an organizer undoes a mis-tapped check-in's fulfilment from the roster" do
+    signup = create_world_signup(@cashier, :student)
+    Checkin.create!(person: person(:student), event: @event)
+
+    signup.reload.update!(status: :active)
+
+    assert signup.active?
+    assert_nil signup.fulfilled_by_checkin_id
   end
 end

@@ -4,7 +4,7 @@
 # registrations come back after a development reload:
 #
 #   Rails.application.config.to_prepare do
-#     # Rendered under My sign-ups on the sheet page, with the locals
+#     # Rendered under the viewer's places on the sheet page, with the locals
 #     # signup_sheet: and viewer:. The partial may render nothing.
 #     Signups.extensions.register_sheet_panel(:my_feature, partial: "my_feature/sheet_panel")
 #
