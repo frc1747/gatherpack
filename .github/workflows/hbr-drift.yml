@@ -30,7 +30,21 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh label create hbr-drift --color B60205 --description "Upstream drift broke the fork rebuild" 2>/dev/null || true
-          body="The upstream drift check failed: ${RUN_URL}"
+          # Upstream's own CI comes first: when upstream main is red, triage
+          # starts on plain upstream/main (fork/STRATEGY.md, "When upstream is broken").
+          upstream=$(gh run list -R GatherPack/gatherpack --branch main --event push --limit 1 \
+            --json conclusion,status,headSha,displayTitle,url \
+            --jq '.[0] | "\(.conclusion // .status)|\(.headSha[0:7])|\(.displayTitle)|\(.url)"' 2>/dev/null || true)
+          IFS='|' read -r conclusion sha title url <<< "${upstream}"
+          case "${conclusion}" in
+            success) status_line="Upstream \`main\` at \`${sha}\` is green in its own CI (${url}), so the break is likely ours." ;;
+            "") status_line="Couldn't read upstream's CI status." ;;
+            queued|in_progress|waiting|pending|requested) status_line="Upstream \`main\` at \`${sha}\` is still running its own CI (${url})." ;;
+            *) status_line="**Upstream \`main\` at \`${sha}\` (${title}) is red in its own CI (${conclusion})** (${url}). Reproduce on plain \`upstream/main\` first." ;;
+          esac
+          body="${status_line}
+
+          The upstream drift check failed: ${RUN_URL}"
           issue=$(gh issue list --label hbr-drift --state open --json number --jq '.[0].number')
           if [ -n "${issue}" ]; then
             gh issue comment "${issue}" --body "${body}"
