@@ -105,6 +105,12 @@ class PersonField < ApplicationRecord
     GatherPack::Features.enabled?(:person_fields) ? active : active.system
   end
 
+  # The fields a relationship type's "Show contact details" reveals. Archived
+  # ones and ones hidden from profiles stay hidden, as they do on the profile.
+  def self.contact_details
+    active.where(show_on_profile: true, system_source: %w[ phone_number user.email ]).ordered
+  end
+
   def self.ransackable_attributes(auth_object = nil)
     [ "name", "key", "updated_at" ]
   end

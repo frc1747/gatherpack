@@ -122,6 +122,54 @@ class RelationshipTypesControllerTest < ActionDispatch::IntegrationTest
     assert_select "[data-controller='guardianship-confirm']", count: 0
   end
 
+  test "an admin can set a type to show contact details" do
+    type = relationship_types(:one)
+
+    get edit_relationship_type_path(type)
+    assert_select "label", text: "Show contact details"
+    assert_select "input[type=checkbox][name='relationship_type[show_contact_details]']"
+    assert_select ".form-text", text: RelationshipType::SHOW_CONTACT_DETAILS_HINT
+
+    patch relationship_type_path(type), params: { relationship_type: { show_contact_details: "1" } }
+    assert_redirected_to relationship_type_path(type)
+    assert type.reload.show_contact_details?
+  end
+
+  test "the show page states it only for a type that shows contact details" do
+    type = relationship_types(:one)
+
+    get relationship_type_path(type)
+    assert_select ".form-text", text: RelationshipType::SHOW_CONTACT_DETAILS_HINT, count: 0
+
+    type.update!(show_contact_details: true)
+
+    get relationship_type_path(type)
+    assert_select "p", text: "Show contact details: Yes"
+    assert_select ".form-text", text: RelationshipType::SHOW_CONTACT_DETAILS_HINT
+  end
+
+  test "editing a type with relationships carries the contact details confirmation until it's on" do
+    type = relationship_types(:one)
+
+    get edit_relationship_type_path(type)
+    assert_select ".form-inputs[data-guardianship-confirm-contact-details-message-value=?]", type.contact_details_change_confirmation
+    assert_select "input[type=checkbox][data-guardianship-confirm-target='contactDetails']"
+
+    type.update!(show_contact_details: true)
+
+    get edit_relationship_type_path(type)
+    assert_select ".form-inputs[data-guardianship-confirm-contact-details-message-value]", count: 0
+  end
+
+  test "a member-added type can't be set to show contact details" do
+    type = relationship_types(:one)
+
+    patch relationship_type_path(type), params: { relationship_type: { show_contact_details: "1", permission: "added_by_user" } }
+
+    assert_response :unprocessable_entity
+    assert_not type.reload.show_contact_details?
+  end
+
   private
 
   def preserving_guardian_grants

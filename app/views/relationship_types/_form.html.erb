@@ -2,11 +2,13 @@
 <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
 <% confirmation = f.object.guardianship_change_confirmation %>
-<%= tag.div class: "form-inputs", data: (confirmation ? { controller: "guardianship-confirm", guardianship_confirm_saved_value: f.object.guardianship_saved?, guardianship_confirm_message_value: confirmation } : {}) do %>
+<%= tag.div class: "form-inputs", data: (confirmation ? { controller: "guardianship-confirm", guardianship_confirm_saved_value: f.object.guardianship_saved?, guardianship_confirm_message_value: confirmation, guardianship_confirm_contact_details_message_value: f.object.contact_details_change_confirmation } : {}) do %>
   <%= f.input :parent_label %>
   <%= f.input :child_label %>
   <%= f.input :permission, as: :select, collection: RelationshipType.permissions.keys, label_method: :titleize, include_blank: false %>
   <%= f.input :guardianship, as: :select, collection: RelationshipType::GUARDIANSHIP_LABELS.invert, include_blank: false,
         hint: render("guardian_grants"),
         input_html: { data: { guardianship_confirm_target: "select", action: "change->guardianship-confirm#update" } } %>
+  <%= f.input :show_contact_details, label: "Show contact details", hint: RelationshipType::SHOW_CONTACT_DETAILS_HINT,
+        input_html: { data: { guardianship_confirm_target: "contactDetails", action: "change->guardianship-confirm#update" } } %>
 <% end %>

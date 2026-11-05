@@ -65,6 +65,51 @@ class GuardianshipConfirmTest < ApplicationSystemTestCase
     assert_equal "Mentor of", type.reload.parent_label
   end
 
+  test "turning on contact details for a type with relationships asks first, turning it off doesn't" do
+    type = relationship_types(:one)
+    question = "This shows the phone and email of the parent side of 1 relationship to anyone who can see the child. Check them first if members could ever add this type."
+    visit edit_relationship_type_path(type)
+    check "Show contact details"
+
+    assert_equal question, dismiss_confirm { click_on "Update Relationship type" }
+    assert_not type.reload.show_contact_details?
+
+    assert_equal question, accept_confirm { click_on "Update Relationship type" }
+    assert_text "Relationship type was successfully updated."
+    assert type.reload.show_contact_details?
+
+    visit edit_relationship_type_path(type)
+    uncheck "Show contact details"
+    click_on "Update Relationship type"
+    assert_text "Relationship type was successfully updated."
+    assert_not type.reload.show_contact_details?
+  end
+
+  test "ticking contact details and changing guardianship asks about both" do
+    type = relationship_types(:one)
+    visit edit_relationship_type_path(type)
+    select "Guardian while the child is a minor", from: "Guardianship"
+    check "Show contact details"
+
+    message = dismiss_confirm { click_on "Update Relationship type" }
+
+    assert_includes message, "This makes the parent side of 1 relationship a guardian."
+    assert_includes message, "This shows the phone and email"
+  end
+
+  test "unticking contact details again removes the question" do
+    type = relationship_types(:one)
+    visit edit_relationship_type_path(type)
+    check "Show contact details"
+    uncheck "Show contact details"
+    fill_in "Parent label", with: "Mentor of"
+
+    click_on "Update Relationship type"
+
+    assert_text "Relationship type was successfully updated."
+    assert_equal "Mentor of", type.reload.parent_label
+  end
+
   test "a new type doesn't ask" do
     visit new_relationship_type_path
     fill_in "Parent label", with: "Parent of"

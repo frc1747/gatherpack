@@ -36,6 +36,12 @@ class Relationship < ApplicationRecord
     Settings[:guardianship_ends_without_birthday] == true
   end
 
+  # Whether this person's page shows the other side's contact details: only the
+  # child's page, so the contact side never exposes the child's own details.
+  def shows_contact_details_on?(person)
+    relationship_type.show_contact_details? && child_id == person.id
+  end
+
   def reify
     raise ArgumentError unless start_node.present? && node_occupant.present?
 
