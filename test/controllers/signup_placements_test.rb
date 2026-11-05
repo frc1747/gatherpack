@@ -4,6 +4,7 @@ require_relative "../support/signups_world"
 # Whose list a sign-up lands in, and what Cancel asks. worker runs the sheet;
 # parent can sign up student from the member dialog.
 class SignupPlacementsTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
   include Devise::Test::IntegrationHelpers
   include SignupsWorld
 
@@ -130,7 +131,31 @@ class SignupPlacementsTest < ActionDispatch::IntegrationTest
 
     get signup_sheet_path(@sheet)
     assert_select "#your_places button[data-turbo-confirm=?]", "Cancel this sign-up?", text: "Cancel"
-    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Snack Stand?", text: "Cancel"
+    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Game Day?", text: "Cancel"
+  end
+
+  test "Cancel gives the date when the sheet has more than one, so same-named events differ" do
+    second = create_world_event("Game Day", Time.zone.parse("2026-10-31 10:00"))
+    @sheet.signup_sheet_events.create!(event: second)
+    first_place = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:parent))
+    second_place = Signup.place!(slot: slot_for(@cashier, second), person: person(:student), signed_up_by: person(:parent))
+    sign_in person(:parent).user
+
+    get signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(first_place)} button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Game Day, Sat Oct 24?"
+    assert_select "##{ActionView::RecordIdentifier.dom_id(second_place)} button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Game Day, Sat Oct 31?"
+  end
+
+  test "a taker with no first name is called by their display name when cancelling" do
+    taker = Person.create!(display_name: "Mononym")
+    signup = Signup.create!(signup_slot: @slot, person: taker, signed_up_by: person(:parent))
+    sign_in person(:parent).user
+
+    get signup_sheet_path(@sheet)
+    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Mononym's place in Cashier, Game Day?"
+
+    delete signup_sheet_signup_path(@sheet, signup)
+    assert_equal "Mononym's place was cancelled.", flash[:notice]
   end
 
   test "cancelling from the member list says whose place it was" do
@@ -148,15 +173,30 @@ class SignupPlacementsTest < ActionDispatch::IntegrationTest
     assert_equal "Your sign-up was cancelled.", flash[:notice]
   end
 
-  test "the roster's Cancel names the taker and says they'll be told, as they are" do
+  test "the roster's Cancel says the taker will be told when a gateway can email them, as it does" do
+    Gateway::SmtpSendingGateway.create!(sender: "sheets@example.com")
     signup = place_from_roster(:student)
 
     get roster_signup_sheet_path(@sheet)
     assert_select "##{ActionView::RecordIdentifier.dom_id(signup)} button[data-turbo-confirm=?]",
-      "Cancel Student's place in Cashier, Snack Stand? They'll be told.", text: "Cancel"
+      "Cancel Student's place in Cashier, Game Day? They'll be told.", text: "Cancel"
+
+    clear_enqueued_jobs
+    delete signup_sheet_roster_signup_path(@sheet, signup)
+    assert_includes enqueued_email_addresses, email_of(:student)
+  end
+
+  test "the roster's Cancel doesn't claim to tell anyone with no email gateway" do
+    assert_not Gateway.any_registered?(:email_sending)
+    signup = place_from_roster(:student)
+
+    get roster_signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(signup)} button[data-turbo-confirm=?]",
+      "Cancel Student's place in Cashier, Game Day?", text: "Cancel"
   end
 
   test "the roster's Cancel doesn't claim to tell a taker with no email address" do
+    Gateway::SmtpSendingGateway.create!(sender: "sheets@example.com")
     taker = Person.create!(first_name: "Noemail", last_name: "World")
     Membership.create!(person: taker, team: @students)
     signup = Signup.place!(slot: @slot, person: taker, signed_up_by: person(:worker), placed_by_organizer: true)
@@ -164,7 +204,7 @@ class SignupPlacementsTest < ActionDispatch::IntegrationTest
 
     get roster_signup_sheet_path(@sheet)
     assert_select "##{ActionView::RecordIdentifier.dom_id(signup)} button[data-turbo-confirm=?]",
-      "Cancel Noemail's place in Cashier, Snack Stand?", text: "Cancel"
+      "Cancel Noemail's place in Cashier, Game Day?", text: "Cancel"
   end
 
   test "an organizer's own place keeps the plain question on the roster" do

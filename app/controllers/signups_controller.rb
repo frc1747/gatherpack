@@ -67,7 +67,7 @@ class SignupsController < InternalController
   # Cancels the sign-up; it stays on the roster as cancelled.
   def destroy
     @signup.cancel!
-    notice = @signup.person_id == signer&.id ? "Your sign-up was cancelled." : "#{@signup.person.first_name}'s place was cancelled."
+    notice = @signup.person_id == signer&.id ? "Your sign-up was cancelled." : "#{helpers.signup_taker_name(@signup)}'s place was cancelled."
     redirect_to signup_sheet_path(@signup_sheet), notice: notice, status: :see_other
   end
 
