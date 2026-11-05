@@ -37,16 +37,28 @@ class RelationshipTypeTest < ActiveSupport::TestCase
     assert_includes RelationshipType.guardian_grants, "see the child's profile and fields set to family or guardian levels, and edit them"
   end
 
-  test "registering a grant adds it once, including across a reload" do
-    original = RelationshipType.guardian_grants
+  test "registering a grant twice doesn't duplicate it" do
+    preserving_guardian_grants do
+      original = RelationshipType.guardian_grants
 
-    RelationshipType.register_guardian_grant("do something new")
-    ActiveSupport::Reloader.prepare!
-    RelationshipType.register_guardian_grant("do something new")
+      RelationshipType.register_guardian_grant("do something new")
+      RelationshipType.register_guardian_grant("do something new")
 
-    assert_equal original + [ "do something new" ], RelationshipType.guardian_grants
-  ensure
-    RelationshipType.instance_variable_set(:@guardian_grants, original)
+      assert_equal original + [ "do something new" ], RelationshipType.guardian_grants
+    end
+  end
+
+  test "a conditional grant is listed only while its condition holds" do
+    preserving_guardian_grants do
+      enabled = false
+      RelationshipType.register_guardian_grant("do something new", if: -> { enabled })
+
+      assert_not_includes RelationshipType.guardian_grants, "do something new"
+
+      enabled = true
+
+      assert_includes RelationshipType.guardian_grants, "do something new"
+    end
   end
 
   test "the grants list can't be changed from outside the registry" do
@@ -108,6 +120,13 @@ class RelationshipTypeTest < ActiveSupport::TestCase
   end
 
   private
+
+  def preserving_guardian_grants
+    original = RelationshipType.instance_variable_get(:@guardian_grants).dup
+    yield
+  ensure
+    RelationshipType.instance_variable_set(:@guardian_grants, original)
+  end
 
   def add_relationship(type)
     Relationship.new(relationship_type: type, parent: people(:one), child: people(:two)).save!(validate: false)

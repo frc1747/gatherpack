@@ -372,7 +372,8 @@ and only from the parent side to the child side.
 The type's form, and its show page when flagged, list what a guardian can do
 from `RelationshipType.guardian_grants`. A feature that gives guardians more
 adds its own line with `RelationshipType.register_guardian_grant` in
-`config.to_prepare`, without editing the views. Changing a type with
+`config.to_prepare`, without editing the views, and can pass `if:` to list it
+only while a condition holds. Changing a type with
 relationships to or from `none` asks for confirmation, naming the count.
 
 #### Who can create guardianship relationships

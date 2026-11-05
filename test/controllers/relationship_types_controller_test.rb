@@ -42,18 +42,32 @@ class RelationshipTypesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the form and show page list a line a feature registers" do
-    original = RelationshipType.guardian_grants
-    RelationshipType.register_guardian_grant("do something new")
-    type = relationship_types(:one)
-    type.update!(guardianship: :minor)
+    preserving_guardian_grants do
+      RelationshipType.register_guardian_grant("do something new")
+      type = relationship_types(:one)
+      type.update!(guardianship: :minor)
 
-    get edit_relationship_type_path(type)
-    assert_select ".form-text li", text: "do something new"
+      get edit_relationship_type_path(type)
+      assert_select ".form-text li", text: "do something new"
 
-    get relationship_type_path(type)
-    assert_select ".form-text li", text: "do something new"
-  ensure
-    RelationshipType.instance_variable_set(:@guardian_grants, original)
+      get relationship_type_path(type)
+      assert_select ".form-text li", text: "do something new"
+    end
+  end
+
+  test "the form follows a conditional line's condition" do
+    preserving_guardian_grants do
+      enabled = false
+      RelationshipType.register_guardian_grant("do something new", if: -> { enabled })
+
+      get new_relationship_type_path
+      assert_select ".form-text li", text: "do something new", count: 0
+
+      enabled = true
+
+      get new_relationship_type_path
+      assert_select ".form-text li", text: "do something new"
+    end
   end
 
   test "the show page lists what guardians can do only for a flagged type" do
@@ -109,6 +123,13 @@ class RelationshipTypesControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def preserving_guardian_grants
+    original = RelationshipType.instance_variable_get(:@guardian_grants).dup
+    yield
+  ensure
+    RelationshipType.instance_variable_set(:@guardian_grants, original)
+  end
 
   def assert_guardian_grants_listed
     assert_select ".form-text p", text: "Guardians can:"

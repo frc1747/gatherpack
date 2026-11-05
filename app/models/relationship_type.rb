@@ -15,17 +15,18 @@ class RelationshipType < ApplicationRecord
   # What a guardian can do, listed wherever guardianship is set. A feature that
   # gives guardians more calls RelationshipType.register_guardian_grant("...")
   # inside config.to_prepare, so its line returns after a code reload; a line
-  # that's already registered is ignored.
-  @guardian_grants = [ "see the child's profile and fields set to family or guardian levels, and edit them" ]
+  # that's already registered is ignored. Pass if: -> { ... } to list a line only
+  # while the condition holds; it's checked each time guardian_grants is read.
+  @guardian_grants = { "see the child's profile and fields set to family or guardian levels, and edit them" => nil }
 
   validate :guardianship_requires_restricted_permission
 
   def self.guardian_grants
-    @guardian_grants.dup
+    @guardian_grants.select { |_text, condition| condition.nil? || condition.call }.keys
   end
 
-  def self.register_guardian_grant(text)
-    @guardian_grants |= [ text ]
+  def self.register_guardian_grant(text, if: nil)
+    @guardian_grants[text] = binding.local_variable_get(:if) unless @guardian_grants.key?(text)
   end
 
   def self.guardianship_configured?
