@@ -35,3 +35,5 @@ feature/event-destroy-checkins
 feature/event-type-checkin-fields
 feature/refused-delete-audit
 feature/event-time-display
+feature/person-team-ids
+feature/profile-all-teams

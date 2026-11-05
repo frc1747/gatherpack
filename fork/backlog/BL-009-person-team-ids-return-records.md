@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug (latent: no wrong behaviour in upstream today) |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/person-team-ids`, see `FORK.md`) |
 | Added | 2026-10-06 |
 | Upstream checked | `upstream/main` at `32e8023` |
 | Planned branch | none yet; a tiny `feature/person-team-ids` if we offer it upstream |

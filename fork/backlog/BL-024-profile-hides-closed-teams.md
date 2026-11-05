@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/profile-all-teams`, see `FORK.md`) |
 | Added | 2026-10-13 |
 | Upstream commit checked | `86ab397` (`upstream/main`) |
 | Planned branch | `feature/profile-all-teams` (from `upstream/main`) |
@@ -28,7 +28,7 @@ Decided with Corey (2026-10-13): we can explain this and it isn't urgent. Park i
 
 - The hiding doesn't protect much. `ApplicationPolicy#show?` is `true`, so anyone can open a closed team's public page (`TeamsController#show` renders `show_public` for non-members). Only the full page with the member list is restricted (`TeamPolicy#show_full?`, `app/policies/team_policy.rb:33`).
 - Members can already browse the whole directory. The only thing hidden is which closed teams each person is in.
-- One thing to check first: a closed team whose *name* is sensitive (medical, financial aid, discipline). Look at prod team names (names only, nothing else) before shipping. If there are any, see the alternative below.
+- Checked 2026-11-05: no prod team name is sensitive. The check was for a closed team whose *name* is sensitive (medical, financial aid, discipline). Look at prod team names (names only, nothing else) before shipping. If there are any, see the alternative below.
 
 ## Workaround we're not using
 
@@ -38,7 +38,7 @@ Changing a team's join permission to `has_account` or `requires_approval` makes 
 
 Change only the profile. Leave `TeamPolicy::Scope` alone: search (`search_controller.rb:43`), the index filters (`announcements`, `calendar`, `events`, `time_clock_periods`) and `MembershipsController#set_team` (`memberships_controller.rb:99`) all depend on it, and they should keep showing only the teams you can see or join.
 
-- In `PeopleController#show`, list all of `@person.all_ancestor_teams` for anyone who can view the person, without `policy_scope`. Badge links still go to `teams#show`, which already falls back to `show_public`.
+- In `PeopleController#show`, list all of `@person.all_ancestor_teams` for anyone who can view the person, without `policy_scope`. Link a badge only when the viewer can open the team: `teams#show` finds the team through `policy_scope(Team)` (`set_team`), so a closed team outside the viewer's scope is refused, not shown as `show_public` (corrected 2026-11-05).
 - Alternative, if some team names must stay hidden: add a team-level "Show on profiles" setting (new column on `teams`, default on) and filter on it there. This is bigger. Only do it if the prod check turns up such a team.
 
 ## Tests
