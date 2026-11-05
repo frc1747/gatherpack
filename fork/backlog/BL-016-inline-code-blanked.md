@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (fixed by `2436784e` "Keep inline code values visible" on `feature/oauth-admin-fixes`; see `FORK.md`) |
 | Added | 2026-10-10 |
 | Upstream base checked | `86ab397` |
-| Planned branch | `feature/inline-code-display` (from `upstream/main`) |
+| Branch | `feature/oauth-admin-fixes` (no separate branch) |
 | Upstream issue / PR | none yet |
 
 ## Summary
