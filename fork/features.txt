@@ -29,3 +29,5 @@ feature/oauth-admin-fixes
 feature/seeds-membership-order
 feature/period-hours-date-bounds
 feature/blocked-delete-message
+feature/kiosk-period-less-punches
+feature/alert-flash-style

@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/alert-flash-style`, see `FORK.md`) |
 | Added | 2026-11-04 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
-| Planned branch | `feature/alert-flash-style` (from `upstream/main`) |
+| Branch | `feature/alert-flash-style` (from `upstream/main`) |
 | Upstream issue / PR | none |
 
 ## Summary
@@ -23,7 +23,7 @@ Found 2026-11-04 in review of `feature/blocked-delete-message` (BL-019), whose r
 
 ## Proposed fix
 
-Map `alert` to `danger` in `flash_to_class`, next to `notice`. Check the Devise sign-in page renders the same way (its layout is `layouts/devise.html.erb`); if it calls the same helper, failed sign-ins turn red as well, which is the intent.
+Map `alert` to `danger` in `flash_to_class`, next to `notice`, and give it the `danger` icon in `flash_to_icon`. The Devise layout (`layouts/devise.html.erb`) doesn't use the helper (it hard-codes `alert-secondary`), so failed sign-ins look the same; changing that is a separate choice.
 
 ## Hooks
 
