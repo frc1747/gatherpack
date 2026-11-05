@@ -338,3 +338,21 @@ feature/seeds-membership-order:
     the starter records, so the app and its background worker come up on the
     first try.
   audience: Whoever installs or rebuilds GatherPack
+
+feature/period-hours-date-bounds:
+  title: Period hours include the last day's meetings
+  emoji: "⏱️"
+  description: >-
+    A time period's meeting hours now count meetings on its first and last
+    days, including evening meetings, so attendance percentages near the
+    period's ends are right.
+  audience: Mentors and team managers
+
+feature/blocked-delete-message:
+  title: A delete that can't happen says why
+  emoji: "🛑"
+  description: >-
+    Deleting something other records still depend on, such as an event with
+    check-ins, now goes back with a message saying it can't be deleted yet,
+    instead of an error page.
+  audience: Admins and team managers
