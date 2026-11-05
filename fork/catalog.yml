@@ -433,3 +433,12 @@ feature/event-type-change-answers:
     away. Answers to the old type's questions are kept out of sight, so
     switching back brings them back.
   audience: Managers
+
+feature/hook-catalog-models:
+  title: Hooks can run on every kind of record
+  emoji: "🪝"
+  description: >-
+    The Hooks page offers events for every kind of record that can trigger a
+    hook, including time clock punches, membership applications and mailbox
+    messages, which it couldn't before.
+  audience: Architects
