@@ -143,6 +143,17 @@ class Mcp::Tools::GetSignupSheetTest < ActiveSupport::TestCase
     assert_empty get(:alpha_manager).value["my_signups"]
   end
 
+  test "a place an organizer added from the roster is the member's, not the organizer's" do
+    placed = create_signup(@cookies, :alpha_plain, @cleanup, signed_up_by: person(:organizer), on_behalf_of: person(:alpha_plain), placed_by_organizer: true)
+    by_dialog = create_signup(@cookies, :alpha_member, @cleanup, signed_up_by: person(:organizer), on_behalf_of: person(:alpha_member))
+    ids = ->(viewer) { get(viewer).value["my_signups"].map { |signup| signup["id"] } }
+
+    assert_not_includes ids.(:organizer), placed.neat_id
+    assert_includes ids.(:alpha_plain), placed.neat_id
+    assert_includes ids.(:organizer), by_dialog.neat_id
+    assert_includes ids.(:alpha_member), by_dialog.neat_id
+  end
+
   test "sign-ups in a slot are capped" do
     value = get(:admin, from: "2026-03-14", limit: 1).value
     cashier = slot(value, "Bake Day", "Cashier")
