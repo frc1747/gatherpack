@@ -51,7 +51,7 @@ class Event < ApplicationRecord
   def update_checkins
     return unless saved_change_to_event_type_id?
 
-    field_ids = event_type.checkin_fields.map(&:id)
+    field_ids = event_type.checkin_fields.ids
     checkins.each do |checkin|
       # Blank responses for the old type's fields hold no answer and would only
       # block deleting those fields; answered ones are kept (see Checkin).
@@ -61,5 +61,8 @@ class Event < ApplicationRecord
       checkin.checkin_field_responses.reset
       checkin.refresh_fields
     end
+    # Don't keep the field list loaded here, so a later check-in on this same
+    # event still sees fields added to the type afterwards.
+    event_type.checkin_fields.reset
   end
 end

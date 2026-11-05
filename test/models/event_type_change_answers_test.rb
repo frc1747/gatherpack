@@ -82,4 +82,15 @@ class EventTypeChangeAnswersTest < ActiveSupport::TestCase
     assert_not CheckinFieldResponse.exists?(checkin_field: linked)
     assert @checkin.checkin_field_responses.exists?(checkin_field: @new_field)
   end
+
+  test "fields added to the new type after the change still reach a new check-in" do
+    event = Event.find(@event.id)
+    later_type = EventType.create!(name: "Later fields")
+    event.update!(event_type: later_type)
+    field = CheckinField.create!(event_type: later_type, name: "Added later", permission: :added_by_user)
+
+    checkin = Checkin.create!(person: Person.create!(first_name: "Lena", last_name: "Later"), event: event)
+
+    assert checkin.checkin_field_responses.exists?(checkin_field: field)
+  end
 end
