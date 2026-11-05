@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/refused-delete-audit`, see `FORK.md`) |
 | Added | 2026-11-04 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
-| Planned branch | none yet |
+| Branch | `feature/refused-delete-audit` (from `upstream/main`) |
 | Upstream issue / PR | none |
 
 ## Summary
