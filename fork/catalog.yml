@@ -356,3 +356,20 @@ feature/blocked-delete-message:
     check-ins, now goes back with a message saying it can't be deleted yet,
     instead of an error page.
   audience: Admins and team managers
+
+feature/kiosk-period-less-punches:
+  title: The kiosk works for hours with no period
+  emoji: "🪪"
+  description: >-
+    Someone who entered hours by hand without picking a time period could no
+    longer use the kiosk: scanning their card showed an error. The kiosk now
+    lists those hours as "No period".
+  audience: Members and mentors at the kiosk
+
+feature/alert-flash-style:
+  title: Error messages stand out
+  emoji: "🚨"
+  description: >-
+    Messages that say something went wrong now show in a red box with a
+    warning sign, instead of as plain text that was easy to miss.
+  audience: Everyone

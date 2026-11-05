@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | waiting |
+| Status | started (`feature/kiosk-period-less-punches`, see `FORK.md`) |
 | Added | 2026-10-08 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/kiosk-period-less-punches` |
