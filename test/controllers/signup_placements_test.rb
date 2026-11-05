@@ -133,6 +133,21 @@ class SignupPlacementsTest < ActionDispatch::IntegrationTest
     assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Snack Stand?", text: "Cancel"
   end
 
+  test "cancelling from the member list says whose place it was" do
+    Membership.create!(person: person(:parent), team: @students)
+    own = Signup.place!(slot: @slot, person: person(:parent), signed_up_by: person(:parent))
+    child = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:parent))
+    sign_in person(:parent).user
+
+    delete signup_sheet_signup_path(@sheet, child)
+    assert child.reload.cancelled?
+    assert_equal "Student's place was cancelled.", flash[:notice]
+
+    delete signup_sheet_signup_path(@sheet, own)
+    assert own.reload.cancelled?
+    assert_equal "Your sign-up was cancelled.", flash[:notice]
+  end
+
   test "the roster's Cancel names the taker and says they'll be told, as they are" do
     signup = place_from_roster(:student)
 
