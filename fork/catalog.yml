@@ -424,3 +424,12 @@ feature/profile-all-teams:
     A member's profile now lists every team they're on. Teams you can't open
     show without a link.
   audience: Everyone
+
+feature/event-type-change-answers:
+  title: Changing an event's type keeps answers
+  emoji: "↩️"
+  description: >-
+    Changing an event's type adds the new type's check-in questions right
+    away. Answers to the old type's questions are kept out of sight, so
+    switching back brings them back.
+  audience: Managers

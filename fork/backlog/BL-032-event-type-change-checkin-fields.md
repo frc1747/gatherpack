@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/event-type-change-answers`, see `FORK.md`) |
 | Added | 2026-11-04 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Planned branch | none yet |
@@ -30,6 +30,11 @@ Keep the old type's answers so switching the type back restores them. They aren'
 - Stop `Checkin#refresh_fields` deleting responses for fields not on the current type (today it uses `delete`, which skips the audit log, so they can't be recovered). Screens that list responses (check-in form, Arrange, Print, exports) show only the current type's fields.
 - Old answers go only when the old event type is deleted (BL-031 asks first).
 - Ask upstream which they intended before proposing it there.
+
+## Before this reaches production
+
+- The eligibility report Page (`~/dev/gatherpack/pages/eligibility-report.html.erb:239`) finds the "Shifts" answer by field name across all of a check-in's responses. With kept answers, a check-in whose event changed from another type with a "Shifts" field has two matches. Match on the event's current type too (`r.checkin_field.event_type_id == c.event.event_type_id`) and update the Page in production at release (Corey).
+- Stale pages: a check-in form or Arrange drag opened before a type change that hits a removed blank row gets a 404. Accepted as rare.
 
 ## Hooks
 
