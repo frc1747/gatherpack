@@ -30,7 +30,7 @@ The data model is fine: `person`, `signed_up_by` and `on_behalf_of` already sepa
 3. **Say whose place is being cancelled.** Change the confirmation to "Cancel Lance's place in Volunteer, Trick or Treat? They'll be told." whenever the taker isn't the viewer. Use the same wording in the roster's cancel.
 4. **Optional:** after an admin adds someone, the flash could add "It's on their dashboard, not yours," the first time or every time.
 
-Per rule 10, the list change in step 1 changes behaviour. It can sit behind the existing `feature_signups` flag, since the feature is still wip and the old behaviour is the bug, but confirm with Corey.
+Per rule 10, the list change in step 1 changes behaviour. Decided 2026-11-05: it sits behind the existing `feature_signups` flag (no new flag).
 
 ## Testing
 

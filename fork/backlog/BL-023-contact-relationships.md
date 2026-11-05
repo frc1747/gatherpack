@@ -36,6 +36,10 @@ A type with guardianship "None" already does most of it, but not the contact det
 
 So step 2 stands as written: a per-type "Show contact details to people who can see the child" column, default off, and the Relationships tab shows the other person's phone and email to anyone who passes `show?` on the child, without a profile link.
 
+## Decision (2026-11-05)
+
+"Show contact details" stays limited to types that only admins or managers can add, so a member can't add a stranger as their contact to expose that person's phone and email. A manager can add a relationship only when they manage both people, so in practice an admin adds contacts from outside the team.
+
 ## Step 2: if something is missing
 
 The smallest change that fits:
