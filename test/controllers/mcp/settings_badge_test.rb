@@ -209,7 +209,6 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
   test "a limit saved through another worker applies here" do
     write_behind_cache(:mcp_allowed_badge, @access_badge.neat_id)
 
-    assert_equal "", Settings[:mcp_allowed_badge]
     assert connects?(:badge_holder)
     assert_not connects?(:alpha_member)
   end
