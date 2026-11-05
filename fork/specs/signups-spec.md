@@ -83,7 +83,7 @@ The badge as output matters: the Eligibility Report, the kiosk reminders widget 
 
   A position with no cap takes any number.
 - **Slot.** One position at one event. Created for every position × event on the sheet. A slot can override the cap or be turned off for one event.
-- **Sign-up.** Fields: `person` (who takes the place, or brings the items), `signed_up_by`, `on_behalf_of` (§3.2), `quantity` for item positions, `answer` (to the position's question), `note`, `status` (`active`, `cancelled`, `fulfilled`, `no_show`). For items, `fulfilled` reads "Brought" and `no_show` reads "Not brought".
+- **Sign-up.** Fields: `person` (who takes the place, or brings the items), `signed_up_by`, `placed_by_organizer` (true when an organizer added it from the roster), `on_behalf_of` (§3.2), `quantity` for item positions, `answer` (to the position's question), `note`, `status` (`active`, `cancelled`, `fulfilled`, `no_show`). For items, `fulfilled` reads "Brought" and `no_show` reads "Not brought".
 
 A sign-up uses one place, or `quantity` units, of its slot. A slot is full when its active and fulfilled sign-ups use its whole cap.
 
@@ -94,7 +94,7 @@ Two people can differ from the signer:
 - **Who takes the place.** Usually the signer. The choices are the signer plus people related to them through the sheet's **sign up others** relationship types (none by default). A guardian signing up their child is this.
 - **On behalf of.** Usually the person who takes the place. Someone else when the place is taken for them: a parent works a shift for their child, or a neighbor covers for another family. The sheet's **on behalf of** setting picks the choices: `nobody else` (default), `related people` (through the same relationship types), or `anyone the sheet is open to`.
 
-On behalf of has a meaning in this layer, independent of commitments: the sign-up appears in that person's **My sign-ups** ("Taken for you by …"), they get its notices, and the roster shows it. Commitments additionally credit it (§4.3).
+On behalf of has a meaning in this layer, independent of commitments: the sign-up appears in that person's **Your places** ("Taken for you by …"), they get its notices, and the roster shows it. Commitments additionally credit it (§4.3).
 
 ### 3.3 Eligibility rules
 
@@ -152,14 +152,14 @@ Reuse the mailer and the forms reminders pattern: confirmation on sign-up (to th
 
 **Member: take a place.**
 1. **Sheets** (under Events in the menu) lists open sheets the person can sign up for, with their own sign-ups first.
-2. The **sheet page** lists dates; each date lists positions with "n of m filled" (people) or "4 of 6 pizzas" (items), names and answers ("Cheese, 2") if visible, and **Sign up**. A position the person can't take says why instead. **My sign-ups** is at the top, with **Change** and **Cancel**.
+2. The **sheet page** lists dates; each date lists positions with "n of m filled" (people) or "4 of 6 pizzas" (items), names and answers ("Cheese, 2") if visible, and **Sign up**. A position the person can't take says why instead. **Your places** is at the top, with **Change** and **Cancel**, then **Places you signed others up for** (a guardian's sign-ups for their children), led by the taker's name. Places an organizer added from the roster aren't in the organizer's lists. Cancelling someone else's place asks "Cancel <name>'s place in <position>, <event>?" (with the date on multi-date sheets, and "They'll be told." when an email can be sent).
 3. The **sign up dialog** asks who takes the place (if the sheet allows others), on behalf of (if allowed), then how many, up to what's still needed (item positions), the position's question if it has one, and a note. Other features can add hints here (§3.9).
 4. Members can cancel until the sheet's cut-off (default: the event's start). After that only organizers can.
 
 **Organizer: run a sheet.**
 1. Create the sheet: team, audience, description, contact.
 2. Add positions and their rules, then Add dates. Slots appear for every position × date; adjust caps or turn slots off in a grid.
-3. Open it. Watch the **roster**: one table per sheet (date, position, person, quantity, answer, on behalf of, note, status) with filters and print (shared report print CSS). Add, move and cancel sign-ups; send notices.
+3. Open it. Watch the **roster**: one table per sheet (date, position, person, quantity, answer, on behalf of, signed up by, note, status) with filters and print (shared report print CSS). Add, move and cancel sign-ups; send notices.
 4. After each event: check-ins fulfil people sign-ups automatically; mark absences no-show; Mark all brought for items, then mark what didn't come.
 5. Close, then archive.
 
@@ -169,7 +169,7 @@ The sign-ups layer knows nothing about commitments. Other features attach throug
 
 - **Hooks.** Every model includes `CanBeHooked`. Named events `signups - fulfilled` and `signups - cancelled`, like `form_responses - completed`.
 - **Notifications.** `signup_changed.gatherpack` (sign-up created, status changed, moved, cancelled) and `signup_sheet_changed.gatherpack` (positions, slots or events changed), following `person_field_changed.gatherpack`. Commitments recompute from these.
-- **View extensions.** A small registry in the sign-ups layer, `Signups.extensions`, with two slots: panels on the sheet page (rendered under My sign-ups, given the sheet and viewer), and a hint next to each on-behalf-of choice in the sign up dialog (given the sheet and candidate person, returns short text). Upstream gets a generic extension point; commitments fills it without editing sign-up views. Confirm against GatherPack's existing patterns (`GatherPack::Features`) before building and match them.
+- **View extensions.** A small registry in the sign-ups layer, `Signups.extensions`, with two slots: panels on the sheet page (rendered under the viewer's places, given the sheet and viewer), and a hint next to each on-behalf-of choice in the sign up dialog (given the sheet and candidate person, returns short text). Upstream gets a generic extension point; commitments fills it without editing sign-up views. Confirm against GatherPack's existing patterns (`GatherPack::Features`) before building and match them.
 
 ### 3.10 Data
 
@@ -184,7 +184,7 @@ New tables (upstream naming):
 | `signup_positions` | `signup_sheet_id`, `name`, `description`, `kind` (`people`, `items`), `unit`, `capacity` (null = no cap), `question`, `question_required`, `position` |
 | `signup_position_rules` | `signup_position_id`, `kind` (`badge`, `age`, `team`; one per position), `badge_ids` (array), `min_age`, `max_age`, `team_ids` (array) |
 | `signup_slots` | `signup_position_id`, `event_id`, `capacity` (null = position default), `disabled` |
-| `signups` | `signup_slot_id`, `person_id`, `signed_up_by_id`, `on_behalf_of_id`, `quantity`, `answer`, `note`, `status` |
+| `signups` | `signup_slot_id`, `person_id`, `signed_up_by_id`, `placed_by_organizer`, `on_behalf_of_id`, `quantity`, `answer`, `note`, `status` |
 
 Slot fill is checked inside a row lock on the slot, so two people can't take the last place at once.
 
