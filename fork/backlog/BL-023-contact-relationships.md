@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | low |
-| Status | waiting |
+| Status | started (step 2 on `feature/person-fields` `15110394`, see `FORK.md`) |
 | Added | 2026-10-13 |
 | Feature branches checked | `feature/person-fields` at `c050087` |
 | Planned branch | decide after step 1; probably on `feature/person-fields` |
