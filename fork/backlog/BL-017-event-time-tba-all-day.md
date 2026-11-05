@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | low |
-| Status | waiting |
+| Status | started (`feature/event-time-display`, see `FORK.md`) |
 | Added | 2026-10-11 |
 | Upstream base checked | `86ab397` |
-| Planned branch | `feature/event-time-display` (from `upstream/main`) |
+| Branch | `feature/event-time-display` (from `upstream/main`) |
 | Upstream issue / PR | none yet |
 
 ## Summary
@@ -50,3 +50,8 @@ Events already include `CanBeHooked`; the new columns ride along on `events - up
 
 - Edits upstream files (`event.rb`, a migration, the event views, the calendar JSON), so it's its own `feature/*` branch from `upstream/main`, written to go upstream unchanged. Record the files in `FORK.md` when the branch exists.
 - Generic and small: a reasonable upstream proposal. Confirm with Corey before opening anything upstream.
+
+## Left after the first build (2026-11-04)
+
+- `events/show` still says "+0.0 to period" for an all-day or TBA event linked to a time clock period (its hours are 0). Hide the line for those, or say "doesn't count toward period hours".
+- Fork panels that print event times (sign-ups' sheet and reminder emails, forms' event panel) haven't been checked for all-day/TBA; they likely print midnight. Each is a change on its own feature branch.
