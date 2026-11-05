@@ -56,8 +56,9 @@ partial is never rendered, so nobody can reach them.
 - **Advanced options stay.** The CSS variables and custom CSS fields
   still work and apply last, so existing themes keep working.
 
-Dark mode can follow once the color derivation exists. It would be a
-second generated palette and a visible switcher.
+- **Dark mode.** Each person chooses Light, Dark or Auto, and Auto follows
+  their device. The site's brand color carries over to both palettes.
+  Printed pages stay light.
 
 ## How it's built
 
@@ -121,9 +122,10 @@ override file.
 ## First step
 
 Build the skin stylesheet and the sign-in override behind the flag, using
-a hard-coded palette. Review it across the main screens on a staging
-copy, at desktop and phone widths, before building the generator and the
-new theme page. This tests the look first, which is the part most likely
+hard-coded light and dark palettes. The skin uses color variables from the
+start, so both palettes share one set of rules. Review it across the main
+screens on a staging copy, in both modes, at desktop and phone widths,
+before building the generator and the new theme page. This tests the look first, which is the part most likely
 to change, and it ships the most visible improvement early.
 
 ## Adoption
