@@ -8,21 +8,41 @@
     <div class="card-body">
       <% if summary.signups.any? %>
         <section class="signups-summary-signups mb-3">
-          <h3 class="h6">Coming up</h3>
-          <ul class="list-unstyled mb-2">
-            <% summary.signups.each do |signup| %>
-              <li class="mb-2" id="<%= dom_id signup, :summary %>">
-                <strong><%= signup.signup_position.name %></strong>,
-                <%= signup_event_when(signup.event, format: "%a %b %-d, %-l:%M %p") %>
-                <div class="small text-body-secondary">
-                  <%= link_to signup.signup_sheet.title, signup.signup_sheet %>
-                  <% if (for_whom = signups_summary_for(signup, summary.person)) %>
-                    · <%= for_whom %>
-                  <% end %>
-                </div>
-              </li>
-            <% end %>
-          </ul>
+          <% if summary.own_signups.any? %>
+            <h3 class="h6" id="summary_your_places">Your places</h3>
+            <ul class="list-unstyled mb-2">
+              <% summary.own_signups.each do |signup| %>
+                <li class="mb-2" id="<%= dom_id signup, :summary %>">
+                  <strong><%= signup.signup_position.name %></strong>,
+                  <%= signup_event_when(signup.event, format: "%a %b %-d, %-l:%M %p") %>
+                  <div class="small text-body-secondary">
+                    <%= link_to signup.signup_sheet.title, signup.signup_sheet %>
+                    <% if (for_whom = signups_summary_for(signup, summary.person)) %>
+                      · <%= for_whom %>
+                    <% end %>
+                  </div>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
+          <% if summary.signups_for_others.any? %>
+            <h3 class="h6" id="summary_places_for_others">Places you signed others up for</h3>
+            <ul class="list-unstyled mb-2">
+              <% summary.signups_for_others.each do |signup| %>
+                <li class="mb-2" id="<%= dom_id signup, :summary %>">
+                  <div><strong><%= signup.person.identifier_name %></strong></div>
+                  <%= signup.signup_position.name %>,
+                  <%= signup_event_when(signup.event, format: "%a %b %-d, %-l:%M %p") %>
+                  <div class="small text-body-secondary">
+                    <%= link_to signup.signup_sheet.title, signup.signup_sheet %>
+                    <% if (note = signups_summary_for_other(signup, summary.person)) %>
+                      · <%= note %>
+                    <% end %>
+                  </div>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
           <%= link_to summary.more_signups? ? "All your sign-ups" : "Sign-up sheets", signup_sheets_path, class: "small" %>
         </section>
       <% end %>

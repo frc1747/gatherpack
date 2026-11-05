@@ -16,16 +16,14 @@ class SignupsSummariesHelperTest < ActionView::TestCase
     assert_equal "Taken for you by Kid World", signups_summary_for(build_signup(@kid, @viewer), @viewer)
   end
 
-  test "someone else taking their own place" do
-    assert_equal "For Kid World", signups_summary_for(build_signup(@kid, @kid), @viewer)
-  end
-
   test "the viewer taking a place on someone's behalf" do
     assert_equal "on behalf of Kid World", signups_summary_for(build_signup(@viewer, @kid), @viewer)
   end
 
-  test "someone else taking a place on a third person's behalf" do
-    assert_equal "For Grandma World on behalf of Kid World", signups_summary_for(build_signup(@grandma, @kid), @viewer)
+  test "a place the viewer signed someone up for needs a note only for another's behalf" do
+    assert_nil signups_summary_for_other(build_signup(@kid, @kid), @viewer)
+    assert_equal "On your behalf", signups_summary_for_other(build_signup(@kid, @viewer), @viewer)
+    assert_equal "on behalf of Grandma World", signups_summary_for_other(build_signup(@kid, @grandma), @viewer)
   end
 
   private

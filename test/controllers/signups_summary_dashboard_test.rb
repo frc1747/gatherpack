@@ -58,8 +58,37 @@ class SignupsSummaryDashboardTest < ActionDispatch::IntegrationTest
     get_dashboard(:organizer)
 
     assert_select ".signups-summary .signups-summary-signups li", SignupsSummary::DEFAULT_LIMIT
-    assert_select ".signups-summary li", text: /Sat Oct 10.*For Kid World/m
+    assert_select "#summary_places_for_others + ul li", text: /Kid World.*Cashier.*Sat Oct 10/m
     assert_select ".signups-summary a[href=?]", signup_sheets_path, text: "All your sign-ups"
+  end
+
+  test "roster placements stay off the organizer's card and show on the taker's" do
+    Signup.create!(signup_slot: @cashier.signup_slots.find_by!(event: @game), person: person(:member),
+      signed_up_by: person(:organizer), on_behalf_of: person(:member), placed_by_organizer: true)
+
+    get_dashboard(:organizer)
+    assert_select ".signups-summary", 0
+
+    get_dashboard(:member)
+    assert_select "#summary_your_places + ul li", text: /Cashier/
+  end
+
+  test "separates own places from places signed up for others, hiding an empty group" do
+    @sheet.update!(on_behalf_of_mode: :related_people, others_relationship_type_ids: [ @parent_of.id ])
+    sign_up(:organizer, @dish, @game)
+
+    get_dashboard(:organizer)
+    assert_select "#summary_your_places + ul li", 1
+    assert_select "#summary_places_for_others", 0
+
+    sign_up(:organizer, @cashier, @game, on_behalf_of: :kid)
+    Signup.create!(signup_slot: @cashier.signup_slots.find_by!(event: @game), person: person(:kid),
+      signed_up_by: person(:organizer), on_behalf_of: person(:kid))
+
+    get_dashboard(:organizer)
+    assert_select "#summary_your_places + ul li", 2
+    assert_select "#summary_places_for_others + ul li", 1
+    assert_select "#summary_places_for_others + ul li strong", text: "Kid World"
   end
 
   test "leaves out sign-ups on sheets the person may not see" do

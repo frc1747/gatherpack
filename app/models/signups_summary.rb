@@ -4,6 +4,9 @@
 #
 # Sign-ups are the upcoming active ones the person takes, made, or that
 # count for them (as on a sheet's My sign-ups), on sheets they may see.
+# Placing someone from the roster doesn't count as making their sign-up.
+# They're listed as the person's own places and the places they signed
+# others up for, as on the sheet.
 # Commitments are those PersonCommitmentsPolicy shows them on their own
 # commitments page: what they owe, and what a group they're related to
 # through the commitment's relationship type owes (a parent's children),
@@ -41,6 +44,16 @@ class SignupsSummary
     all_signups.first(limit)
   end
 
+  # The listed sign-ups the person takes or that count for them, and those
+  # they signed up someone else for.
+  def own_signups
+    signups.reject { |signup| signed_up_for_other?(signup) }
+  end
+
+  def signups_for_others
+    signups.select { |signup| signed_up_for_other?(signup) }
+  end
+
   def more_signups?
     all_signups.size > limit
   end
@@ -76,7 +89,8 @@ class SignupsSummary
       # An event with no end time (dates added with only a start) is upcoming
       # until it starts.
       signups = Signup.active.joins(signup_slot: :event).where("COALESCE(events.end_time, events.start_time) >= ?", Time.current)
-      signups.where(person_id: person.id).or(signups.where(signed_up_by_id: person.id)).or(signups.where(on_behalf_of_id: person.id))
+      signups.where(person_id: person.id).or(signups.where(on_behalf_of_id: person.id))
+        .or(signups.where(signed_up_by_id: person.id, placed_by_organizer: false))
         .includes(:person, :on_behalf_of, signup_slot: [ :event, { signup_position: :signup_sheet } ])
         .to_a
         .select { |signup| sheet_visible?(signup.signup_sheet) }
@@ -84,6 +98,10 @@ class SignupsSummary
     else
       []
     end
+  end
+
+  def signed_up_for_other?(signup)
+    signup.person_id != person.id && signup.signed_up_by_id == person.id
   end
 
   def sheet_visible?(sheet)
