@@ -48,6 +48,45 @@ class EventTimeKindDisplayTest < ActionDispatch::IntegrationTest
     assert_equal 2.0, event.hours
   end
 
+  test "the form doesn't offer an all-day or TBA event's stored end" do
+    event = create_event(:tba)
+
+    get edit_event_path(event)
+
+    assert_select "input[name='event[end_time]']" do |inputs|
+      assert_predicate inputs.first["value"], :blank?
+    end
+  end
+
+  test "the form keeps a timed event's end" do
+    get edit_event_path(create_event(:timed))
+
+    assert_select "input[name='event[end_time]']" do |inputs|
+      assert_predicate inputs.first["value"], :present?
+    end
+  end
+
+  test "the form can move an event to a later day at a set time, with no end" do
+    event = create_event(:all_day)
+
+    patch event_path(event), params: { event: { time_kind: "timed", start_time: "2030-01-09T14:00", end_time: "" } }
+
+    assert_redirected_to event
+    event.reload
+    assert_predicate event, :timed?
+    assert_nil event.end_time
+  end
+
+  test "resubmitting a TBA event's form keeps its whole day" do
+    event = create_event(:tba)
+    end_time = event.reload.end_time
+
+    patch event_path(event), params: { event: { time_kind: "tba", event_date: "", start_time: event.start_time.in_time_zone(zone).strftime("%FT%T"), end_time: "" } }
+
+    assert_redirected_to event
+    assert_equal end_time, event.reload.end_time
+  end
+
   test "a day is required when the time isn't set" do
     post events_path, params: { event: event_params(time_kind: "all_day", event_date: "", start_time: "") }
 
@@ -150,6 +189,21 @@ class EventTimeKindDisplayTest < ActionDispatch::IntegrationTest
     assert_equal "#{@day.strftime("%B %-d, %Y")} - Time TBA", rows["Game"]
   end
 
+  test "a person's recent activity keeps today's all-day and TBA events until the day ends" do
+    @day = Time.current.in_time_zone(zone).to_date
+    all_day = create_event(:all_day, name: "Fair")
+    tba = create_event(:tba, name: "Game")
+    finished = create_event(:timed, name: "Practice", start_time: 2.days.ago, end_time: 2.days.ago + 1.hour)
+    [ all_day, tba, finished ].each { |event| Checkin.create!(person: @admin.person, event: event, created_by: @admin.person) }
+
+    get recent_activity_person_path(@admin.person)
+
+    assert_response :success
+    assert_select "a[href=?]", event_path(all_day)
+    assert_select "a[href=?]", event_path(tba)
+    assert_select "a[href=?]", event_path(finished), count: 0
+  end
+
   test "the public team page keeps listing an all-day event on its day" do
     @day = Time.current.in_time_zone(zone).to_date
     create_event(:all_day, name: "Fair")
@@ -189,8 +243,8 @@ class EventTimeKindDisplayTest < ActionDispatch::IntegrationTest
   def create_event(kind, **attributes)
     Time.use_zone(zone) do
       start_time = @day.in_time_zone.change(hour: 14)
-      Event.create!(name: "Meet", event_type: event_types(:one), team: @team, time_kind: kind,
-        start_time: start_time, end_time: start_time + 2.hours, **attributes)
+      Event.create!({ name: "Meet", event_type: event_types(:one), team: @team, time_kind: kind,
+        start_time: start_time, end_time: start_time + 2.hours }.merge(attributes))
     end
   end
 end

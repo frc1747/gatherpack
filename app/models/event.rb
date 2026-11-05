@@ -12,6 +12,11 @@ class Event < ApplicationRecord
   # all_day and tba events hold the whole of their day in start_time and end_time.
   enum :time_kind, { timed: "timed", all_day: "all_day", tba: "tba" }, validate: true
 
+  # Events still to come. All-day and TBA events stay until their day ends.
+  scope :upcoming, ->(now = Time.current) {
+    where("events.start_time >= :now OR (events.time_kind <> 'timed' AND events.end_time >= :now)", now: now)
+  }
+
   validates :name, presence: true
   validates :start_time, presence: true
 
@@ -69,13 +74,32 @@ class Event < ApplicationRecord
 
   def apply_time_kind
     self.time_kind = "timed" if real_time_saved?
-    return if timed?
 
+    if timed?
+      clear_stored_end
+    elsif time_kind_changed? || @event_date || start_time_changed?
+      fill_chosen_day
+    elsif end_time_changed?
+      restore_end_time!
+    end
+  end
+
+  # The day is worked out in the current zone, so only when something says to
+  # move it: a save from a job or console may be in a different zone.
+  def fill_chosen_day
     day = @event_date || start_time&.in_time_zone&.to_date
     return if day.nil?
 
     self.start_time = day.in_time_zone.beginning_of_day
     self.end_time = day.in_time_zone.end_of_day
+  end
+
+  # Leaving all_day or tba, the stored end isn't a real one. It may come back
+  # from a form at a lower precision, so compare by the second.
+  def clear_stored_end
+    return unless time_kind_changed? && time_kind_in_database != "timed"
+
+    self.end_time = nil if end_time&.to_i == end_time_in_database&.to_i
   end
 
   # A new time set without saying what kind it is, as opposed to a form that

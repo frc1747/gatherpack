@@ -11,8 +11,8 @@
             input_html: { data: { action: "event-time#sync", event_time_target: "kind" } } %>
       <%= f.input :event_date, as: :string, label: "Date", required: false, hint: "For all day or time to be announced.",
             input_html: { type: "date", data: { event_time_target: "date" } }, wrapper_html: { data: { event_time_target: "dateField" } } %>
-      <%= f.input :start_time, input_html: { data: { event_time_target: "start" } }, wrapper_html: { data: { event_time_target: "timeField" } } %>
-      <%= f.input :end_time, input_html: { data: { event_time_target: "end" } }, wrapper_html: { data: { event_time_target: "timeField" } } %>
+      <%= f.input :start_time, input_html: { data: { action: "event-time#copyStartDate", event_time_target: "start" } }, wrapper_html: { data: { event_time_target: "timeField" } } %>
+      <%= f.input :end_time, input_html: { value: (f.object.timed? ? f.object.end_time : ""), data: { event_time_target: "end" } }, wrapper_html: { data: { event_time_target: "timeField" } } %>
     </div>
     <%= f.input :location %>
     <%= f.input :locked %>

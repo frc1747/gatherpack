@@ -99,7 +99,7 @@
     </div>
 
     <% if GatherPack::Features.enabled?(:events) %>
-      <% upcoming_events = @team.events.where("start_time >= :now OR (time_kind <> 'timed' AND end_time >= :now)", now: Time.current).order(start_time: :asc).limit(3) %>
+      <% upcoming_events = @team.events.upcoming.order(start_time: :asc).limit(3) %>
       <% if upcoming_events.any? %>
         <div class="card mb-3">
           <div class="card-header">

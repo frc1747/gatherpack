@@ -18,6 +18,12 @@ export default class extends Controller {
     this.show(this.timed)
   }
 
+  copyStartDate() {
+    if (this.startTarget.value) {
+      this.dateTarget.value = this.startTarget.value.slice(0, 10)
+    }
+  }
+
   show(timed) {
     this.timeFieldTargets.forEach((field) => { field.hidden = !timed })
     this.dateFieldTargets.forEach((field) => { field.hidden = timed })
