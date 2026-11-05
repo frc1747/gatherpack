@@ -9,6 +9,30 @@ page. All of it sits on top of the existing pages: controllers, models,
 permissions, hooks and page markup stay as they are, and one setting
 switches back to the old look.
 
+## The look
+
+These are mockups, not a final design. The new look is CSS applied in a
+browser to a demo copy of the site. The sign-in logo line and heading were
+also edited by hand, to show what a replacement template would do.
+
+**Sign-in page**
+
+| Today | New look |
+|---|---|
+| ![Sign-in page today](images/07-signin-before.jpg) | ![Sign-in page with the new look](images/07-signin-light.jpg) |
+
+**Dashboard**
+
+| Today | New look |
+|---|---|
+| ![Dashboard today](images/07-dashboard-before.jpg) | ![Dashboard with the new look](images/07-dashboard-light.jpg) |
+
+**Dark mode**
+
+| Sign-in page | Dashboard |
+|---|---|
+| ![Sign-in page in dark mode](images/07-signin-dark.jpg) | ![Dashboard in dark mode](images/07-dashboard-dark.jpg) |
+
 ## Problem
 
 The sign-in page is the first thing anyone sees, and it looks dated: a
@@ -85,10 +109,11 @@ keep. The change goes underneath them, in three layers:
    originals. Everything else falls through unchanged. A fork check lists
    any overridden template whose original has changed upstream.
 
-A browser-only trial injected about 5 KB of CSS into a live copy of the
-site, with no markup changes. It restyled the dashboard and the sign-in
-page convincingly. It left two things only template work can fix: the
-sign-in slogan and the "powered by" band.
+A browser-only trial injected about 5 KB of CSS into a demo copy of the
+site, with no markup changes, and restyled the dashboard and the sign-in
+page convincingly. The sign-in page's fixed slogan, logo and heading still
+need a replacement template. Forms, tables, the ledger, the kiosk and phone
+widths weren't part of the trial.
 
 Not recommended:
 
