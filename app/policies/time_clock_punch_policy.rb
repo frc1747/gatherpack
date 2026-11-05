@@ -29,12 +29,15 @@ class TimeClockPunchPolicy < ApplicationPolicy
   # before. The empty new form has no person yet; saving a punch without one
   # fails validation.
   def create?
+    return false unless may_enter_punches?
     return true if record.person.nil?
 
     (user.admin || person == record.person || manages?(record.person) || team_member_period?) && update?
   end
 
   def update?
+    return false unless may_enter_punches?
+
     # can update punches if admin or punch is not part of any period, i.e. added by self
     if user.admin || (person == record.person && record.time_clock_period.nil?)
       true
@@ -61,6 +64,13 @@ class TimeClockPunchPolicy < ApplicationPolicy
   end
 
   private
+
+  # With the setting on, a member who manages no team has no hand entry at all.
+  # This is the rule for the Time Clock pages only: the kiosk doesn't use this
+  # policy, so members still clock in and out there.
+  def may_enter_punches?
+    !Settings[:time_clock_hand_punches_managers_only] || user.admin || person.manager?
+  end
 
   def team_member_period?
     period = record.time_clock_period
