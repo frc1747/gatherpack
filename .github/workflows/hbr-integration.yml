@@ -1,0 +1,16 @@
+name: HBR Integration
+
+# Tests hbr/integration as pushed: full suite, RuboCop, and migrations from an
+# empty database. Proves the combination of upstream and our features works.
+
+on:
+  push:
+    branches: [ hbr/integration ]
+  workflow_dispatch:
+
+jobs:
+  integration:
+    uses: ./.github/workflows/hbr-check.yml
+    with:
+      ref: hbr/integration
+      mode: ref
