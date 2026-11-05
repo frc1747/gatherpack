@@ -399,3 +399,12 @@ feature/refused-delete-audit:
     When something can't be deleted because other records still use it, the
     audit log no longer says it was deleted.
   audience: Admins
+
+feature/event-time-display:
+  title: All-day events and "Time TBA"
+  emoji: "📅"
+  description: >-
+    An event can be all day, or on a known date with the time to be
+    announced. Event pages, team pages and the calendar show it that way
+    instead of a made-up time.
+  audience: Event organizers and everyone reading the calendar
