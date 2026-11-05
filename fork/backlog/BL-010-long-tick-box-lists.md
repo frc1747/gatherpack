@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (part of `feature/forms`, which isn't proposed upstream) |
 | Priority | medium |
-| Status | waiting |
+| Status | started (built on `feature/forms` at `04ebfb9a`, 2026-11-04; see `FORK.md`) |
 | Added | 2026-10-07 |
 | Planned branch | `feature/forms` (no new branch; it's the same feature) |
 | Upstream issue / PR | none |
