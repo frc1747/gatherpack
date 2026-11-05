@@ -66,4 +66,8 @@ Rails.application.configure do
   # Allow tests to use localhost as host
   config.hosts << "localhost"
   config.hosts << "localapp"
+  # Once hosts is set, host authorization also checks Rails' default
+  # integration test host and the address system tests' server listens on.
+  config.hosts << "www.example.com"
+  config.hosts << "127.0.0.1"
 end
