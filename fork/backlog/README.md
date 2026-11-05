@@ -21,14 +21,11 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-011](BL-011-accounting-integration.md) | Accounting integration (QuickBooks Online first) | fork-only | medium | waiting | 2026-10-07 |
 | [BL-012](BL-012-kiosk-period-less-punch.md) | Time kiosk crashes for anyone with a punch that has no period | upstream bug | medium | waiting | 2026-10-08 |
 | [BL-013](BL-013-settings-cached-per-process.md) | Saved settings reach only one server process until a restart | upstream bug | medium | started | 2026-10-09 |
-| [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | waiting | 2026-10-09 |
-| [BL-015](BL-015-kiosk-button-and-unknown-card.md) | Kiosk: "Clock In" button, and an alert for an unknown card | upstream feature | medium | started | 2026-10-09 |
-| [BL-016](BL-016-inline-code-blanked.md) | Inline code in Markdown shows up as an empty code editor | upstream bug | low | waiting | 2026-10-10 |
+| [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | started | 2026-10-09 |
+| [BL-016](BL-016-inline-code-blanked.md) | Inline code in Markdown shows up as an empty code editor | upstream bug | low | started | 2026-10-10 |
 | [BL-017](BL-017-event-time-tba-all-day.md) | Events with no known time: "Time TBA" and all-day events | upstream feature | low | waiting | 2026-10-11 |
 | [BL-018](BL-018-settings-and-hook-registries.md) | Let features register their own settings and hook events | upstream feature | medium | started | 2026-10-11 |
 | [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | waiting | 2026-10-11 |
-| [BL-020](BL-020-profile-tabs-for-features.md) | Commitments on the person's profile (features can't add profile tabs) | upstream feature | medium | waiting | 2026-10-12 |
-| [BL-021](BL-021-remind-recipient-count.md) | Remind opens a send screen: who it will email, and a message saved on the form | fork-only | medium | started | 2026-10-13 |
 | [BL-022](BL-022-guardianship-grants-hint.md) | Say what guardianship grants, where it's set | upstream feature | medium | waiting | 2026-10-13 |
 | [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | waiting | 2026-10-13 |
 | [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | waiting | 2026-10-13 |
