@@ -329,3 +329,12 @@ feature/settings-read-through:
     until a restart, so some pages kept the old value. Every process now picks
     up the change on its next request.
   audience: Admins who change settings
+
+feature/seeds-membership-order:
+  title: A new install starts on its first try
+  emoji: "🌱"
+  description: >-
+    On a brand-new database, the first start no longer fails while loading
+    the starter records, so the app and its background worker come up on the
+    first try.
+  audience: Whoever installs or rebuilds GatherPack
