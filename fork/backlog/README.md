@@ -16,7 +16,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-006](BL-006-team-less-events-hidden.md) | Events with no team are hidden from everyone but admins | upstream bug | medium | blocked | 2026-10-05 |
 | [BL-007](BL-007-seeds-badge-before-membership.md) | First boot on a fresh database crashes in db/seeds.rb | upstream bug | medium | started | 2026-10-05 |
 | [BL-008](BL-008-member-info-access.md) | Restrict Member Info: its own on/off switch, and managers only by default | upstream feature (security) | high | dropped | 2026-10-05 |
-| [BL-009](BL-009-person-team-ids-return-records.md) | `Person#all_team_ids` and `#all_ancestor_team_ids` return Team records mixed with ids | upstream bug (latent) | low | waiting | 2026-10-06 |
+| [BL-009](BL-009-person-team-ids-return-records.md) | `Person#all_team_ids` and `#all_ancestor_team_ids` return Team records mixed with ids | upstream bug (latent) | low | started | 2026-10-06 |
 | [BL-010](BL-010-long-tick-box-lists.md) | Keep long tick-box lists short on the printable list | fork-only | medium | started | 2026-10-07 |
 | [BL-011](BL-011-accounting-integration.md) | Accounting integration (QuickBooks Online first) | fork-only | medium | waiting | 2026-10-07 |
 | [BL-012](BL-012-kiosk-period-less-punch.md) | Time kiosk crashes for anyone with a punch that has no period | upstream bug | medium | started | 2026-10-08 |
@@ -27,16 +27,16 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-018](BL-018-settings-and-hook-registries.md) | Let features register their own settings and hook events | upstream feature | medium | started | 2026-10-11 |
 | [BL-019](BL-019-blocked-deletes-error-page.md) | A delete the database refuses shows an error page | upstream bug | low | started | 2026-10-11 |
 | [BL-022](BL-022-guardianship-grants-hint.md) | Say what guardianship grants, where it's set | upstream feature | medium | started | 2026-10-13 |
-| [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | waiting | 2026-10-13 |
-| [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | waiting | 2026-10-13 |
-| [BL-025](BL-025-drift-check-upstream-ci.md) | The drift check doesn't notice when upstream itself is broken | fork-only | medium | waiting | 2026-10-23 |
-| [BL-026](BL-026-organizer-placements-look-like-yours.md) | Placing someone as an organizer looks like signing up yourself | upstream feature | medium | waiting | 2026-10-29 |
+| [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | started | 2026-10-13 |
+| [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | started | 2026-10-13 |
+| [BL-025](BL-025-drift-check-upstream-ci.md) | The drift check doesn't notice when upstream itself is broken | fork-only | medium | started | 2026-10-23 |
+| [BL-026](BL-026-organizer-placements-look-like-yours.md) | Placing someone as an organizer looks like signing up yourself | upstream feature | medium | started | 2026-10-29 |
 | [BL-027](BL-027-kiosk-period-clock-out-refused.md) | Kiosk "Clock Out" for one period silently does nothing for mentors | fork-only | medium | started | 2026-11-01 |
 | [BL-028](BL-028-members-edit-own-punches.md) | Members can enter and change their own time clock punches by hand | upstream bug | medium | waiting | 2026-11-04 |
 | [BL-029](BL-029-alert-flash-unstyled.md) | Error messages sent as `alert` show with no colour | upstream bug | low | started | 2026-11-04 |
 | [BL-030](BL-030-refused-delete-audit-row.md) | A refused delete still writes a "destroy" audit entry | upstream bug | low | started | 2026-11-04 |
 | [BL-031](BL-031-event-type-delete-checkin-fields.md) | Deleting an event type that has check-in fields crashes | upstream bug | low | started | 2026-11-04 |
-| [BL-032](BL-032-event-type-change-checkin-fields.md) | Changing an event's type doesn't update its check-ins' fields | upstream bug | low | waiting | 2026-11-04 |
+| [BL-032](BL-032-event-type-change-checkin-fields.md) | Changing an event's type doesn't update its check-ins' fields | upstream bug | low | started | 2026-11-04 |
 
 ## Fields
 
