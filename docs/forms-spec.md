@@ -2,7 +2,7 @@
 
 Status: **Draft for review.** Builds on `feature/person-fields` (issue #489):
 its permission levels, badge grants, guardianship, and field types.
-Date: 2026-10-13 (rev. 10: Remind opens a send screen with the count, an "Also email guardians" choice, and messages the form keeps (§11.1, §3.8). Rev. 9: the choice about earlier responses is made by the Save
+Date: 2026-11-04 (rev. 11: long tick-box lists on the printable list stay short (§9.4). Rev. 10: Remind opens a send screen with the count, an "Also email guardians" choice, and messages the form keeps (§11.1, §3.8). Rev. 9: the choice about earlier responses is made by the Save
 button, not a banner (§7.4); a form's default audience follows its owning team, and
 a form can be for an event of a team above it (§3.9, §10). Rev. 8: the printable list starts from the form; people are everyone it
 asks or people who answered a question on any form (§9.4). Rev. 7: the printable list picks its people from general
@@ -805,6 +805,14 @@ The page, top to bottom:
    Changing "Answers from" starts the columns over from the new form's
    defaults.
 4. **Print as**: a table or labels, one per person.
+
+Rev. 11: long tick-box lists stay short. Past 8 items, the Columns lists and a
+question's answers flow into up to three columns (one on phones) and open on
+the ticked boxes plus the first few, six in all, with a "Show all 14" link that
+reveals the rest in place. Hidden boxes are still in the form, and without
+JavaScript everything shows. Lists of 8 or fewer look as before, with no link.
+Profile details have a small heading per person field group; a group with no
+field the viewer can read doesn't appear.
 
 The tally page has the same "Who's counted" choices for its own form.
 
