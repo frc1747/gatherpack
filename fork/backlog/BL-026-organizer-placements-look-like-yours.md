@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | started (sheet and notices on `feature/signups` `890708dc`, card on `feature/signups-widget` `afd6bf83`; MCP left) |
+| Status | started (sheet and notices on `feature/signups` `890708dc`, card on `feature/signups-widget` `afd6bf83`, MCP `my_signups` on `feature/mcp-signups` `b562e86b`) |
 | Added | 2026-10-29 |
 | Upstream commit checked | `3fa5700` (`upstream/main`); code is on `feature/signups` `8f79447` and `feature/signups-widget` `8432bc6` |
 | Planned branch | `feature/signups` (lists and wording); `feature/signups-widget` picks the change up for the dashboard card |
@@ -34,7 +34,7 @@ Per rule 10, the list change in step 1 changes behaviour. Decided 2026-11-05: it
 
 ## Left after the sheet part (2026-11-05)
 
-- **Dashboard card:** done (`afd6bf83`). **MCP** `person_signups` / `get_signup_sheet` still use their own queries and include roster placements as the organizer's.
+- **Dashboard card:** done (`afd6bf83`). **MCP:** done (`b562e86b`): `get_signup_sheet`'s `my_signups` uses the sheet's rule; `person_signups` only ever listed the taker and on-behalf-of person.
 - **Notice mails:** done (`890708dc`): the placing organizer is left out of notices and organizer messages, unless nobody else on the place has an email address.
 - **Guardian who is also an organizer:** placing their own child from the roster takes it off their list (the flag records where it was made). Accepted; they can use the member dialog instead.
 
