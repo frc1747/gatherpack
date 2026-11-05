@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -641,6 +641,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_020000) do
     t.datetime "updated_at", null: false
     t.datetime "reminded_at"
     t.uuid "fulfilled_by_checkin_id"
+    t.boolean "placed_by_organizer", default: false, null: false
     t.index ["fulfilled_by_checkin_id"], name: "index_signups_on_fulfilled_by_checkin_id"
     t.index ["on_behalf_of_id"], name: "index_signups_on_on_behalf_of_id"
     t.index ["person_id"], name: "index_signups_on_person_id"

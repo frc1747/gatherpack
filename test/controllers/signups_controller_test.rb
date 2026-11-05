@@ -91,7 +91,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ person(:student), person(:parent) ], [ signup.person, signup.signed_up_by ]
 
     get signup_sheet_path(@sheet)
-    assert_select "#my_signups", text: /For Student World/
+    assert_select "#places_for_others strong", text: "Student World"
   end
 
   test "on behalf of follows the sheet's mode" do

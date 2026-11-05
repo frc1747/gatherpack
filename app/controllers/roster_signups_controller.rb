@@ -50,7 +50,7 @@ class RosterSignupsController < InternalController
 
     begin
       Signup.place!(slot: slot, person: person, signed_up_by: current_user.person, on_behalf_of: on_behalf_of,
-        override_rules: @override_rules, **values.slice(*DETAILS).to_h.symbolize_keys)
+        override_rules: @override_rules, placed_by_organizer: true, **values.slice(*DETAILS).to_h.symbolize_keys)
       redirect_to roster_signup_sheet_path(@signup_sheet), notice: "#{person.display_name} placed in #{slot.identifier_name}.", status: :see_other
     rescue ActiveRecord::RecordInvalid => e
       @signup.errors.merge!(e.record.errors)

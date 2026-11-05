@@ -9,6 +9,7 @@
   <td><%= roster_amount(signup) %></td>
   <td><%= signup.answer %></td>
   <td><%= signup.on_behalf_of.display_name if signup.on_behalf_of && signup.on_behalf_of_id != signup.person_id %></td>
+  <td><%= signup.signed_up_by.display_name if signup.signed_up_by && signup.signed_up_by_id != signup.person_id %></td>
   <td><%= signup.note %></td>
   <td><%= roster_status_label(signup) %></td>
   <td>
@@ -36,7 +37,7 @@
       <%= link_to signup_policy.move? ? "Edit or move" : "Edit", edit_signup_sheet_roster_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-warning" %>
       <%= button_to "Cancel", signup_sheet_roster_signup_path(@signup_sheet, signup), method: :delete,
             class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
-            data: { turbo_confirm: "Cancel #{signup.person.display_name}'s sign-up?" } %>
+            data: { turbo_confirm: signup_cancel_confirmation(signup, viewer: current_user.person, told: signup.person.user&.email.present?) } %>
     <% end %>
   </td>
 </tr>

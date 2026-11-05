@@ -9,6 +9,15 @@ module SignupSheetsHelper
     end
   end
 
+  # What Cancel asks. told: the cancel emails the taker, which the roster's
+  # does (SignupNotices#cancelled) and a member's doesn't.
+  def signup_cancel_confirmation(signup, viewer:, told: false)
+    return "Cancel this sign-up?" if signup.person_id == viewer.id
+
+    question = "Cancel #{signup.person.first_name}'s place in #{signup.signup_position.name}, #{signup.signup_sheet.title}?"
+    told ? "#{question} They'll be told." : question
+  end
+
   # A person's name as an on-behalf-of choice, followed by the hints other
   # features add (Signups.extensions), such as what they still owe.
   def signup_on_behalf_of_label(sheet, person)

@@ -2,6 +2,8 @@
 # its quantity. person takes the place (or brings the items),
 # signed_up_by made the sign-up, and on_behalf_of is whose sign-up it counts
 # as (usually the person; see SignupSheet#on_behalf_of_choices_for).
+# placed_by_organizer marks one made from the roster, which stays out of the
+# signer's own list.
 #
 # Make and change sign-ups through Signup.place! and #change!, which check
 # the slot's capacity inside a row lock on the slot, so two people can't take
@@ -52,9 +54,9 @@ class Signup < ApplicationRecord
   # the reasons it can't (the slot is full, a rule fails, ...). Organizers
   # may place anyone on a sheet that isn't archived, and with override_rules
   # against a failing rule, unless the person is themselves or a relative.
-  def self.place!(slot:, person:, signed_up_by:, on_behalf_of: nil, quantity: nil, answer: nil, note: nil, override_rules: false)
+  def self.place!(slot:, person:, signed_up_by:, on_behalf_of: nil, quantity: nil, answer: nil, note: nil, override_rules: false, placed_by_organizer: false)
     signup = new(signup_slot: slot, person: person, signed_up_by: signed_up_by, on_behalf_of: on_behalf_of || person,
-      quantity: quantity.presence, answer: answer, note: note)
+      quantity: quantity.presence, answer: answer, note: note, placed_by_organizer: placed_by_organizer)
 
     transaction do
       slot.lock!
