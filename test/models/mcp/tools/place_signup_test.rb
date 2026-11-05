@@ -292,7 +292,9 @@ class Mcp::Tools::PlaceSignupTest < ActionDispatch::IntegrationTest
       tool = nil
       emails = emails_from { tool = place(viewer, taker) }
 
-      assert_equal [ viewer, taker ].uniq.map { |name| user(name).email }.sort, emails.map(&:first)
+      # An organizer placing someone else isn't mailed, as from the roster.
+      expected = viewer == :organizer ? [ taker ] : [ viewer, taker ].uniq
+      assert_equal expected.map { |name| user(name).email }.sort, emails.map(&:first)
       assert_equal page, emails, "#{viewer} placing #{taker}"
       assert_enqueued_with(job: SignupReminderJob)
       tool.changed.destroy!

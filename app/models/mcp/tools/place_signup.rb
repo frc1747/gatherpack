@@ -87,7 +87,7 @@ class Mcp::Tools::PlaceSignup < Mcp::Tool
         invalid_argument!("You already signed up #{person_json(person)[:name]} for this slot")
       end
 
-      Signup.place!(slot: slot, person: person, signed_up_by: ctx.person, on_behalf_of: person)
+      Signup.place!(slot: slot, person: person, signed_up_by: ctx.person, on_behalf_of: person, placed_by_organizer: organizer)
     end
 
     changed!(signup)
