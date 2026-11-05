@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | started (`feature/hook-catalog-complete` at `b204fb08`, pushed; see `FORK.md`) |
+| Status | started (`feature/hook-catalog-complete` `494d7627` upstream-shaped; fork fit `feature/hook-catalog-models` `9fb4045b`, see `FORK.md`) |
 | Added | 2026-10-09 |
 | Upstream base checked | `86ab397` |
-| Branch | `feature/hook-catalog-complete` (from `upstream/main`) |
+| Branch | `feature/hook-catalog-complete` (from `upstream/main`); fork fit `feature/hook-catalog-models` |
 | Upstream issue / PR | none yet |
 
 ## Summary
