@@ -123,7 +123,7 @@ Intake already shows entries by day and "Waiting to finish". Add counts down the
 
 ### S4. One reminder per person
 
-Intake §11 (reminders at set intervals), checklists open question 2 (Done to Not yet) and app-feel §8.8 (forms due, monthly reminders of what people still owe, which become count items) each send their own. A family would get several. Add a collector: features register what a person still owes, and one job sends at most one "Still to do" message (email, plus phone through `PushTopics` if opted in) listing everything with fix links, guardians getting their wards' items. The monthly reminder job already works this way. Add "Message these people" on any report filter that uses it. Off by default. Size M. Generic.
+Intake §11 (reminders at set intervals), checklists decision 25 (no automatic email on Done to Not yet) and app-feel §8.8 (forms due, monthly reminders of what people still owe, which become count items) each send their own. A family would get several. Add a collector: features register what a person still owes, and one job sends at most one "Still to do" message (email, plus phone through `PushTopics` if opted in) listing everything with fix links, guardians getting their wards' items. The monthly reminder job already works this way. Add "Message these people" on any report filter that uses it. Off by default. Size M. Generic.
 
 ### S5. A roster is a checklist with no items
 
