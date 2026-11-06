@@ -221,20 +221,18 @@ Not exposed: merge, purges, the access log, safety sheet content, bulk import.
 - **Upstream acceptance.** Large surface, one maintainer, and the audit disclosure is unanswered. Slice the pull requests: seams (F5), team queries (F3), date control (F1), the archive pattern (H1), then requirements core and connectors. Send nothing until upstream has caught up.
 - **Badges as flags.** Sync badges (`2027 FIRST Registered`) are facts a script writes; fine. Clearances use attestations (E1), not badges.
 
-## 10. Suggested sequence
+## 10. Order of work
 
-Assumptions: build season starts 2027-01-07; the callout and registration open in spring 2027 (dates are configuration, so the real dates can be set later); FIRST registration deadlines are in late summer; the first away event is in late winter (date needed). Production releases pause from about 2026-12-20 until after the first competition weekend, fixes only.
+Dependency order only; when anything ships is the product owner's call.
 
-| When | Do |
-|---|---|
-| Nov 2026 | Requirements phase 1 on Ditto (their plan). F1 date control, F3 team queries, F5 seams, F6 keys. `feature/forms-expiry` can ship any time (intake phase 5) |
-| Dec 2026 | Requirements phases 2-3 with "Record this list". H1 and H2 on forms and sign-up sheets (existing `archived`). D1 as a set. Decide the kiosk stopgap (S1) |
-| Before Jan 7 | Requirements phase 4 released, the Page kept as fallback |
-| Jan-Feb 2027 | Fixes only in production. On Ditto: F2 population shape, F4 person merge, H1 for commitments and sets, H3, E1 clearances, E5 trip packet, E8 before the first away event |
-| Mar 2027 | Intake phases 1-2 (core, checklist). D4 list import. S4 reminders. S1 slot |
-| Apr 2027 | Intake kiosk (phase 3), S6 paper fallback, S3 funnel. Dry run at a meeting. Copy last year's registration and sets with H3 |
-| Spring-summer 2027 | Registration opens on the dates chosen; Google Form retired after the first entries verify |
-| Autumn 2027 | H4 purges once ages are decided; D2 duplicates; E3, E6, E9, E4 and E7 as asked |
+1. Requirements phase 1 (their plan). F1 date control, F3 team queries, F5 seams, F6 keys. `feature/forms-expiry` is independent and can come at any point (intake phase 5).
+2. Requirements phases 2-3 with "Record this list". H1 and H2 on forms and sign-up sheets (existing `archived`). D1 as a set. The kiosk stopgap question (S1).
+3. Requirements phase 4, with the Page kept as fallback.
+4. F2 population shape, F4 person merge, H1 for commitments and sets, H3, E1 clearances, E5 trip packet, E8.
+5. Intake phases 1-2 (core, checklist). D4 list import. S4 reminders.
+6. Intake kiosk (phase 3), S6 paper fallback, S3 funnel. A dry run at a meeting. Copy last year's registration and sets with H3.
+7. Registration opens on the dates chosen; the Google Form is retired after the first entries verify.
+8. H4 purges once ages are decided; D2 duplicates; E3, E6, E9, E4 and E7 as asked.
 
 ## 11. Considered and dropped
 
@@ -242,7 +240,7 @@ A `Season` model, season enrollment rows, named season dates, a start-next-seaso
 
 ## 12. Decisions for the product owner
 
-Already decided and not repeated: no seasons; every date is configuration; excuses are for managers and admins only; "Record this list" ships in the first release; carry-over is set per attendance rule. Defaults taken without asking: dues stay treasurer-attested through next year; the release pause above; upstream pull requests in the slice order above once upstream has caught up.
+Already decided and not repeated: no seasons; every date is configuration; excuses are for managers and admins only; "Record this list" ships in the first release; carry-over is set per attendance rule. Defaults taken without asking: dues stay treasurer-attested through next year; upstream pull requests in the slice order above once upstream has caught up.
 
 1. **Automatic archiving.** Besides the manual bulk Archive, should a nightly job archive items N days after they ended or closed (off by default, one setting per type)?
 2. **Retention ages.** How long to keep denied applications, access-log rows, and the medical and emergency answers of people with no activity? Purges are always previewed and run by an admin.
