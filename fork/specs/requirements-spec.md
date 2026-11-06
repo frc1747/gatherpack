@@ -1,6 +1,8 @@
 # Spec: Requirements
 
-Status: rev. 1, 2026-11-05. Not built. Code facts checked against integration `49609326`. Decisions are in §14; open questions are in §15. Companion: `membership-intake-spec.md` (what it needs from this is §12).
+Status: rev. 2, 2026-11-06. Not built. Code facts checked against integration `49609326`. Decisions are in §14; open questions are in §15. Companion: `membership-intake-spec.md` (what it needs from this is §12).
+
+Rev. 2: dates, not seasons. There is no season, year or period concept; every check that looks at time takes a date or a date range (§5.2, §6.1), and `form_complete` also honours a form's own expiry. Combining has no depth limits (§5.3). Copy to next year shifts dates (§9.3). Date housekeeping is §9.7.
 
 Supersedes [BL-003](../backlog/BL-003-attendance-eligibility-badge.md) (a badge kept in step with attendance). Does not depend on [BL-002](../backlog/BL-002-period-hours-date-bounds.md); the attendance check reads meetings itself (§6.2).
 
@@ -8,7 +10,7 @@ Supersedes [BL-003](../backlog/BL-003-attendance-eligibility-badge.md) (a badge 
 
 Organizers say what a person must have, do or be, and GatherPack answers for every person, in words: **met**, **pending**, **not met**, or **not counted**, with why and how to fix it. The answer is available as a report, on the profile, on a person's own to-do page, in hooks, and as a test other features can use ("only people who meet this").
 
-The test is whether an organizer can rebuild today's Eligibility Report (about 700 lines of admin-written ERB with settings at the top) with screens only, and whether next season's copy takes minutes, not an evening. §13 does this on paper.
+The test is whether an organizer can rebuild today's Eligibility Report (about 700 lines of admin-written ERB with settings at the top) with screens only, and whether next year's copy takes minutes, not an evening. §13 does this on paper.
 
 ### 1.1 Non-goals
 
@@ -22,18 +24,18 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 
 | Use case | Verdict | How |
 |---|---|---|
-| Season eligibility: attendance share by month, registration, a roster badge, a signed form, a person field, a quota | Fits | One set, one requirement each (§13) |
+| Eligibility over a span of dates: attendance share by month, registration, a roster badge, a signed form, a person field, a quota | Fits | One set, one requirement each (§13) |
 | Pooled-by-family quota counts toward an individual's status | Fits | `commitment_met` reads Commitments' own grouping |
 | Pre-trip decision on a date, so it doesn't swing | Fits | Cutoff date on the set (§9.2) |
 | A manager excuses a missed meeting, or waives a requirement for one person (rare; kept so there is a way) | Fits | Excuses, managers and admins only, no self-approval (§7) |
-| Joining checklist for a new member (confirm profile, sign forms, get a login) and applicants not yet on a team | Fits | Applicant population, `attested` and `form_complete` (§12) |
+| Joining checklist for a new member (confirm profile, sign forms, get a login) and applicants not yet on a team | Fits | Applicant population, dated `form_complete`, `has_login` (§12) |
 | "Missing safety training, with guardian contacts" list | Fits | Filter "Not met", optional contacts column (§13.4) |
 | Position or form open only to people who meet a set | Additive | Predicate (§10.3); needs a small change in each of those branches |
 | Dues or ledger balance not negative | Additive, later | `ledger_balance` kind |
 | Hours worked in a window (build hours) | Additive, later | `hours` kind |
 | "Has a guardian on file with an email" | Additive, later | `has_guardian` kind |
 | Recently active (check-in or punch in the last N days) | Additive, later | `recent_activity` kind |
-| "Can still reach the minimum" projection for the rest of the season | Additive, later | Option on `attendance` |
+| "Can still reach the minimum" projection for the rest of the window | Additive, later | Option on `attendance` |
 | Record the list as decided for a trip | Fits | "Record this list" (§9.4) |
 | Any-of rules across different data ("badge OR form") | Fits | `any_of` group (§5.3) |
 | Arbitrary formulas over several attributes | Non-goal | Add a kind instead (§3) |
@@ -46,7 +48,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 - **It already prefers Commitments.** When `concessions_commitment` and `outreach_commitment` titles exist, the report reads `commitment.progress(people)` and drops its own tally. The commitment kind in §6.1 is that code, made a feature.
 - **Visibility is done by hand.** Each tier is built by choosing which model scope to read (`pundit_policy_scope` for managers, `.all` for leaders) and then omitting columns server-side. Every new report repeats this.
 - **Computed every render.** Nothing is stored. A page load recomputes attendance for the whole roster. Nothing else can use the result: a sign-up position or form audience can't ask "is this person eligible", which is why the answer was copied into badges (BL-003).
-- **No season.** There is no season model in GatherPack (checked: no `Season` class, no `season` column in `db/schema.rb`; the only mentions are comments in `signups_summary.rb` and `commitments/signup_source.rb`). The Page uses a `season_start_month` setting; Commitments use `starts_on`/`ends_on` (`app/models/commitment.rb:51-52`); time clock periods have `start_time`/`end_time` date columns (`db/schema.rb:1116`) and events link to a period (`events.time_clock_period_id`, `schema.rb:275`).
+- **No season, and none needed.** GatherPack has no season or year model (checked: no `Season` class, no `season` column in `db/schema.rb`). Everything that needs time already takes dates: Commitments use `starts_on`/`ends_on` (`app/models/commitment.rb:51-52`); time clock periods have `start_time`/`end_time` date columns (`db/schema.rb:1116`) and events link to a period (`events.time_clock_period_id`, `schema.rb:275`).
 - **Commitments** (the pattern to follow): credit source kinds in a registry (`Commitments.register_source`, `app/models/commitments.rb:38`; interface `Commitments::SourceKind`, `commitments/source_kind.rb`), with `records(person_ids)` batch reads; population = owing team + owing badge − exempt badge (`commitment.rb:170-175`); `commitment.progress(people)` batch API (`commitment.rb:188`); organizers by badge grant setting (`commitment.rb:76-116`, `config/initializers/commitments.rb`); no self- or relative-approval (`commitment.rb:144-165`); visibility by `PersonCommitmentsPolicy` (`app/policies/person_commitments_policy.rb`); profile tab via `GatherPack::Feature::ProfileTab` (`config/initializers/commitments_profile_tab.rb`); `SignupsSummary` for the dashboard card.
 - **Audience levels** (`app/models/audience_levels.rb`) and `AudienceAccess` already answer "is this viewer the subject, a guardian, a leader or a teammate of that person", one object per (viewer, subject) pair. Form badge grants (`form_badge_grant.rb`) let admin-assigned badges widen access.
 - **Hooks fire inside the save** (`CanBeHooked` after_create/after_update) and `Hook#run` does not rescue (`app/models/hook.rb:47`). Hooks for a derived status must therefore fire from a job, not a callback (§8.3).
@@ -63,12 +65,12 @@ The ask is flexibility without a configuration nightmare. Four ways to get it:
 | C. Typed check kinds, each with a small fixed form | "Attendance" with its rules table; "Has badge"; "Person field is…" | Each kind knows its data, its missing-data case, its explanation and its fix link. The form is only the questions that kind needs. Previewable and explainable. | A new need means a new kind (a small additive change, and the registry makes it a connector branch). |
 | D. Presets / templates | "Start from 2026-27 Eligibility" | Fast, fewer decisions | Not an engine; a way to use one. |
 
-**Recommendation: C as the engine, D on top.** Kinds are the vocabulary; a set is a list of them; **copy-to-next-season** (§9.3) and sample sets are the presets. B survives only inside kinds, where the operators are fixed by the data type (a person field of type choice offers "is any of"; a date field offers "on or after"). That is the "native over config" rule: the screens say what the data is, not how to query it.
+**Recommendation: C as the engine, D on top.** Kinds are the vocabulary; a set is a list of them; **copy to next year** (§9.3) and sample sets are the presets. B survives only inside kinds, where the operators are fixed by the data type (a person field of type choice offers "is any of"; a date field offers "on or after"). That is the "native over config" rule: the screens say what the data is, not how to query it.
 
 How the three hard parts stay small:
 
-- **Combination.** One level: a set is "all of" its requirements. One more tool, `any_of`, groups requirements when one of several is enough (§5.3). Nesting a whole set (`requirement_set` kind) covers reuse. No arbitrary trees, no NOT, no precedence.
-- **Parameters.** A kind's form has at most a handful of fields. A field the kind can fill from its data (the current period, this season's badge) defaults to that.
+- **Combination.** A set is "all of" its requirements. `any_of` groups requirements when one of several is enough, groups can hold groups, and a set can require another set (§5.3). Only cycles are refused. No NOT, no precedence rules to learn.
+- **Parameters.** A kind's form has at most a handful of fields. Dates default to the set's window and can be overridden on the requirement (§5.2).
 - **Exceptions.** Not "and not rookie" logic: a requirement can say who it doesn't apply to (§5.2), and a person can be excused (§7).
 
 ## 4. Concepts
@@ -85,7 +87,7 @@ How the three hard parts stay small:
 | Excuse | A manager's or admin's reasoned exception for one person, on a requirement or on one meeting (§7). |
 | Grant | Lets holders of a badge, or members of a team, see a set's overall and chosen requirements for everyone it covers (§10.2). |
 | Attestation | A recorded "this is right / this is done" by the person, a guardian, or an organizer (§6.5). |
-| Window | The set's `starts_on`..`ends_on`. "This season" in every kind means the window. |
+| Window | The set's `starts_on`..`ends_on`. A requirement's dates default to it and can be overridden. |
 
 ## 5. Model
 
@@ -99,16 +101,18 @@ Rules live in `requirement_rules` (set-level when `requirement_id` is null).
 
 ### 5.2 Requirement
 
-Fields: `kind`, `config` (jsonb, validated by the kind), `label`, `position`, `counts` (true: affects overall; false: shown only, such as "FIRST registered"), optional `starts_on`/`ends_on` overriding the set's window, optional `due_on` (when not met after this date, the label reads "Missed"), `read_level` (default the set's), `exempt_label`.
+Fields: `kind`, `config` (jsonb, validated by the kind), `label`, `position`, `counts` (true: affects overall; false: shown only, such as "FIRST registered"), optional `starts_on`/`ends_on` overriding the set's window (**every kind that looks at time reads these**; §6.1), optional `due_on` (when not met after this date, the label reads "Missed"), `read_level` (default the set's), `exempt_label`.
 
-**Applies to.** The same rule table, with `requirement_id` set: rules narrow who the requirement covers (include) or exclude people (exempt). Someone outside it gets status `exempt` with `exempt_label` ("Rookie"). This replaces the hard-coded rookie list: the class team for new members is an exclusion rule; the hand-listed exceptions are a badge.
+**Applies to.** The same rule table, with `requirement_id` set: rules narrow who the requirement covers (include) or exclude people (exempt). Someone outside it gets status `exempt` with `exempt_label` ("Rookie"). This replaces the hard-coded rookie list: a class team is an exclusion rule; hand-listed exceptions are a badge.
 
 ### 5.3 Combining
 
 - A set's requirements are "all of": every counting requirement must be met.
-- **`any_of`** is a kind whose settings are a short list of child requirements. Met when any child is met; else pending when any child is pending; else not met. The editor shows it as a box headed "Any one of these is enough" and the result line says which one passed. Children can't be `any_of` (one level of grouping).
-- **`requirement_set`** is a kind pointing at another set: met when the person meets it (or isn't covered by it, `exempt`). That is nesting: "Travel eligibility" = "Season eligibility" + attendance on top. Cycles are rejected on save (walk the reference graph); depth 3.
-- UI rule from the product: several picks on one screen mean "any of", and the screen says so: "Any of: [badge] [badge]". A kind whose picks are "all of" says "All of" (the `form_complete` kind with several forms does).
+- **`any_of`** is a kind that holds child requirements. Met when any child is met; else pending when any child is pending; else not met; the result line says which one passed. A child can be an `any_of` or any other kind, to any depth (`requirements.parent_id`). The editor draws each group as a box headed "Any one of these is enough"; nested boxes indent.
+- **`requirement_set`** is a kind pointing at another set: met when the person meets it (or isn't covered by it, `exempt`). "Trip eligibility" = "Eligibility" + attendance on top. No depth limit.
+- UI rule from the product: several picks on one screen mean "any of", and the screen says so: "Any of: [badge] [badge]". A kind whose picks are "all of" says "All of" (`form_complete` with several forms).
+
+**Limit kept, and why.** One: **no cycles** (a set that requires itself, directly or through others, never settles). Checked on save by walking the references. There is no depth or size cap: a nested set is read from its own stored results (§8), so cost does not grow with depth, and the editor draws nesting recursively. If a huge tree ever slows the editor, a cap goes on the editor, not the model. Deliberately absent: NOT and expressions (a "not" is an exclusion rule on the requirement, §5.2).
 
 ### 5.4 Result and status
 
@@ -140,15 +144,21 @@ Evaluation reads data directly, without the viewer's permissions (a leader readi
 |---|---|---|---|---|
 | `commitment_met` | `-commitments` | A commitment | Met: `progress.met?`. Pending: confirmed + planned reaches owed (signed up, not yet done). Not met: otherwise. Exempt: the commitment doesn't cover them ("Doesn't owe"). | Not covered → exempt |
 | `attendance` | `-attendance` | Period (current or a chosen one), rules table, extra hours count, minimum meetings (§6.2) | Per-rule groups all pass → met | No meetings yet → exempt "No meetings yet" |
-| `badge` | core | Badges, any of | Holds any | Deleted badge → problem shown, not met |
-| `team_member` | core | Teams, any of (with those below) | In any | — |
+| `badge` | core | Badges, any of; optional "assigned on or after" | Holds any (assigned in the dates, if asked) | Deleted badge → problem shown, not met |
+| `team_member` | core | Teams, any of (with those below); optional "joined on or after" | In any | — |
 | `has_login` | core | — | A `User` with an email | No user → not met, fix: "ask a leader to invite you" if the viewer can't |
-| `age` | core | Min and/or max; on the cutoff, window end, or a date | In range | No birthday → not met "No birthday on file"; the result shows pass/fail, never the date |
-| `person_field` | `-person-fields` | A field; operator by its type (is any of, is not, on or after, at least, is filled in); "blank counts as" | Per operator | Blank → by "blank counts as" (default not met) |
-| `form_complete` | `-forms` | Forms (all of), "completed during the window" or "ever", count `needs_reconfirmation` as not met | Met: active submission complete (activated in the window if asked). Pending: draft saved or waiting on a signer. Not met: none. | Not asked a form they aren't in the audience of → exempt |
-| `attested` | core | A statement, who attests (the person, a guardian or the person, an organizer), repeat each window | Met: attested in the window | — (§6.5) |
+| `age` | core | Min and/or max; on a chosen date (default the window's end) | In range | No birthday → not met "No birthday on file"; the result shows pass/fail, never the date |
+| `person_field` | `-person-fields` | A field; operator by its type (is any of, is not, on or after, at least, is filled in); "blank counts as"; optional "last changed on or after" | Per operator | Blank → by "blank counts as" (default not met) |
+| `form_complete` | `-forms` | Forms (all of); **signed** on or after a date or within the last N days/months (default the window's start), or "ever" | Reads the response's status, not `activated_at` alone. Met: `complete?` and the active submission's `activated_at` is in the date window. Pending: a newer draft or pending submission is open, or a signer is awaited. Not met: no response, `needs_reconfirmation` (including the expired reason), or signed before the window. Detail: "Good until <date>" when `FormResponse#expires_at` is set; "Expired <date>" when expiry is why it's not met (fix: sign again). | Not in the form's audience → exempt |
+| `attested` | core | A statement, who attests (the person, a guardian or the person, a manager); optional "on or after" | Met: attested on or after the date (default the window's start) | — (§6.5) |
 | `requirement_set` | core | Another set | Its overall | Not covered → exempt |
 | `any_of` | core | Child requirements | See §5.3 | — |
+
+**Dates on every kind that looks at time.** Each such kind has a date or range field, defaulting to the set's window and overridable per requirement. `commitment_met` is the exception: a commitment has its own period, which the requirement reads. Because the date is on the requirement, one badge or form can serve several sets with different windows, and a copy only changes dates.
+
+**Signed on or after, with no change to forms.** `FormSubmission` records `activated_at` (`schema.rb:384`). A returning member whose active submission is older is "not met" and the existing flow lets them sign again: `FormResponsesController#update` calls `start_submission!` (`form_responses_controller.rb:28`), which starts a new draft from the active answers and gets a new `activated_at` on submit. The fix link is that form. Coordination with intake: a form can be answered only while open (`form_access.rb:72`), so a form being re-signed must be open; and if the form page doesn't offer a new version on an already complete response, that is the one forms change, made in `feature/forms`.
+
+**Form expiry vs the requirement's date.** The form may carry its own expiry ("responses expire on <date>" or "good for N months"; its design is the intake spec's). `form_complete` reads the response's status (`complete?`, `needs_reconfirmation`); intake §7.5 puts expiry there as an `:expired` reconfirmation reason with `FormResponse#expires_at`, so the engine never recomputes expiry. The requirement's date window applies on top, using `activated_at`. Use the **form's expiry** when the rule belongs to the form everywhere ("the media release is good for a year", wherever it's asked); use the **requirement's date** when it's one checklist's rule ("signed since Sept 1 for this trip").
 
 Later (§1.2): `ledger_balance`, `hours`, `has_guardian`, `recent_activity`. Check-ins at an event type are deliberately **not** a kind: a commitment of 1 does it (Decision 6), so there is one way to count activity.
 
@@ -158,15 +168,15 @@ Takes the report's logic unchanged, made batch and testable:
 
 - **Meetings** are events linked to the chosen time clock period that have ended (`end_time < now`, or `<= cutoff` when one applies). The kind queries events itself with day bounds in `Time.zone`, so BL-002's date bug doesn't touch it (the report does the same by not calling `available_hours`).
 - **Credit** is only punched time that overlaps a meeting (merged intervals); leaving early costs, staying late adds nothing. `extra_hours_count` lets extra time make up missed time within the same group, never above 100%.
-- **Rules** are rows the organizer builds: name, dates (months, or an explicit date range), share of meeting hours, `weekly` (every week must pass separately), and how the rule relates to the others. Each rule either stands alone (its meetings are judged by themselves, so a weak summer doesn't count against fall) or joins a named `pool` (rules in a pool are summed and checked together). Nothing about periods, seasons or carry-over is built into the kind: whether earlier meetings count toward a later rule is the organizer's choice on the rule, and the screen says which it is ("Judged on its own" / "Counted together with: Summer"). HBR's Page learned this the hard way: summer meetings counted into fall until the rules were split.
+- **Rules** are rows the organizer builds: name, dates (a date range; the screen offers "every May–Aug" shortcuts that fill in the dates), share of meeting hours, `weekly` (every week must pass separately), and how the rule relates to the others. Each rule either stands alone (its meetings are judged by themselves, so a weak summer doesn't count against fall) or joins a named `pool` (rules in a pool are summed and checked together). Nothing about periods, seasons or carry-over is built into the kind: whether earlier meetings count toward a later rule is the organizer's choice on the rule, and the screen says which it is ("Judged on its own" / "Counted together with: Summer"). HBR's Page learned this the hard way: summer meetings counted into fall until the rules were split.
 - **Measures** (columns and filters): `meetings` attended of held, `credited` hours, `percent`, `extra` (owner-only).
 - **Tolerance.** The report passes a group at `got + 1 >= needed` (one second). The kind settings call it "Leeway" in minutes, default 1, so parity is exact and the owner can change it.
-- **Meetings to look at.** The requirement names which meetings count (events linked to a chosen time clock period, or to any of several), and the rules' dates divide them. No default ties a requirement to "the current period"; copying to next season proposes the next period (§9.3). A past view uses the as-of picker (§9.1).
+- **Meetings to look at.** Events linked to a time clock period (that link is how GatherPack knows a meeting is one) that start within the rule's dates. By default every period overlapping the requirement's dates is used; a requirement may name periods to narrow it. Nothing is tied to "the current period"; a past view uses the as-of picker (§9.1).
 - **Excused meetings.** A manager or admin can excuse a person from one meeting (§7); that meeting leaves that person's required hours and credited hours.
 
 ### 6.3 Why a kind, not a Page, for FIRST
 
-The FIRST roster sync already writes two badges per season (`2027 FIRST Registered`, `2027 FIRST Consent Signed`). A requirement reads them with the `badge` kind. The sync keeps owning the data; the report never needs to know it exists.
+The FIRST roster sync already writes two badges per year (`2027 FIRST Registered`, `2027 FIRST Consent Signed`). A requirement reads them with the `badge` kind. The sync keeps owning the data; the report never needs to know it exists.
 
 ### 6.4 What a kind may not do
 
@@ -174,7 +184,7 @@ Write anything, call the network, read other people's data into someone else's `
 
 ### 6.5 Attestation
 
-`requirement_attestations` (`person_id`, `key`, `statement`, `attested_at`, `attested_by_id`, `window`): "I confirm this is right", "Handbook read", "Physical on file". The `attested` kind reads them. Who may attest is the requirement's setting: the person (the person's own to-do button), a guardian for a ward (only `Person#guardians` of the person, the same people forms let sign), or an organizer on a list (a mentor ticking a box). Attesting is audited and never done by or for oneself when the setting is "organizer" (same rule as excuses). This is the engine's answer to "badge as status flag" for manual checks, and the way a "profile confirmed this season" or "form acknowledged" check exists without new tables per feature.
+`requirement_attestations` (`person_id`, `key`, `statement`, `attested_at`, `attested_by_id`): "I confirm this is right", "Handbook read", "Physical on file". The `attested` kind reads them. Who may attest is the requirement's setting: the person (the person's own to-do button), a guardian for a ward (only `Person#guardians` of the person, the same people forms let sign), or a manager (a mentor ticking a box). Attesting is audited and never done by or for oneself when the setting is "manager" (same rule as excuses). This is the engine's answer to "badge as status flag" for manual checks, for things like "Physical on file". It is not how profile details are confirmed; that is a form (§12).
 
 ## 7. Excuses (overrides)
 
@@ -203,7 +213,7 @@ Stored results are a **cache**: any row can be deleted and recomputed; there is 
 
 Three refreshers; the third is the one the BL-003 hook idea lacked.
 
-1. **By change.** Each kind lists `invalidations`: `[Model, ->(record) { person ids or :all }]`. Core installs one `after_commit` concern on those models from a `to_prepare` initializer (as `Checkin.include(Signups::CheckinFulfilment)` does). A `Checkin`, `BadgeAssignment`, `Membership`, `TimeClockPunch`, `FormResponse`, `PersonFieldValue` or credit-source change marks that person's rows for the sets that use the kind; an `Event`, `TimeClockPeriod`, `Commitment` or set-configuration change marks the whole set. Marking writes a row in `requirement_refreshes` (set, person or null, unique) and enqueues one job per set 30 seconds out, so a burst of punches is one recomputation. No hook, no work inside the user's save.
+1. **By change.** (`form_complete` also listens to `form_responses - incomplete` and the other form status events, so an expired item never stays Met. Its `next_change_at` is the earliest upcoming `expires_at`, so the clock refresh (2.) covers expiry even if no status event has fired yet.) Each kind lists `invalidations`: `[Model, ->(record) { person ids or :all }]`. Core installs one `after_commit` concern on those models from a `to_prepare` initializer (as `Checkin.include(Signups::CheckinFulfilment)` does). A `Checkin`, `BadgeAssignment`, `Membership`, `TimeClockPunch`, `FormResponse`, `PersonFieldValue` or credit-source change marks that person's rows for the sets that use the kind; an `Event`, `TimeClockPeriod`, `Commitment` or set-configuration change marks the whole set. Marking writes a row in `requirement_refreshes` (set, person or null, unique) and enqueues one job per set 30 seconds out, so a burst of punches is one recomputation. No hook, no work inside the user's save.
 2. **By the clock.** Some answers change with no data change: a meeting ends, an event starts (planned becomes confirmed), a window or cutoff passes. Kinds return `next_change_at(config, context)`; the set stores the earliest as `next_refresh_at`. A recurring job every 10 minutes (`config/recurring.yml`, next to `form_schedule_job`) refreshes sets whose time has come. Absences are covered by this: a student who skipped writes no punch, but the meeting's end refreshes the whole set.
 3. **Nightly full recomputation.** One run per active set, which also repairs anything missed.
 
@@ -213,7 +223,7 @@ Three refreshers; the third is the one the BL-003 hook idea lacked.
 
 Change detection happens in the refresh job, comparing old and new status; the job rescues and logs hook errors, so a bad hook can't affect anyone's save (contrast `Hook#run`, which doesn't rescue, `hook.rb:47`).
 
-- Hook events via `GatherPack::HookCatalog.register_events`: `requirement_results - status changed` (model is the result row; it carries `previous_status`), The overall answer is the same event on the row whose `requirement_id` is null. Targets registered for the new tables: `requirement_sets`, `requirements`, `requirement_excuses`, `requirement_attestations`.
+- Hook events via `GatherPack::HookCatalog.register_events`: `requirement_results - status changed` (model is the result row; it carries `previous_status`). The overall answer is the same event on the row whose `requirement_id` is null. Targets registered for the new tables: `requirement_sets`, `requirements`, `requirement_excuses`, `requirement_attestations`.
 - `ActiveSupport::Notifications` `requirement_status_changed.gatherpack` (payload: result, previous status) for other features (My GatherPack, intake), following `person_field_changed.gatherpack`.
 - First computation is silent (no `previous_status`), so building a set doesn't fire a hundred hooks. A "Backfill" reset also stays silent.
 
@@ -225,23 +235,28 @@ Every evaluation takes a **window** and an **as-of moment**. The window is the r
 
 The report's period buttons become an **"as of" date picker** for organizers: it computes live and shows without storing, and is limited to organizers (it does the work of one full evaluation). This is how a past period is looked at.
 
-Rolling windows ("last 60 days") are not a setting in v1; a kind that needs one (`recent_activity`, later) has its own days field.
+**Relative dates.** Every date field on a check, and the set's window, is a two-choice radio with the field inline: **on or after** [date], or **within the last** [N] [days | months]. The relative choice is resolved against the as-of moment, so a standing set ("good for the last 12 months") needs no yearly edits. Results refresh by the clock when a relative edge moves (`next_change_at`, §8.2), and copy to next year (§9.3) leaves relative fields as they are. A date range (attendance rule dates, the set's window) offers the same radio for its start; its end stays "until <date>" or "now".
 
 ### 9.2 Cutoff, so eligibility doesn't swing
 
-`cutoff_on` on a set: results are computed on the data up to the end of that day. Before the date, results are live and the report shows a banner "Counting up to <date>" with today's numbers ("if the date were today"). After it, results stay as of the cutoff. A correction to older data (a punch fixed, a meeting added) still changes them, because it is data before the cutoff. For a trip decided on a date, copy the season set (§9.3), keep the shared requirements through `requirement_set` nesting, and set a cutoff.
+`cutoff_on` on a set: results are computed on the data up to the end of that day. Before the date, results are live and the report shows a banner "Counting up to <date>" with today's numbers ("if the date were today"). After it, results stay as of the cutoff. A correction to older data (a punch fixed, a meeting added) still changes them, because it is data before the cutoff. For a trip decided on a date, copy the set (§9.3), keep the shared requirements through `requirement_set` nesting, and set a cutoff.
 
-### 9.3 Copy to next season
+### 9.3 Copy to next year
 
-"Copy set" duplicates population, requirements, grants and organizers; shifts the window by one year; clears excuses, attestations and results. A second step **proposes substitutions** for things that name a season: any badge, commitment, form or team whose name contains last season's year (`2027 FIRST Registered`, `Class of 2030`) is matched against names containing the next year, shown as a table of "Old → New" with a pick for each unmatched one. Nothing is guessed silently. The copy starts as `draft` and shows the §9.6 preview before it's opened.
+"Copy set" duplicates population, requirements, grants and organizers, and clears excuses, attestations, results and recorded lists. A second step shows **proposed changes for a person to confirm**, never applied silently:
 
-### 9.4 Mid-season changes and record
+- **Dates.** The set's window, every requirement's dates and every attendance rule's dates shift by an amount the organizer picks (default one year), shown old → new and editable.
+- **Replacements.** Any badge, team, form, commitment or person field whose name contains a year or date (`2027 FIRST Registered`, `Class of 2030`) is matched to a name with the shifted year, as a table "Old → New" with a pick for each unmatched one, which can be left as is.
 
-Editing an active set is allowed. Each save is audited (PaperTrail), shows a banner "Changed <date> by <role>: <what>", and shows an **impact preview before saving**: "3 people would go from Met to Not met, 1 from Pending to Met" with the names (organizers already see them). Rules take effect for the whole window; there is no per-date rule versioning, because attendance rules already differ by month inside the kind (the HBR case) and a policy that changes mid-season is a conversation, not a data model.
+The copy starts as `draft` and shows the §9.6 preview before it's opened. Nothing season-like is created or looked up.
+
+### 9.4 Changes while running, and record
+
+Editing an active set is allowed. Each save is audited (PaperTrail), shows a banner "Changed <date> by <role>: <what>", and shows an **impact preview before saving**: "3 people would go from Met to Not met, 1 from Pending to Met" with the names (organizers already see them). Rules take effect for the whole window; there is no per-date rule versioning, because attendance rules already differ by month inside the kind (the HBR case) and a policy that changes mid-way is a conversation, not a data model.
 
 "Record this list" (first release, phase 3) snapshots names, statuses and the configuration into `requirement_lists`, read-only, for the decision on a trip. Results keep changing; the list doesn't.
 
-### 9.5 Early-season denominators
+### 9.5 Early denominators
 
 After two meetings one absence is 50%. The attendance kind has **minimum meetings held** (default 0 so parity with today is exact; the owner picks, §15). Below it the result is `pending` with the detail "Counted after 4 meetings; 2 held". A weekly rule never has this problem: it applies only to a week with held meetings. The "can still reach the minimum" projection is later (§1.2).
 
@@ -252,6 +267,15 @@ While editing a requirement or population, a side panel "Who this passes" evalua
 - Counts by status with the first ten names each; click through to the full list.
 - A one-line sentence of the check in words ("Anyone in Students except the Class of 2030, who has at least 40% of Build meeting hours, every week").
 - Runs as a Turbo request, debounced; a slow one shows a spinner and the counts arrive when ready. Organizer-only (the people it lists are people the organizer can already see).
+
+### 9.7 Date housekeeping
+
+Two optional settings, both dates:
+
+- **Archive sets ended before** a date (or N days after `ends_on`): the nightly job moves matching active sets to `archived` (read-only, off menus and dashboards, still openable). A set another set requires is skipped and flagged.
+- **Prune results** of archived sets older than a date, keeping recorded lists (§9.4) and audit rows. Results are a cache (§8.1), so pruning loses nothing that can't be recomputed.
+
+"Archive forms older than X" is the same idea and belongs to forms, with the same date field.
 
 ## 10. Visibility
 
@@ -297,7 +321,7 @@ Both read stored results (§8.2 fallback). Default is **strict** (`met` only; `e
 
 - **Report page** `/requirement_sets/:id`: one row per visible person; columns overall plus each visible requirement; click-to-sort headers; per-column tick filters ("Showing people with any of the ticked values"; columns combine); min/max filters on measures; name filter; shared print styles (landscape, "Printed <date>" line); set-level "Your family" section above "Everyone" when the viewer sees more for their own and their wards' rows than for others. Same behavior as the Page today, no ERB.
 - **Profile tab** "Requirements": the person's sets, each a plain checklist with fix links. Visible by the same rule (§10.1) and hidden when none cover the person.
-- **My GatherPack** "your season" / to-do: sets with any `not_met` or `pending` item the viewer can fix, as a card per person (the viewer and their wards). A section in `feature/my-gatherpack-requirements`.
+- **My GatherPack** to-do: sets with any `not_met` or `pending` item the viewer can fix, as a card per person (the viewer and their wards). A section in `feature/my-gatherpack-requirements`.
 - **Dashboard card** like `SignupsSummary` for people with unfinished items.
 - **Explain** (§10.5).
 - **MCP** (§11.4).
@@ -310,7 +334,7 @@ The profile checklist and a row's "Why?" show plain words, built from each resul
 > **Pending.** Outreach: 1 event signed up, 0 done. [See events]
 > **Met.** 1747 login, FIRST registered, Academic eligibility.
 
-The overall sentence lists unmet items first, then pending, then met. A fix link is the kind's best next action: a form to fill (the guardian's link if the viewer is the guardian), a sign-up sheet, an "I confirm" button (attestation), or an instruction for something only an organizer can do ("Ask a mentor").
+The overall sentence lists unmet items first, then pending, then met. A fix link is the kind's best next action: a form to fill or sign again (the guardian's link if the viewer is the guardian), a sign-up sheet, an "I confirm" button (attestation), or an instruction for something only an organizer can do ("Ask a mentor").
 
 ## 11. Build
 
@@ -351,7 +375,7 @@ New tables (neat id prefixes `reqs_`, `req_`, `reqr_`, … following `has_neat_i
 | `requirement_grants` | `requirement_set_id`, `badge_id`, `team_id`, `requirement_ids` (uuid array), `access` |
 | `requirement_results` | as §5.4 plus unique index `(requirement_set_id, requirement_id, person_id)` and an index on `(requirement_set_id, requirement_id, status)` |
 | `requirement_excuses` | `requirement_id`, `person_id`, `event_id`, `reason`, `expires_on`, `created_by_id` |
-| `requirement_attestations` | `person_id`, `key`, `statement`, `attested_at`, `attested_by_id`, `window_starts_on` |
+| `requirement_attestations` | `person_id`, `key`, `statement`, `attested_at`, `attested_by_id` |
 | `requirement_refreshes` | `requirement_set_id`, `person_id` (null = all), `created_at`; unique |
 
 All migrations are new and reversible; none touches an upstream migration (rule 9). References from a set or requirement to a badge, team, field, form or commitment are protected on delete with a readable error (`dependent: :restrict_with_error` from the initializer, as `commitments.rb` does), and also as a **problem** on the set page if it somehow happens.
@@ -378,11 +402,11 @@ No tool to edit a set's configuration: the edit screens are the control surface,
 
 - Each kind: batch evaluation equals a one-person evaluation; missing data; deleted reference; timing (planned versus confirmed with `travel_to`).
 - Attendance: parity with the Page's numbers on a fixed dataset (overlap, early leave, late stay, pooled rules, weekly rule failing in one week, `extra_hours_count`, leeway, period boundary events per BL-002, excused meeting, no meetings yet, minimum meetings).
-- Overall rule, `any_of`, nesting, cycle rejection, applicability and exemptions.
+- Overall rule, `any_of` in `any_of`, deep nesting, cycle rejection, dated `form_complete` (older, expired, open newer draft) and `badge`, applicability and exemptions.
 - Refresh: change marks only the right people; clock refresh at a meeting's end; nightly repairs a missed row; a second run changes nothing; stale fallback computes one person; hooks fire once on a change and never on first computation; a failing hook doesn't stop the job.
 - Visibility: every tier in §13.5 as a controller test (what appears in the HTML, not what is hidden); sort/filter can't reveal a hidden value; grant by non-admin badge rejected; guardian sees a ward; commitment detail withheld per commitment visibility.
 - Excuses: self and relative refused; expiry; audit row.
-- Copy: window shift, substitution table, no results copied.
+- Copy: date shift, replacement table, no results copied. Housekeeping: archive and prune by date.
 - Predicates: `people_meeting` is a relation and strict by default.
 - Performance: a 200-person, 10-requirement set evaluates in a bounded number of queries (assert query count, no N+1).
 - Flag off: no routes, tab, callbacks or job work.
@@ -390,21 +414,19 @@ No tool to edit a set's configuration: the edit screens are the control surface,
 
 ## 12. What intake needs from this
 
-The membership intake spec treats a season's joining checklist as a requirement set. What it gets:
+The intake spec has no seasons, season enrollments or form renewal switches: membership is the record, and a returning member sees items older than a requirement's date as needing redoing. Its joining checklist is a requirement set. What it gets:
 
 | Intake need | Provided by | Notes |
 |---|---|---|
-| People not yet on a team (applicants) | Population rule target `applicants` (§5.1): pending `MembershipApplication`s to a team | Applicants are covered by a set; accepting them into the team keeps them covered by a rule that includes the team. Resolved: intake creates the `MembershipApplication` when a self-service entry is verified, or at once at the kiosk (intake §4), so every applicant has a population entry. |
-| "Profile confirmed this season" | `form_complete` on intake's "confirm your information" form, which renews each season (intake §9.1) | Resolved: confirming is a form, so the details are edited where forms already write the profile, and signatures work the same way. `attested` stays for manual checks a person or organizer ticks ("Physical on file"). |
-| "Form signed this season" | `form_complete` with "completed during the window" (`-forms` connector) | Reads `form_responses.active_submission.activated_at` (`schema.rb:384`) and treats `needs_reconfirmation` as not met, so a form re-opened for a new season counts as unsigned until re-signed |
+| People not yet on a team (applicants) | Population rule target `applicants` (§5.1): pending `MembershipApplication`s to a team | Intake creates the `MembershipApplication` when a self-service entry is verified, or at once at the kiosk, so every applicant has a population entry. |
+| Redo what's older than a date | `form_complete`, **signed on or after** the requirement's date, and **not expired** (the response's status, §6.1) | Reads `activated_at`; an older or expired signature is not met, with the form as the fix. Intake owns the form's expiry column; this spec only reads it. Coordination: the form must be open to be signed again; if the form page doesn't offer a new version on a complete response, intake and this spec agree one small change in `feature/forms`. |
 | A login | `has_login` | |
-| Guardian acting on a ward's checklist | Results are per person; a guardian's `family` read level reaches their ward (`AudienceAccess` guardian component, `audience_access.rb:31`); each result carries `fix` with a link or an attest action the guardian may take | Uses `Person#guardians`/`wards` (`person.rb:116-121`), like forms. Guardian text appears only when the viewer is a guardian. |
-| Season / period | A `Season` from `feature/seasons` (intake §9.1) | Resolved: sets gain a nullable `season_id`; when set, the window is the season's dates, otherwise the set's own `starts_on`..`ends_on`. Copying a set (§9.3) becomes "start next season". The engine itself still needs only a date range, so the core branch doesn't depend on `feature/seasons`; a connector adds the column. |
-| Kiosk "my checklist" | `Requirements.checklist_for(person)`: ordered items `{label, status, summary, fix: {label, path | attest_key}}` from stored results, no heavy query | A kiosk shows only items with a fix the kiosk can do (attest, a link to a device-friendly page); the engine doesn't know about kiosks |
-| Completion → become a member | Hook `requirement_results - status changed` with the overall row, or the notification; **no built-in action** | Intake owns "when a checklist is complete, add the person to the team / send a welcome", using the hook or the notification. The engine only reports. |
-| Next season's checklist | Copy set (§9.3) | |
+| Guardian acting on a ward's checklist | Results are per person; a guardian's `family` read level reaches their ward (`audience_access.rb:31`); each result's `fix` is a link or an attest action the guardian may take | Uses `Person#guardians`/`wards` (`person.rb:116-121`), like forms. Guardian text appears only when the viewer is a guardian. |
+| Kiosk "my checklist" | `Requirements.checklist_for(person)`: ordered items `{label, status, summary, fix: {label, path | attest_key}}` from stored results | A kiosk shows only items with a fix it can do |
+| Completion → become a member | Notification `requirement_status_changed.gatherpack` and the hook event (§8.3), overall row | Intake owns the reaction. The engine only reports. |
+| Next year's checklist | Copy set (§9.3) with shifted dates | |
 
-Not provided and not planned: payments as a requirement (no `ledger_balance` until asked), and any step that writes data (the engine reads; steps that change data are intake's).
+Not provided: payments as a requirement, and any step that writes data. There is no season in this engine or its tables.
 
 ## 13. HBR setup appendix: today's report as configuration
 
@@ -412,7 +434,7 @@ All of this is data in the screens, no code. It is the proof the engine covers t
 
 ### 13.1 The set
 
-**2026-27 Eligibility.** Team "Team 1747" (top), window 2026-05-01 to 2027-04-30 (the report's season starts the first of May), no cutoff for the season-long set. Words: Eligible / Pending / Not eligible. `read_level`: family (the person, guardians, leaders).
+**2026-27 Eligibility.** Team "Team 1747" (top), window 2026-05-01 to 2027-04-30 ; no cutoff. Words: Eligible / Pending / Not eligible. `read_level`: family (the person, guardians, leaders).
 
 **Population:** include team "Team 1747 - Students" with and below, **members only** (the report's `manager: false`).
 
@@ -425,10 +447,10 @@ All of this is data in the screens, no code. It is the proof the engine covers t
 | 3 | FIRST Status (consent) | `badge` | `2027 FIRST Consent Signed` | | yes |
 | 4 | Concessions | `commitment_met` | "Concessions 2026" | none (the commitment exempts those who don't owe) | yes, `due_on` 2027-01-09 (shows "Missed" after) |
 | 5 | Outreach | `commitment_met` | "Outreach 2026–27" | exclude team "Team 1747 - Class of 2030" and badge "Rookie 2026-27", exempt label "Rookie" | yes |
-| 6 | Attendance | `attendance` | period current; extra hours off; minimum meetings 0; leeway 1 min; rules below | | yes |
+| 6 | Attendance | `attendance` | dates default to the window; extra hours off; minimum meetings 0; leeway 1 min; rules below | | yes |
 | 7 | Academic Eligibility | `person_field` | `academically_eligible`, "is any of" Yes, blank counts as Yes | | yes |
 
-Attendance rules table: **Off-Season Summer** months May–Aug 10%, pool "Off-Season"; **Off-Season Fall** Sep–Dec 20%, pool "Off-Season"; **Build/Competition** Jan–Apr 40%, weekly. These are the Page's three rows.
+Attendance rules table: **Off-Season Summer** 2026-05-01 to 2026-08-31, 10%, pool "Off-Season"; **Off-Season Fall** 2026-09-01 to 2026-12-31, 20%, pool "Off-Season"; **Build/Competition** 2027-01-01 to 2027-04-30, 40%, weekly, judged on its own. These are the Page's three rows. The Page looks at one period at a time; the set looks at the dates, so results can differ (listed in §13.6).
 
 The commitments keep what they have today: family grouping by the Parent/Guardian relationship type, "2 shifts plus one per additional student" as base 2 and additional 1, stocking at 3-to-1 as a sign-up/check-in source ratio, and kickoff as the period end. Rookies are the commitment's concern for its own pages; the requirement's exclusion makes the report row "Rookie".
 
@@ -448,7 +470,7 @@ Overall: all counting requirements: any `not_met` → Not eligible; any `pending
 | Academic Eligibility Yes/No | #7 |
 | Tick filters per badge column; number min/max; name filter; counts | Report page §10.4 |
 | Print layout, "Printed" line | Report page prints with the shared report print styles |
-| Period buttons | "As of" picker (§9.1) and the attendance kind's "current" period |
+| Period buttons | "As of" picker (§9.1); the rules' dates |
 | Admin alert box listing missing teams, badges, field, relationship type | Set page "Setup problems" from each kind's `problems` |
 
 ### 13.4 Other pages
@@ -474,28 +496,30 @@ Leaders see two sections as today ("Details for you and your wards", then "Team"
 
 ### 13.6 Parity on staging
 
-The Page's cells carry `data-filter` and `data-value` attributes (the cells built by `badge_cell`, line 393 of the Page). A script run by an admin session on staging fetches the Page and the set and compares, per person and per column: overall status, each requirement's status, the numbers. Differences are listed and each is either a bug or a recorded intentional change (leeway, a person field "blank" handling, "Pending" semantics). The report passes when two weekly runs agree for every person.
+The Page's cells carry `data-filter` and `data-value` attributes (the cells built by `badge_cell`, line 393 of the Page). A script run by an admin session on staging fetches the Page and the set and compares, per person and per column: overall status, each requirement's status, the numbers. Differences are listed and each is either a bug or a recorded intentional change (leeway, a person field "blank" handling, "Pending" semantics, dates versus one period). The report passes when two weekly runs agree for every person.
 
 ## 14. Decisions
 
 1. **Typed check kinds with small fixed forms; presets by copy.** No expression language, no generic query builder (§3).
 2. **A layer above Commitments.** Requirements read commitment progress; Commitments stay the place for quotas, pooling and credit. No ratios or weekly rules in Commitments.
-3. **One combination tool beyond "all of".** `any_of` (one level) and `requirement_set` nesting; no NOT, no arbitrary trees.
+3. **`any_of` and `requirement_set` nest freely;** the only structural limit is no cycles. No NOT, no expression syntax.
 4. **Results are stored, as a rebuildable cache,** refreshed by change, by clock and nightly, with a computed fallback on stale. Predicates use the stored rows.
 5. **Evaluation is a pure function of data up to an as-of moment.** Cutoff dates fall out of that. Hooks never run inside user saves; the refresh job fires them.
 6. **No check-in kind.** Event attendance for a status is a commitment of N. One way to count activity.
 7. **Excuses are reasoned, audited, no self- or relative approval,** by managers of the set's team (and above) and admins only (product owner, 2026-11-06: not a current use case; kept for completeness). They can be for one meeting.
 8. **Visibility is computed per viewer and omitted server-side;** two levels (status, full), `owner_only` measures, grants only by admin-assigned badge or team, commitment detail follows commitment visibility.
 9. **Missing data is "not met" by default,** with the reason shown; a kind offers "blank counts as" only where blank is legitimately a value. "Nothing to judge yet" is `exempt` with a label, or `pending` under a minimum.
-10. **Seasons come from `feature/seasons`** (reconciled with the intake spec). A set chosen for a season takes its window from it; without one, its own dates are the window. Kinds read the window. Substitutions on copy are proposed from names containing a year, confirmed by a person, until badges and teams can name their season.
-11. **Attestation is a generic manual-check mechanism** and replaces badges used as manual flags.
+10. **No season, year or period concept.** A set's dates are its window; a requirement's dates default to it and can be overridden. Copying shifts dates and proposes replacements for a person to confirm (product owner, 2026-11-06).
+11. **Attestation is a generic manual-check mechanism** and replaces badges used as manual flags. Confirming profile details is a form.
 12. **Predicates are strict by default** (`met` or `exempt`); a caller may accept `pending`.
-13. **Mid-season edits are allowed with a preview and an audit,** not versioned per date.
+13. **Edits while running are allowed with a preview and an audit,** not versioned per date.
 14. **Carry-over is part of building the rule, not the engine** (product owner, 2026-11-06). Each attendance rule is judged on its own or pooled with named others, as the organizer sets it; the kind has no built-in period or season default.
-15. **Parity run before cutover** with the Page on staging; the Page stays the fallback for the whole first season.
+15. **Parity run before cutover** with the Page on staging; the Page stays the fallback until the first build weeks agree.
 16. **Flag off by default; connectors per feature;** upstream files touched are routes, recurring jobs, schema, and two rule enums in connector branches.
 17. **Generalist code.** Overall words, labels and exempt labels are set data; no "student", "travel" or "concession" in the code or in kind names. Dates of every kind (windows, cutoffs, rule dates) are data too; no month is assumed in code.
 18. **"Record this list" ships in the first release** (product owner, 2026-11-06), in phase 3, so a trip decision can be recorded at the first away event.
+19. **Every check that looks at time takes a date or range,** defaulting to the set's window. "Signed on or after" needs no forms change. `form_complete` also honours the form's own expiry: expiry for a rule that belongs to the form, the requirement's date for one checklist's rule.
+20. **Date housekeeping is configuration:** archive sets ended before a date, prune old results (§9.7).
 
 ## 15. Open questions
 
@@ -504,7 +528,7 @@ The Page's cells carry `data-filter` and `data-value` attributes (the cells buil
 
 ## 16. Phases
 
-Today is 2026-11-05; build-season meetings start 2027-01-07 and the Fall off-season period gives real data to compare against before then.
+Today is 2026-11-06; build-season meetings start 2027-01-07 and the Fall off-season period gives real data to compare against before then.
 
 | Phase | Lands | By | Side by side |
 |---|---|---|---|
@@ -512,6 +536,6 @@ Today is 2026-11-05; build-season meetings start 2027-01-07 and the Fall off-sea
 | 2 | `-commitments`, `-person-fields`, `-forms`, `attested`; full §13 set; grants | first week of Dec | Whole Page compared per person (§13.6). Fix differences or record them. |
 | 3 | `feature/mcp-requirements`, `feature/my-gatherpack-requirements`, hooks live, nightly job, "Record this list" | mid Dec | Two clean weekly parity runs |
 | 4 | Release to production (the product owner deploys); the set opens for viewers; the Page stays reachable and unlinked | before Jan 7 | The Page remains the source of record until the first Build week has agreed in both |
-| 5 | Predicates (`-signups`, `-forms`), copy-to-next-season, `ledger_balance`, `hours` | Feb on | — |
+| 5 | Predicates (`-signups`, `-forms`), copy to next year, date housekeeping, `ledger_balance`, `hours` | Feb on | — |
 
 Backlog: close BL-003 as superseded when phase 1 opens; keep BL-002 on its own branch (it is an upstream bug independent of this).
