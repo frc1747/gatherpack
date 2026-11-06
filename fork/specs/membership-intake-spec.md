@@ -1,12 +1,12 @@
 # Spec: Membership Intake (joining and rejoining a team)
 
-Status: draft rev. 2, 2026-11-06. Nothing is built. Code facts were checked at integration `49609326`. Decisions in §13 are defaults the product owner can overturn; §15 lists the open questions.
+Status: draft rev. 2, 2026-11-06. Nothing is built. Code facts were checked at integration `49609326`. Decisions in §13 are defaults the product owner can overturn; there are no open questions.
 
-Rev. 2 (also adds an optional form expiry, §7.5): no seasons. The product owner's rule is that time is a date or a date range on a record or a check, never a model. Removed: `Season`, `feature/seasons`, `season_enrollments`, `renews_each_season`, the rollover job, "ways to join" and renewal as its own flow. A registration is now a link with dates, the teams people may apply to, and a checklist. "Signed recently enough" is decided by the check that uses the form (§7).
+Rev. 2 (also adds an optional form expiry, §7.5): no seasons. The product owner's rule is that time is a date or a date range on a record or a check, never a model. Removed: `Season`, `feature/seasons`, `season_enrollments`, `renews_each_season`, the rollover job, "ways to join" and renewal as its own flow. A registration is now a link with dates, the teams people may apply to, and a checklist. "Signed recently enough" is decided by the item that uses the form (§7).
 
 This spec lives on `hbr/platform`, not on a feature branch. The generic branches are meant for upstream, so they must not mention HBR. HBR's setup is Appendix A and nowhere else.
 
-The companion spec `requirements-spec.md` designs requirement sets; §10 states what intake needs from it.
+The companion spec `checklists-spec.md` designs checklists (one feature, which also absorbs Commitments); §10 states what intake needs from it and where it is provided (checklists §13).
 
 ## 1. Purpose
 
@@ -19,7 +19,7 @@ What this prevents, all seen in the last registration: guardians not linked, peo
 
 ### 1.1 The rule for this spec
 
-Build from what GatherPack has: people, users, relationships, teams, memberships, badges, forms, `MembershipApplication`, requirement sets. A new case is configuration (a registration, a checklist, a date) or an additive check. If a case needs a new model for time, stop and revise this spec with a rev. note saying why.
+Build from what GatherPack has: people, users, relationships, teams, memberships, badges, forms, `MembershipApplication`, checklists. A new case is configuration (a registration, a checklist, a date) or an additive check. If a case needs a new model for time, stop and revise this spec with a rev. note saying why.
 
 GatherPack code has no words like student, parent or rookie. Those are names an organization gives to teams, badges and forms.
 
@@ -30,11 +30,11 @@ GatherPack code has no words like student, parent or rookie. Those are names an 
 | A guardian registers one or more children, and themselves | Fits | Household entry (§4.1) |
 | A young person registers and names a guardian | Fits | Guardian confirms by email (§4.2) |
 | An adult joins as a mentor or volunteer | Fits | A registration (or the same one) whose teams and checklist suit adults |
-| Returning members rejoin, pre-filled, re-confirming info and re-signing | Fits | Same link and checklist; items older than the check's date are due again (§7.2) |
+| Returning members rejoin, pre-filled, re-confirming info and re-signing | Fits | Same link and checklist; items older than the item's date are due again (§7.2) |
 | A sibling or returning family is matched, not duplicated | Fits | Login email, then manager review (§4.3) |
 | Registering in the room on a shared device | Fits | Kiosk mode (§3) |
-| FIRST registration and consent, tracked not automated | Fits | Badge check on the checklist (§7.3) |
-| Dues, background checks, training | Fits | Badge-held or commitment-met checks |
+| FIRST registration and consent, tracked not automated | Fits | A badge item on the checklist (§7.3) |
+| Dues, background checks, training | Fits | A badge item, or a count item (dues in units) |
 | Joining a team that needs no approval | Fits | The registration adds the membership on verification (§8.4) |
 | Applicant chooses among several teams | Fits | A registration lists teams, "any of"; each pick makes its own application (§2) |
 | Several organizations or teams in one install | Fits | A registration belongs to a team; its managers run it |
@@ -44,7 +44,7 @@ GatherPack code has no words like student, parent or rookie. Those are names an 
 | Capacity limit and waiting list | Additive, later | A cap on a registration; extra entries are held and promoted by hand (§8.5) |
 | Moving between teams | Non-goal | Existing memberships screens |
 | Filing on FIRST's own site | Non-goal | It can't be automated; intake links and tracks |
-| Collecting dues online | Non-goal | A checklist item can read a ledger or commitment |
+| Collecting dues online | Non-goal | A checklist item can count dues credited elsewhere; a ledger-balance item is a later checklist kind |
 | Registering with no email | Non-goal | Verification needs an email (§5.1). The staff path covers it. |
 | Merging people already duplicated | Additive, later | `feature/person-merge` (§4.4) |
 
@@ -56,10 +56,10 @@ GatherPack code has no words like student, parent or rookie. Those are names an 
 | Entry | One in-progress sign-up by one household. Holds a few facts and a verification token before any person record exists (§5.2). Expires. |
 | Household | The people on one entry: the one who verified, and anyone they add. |
 | Applicant | A person with a pending `MembershipApplication` from a registration. Computed, never stored as a status. |
-| Checklist | A requirement set (companion spec) the registration points to. Intake shows its status and never defines its checks. |
+| Checklist | A checklist (`checklists-spec.md`) the registration points to. Intake shows its status and never defines its checks. |
 
 - **Teams people may apply to** is a list meaning any of: "People can apply to any of these teams. They pick the ones they want." Each pick is one application, one decision.
-- Time lives in dates on the registration (open, close, entry retention) and on the checks of the checklist (§7). There is no year or season anywhere in the model.
+- Time lives in dates on the registration (open, close, entry retention) and on the items of the checklist (§7). There is no year or season anywhere in the model.
 - **Copy registration** copies the team list, checklist reference and placement lists, and proposes dates shifted by the gap between the old open and close dates, for a person to confirm. Every date is configuration. The old link, once closed, says "Registration has closed." and shows the successor's open date if one is set.
 - A single registration offering two genuinely different flows (adults and children asked different questions) is two registrations on one team. Different questions are different checklists. No "ways to join" construct.
 
@@ -152,7 +152,7 @@ On approval, intake can add the person to more than the team applied for. The re
 That is all the machinery. The two cases that used to need rules:
 
 - **Class team from graduation year.** Least machinery: the approval screen prompts the manager with a team picker for the registration's optional "Also pick one of these teams" list (any one, the manager chooses), preselected when the person has a field value that matches a team's name. The preselection is a suggestion in the view, not logic that decides. Without the preselection it is a manager step, which is the minimum. Anyone wanting automatic placement uses one registration per class team.
-- **New or returning.** Intake computes nothing. "New" is a question the checklist or a report answers from memberships and badges (companion spec), and a manager grants the badge when approving if the organization wants it. An organization that wants an automatic "first-time" badge adds "Also give these badges" on a registration for newcomers, and uses a separate registration for people who already hold a membership.
+- **New or returning.** Intake computes nothing. "New" is a question the checklist or a report answers from memberships and badges (checklists), and a manager grants the badge when approving if the organization wants it. An organization that wants an automatic "first-time" badge adds "Also give these badges" on a registration for newcomers, and uses a separate registration for people who already hold a membership.
 
 Approval stays `MembershipApplication#approve!`. A concern included from an initializer runs the lists after `approve!` saves (`membership_application.rb:22`), in the same transaction when possible. The approval screen shows "Will also join: ... Will get: ..." before the button. If the optional pick is required and unchosen, Approve says "Choose a team" by the picker. Upstream's file is not edited.
 
@@ -160,20 +160,20 @@ Approval stays `MembershipApplication#approve!`. A concern included from an init
 
 ### 7.1 The checklist
 
-The registration points to a requirement set. For each person (and each ward, §7.4) the page shows the set's items as Met / Pending / Not met / Exempt with a "how to fix" link. Intake defines no checks.
+The registration points to a checklist (`checklist_id`). For each person (and each ward, §7.4) the page shows the checklist's items as Done / Almost / Not yet / Not counted (the default words; statuses `met`, `pending`, `not_met`, `exempt`) with a "fix" link. Intake defines no checks.
 
-Usual items: a form complete (with a date, §7.2), a guardian signature, "confirm your information", has a login, a badge held (FIRST registered, FIRST consent, background check), a commitment met (dues), another set. Outside GatherPack: FIRST is synced into badges by a script (Appendix A) and the item's fix link goes to a page the organization writes; dues are a commitment or badge; background checks and training are badges granted by whoever verifies. Intake collects no payments and runs no checks.
+Usual items: a form complete (with a date, §7.2), a guardian signature, "confirm your information", has a login, a badge item (FIRST registered, FIRST consent, background check), a count item (dues in units), another checklist. Outside GatherPack: FIRST is synced into badges by a script (Appendix A) and the item's fix link goes to a page the organization writes; dues are a count item or a badge; background checks and training are badges granted by whoever verifies. Intake collects no payments and runs no checks.
 
 ### 7.2 Dates decide what is recent enough
 
-A form keeps every response and every signed version; a person's answers and signatures are never expired or archived by intake. Whether a response counts is decided by the check using it: `form_complete` with "completed on or after <date>". The date is configuration on the check. The same form can serve a team that wants this year's signature and another that accepts last year's.
+A form keeps every response and every signed version; a person's answers and signatures are never expired or archived by intake. Whether a response counts is decided by the item using it: `form_complete` with "completed on or after <date>". The date is configuration on the item. The same form can serve a team that wants this year's signature and another that accepts last year's.
 
 Checked in the forms code whether a person can sign again a response that's already complete:
 
 - Yes, when the form's `allow_updates` is on (default true, `db/schema.rb:421`). `FormAccess#can_update?` lets a person start a new version after an earlier one (`form_access.rb:79-82`). The response page offers "Update answers" on a complete response (`form_responses/show.html.erb:100`). `edit` builds a new draft from the active submission (`form_responses_controller.rb:12-18`; `form_response.rb:37-42`).
 - The new version needs its own signatures: signatures belong to a submission (`form_submission.rb:66-72`). Activating it stamps `activated_at` (`form_submission.rb:173-177`, column `db/schema.rb:394`), which is the timestamp the date check reads.
 - The old version stays active, and the response stays complete, until the new one is activated, so a returning member is never shown as having nothing signed while they work through it.
-- When `allow_updates` is off, `can_update?` blocks a complete response unless it needs re-confirmation. A form used for coming back needs `allow_updates` on, which is the default. For one that has it off, the only forms change is a small additive "Sign again" action that the checklist item's fix link uses and `can_update?` permits when a requirement asks for it. Phase 1 needs no forms change. An expired response (§7.5) can always be updated, so expiry doesn't need it either.
+- When `allow_updates` is off, `can_update?` blocks a complete response unless it needs re-confirmation. A form used for coming back needs `allow_updates` on, which is the default. For one that has it off, the only forms change is a small additive "Sign again" action that the checklist item's fix link uses and `can_update?` permits when a checklist item asks for it. Phase 1 needs no forms change. An expired response (§7.5) can always be updated, so expiry doesn't need it either.
 
 Expiry is the form's own rule and sits beside this window; see §7.5 for when to use which.
 
@@ -183,9 +183,9 @@ The completion badge, if the form has one, stays as it is today: given when comp
 
 ### 7.3 Coming back is the same checklist
 
-There is no renewal flow or status. A returning member opens the same link (or their own checklist from the dashboard card), signs in, and sees the registration's items. Items whose responses are older than the check's date show as Pending, with their answers pre-filled, as they are for anyone updating a form. Items whose responses are recent enough show Met. A person already on the team doesn't make an application (`membership_application_policy.rb:23` refuses it); the registration shows them the checklist only. Whether to ask members to come back is the organization's choice: it sets a date on the check.
+There is no renewal flow or status. A returning member opens the same link (or their own checklist from the dashboard card), signs in, and sees the registration's items. Items whose responses are older than the item's date show as Not yet, with their answers pre-filled, as they are for anyone updating a form. Items whose responses are recent enough show Done. A person already on the team doesn't make an application (`membership_application_policy.rb:23` refuses it); the registration shows them the checklist only. Whether to ask members to come back is the organization's choice: it sets a date on the item.
 
-"Who hasn't come back" is a filter on the requirement set's report page (people covered who are not Met), not a status. Intake never removes anyone. Managers act on the list with the existing membership screens.
+"Who hasn't come back" is a filter on the checklist's report page (people covered whose overall isn't Done; checklists §10.4), not a status. Intake never removes anyone. Managers act on the list with the existing membership screens.
 
 ### 7.4 Who acts
 
@@ -204,13 +204,15 @@ A response's expiry is `expires_on`, or its active submission's `activated_at` (
 - History is kept. Nothing is deleted or rewritten; the old submission stays active, with its answers pre-filled as the starting point (`form_response.rb:48-57`), until a new one replaces it. A new submission gets its own signatures (`form_submission.rb:66-72`), and its `activated_at` restarts a rolling clock.
 - Completion badge: removed while the response is not complete (`form_response.rb:117-127`), as it is for any re-confirmation. That is right for expiry: a badge that outlived the physical would record something false.
 - Hooks: the existing `form_responses - incomplete` fires when the status changes (`form_response.rb:96-100`).
-- Any `form_complete` requirement reads the status, so an expired response is Not met whatever date window the check also has.
+- Any `form_complete` item reads the status, so an expired response is Not yet whatever date window the item also has.
 
 **Timing.** Status is stored (`sync_status!` writes it, `form_response.rb:82-92`), so computing at read time alone leaves reports and badges stale. Two parts: the reason is also computed at read time, so a response is never shown as complete past its expiry; and a recurring job (`FormExpiryJob`, hourly, a line in `config/recurring.yml`, the pattern of `FormScheduleJob`) finds responses of forms with an expiry whose status is `complete` and whose expiry has passed (a join on `forms` and `form_submissions`; the rolling case is `activated_at + valid_for_months * interval '1 month' <= now()`), and calls `sync_status!` on them. Saving a form's expiry runs the same resync for that form, as publishing does (`form.rb:278-282`). No new status or stored expiry timestamp.
 
-**Wording.** The two alerts that explain a reconfirmation assume form or profile in an `else` branch (`form_responses/show.html.erb:17-23`, `edit.html.erb:17-24`), so `:expired` needs its own branch: "This has expired. Please review the answers and sign again." The response page shows "Good until <date>" on a complete response. Showing an item as expiring soon is left to the requirement spec and reminders.
+**Wording.** The two alerts that explain a reconfirmation assume form or profile in an `else` branch (`form_responses/show.html.erb:17-23`, `edit.html.erb:17-24`), so `:expired` needs its own branch: "This has expired. Please review the answers and sign again." The response page shows "Good until <date>" on a complete response. Showing an item as expiring soon is left to checklists (`next_change_at`, checklists §6.4) and reminders.
 
-**When to use which.** The form's expiry is the form's own truth: the document stops being valid for everyone and everywhere, whatever uses it (a physical is good for a year; a policy is replaced on a date). The completion badge goes, the form is a to-do again, and every checklist sees Not met. The requirement's "completed on or after <date>" (§7.2) is a checklist's question: this registration wants a fresh signature, while other uses of the same form accept the old one. The response stays complete, so the badge and other checklists are untouched. If the thing stops being true for everyone, use expiry. If only one checklist wants it fresh, use the window. Both can apply; an expired response is never Met.
+**When to use which.** The form's expiry is the form's own truth: the document stops being valid for everyone and everywhere, whatever uses it (a physical is good for a year; a policy is replaced on a date). The completion badge goes, the form is a to-do again, and every checklist sees Not yet. The item's "completed on or after <date>" (§7.2) is a checklist's question: this registration wants a fresh signature, while other uses of the same form accept the old one. The response stays complete, so the badge and other checklists are untouched. If the thing stops being true for everyone, use expiry. If only one checklist wants it fresh, use the window. Both can apply; an expired response is never Done.
+
+Intake owns the expiry columns and `FormResponse#expires_at`; checklists only reads them (checklists §6.4, §13).
 
 **Where it goes.** A new generic branch, `feature/forms-expiry`, based on `feature/forms`: the migration, a concern prepended to `FormResponse` (overriding `reconfirmation_reason`), `FormExpiryJob`, and a form-details field. Upstream files touched (all fork forms files, since forms is a fork feature): `app/views/form_responses/show.html.erb` and `edit.html.erb` (the `:expired` branch), the form details view (the expiry choice), `app/controllers/forms_controller.rb:250` (two permitted params), `config/recurring.yml` (one line). `mcp-forms` gains the two fields on `get_form` and `update_form` if it has one, at app parity. `Form#duplicate!` copies both columns with `dup` (`form.rb:296`). Nothing in upstream's own files changes.
 
@@ -218,11 +220,11 @@ A response's expiry is `expires_on`, or its active submission's `activated_at` (
 
 ### 8.1 Who approves
 
-Team managers (ancestors' included) and admins, as `MembershipApplicationPolicy#update?` allows (`membership_application_policy.rb:28`). No new role and no setting that stops anyone acting. No one approves their own application or a relative's. Delegated organizers: open question 3.
+Team managers (ancestors' included) and admins, as `MembershipApplicationPolicy#update?` allows (`membership_application_policy.rb:28`). No new role and no setting that stops anyone acting. No one approves their own application or a relative's. Delegated organizers are not offered (decision 23).
 
 ### 8.2 What the manager sees
 
-The team's applications page (`membership_applications_controller.rb:5`, `index`) gains columns: name, team applied for, source (link, kiosk, own request), submitted, waiting for (guardian, forms, FIRST), checklist counts ("4 of 6 met", opening a row shows each item and who owes it), the "Will also join" preview, flags (possible match, email never opened, no guardian yet), the applicant's message and reviewer notes. Applicant answers show only through the form's own read levels (`FormAccess`).
+The team's applications page (`membership_applications_controller.rb:5`, `index`) gains columns: name, team applied for, source (link, kiosk, own request), submitted, waiting for (guardian, forms, FIRST), checklist counts ("4 of 6 done", opening a row shows each item and who owes it), the "Will also join" preview, flags (possible match, email never opened, no guardian yet), the applicant's message and reviewer notes. Applicant answers show only through the form's own read levels (`FormAccess`).
 
 ### 8.3 Bulk approve and deny
 
@@ -234,7 +236,7 @@ Whether the checklist gates Approve is a registration setting, default "no": man
 
 ### 8.5 What an applicant sees before approval
 
-Nothing of the team. Their pages are `/join/<slug>/me` (status, checklist, the forms they owe, withdraw) and the forms, each limited by its own access. `PersonPolicy::Scope` shows a person with no teams only themselves (`person_policy.rb:5-8`). Exception, upstream's and left alone: `TeamPolicy::Scope` lists `requires_approval` teams to every signed-in user (`team_policy.rb:7-9`), and the public team page shows its managers (open question 4).
+Nothing of the team. Their pages are `/join/<slug>/me` (status, checklist, the forms they owe, withdraw) and the forms, each limited by its own access. `PersonPolicy::Scope` shows a person with no teams only themselves (`person_policy.rb:5-8`). Exception, upstream's and left alone: `TeamPolicy::Scope` lists `requires_approval` teams to every signed-in user (`team_policy.rb:7-9`), and the public team page shows its managers (decision 24).
 
 Capacity (later): a registration can carry a cap; past it, new entries are held and managers promote them by hand.
 
@@ -283,25 +285,25 @@ The kiosk route lets the signed-in manager do nothing they couldn't elsewhere, a
 
 Unguessable random slug by default; a closed or unknown slug answers with the same page. Sign-in return paths are internal only. No JSON API for the public. `noindex` on registration pages. Brakeman clean on the branch.
 
-## 10. What this needs from requirement sets
+## 10. What this needs from checklists
 
-Requests to `requirements-spec.md`; intake designs none of it. Rev. 2 removes everything that depended on a season.
+Requests to `checklists-spec.md`, checked against its §13 "What intake needs from this"; intake designs none of it. Rev. 2 removes everything that depended on a season.
 
-1. **Attach a set to a registration** and ask `status_for(person)`: overall state plus items (name, state, how-to-fix path or nil, who owes it: the person or their guardian).
+1. **Attach a checklist to a registration** and ask for a person's overall result and item results (label, status, summary, fix link or nil, who owes it: the person or their guardian). Checklists provides stored results (§5.4) and `Checklists.checklist_for(person)` (§13).
 2. **Populations:** "pending applicants to a registration's teams"; "members of team X" (for the who-hasn't-come-back filter); "applicants and members" combined so one checklist shows both.
-3. **Check kinds, each with its own dates, no season input:**
-   - *Form complete on or after <date>* (a response whose active submission has `activated_at` on or after the date, `db/schema.rb:394`). One check kind serves signatures and "confirm your information". The date is a field of the check, optionally "N days before today" so it need not be edited each year; the requirements spec decides the exact form.
-   - *Form complete* also means the form's own expiry (§7.5): a response past its expiry has status `needs_reconfirmation`, so it is Not met whatever the date window says. The set must read `FormResponse#status` (or `complete?`), never recompute completeness from `activated_at` alone, and should show "Good until <date>" from `FormResponse#expires_at` when present, and "Expired" as the reason when the item is Not met because of it.
-   - *Guardian signature present*: for a guardian-signed form, Pending with "needs a guardian" while none is linked.
-   - *Badge held*, *has a login*, *commitment met*, *another set*.
+3. **Item kinds, each with its own dates, no season input:**
+   - *`form_complete`, signed on or after <date>* (a response whose active submission has `activated_at` on or after the date, `db/schema.rb:394`). One item kind serves signatures and "confirm your information". The date is a field of the item, optionally "N days before today" so it need not be edited each year (checklists §9.1 relative dates).
+   - *`form_complete`* also means the form's own expiry (§7.5): a response past its expiry has status `needs_reconfirmation`, so it is Not yet whatever the date window says. The item must read `FormResponse#status` (or `complete?`), never recompute completeness from `activated_at` alone, and should show "Good until <date>" from `FormResponse#expires_at` when present, and "Expired" as the reason when the item is Not yet because of it.
+   - *Guardian signature present*: for a guardian-signed form, Not yet with "Needs a guardian linked" and a link to add one while none is linked; "Waiting for <guardian>'s signature" (Almost) once one is (checklists §6.4).
+   - *`badge`*, *`has_login`*, *`count`* (dues; the former commitment), *`checklist`* (another checklist).
 4. **Acting for a ward:** each item says whether the viewer may act for the subject (`FormAccess.signer_roles`), with the fix link in the subject's context.
 5. **Exempt with a reason, who and when**, shown by intake.
-6. **A form's audience may be a set's population**, so applicants (in no team) are asked the forms the checklist lists (`form_audience_rule.rb:15` targets only team, badge or person today). Requirements §10.3 provides it as "People this list covers".
-7. **A report page** for everyone with an open checklist, with a "not Met" filter; this is "who hasn't come back".
-8. **A status-changed event** (the notification `requirement_status_changed.gatherpack` and hook `requirement_results - status changed`), so intake notifies without polling.
-9. **Batch cost:** statuses for a team's applicants in one query path per check kind; the approval page shows about 200 rows.
+6. **A form's audience may be a checklist's population**, so applicants (in no team) are asked the forms the checklist lists (`form_audience_rule.rb:15` targets only team, badge or person today). Checklists §10.3 provides it as a form audience rule target `checklist`, and §5.1 as the population target `applicants`.
+7. **A report page** for everyone with an open checklist, with a "not Done" filter; this is "who hasn't come back".
+8. **A status-changed event** (the notification `checklist_status_changed.gatherpack` and hook `checklist_results - status changed`, checklists §8.3), so intake notifies without polling.
+9. **Batch cost:** statuses for a team's applicants in one query path per item kind; the approval page shows about 200 rows.
 
-The requirements spec must also not cache a form item's state in a way that outlives `form_responses - incomplete` / the status-changed event (the expiry job fires it). No `Season`, no season input and no stored enrollment row is requested. Last-year information for "new to" is answered by memberships and badges (§6).
+Checklists must also not cache a form item's state in a way that outlives `form_responses - incomplete` / the status-changed event (the expiry job fires it). No `Season`, no season input and no stored enrollment row is requested. Last-year information for "new to" is answered by memberships and badges (§6).
 
 ## 11. Notifications and hooks
 
@@ -332,7 +334,7 @@ Tools allow exactly what the app allows. `decide_membership_application`, `list_
 
 | Table | Columns |
 |---|---|
-| `intake_registrations` | `team_id`, `title`, `slug` (unique), `description`, `opens_at`, `closes_at`, `self_service`, `kiosk`, `requirement_set_id`, `gate_approval`, `successor_id`, `created_by_id` |
+| `intake_registrations` | `team_id`, `title`, `slug` (unique), `description`, `opens_at`, `closes_at`, `self_service`, `kiosk`, `checklist_id`, `gate_approval`, `successor_id`, `created_by_id` |
 | `intake_registration_teams` | `registration_id`, `team_id`, `kind` (apply, also_add, pick_one, guardian_also_add) |
 | `intake_registration_badges` | `registration_id`, `badge_id` |
 | `intake_entries` | `registration_id`, `source`, `email` (encrypted), `first_name`, `last_name`, `facts` (encrypted jsonb), `token_digest`, `expires_at`, `verified_at`, `person_id`, `created_ip_prefix` |
@@ -351,7 +353,7 @@ Feature `intake`, `default_enabled: false`, nav under People. Settings (`Setting
 | Branch | Content | Depends on | Upstream? |
 |---|---|---|---|
 | `feature/intake` | Registrations, entries, household, both modes, matching, placement lists, application columns, notices, §9 controls | `feature/search-and-add` | Yes, generic |
-| `feature/intake-checklist` | Checklist panel and approval columns using requirement sets | `feature/intake`, requirements branch | Yes |
+| `feature/intake-checklist` | Checklist panel and approval columns using checklists | `feature/intake`, `feature/checklists` | Yes |
 | `feature/forms-expiry` | §7.5: `forms.expires_on`, `forms.valid_for_months`, `:expired` reason, `FormExpiryJob`, form details field, alerts | `feature/forms` | Yes, generic |
 | `feature/mcp-intake` | §12.1 | `feature/mcp`, `feature/intake` | No |
 | `feature/intake-turnstile` | Turnstile adapter | `feature/intake` | Yes, optional |
@@ -372,11 +374,11 @@ Tests: placement lists (idempotent, required pick); entry token single use and e
 ### 12.7 Phases
 
 1. **Core, self-service:** registrations, entries, verification, matching, applications with source, placement lists, notices, §9. Flag off. No checklist yet; managers see the Forms report.
-2. **Checklist:** on delivery of the requirements branch; approval columns, gating, bulk approve; dates on the checks.
+2. **Checklist:** after `feature/checklists`; approval columns, gating, bulk approve; dates on the items.
 3. **Kiosk:** kiosk mode and "Waiting to finish".
 4. **MCP and dashboard card.**
-5. **Form expiry** (`feature/forms-expiry`), independent of the rest; can ship first. Needed by the checklist only for forms that go stale on their own, such as a yearly physical.
-6. **Later:** waiting list, person merge, delegated organizers, a "Sign again" action for forms with `allow_updates` off, and "archive forms older than X" (a date filter on forms; belongs to the improvements outline, `intake-requirements-improvements.md`).
+5. **Form expiry** (`feature/forms-expiry`), depends only on `feature/forms`. Needed by the checklist only for forms that go stale on their own, such as a yearly physical.
+6. **Later:** waiting list, person merge, delegated organizers, a "Sign again" action for forms with `allow_updates` off, and "archive forms older than X" (a date filter on forms; belongs to the improvements outline, `intake-checklists-improvements.md`).
 
 ## 13. Decisions
 
@@ -384,8 +386,8 @@ Defaults, 2026-11-06.
 
 1. **No season, year or enrollment model.** Time is a date or range on a registration or a check (product owner). Membership is the record; an organization wanting a per-year roster makes a team for it.
 2. **Extend `MembershipApplication`, don't replace it.** Added columns, a concern, placement lists.
-3. **A form keeps every response.** "Recent enough" is the check's date, so one form serves several checklists.
-4. **Coming back is the same checklist.** No renewal flow or status; due-again items are items older than the check's date. "Who hasn't come back" is a report filter.
+3. **A form keeps every response.** "Recent enough" is the item's date, so one form serves several checklists.
+4. **Coming back is the same checklist.** No renewal flow or status; due-again items are items older than the item's date. "Who hasn't come back" is a report filter.
 5. **A registration is a link, dates, teams "any of", a checklist, and placement lists.** No ways to join; different flows are different registrations.
 6. **Placement is three plain lists** (also add, also give, guardian also adds) plus an optional manager pick. Class team is a prompted manager step, with a suggested preselection.
 7. **Verify before records** for self-service. The kiosk creates records at once, marked unverified, because a manager is present.
@@ -402,17 +404,18 @@ Defaults, 2026-11-06.
 18. **Every date is configuration:** open, close, entry retention, archive age, reminders. Copying proposes shifted dates for a person to confirm. No month is in code, including HBR's.
 19. **Date housekeeping where it fits intake:** unverified entries expire, old closed registrations archive by a date setting.
 20. **Forms may expire by date or by age** (product owner, 2026-11-06): a form's own optional rule, `expires_on` or `valid_for_months`, using the existing re-confirmation state. A checklist's window is separate. Use expiry when the response stops being true for everyone; use the window when only one checklist wants it fresh (§7.5).
+21. **No membership end date.** Memberships stay without dates (`db/schema.rb:609`); alumni and yearly rosters are teams, and the audit log answers history.
+22. **A minor's first email goes to the guardian.** The minor's own address gets mail after the guardian confirms (§5.4).
+23. **Managers and admins run registration.** No delegated organizer role; the existing approval policy stands (§8.1).
+24. **Approval-gated teams stay visible as upstream shows them.** Intake does not change team visibility (§8.5).
 
 ## 14. Upstream and table notes
 
-`memberships` has no date columns (`db/schema.rb:609`), so "joined on" and "left on" are not recorded. Question 1 asks whether to change that.
+`memberships` has no date columns (`db/schema.rb:609`), so "joined on" and "left on" are not recorded. Decision 21 leaves it so.
 
 ## 15. Open questions
 
-1. **Should memberships get an optional end date** (a small upstream table change)? It would let a roster say who was on a team during a date range without a team per year, and would let a checklist read "member on <date>". Default: no; teams per year and the audit log answer for now.
-2. **Which email gets the first message for a minor who has their own address and a guardian address?** Default: the guardian's, first; the minor's after the guardian confirms.
-3. **Who runs registration if not a team manager** (a volunteer coordinator)? Default: managers and admins only; delegated organizers later.
-4. **Should a registration's team stay out of the signed-in team list** while it accepts applications? Today every signed-in person sees approval-gated teams. Default: leave as is.
+None.
 
 ## Appendix A: HBR setup
 
@@ -421,8 +424,8 @@ Configuration only. None of this is in the generic branches. No season model; da
 - **Registration.** "Join Team 1747" with its open and close dates set when the callouts start, self-service and kiosk on, owned by the main team. Next year's is "Copy registration" with dates shifted and confirmed.
 - **Teams people may apply to.** "Team 1747 - Students", the adult mentors and volunteers team, "Parents". Students and adults see the same list; the checklist (below) is what differs. If the questions differ enough, two registrations.
 - **Also add / give.** Students: "also add a guardian to Parents". The class team ("Team 1747 - Class of <year>") is the manager's pick at approval, preselected from the graduation year field when a team's name matches. A "<year> Rookie" badge is given by the manager when approving a newcomer; "returning" students come in through the checklist only.
-- **Checklist.** A requirement set: participation agreement and medical release (guardian-signed, `form_complete` on or after the date HBR chooses, today's `allow_updates` on), "confirm your information" form on or after the same date, "Registered with FIRST" and "FIRST consent" badges (synced by script from FIRST's roster), dues if the books record them. HBR changes the date each year; a returning member sees those items Pending with answers pre-filled.
-- **Who hasn't come back.** The requirement set's report filtered to "not Met", on last year's roster.
+- **Checklist.** participation agreement and medical release (guardian-signed, `form_complete` on or after the date HBR chooses, today's `allow_updates` on), "confirm your information" form on or after the same date, "Registered with FIRST" and "FIRST consent" badges (synced by script from FIRST's roster), dues as a count item or a badge, if the books record them. HBR changes the date each year; a returning member sees those items Not yet with answers pre-filled.
+- **Who hasn't come back.** The checklist's report filtered to people whose overall isn't Done, on last year's roster.
 - **Kiosk accounts.** The existing kiosk accounts team; callouts use the kiosk address on a laptop in the room.
 - **Before the first run.** Match students and guardians by email first. The old import scripts in `~/dev/gatherpack-import` aren't re-run.
 - **Forms that go stale.** The physical form sets "12 months after signing"; the participation agreement sets nothing and relies on the checklist date.
