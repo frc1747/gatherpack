@@ -296,7 +296,7 @@ Assumptions to confirm: today is 2026-11-05; build season starts 2027-01-07; the
 
 ## 10. Decisions for the product owner
 
-1. **Season enrollment as a record.** Should "was on the team for a season" and "renewed" be a stored row (recommended) rather than a season badge as intake's default has it?
+1. **Season enrollment as a record.** Decided 2026-11-06: a stored row (intake decision 19).
 2. **Named dates on a Season.** OK to put labelled dates (kickoff, dues deadline, first away event) on the Season so widgets and due dates read them?
 3. **Expiry on badge assignments.** OK to add an optional expiry date to badge assignments (a small addition to an upstream table) so adult clearances can lapse on a known day?
 4. **Kiosk and a shared screen.** May the kiosk show "you still need X" lines after a scan (labels only, no numbers, off per requirement by default), and should the planned Reminders widget be shipped now as a stopgap or skipped?
@@ -306,7 +306,7 @@ Assumptions to confirm: today is 2026-11-05; build season starts 2027-01-07; the
 8. **Retention.** How long to keep denied applications, medical and emergency data of people not enrolled in two seasons, and former members' records?
 9. **Pull person merge forward** to before the kiosk ships, with the registry rule that every new table registers its person columns?
 10. **Release freeze.** Freeze production releases from about Dec 20 to the end of the first competition weekend, fixes only?
-11. **Dates.** Confirm: registration opens May 1, 2027; an April open house; first away event date; and whether "Record this list" ships in the first requirements release (requirements open question 5).
+11. **Dates.** Decided 2026-11-06: every date is configuration (intake decision 20), and "Record this list" ships in the first requirements release (requirements decision 18). The dates in §9 are planning assumptions, not settings. Still to confirm for planning: the open house and the first away event.
 12. **Alumni.** Should season close-out offer to move graduating students and non-returners to an alumni team with a stay-connected way to join, always by a manager's action?
 13. **Statistics.** Are season counts for sponsors and schools private (an export a manager makes) or may an aggregate public page exist?
 14. **Upstream order.** Offer seams and query helpers first as small pull requests once upstream has caught up, keeping Seasons, Requirements and Intake local until then?
