@@ -517,7 +517,7 @@ The Page's cells carry `data-filter` and `data-value` attributes (the cells buil
 15. **Parity run before cutover** with the Page on staging; the Page stays the fallback until the first build weeks agree.
 16. **Flag off by default; connectors per feature;** upstream files touched are routes, recurring jobs, schema, and two rule enums in connector branches.
 17. **Generalist code.** Overall words, labels and exempt labels are set data; no "student", "travel" or "concession" in the code or in kind names. Dates of every kind (windows, cutoffs, rule dates) are data too; no month is assumed in code.
-18. **"Record this list" ships in the first release** (product owner, 2026-11-06), in phase 3, so a trip decision can be recorded at the first away event.
+18. **"Record this list" ships in the first release** (product owner, 2026-11-06), in phase 3.
 19. **Every check that looks at time takes a date or range,** defaulting to the set's window. "Signed on or after" needs no forms change. `form_complete` also honours the form's own expiry: expiry for a rule that belongs to the form, the requirement's date for one checklist's rule.
 20. **Date housekeeping is configuration:** archive sets ended before a date, prune old results (§9.7).
 
@@ -528,14 +528,14 @@ The Page's cells carry `data-filter` and `data-value` attributes (the cells buil
 
 ## 16. Phases
 
-Today is 2026-11-06; build-season meetings start 2027-01-07 and the Fall off-season period gives real data to compare against before then.
+Phases are in dependency order. When each ships is the product owner's call.
 
-| Phase | Lands | By | Side by side |
-|---|---|---|---|
-| 1 | `feature/requirements` core + `-attendance`; report, profile tab, excuses, preview; kinds `badge`, `has_login`, `team_member`, `age`, `any_of`, `requirement_set` | end of Nov | Tagged to Ditto as a preview build (rule: nobody touches production). Set built from §13 with attendance only. Compare attendance to the Page weekly. |
-| 2 | `-commitments`, `-person-fields`, `-forms`, `attested`; full §13 set; grants | first week of Dec | Whole Page compared per person (§13.6). Fix differences or record them. |
-| 3 | `feature/mcp-requirements`, `feature/my-gatherpack-requirements`, hooks live, nightly job, "Record this list" | mid Dec | Two clean weekly parity runs |
-| 4 | Release to production (the product owner deploys); the set opens for viewers; the Page stays reachable and unlinked | before Jan 7 | The Page remains the source of record until the first Build week has agreed in both |
-| 5 | Predicates (`-signups`, `-forms`), copy to next year, date housekeeping, `ledger_balance`, `hours` | Feb on | — |
+| Phase | Lands | Side by side |
+|---|---|---|
+| 1 | `feature/requirements` core + `-attendance`; report, profile tab, excuses, preview; kinds `badge`, `has_login`, `team_member`, `age`, `any_of`, `requirement_set` | Tagged to Ditto as a preview build (rule: nobody touches production). Set built from §13 with attendance only. Compare attendance to the Page weekly. |
+| 2 | `-commitments`, `-person-fields`, `-forms`, `attested`; full §13 set; grants | Whole Page compared per person (§13.6). Fix differences or record them. |
+| 3 | `feature/mcp-requirements`, `feature/my-gatherpack-requirements`, hooks live, nightly job, "Record this list" | Two clean weekly parity runs |
+| 4 | Ready for production; the set opens for viewers; the Page stays reachable and unlinked | The Page remains the source of record until the two agree on live data |
+| 5 | Predicates (`-signups`, `-forms`), copy to next year, date housekeeping, `ledger_balance`, `hours` | — |
 
 Backlog: close BL-003 as superseded when phase 1 opens; keep BL-002 on its own branch (it is an upstream bug independent of this).
