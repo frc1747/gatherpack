@@ -25,7 +25,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | Season eligibility: attendance share by month, registration, a roster badge, a signed form, a person field, a quota | Fits | One set, one requirement each (§13) |
 | Pooled-by-family quota counts toward an individual's status | Fits | `commitment_met` reads Commitments' own grouping |
 | Pre-trip decision on a date, so it doesn't swing | Fits | Cutoff date on the set (§9.2) |
-| Mentor excuses a missed meeting, or waives a requirement for one person | Fits | Excuses, no self-approval (§7) |
+| A manager excuses a missed meeting, or waives a requirement for one person (rare; kept so there is a way) | Fits | Excuses, managers and admins only, no self-approval (§7) |
 | Joining checklist for a new member (confirm profile, sign forms, get a login) and applicants not yet on a team | Fits | Applicant population, `attested` and `form_complete` (§12) |
 | "Missing safety training, with guardian contacts" list | Fits | Filter "Not met", optional contacts column (§13.4) |
 | Position or form open only to people who meet a set | Additive | Predicate (§10.3); needs a small change in each of those branches |
@@ -34,7 +34,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | "Has a guardian on file with an email" | Additive, later | `has_guardian` kind |
 | Recently active (check-in or punch in the last N days) | Additive, later | `recent_activity` kind |
 | "Can still reach the minimum" projection for the rest of the season | Additive, later | Option on `attendance` |
-| Record the list as decided for a trip | Additive, later | "Record this list" (§9.4) |
+| Record the list as decided for a trip | Fits | "Record this list" (§9.4) |
 | Any-of rules across different data ("badge OR form") | Fits | `any_of` group (§5.3) |
 | Arbitrary formulas over several attributes | Non-goal | Add a kind instead (§3) |
 | Live "who is clocked in" page | Non-goal | Stays a Page; it isn't a status |
@@ -82,7 +82,7 @@ How the three hard parts stay small:
 | Result | The stored answer for one person and one requirement: status, summary, detail, numbers, when computed. One more row per person for the set's overall. |
 | Status | `met`, `pending`, `not_met`, `exempt` (label: "Not counted", "Rookie", "No meetings yet", "Excused", set by the kind or the exemption). |
 | Overall | Any required requirement `not_met` → not met; else any `pending` → pending; else met. `exempt` is ignored. |
-| Excuse | An organizer's reasoned exception for one person, on a requirement or on one meeting (§7). |
+| Excuse | A manager's or admin's reasoned exception for one person, on a requirement or on one meeting (§7). |
 | Grant | Lets holders of a badge, or members of a team, see a set's overall and chosen requirements for everyone it covers (§10.2). |
 | Attestation | A recorded "this is right / this is done" by the person, a guardian, or an organizer (§6.5). |
 | Window | The set's `starts_on`..`ends_on`. "This season" in every kind means the window. |
@@ -158,11 +158,11 @@ Takes the report's logic unchanged, made batch and testable:
 
 - **Meetings** are events linked to the chosen time clock period that have ended (`end_time < now`, or `<= cutoff` when one applies). The kind queries events itself with day bounds in `Time.zone`, so BL-002's date bug doesn't touch it (the report does the same by not calling `available_hours`).
 - **Credit** is only punched time that overlaps a meeting (merged intervals); leaving early costs, staying late adds nothing. `extra_hours_count` lets extra time make up missed time within the same group, never above 100%.
-- **Rules** are rows: name, months (or an explicit date range), share of meeting hours, `weekly` (every week must pass separately), optional `pool` (rules with the same pool are summed and checked together, as the report's "Off-Season").
+- **Rules** are rows the organizer builds: name, dates (months, or an explicit date range), share of meeting hours, `weekly` (every week must pass separately), and how the rule relates to the others. Each rule either stands alone (its meetings are judged by themselves, so a weak summer doesn't count against fall) or joins a named `pool` (rules in a pool are summed and checked together). Nothing about periods, seasons or carry-over is built into the kind: whether earlier meetings count toward a later rule is the organizer's choice on the rule, and the screen says which it is ("Judged on its own" / "Counted together with: Summer"). HBR's Page learned this the hard way: summer meetings counted into fall until the rules were split.
 - **Measures** (columns and filters): `meetings` attended of held, `credited` hours, `percent`, `extra` (owner-only).
 - **Tolerance.** The report passes a group at `got + 1 >= needed` (one second). The kind settings call it "Leeway" in minutes, default 1, so parity is exact and the owner can change it.
-- **Period.** "Current" means the time clock period containing today (the report's default); the first view of a past period is the as-of picker (§9.1).
-- **Excused meetings.** An organizer can excuse a person from one meeting (§7); that meeting leaves that person's required hours and credited hours.
+- **Meetings to look at.** The requirement names which meetings count (events linked to a chosen time clock period, or to any of several), and the rules' dates divide them. No default ties a requirement to "the current period"; copying to next season proposes the next period (§9.3). A past view uses the as-of picker (§9.1).
+- **Excused meetings.** A manager or admin can excuse a person from one meeting (§7); that meeting leaves that person's required hours and credited hours.
 
 ### 6.3 Why a kind, not a Page, for FIRST
 
@@ -178,10 +178,10 @@ Write anything, call the network, read other people's data into someone else's `
 
 ## 7. Excuses (overrides)
 
-An organizer excuses a person from a requirement (whole), or from one meeting for the attendance kind. Fields: `requirement_id`, `person_id`, `event_id` (optional), `reason` (required), `expires_on` (optional), `created_by`. The result becomes `exempt`, label "Excused", detail "Excused by a mentor: <reason>" for viewers allowed to read reasons (organizers only); others see "Excused".
+A manager or admin excuses a person from a requirement (whole), or from one meeting for the attendance kind. This isn't a common need (HBR doesn't do it today); it exists so there is a recorded way when it's needed, instead of editing punches. Fields: `requirement_id`, `person_id`, `event_id` (optional), `reason` (required), `expires_on` (optional), `created_by`. The result becomes `exempt`, label "Excused", detail "Excused: <reason>" for viewers allowed to read reasons (managers and admins); others see "Excused".
 
-- **No self-approval.** An organizer can't excuse themselves or anyone related to them by any relationship type; the button is missing with the reason on the page. Same code shape as `Commitment#self_or_relative?` (`commitment.rb:144`); copied, not shared, so each branch stays independent.
-- **Who may excuse:** admins, managers of the set's team and above, and the set's organizer list. **Grant holders can't.** Student leaders who see the table can't excuse.
+- **No self-approval.** Nobody can excuse themselves or anyone related to them by any relationship type; the button is missing with the reason on the page. Same code shape as `Commitment#self_or_relative?` (`commitment.rb:144`); copied, not shared, so each branch stays independent.
+- **Who may excuse:** admins and managers of the set's team and above. The set's organizer list and grant holders can't.
 - **Audit:** `has_paper_trail` on excuses, like every organizer change. The set page lists current excuses.
 - **Not a way to hide a failure.** The overall is computed with the excuse; the underlying number stays visible to organizers ("Excused; 22% of 14 h").
 
@@ -239,7 +239,7 @@ Rolling windows ("last 60 days") are not a setting in v1; a kind that needs one 
 
 Editing an active set is allowed. Each save is audited (PaperTrail), shows a banner "Changed <date> by <role>: <what>", and shows an **impact preview before saving**: "3 people would go from Met to Not met, 1 from Pending to Met" with the names (organizers already see them). Rules take effect for the whole window; there is no per-date rule versioning, because attendance rules already differ by month inside the kind (the HBR case) and a policy that changes mid-season is a conversation, not a data model.
 
-"Record this list" (later) snapshots names, statuses and the configuration into `requirement_lists`, read-only, for the decision on a trip. Results keep changing; the list doesn't.
+"Record this list" (first release, phase 3) snapshots names, statuses and the configuration into `requirement_lists`, read-only, for the decision on a trip. Results keep changing; the list doesn't.
 
 ### 9.5 Early-season denominators
 
@@ -365,7 +365,7 @@ Upstream files touched (estimate, to go in `FORK.md`): `config/routes.rb`, `conf
 - `list_requirement_sets`: sets the caller can see.
 - `requirement_status`: a person's results as the caller may see them (status-only or full per requirement).
 - `requirement_results`: a set's rows as the report would show the caller.
-- `excuse_requirement` and `remove_excuse`: organizers only; refuse self and relatives with the app's message; the reason is kept out of the log (`filter_parameters`, as `mcp_commitments.rb:6-9`).
+- `excuse_requirement` and `remove_excuse`: managers and admins only, as in the app; refuse self and relatives with the app's message; the reason is kept out of the log (`filter_parameters`, as `mcp_commitments.rb:6-9`).
 - `attest_requirement`: for the cases the app lets the caller attest.
 
 No tool to edit a set's configuration: the edit screens are the control surface, and the preview, impact check and audit live there.
@@ -484,25 +484,23 @@ The Page's cells carry `data-filter` and `data-value` attributes (the cells buil
 4. **Results are stored, as a rebuildable cache,** refreshed by change, by clock and nightly, with a computed fallback on stale. Predicates use the stored rows.
 5. **Evaluation is a pure function of data up to an as-of moment.** Cutoff dates fall out of that. Hooks never run inside user saves; the refresh job fires them.
 6. **No check-in kind.** Event attendance for a status is a commitment of N. One way to count activity.
-7. **Excuses are reasoned, audited, no self- or relative approval,** by set organizers and managers only, never by grant holders. They can be for one meeting.
+7. **Excuses are reasoned, audited, no self- or relative approval,** by managers of the set's team (and above) and admins only (product owner, 2026-11-06: not a current use case; kept for completeness). They can be for one meeting.
 8. **Visibility is computed per viewer and omitted server-side;** two levels (status, full), `owner_only` measures, grants only by admin-assigned badge or team, commitment detail follows commitment visibility.
 9. **Missing data is "not met" by default,** with the reason shown; a kind offers "blank counts as" only where blank is legitimately a value. "Nothing to judge yet" is `exempt` with a label, or `pending` under a minimum.
 10. **Seasons come from `feature/seasons`** (reconciled with the intake spec). A set chosen for a season takes its window from it; without one, its own dates are the window. Kinds read the window. Substitutions on copy are proposed from names containing a year, confirmed by a person, until badges and teams can name their season.
 11. **Attestation is a generic manual-check mechanism** and replaces badges used as manual flags.
 12. **Predicates are strict by default** (`met` or `exempt`); a caller may accept `pending`.
 13. **Mid-season edits are allowed with a preview and an audit,** not versioned per date.
-14. **Attendance looks at the current time clock period by default,** as the report does; whole-season is a setting.
+14. **Carry-over is part of building the rule, not the engine** (product owner, 2026-11-06). Each attendance rule is judged on its own or pooled with named others, as the organizer sets it; the kind has no built-in period or season default.
 15. **Parity run before cutover** with the Page on staging; the Page stays the fallback for the whole first season.
 16. **Flag off by default; connectors per feature;** upstream files touched are routes, recurring jobs, schema, and two rule enums in connector branches.
-17. **Generalist code.** Overall words, labels and exempt labels are set data; no "student", "travel" or "concession" in the code or in kind names.
+17. **Generalist code.** Overall words, labels and exempt labels are set data; no "student", "travel" or "concession" in the code or in kind names. Dates of every kind (windows, cutoffs, rule dates) are data too; no month is assumed in code.
+18. **"Record this list" ships in the first release** (product owner, 2026-11-06), in phase 3, so a trip decision can be recorded at the first away event.
 
 ## 15. Open questions
 
-1. Attendance now looks at one time clock period at a time (today's behavior), so a failed Off-Season doesn't follow someone into Build season. Is that the policy, or should a season-long set count the whole window?
-2. After how many held meetings should attendance start to be judged (it shows "Pending" before that)? Parity needs 0 first.
-3. May student leaders excuse a missed meeting, or only mentors? The spec says mentors only.
-4. Should a student or guardian get an email when their overall goes from Met to Not met? Hooks make it possible; built in, it would be one more setting.
-5. Do you want "Record this list" for a trip decision in the first version, or after the season starts?
+1. After how many held meetings should attendance start to be judged (it shows "Pending" before that)? Parity needs 0 first. (This could also be a setting on the rule rather than a decision.)
+2. Should a student or guardian get an email when their overall goes from Met to Not met? Hooks make it possible; built in, it would be one more setting.
 
 ## 16. Phases
 
@@ -512,8 +510,8 @@ Today is 2026-11-05; build-season meetings start 2027-01-07 and the Fall off-sea
 |---|---|---|---|
 | 1 | `feature/requirements` core + `-attendance`; report, profile tab, excuses, preview; kinds `badge`, `has_login`, `team_member`, `age`, `any_of`, `requirement_set` | end of Nov | Tagged to Ditto as a preview build (rule: nobody touches production). Set built from §13 with attendance only. Compare attendance to the Page weekly. |
 | 2 | `-commitments`, `-person-fields`, `-forms`, `attested`; full §13 set; grants | first week of Dec | Whole Page compared per person (§13.6). Fix differences or record them. |
-| 3 | `feature/mcp-requirements`, `feature/my-gatherpack-requirements`, hooks live, nightly job | mid Dec | Two clean weekly parity runs |
+| 3 | `feature/mcp-requirements`, `feature/my-gatherpack-requirements`, hooks live, nightly job, "Record this list" | mid Dec | Two clean weekly parity runs |
 | 4 | Release to production (the product owner deploys); the set opens for viewers; the Page stays reachable and unlinked | before Jan 7 | The Page remains the source of record until the first Build week has agreed in both |
-| 5 | Predicates (`-signups`, `-forms`), copy-to-next-season, `ledger_balance`, `hours`, "Record this list" | Feb on | — |
+| 5 | Predicates (`-signups`, `-forms`), copy-to-next-season, `ledger_balance`, `hours` | Feb on | — |
 
 Backlog: close BL-003 as superseded when phase 1 opens; keep BL-002 on its own branch (it is an upstream bug independent of this).

@@ -110,7 +110,7 @@ Verified at integration `49609326`. Everything in §2.1 is reused as is.
 
 Rules of thumb:
 
-- A **registration** is per season. The next season is "Copy registration", which copies ways to join and the checklist and shifts the dates. The old link then says "Registration for 2027 has closed. Registration for 2028 opens May 1." (the old registration stores a pointer, §16.2).
+- A **registration** is per season. The next season is "Copy registration", which copies ways to join and the checklist and shifts the dates. The old link then says "Registration for 2027 has closed. Registration for 2028 opens <date>." (dates come from the registration; nothing in code assumes a month) (the old registration stores a pointer, §16.2).
 - A **way to join** is where every organization-specific rule lives. The generic code never names the people it serves.
 - Several ways may be offered on one screen. A screen that lets someone choose more than one must say so: "Choose any that apply." Each choice makes its own application.
 
@@ -265,7 +265,7 @@ Approval does what a manager used to do by hand. A way to join has **placement r
 
 The result of placement shows on the approval screen before the button is pressed: "Will join: <team>, <team>. Will get: <badge>." Placement is the missing-class-team fix: the manager no longer remembers anything. If a needed fact is missing (grad year blank), the Approve button is disabled with "Needs a graduation year" and links to the field. Managers can set the field themselves from the application page, using the person field's own write level.
 
-"Rookie" is not defined in the code. "New to" counts teams the person is on now plus teams recorded by a seasonal fact (the season badges). It can't see someone who left and was deleted; the sample data and Appendix A note the import of last year's roster that closes this gap.
+"Rookie" is not defined in the code. "New to" counts teams the person is on now plus the teams in the person's season enrollment rows (decision 19). It can't see someone who left and was deleted; the sample data and Appendix A note the import of last year's roster that closes this gap.
 
 Approval is still `MembershipApplication#approve!`. Placement is a service object, `Intake::Placement.apply(application)`, called from a concern included into `MembershipApplication` that runs after `approve!` saves (`after_commit` on a change to `approved`), in the same transaction as the membership when possible. Upstream's file is not edited.
 
@@ -634,14 +634,15 @@ Defaults, 2026-11-05.
 16. **Nothing to a minor's address** until a guardian is linked.
 17. **The flag is off by default**, with `renews_each_season` inert until a form opts in.
 18. **Entries expire after 7 days.**
+19. **Season enrollment is a stored row, not a badge** (product owner, 2026-11-06). `season_enrollments` (`person_id`, `season_id`, `team_id`, `status`: renewed / new / not returning, `enrolled_at`, `created_by_id`) is written when an application is approved or a renewal's checklist is met. "Renewed for the season", "new to the team" and years on the team read it. No "<season> member" badge. The shape is in the improvements outline (F1).
+20. **Every date is configuration** (product owner, 2026-11-06). Seasons, registrations (open and close), renewal windows and reminder days are set on their records; copying to next season proposes shifted dates for a person to confirm. No month or date is hard-coded, including HBR's May 1.
 
 ## 19. Open questions
 
-1. **Where does the "renewed for the season" fact live?** A season badge (records a fact, one more badge each year), a derived state from the checklist (no stored fact, nothing to report on after the set changes), or a row on a `season_memberships` table. Default: a badge granted when the checklist is Met, named "<season> member"; it's a fact the Eligibility Report can already read.
-2. **Which email gets the first message for a minor who has their own address and a guardian address?** Default: the guardian's, first; the minor's after the guardian confirms.
-3. **Is a shared access code needed on the public link** (printed at the callout) or is a random slug enough? Default: slug only, code optional.
-4. **Who runs registration if not a team manager** (a volunteer coordinator)? Default: managers and admins only; delegated organizers later.
-5. **Should a registration's team stay out of the signed-in team list** while it accepts applications? Today every signed-in person sees approval-gated teams. Default: leave as is.
+1. **Which email gets the first message for a minor who has their own address and a guardian address?** Default: the guardian's, first; the minor's after the guardian confirms.
+2. **Is a shared access code needed on the public link** (printed at the callout) or is a random slug enough? Default: slug only, code optional.
+3. **Who runs registration if not a team manager** (a volunteer coordinator)? Default: managers and admins only; delegated organizers later.
+4. **Should a registration's team stay out of the signed-in team list** while it accepts applications? Today every signed-in person sees approval-gated teams. Default: leave as is.
 
 ## Appendix A: HBR setup
 
