@@ -18,6 +18,14 @@
 #                         path:  -> { MyPlugin::Engine.routes.url_helpers.things_path },
 #                         icon:  "star"
 #                       )],
+#         # Tabs on a person's profile, after the built-in ones. The path proc
+#         # gets the person; the optional visible: proc gets the current user
+#         # and the person (the tab shows by default).
+#         profile_tabs: [GatherPack::Feature::ProfileTab.new(
+#                          label:   "Things",
+#                          path:    ->(person) { MyPlugin::Engine.routes.url_helpers.person_things_path(person) },
+#                          visible: ->(user, person) { user.admin? || user.person == person }
+#                        )],
 #         routes_proc: proc { mount MyPlugin::Engine, at: "/my_plugin" }
 #       )
 #     )
@@ -53,7 +61,11 @@ Rails.application.config.to_prepare do
       setup_section: "People",
       setup_items: [
         GatherPack::Feature::SetupItem.new(label: "Team Types", path: :team_types_path),
-        GatherPack::Feature::SetupItem.new(label: "Relationship Types", path: :relationship_types_path)
+        GatherPack::Feature::SetupItem.new(label: "Relationship Types", path: :relationship_types_path),
+        # Always available: built-in profile fields are access-controlled even
+        # with custom person fields turned off.
+        GatherPack::Feature::SetupItem.new(label: "Person Fields", path: :person_fields_path),
+        GatherPack::Feature::SetupItem.new(label: "Person Field Sections", path: :person_field_groups_path)
       ]
     )
   )
@@ -91,6 +103,15 @@ Rails.application.config.to_prepare do
       setup_items: [
         GatherPack::Feature::SetupItem.new(label: "Badge Types", path: :badge_types_path)
       ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
+      key: :person_fields,
+      label: "Custom Person Fields",
+      description: "Add your own fields to member profiles and control who can see them",
+      default_enabled: false
     )
   )
 
@@ -137,6 +158,20 @@ Rails.application.config.to_prepare do
       nav_position: 20,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Time Clock", path: :time_clock_punches_path, icon: "business-time")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
+      key: :commitments,
+      label: "Commitments",
+      description: "Track what people owe (shifts, events, hours) and credit it from their activity",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 25,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Commitments", path: :commitments_path, icon: "list-check")
       ]
     )
   )

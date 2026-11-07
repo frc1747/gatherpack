@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_150100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -176,7 +176,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
     t.string "name"
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.uuid "person_field_id"
+    t.integer "read_permission", default: 7, null: false
     t.index ["event_type_id"], name: "index_checkin_fields_on_event_type_id"
+    t.index ["person_field_id"], name: "index_checkin_fields_on_person_field_id"
   end
 
   create_table "checkins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -188,6 +191,232 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
     t.index ["event_id", "person_id"], name: "index_checkins_on_event_id_and_person_id", unique: true
     t.index ["event_id"], name: "index_checkins_on_event_id"
     t.index ["person_id"], name: "index_checkins_on_person_id"
+  end
+
+  create_table "checklist_attestations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.string "key", null: false
+    t.string "statement", null: false
+    t.datetime "attested_at", null: false
+    t.uuid "attested_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "attested_as"
+    t.index ["attested_by_id"], name: "index_checklist_attestations_on_attested_by_id"
+    t.index ["person_id", "key", "attested_at"], name: "idx_on_person_id_key_attested_at_7a011ce05e"
+    t.index ["person_id"], name: "index_checklist_attestations_on_person_id"
+  end
+
+  create_table "checklist_excuses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_id", null: false
+    t.uuid "person_id", null: false
+    t.uuid "event_id"
+    t.text "reason", null: false
+    t.date "expires_on"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_checklist_excuses_on_created_by_id"
+    t.index ["event_id"], name: "index_checklist_excuses_on_event_id"
+    t.index ["item_id"], name: "index_checklist_excuses_on_item_id"
+    t.index ["person_id"], name: "index_checklist_excuses_on_person_id"
+  end
+
+  create_table "checklist_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "badge_id"
+    t.uuid "team_id"
+    t.uuid "item_ids", default: [], null: false, array: true
+    t.integer "access", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "created_by_id"
+    t.index ["badge_id"], name: "index_checklist_grants_on_badge_id"
+    t.index ["checklist_id"], name: "index_checklist_grants_on_checklist_id"
+    t.index ["created_by_id"], name: "index_checklist_grants_on_created_by_id"
+    t.index ["team_id"], name: "index_checklist_grants_on_team_id"
+  end
+
+  create_table "checklist_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "parent_id"
+    t.string "kind", null: false
+    t.jsonb "config", default: {}, null: false
+    t.string "label", null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "counts", default: true, null: false
+    t.date "starts_on"
+    t.integer "starts_within_amount"
+    t.string "starts_within_unit"
+    t.date "ends_on"
+    t.date "due_on"
+    t.string "read_level"
+    t.string "exempt_label"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "commitment_id"
+    t.boolean "wrapped", default: false, null: false
+    t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
+    t.index ["commitment_id"], name: "index_checklist_items_on_commitment_id", unique: true
+    t.index ["kind"], name: "index_checklist_items_on_kind"
+    t.index ["parent_id"], name: "index_checklist_items_on_parent_id"
+  end
+
+  create_table "checklist_lists", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.datetime "recorded_at", null: false
+    t.uuid "recorded_by_id"
+    t.string "note"
+    t.jsonb "rows", default: [], null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["checklist_id"], name: "index_checklist_lists_on_checklist_id"
+    t.index ["recorded_by_id"], name: "index_checklist_lists_on_recorded_by_id"
+  end
+
+  create_table "checklist_organizers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["checklist_id", "person_id"], name: "index_checklist_organizers_on_checklist_id_and_person_id", unique: true
+    t.index ["checklist_id"], name: "index_checklist_organizers_on_checklist_id"
+    t.index ["person_id"], name: "index_checklist_organizers_on_person_id"
+  end
+
+  create_table "checklist_refreshes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "person_id"
+    t.datetime "created_at", null: false
+    t.index ["checklist_id", "person_id"], name: "index_checklist_refreshes_on_checklist_id_and_person_id", unique: true, nulls_not_distinct: true
+  end
+
+  create_table "checklist_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "item_id"
+    t.uuid "person_id", null: false
+    t.integer "status", null: false
+    t.string "label"
+    t.string "summary"
+    t.text "detail"
+    t.jsonb "measures", default: {}, null: false
+    t.jsonb "fix"
+    t.jsonb "excuse"
+    t.integer "previous_status"
+    t.datetime "changed_at"
+    t.datetime "computed_at", null: false
+    t.boolean "stale", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["checklist_id", "item_id", "person_id"], name: "index_checklist_results_on_checklist_item_person", unique: true, nulls_not_distinct: true
+    t.index ["checklist_id", "item_id", "status"], name: "index_checklist_results_on_checklist_item_status"
+    t.index ["item_id"], name: "index_checklist_results_on_item_id"
+    t.index ["person_id"], name: "index_checklist_results_on_person_id"
+  end
+
+  create_table "checklist_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "item_id"
+    t.integer "effect", default: 0, null: false
+    t.integer "target_type", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "badge_id"
+    t.uuid "person_id"
+    t.boolean "include_managers", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_checklist_rules_on_badge_id"
+    t.index ["checklist_id"], name: "index_checklist_rules_on_checklist_id"
+    t.index ["item_id"], name: "index_checklist_rules_on_item_id"
+    t.index ["person_id"], name: "index_checklist_rules_on_person_id"
+    t.index ["team_id"], name: "index_checklist_rules_on_team_id"
+  end
+
+  create_table "checklists", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.date "starts_on"
+    t.integer "starts_within_amount"
+    t.string "starts_within_unit"
+    t.date "ends_on"
+    t.date "cutoff_on"
+    t.integer "status", default: 0, null: false
+    t.string "read_level", default: "family", null: false
+    t.string "met_word"
+    t.string "pending_word"
+    t.string "not_met_word"
+    t.datetime "next_refresh_at"
+    t.datetime "computed_at"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_checklists_on_created_by_id"
+    t.index ["status", "next_refresh_at"], name: "index_checklists_on_status_and_next_refresh_at"
+    t.index ["team_id"], name: "index_checklists_on_team_id"
+  end
+
+  create_table "commitment_adjustments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.uuid "person_id", null: false
+    t.integer "credits", null: false
+    t.text "reason", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id"], name: "index_commitment_adjustments_on_commitment_id"
+    t.index ["created_by_id"], name: "index_commitment_adjustments_on_created_by_id"
+    t.index ["person_id"], name: "index_commitment_adjustments_on_person_id"
+  end
+
+  create_table "commitment_organizers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id", "person_id"], name: "index_commitment_organizers_on_commitment_id_and_person_id", unique: true
+    t.index ["person_id"], name: "index_commitment_organizers_on_person_id"
+  end
+
+  create_table "commitment_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.string "kind", null: false
+    t.string "subject_type"
+    t.uuid "subject_id"
+    t.integer "per", default: 1, null: false
+    t.integer "credits", default: 1, null: false
+    t.integer "max_credits"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id"], name: "index_commitment_sources_on_commitment_id"
+    t.index ["subject_type", "subject_id"], name: "index_commitment_sources_on_subject"
+  end
+
+  create_table "commitments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.uuid "owing_team_id", null: false
+    t.uuid "owing_badge_id"
+    t.integer "base_amount", default: 1, null: false
+    t.string "unit", default: "", null: false
+    t.integer "counts_when", default: 0, null: false
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "exempt_badge_id"
+    t.uuid "group_relationship_type_id"
+    t.integer "additional_amount", default: 0, null: false
+    t.index ["created_by_id"], name: "index_commitments_on_created_by_id"
+    t.index ["exempt_badge_id"], name: "index_commitments_on_exempt_badge_id"
+    t.index ["group_relationship_type_id"], name: "index_commitments_on_group_relationship_type_id"
+    t.index ["owing_badge_id"], name: "index_commitments_on_owing_badge_id"
+    t.index ["owing_team_id"], name: "index_commitments_on_owing_team_id"
+    t.index ["team_id"], name: "index_commitments_on_team_id"
   end
 
   create_table "event_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -475,6 +704,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
     t.index ["user_id"], name: "index_people_on_user_id"
   end
 
+  create_table "person_field_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_field_id", null: false
+    t.uuid "badge_id", null: false
+    t.integer "access", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_person_field_badge_grants_on_badge_id"
+    t.index ["person_field_id", "badge_id"], name: "idx_on_person_field_id_badge_id_1cbc5590b3", unique: true
+    t.index ["person_field_id"], name: "index_person_field_badge_grants_on_person_field_id"
+  end
+
+  create_table "person_field_groups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "person_field_values", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.uuid "person_field_id", null: false
+    t.text "value"
+    t.uuid "updated_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_field_id"], name: "index_person_field_values_on_person_field_id"
+    t.index ["person_id", "person_field_id"], name: "index_person_field_values_on_person_id_and_person_field_id", unique: true
+    t.index ["person_id"], name: "index_person_field_values_on_person_id"
+    t.index ["updated_by_id"], name: "index_person_field_values_on_updated_by_id"
+  end
+
+  create_table "person_fields", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "key", null: false
+    t.integer "data_type", default: 0, null: false
+    t.jsonb "options", default: {}, null: false
+    t.text "help_text"
+    t.integer "read_permission", default: 0, null: false
+    t.integer "write_permission", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "person_field_group_id"
+    t.integer "position", default: 0, null: false
+    t.boolean "required", default: false, null: false
+    t.boolean "show_on_profile", default: true, null: false
+    t.datetime "archived_at"
+    t.string "system_source"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_person_fields_on_key", unique: true
+    t.index ["person_field_group_id"], name: "index_person_fields_on_person_field_group_id"
+    t.index ["system_source"], name: "index_person_fields_on_system_source", unique: true
+    t.index ["team_id"], name: "index_person_fields_on_team_id"
+  end
+
   create_table "questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "closed", default: false, null: false
     t.text "content", null: false
@@ -494,6 +777,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
     t.string "parent_label"
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.integer "guardianship", default: 0, null: false
+    t.boolean "show_contact_details", default: false, null: false
   end
 
   create_table "relationships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -794,8 +1079,49 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
   add_foreign_key "checkin_field_responses", "checkin_fields"
   add_foreign_key "checkin_field_responses", "checkins"
   add_foreign_key "checkin_fields", "event_types"
+  add_foreign_key "checkin_fields", "person_fields"
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
+  add_foreign_key "checklist_attestations", "people", column: "attested_by_id", on_delete: :nullify
+  add_foreign_key "checklist_attestations", "people", on_delete: :cascade
+  add_foreign_key "checklist_excuses", "checklist_items", column: "item_id"
+  add_foreign_key "checklist_excuses", "events", on_delete: :cascade
+  add_foreign_key "checklist_excuses", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "checklist_excuses", "people", on_delete: :cascade
+  add_foreign_key "checklist_grants", "badges"
+  add_foreign_key "checklist_grants", "checklists"
+  add_foreign_key "checklist_grants", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "checklist_grants", "teams"
+  add_foreign_key "checklist_items", "checklist_items", column: "parent_id"
+  add_foreign_key "checklist_items", "checklists"
+  add_foreign_key "checklist_items", "commitments"
+  add_foreign_key "checklist_lists", "checklists"
+  add_foreign_key "checklist_lists", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "checklist_organizers", "checklists"
+  add_foreign_key "checklist_organizers", "people", on_delete: :cascade
+  add_foreign_key "checklist_refreshes", "checklists", on_delete: :cascade
+  add_foreign_key "checklist_results", "checklist_items", column: "item_id", on_delete: :cascade
+  add_foreign_key "checklist_results", "checklists"
+  add_foreign_key "checklist_results", "people", on_delete: :cascade
+  add_foreign_key "checklist_rules", "badges"
+  add_foreign_key "checklist_rules", "checklist_items", column: "item_id"
+  add_foreign_key "checklist_rules", "checklists"
+  add_foreign_key "checklist_rules", "people", on_delete: :nullify
+  add_foreign_key "checklist_rules", "teams"
+  add_foreign_key "checklists", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "checklists", "teams"
+  add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
+  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
+  add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
+  add_foreign_key "commitment_organizers", "people", on_delete: :cascade
+  add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
+  add_foreign_key "commitments", "badges", column: "exempt_badge_id"
+  add_foreign_key "commitments", "badges", column: "owing_badge_id"
+  add_foreign_key "commitments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitments", "relationship_types", column: "group_relationship_type_id"
+  add_foreign_key "commitments", "teams"
+  add_foreign_key "commitments", "teams", column: "owing_team_id"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "ledger_entries", "ledgers"
@@ -820,6 +1146,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "users", column: "resource_owner_id"
+  add_foreign_key "person_field_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "person_field_badge_grants", "person_fields"
+  add_foreign_key "person_field_values", "people"
+  add_foreign_key "person_field_values", "people", column: "updated_by_id", on_delete: :nullify
+  add_foreign_key "person_field_values", "person_fields"
+  add_foreign_key "person_fields", "person_field_groups"
+  add_foreign_key "person_fields", "teams"
   add_foreign_key "questions", "people"
   add_foreign_key "questions", "teams"
   add_foreign_key "relationships", "people", column: "child_id"

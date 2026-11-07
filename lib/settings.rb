@@ -73,6 +73,12 @@ class Settings
     def register_feature(feature)
       instance.send(:add_feature_setting, feature)
     end
+
+    # Adds a setting from outside this file, with the same arguments as the
+    # built-in ones, so a feature or plugin can own its settings.
+    def register(setting_key, *args)
+      instance.send(:add_setting, setting_key, *args)
+    end
   end
 
   private
@@ -119,5 +125,7 @@ class Settings
 
     add_setting(:shirt_sizes, :string, "Shirt Sizes", "Youth S, Youth M, Youth L, S, M, L, XL, XXL, 3XL, 4XL", "People", "Comma-separated list of valid shirt sizes")
     add_setting(:gender_options, :string, "Gender Options", "M, F, X", "People", "Comma-separated list of valid gender options")
+    add_setting(:guardianship_age_limit, :integer, "Guardianship Age Limit", "", "People", "Guardianship from a 'minor' relationship type ends when the child reaches this age. Leave blank for no limit")
+    add_setting(:guardianship_ends_without_birthday, :boolean, "End Guardianship Without a Birthday", "false", "People", "When an age limit is set, also end 'minor' guardianship for people with no birthday on file. Only applies when an age limit is set")
   end
 end
