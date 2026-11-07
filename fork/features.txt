@@ -57,4 +57,5 @@ feature/kiosk-scan-panels
 feature/checklists-kiosk
 feature/intake-checklist
 feature/mcp-checklists
+feature/mcp-intake
 feature/hook-catalog-models
