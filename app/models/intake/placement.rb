@@ -87,6 +87,6 @@ class Intake::Placement
   end
 
   def may_give?(badge)
-    @approver&.person.present? && BadgePolicy.new(@approver, badge).update?
+    @approver&.person.present? && BadgeAssignmentPolicy.new(@approver, BadgeAssignment.new(person: person, badge: badge)).create?
   end
 end

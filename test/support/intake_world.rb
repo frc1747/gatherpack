@@ -30,7 +30,9 @@ module IntakeWorld
     @admin = create_intake_person("Ada", "Admin", admin: true)
 
     @parent_of = RelationshipType.create!(parent_label: "Parent of", child_label: "Child of", permission: :added_by_admin, guardianship: :minor)
-    @joined_badge = Badge.create!(name: "Joined Online", short: "JO", color: "blue", badge_type: badge_types(:one), permission: "has_account")
+    # The leader may give it to anyone in Northwind, and anyone joining may take it.
+    @joined_badge = Badge.create!(name: "Joined Online", short: "JO", color: "blue", badge_type: badge_types(:one), team: @northwind,
+      permission: "added_by_manager_or_self")
 
     @registration = Intake::Registration.create!(team: @northwind, title: "Join Northwind", opens_at: 1.day.ago,
       closes_at: 30.days.from_now, created_by: @leader, guardian_relationship_type: @parent_of,
