@@ -369,6 +369,13 @@ and only from the parent side to the child side.
 | `minor: 1` | The parent side is a guardian of the child side, **subject to the age settings below** | Parent of, Legal guardian of |
 | `consented: 2` | The parent side is a guardian of the child side **regardless of age**. Created by the child side, so an adult grants it to someone | Authorized family contact |
 
+The type's form, and its show page when flagged, list what a guardian can do
+from `RelationshipType.guardian_grants`. A feature that gives guardians more
+adds its own line with `RelationshipType.register_guardian_grant` in
+`config.to_prepare`, without editing the views, and can pass `if:` to list it
+only while a condition holds. Changing a type with
+relationships to or from `none` asks for confirmation, naming the count.
+
 #### Who can create guardianship relationships
 
 A guardianship relationship grants read (and possibly write) access to someone
@@ -1006,10 +1013,9 @@ section ungroups its fields (`dependent: :nullify`).
 
 - **Relationship Types form**: a **Guardianship** select (*None* / *Guardian
   while the child is a minor* / *Guardian with the child's consent*) with help
-  text: "Guardians can see and edit fields set to family or guardian levels on
-  the child-side person's profile." The `permission` validation error (§3.4)
-  shows inline. The Relationship Types index shows a "Guardian" tag on these
-  types.
+  text listing what guardians can do (§3.4). The `permission` validation error
+  (§3.4) shows inline. The Relationship Types index shows a "Guardian" tag on
+  these types.
 - **Settings → People**: the two age settings (§3.4) with descriptions. The
   second setting's description says "Only applies when an age limit is set";
   it isn't disabled, because the Settings page has no per-setting state.

@@ -247,7 +247,8 @@ class FormsController < InternalController
 
     def form_params
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
-        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id, :totals_visibility, :leader_todo ]
+        :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id, :totals_visibility, :leader_todo,
+        :expiry, :expires_on, :valid_for_months ]
       # A completion badge marks people's status, so only admins set it.
       # Neither badge setting changes while Badges are turned off.
       badges = GatherPack::Features.enabled?(:badges)

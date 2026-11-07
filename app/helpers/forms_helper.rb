@@ -195,7 +195,23 @@ module FormsHelper
 
   # Person fields the viewer can read for someone, as result columns.
   def form_profile_field_choices(viewer)
-    PersonField.in_use.ordered.select { |field| field.readable_subjects_for(viewer).exists? }
+    PersonField.in_use.ordered.preload(:person_field_group).select { |field| field.readable_subjects_for(viewer).exists? }
+  end
+
+  FORM_TICK_LIST_LONG_PAST = 8
+  FORM_TICK_LIST_OPENS_ON = 6
+
+  def form_tick_list_long?(items)
+    items.size > FORM_TICK_LIST_LONG_PAST
+  end
+
+  # The tick boxes a long list can hide until "Show all": never a ticked one,
+  # and the first few stay so that it opens on FORM_TICK_LIST_OPENS_ON boxes.
+  def form_tick_list_extras(items)
+    return [] unless form_tick_list_long?(items)
+
+    ticked, unticked = items.partition { |item| item[:checked] }
+    unticked.drop([ FORM_TICK_LIST_OPENS_ON - ticked.size, 0 ].max)
   end
 
   # How the viewer relates to the subject, for the fill page header.

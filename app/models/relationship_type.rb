@@ -12,7 +12,22 @@ class RelationshipType < ApplicationRecord
     "consented" => "Guardian with the child's consent"
   }.freeze
 
+  # What a guardian can do, listed wherever guardianship is set. A feature that
+  # gives guardians more calls RelationshipType.register_guardian_grant("...")
+  # inside config.to_prepare, so its line returns after a code reload; a line
+  # that's already registered is ignored. Pass if: -> { ... } to list a line only
+  # while the condition holds; it's checked each time guardian_grants is read.
+  @guardian_grants = { "see the child's profile and fields set to family or guardian levels, and edit them" => nil }
+
   validate :guardianship_requires_restricted_permission
+
+  def self.guardian_grants
+    @guardian_grants.select { |_text, condition| condition.nil? || condition.call }.keys
+  end
+
+  def self.register_guardian_grant(text, if: nil)
+    @guardian_grants[text] = binding.local_variable_get(:if) unless @guardian_grants.key?(text)
+  end
 
   def self.guardianship_configured?
     where.not(guardianship: :none).exists?
@@ -28,6 +43,26 @@ class RelationshipType < ApplicationRecord
 
   def guardianship?
     !guardianship_none?
+  end
+
+  # Whether the saved type is a guardianship, ignoring any unsaved change.
+  def guardianship_saved?
+    guardianship_was != "none"
+  end
+
+  # The question to ask before the saved type changes to or from a guardianship.
+  # Nil when no relationships would be affected.
+  def guardianship_change_confirmation
+    count = relationships.count
+    return if count.zero?
+
+    relationship_count = "#{count} #{"relationship".pluralize(count)}"
+    guardians = count == 1 ? "a guardian" : "guardians"
+    if guardianship_saved?
+      "This stops the parent side of #{relationship_count} being #{guardians}."
+    else
+      "This makes the parent side of #{relationship_count} #{guardians}."
+    end
   end
 
   private

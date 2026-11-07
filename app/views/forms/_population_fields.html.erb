@@ -10,7 +10,7 @@
     </div>
     <% if teams.size > 1 %>
       <%= select_tag :team_id, options_from_collection_for_select(teams, :id, :name, population.team&.id), include_blank: "All of #{teams.first.name}",
-            class: "form-select form-select-sm w-auto", "aria-label": "Team", data: { who: "asked", action: "form-population#choose" } %>
+            class: "form-select form-select-sm w-auto mw-100", "aria-label": "Team", data: { who: "asked", action: "form-population#choose" } %>
     <% end %>
   </div>
 
@@ -22,11 +22,11 @@
       </div>
       <div class="ms-4 d-flex flex-wrap align-items-center gap-2">
         <%= select_tag :question_form_id, options_for_select(by_form.map { |form, _| [ form.event ? "#{form.title} (#{form.event.name})" : form.title, form.id ] }, chosen_form&.id),
-              include_blank: "Choose a form…", class: "form-select form-select-sm w-auto", "aria-label": "Form with the question",
+              include_blank: "Choose a form…", class: "form-select form-select-sm w-auto mw-100", "aria-label": "Form with the question",
               data: { who: "answered", action: "form-population#choose form-population#showQuestions", form_population_target: "form" } %>
         <% by_form.each do |form, questions| %>
           <%= select_tag :question_id, options_for_select(questions.map { |question| [ question.label, question.id ] }, population.question&.id),
-                include_blank: "Choose a question…", id: "question_id_#{form.id}", class: "form-select form-select-sm w-auto", "aria-label": "Question",
+                include_blank: "Choose a question…", id: "question_id_#{form.id}", class: "form-select form-select-sm w-auto mw-100", "aria-label": "Question",
                 hidden: chosen_form != form, disabled: chosen_form != form,
                 data: { who: "answered", form: form.id, action: "form-population#choose form-population#showAnswers", form_population_target: "question" } %>
         <% end %>
@@ -34,13 +34,11 @@
       <% by_form.each do |_, questions| %>
         <% questions.each do |question| %>
           <div class="ms-4 mt-1" data-form-population-target="answers" data-question="<%= question.id %>" <%= "hidden" unless population.question == question %>>
-            <% FormPopulation.answer_choices(question).each_with_index do |(label, value), index| %>
-              <div class="form-check form-check-inline">
-                <%= check_box_tag "answers[#{question.id}][]", value, population.question == question && population.answers.include?(value),
-                      id: "answers_#{question.id}_#{index}", class: "form-check-input", data: { who: "answered", action: "form-population#choose" } %>
-                <%= label_tag "answers_#{question.id}_#{index}", label, class: "form-check-label" %>
-              </div>
-            <% end %>
+            <% answer_items = FormPopulation.answer_choices(question).each_with_index.map do |(label, value), index|
+                 { name: "answers[#{question.id}][]", value: value, id: "answers_#{question.id}_#{index}", label: label,
+                   checked: population.question == question && population.answers.include?(value), data: { who: "answered", action: "form-population#choose" } }
+               end %>
+            <%= render "forms/tick_list", groups: [ [ nil, answer_items ] ], inline: true %>
           </div>
         <% end %>
       <% end %>
