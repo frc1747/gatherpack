@@ -31,9 +31,12 @@ class IntakeBulkDecisionsTest < ApplicationSystemTestCase
     tick.check
     reason = find("#bulk_reason_#{@juniors.id}")
     reason.fill_in with: "We're full this year"
+    # Turbo keeps window across its visits, so a submission would be seen.
+    execute_script("document.getElementById('intake-bulk-#{@juniors.id}').addEventListener('submit', () => { window.bulkSubmitted = true })")
     reason.send_keys(:enter)
 
     # Nothing is sent, so the page stays as it was, with the row still ticked.
+    assert_not evaluate_script("window.bulkSubmitted"), "Enter submitted the bulk form"
     assert_current_path applications_team_path(@juniors)
     assert tick.checked?
     assert_no_text "Approved"

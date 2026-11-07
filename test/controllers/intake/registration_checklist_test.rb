@@ -378,6 +378,21 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a confirmation only the person may make names just them, even when they need a guardian" do
+    add_item("Code of conduct", :attested, "statement" => "Code of conduct read", "attested_by" => "person")
+    young = create_intake_person("Sam", "Stone", birthday: 12.years.ago.to_date)
+    application = MembershipApplication.create!(person: young, team: @juniors, registration: @registration, source: :link)
+    sign_in @leader.user
+
+    with_checklists { get applications_team_path(@juniors) }
+
+    assert_select "##{ActionView::RecordIdentifier.dom_id(application, :intake_checklist)} li" do |items|
+      lines = items.map { |item| item.text.squish }
+      assert lines.any? { |line| line.include?("Code of conduct") && line.end_with?("to do: Sam") }
+      assert lines.any? { |line| line.include?("Team agreement") && line.include?("to do: Sam or a guardian") }
+    end
+  end
+
   test "a request made on the team's page can be ticked and denied with the rest" do
     asker = create_intake_person("Ash", "Asker", birthday: 30.years.ago.to_date)
     request = MembershipApplication.create!(person: asker, team: @juniors)
