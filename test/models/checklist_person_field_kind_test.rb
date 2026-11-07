@@ -108,6 +108,23 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     end
   end
 
+  test "the fix says who may update the field, from its write level and whether they have a guardian" do
+    with_fields do
+      # The member has no guardian; the kid has one (their parent).
+      expected = {
+        "admin" => %w[leader leader], "leaders" => %w[leader leader], "self" => %w[person person],
+        "self_and_leaders" => %w[person person], "guardians" => %w[leader guardian], "family" => %w[person guardian],
+        "team" => %w[person guardian], "everyone" => %w[person person]
+      }
+      expected.each do |level, (member_by, kid_by)|
+        field = create_field("Note #{level}", :string, read_permission: "everyone", write_permission: level)
+        item = add_field_item(field, "filled_in")
+        assert_equal member_by, evaluate(@checklist, :member, item).fix["by"], "#{level}, no guardian"
+        assert_equal kid_by, evaluate(@checklist, :kid, item).fix["by"], "#{level}, with a guardian"
+      end
+    end
+  end
+
   test "missing data is not yet unless the item says blank counts as met" do
     with_fields do
       note = create_field("Note", :string)

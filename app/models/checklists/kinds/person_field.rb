@@ -30,6 +30,24 @@ module Checklists
       }.freeze
 
       class << self
+        # Who acts on "Update <field>" for someone (Result "by"), from who
+        # may write the field: "guardian" when a guardian may and they have
+        # one, else "person" when the person may, else "leader". A field the
+        # person can only read isn't theirs to update.
+        def updated_by(field, guardian:)
+          return "person" if field.write_permission == "everyone"
+
+          parts = AudienceLevels.components(field.write_permission)
+          if parts.include?(:guardian) && guardian then "guardian"
+          elsif parts.include?(:subject) && !field.system_read_only? then "person"
+          else "leader"
+          end
+        end
+
+        def reaches_guardians?(field)
+          AudienceLevels.components(field.write_permission).include?(:guardian)
+        end
+
         def label = "Profile field"
         def description = "Has a profile field filled in a certain way"
 
@@ -209,10 +227,19 @@ module Checklists
         return person_ids.index_with { Result.not_met(reason, detail: "#{sentence} can't be tested: #{reason.downcase_first}") } if reason
 
         stored = load_values(field, person_ids)
-        person_ids.index_with { |person_id| judge(field, sentence, *stored.fetch(person_id, [ nil, nil ])) }
+        @with_guardian = with_guardian(field, person_ids)
+        person_ids.index_with { |person_id| judge(field, sentence, person_id, *stored.fetch(person_id, [ nil, nil ])) }
       end
 
       private
+
+      # The ids among person_ids with an active guardian, when the field's
+      # write level reaches guardians (one query for everyone).
+      def with_guardian(field, person_ids)
+        return Set.new unless self.class.reaches_guardians?(field)
+
+        ::Relationship.active_guardianships.where(child_id: person_ids).distinct.pluck(:child_id).to_set
+      end
 
       # { person_id => [raw value or nil, when it last changed] }
       def load_values(field, person_ids)
@@ -225,19 +252,19 @@ module Checklists
         end
       end
 
-      def judge(field, sentence, value, changed_at)
-        return judge_blank(field, sentence) if blank?(value)
+      def judge(field, sentence, person_id, value, changed_at)
+        return judge_blank(field, sentence, person_id) if blank?(value)
         return Result.met(sentence) if config["operator"] == "filled_in" && stale_value(changed_at).nil?
-        return Result.not_met("Not changed since #{since}", detail: "#{field.name} hasn't been updated since #{since}", fix: fix(field)) if stale_value(changed_at)
+        return Result.not_met("Not changed since #{since}", detail: "#{field.name} hasn't been updated since #{since}", fix: fix(field, person_id)) if stale_value(changed_at)
 
-        passes?(field, value) ? Result.met(sentence) : Result.not_met("Not: #{sentence.downcase_first}", fix: fix(field))
+        passes?(field, value) ? Result.met(sentence) : Result.not_met("Not: #{sentence.downcase_first}", fix: fix(field, person_id))
       end
 
-      def judge_blank(field, sentence)
+      def judge_blank(field, sentence, person_id)
         if config["blank"] == "met" && config["operator"] != "filled_in"
           Result.met(sentence, detail: "#{field.name} is blank, which this item counts as met")
         else
-          Result.not_met("No #{field.name.downcase_first} on file", detail: "#{field.name} is blank", fix: fix(field))
+          Result.not_met("No #{field.name.downcase_first} on file", detail: "#{field.name} is blank", fix: fix(field, person_id))
         end
       end
 
@@ -272,8 +299,8 @@ module Checklists
         @wanted ||= self.class.values(item).map(&:downcase)
       end
 
-      def fix(field)
-        { "label" => "Update #{field.name.downcase_first}" }
+      def fix(field, person_id)
+        { "label" => "Update #{field.name.downcase_first}", "by" => self.class.updated_by(field, guardian: @with_guardian.include?(person_id)) }
       end
     end
   end
