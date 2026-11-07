@@ -99,6 +99,9 @@ class FormAudienceChecklistRulesControllerTest < ActionDispatch::IntegrationTest
       assert_response :forbidden
 
       item = add_item(crew_checklist, :form_complete, "Medical", { form_ids: [ hidden.id ] })
+      get edit_checklist_checklist_item_path(crew_checklist, item)
+      assert_response :success
+      assert_select "select[name='checklist_item[config][form_ids][]'] option[selected][value='#{hidden.id}']", text: "Club Only"
       patch checklist_checklist_item_path(crew_checklist, item), params: { checklist_item: { label: "Medical form", config: { form_ids: [ hidden.id ] } }, confirmed: "1" }
       assert_equal "Medical form", item.reload.label, "a form already on the item stays"
 
