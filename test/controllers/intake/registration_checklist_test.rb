@@ -378,6 +378,25 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an any-of item names who can finish it alone, not a leader" do
+    badge = Badge.create!(name: "Safety", short: "S", color: "red", badge_type: badge_types(:one), permission: "added_by_admin")
+    either = add_item("Safety or the course", :any_of)
+    child = @checklist.checklist_items.new(kind: "badge", label: "Safety badge", parent: either)
+    child.config_params = { "badge_ids" => [ badge.id ] }
+    child.save!
+    child = @checklist.checklist_items.new(kind: "attested", label: "Online course", parent: either)
+    child.config_params = { "statement" => "Online course done", "attested_by" => "person" }
+    child.save!
+    sign_in @leader.user
+
+    with_checklists { get applications_team_path(@juniors) }
+
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@application, :intake_checklist)} li" do |items|
+      line = items.map { |item| item.text.squish }.find { |text| text.include?("Safety or the course") }
+      assert line.end_with?("to do: Riley"), line
+    end
+  end
+
   test "a confirmation only the person may make names just them, even when they need a guardian" do
     add_item("Code of conduct", :attested, "statement" => "Code of conduct read", "attested_by" => "person")
     young = create_intake_person("Sam", "Stone", birthday: 12.years.ago.to_date)
