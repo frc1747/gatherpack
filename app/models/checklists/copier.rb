@@ -91,12 +91,13 @@ module Checklists
           copy.checklist_organizers.create(person_id: organizer.person_id)
         end
 
+        # The population first: a kind's authorable_by? may ask who the copy covers.
+        checklist.population_rules.each { |rule| copy_rule(rule, copy, nil, replace) }
         item_ids = {}
         @refused_items = []
         checklist.top_level_items.each { |item| copy_item(item, copy, nil, dates, replace, item_ids, by) }
         raise Refused.new(@refused_items, []) if @refused_items.any?
 
-        checklist.population_rules.each { |rule| copy_rule(rule, copy, nil, replace) }
         refused_grants = checklist.checklist_grants.filter_map do |grant|
           new_grant = copy.checklist_grants.new(badge_id: swap(grant.badge, replace), team_id: swap(grant.team, replace),
             access: grant.access, item_ids: grant.item_ids.filter_map { |id| item_ids[id] }, created_by: by)
