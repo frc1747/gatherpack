@@ -1,21 +1,24 @@
-# Who sees and runs checklists. The list shows checklists someone runs or
-# could run (their team's), and those with results they may see: their own,
-# their wards', the people they lead, or through a grant. Which rows and
-# columns they see inside is Checklists::Visibility's job.
+# Who sees and runs checklists. The list shows checklists someone runs
+# (as a manager of its team, or an organizer who still holds a badge that
+# reaches it), and those with results they may see: their own, their wards',
+# the people they lead, or through a grant. Drafts and archived checklists
+# are only for the people who run them, and archived ones are read-only.
+# Which rows and columns someone sees inside is Checklists::Visibility's
+# job.
 class ChecklistPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
       return scope.all if user.admin?
       return scope.none if person.nil?
 
-      managed = Membership.where(person_id: person.id, manager: true).pluck(:team_id)
+      run = scope.where(team_id: Checklists.team_subtree_ids(Membership.where(person_id: person.id, manager: true).pluck(:team_id)))
+        .or(scope.where(id: ChecklistOrganizer.where(person_id: person.id).select(:checklist_id), team_id: Checklist.creatable_team_ids(person)))
       seen = [ person.id ] + person.wards.ids
       results = ChecklistResult.where(item_id: nil)
-      scope.where(team_id: Checklists.team_subtree_ids(managed))
-        .or(scope.where(id: ChecklistOrganizer.where(person_id: person.id).select(:checklist_id)))
-        .or(scope.where(id: results.where(person_id: seen).select(:checklist_id)))
+      shown = scope.where(id: results.where(person_id: seen).select(:checklist_id))
         .or(scope.where(id: results.where(person_id: person.all_managed_people.select(:id)).select(:checklist_id)))
         .or(scope.where(id: granted_ids))
+      run.or(shown.where.not(status: :draft))
     end
 
     private
@@ -43,16 +46,25 @@ class ChecklistPolicy < ApplicationPolicy
     record.team_id.present? && Checklist.creatable_team_ids(person).include?(record.team_id)
   end
 
+  # Archived checklists are read-only until restored.
   def update?
-    record.organizer?(person)
+    !record.archived? && record.organizer?(person)
   end
 
   def destroy?
-    update?
+    record.organizer?(person)
   end
 
-  alias_method :copy?, :update?
-  alias_method :copy_form?, :update?
+  def restore?
+    record.archived? && record.organizer?(person)
+  end
+
+  # Copying an archived checklist (last year's) is how next year starts.
+  def copy?
+    record.organizer?(person)
+  end
+
+  alias_method :copy_form?, :copy?
   alias_method :preview?, :update?
   alias_method :refresh?, :update?
 end

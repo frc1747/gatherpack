@@ -105,7 +105,18 @@ class ChecklistItem < ApplicationRecord
     return if parent.nil?
 
     errors.add(:parent, "must be a group on the same checklist") unless parent.container? && parent.checklist_id == checklist_id
-    errors.add(:parent, "can't be the item itself") if parent_id.present? && parent_id == id
+    errors.add(:parent, "can't be the item itself or a group inside it") if id.present? && parent_chain_ids.include?(id)
+  end
+
+  # The parent and every group above it, stopping at a loop already stored.
+  def parent_chain_ids
+    ids = []
+    current = parent
+    while current && !ids.include?(current.id)
+      ids << current.id
+      current = current.parent
+    end
+    ids
   end
 
   # A checklist that requires itself, directly or through others, never

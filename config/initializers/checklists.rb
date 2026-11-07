@@ -57,11 +57,8 @@ Rails.application.config.to_prepare do
   Checklists::Invalidation.install_population
 
   # A checklist's team, and the teams and badges its rules and grants name,
-  # can't be deleted while they're used. The foreign keys block it too;
-  # these give a readable error instead.
-  Team.has_many :checklists, inverse_of: :team, dependent: :restrict_with_error
-  Team.has_many :checklist_rules, dependent: :restrict_with_error
-  Team.has_many :checklist_grants, dependent: :restrict_with_error
-  Badge.has_many :checklist_rules, dependent: :restrict_with_error
-  Badge.has_many :checklist_grants, dependent: :restrict_with_error
+  # can't be deleted while they're used (a readable error; the foreign keys
+  # block it too).
+  Checklists::ProtectsReferences.install_model(Team)
+  Checklists::ProtectsReferences.install_model(Badge)
 end

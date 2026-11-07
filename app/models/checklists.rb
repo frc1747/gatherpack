@@ -80,12 +80,14 @@ module Checklists
 
     # Every checklist covering this person (from stored results) that the
     # viewer may see, with the person's status in each. Archived checklists
-    # are left out.
+    # are left out, and drafts too unless the viewer runs them.
     def checklist_for(person, viewer: person)
       return [] if person.nil? || viewer.nil?
 
       ids = ChecklistResult.where(person_id: person.id, item_id: nil).select(:checklist_id)
       Checklist.where(id: ids).where.not(status: :archived).order(:title).filter_map do |checklist|
+        next if checklist.draft? && !checklist.organizer?(viewer)
+
         status = status_for(checklist, [ person ], viewer: viewer)[person.id]
         [ checklist, status ] if status
       end

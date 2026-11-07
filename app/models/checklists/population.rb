@@ -28,7 +28,9 @@ module Checklists
         included = if includes.empty?
           members
         else
-          applicants = includes.select(&:target_applicants?).flat_map { |rule| Population.rule_person_ids(rule) }
+          # Applicants count only through teams within the checklist's reach.
+          applicants = includes.select { |rule| rule.target_applicants? && reach.include?(rule.team_id) }
+            .flat_map { |rule| Population.rule_person_ids(rule) }
           (includes.reject(&:target_applicants?).flat_map { |rule| Population.rule_person_ids(rule) } & members) + applicants
         end
         (included.uniq - excludes.flat_map { |rule| Population.rule_person_ids(rule) }).sort

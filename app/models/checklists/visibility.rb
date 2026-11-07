@@ -19,7 +19,9 @@ module Checklists
     def full?
       return @full if defined?(@full)
 
-      @full = viewer.present? && (viewer.admin? || manager? || checklist.checklist_organizers.exists?(person_id: viewer.id))
+      # organizer? also rechecks that an organizer still holds a badge that
+      # reaches the checklist's team.
+      @full = viewer.present? && (manager? || checklist.organizer?(viewer))
     end
 
     # An admin, or a manager of the checklist's team or a team above it: who

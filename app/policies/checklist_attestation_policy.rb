@@ -3,11 +3,13 @@
 # in item.
 class ChecklistAttestationPolicy < ApplicationPolicy
   def create?
-    record.item.present? && ChecklistAttestation.may_attest?(record.item, person, record.person)
+    record.item.present? && !record.item.checklist.archived? && ChecklistAttestation.may_attest?(record.item, person, record.person)
   end
 
   # The one who confirmed, or the checklist's organizers.
   def destroy?
-    record.attested_by_id == person&.id || (record.item.present? && record.item.checklist.organizer?(person))
+    return false if record.item.nil? || record.item.checklist.archived?
+
+    record.attested_by_id == person&.id || record.item.checklist.organizer?(person)
   end
 end

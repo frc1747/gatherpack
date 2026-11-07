@@ -53,8 +53,10 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     doomed = create_world_badge("Old 2025")
     item = add_item(@checklist, :badge, "Old", { badge_ids: [ doomed.id ] })
 
-    assert_not doomed.destroy, "the item protects the badge"
-    assert_match "Used by the checklist Trip", doomed.errors.full_messages.to_sentence
+    with_feature do
+      assert_not doomed.destroy, "the item protects the badge"
+      assert_match "Used by the checklist Trip", doomed.errors.full_messages.to_sentence
+    end
 
     item.update_columns(config: { "badge_ids" => [ SecureRandom.uuid ] })
     assert_includes @checklist.reload.problems.join, "was deleted"
