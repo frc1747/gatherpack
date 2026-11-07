@@ -1,0 +1,54 @@
+en:
+  person_fields:
+    levels:
+      admin:
+        label: "Admins only"
+        description: "Only site admins"
+      self:
+        label: "This person"
+        description: "Only the person themself"
+      leaders:
+        label: "Their leaders"
+        description: "The managers of their teams"
+      self_and_leaders:
+        label: "This person and their leaders"
+        description: "The person themself and the managers of their teams"
+      guardians:
+        label: "Their guardians and leaders (not the person)"
+        description: "Their guardians (%{guardian_types}) and the managers of their teams, but not the person themself"
+      family:
+        label: "This person, their guardians, and their leaders"
+        label_without_guardians: "This person and their leaders"
+        description: "This person, their guardians (%{guardian_types}), and the managers of their teams"
+        description_without_guardians: "The person themself and the managers of their teams"
+      team:
+        label: "Their teammates, guardians, and leaders"
+        label_without_guardians: "Their teammates and leaders"
+        description: "This person, their guardians (%{guardian_types}), the managers of their teams, and people who share a team with them"
+        description_without_guardians: "This person, the managers of their teams, and people who share a team with them"
+      everyone:
+        label: "Anyone who can see their profile"
+        description: "Anyone who can see the person's profile"
+    access_notes:
+      guardian:
+        subject_none: "Not visible to %{name}."
+        subject_read: "%{name} can see this but can't change it."
+        subject_write: "%{name} can see and change this."
+        ends_on: "Your access to %{name}'s restricted fields ends on %{date}."
+      subject:
+        guardians_read: "Your guardians can see this."
+        guardians_write: "Your guardians can see and change this."
+        leaders_only_write: "Only your leaders can change this."
+      leader:
+        guardians_none: "%{name}'s guardians can't see this."
+        subject_none: "%{name} can't see this."
+      badges: "Also visible to %{badges} badge holders."
+      summary: "Visible to: %{audiences}."
+      summary_parts:
+        subject: "%{name}"
+        guardians: "%{name}'s guardians"
+        leaders: "%{name}'s leaders"
+        teammates: "%{name}'s teammates"
+        admins: "admins"
+      read_only: "Only %{level} can change this."
+      managed_by_account: "Changed in account settings."
