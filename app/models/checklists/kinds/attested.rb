@@ -57,7 +57,8 @@ module Checklists
             Result.met("Confirmed", detail: "#{config["statement"]}: confirmed #{I18n.l(attestation.attested_at.to_date, format: :long)}")
           else
             Result.not_met("Not confirmed", detail: "#{config["statement"]}: not confirmed yet",
-              fix: { "label" => config["attested_by"] == "manager" ? "Ask a leader" : "I confirm", "action" => "attest", "key" => config["key"] })
+              fix: { "label" => config["attested_by"] == "manager" ? "Ask a leader" : "I confirm", "action" => "attest", "key" => config["key"],
+                "by" => { "manager" => "leader", "guardian" => "guardian" }.fetch(config["attested_by"].to_s, "person") })
           end
         end
       end

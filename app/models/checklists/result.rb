@@ -3,7 +3,10 @@ module Checklists
   # Checklists::STATUSES. label overrides the status word ("Rookie",
   # "Excused", "Missed"). summary is short ("Holds Safety"), detail the full
   # sentence. measures are named numbers, fix the best next action as
-  # { "label", "path", "action" } (action "attest" carries "key"). A fix can
+  # { "label", "path", "action", "by" } (action "attest" carries "key"). by
+  # says who acts on it: "person" (the person, or a guardian for a ward
+  # where the item lets them), "guardian" (a guardian, or the person) or
+  # "leader" (someone who runs the team or the checklist). A fix can
   # add "requires" => { "record" => global id, "query" => "update?" }: the
   # link shows only to viewers whose policy allows it, others see the label.
   Result = Struct.new(:status, :label, :summary, :detail, :measures, :fix, :excuse, keyword_init: true) do

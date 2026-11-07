@@ -51,7 +51,7 @@ module Checklists
 
         person_ids.index_with do |person_id|
           birthday = birthdays[person_id]
-          next Result.not_met("No birthday on file", fix: { "label" => "Add a birthday" }) if birthday.nil?
+          next Result.not_met("No birthday on file", fix: { "label" => "Add a birthday", "by" => "person" }) if birthday.nil?
 
           age = age_on(birthday, on)
           in_range = (config["min"].blank? || age >= config["min"].to_i) && (config["max"].blank? || age <= config["max"].to_i)

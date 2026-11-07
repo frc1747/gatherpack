@@ -38,6 +38,32 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     end
   end
 
+  test "every core kind's fix says who acts on it, and any_of takes it from the child whose fix it shows" do
+    other = create_world_checklist("Other")
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    refresh(other)
+    expected = {
+      add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }) => "leader",
+      add_item(@checklist, :team_member, "Crew", { team_ids: [ @crew.id ] }) => "leader",
+      add_item(@checklist, :age, "Age", { min: 12 }) => "person",
+      add_item(@checklist, :attested, "Own", { statement: "Own", attested_by: "person" }) => "person",
+      add_item(@checklist, :attested, "Guardian", { statement: "Guardian", attested_by: "guardian" }) => "guardian",
+      add_item(@checklist, :attested, "Leader", { statement: "Leader", attested_by: "manager" }) => "leader",
+      add_item(@checklist, :checklist, "Other", { checklist_id: other.id }) => "person"
+    }
+    either = add_item(@checklist, :any_of, "Either")
+    add_item(@checklist, :badge, "Badge first", { badge_ids: [ @safety.id ] }, parent: either)
+    add_item(@checklist, :attested, "Then confirm", { statement: "Then confirm", attested_by: "guardian" }, parent: either)
+    expected[add_item(@checklist, :has_login, "Login")] = "leader"
+    nobody = Person.create!(first_name: "No", last_name: "Login")
+    Membership.create!(person: nobody, team: @members)
+
+    results = Checklists::Evaluator.new(@checklist.reload).call([ nobody.id ])[nobody.id]
+
+    expected.each { |item, by| assert_equal by, results[item.id].fix["by"], item.label }
+    assert_equal({ "label" => "Ask a leader", "by" => "leader" }, results[either.id].fix)
+  end
+
   test "badge: holds any of the badges, optionally given within the dates" do
     item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id, @viewer_badge.id ] })
     travel_to(Time.zone.parse("2026-08-01")) { give_badge(:member, @safety) }
