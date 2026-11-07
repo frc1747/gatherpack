@@ -13,7 +13,8 @@ module Checklists
       end
 
       def evaluate(person_ids)
-        with_login = ::Person.joins(:user).where(id: person_ids).where.not(users: { email: [ nil, "" ] }).ids.to_set
+        with_login = ::Person.joins(:user).where(id: person_ids, users: { created_at: ..window.end_time })
+          .where.not(users: { email: [ nil, "" ] }).ids.to_set
 
         person_ids.index_with do |person_id|
           if with_login.include?(person_id)

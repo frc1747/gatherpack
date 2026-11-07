@@ -31,6 +31,18 @@ module Checklists
         def describe(item)
           "Finishes #{referenced_records(item, "checklist_id").first&.title || "another checklist"}"
         end
+
+        # The other checklist's overall comes from all its counting items;
+        # for a viewer an item there hides from someone, this item is capped
+        # for that person too, so it can't carry the hidden answer over.
+        def visible_person_ids(item, viewer, person_ids)
+          other = referenced_records(item, "checklist_id").first
+          return person_ids if other.nil?
+
+          other.top_level_items.includes(children: :children).select(&:counts?).reduce(person_ids.to_a) do |ids, counted|
+            ids.any? ? Checklists.visible_person_ids(counted, viewer, ids) : ids
+          end
+        end
       end
 
       def evaluate(person_ids)

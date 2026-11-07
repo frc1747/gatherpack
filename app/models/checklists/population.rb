@@ -28,7 +28,9 @@ module Checklists
         included = if includes.empty?
           members
         else
-          applicants = includes.select(&:target_applicants?).flat_map { |rule| Population.rule_person_ids(rule) }
+          # Applicants count only through teams within the checklist's reach.
+          applicants = includes.select { |rule| rule.target_applicants? && reach.include?(rule.team_id) }
+            .flat_map { |rule| Population.rule_person_ids(rule) }
           (includes.reject(&:target_applicants?).flat_map { |rule| Population.rule_person_ids(rule) } & members) + applicants
         end
         (included.uniq - excludes.flat_map { |rule| Population.rule_person_ids(rule) }).sort
@@ -52,7 +54,11 @@ module Checklists
         memberships = Membership.where(team_id: Checklists.team_subtree_ids(rule.team_id))
         memberships = memberships.where(manager: false) unless rule.include_managers?
         memberships.distinct.pluck(:person_id)
-      when "badge" then BadgeAssignment.where(badge_id: rule.badge_id).pluck(:person_id)
+      when "badge"
+        holders = BadgeAssignment.where(badge_id: rule.badge_id)
+        # With a team: only holders in that team or a team below it.
+        holders = holders.where(person_id: Membership.where(team_id: Checklists.team_subtree_ids(rule.team_id)).select(:person_id)) if rule.team_id
+        holders.distinct.pluck(:person_id)
       when "person" then [ rule.person_id ].compact
       when "applicants"
         MembershipApplication.pending.where(team_id: Checklists.team_subtree_ids(rule.team_id)).distinct.pluck(:person_id)

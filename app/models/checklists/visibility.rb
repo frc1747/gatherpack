@@ -7,7 +7,9 @@ module Checklists
   # team or a team above it, or one of its organizers. Otherwise, for each
   # person: the overall and items whose read level (AudienceLevels) reaches
   # the viewer, at full level; plus what a grant gives, at the grant's
-  # access. Nothing else: such people aren't shown at all.
+  # access. Nothing else: such people aren't shown at all. On top of all of
+  # that, an item's kind can hide a person's result from a viewer
+  # (ItemKind.visible_to?), whoever they are.
   class Visibility
     attr_reader :checklist, :viewer
 
@@ -19,7 +21,9 @@ module Checklists
     def full?
       return @full if defined?(@full)
 
-      @full = viewer.present? && (viewer.admin? || manager? || checklist.checklist_organizers.exists?(person_id: viewer.id))
+      # organizer? also rechecks that an organizer still holds a badge that
+      # reaches the checklist's team.
+      @full = viewer.present? && (manager? || checklist.organizer?(viewer))
     end
 
     # An admin, or a manager of the checklist's team or a team above it: who
@@ -35,22 +39,41 @@ module Checklists
     def prepare(person_ids)
       @person_ids = person_ids
       @components = nil
+      @kind_caps = nil
       self
+    end
+
+    # The item's kind, and the kinds of items inside it, may cap who sees a
+    # person's result (ItemKind.visible_to?, Checklists.cap_levels).
+    def kind_allows?(item, person_id)
+      kind_cap(item, person_id).present?
+    end
+
+    # :full, :status or nil: the most the item's kinds let this viewer see of
+    # this person's result.
+    def kind_cap(item, person_id)
+      return :full if viewer.nil?
+
+      ids = @person_ids || [ person_id ]
+      levels = ((@kind_caps ||= {})[[ item.id, ids.equal?(@person_ids) ]] ||= Checklists.cap_levels(item, viewer, ids))
+      return levels[person_id] if levels.key?(person_id) || @person_ids
+
+      Checklists.cap_levels(item, viewer, [ person_id ])[person_id]
     end
 
     # :full, :status or nil for an item (nil item: the overall).
     def access(item, person_id)
-      return :full if full?
-      return nil if viewer.nil?
+      cap = item ? kind_cap(item, person_id) : :full
+      return nil if cap.nil?
 
-      level = item ? item.effective_read_level : checklist.read_level
-      return :full if reaches?(item, level, person_id)
-
-      grant_access(item)
+      found = uncapped_access(item, person_id)
+      found && cap == :status ? :status : found
     end
 
-    def row_visible?(person_id)
-      access(nil, person_id).present?
+    # Whether the viewer sees anything of this person's row: the overall, or
+    # any of these items.
+    def row_visible?(person_id, items = [])
+      access(nil, person_id).present? || items.any? { |item| access(item, person_id).present? }
     end
 
     # Owner-only measures: the person, their guardians and leaders.
@@ -69,6 +92,16 @@ module Checklists
     end
 
     private
+
+    def uncapped_access(item, person_id)
+      return :full if full?
+      return nil if viewer.nil?
+
+      level = item ? item.effective_read_level : checklist.read_level
+      return :full if reaches?(item, level, person_id)
+
+      grant_access(item)
+    end
 
     def reaches?(item, level, person_id)
       if level.to_s == "group"

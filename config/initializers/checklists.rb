@@ -11,18 +11,6 @@
 #     Checklists.register_item_kind(:count, Checklists::Kinds::Count)
 #   end
 Rails.application.config.to_prepare do
-  profile_tabs = if GatherPack::Feature.const_defined?(:ProfileTab)
-    { profile_tabs: [
-      GatherPack::Feature::ProfileTab.new(
-        label: "Checklists",
-        path: ->(person) { Rails.application.routes.url_helpers.person_checklists_path(person) },
-        visible: ->(user, person) { user.person.present? && Checklists.checklist_for(person, viewer: user.person).any? }
-      )
-    ] }
-  else
-    {}
-  end
-
   GatherPack::Features.register(
     GatherPack::Feature.new(
       key: :checklists,
@@ -34,7 +22,14 @@ Rails.application.config.to_prepare do
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Checklists", path: :checklists_path, icon: "list-check")
       ],
-      **profile_tabs
+      # Shown when the viewer may see at least one of the person's checklists.
+      profile_tabs: [
+        GatherPack::Feature::ProfileTab.new(
+          label: "Checklists",
+          path: ->(person) { person_checklists_path(person) },
+          visible: ->(user, person) { user.person.present? && Checklists.checklist_for(person, viewer: user.person).any? }
+        )
+      ]
     )
   )
 
@@ -62,11 +57,8 @@ Rails.application.config.to_prepare do
   Checklists::Invalidation.install_population
 
   # A checklist's team, and the teams and badges its rules and grants name,
-  # can't be deleted while they're used. The foreign keys block it too;
-  # these give a readable error instead.
-  Team.has_many :checklists, inverse_of: :team, dependent: :restrict_with_error
-  Team.has_many :checklist_rules, dependent: :restrict_with_error
-  Team.has_many :checklist_grants, dependent: :restrict_with_error
-  Badge.has_many :checklist_rules, dependent: :restrict_with_error
-  Badge.has_many :checklist_grants, dependent: :restrict_with_error
+  # can't be deleted while they're used (a readable error; the foreign keys
+  # block it too).
+  Checklists::ProtectsReferences.install_model(Team)
+  Checklists::ProtectsReferences.install_model(Badge)
 end

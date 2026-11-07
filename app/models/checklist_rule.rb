@@ -1,7 +1,8 @@
 # Who a checklist covers (item_id nil), or who one item applies to (item_id
 # set): include or exclude a team (and every team below it, with or without
-# managers), a badge's holders, one person, or the applicants to a team
-# (pending membership applications to it or a team below it). See
+# managers), a badge's holders (optionally only those in a team or a team
+# below it: both at once), one person, or the applicants to a team (pending
+# membership applications to it or a team below it). See
 # Checklists::Population.
 class ChecklistRule < ApplicationRecord
   has_neat_id :chlr
@@ -43,6 +44,7 @@ class ChecklistRule < ApplicationRecord
     text += "applicants to " if target_applicants?
     text += target&.identifier_name || "(deleted)"
     text += " badge holders" if target_badge?
+    text += " in #{team&.name || "(deleted team)"}" if target_badge? && team_id.present?
     text += " (members only, not managers)" if target_team? && !include_managers?
     text
   end
@@ -61,7 +63,7 @@ class ChecklistRule < ApplicationRecord
     reach = Checklists.team_subtree_ids(checklist.team_id)
     inside = case target_type
     when "team", "applicants" then reach.include?(team_id)
-    when "badge" then badge.team_id.nil? || reach.include?(badge.team_id)
+    when "badge" then team_id.present? ? reach.include?(team_id) : (badge.team_id.nil? || reach.include?(badge.team_id))
     when "person" then Membership.where(person_id: person_id, team_id: reach).exists? ||
       MembershipApplication.pending.where(person_id: person_id, team_id: reach).exists?
     end
@@ -73,7 +75,7 @@ class ChecklistRule < ApplicationRecord
   end
 
   def clear_other_targets
-    self.team_id = nil unless target_team? || target_applicants?
+    self.team_id = nil unless target_team? || target_applicants? || target_badge?
     self.badge_id = nil unless target_badge?
     self.person_id = nil unless target_person?
     self.include_managers = true unless target_team?

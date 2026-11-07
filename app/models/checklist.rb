@@ -45,6 +45,10 @@ class Checklist < ApplicationRecord
     %w[title team_id status starts_on ends_on updated_at]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   def identifier_icon
     "list-check"
   end
@@ -134,11 +138,14 @@ class Checklist < ApplicationRecord
     checklist_items.select { |item| item.kind == "checklist" }.filter_map { |item| item.config["checklist_id"].presence }
   end
 
-  # People whose stored overall is accepted: :met by default; pass
-  # [:met, :pending] to take people who are almost done too. A relation, so
-  # it combines with other scopes.
+  # People whose stored overall is accepted. Strict by default (spec
+  # §10.3): :met takes met and exempt overalls; pass [:met, :pending] to take
+  # people who are almost done too. Only people the checklist covers have an
+  # overall, so people it doesn't cover never meet it. A relation, so it
+  # combines with other scopes.
   def people_meeting(accept: :met)
     statuses = Array(accept).map(&:to_s)
+    statuses |= [ "exempt" ] if statuses.include?("met")
     Person.where(id: checklist_results.where(item_id: nil, status: statuses).select(:person_id))
   end
 
@@ -154,17 +161,56 @@ class Checklist < ApplicationRecord
 
       kind.problems(item).map { |problem| "#{item.label}: #{problem}" }
     end
+    checklist_rules.includes(:item).each do |rule|
+      next if rule.target
+
+      where = rule.item ? "#{rule.item.label}: a" : "A"
+      list << "#{where} rule's #{rule.target_type == "applicants" ? "team" : rule.target_type} was deleted; it matches nobody"
+    end
     if active? && Checklists::Housekeeping.archive_due?(self) && dependents.refreshable.exists?
       list << "Ended, but not archived: #{dependents.refreshable.pluck(:title).to_sentence} still requires it"
     end
     list
   end
 
-  # The last change to its settings, items or rules, for the banner.
+  # The last change to its settings, items, rules or grants after it was
+  # made, for the banner.
   def last_change
+    types = %w[Checklist ChecklistItem ChecklistRule ChecklistGrant]
     ids = [ id ] + checklist_items.ids + checklist_rules.ids + checklist_grants.ids
-    AuditLog.where(item_id: ids, item_type: %w[Checklist ChecklistItem ChecklistRule ChecklistGrant])
-      .where.not(event: "create").order(created_at: :desc).first
+    current = AuditLog.where(item_id: ids, item_type: types)
+    # Removed parts are no longer in the lists above; their last version
+    # names this checklist.
+    removed = AuditLog.where(item_type: types - [ "Checklist" ], event: "destroy").where("object LIKE ?", "%#{id}%")
+    current.or(removed).order(created_at: :desc).first
+  end
+
+  # Who made a change, as a role ("an admin", "a manager", "an organizer").
+  def role_of(change)
+    person = User.find_by(id: change&.whodunnit)&.person
+    if person.nil? then "someone"
+    elsif person.admin? then "an admin"
+    elsif manager?(person) then "a manager"
+    elsif checklist_organizers.exists?(person_id: person.id) then "an organizer"
+    else "someone"
+    end
+  end
+
+  # "Changed 6 Nov 2026 by an organizer: item Safety edited", for the banner.
+  # Without details (for viewers who don't see everything) only "Changed
+  # <date> by <role>", so it names no item they can't see.
+  def last_change_text(details: true)
+    change = last_change
+    return unless change
+    return "Changed #{I18n.l(change.created_at.to_date, format: :long)} by #{role_of(change)}" unless details
+
+    what = case change.item_type
+    when "Checklist" then "settings"
+    when "ChecklistItem" then "item #{checklist_items.find_by(id: change.item_id)&.label || change.reify&.label}".strip
+    when "ChecklistRule" then "who it covers"
+    else "who can see it"
+    end
+    "Changed #{I18n.l(change.created_at.to_date, format: :long)} by #{role_of(change)}: #{what} #{change.event == "destroy" ? "removed" : "edited"}"
   end
 
   private

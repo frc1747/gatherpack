@@ -54,6 +54,13 @@
         </table>
       <% end %>
 
+      <% empty = @copier.empty_rules %>
+      <% if empty.any? %>
+        <div class="alert alert-warning small">
+          <%= pluralize(empty.size, "rule") %> naming a deleted person, team or badge will be left out:
+          <%= empty.map { |rule| rule.item ? "#{rule.item.label}: #{rule.description}" : rule.description }.to_sentence %>.
+        </div>
+      <% end %>
       <p class="small text-body-secondary">The copy starts as a draft, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
       <%= submit_tag "Make the copy", class: "btn btn-primary" %>
       <%= link_to "Cancel", @checklist, class: "btn btn-link" %>

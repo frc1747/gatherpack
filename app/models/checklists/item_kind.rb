@@ -4,6 +4,14 @@ module Checklists
   #
   #   self.label, self.description  # shown in the "Add item" menu
   #   self.settings                 # the form's fields (Setting below)
+  #   self.settings_for(viewer)     # the fields as offered to this author (narrowed choices)
+  #   self.copy_dates(item)         # fixed dates in its config that "Copy checklist" shifts
+  #   self.apply_copy_dates(item, config, dates)  # the copied config with the new dates in place
+  #   self.form_partial             # a partial for a form section of its own (a table of rows)
+  #   self.form_params              # what that section posts under config, as permit arguments
+  #   self.normalize_form(params)   # the config the section's params give
+  #   self.visible_to?(item, viewer, person)  # a cap on who sees a person's result (default true)
+  #   self.authorable_by?(item, author)       # whether this author may set the item up so (default true)
   #   self.problems(item)           # deleted badge, missing field... shown to organizers
   #   self.references               # { "badge_ids" => "Badge" }: config keys naming records
   #   self.invalidations            # [[Model, ->(record) { person ids or :all }]] (§8.2)
@@ -18,8 +26,19 @@ module Checklists
   # kind never writes, calls the network or depends on the viewer.
   class ItemKind
     # One form field. type is :badges, :teams, :checklist, :number, :date,
-    # :choice, :text or :boolean; options for :choice as [[label, value]].
-    Setting = Struct.new(:key, :type, :label, :hint, :options, keyword_init: true)
+    # :relative_date (on or after a date, or within the last N days or
+    # months; see Checklists::RelativeDate), :choice, :text or :boolean;
+    # options for :choice as [[label, value]]. A connector can bring its own
+    # type: the item form renders the partial checklist_items/settings/_<type>
+    # when there is one, and an unknown type's value is kept as text (or
+    # override cast_setting).
+    # list: true makes any type a list of values (several forms, several
+    # choices); :badges and :teams are always lists.
+    Setting = Struct.new(:key, :type, :label, :hint, :options, :list, keyword_init: true) do
+      def list?
+        list.present? || %i[badges teams].include?(type)
+      end
+    end
 
     # A named number in a result. owner_only measures show only to the
     # person, their guardians and leaders.
@@ -36,6 +55,39 @@ module Checklists
 
       def settings
         []
+      end
+
+      # The fixed dates in an item's config that copying a checklist shifts,
+      # as [{ key:, label:, value: }]. key is the kind's own name for each
+      # date (a setting key, or a path into its rows such as "rules.0.from");
+      # copying hands the keys back to apply_copy_dates. Defaults to the
+      # :date settings and the :relative_date ones set to "on or after"; a
+      # "within the last N" stays as it is.
+      def copy_dates(item)
+        settings.select { |setting| %i[date relative_date].include?(setting.type) && !setting.list? }.filter_map do |setting|
+          value = item.config[setting.key.to_s]
+          date = value.is_a?(Hash) ? RelativeDate.from_config(value)&.date : (Date.iso8601(value) if value.present?)
+          { key: setting.key.to_s, label: setting.label, value: date } if date
+        rescue Date::Error
+          nil
+        end
+      end
+
+      # The copied config with the dates confirmed for the copy ({ key =>
+      # Date }, keys from copy_dates) in place.
+      def apply_copy_dates(_item, config, dates)
+        dates.each do |key, date|
+          config[key] = config[key].is_a?(Hash) ? RelativeDate.new(date: date).to_config : date.iso8601
+        end
+        config
+      end
+
+      # The settings as the item form offers them to this author (a Person):
+      # a kind narrows its choices here (only the fields they may read, say).
+      # Defaults to settings. What's saved is still checked by settings and
+      # authorable_by?, so narrowing here is about what's offered.
+      def settings_for(_viewer)
+        settings
       end
 
       def problems(_item)
@@ -78,6 +130,57 @@ module Checklists
         item.label
       end
 
+      # A cap on top of read levels and grants: whether viewer may see
+      # person's result on this item at all. Applied to every viewer, admins
+      # and organizers included, wherever results show (the report, its sort
+      # and filters, status_for, the preview, recorded lists). A kind whose
+      # result carries data the viewer may not read (a field value) says no
+      # here. The cap carries upward: a group holding a capped item is
+      # capped too, and the overall that viewer sees is worked out from the
+      # counting items they may see, so neither gives the answer away.
+      #
+      # Answer true (or :full) to show the result as usual, :status to show
+      # only its status (Done, Not yet, a label such as "Excused") with no
+      # summary, detail, measures or fix, or false to hide it.
+      def visible_to?(_item, _viewer, _person)
+        true
+      end
+
+      # The batch form of the cap: { person_id => :full or :status } for the
+      # people among person_ids whose result viewer may see (at most at that
+      # level); the rest are hidden. Override it to answer in a few queries.
+      # The default asks visible_to? per person when a kind overrides that,
+      # else takes visible_person_ids at :full.
+      def cap_levels(item, viewer, person_ids)
+        if overrides?(:visible_to?)
+          people = ::Person.where(id: person_ids).index_by(&:id)
+          person_ids.each_with_object({}) do |id, levels|
+            level = people[id] && cap_level(visible_to?(item, viewer, people[id]))
+            levels[id] = level if level
+          end
+        elsif overrides?(:visible_person_ids)
+          visible_person_ids(item, viewer, person_ids).index_with(:full)
+        else
+          person_ids.index_with(:full)
+        end
+      end
+
+      # The ids among person_ids whose result viewer may see at all (at
+      # either level). Overriding it caps at :full or hidden; override
+      # cap_levels instead for status-only answers.
+      def visible_person_ids(item, viewer, person_ids)
+        return cap_levels(item, viewer, person_ids).keys if overrides?(:cap_levels) || overrides?(:visible_to?)
+
+        person_ids
+      end
+
+      # Whether author (a Person) may set the item up with its config, so
+      # nobody builds an item that reads what they couldn't see themselves.
+      # Checked when an item is created, edited, previewed or copied.
+      def authorable_by?(_item, _author)
+        true
+      end
+
       # For pooled kinds: the people, among person_ids, whose results the
       # viewer reaches at the "group" read level (people pooled with them).
       # nil means the kind doesn't pool, and group reads as family.
@@ -88,15 +191,49 @@ module Checklists
       # Validates the item's config (add errors to item.errors).
       def validate(_item); end
 
-      # The config from form params, keeping only this kind's settings.
+      # A kind whose form needs more than settings (a table of rows, say)
+      # names a partial here. It's rendered in the item form after the
+      # settings, with locals f (the item form), item, checklist and
+      # field_name (the param prefix for its fields, "checklist_item[config]").
+      def form_partial
+        nil
+      end
+
+      # What the form section posts under config, as arguments to permit:
+      # [{ rules: [:name, :share] }] for rows of rules.
+      def form_params
+        []
+      end
+
+      # The config the form section's params give (permitted already), kept
+      # alongside the settings. Cast and validate here.
+      def normalize_form(_params)
+        {}
+      end
+
+      # The config from form params, keeping only this kind's settings and
+      # what its form section gives.
       def normalize_config(params)
         params = params.to_h.stringify_keys
-        settings.each_with_object({}) do |setting, config|
+        config = settings.each_with_object({}) do |setting, values|
           key = setting.key.to_s
           next unless params.key?(key)
 
-          config[key] = cast(setting, params[key])
+          values[key] = cast(setting, params[key])
         end
+        config.merge(normalize_form(params).to_h.stringify_keys)
+      end
+
+      # The arguments to permit the item form's config with: each setting
+      # plus the form section's.
+      def permitted_config
+        keys = settings.map do |setting|
+          if setting.list? then { setting.key => [] }
+          elsif setting.type == :relative_date then { setting.key => %i[mode date amount unit] }
+          else setting.key
+          end
+        end
+        keys + Array(form_params)
       end
 
       # The records an item's config names, by config key, missing ones
@@ -117,12 +254,30 @@ module Checklists
 
       private
 
+      def overrides?(name)
+        method(name).owner != ItemKind.singleton_class
+      end
+
+      def cap_level(answer)
+        case answer
+        when :status then :status
+        when true, :full then :full
+        end
+      end
+
       def cast(setting, value)
+        return Array(value).compact_blank.filter_map { |one| cast_one(setting, one) } if setting.list?
+
+        cast_one(setting, value)
+      end
+
+      def cast_one(setting, value)
         case setting.type
-        when :badges, :teams then Array(value).compact_blank
+        when :badges, :teams then value.to_s.presence
         when :number then value.presence && value.to_i
         when :boolean then ActiveModel::Type::Boolean.new.cast(value) || false
         when :date then value.presence && Date.parse(value.to_s).iso8601
+        when :relative_date then value.respond_to?(:to_h) ? RelativeDate.cast(value) : nil
         else value.to_s.strip.presence
         end
       rescue Date::Error
@@ -151,6 +306,11 @@ module Checklists
 
     def window
       @window ||= context.window_for(item)
+    end
+
+    # A :relative_date setting, or nil when it isn't set.
+    def relative_date(key)
+      RelativeDate.from_config(config[key.to_s])
     end
   end
 end
