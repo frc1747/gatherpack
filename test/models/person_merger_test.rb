@@ -95,15 +95,18 @@ class PersonMergerTest < ActiveSupport::TestCase
     end
   end
 
-  test "every registered column has a merge test" do
-    registered = GatherPack::PersonMerge.entries.map { |e| "#{e.owner}:#{e.table}.#{e.column}" }
+  # Columns other features register are tested on their own branches.
+  test "every built-in column has a merge test" do
+    registered = built_in_entries.map { |e| "#{e.owner}:#{e.table}.#{e.column}" }
 
+    assert_not_empty registered
     assert_empty registered - ROWS.keys
   end
 
-  test "every column with duplicates has a conflict test" do
-    registered = GatherPack::PersonMerge.entries.select { |e| e.unique_by.any? }.map { |e| "#{e.owner}:#{e.table}.#{e.column}" }
+  test "every built-in column with duplicates has a conflict test" do
+    registered = built_in_entries.select { |e| e.unique_by.any? }.map { |e| "#{e.owner}:#{e.table}.#{e.column}" }
 
+    assert_not_empty registered
     assert_empty registered - CONFLICTS.keys
   end
 
@@ -325,6 +328,20 @@ class PersonMergerTest < ActiveSupport::TestCase
 
   def oauth_application_id
     @oauth_application_id ||= OauthApplication.create!(name: "App", redirect_uri: "https://example.com/cb", scopes: "user_read").id
+  end
+
+  # The entries config/initializers/person_merge.rb registers: its
+  # to_prepare block run on an empty registry, after which every feature's
+  # registrations are prepared again.
+  def built_in_entries
+    initializer = Rails.root.join("config/initializers/person_merge.rb").to_s
+    block = Rails.application.config.to_prepare_blocks.find { |b| b.source_location.first == initializer }
+    GatherPack::PersonMerge.reset!
+    block.call
+    GatherPack::PersonMerge.entries
+  ensure
+    GatherPack::PersonMerge.reset!
+    Rails.application.reloader.prepare!
   end
 
   def entry_for(key)
