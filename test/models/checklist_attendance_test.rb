@@ -494,11 +494,11 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
 
     copier = Checklists::Copier.new(@checklist.reload)
     changes = copier.date_changes.map { |change| [ change.label, change.proposed ] }
-    assert_includes changes, [ "Attendance: Summer from", Date.new(2027, 5, 1) ]
-    assert_includes changes, [ "Attendance: Summer until", Date.new(2027, 8, 31) ]
+    assert_includes changes, [ "Attendance: rule \u201CSummer\u201D from", Date.new(2027, 5, 1) ]
+    assert_includes changes, [ "Attendance: rule \u201CSummer\u201D until", Date.new(2027, 8, 31) ]
     assert_not changes.any? { |label, _| label.include?("Recent") }, "a relative start isn't a date to shift"
 
-    key = copier.date_changes.find { |change| change.label == "Attendance: Summer until" }.key
+    key = copier.date_changes.find { |change| change.label == "Attendance: rule \u201CSummer\u201D until" }.key
     copy = copier.call(title: "Next year", by: person(:admin), dates: { key => "2027-09-15" })
     rules = copy.checklist_items.find_by!(kind: "attendance").config["rules"]
     assert_equal({ "mode" => "date", "date" => "2027-05-01" }, rules[0]["starts"])

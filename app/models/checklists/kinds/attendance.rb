@@ -82,20 +82,38 @@ module Checklists
           item.checklist.present? && item.checklist.manager?(author)
         end
 
-        # A result carries hours, so it shows only to viewers who could see
-        # the person's punches in the app (TimeClockPunchPolicy::Scope): an
-        # admin, a manager of a team they're on, or the person themselves.
-        def visible_to?(item, viewer, person)
-          visible_person_ids(item, viewer, [ person.id ]).include?(person.id)
-        end
-
-        def visible_person_ids(_item, viewer, person_ids)
-          return [] if viewer.nil?
-          return person_ids if viewer.user&.admin?
+        # A result carries hours. In full (summary, detail, measures) it
+        # shows to viewers who could see the person's punches in the app
+        # (TimeClockPunchPolicy::Scope: an admin, a manager of a team
+        # they're on, or the person), and to holders of a full grant on the
+        # checklist that covers the item (admin-given, as the report Page
+        # does). Anyone else the checklist lets see the item, guardians
+        # included, sees only its status.
+        def cap_levels(item, viewer, person_ids)
+          return person_ids.index_with(:full) if viewer.nil? || viewer.user&.admin? || full_grant?(item, viewer)
 
           punch_people = [ viewer.id ]
           punch_people += viewer.all_managed_teams.flat_map(&:person_ids) if viewer.manager?
-          person_ids & punch_people
+          person_ids.index_with { |id| punch_people.include?(id) ? :full : :status }
+        end
+
+        def copy_dates(item)
+          rules(item).flat_map do |rule|
+            starts = rule.starts unless rule.starts&.relative?
+            [ [ "starts", "from", starts&.date ], [ "ends_on", "until", rule.ends_on ] ].filter_map do |field, word, date|
+              { key: "rules.#{rule.index}.#{field}", label: "rule \u201C#{rule.name}\u201D #{word}", value: date } if date
+            end
+          end
+        end
+
+        def apply_copy_dates(_item, config, dates)
+          rules = Array(config["rules"]).map(&:dup)
+          dates.each do |key, date|
+            _, index, field = key.split(".")
+            row = rules[index.to_i] or next
+            row[field] = field == "starts" ? RelativeDate.new(date: date).to_config : date.iso8601
+          end
+          config.merge("rules" => rules)
         end
 
         def invalidations
@@ -119,6 +137,18 @@ module Checklists
 
         # The item's rules, in order, each with its pool; a relative start
         # resolves against as_of. share is nil when it isn't a whole number.
+        # Whether the viewer holds a full grant on the item's checklist that
+        # covers the item (or the group it's in), by badge or team.
+        def full_grant?(item, viewer)
+          grants = ChecklistGrant.where(checklist_id: item.checklist_id, access: :full).to_a
+          grants = grants.select { |grant| (grant.item_ids & [ item.id, item.parent_id ].compact).any? }
+          return false if grants.empty?
+
+          badge_ids = BadgeAssignment.where(person_id: viewer.id).pluck(:badge_id)
+          team_ids = Checklists.team_ancestor_ids(Membership.where(person_id: viewer.id).pluck(:team_id))
+          grants.any? { |grant| badge_ids.include?(grant.badge_id) || team_ids.include?(grant.team_id) }
+        end
+
         def rules(item, as_of: Time.current)
           rules = Array((item.config || {})["rules"]).each_with_index.map do |row, index|
             starts = RelativeDate.from_config(row["starts"])

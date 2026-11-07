@@ -5,7 +5,4 @@ Rails.application.config.to_prepare do
 
   Checklists.register_item_kind(:attendance, Checklists::Kinds::Attendance)
   ChecklistExcusesController.include(ChecklistMeetingExcuses) unless ChecklistExcusesController < ChecklistMeetingExcuses
-  unless Checklists::Copier < Checklists::Kinds::Attendance::CopiesRuleDates
-    Checklists::Copier.prepend(Checklists::Kinds::Attendance::CopiesRuleDates)
-  end
 end
