@@ -383,7 +383,7 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     third = TimeClockPeriod.create!(name: "Crew", team: @crew, start_time: Date.new(2026, 4, 1), end_time: Date.new(2027, 5, 31), permission: :added_by_admin)
     meeting("2026-10-05")
     [ [ other, "2026-10-06" ], [ third, "2026-10-08" ] ].each do |period, day|
-      Event.create!(name: "Elsewhere", event_type: event_types(:one), team: @club, time_clock_period: period,
+      Event.create!(name: "Elsewhere", event_type: event_types(:one), team: period.team || @club, time_clock_period: period,
         start_time: Time.zone.parse("#{day} 18:00"), end_time: Time.zone.parse("#{day} 20:00"))
     end
     item = attendance([ { name: "Fall", share: "50" } ], period_ids: [ @period.id ])
