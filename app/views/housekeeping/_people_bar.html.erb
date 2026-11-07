@@ -19,7 +19,8 @@
       <% end %>
       <% if hk_form %>
         <%= hk_fields %>
-        <%= button_tag "Find", type: "submit", name: nil, form: hk_form, class: "btn btn-outline-primary mt-2" %>
+        <%# advance: Turbo puts the frame request's URL in the address bar. %>
+        <%= button_tag "Find", type: "submit", name: nil, form: hk_form, data: { turbo_action: "advance" }, class: "btn btn-outline-primary mt-2" %>
       <% else %>
         <%= form_with url: hk_team ? team_move_people_path(hk_team) : request.path, method: :get, data: { turbo: false } do %>
           <%= hk_fields %>

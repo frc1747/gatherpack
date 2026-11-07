@@ -46,6 +46,13 @@ class HousekeepingPeopleFilterTest < ApplicationSystemTestCase
         assert_text "Idlejones World"
         assert_no_text "Busysmith World"
       end
+      assert_current_path(/no_activity(%5B|\[)amount(%5D|\])=1/, url: true)
+
+      visit current_url
+      within("turbo-frame#results") do
+        assert_text "Idlejones World"
+        assert_no_text "Busysmith World"
+      end
 
       search_name "smith"
       within("turbo-frame#results") do
