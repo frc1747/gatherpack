@@ -1,0 +1,9 @@
+<%# "Might be the same person as <name>. Link or keep separate." For managers only. %>
+<% if member && (match = member.possible_match) %>
+  <div class="d-flex flex-wrap align-items-center gap-2 mt-1" id="<%= dom_id(member, :match) %>">
+    <span class="badge text-bg-info">Might be the same person as <%= link_to match.display_name, person_path(match), class: "link-dark" %></span>
+    <%= button_to "Link", link_intake_registration_match_path(registration, member), class: "btn btn-sm btn-outline-primary",
+      form: { data: { turbo_confirm: "Attach #{member.person.first_name}'s sign-up to #{match.display_name}? The new record is removed." } } %>
+    <%= button_to "Keep separate", keep_separate_intake_registration_match_path(registration, member), class: "btn btn-sm btn-outline-secondary" %>
+  </div>
+<% end %>

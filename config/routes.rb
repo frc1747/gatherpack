@@ -245,6 +245,15 @@ Rails.application.routes.draw do
       resources :entries, only: [] do
         post :resend, on: :member
       end
+      resources :matches, only: [] do
+        member do
+          post :link
+          post :keep_separate
+        end
+      end
+      resources :guardians, only: %i[create update] do
+        post :resend, on: :member
+      end
     end
     resources :teams, only: [] do
       resources :registrations, only: %i[index new]

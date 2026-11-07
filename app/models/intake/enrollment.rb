@@ -87,6 +87,27 @@ class Intake::Enrollment
     })
   end
 
+  # A manager corrects the email of a guardian request that isn't
+  # confirmed yet. The old link stops working; the caller sends a new one.
+  def correct_guardian_email(row, email)
+    email = Intake.normalize_email(email)
+    raise Refused, "That request is already confirmed." if row.guardian_confirmed_at
+    raise Refused, "Enter a valid email." unless email.match?(URI::MailTo::EMAIL_REGEXP)
+    raise Refused, "That's #{row.ward.first_name}'s own email or another one in their household." if household_emails(row.ward).include?(email)
+    row.update!(facts: row.facts.merge("email" => email), token_digest: nil, token_expires_at: nil)
+    row
+  end
+
+  # A manager links a person already on file as a young person's guardian,
+  # on the young person's waiting request or a new one.
+  def link_existing_guardian(ward:, guardian:, by:, row: nil)
+    raise Refused, "This registration doesn't take guardians." unless registration.guardian_relationship_type
+    row ||= pending_guardian_request(ward) || entry.household_members.create!(role: :guardian,
+      facts: { "ward_id" => ward.id, "first_name" => guardian.first_name, "last_name" => guardian.last_name })
+    confirm_guardian(row, guardian, linked_by: by)
+    row
+  end
+
   # An unconfirmed guardian request for this young person on any of the
   # registration's entries.
   def pending_guardian_request(ward)

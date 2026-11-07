@@ -64,15 +64,19 @@ module Intake::MembershipApplicationExtension
   end
 
   # Shown to managers next to the application.
+  # The person's row on this registration's household, which holds a
+  # possible match (shown with Link / Keep separate, to managers only).
+  def intake_household_member
+    return unless registration
+    Intake::HouseholdMember.where(person: person).where.not(role: :guardian).joins(:entry)
+      .where(intake_entries: { registration_id: registration_id }).order(:created_at).last
+  end
+
   def intake_flags
     return [] unless registration
     flags = []
     flags << "Waiting for a guardian" if Intake.person_needs_guardian?(person) && !person.guardians.exists?
-    member = Intake::HouseholdMember.where(person: person).where.not(role: :guardian).order(:created_at).last
-    if (match = member&.possible_match)
-      flags << "Might be the same person as #{match.display_name}"
-    end
-    entry = member&.entry
+    entry = intake_household_member&.entry
     if entry&.source_kiosk? && entry.verified_at.nil? && person.user&.intake_login_verified_at.nil?
       days = ((Time.current - entry.created_at) / 1.day).floor
       flags << "Email not opened (#{days} #{"day".pluralize(days)})" if days >= 3

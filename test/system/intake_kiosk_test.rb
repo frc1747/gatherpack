@@ -61,6 +61,6 @@ class IntakeKioskTest < ApplicationSystemTestCase
     visit waiting_intake_registration_path(@registration)
     assert_text "Jamie Fox"
     assert_text "Casey Fox"
-    assert_text "Waiting for a guardian (Robin)"
+    assert_text "Waiting for Robin to confirm"
   end
 end

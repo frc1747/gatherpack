@@ -11,6 +11,10 @@
       <% application.intake_flags.each do |flag| %>
         <span class="badge text-bg-warning ms-1"><%= flag %></span>
       <% end %>
+      <% if application.pending? %>
+        <%= render "intake/matches/flag", member: application.intake_household_member, registration: application.registration %>
+        <%= render "intake/guardians/manage", ward: application.person, registration: application.registration %>
+      <% end %>
     <% end %>
     <% if application.approved? && decides && (summary = application.intake_placement_summary) %>
       <div>Approval <%= summary.downcase_first %>.</div>

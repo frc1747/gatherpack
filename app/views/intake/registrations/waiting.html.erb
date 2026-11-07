@@ -19,17 +19,11 @@
               <td><%= days.zero? ? "Today" : "#{days} #{"day".pluralize(days)} ago" %></td>
               <td>
                 <% if days >= 3 %><span class="badge text-bg-warning">Email not opened</span><% end %>
-                <% if (match = member&.possible_match) %>
-                  <span class="badge text-bg-info">Might be the same person as <%= link_to match.display_name, person_path(match) %></span>
-                <% end %>
-                <% guardians.each do |row| %>
-                  <span class="badge <%= row.guardian_confirmed_at ? "text-bg-success" : "text-bg-secondary" %>">
-                    <%= row.guardian_confirmed_at ? "Guardian confirmed by email on #{l row.guardian_confirmed_at.to_date, format: :long}" : "Waiting for a guardian (#{row.facts["first_name"]})" %>
-                  </span>
-                <% end %>
+                <%= render "intake/matches/flag", member: member, registration: @registration %>
                 <% if entry.facts["needs_guardian"] && guardians.none? && !entry.person.guardians.exists? %>
                   <span class="badge text-bg-secondary">No guardian yet</span>
                 <% end %>
+                <%= render "intake/guardians/manage", ward: entry.person, registration: @registration %>
               </td>
               <td><%= link_to "Send again", resend_intake_registration_entry_path(@registration, entry), data: { turbo_method: :post }, class: "btn btn-sm btn-outline-secondary" %></td>
             </tr>
