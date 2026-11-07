@@ -57,7 +57,7 @@ module Checklists
           next Result.exempt("Not on #{other.title}") if status.nil?
 
           Result.new(status: status, summary: "#{other.title}: #{word.call(status)}",
-            fix: status == "met" ? nil : { "label" => "See #{other.title}", "path" => "/checklists/#{other.to_param}" })
+            fix: status == "met" ? nil : { "label" => "See #{other.title}", "path" => "/checklists/#{other.to_param}", "by" => "person" })
         end
       end
     end
