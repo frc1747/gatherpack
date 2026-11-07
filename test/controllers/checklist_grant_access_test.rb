@@ -32,13 +32,13 @@ class ChecklistGrantAccessTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { ChecklistGrant.count } do
         post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @guarded.id ] } }
       end
-      assert_response :unprocessable_entity
-      assert_equal "You can't grant access to Guarded; ask someone who can.", response.body
+      assert_redirected_to checklist_path(@checklist, anchor: "setup")
+      assert_equal "You can't grant access to Guarded; ask someone who can.", flash[:alert]
 
       assert_no_difference -> { ChecklistGrant.count } do
         post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @group.id ] } }
       end
-      assert_response :unprocessable_entity, "a group holding the item is covered too"
+      assert_match "can't grant access to Guarded", flash[:alert], "a group holding the item is covered too"
 
       post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "status", item_ids: [ @guarded.id ] } }
       assert_response :see_other
@@ -65,13 +65,65 @@ class ChecklistGrantAccessTest < ActionDispatch::IntegrationTest
     assert_not ChecklistsTestKinds::GrantGuarded.honours_grant?(@guarded, unknown), "a grant with no maker isn't honoured"
   end
 
-  test "a copied grant is made by whoever copies" do
-    with_organizers do
-      @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ @guarded.id ], created_by: person(:admin))
-      copy = Checklists::Copier.new(@checklist).call(title: "Copy", by: person(:organizer))
+  test "a grant doesn't show an item added under its group that its maker couldn't have granted" do
+    other_group = add_item(@checklist, :any_of, "Other")
+    login_inside = add_item(@checklist, :has_login, "Login inside", parent: other_group)
+    @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ other_group.id ], created_by: person(:organizer))
+    moved = add_item(@checklist, :grant_guarded, "Added later", parent: other_group)
+    @guarded.update!(parent: other_group)
 
-      assert_equal person(:organizer), copy.checklist_grants.sole.created_by
+    crewmate = create_world_person("Crewmate", @crew)
+    visibility = Checklists::Visibility.new(@checklist, crewmate)
+    assert_equal :full, visibility.access(login_inside, person(:member).id)
+    assert_nil visibility.access(moved, person(:member).id), "an item added under the granted group"
+    assert_nil visibility.access(@guarded, person(:member).id), "an item moved under the granted group"
+
+    @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ other_group.id ], created_by: person(:admin))
+    assert_equal :full, Checklists::Visibility.new(@checklist, crewmate).access(moved, person(:member).id), "an admin's grant still counts"
+  end
+
+  test "kinds that don't limit grants honour every grant, including ones with no maker" do
+    grant = @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ @login.id ])
+    assert Checklists::Kinds::HasLogin.honours_grant?(@login, grant)
+    assert_equal :full, Checklists::Visibility.new(@checklist, create_world_person("Crewmate", @crew)).access(@login, person(:member).id)
+  end
+
+  test "copying is refused when the copier couldn't make a copied grant, and a copied grant is made by whoever copies" do
+    @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ @guarded.id ], created_by: person(:admin))
+    with_organizers do
+      sign_in person(:organizer).user
+      assert_no_difference -> { Checklist.count } do
+        post copy_checklist_path(@checklist), params: { title: "Copy", shift_months: 12 }
+      end
+      assert_redirected_to copy_checklist_path(@checklist)
+      assert_equal "You can't copy Crew members' full access to Guarded: ask someone who can grant it.", flash[:alert]
+
+      sign_in person(:admin).user
+      post copy_checklist_path(@checklist), params: { title: "Copy", shift_months: 12 }
+      assert_equal person(:admin), Checklist.find_by!(title: "Copy").checklist_grants.sole.created_by
     end
+  end
+
+  test "copying checks each copied item against the copier, replacements included, before saving anything" do
+    Checklists.register_item_kind(:restricted_badges, ChecklistsTestKinds::RestrictedBadges)
+    @checklist.checklist_grants.destroy_all
+    open_badge = create_world_badge("Helpers 2026")
+    restricted = create_world_badge("Restricted 2027")
+    add_item(@checklist, :restricted_badges, "Named badge", { "badge_ids" => [ open_badge.id ] })
+
+    with_organizers do
+      sign_in person(:organizer).user
+      assert_no_difference [ "Checklist.count", "ChecklistItem.count" ] do
+        post copy_checklist_path(@checklist), params: { title: "Copy", shift_months: 12, replace: { "Badge:#{open_badge.id}" => restricted.id } }
+      end
+      assert_equal "You can't copy Named badge: ask someone who can set those items up.", flash[:alert]
+
+      post copy_checklist_path(@checklist), params: { title: "Copy", shift_months: 12 }
+      copy = Checklist.find_by!(title: "Copy")
+      assert_equal [ open_badge.id ], copy.checklist_items.find_by!(label: "Named badge").config["badge_ids"]
+    end
+  ensure
+    Checklists.unregister_item_kind(:restricted_badges)
   end
 
   test "the Add item menu lists only kinds the person may set up" do
