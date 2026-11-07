@@ -130,7 +130,7 @@ module Checklists
       accesses = grants.filter_map do |grant|
         next grant.access.to_sym if item.nil?
         next unless grant.item_ids.include?(item.id) || (item.parent_id && grant.item_ids.include?(item.parent_id))
-        next unless honours?(item, grant)
+        next unless ([ item ] + descendants(item)).all? { |entry| honours?(entry, grant) }
 
         grant.access.to_sym
       end
@@ -138,13 +138,19 @@ module Checklists
     end
 
     # Whether the item's kind lets the grant show it (ItemKind.honours_grant?),
-    # asked once per grant and item.
+    # asked once per grant and item. A grant shows an item only when the item
+    # and every item inside it honour it, since a group's result tells of its
+    # children.
     def honours?(item, grant)
       kind = item.kind_class
       return true if kind.nil?
 
       @honoured ||= {}
       @honoured.fetch([ grant.id, item.id ]) { @honoured[[ grant.id, item.id ]] = kind.honours_grant?(item, grant) }
+    end
+
+    def descendants(item)
+      (@descendants ||= {})[item.id] ||= item.children.to_a.flat_map { |child| [ child ] + descendants(child) }
     end
 
     def grants
