@@ -38,7 +38,7 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     end
   end
 
-  test "every core kind's fix says who acts on it, and any_of takes it from the child whose fix it shows" do
+  test "every core kind's fix says who acts on it, and any_of passes up its child's" do
     other = create_world_checklist("Other")
     add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
     refresh(other)
@@ -49,7 +49,7 @@ class ChecklistKindsTest < ActiveSupport::TestCase
       add_item(@checklist, :attested, "Own", { statement: "Own", attested_by: "person" }) => "person",
       add_item(@checklist, :attested, "Guardian", { statement: "Guardian", attested_by: "guardian" }) => "guardian",
       add_item(@checklist, :attested, "Leader", { statement: "Leader", attested_by: "manager" }) => "leader",
-      add_item(@checklist, :checklist, "Other", { checklist_id: other.id }) => "person"
+      add_item(@checklist, :checklist, "Other", { checklist_id: other.id }) => "leader"
     }
     either = add_item(@checklist, :any_of, "Either")
     add_item(@checklist, :badge, "Badge first", { badge_ids: [ @safety.id ] }, parent: either)
@@ -61,7 +61,19 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     results = Checklists::Evaluator.new(@checklist.reload).call([ nobody.id ])[nobody.id]
 
     expected.each { |item, by| assert_equal by, results[item.id].fix["by"], item.label }
-    assert_equal({ "label" => "Ask a leader", "by" => "leader" }, results[either.id].fix)
+    confirm = @checklist.checklist_items.find_by!(label: "Then confirm")
+    assert_equal({ "label" => "I confirm", "action" => "attest", "key" => "then-confirm", "by" => "guardian", "item_id" => confirm.id },
+      results[either.id].fix, "one the person can do beats a leader's, though listed second")
+  end
+
+  test "any_of passes up the first child's fix when only a leader can act on any of them" do
+    either = add_item(@checklist, :any_of, "Either")
+    first = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, parent: either)
+    add_item(@checklist, :attested, "Leader", { statement: "Leader", attested_by: "manager" }, parent: either)
+
+    fix = evaluate(@checklist, :member, either).fix
+
+    assert_equal({ "label" => "Ask a leader", "by" => "leader", "item_id" => first.id }, fix)
   end
 
   test "badge: holds any of the badges, optionally given within the dates" do
@@ -166,6 +178,23 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     assert_equal "met", evaluate(@checklist, :member, item).status
     assert_equal "not_met", evaluate(@checklist, :member2, item).status
     assert_equal "exempt", evaluate(@checklist, :organizer, item).status
+  end
+
+  test "checklist: the fix says who acts on what's left on the other checklist" do
+    other = create_world_checklist("Safety cleared", team: @members)
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    confirm = add_item(other, :attested, "Rules", { statement: "Rules read", attested_by: "person" })
+    add_item(other, :attested, "Extra", { statement: "Extra", attested_by: "person" }, counts: false)
+    ChecklistAttestation.create!(person: person(:member), key: confirm.config["key"], statement: "Rules read", attested_by: person(:member),
+      attested_as: "person", attested_at: Time.zone.parse("2026-10-01"))
+    item = add_item(@checklist, :checklist, "Season ready", { checklist_id: other.id })
+
+    travel_to Time.zone.parse("2026-11-01 12:00") do
+      refresh(other)
+      assert_equal "leader", evaluate(@checklist, :member, item).fix["by"], "only the badge is left, and the uncounted item doesn't count"
+      assert_equal "person", evaluate(@checklist, :member2, item).fix["by"], "they can confirm the rules themselves"
+      assert_equal "See Safety cleared", evaluate(@checklist, :member2, item).fix["label"]
+    end
   end
 
   test "an unregistered kind is unavailable and not met, never a pass" do
