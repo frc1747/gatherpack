@@ -1,0 +1,41 @@
+<% form = f.object %>
+<h2 class="h5">When people can respond</h2>
+<div class="row">
+  <div class="col-md-6"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form opens itself at this time." %></div>
+  <div class="col-md-6"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form closes itself at this time." %></div>
+</div>
+<div class="row">
+  <div class="col-md-6"><%= f.input :allow_updates, label: "Allow updates after submitting", hint: "People can submit a new version while the form is open. Leaders always can." %></div>
+  <div class="col-md-6">
+    <%= f.input :late_entry, label: "After the deadline", collection: { "No more responses" => "none", "Leaders can still enter responses" => "leaders" }, include_blank: false %>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <%= f.input :leader_todo, label: "Show leaders what's waiting on them",
+          hint: "Leaders get a dashboard card listing responses that need their answer or a paper signature." %>
+  </div>
+</div>
+
+<h2 class="h5 mt-3">When a response is complete</h2>
+<div class="row">
+  <div class="col-md-6">
+    <%= f.input :reconfirm_on_profile_change, label: "Ask again when profile details change",
+          hint: "If a profile detail this form updated is changed later, the response needs to be reviewed and signed again." %>
+  </div>
+  <div class="col-md-6">
+    <% if GatherPack::Features.enabled?(:badges) %>
+      <% if policy(form).manage_badges? %>
+        <%= f.input :completion_badge_id, label: "Completion badge", collection: Badge.added_by_admin.order(:name), include_blank: "None",
+              hint: "Held while someone's response is complete, and removed when it isn't. Use a badge only this form gives out." %>
+      <% elsif form.completion_badge %>
+        <div class="mb-3">
+          <div class="form-label">Completion badge</div>
+          <div class="form-control-plaintext"><%= form.completion_badge.name %></div>
+          <div class="form-text">Only admins can change it.</div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

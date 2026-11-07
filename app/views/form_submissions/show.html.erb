@@ -1,0 +1,88 @@
+<% breadcrumb :form_submission, @submission %>
+<% content = @submission.content %>
+<% snapshots = Array(content["questions"]).index_by { |snapshot| snapshot["key"] } %>
+<% questions = @form.form_questions.index_by(&:key) %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %>: <%= @subject.identifier_name %>, version <%= @submission.number %></h1>
+    <div>
+      <span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(@submission.status) %></span>
+      <span class="text-muted ms-2">
+        <% if @submission.submitted_at %>
+          Submitted <%= nice_datetime(@submission.submitted_at) %> by <%= @submission.submitted_by&.identifier_name || "someone no longer here" %>
+          on form version <%= @submission.form_version %><%= " (entered late)" if @submission.entered_late? %>
+        <% else %>
+          Started <%= nice_datetime(@submission.created_at) %>, not submitted
+        <% end %>
+      </span>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if content.blank? %>
+      <p class="text-muted">This version was submitted before forms kept a copy of their text. Its answers are shown with the current questions.</p>
+      <%= render "form_responses/answers", submission: @submission, previous: nil, access: @access %>
+    <% else %>
+      <p class="text-muted">The form as it was when this version was submitted, with its answers.</p>
+      <% if content["description"].present? %><div class="mb-3"><%= form_markdown(content["description"]) %></div><% end %>
+      <% content["questions"].each do |snapshot| %>
+        <% question = questions[snapshot["key"]] %>
+        <% case snapshot["kind"] %>
+        <% when "heading" %>
+          <h2 class="h5 mt-3"><%= snapshot["label"] %></h2>
+          <% if snapshot["body"].present? %><div class="mb-2"><%= form_markdown(snapshot["body"]) %></div><% end %>
+        <% when "statement" %>
+          <div class="mb-3"><%= form_markdown(snapshot["body"]) %></div>
+        <% when "signature" %>
+          <div class="border rounded p-2 mb-3">
+            <div class="fw-semibold"><%= i "signature" %> <%= snapshot["label"] %></div>
+            <% if snapshot["body"].present? %><div class="mt-1"><%= form_markdown(snapshot["body"]) %></div><% end %>
+          </div>
+        <% else %>
+          <% next if question && !@access.question_readable?(question) %>
+          <% next if question.nil? && !@access.subject_leader? %>
+          <div class="mb-3">
+            <% if snapshot["kind"] == "acknowledgment" && snapshot["body"].present? %><div class="mb-1"><%= form_markdown(snapshot["body"]) %></div><% end %>
+            <div class="fw-semibold"><%= snapshot["label"] %><%= " *" if snapshot["required"] %></div>
+            <div>
+              <% stored = @submission.answers[snapshot["key"]] %>
+              <% if question %>
+                <%= form_answer_display(question, question.cast_answer(stored)) %>
+              <% else %>
+                <%= form_csv_value(stored) %> <span class="badge text-bg-light">question since removed</span>
+              <% end %>
+              <% if @submission.profile_skipped.include?(snapshot["key"]) %><span class="badge text-bg-warning">Not copied to profile</span><% end %>
+            </div>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
+    <h2 class="h5 mt-4">Signatures</h2>
+    <% if @submission.form_signatures.empty? %>
+      <p class="text-muted">None.</p>
+    <% else %>
+      <table class="table table-sm">
+        <thead><tr><th>Signature</th><th>Signer</th><th>Typed name</th><th>Signed</th><th>Covers this version</th><th>Status</th></tr></thead>
+        <tbody>
+          <% @submission.form_signatures.sort_by(&:signed_at).each do |signature| %>
+            <tr id="<%= dom_id signature %>">
+              <td><%= signature.form_question.label %></td>
+              <td><%= signature.signer.identifier_name %> <small class="text-muted">(<%= signature.signed_as_leader? ? "paper form recorded by a leader" : signature.signer_role.humanize.downcase %>)</small></td>
+              <td><%= signature.typed_name %></td>
+              <td><%= nice_datetime(signature.signed_at) %></td>
+              <td><%= signature.matches?(@submission) ? "Yes" : "No: changed since signing" %></td>
+              <td><%= signature.standing? ? "Standing" : "Revoked #{nice_datetime(signature.revoked_at)}: #{signature.revoked_reason}" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      <% if @access.subject_leader? %>
+        <p class="form-text">Each signature also records the address and browser it came from, and a fingerprint of exactly what was signed (<code><%= @submission.content_digest.first(12) %>…</code>).</p>
+      <% end %>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Back", form_response_path(@form, @subject), class: "btn btn-warning" %>
+  </div>
+</div>
