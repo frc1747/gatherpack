@@ -8,8 +8,9 @@
 #
 # What the page's save keeps (registration_params, create): team lists only for teams the
 # viewer manages, badges only those they may give (the helpers' rules), the checklist only
-# when they run it (RegistrationChecklistParams), and no successor. The slug is a new random
-# one. A copy that comes out invalid on the page (a gate with no checklist left, no team
+# when they run it (RegistrationChecklistParams) and only while the checklists feature is on (with
+# it off the form has neither field, so the copy has no checklist and no gate), and no successor. The slug is a new random
+# one. A copy that comes out invalid on the page (with checklists on, a gate with no checklist left; no team
 # to apply to) is refused here with the page's message. Created by the caller's person.
 class Mcp::Tools::CopyRegistration < Mcp::Tool
   include Mcp::IntakeRecords
@@ -57,7 +58,8 @@ class Mcp::Tools::CopyRegistration < Mcp::Tool
       copy.public_send(:"#{kind}_team_ids=", copy.public_send(:"#{kind}_team_ids") & manageable)
     end
     copy.badge_ids = copy.badges.select { |badge| ctx.allowed?(badge, :update?) }.map(&:id)
-    copy.checklist_id = nil unless runs_checklist?(copy.checklist_id)
+    copy.checklist_id = nil unless Checklists.enabled? && runs_checklist?(copy.checklist_id)
+    copy.gate_approval = false unless Checklists.enabled?
   end
 
   def runs_checklist?(checklist_id)

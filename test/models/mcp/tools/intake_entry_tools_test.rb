@@ -178,6 +178,17 @@ class Mcp::Tools::IntakeEntryToolsTest < ActionDispatch::IntegrationTest
     assert_no_match(/example\.com|@/, result.value.to_json)
   end
 
+  test "list_waiting_to_finish shows a guardian named on a newer entry for the same person, as the page does" do
+    kiosk, person = kiosk_entry("Fern", days_ago: 5, needs_guardian: true)
+    later = @registration.entries.create!(first_name: "Fern", last_name: "Fox", email: "fern@example.com", person: person, facts: { "team_ids" => [ @juniors.id ] })
+    later.household_members.create!(role: :guardian, facts: { "ward_id" => person.id, "first_name" => "Gail", "last_name" => "Fox", "email" => "gail@example.com" })
+
+    items = tool("list_waiting_to_finish", :leader, registration_id: @registration.neat_id).value["items"]
+
+    assert_equal [ kiosk.neat_id ], items.map { |item| item["entry_id"] }
+    assert_equal [ { "name" => "Gail Fox", "status" => "waiting for the guardian to confirm" } ], items.first["guardian_requests"]
+  end
+
   test "list_waiting_to_finish leaves out confirmed kiosk sign-ups and link sign-ups" do
     entry, = kiosk_entry("Jamie", days_ago: 1)
     confirmed, = kiosk_entry("Cory", days_ago: 1)

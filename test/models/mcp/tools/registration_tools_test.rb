@@ -240,19 +240,32 @@ class Mcp::Tools::RegistrationToolsTest < ActionDispatch::IntegrationTest
     assert_equal 2, Intake::Registration.count
   end
 
-  test "copy_registration drops a checklist the copier doesn't run, and so a gate with none is refused" do
+  test "copy_registration with checklists on drops a checklist the copier doesn't run, and so a gate with none is refused" do
     checklist = Checklist.create!(title: "Joining", team: @northwind, status: :active, created_by: @leader)
     @juniors_registration.update!(checklist: checklist, gate_approval: true)
 
-    result = tool("copy_registration", :juniors_leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
-    assert_match(/needs a checklist/, result.error)
+    with_settings(feature_checklists: "true") do
+      result = tool("copy_registration", :juniors_leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
+      assert_match(/needs a checklist/, result.error)
 
-    @juniors_registration.update!(gate_approval: false)
-    result = tool("copy_registration", :juniors_leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
-    assert_nil registration_from(result.value["id"]).checklist_id
+      @juniors_registration.update!(gate_approval: false)
+      result = tool("copy_registration", :juniors_leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
+      assert_nil registration_from(result.value["id"]).checklist_id
 
-    result = tool("copy_registration", :leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
-    assert_equal checklist.id, registration_from(result.value["id"]).checklist_id
+      result = tool("copy_registration", :leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
+      assert_equal checklist.id, registration_from(result.value["id"]).checklist_id
+    end
+  end
+
+  test "copy_registration with checklists off copies no checklist and no gate, whoever runs it, as the page's form does" do
+    checklist = Checklist.create!(title: "Joining", team: @northwind, status: :active, created_by: @leader)
+    @juniors_registration.update!(checklist: checklist, gate_approval: true)
+
+    [ :juniors_leader, :leader ].each do |viewer|
+      copy = registration_from(tool("copy_registration", viewer, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601).value["id"])
+      assert_nil copy.checklist_id, viewer.to_s
+      assert_not copy.gate_approval?, viewer.to_s
+    end
   end
 
   private

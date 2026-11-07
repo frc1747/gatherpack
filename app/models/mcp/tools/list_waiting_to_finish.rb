@@ -52,6 +52,11 @@ class Mcp::Tools::ListWaitingToFinish < Mcp::Tool
     registration = ctx.find(Intake::Registration, registration_id)
     ctx.authorize!(registration, :waiting?)
 
+    # As the page's guardians partial reads them: the registration's guardian rows on any of its
+    # entries, for the person they name as ward (a guardian named from the person's own page sits
+    # on a newer entry, not the kiosk one).
+    @guardian_rows = Intake::HouseholdMember.guardian.joins(:entry).where(intake_entries: { registration_id: registration.id })
+      .includes(:person).group_by { |row| row.facts["ward_id"] }
     entries = registration.entries.source_kiosk.unverified.where.not(person_id: nil)
       .includes(:person, :household_members).order(:created_at, :id)
     list(entries, limit: limit) { |entry| item_json(entry) }
@@ -73,7 +78,7 @@ class Mcp::Tools::ListWaitingToFinish < Mcp::Tool
       email_not_opened: days >= 3,
       no_guardian_yet: entry.facts["needs_guardian"] && guardians.none? && !entry.person.guardians.exists? ? true : false,
       possible_match: match && person_json(match),
-      guardian_requests: guardians.map { |row| guardian_json(row) }
+      guardian_requests: @guardian_rows.fetch(entry.person_id, []).map { |row| guardian_json(row) }
     }
   end
 
