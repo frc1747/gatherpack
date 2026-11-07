@@ -57,6 +57,9 @@ Rails.application.routes.draw do
     end
   end
 
+  # Merging people (the controller checks the feature flag)
+  resources :person_merges, only: %i[new create]
+
   resources :settings, only: %i[index] do
     post "update", on: :collection, as: "update"
   end

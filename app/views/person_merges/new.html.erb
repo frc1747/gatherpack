@@ -1,0 +1,95 @@
+<% breadcrumb :person_merge %>
+
+<%= simple_form_for(@person_merger, url: new_person_merge_path, method: :get) do |f| %>
+  <div class="card mb-3">
+    <div class="card-header">
+      <h1>Merge People</h1>
+    </div>
+    <div class="card-body">
+      <p>Use this when one person has two records. Everything on the second record moves to the first, and the second record is deleted.</p>
+      <%= f.error_notification %>
+      <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+      <div class="row">
+        <div class="col-12 col-md-6">
+          <%= f.input :keep_nid, as: :searching_combobox, scope: "people", label: "Keep this person" %>
+        </div>
+        <div class="col-12 col-md-6">
+          <%= f.input :drop_nid, as: :searching_combobox, scope: "people", label: "Merge in and delete this person" %>
+        </div>
+      </div>
+      <% if @person_merger.both_have_logins? %>
+        <%= f.input :keep_login, as: :radio_buttons, label: "Both have a login. Which one stays?",
+          collection: [ [ @person_merger.keep.user.email, "keep" ], [ @person_merger.drop.user.email, "drop" ] ],
+          item_wrapper_tag: :div, item_label_html: { class: "form-check-label" } %>
+      <% end %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", people_path, class: "btn btn-warning" %>
+      <%= f.button :submit, "Preview", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
+
+<% if @person_merger.keep && @person_merger.drop && @person_merger.errors.empty? %>
+  <div class="card">
+    <div class="card-header">
+      <h2>What will happen</h2>
+    </div>
+    <div class="card-body">
+      <p>
+        <%= link_to @person_merger.drop.display_name, @person_merger.drop %> will be merged into
+        <%= link_to @person_merger.keep.display_name, @person_merger.keep %> and then deleted.
+      </p>
+      <% if @person_merger.kept_login %>
+        <p>Login after the merge: <b><%= @person_merger.kept_login.email %></b>.</p>
+      <% end %>
+      <% if @person_merger.removed_login %>
+        <p>The login <b><%= @person_merger.removed_login.email %></b> will be deleted.</p>
+      <% end %>
+
+      <% changes = @person_merger.changes.select(&:any?) %>
+      <% if changes.any? %>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th scope="col">Records</th>
+              <th scope="col">Move over</th>
+              <th scope="col">Removed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% changes.group_by(&:label).each do |label, group| %>
+              <% removed = group.sum { |c| c.removing.size } %>
+              <tr>
+                <th scope="row"><%= label %></th>
+                <td><%= group.sum { |c| c.moving.size } %></td>
+                <td>
+                  <%= removed %>
+                  <% if removed.positive? %>
+                    <small class="text-muted">
+                      <%= group.first.delete? ? "(go with the deleted login)" : "(already on the kept person, or between the two)" %>
+                    </small>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="text-muted">There is nothing to move.</p>
+      <% end %>
+
+      <% if @person_merger.filled_fields.any? %>
+        <p>Blank profile fields filled in from the merged person: <%= @person_merger.filled_fields.keys.map(&:humanize).to_sentence %>.</p>
+      <% end %>
+    </div>
+    <div class="card-footer">
+      <%= simple_form_for(@person_merger, url: person_merges_path, method: :post) do |f| %>
+        <%= f.hidden_field :keep_nid %>
+        <%= f.hidden_field :drop_nid %>
+        <%= f.hidden_field :keep_login %>
+        <%= f.button :submit, "Merge", class: "btn btn-danger", data: { turbo_confirm: "Merge #{@person_merger.drop.display_name} into #{@person_merger.keep.display_name}? This can't be undone." } %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
