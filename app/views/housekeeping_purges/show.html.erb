@@ -11,7 +11,7 @@
       <% if @count.zero? %>
         <p class="text-body-secondary">Nothing to clear.</p>
       <% else %>
-        <p class="fw-semibold"><%= @count %> will be cleared:</p>
+        <p class="fw-semibold"><%= @summary %> will be cleared:</p>
         <table class="table table-sm">
           <tbody>
             <% @rows.each do |heading, detail| %>
@@ -19,7 +19,7 @@
             <% end %>
           </tbody>
         </table>
-        <% if @count > @rows.size %><p class="small text-body-secondary">And <%= @count - @rows.size %> more.</p><% end %>
+        <% if @row_count > @rows.size %><p class="small text-body-secondary">And <%= @row_count - @rows.size %> more.</p><% end %>
 
         <%= form_with url: housekeeping_purge_path(@purge.key), method: :post do %>
           <%= hidden_field_tag :count, @count %>

@@ -39,8 +39,9 @@ Rails.application.config.to_prepare do
     "and the teams below their own. Leave out \"> Highest team name\" to allow only the teams they're directly in and the teams below those")
   Settings.register(:checklists_max_age_hours, :integer, "Checklist Results Max Age (hours)", "24", "Checklists",
     "Stored results older than this are recomputed when read")
-  Settings.register(:checklists_archive_after, :string, "Archive Checklists Ended Before", "", "Checklists",
-    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Active checklists that ended before it are archived each night. Blank: never")
+  Settings.register(:checklists_archive_after, :string, "Archive Checklists Ended Before (old)", "", "Checklists",
+    "Replaced by Archive Checklists Automatically (days) under Housekeeping, and read only while that is blank. " \
+    "A date (YYYY-MM-DD), or a number of days after a checklist's end")
   Settings.register(:checklists_prune_results_after, :string, "Clear Results of Archived Checklists Ended Before", "", "Checklists",
     "A date (YYYY-MM-DD), or a number of days after a checklist's end. Stored results of archived checklists that ended before it are cleared each night; recorded lists stay. Blank: never")
 

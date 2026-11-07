@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_190100) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_190200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -394,6 +394,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_190100) do
     t.string "event"
     t.string "name"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "housekeeping_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.string "list_key", null: false
+    t.string "view", default: "current", null: false
+    t.jsonb "older"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id", "list_key"], name: "index_housekeeping_preferences_on_person_id_and_list_key", unique: true
   end
 
   create_table "housekeeping_purges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1041,6 +1051,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_190100) do
   add_foreign_key "checklists", "teams"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
+  add_foreign_key "housekeeping_preferences", "people", on_delete: :cascade
   add_foreign_key "housekeeping_purges", "people", on_delete: :nullify
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"

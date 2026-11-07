@@ -1,6 +1,7 @@
-# Nightly: date housekeeping (Checklists::Housekeeping), then a full
-# recomputation of every draft and active checklist, which repairs anything
-# a change or the clock missed.
+# Nightly: clearing results of old archived checklists
+# (Checklists::Housekeeping; archiving them is HousekeepingNightlyJob's),
+# then a full recomputation of every draft and active checklist, which
+# repairs anything a change or the clock missed.
 class ChecklistNightlyJob < ApplicationJob
   queue_as :default
 

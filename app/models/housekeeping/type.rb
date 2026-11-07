@@ -1,8 +1,12 @@
 module Housekeeping
   # One registered kind of record (Housekeeping.register). Options:
   #
-  # - ended_on: a column (Symbol, a date or time) or ->(record) { date }. When
-  #   the record ended or closed; nil when it hasn't.
+  # - ended_on: when the record ended or closed, as SQL so lists filter in
+  #   the database: a column (Symbol), columns whose first present value
+  #   counts ([:end_time, :start_time], a COALESCE), or an SQL expression
+  #   (String) on the model's table. NULL when it hasn't ended.
+  # - ended_type: :date or :datetime, for a String ended_on. Columns say
+  #   their own.
   # - archived: ->(scope) { the archived ones }. Default: archived_at is set.
   # - archive / restore: ->(record) { ... }. Default: set or clear archived_at.
   # - used_by: ->(record) { [names] } of what still uses it; such a record is
@@ -17,17 +21,22 @@ module Housekeeping
   # - available: -> { true/false }, usually its feature's switch.
   # - auto_archive: false when the type archives itself on its own schedule
   #   (no "Archive automatically" setting here).
+  # - fallback_setting: an older setting read while the "Archive
+  #   automatically" one is blank: a number of days, or a date (YYYY-MM-DD)
+  #   meaning "ended before it".
   # - label: the plural shown on screens. Default: the model's.
   # - list_path: the route helper of its list page, for a link back.
   class Type
     attr_reader :model, :key, :label, :list_path, :copier
 
-    def initialize(model, key: nil, label: nil, ended_on:, archived: nil, archive: nil, restore: nil, used_by: nil,
-      permitted: nil, copy: nil, available: nil, auto_archive: true, list_path: nil)
+    def initialize(model, key: nil, label: nil, ended_on:, ended_type: :datetime, archived: nil, archive: nil, restore: nil,
+      used_by: nil, permitted: nil, copy: nil, available: nil, auto_archive: true, fallback_setting: nil, list_path: nil)
       @model = model
       @key = (key || model.table_name).to_s
       @label = label || model.model_name.human.pluralize
       @ended_on = ended_on
+      @ended_type = ended_type
+      @fallback_setting = fallback_setting
       @archived = archived
       @archive = archive
       @restore = restore
@@ -61,20 +70,34 @@ module Housekeeping
       value.to_i if value.match?(/\A\d+\z/)
     end
 
+    # Records that ended on or before this date are due to be archived
+    # automatically; nil: never. From the setting, or the fallback setting
+    # while it's blank.
+    def auto_archive_cutoff(today = Date.current)
+      days = auto_archive_days
+      return today - days.days - 1.day if days
+      return if @fallback_setting.nil?
+
+      value = Settings[@fallback_setting].to_s.strip
+      if value.match?(/\A\d+\z/)
+        today - value.to_i.days - 1.day
+      elsif value.present?
+        Date.iso8601(value) - 1.day
+      end
+    rescue Date::Error
+      nil
+    end
+
     def ended_on(record)
-      value = @ended_on.is_a?(Symbol) ? record.public_send(@ended_on) : @ended_on.call(record)
+      columns = Array(@ended_on) if @ended_on.is_a?(Symbol) || @ended_on.is_a?(Array)
+      value = columns ? columns.lazy.map { |column| record.public_send(column) }.find(&:present?) : model.where(id: record.id).pick(ended_sql)
       value&.to_date
     end
 
     # The records in scope that ended on or before date.
     def ended_by(scope, date)
-      if @ended_on.is_a?(Symbol)
-        column = model.columns_hash[@ended_on.to_s]
-        bound = column&.type == :date ? date : date.in_time_zone.end_of_day
-        scope.where(@ended_on => ..bound)
-      else
-        scope.where(id: scope.select { |record| (ended = ended_on(record)) && ended <= date }.map(&:id))
-      end
+      bound = ended_date? ? date : date.in_time_zone.end_of_day
+      scope.where(Arel::Nodes::LessThanOrEqual.new(ended_sql, Arel::Nodes.build_quoted(bound)))
     end
 
     def archived(scope = model.all)
@@ -111,12 +134,33 @@ module Housekeeping
       action == :copy ? policy.update? && Pundit.policy!(user, record.dup).create? : policy.update?
     end
 
-    # Unarchived records that ended more than auto_archive_days before today.
+    # Unarchived records due to be archived automatically.
     def due(today = Date.current)
-      days = auto_archive_days
-      return model.none if days.nil?
+      cutoff = auto_archive_cutoff(today)
+      cutoff ? ended_by(unarchived, cutoff) : model.none
+    end
 
-      ended_by(unarchived, today - days.days - 1.day)
+    def due?(record, today = Date.current)
+      cutoff = auto_archive_cutoff(today)
+      return false if cutoff.nil? || archived?(record)
+
+      (ended = ended_on(record)) ? ended <= cutoff : false
+    end
+
+    private
+
+    # ended_on as an Arel node.
+    def ended_sql
+      return Arel::Nodes::Grouping.new(Arel.sql(@ended_on)) if @ended_on.is_a?(String)
+
+      columns = Array(@ended_on).map { |column| model.arel_table[column] }
+      columns.one? ? columns.first : Arel::Nodes::NamedFunction.new("COALESCE", columns)
+    end
+
+    def ended_date?
+      return @ended_type == :date if @ended_on.is_a?(String)
+
+      Array(@ended_on).all? { |column| model.columns_hash[column.to_s]&.type == :date }
     end
   end
 end

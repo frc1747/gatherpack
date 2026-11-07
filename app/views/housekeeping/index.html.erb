@@ -14,6 +14,16 @@
       <%= submit_tag "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
       <%= link_to "Back to #{@type.label.downcase}", back, class: "btn btn-link mt-2" if back %>
     <% end %>
+    <%= form_with url: housekeeping_default_path(@type.key), method: :post, class: "mt-2 small" do %>
+      <%= hidden_field_tag :archived, "1" if @archived %>
+      <% @older_than&.to_config&.each do |name, value| %>
+        <%= hidden_field_tag "older[#{name}]", value, id: nil %>
+      <% end %>
+      <span class="text-body-secondary">
+        Opens on <%= @preference.archived? ? "archived ones" : "current ones" %><%= ", ended #{housekeeping_older_text(@preference.older_than)}" if @preference.older_than %> by default.
+      </span>
+      <%= submit_tag "Make this view my default", class: "btn btn-sm btn-link" %>
+    <% end %>
   </div>
 </div>
 
@@ -39,7 +49,7 @@
         </tr>
       <% end %>
       <% if @records.empty? %>
-        <tr><td colspan="3" class="text-body-secondary">Nothing here<%= " ended #{@older_than.relative? ? "more than #{@older_than.amount} #{@older_than.unit} ago" : "on or before #{l(@older_than.date, format: :long)}"}" if @older_than %>.</td></tr>
+        <tr><td colspan="3" class="text-body-secondary">Nothing here<%= " ended #{housekeeping_older_text(@older_than)}" if @older_than %>.</td></tr>
       <% end %>
     </tbody>
   </table>

@@ -24,8 +24,9 @@ Rails.application.config.to_prepare do
     "Person fields whose answers count as medical or emergency details, one field name or field group name per line. " \
     "Admins can clear these answers for people with no activity for a while")
 
-  # Checklists archive themselves each night under their own setting
-  # (checklists_archive_after), so they don't get a second one here.
+  # Checklists read their older checklists_archive_after setting (a date or
+  # days) while the "Archive automatically" one is blank. Clearing results
+  # of archived checklists stays with ChecklistNightlyJob.
   Housekeeping.register(Checklist,
     ended_on: :ends_on,
     available: -> { Checklists.enabled? },
@@ -35,9 +36,10 @@ Rails.application.config.to_prepare do
     used_by: ->(checklist) { checklist.dependents.refreshable.pluck(:title) },
     permitted: ->(user, checklist, _action) { checklist.organizer?(user.person) },
     copy: Checklists::Copier,
-    auto_archive: false,
+    fallback_setting: :checklists_archive_after,
     list_path: :checklists_path)
-  Housekeeping.register(Event, ended_on: :end_time, available: -> { GatherPack::Features.enabled?(:events) }, list_path: :events_path)
+  # An event with no end time ended when it started.
+  Housekeeping.register(Event, ended_on: %i[end_time start_time], available: -> { GatherPack::Features.enabled?(:events) }, list_path: :events_path)
   Housekeeping.register(Announcement, ended_on: :end_time, list_path: :announcements_path)
 
   Housekeeping.register_purge(:denied_applications,
@@ -58,7 +60,9 @@ Rails.application.config.to_prepare do
     description: "Answers to the medical and emergency fields of people with no activity",
     available: -> { GatherPack::Features.enabled?(:person_fields) },
     records: ->(cutoff) { Housekeeping::FieldAnswers.records(cutoff) },
-    describe: ->(records) { Housekeeping::FieldAnswers.describe(records) })
+    describe: ->(records) { Housekeeping::FieldAnswers.describe(records) },
+    rows: ->(records) { Housekeeping::FieldAnswers.people_count(records) },
+    summary: ->(records) { Housekeeping::FieldAnswers.summary(records) })
 
   # What counts as activity for "no activity since". Forms and sign-up
   # sheets add theirs.

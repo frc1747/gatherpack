@@ -9,19 +9,26 @@ module Housekeeping
   # - default_months: the age setting's default. Blank in settings disables it.
   # - records: ->(cutoff_date) { relation } of what would go.
   # - describe: ->(records) { [[heading, detail], ...] } for the preview.
+  # - rows: ->(records) { how many rows describe gives in all }, when that
+  #   isn't one per record (one per person, say). Default: the count.
+  # - summary: ->(records) { "2 answers from 1 person" }, what will go.
+  #   Default: the count.
   # - apply: ->(records) { ... } removes them. Default: delete_all, and their
   #   audit rows, which hold the same data.
   # - available: -> { true/false }.
   class Purge
     attr_reader :key, :label, :page, :default_months
 
-    def initialize(key, label:, page:, records:, default_months:, describe: nil, apply: nil, available: nil, description: nil)
+    def initialize(key, label:, page:, records:, default_months:, describe: nil, rows: nil, summary: nil, apply: nil, available: nil,
+      description: nil)
       @key = key.to_s
       @label = label
       @page = page.to_sym
       @records = records
       @default_months = default_months
       @describe = describe
+      @rows = rows
+      @summary = summary
       @apply = apply
       @available = available
       @description = description
@@ -64,6 +71,15 @@ module Housekeeping
 
     def describe(records)
       @describe ? @describe.call(records) : records.map { |record| [ record.try(:identifier_name) || record.to_s, nil ] }
+    end
+
+    # How many rows describe gives for all of records.
+    def row_count(records)
+      @rows ? @rows.call(records) : records.count
+    end
+
+    def summary(records)
+      @summary ? @summary.call(records) : records.count.to_s
     end
 
     # Removes everything older than cutoff and logs who did it. Returns the

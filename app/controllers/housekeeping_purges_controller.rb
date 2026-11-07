@@ -14,6 +14,8 @@ class HousekeepingPurgesController < InternalController
 
     records = @purge.records(@cutoff)
     @count = records.count
+    @summary = @purge.summary(records)
+    @row_count = @purge.row_count(records)
     @rows = @purge.describe(records.limit(500))
     @last = HousekeepingPurge.where(key: @purge.key).order(created_at: :desc).first
   end

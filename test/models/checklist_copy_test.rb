@@ -74,13 +74,13 @@ class ChecklistCopyTest < ActiveSupport::TestCase
     assert_equal "Trip 2026", list.configuration["title"]
   end
 
-  test "housekeeping archives checklists ended before a date, skipping one another requires" do
+  test "housekeeping archives checklists ended before the old setting's date, skipping one another requires" do
     ended = create_world_checklist("Old", starts_on: Date.new(2025, 9, 1), ends_on: Date.new(2026, 6, 30))
     required = create_world_checklist("Required", starts_on: Date.new(2025, 9, 1), ends_on: Date.new(2026, 6, 30))
     add_item(@checklist, :checklist, "Required", { checklist_id: required.id })
 
-    with_settings(checklists_archive_after: "2026-07-01") do
-      Checklists::Housekeeping.run(Date.new(2026, 11, 1))
+    with_settings(feature_checklists: "true", feature_housekeeping: "true", checklists_archive_after: "2026-07-01") do
+      ::Housekeeping.run(Date.new(2026, 11, 1))
 
       assert ended.reload.archived?
       assert required.reload.active?
@@ -89,16 +89,18 @@ class ChecklistCopyTest < ActiveSupport::TestCase
     end
   end
 
-  test "housekeeping by days after the end, and pruning archived results" do
+  test "housekeeping by the old setting's days after the end, and pruning archived results" do
     ended = create_world_checklist("Old", starts_on: Date.new(2025, 9, 1), ends_on: Date.new(2026, 6, 30))
     add_item(ended, :has_login, "Login")
     refresh(ended)
     list = ChecklistList.record!(ended, by: person(:admin))
 
-    with_settings(checklists_archive_after: "30", checklists_prune_results_after: "60") do
+    with_settings(feature_checklists: "true", feature_housekeeping: "true", checklists_archive_after: "30", checklists_prune_results_after: "60") do
+      ::Housekeeping.run(Date.new(2026, 7, 20))
       Checklists::Housekeeping.run(Date.new(2026, 7, 20))
       assert ended.reload.active?, "only 20 days after the end"
 
+      ::Housekeeping.run(Date.new(2026, 8, 5))
       Checklists::Housekeeping.run(Date.new(2026, 8, 5))
       assert ended.reload.archived?
       assert ended.checklist_results.exists?

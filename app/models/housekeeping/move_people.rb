@@ -34,11 +34,14 @@ module Housekeeping
       text
     end
 
+    # Checklists are marked once at the end, not once per membership.
     def apply!
-      Membership.transaction do
-        ready.each do |person|
-          to.memberships.find_or_create_by!(person: person)
-          from.memberships.find_by(person: person)&.destroy!
+      Checklists.batch do
+        Membership.transaction do
+          ready.each do |person|
+            to.memberships.find_or_create_by!(person: person)
+            from.memberships.find_by(person: person)&.destroy!
+          end
         end
       end
       ready

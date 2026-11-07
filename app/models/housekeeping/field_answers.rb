@@ -21,6 +21,16 @@ module Housekeeping
           .where.not(value: [ nil, "" ])
       end
 
+      def people_count(records)
+        records.distinct.count(:person_id)
+      end
+
+      def summary(records)
+        answers = records.count
+        people = people_count(records)
+        "#{answers} #{"answer".pluralize(answers)} from #{people} #{people == 1 ? "person" : "people"}"
+      end
+
       # One line per person: which answers go (never the answers themselves).
       def describe(records)
         records.includes(:person, :person_field).group_by(&:person).sort_by { |person, _| person.display_name.to_s }.map do |person, values|

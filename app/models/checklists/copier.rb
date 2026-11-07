@@ -59,6 +59,21 @@ module Checklists
       replacements_for(referenced_records)
     end
 
+    # Every record the copy names: what its items, rules and grants refer
+    # to. Any of them can be swapped through call's replace:, not only those
+    # named with a year (a copy made alongside, say).
+    def referenced_records
+      @referenced_records ||= begin
+        records = items.flat_map do |item|
+          Array(item.kind_class&.references).flat_map { |key, _| item.kind_class.referenced_records(item, key) }
+        end
+        rules = checklist.checklist_rules.includes(:team, :badge).to_a
+        records += rules.flat_map { |rule| [ rule.team, rule.badge ] }
+        records += checklist.checklist_grants.includes(:team, :badge).flat_map { |grant| [ grant.team, grant.badge ] }
+        records.compact.uniq
+      end
+    end
+
     # Rules left with no target (a deleted person, team or badge), which a
     # copy leaves out.
     def empty_rules
@@ -70,7 +85,7 @@ module Checklists
     # Refused when by couldn't set up a copied item or make a copied grant.
     def call(title:, by:, dates: {}, replace: {})
       dates = date_changes.to_h { |change| [ change.key, change.proposed ] }.merge(dates.to_h.transform_values { |value| cast_date(value) }.compact)
-      known = replacements.to_h { |replacement| [ replacement.key, replacement.model ] }
+      known = referenced_records.to_h { |record| [ replacement_key(record), record.class ] }
       replace = replace.to_h.compact_blank.select { |key, id| known[key]&.exists?(id: id) }
 
       Checklist.transaction do
@@ -109,17 +124,6 @@ module Checklists
 
     def items
       @items ||= checklist.checklist_items.order(:position).to_a
-    end
-
-
-    def referenced_records
-      records = items.flat_map do |item|
-        Array(item.kind_class&.references).flat_map { |key, _| item.kind_class.referenced_records(item, key) }
-      end
-      rules = checklist.checklist_rules.includes(:team, :badge).to_a
-      records += rules.flat_map { |rule| [ rule.team, rule.badge ] }
-      records += checklist.checklist_grants.includes(:team, :badge).flat_map { |grant| [ grant.team, grant.badge ] }
-      records.compact.uniq
     end
 
     def swap(record, replace)

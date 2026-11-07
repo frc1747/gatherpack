@@ -35,6 +35,26 @@
           </tbody>
         </table>
 
+        <% if (links = @copy.links).any? %>
+          <h2 class="h5">Copied together</h2>
+          <ul class="small">
+            <% links.each do |record, named| %>
+              <li>The copy of <%= record.identifier_name %> will use the copy of <%= named.map(&:identifier_name).to_sentence %>.</li>
+            <% end %>
+          </ul>
+        <% end %>
+
+        <% if (left_out = @copy.left_out).any? %>
+          <div class="alert alert-warning small">
+            <% left_out.each do |record, rules| %>
+              <div>
+                <%= record.identifier_name %>: <%= pluralize(rules.size, "rule") %> naming a deleted person, team or badge will be left out:
+                <%= rules.map { |rule| rule.item ? "#{rule.item.label}: #{rule.description}" : rule.description }.to_sentence %>.
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
         <% replacements = @copy.replacements %>
         <% if replacements.any? %>
           <h2 class="h5">Named with a year</h2>

@@ -151,6 +151,7 @@ Rails.application.routes.draw do
     post "purges/:key", to: "housekeeping_purges#create"
     get ":type", to: "housekeeping#index", as: :list
     post ":type/preview", to: "housekeeping#preview", as: :preview
+    post ":type/default", to: "housekeeping#save_default", as: :default
     post ":type", to: "housekeeping#apply", as: :apply
   end
   get "teams/:team_id/move_people", to: "team_moves#new", as: :team_move_people

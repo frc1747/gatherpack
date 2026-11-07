@@ -1,7 +1,7 @@
 <%# "No activity since" on a people list (one render line there). Locals:
     team (optional): on a team's people, it leads to moving them to another
-    team; otherwise it narrows the list it's on. Admins also get the purges
-    offered for people. %>
+    team; otherwise it narrows the list it's on, keeping its search (q).
+    Admins also get the purges offered for people. %>
 <% if Housekeeping.enabled? %>
   <% hk_team = local_assigns[:team] %>
   <details class="card mt-3" <%= "open" if params[:no_activity].present? %>>
@@ -11,6 +11,7 @@
         <%= render "checklists/relative_date_field", name: "no_activity", field_id: "housekeeping_no_activity",
           legend: "No time clock, check-in or other activity", picked: Checklists::RelativeDate.from_config(params[:no_activity].respond_to?(:permit) ? params[:no_activity].permit(:mode, :date, :amount, :unit).to_h : nil),
           none_label: "Anyone", date_label: "Since", within_label: "For", after_label: nil %>
+        <%= housekeeping_hidden_params(:q, request.query_parameters["q"]) unless hk_team %>
         <%= submit_tag hk_team ? "Pick people to move" : "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
       <% end %>
       <%= render "housekeeping/purges", page: :people unless hk_team %>

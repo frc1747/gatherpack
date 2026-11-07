@@ -10,14 +10,31 @@ class HousekeepingController < InternalController
   before_action :set_type
 
   # GET /housekeeping/:type
+  # Without filter params it opens on the person's saved default
+  # (HousekeepingPreference, "current" when none).
   def index
-    @archived = params[:archived].present?
+    @preference = HousekeepingPreference.for(current_user.person, @type.key)
+    if filtered?
+      @archived = params[:archived].present?
+      @older_than = Checklists::RelativeDate.from_config(older_params)
+    else
+      @archived = @preference.archived?
+      @older_than = @preference.older_than
+    end
     scope = policy_scope(@type.model)
     scope = @archived ? @type.archived(scope) : @type.unarchived(scope)
-    @older_than = Checklists::RelativeDate.from_config(older_params)
     @before = @older_than&.resolve(Date.current)
     scope = @type.ended_by(scope, @before) if @before
     @records = scope.page(params[:page]).per(100)
+  end
+
+  # POST /housekeeping/:type/default: the filter shown becomes the
+  # person's default for this list.
+  def save_default
+    authorize :housekeeping, :change?
+    older = Checklists::RelativeDate.from_config(older_params)
+    HousekeepingPreference.save_for!(current_user.person, @type.key, view: params[:archived].present? ? "archived" : "current", older: older&.to_config)
+    redirect_to housekeeping_list_path(@type.key), notice: "Saved as your default for #{@type.label.downcase}.", status: :see_other
   end
 
   # POST /housekeeping/:type/preview
@@ -38,6 +55,11 @@ class HousekeepingController < InternalController
       result = @copy.apply!(replace: allowed_replacements)
       text = "#{result[:copies].size} copied as drafts. Check each, then make it active."
       text += " Not copied: #{result[:failed].map { |record, reason| "#{@copy.name_of(record)} (#{reason})" }.to_sentence}." if result[:failed].any?
+      left_out = @copy.left_out.sum { |_, rules| rules.size }
+      if left_out.positive?
+        text += " #{left_out} #{"rule".pluralize(left_out)} naming something deleted #{left_out == 1 ? "was" : "were"} left out " \
+          "(#{@copy.left_out.map { |record, _| @copy.name_of(record) }.to_sentence})."
+      end
       text
     else
       done = @preview.apply!
@@ -51,6 +73,10 @@ class HousekeepingController < InternalController
   def set_type
     @type = Housekeeping.type(params[:type])
     raise ActiveRecord::RecordNotFound, "No housekeeping for #{params[:type]}" if @type.nil?
+  end
+
+  def filtered?
+    params.key?(:older) || params.key?(:archived)
   end
 
   def older_params
