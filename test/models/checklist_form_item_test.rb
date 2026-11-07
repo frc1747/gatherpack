@@ -232,7 +232,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     add_item(@checklist, :form_complete, "Conduct", { form_ids: [ draft.id ] })
     assert_includes @checklist.reload.problems, "Conduct: Code of Conduct is a draft; nobody can sign it"
 
-    assert_not draft.destroy, "the item protects the form"
+    with_settings(feature_checklists: "true") { assert_not draft.destroy, "the item protects the form" }
     @item.update_columns(config: { "form_ids" => [ SecureRandom.uuid ] })
     assert_includes @checklist.reload.problems.join, "was deleted"
     assert_equal "not_met", result(:member).status

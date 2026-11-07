@@ -25,16 +25,10 @@ module Checklists
 
         def settings
           [
-            ItemKind::Setting.new(key: :form_ids, type: :forms, label: "Forms", hint: "All of these"),
+            ItemKind::Setting.new(key: :form_ids, type: :forms, list: true, label: "Forms", hint: "All of these"),
             ItemKind::Setting.new(key: :ever, type: :boolean, label: "Any time, whatever the item's dates",
               hint: "Leave unticked to count only responses made within the item's dates")
           ]
-        end
-
-        def normalize_config(params)
-          config = super
-          config["form_ids"] = Array(params.to_h.stringify_keys["form_ids"]).compact_blank if params.to_h.stringify_keys.key?("form_ids")
-          config
         end
 
         def references = { "form_ids" => "Form" }
@@ -162,12 +156,14 @@ module Checklists
 
         unless asked
           return Result.not_met("Not asked", detail: "This form isn't asking them; add them to its audience",
-            fix: { "label" => "Add them to the form's audience", "path" => routes.edit_form_path(form, tab: "audience") })
+            fix: { "label" => "Add them to the form's audience", "path" => routes.edit_form_path(form, tab: "audience"),
+              "requires" => { "record" => form.to_global_id.to_s, "query" => "audience?" } })
         end
 
         if needs_guardian?(form, person, guardians)
           return Result.not_met("Needs a guardian linked", detail: "Needs a guardian linked: a guardian signs this form",
-            fix: { "label" => "Add a guardian", "path" => routes.relationships_person_path(person) })
+            fix: { "label" => "Add a guardian", "path" => routes.relationships_person_path(person),
+              "requires" => { "record" => person.to_global_id.to_s, "query" => "update_profile?" } })
         end
 
         open = response&.open_submission
@@ -175,25 +171,25 @@ module Checklists
 
         if signed && expired
           return Result.not_met("Expired #{day(expires_at)}", detail: "Expired #{day(expires_at)}",
-            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person) })
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
         end
 
         if signed && (reason = reconfirm_reason(response, signed))
           detail = reason == :profile ? "Needs confirming again: their profile details changed" : "Needs confirming again: the form changed"
           return Result.not_met("Needs confirming again", detail: detail,
-            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person) })
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
         end
 
         later = response&.form_submissions&.select { |submission| submission.activated_at && submission.activated_at > window.end_time }&.min_by(&:activated_at)
         if (outside = signed || later)
           at = outside.activated_at
           return Result.not_met("Needs doing again", detail: sentence("Completed #{day(at)}, #{outside_window(at)}", good_until(expiry_for(form, at))),
-            fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person) })
+            fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
         end
 
         withdrawn = response&.form_submissions&.any?(&:withdrawn?)
         Result.not_met(withdrawn ? "Withdrawn" : "Not started", detail: withdrawn ? "The response was withdrawn" : "No response yet",
-          fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person) })
+          fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
       end
 
       # The version that counted at the end of the window (or at the as-of
@@ -235,10 +231,10 @@ module Checklists
       def open_result(form, person, submission, guardians)
         if submission.pending?
           waiting = waiting_for(submission, person, guardians)
-          Result.pending(waiting, detail: waiting, fix: { "label" => "Sign it", "path" => routes.form_response_path(form, person) })
+          Result.pending(waiting, detail: waiting, fix: { "label" => "Sign it", "path" => routes.form_response_path(form, person), "requires" => slot_requires(form, person, "sign?") })
         else
           Result.pending("Started", detail: "A new version is started but not submitted",
-            fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person) })
+            fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
         end
       end
 
@@ -300,6 +296,12 @@ module Checklists
 
       def routes
         Rails.application.routes.url_helpers
+      end
+
+      # The link shows only to a viewer whose policy allows it (checked when
+      # shown): filling in or signing for this person.
+      def slot_requires(form, person, query)
+        { "record" => FormResponseSlot.new(form, person).to_global_id.to_s, "query" => query }
       end
     end
   end

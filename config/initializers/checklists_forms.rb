@@ -5,7 +5,6 @@ Rails.application.config.to_prepare do
   next unless defined?(Checklists) && Checklists.respond_to?(:register_item_kind) && defined?(FormAudienceRule)
 
   Checklists.register_item_kind(:form_complete, Checklists::Kinds::FormComplete)
-  ChecklistItemsController.prepend(Checklists::FormItemParams) unless ChecklistItemsController < Checklists::FormItemParams
   ChecklistItemsController.include(Checklists::FormItemAccess) unless ChecklistItemsController < Checklists::FormItemAccess
 
   FormAudienceRule.prepend(Checklists::FormAudienceTarget) unless FormAudienceRule < Checklists::FormAudienceTarget
