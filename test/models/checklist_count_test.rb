@@ -347,4 +347,15 @@ class ChecklistCountTest < ActiveSupport::TestCase
     item.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
     assert_empty @checklist.reload.problems
   end
+
+  test "the kind reads its settings without touching the database, so it can register while booting a fresh one" do
+    queries = []
+    counter = ->(*, payload) { queries << payload[:sql] unless payload[:name].in?(%w[ SCHEMA TRANSACTION ]) }
+    settings = ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { Checklists::Kinds::Count.settings }
+
+    assert_empty queries
+    choice = settings.find { |setting| setting.key == :group_relationship_type_id }
+    assert_equal [ "Nobody, everyone owes on their own", "" ], choice.options.first
+    assert_includes choice.options.map(&:last), @parent_of.id
+  end
 end
