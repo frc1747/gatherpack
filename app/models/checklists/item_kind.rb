@@ -12,6 +12,7 @@ module Checklists
   #   self.normalize_form(params)   # the config the section's params give
   #   self.visible_to?(item, viewer, person)  # a cap on who sees a person's result (default true)
   #   self.authorable_by?(item, author)       # whether this author may set the item up so (default true)
+  #   self.grantable_by?(item, person, access)  # whether person may grant access to it (default true; enforced on read)
   #   self.problems(item)           # deleted badge, missing field... shown to organizers
   #   self.references               # { "badge_ids" => "Badge" }: config keys naming records
   #   self.invalidations            # [[Model, ->(record) { person ids or :all }]] (§8.2)
@@ -201,6 +202,27 @@ module Checklists
       # Checked when an item is created, edited, previewed or copied.
       def authorable_by?(_item, _author)
         true
+      end
+
+      # Whether person may make a grant (ChecklistGrant) showing this item at
+      # access (:status or :full). Core enforces it everywhere: making a grant
+      # or copying a checklist is refused when it says no, and when results
+      # are read a grant counts for the item only while its maker still
+      # passes (honours_grant?), so adding or moving the item under a granted
+      # group, or a copy, can't get around it.
+      def grantable_by?(_item, _person, _access)
+        true
+      end
+
+      # Whether grant shows this item (Checklists::Visibility asks for each
+      # item a grant covers). A kind that doesn't override grantable_by?
+      # honours every grant. One that does honours a grant only while its
+      # maker passes grantable_by?; a grant with no recorded maker (made
+      # before makers were kept, or whose maker was deleted) isn't honoured.
+      def honours_grant?(item, grant)
+        return true if method(:grantable_by?).owner == ItemKind.singleton_class
+
+        grant.created_by.present? && grantable_by?(item, grant.created_by, grant.access.to_sym)
       end
 
       # For pooled kinds: the people, among person_ids, whose results the
