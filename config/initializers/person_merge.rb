@@ -2,7 +2,13 @@ require Rails.root.join("lib/gatherpack/person_merge").to_s
 
 # Merging two people into one. Every column that points at a person or a
 # login is registered here (or exempted), so a merge leaves nothing behind.
-# Features that add such a column register it from their own initializer.
+# Features that add such a column register it from their own initializer,
+# in to_prepare, in any order.
+
+# Cleared only when classes unload, never in to_prepare: initializers that
+# sort before this file have already registered by the time it runs.
+ActiveSupport::Reloader.before_class_unload { GatherPack::PersonMerge.reset! }
+
 Rails.application.config.to_prepare do
   GatherPack::Features.register(
     GatherPack::Feature.new(
@@ -18,7 +24,6 @@ Rails.application.config.to_prepare do
   )
 
   merge = GatherPack::PersonMerge
-  merge.reset!
 
   merge.register :memberships, :person_id, unique_by: :team_id, model: Membership, label: "Team memberships",
     on_conflict: ->(removed, kept) {
@@ -33,8 +38,10 @@ Rails.application.config.to_prepare do
   merge.register :relationships, :child_id, unique_by: %i[relationship_type_id parent_id], other_side: :parent_id,
     model: Relationship, label: "Relationships"
   merge.register :badge_assignments, :person_id, unique_by: :badge_id, model: BadgeAssignment, label: "Badges"
-  merge.register :checkins, :person_id, unique_by: :event_id, model: Checkin, label: "Check-ins"
-  merge.register :time_clock_punches, :person_id, label: "Time clock punches"
+  merge.register :checkins, :person_id, unique_by: :event_id, model: Checkin, label: "Check-ins",
+    on_conflict: PersonMerger::Conflicts.method(:checkins)
+  merge.register :time_clock_punches, :person_id, label: "Time clock punches",
+    check: PersonMerger::Conflicts.method(:time_clock_punches)
   merge.register :questions, :person_id, label: "Questions"
   merge.register :replies, :person_id, label: "Replies"
   merge.register :reply_votes, :person_id, unique_by: :question_id, model: ReplyVote, label: "Reply votes"
