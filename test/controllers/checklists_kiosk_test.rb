@@ -35,14 +35,40 @@ class ChecklistsKioskTest < ActionDispatch::IntegrationTest
     assert_select "#kiosk-still-need", count: 0
   end
 
-  test "the time kiosk lists nothing for a manager" do
+  test "the time kiosk lists nothing for a manager the checklist covers" do
     @agreement.update!(show_on_kiosk: true)
-    token = Token.create!(tokenable: person(:club_manager), value: "scan-#{SecureRandom.hex(4)}")
+    manager = person(:crew_manager)
+    add_rule(@checklist, :include, :person, person_id: manager.id)
+    refresh(@checklist)
+    token = Token.create!(tokenable: manager, value: "scan-#{SecureRandom.hex(4)}")
+    assert ChecklistResult.exists?(checklist: @checklist, person: manager, item_id: nil)
 
     scan token
 
     assert_response :success
     assert_select "#kiosk-still-need", count: 0
+  end
+
+  test "the time kiosk evaluates only checklists with an item chosen for it" do
+    @agreement.update!(show_on_kiosk: true)
+    other = create_world_checklist("Other")
+    add_rule(other, :include, :team, team_id: @members.id)
+    add_item(other, :attested, "Other agreement", { statement: "Other signed", attested_by: "person" })
+    refresh(other)
+    evaluated = []
+    original = Checklists.method(:status_for)
+    Checklists.define_singleton_method(:status_for) do |checklist, *args, **kwargs|
+      evaluated << checklist.title
+      original.call(checklist, *args, **kwargs)
+    end
+    begin
+      scan
+    ensure
+      Checklists.define_singleton_method(:status_for, original)
+    end
+
+    assert_response :success
+    assert_equal [ "Trip" ], evaluated.uniq
   end
 
   test "the time kiosk lists nothing while checklists are off" do
