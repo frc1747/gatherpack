@@ -285,9 +285,19 @@ module Checklists
         end
       end
 
-      # Who acts on filling the form in (Result "by"): a guardian, or the
-      # person, when a guardian signs it for them; else the person.
+      # Who acts on filling the form in (Result "by"), first from who may
+      # fill it in for someone (respond_permission): a leader when neither
+      # the person nor a guardian may, a guardian when only guardians (and
+      # leaders) may. Otherwise a guardian, or the person, when a guardian
+      # signs it for them; else the person.
       def fill_by(form, person)
+        level = form.respond_permission
+        unless level == "everyone"
+          parts = AudienceLevels.components(level)
+          return "leader" unless parts.include?(:subject) || parts.include?(:guardian)
+          return "guardian" unless parts.include?(:subject)
+        end
+
         roles = form.signature_questions.flat_map { |question| FormAccess.signer_roles(question, person) }
         roles.include?(:guardian) ? "guardian" : "person"
       end

@@ -202,6 +202,15 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "met", result(:kid).status
   end
 
+  test "who fills a form in follows who may fill it in for someone" do
+    { "leaders" => "leader", "admin" => "leader", "guardians" => "guardian", "self" => "person", "family" => "person" }.each do |level, by|
+      form = create_form("Evaluation #{level}", respond_permission: level, read_permission: "family")
+      item = add_item(@checklist, :form_complete, "Evaluation #{level}", { form_ids: [ form.id ] })
+      assert_equal "Fill it in", result(:member, item).fix["label"]
+      assert_equal by, result(:member, item).fix["by"], level
+    end
+  end
+
   test "a signature only a leader gives is a leader's to sign; the person still fills the form in" do
     @form.form_questions.create!(kind: :signature, label: "Coach sign-off", signer: "leader")
     assert_equal "person", result(:member).fix["by"], "nothing filled in yet"
