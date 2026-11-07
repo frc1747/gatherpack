@@ -216,15 +216,18 @@ class Mcp::Tools::RegistrationToolsTest < ActionDispatch::IntegrationTest
 
   test "copy_registration carries over only the teams and badges the copier may, as the page's save does" do
     admin_badge = Badge.create!(name: "Admins Only", short: "AO", color: "red", badge_type: badge_types(:one), permission: "added_by_admin")
-    @registration.update!(also_add_team_ids: [ @everyone.id, @juniors.id ], badge_ids: [ @joined_badge.id, admin_badge.id ])
-    @juniors_registration.update!(also_add_team_ids: [ @everyone.id, @juniors.id ], badge_ids: [ @joined_badge.id, admin_badge.id ])
+    # A badge of the team Juniors' leader manages, so theirs to give.
+    juniors_badge = Badge.create!(name: "Joined Juniors", short: "JJ", color: "blue", badge_type: badge_types(:one), team: @juniors,
+      permission: "added_by_manager")
+    @registration.update!(also_add_team_ids: [ @everyone.id, @juniors.id ], badge_ids: [ juniors_badge.id, admin_badge.id ])
+    @juniors_registration.update!(also_add_team_ids: [ @everyone.id, @juniors.id ], badge_ids: [ juniors_badge.id, admin_badge.id ])
 
     result = tool("copy_registration", :juniors_leader, registration_id: @juniors_registration.neat_id, opens_at: 5.days.from_now.iso8601)
     copy = registration_from(result.value["id"])
 
     assert_equal [ @juniors.id ], copy.also_add_team_ids
     assert_equal [ @juniors.id ], copy.apply_team_ids
-    assert_equal [ @joined_badge.id ], copy.badge_ids
+    assert_equal [ juniors_badge.id ], copy.badge_ids
 
     sign_in @juniors_leader.user
     with_intake { get copy_intake_registration_path(@juniors_registration) }
