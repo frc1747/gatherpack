@@ -69,4 +69,21 @@ class PersonTest < ActiveSupport::TestCase
       assert_equal expected, Person.visible_to(viewer).pluck(:id).sort, viewer.display_name
     end
   end
+
+  test "visible_to uses a bounded number of queries however deep the tree" do
+    root = build_team("Root")
+    team = root
+    20.times { |i| team = build_team("Level #{i}", team) }
+    viewer = build_person("Root lead", team: root, manager: true)
+    leaf_viewer = build_person("Leaf member", team: team)
+    [ viewer, leaf_viewer ].each { |v| v.update!(user: User.create!(email: "#{v.id}@example.com", password: "password123")) }
+
+    [ viewer, leaf_viewer ].each do |v|
+      queries = []
+      callback = ->(*, payload) { queries << payload[:sql] unless %w[SCHEMA TRANSACTION].include?(payload[:name]) }
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { Person.visible_to(v).load }
+
+      assert_operator queries.size, :<=, 4, queries.join("\n")
+    end
+  end
 end

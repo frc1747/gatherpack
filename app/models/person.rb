@@ -38,12 +38,15 @@ class Person < ApplicationRecord
   end
 
   # People the viewer may see in the people list, as PersonPolicy::Scope does:
-  # everyone for an admin, otherwise the viewer plus the members of their teams
-  # and of those teams' descendants.
+  # everyone for an admin, otherwise the viewer plus the members of their teams,
+  # of those teams' ancestors and of everything below those. Looks the teams up
+  # in two recursive queries (one for ancestors, one for descendants) and
+  # returns a relation, so the cost does not grow with the number of teams.
   def self.visible_to(viewer)
     return all if viewer.admin?
 
-    on_teams(Team.subtree_ids(viewer.all_team_ids)).or(where(id: viewer.id))
+    team_ids = Team.subtree_ids(Team.ancestor_ids(viewer.memberships.pluck(:team_id)))
+    on_teams(team_ids).or(where(id: viewer.id))
   end
 
   def admin?

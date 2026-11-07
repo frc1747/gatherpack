@@ -54,6 +54,22 @@ class Team < ApplicationRecord
     connection.select_values(sql)
   end
 
+  # Ids of the given teams and every team above them, in one recursive query.
+  def self.ancestor_ids(ids)
+    ids = Array(ids).compact
+    return [] if ids.empty?
+
+    sql = sanitize_sql_array([ <<~SQL.squish, ids ])
+      WITH RECURSIVE ancestry(id, parent_id) AS (
+        SELECT teams.id, teams.parent_id FROM teams WHERE teams.id IN (?)
+        UNION
+        SELECT teams.id, teams.parent_id FROM teams INNER JOIN ancestry ON teams.id = ancestry.parent_id
+      )
+      SELECT id FROM ancestry
+    SQL
+    connection.select_values(sql)
+  end
+
   def siblings
     if parent
       Team.where(parent_id: parent_id).where.not(id: id)

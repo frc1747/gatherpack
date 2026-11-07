@@ -54,6 +54,28 @@ class TeamTest < ActiveSupport::TestCase
     assert_equal teams.map(&:id).sort, ids.sort
   end
 
+  test "ancestor_ids includes the given teams and everything above them in one query" do
+    root = build_team("Root")
+    child = build_team("Child", root)
+    grandchild = build_team("Grandchild", child)
+    build_team("Sibling", root)
+
+    ids = nil
+    queries = count_queries { ids = Team.ancestor_ids(grandchild.id) }
+
+    assert_equal 1, queries.size
+    assert_equal [ root, child, grandchild ].map(&:id).sort, ids.sort
+    assert_equal [], Team.ancestor_ids([])
+  end
+
+  test "ancestor_ids stops on a cycle" do
+    a = build_team("A")
+    b = build_team("B", a)
+    a.update_columns(parent_id: b.id)
+
+    assert_equal [ a, b ].map(&:id).sort, Team.ancestor_ids(b.id).sort
+  end
+
   test "subtree_ids stops on a cycle" do
     a = build_team("A")
     b = build_team("B", a)
