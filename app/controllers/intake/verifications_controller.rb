@@ -13,12 +13,14 @@ class Intake::VerificationsController < InternalController
 
   # GET /join/verify?token=...
   def show
+    skip_authorization
     @existing_login = existing_login.present?
     @user = new_login
   end
 
   # POST /join/verify
   def create
+    skip_authorization
     if (user = existing_login)
       as_entry(@entry) { attach(user.person) }
       session[:user_return_to] = intake_me_path(@entry.registration.slug)

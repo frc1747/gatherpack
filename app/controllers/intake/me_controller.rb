@@ -16,6 +16,7 @@ class Intake::MeController < InternalController
 
   # GET /join/:slug/me
   def show
+    skip_authorization
     @person = current_user.person
     @people = [ @person ] + @person.wards.order(:first_name).to_a
     @applications = MembershipApplication.where(registration: @registration, person: @people).includes(:team).order(:created_at).group_by(&:person_id)
@@ -26,6 +27,7 @@ class Intake::MeController < InternalController
   # only where the birthday field's write level lets the signed-in person.
   # A birthday already on file is changed on the profile, not here.
   def update_person
+    skip_authorization
     person = acting_for(params[:person_id])
     return back_with("A birthday is already on file. Ask a leader to change it.") if person.birthday
     return back_with("You can't add this birthday. Ask a leader.") unless birthday_writable?(person)
@@ -40,6 +42,7 @@ class Intake::MeController < InternalController
 
   # POST /join/:slug/me/guardians: a young person names their guardian.
   def add_guardian
+    skip_authorization
     person = current_user.person
     unless Intake.person_needs_guardian?(person) && !person.guardians.exists? &&
         person.membership_applications.pending.exists?(registration: @registration)
@@ -58,6 +61,7 @@ class Intake::MeController < InternalController
 
   # POST /join/:slug/me/members: "Anyone else joining with you?"
   def add_member
+    skip_authorization
     person = current_user.person
     return back_with("Ask a guardian to add family members.") if Intake.person_needs_guardian?(person)
     return back_with(Intake::PublicPages::TRY_AGAIN) if household_over_limit?("member", Intake.setting(:intake_rate_household_per_day, 10))
@@ -80,6 +84,7 @@ class Intake::MeController < InternalController
   # POST /join/:slug/me/email: "Change email". The login changes only when
   # the new address opens its link (Intake::EmailChange).
   def change_email
+    skip_authorization
     user = current_user
     email = Intake.normalize_email(params[:email])
     return back_with("Enter a valid email.") unless email.match?(URI::MailTo::EMAIL_REGEXP)
@@ -94,6 +99,7 @@ class Intake::MeController < InternalController
 
   # DELETE /join/:slug/me/applications/:id
   def withdraw
+    skip_authorization
     people = [ current_user.person ] + current_user.person.wards.to_a
     application = MembershipApplication.pending.where(registration: @registration, person: people).find(params[:id])
     application.destroy!
