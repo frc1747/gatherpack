@@ -1,8 +1,10 @@
 require "test_helper"
 require_relative "../../support/intake_world"
+require_relative "../../support/turnstile_stub"
 
 class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
   include IntakeWorld
+  include TurnstileStub
   include ActiveJob::TestHelper
   include Devise::Test::IntegrationHelpers
 
@@ -193,6 +195,42 @@ class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
     end
   ensure
     Intake::BotCheck.adapter = nil
+  end
+
+  test "with Turnstile on, a form that can't be checked is sent back with a message and makes no entry" do
+    keys = { intake_turnstile_site_key: "site-key", intake_turnstile_secret: "s3cret" }
+    adapter = Intake::BotCheck.adapter
+
+    with_intake(keys) do
+      get intake_join_path(@registration.slug)
+      assert_select ".cf-turnstile[data-sitekey=site-key]"
+      assert_select "script[src^='https://challenges.cloudflare.com/']"
+
+      stub_turnstile(adapter, '{"success":false}') do
+        assert_no_difference -> { Intake::Entry.count } do
+          post intake_join_path(@registration.slug), params: join_params.merge("cf-turnstile-response" => "bad")
+        end
+      end
+      assert_response :unprocessable_content
+      assert_select ".alert", /couldn't check that you're a person/
+
+      stub_turnstile(adapter, '{"success":true}') do
+        assert_difference -> { Intake::Entry.count }, 1 do
+          post intake_join_path(@registration.slug), params: join_params.merge("cf-turnstile-response" => "good")
+        end
+      end
+      assert_select "h1", "Thanks, Riley. Check your email to finish."
+    end
+  end
+
+  test "with Turnstile keys blank the form has no widget and still submits" do
+    with_intake do
+      get intake_join_path(@registration.slug)
+      assert_select ".cf-turnstile", 0
+      assert_difference -> { Intake::Entry.count }, 1 do
+        post intake_join_path(@registration.slug), params: join_params
+      end
+    end
   end
 
   test "at the cap, new people are told the registration is busy and managers hear once" do
