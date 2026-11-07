@@ -58,10 +58,13 @@ module Checklists
         # The form as offered to an author: only fields they can read for
         # someone (all of them for an admin, or when no author is given),
         # and always the item's saved field, so renaming an item never
-        # points it elsewhere.
+        # points it elsewhere. The fields are read when the form is drawn,
+        # once per call: registering the kind reads its settings while the
+        # app boots, before the tables may exist on a fresh database.
         def settings_for(author, item = nil)
+          fields = nil
           [
-            ItemKind::Setting.new(key: :field_id, type: :choice, label: "Field", options: field_options(author, item)),
+            ItemKind::Setting.new(key: :field_id, type: :choice, label: "Field", options: -> { fields ||= field_options(author, item) }),
             ItemKind::Setting.new(key: :operator, type: :choice, label: "Test", options: OPERATORS.invert.to_a,
               hint: "Which tests fit depends on the field: choices and text use \"is any of\" or \"is none of\", yes/no fields \"is yes\" or \"is no\", dates \"on or after\" or \"on or before\", numbers \"at least\" or \"at most\""),
             ItemKind::Setting.new(key: :values, type: :text, label: "Values", hint: "For \"is any of\" and \"is none of\": one or more, separated by commas"),
