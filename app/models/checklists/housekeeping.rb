@@ -6,9 +6,11 @@ module Checklists
   # setting, while it's off (Housekeeping.run_fallback). A checklist another
   # (not archived) one requires is skipped and shown as a problem on it.
   #
-  # archive_due? and used_by are what the Housekeeping type reads, so a
-  # feature that also holds checklists back (a sign-up rule needing one)
-  # prepends both here, as it did before the type existed.
+  # A feature that also holds checklists back (a sign-up rule needing one)
+  # prepends used_by here: archiving, automatic or from the list page, skips
+  # a checklist while used_by names anything. archive_due? only answers
+  # whether its end date makes it due, for the "Ended, but not archived"
+  # problem note; prepending it alone doesn't stop archiving.
   #
   # checklists_prune_results_after: a date (YYYY-MM-DD) or a number of days
   # after a checklist's end; blank means never. Archived checklists that
