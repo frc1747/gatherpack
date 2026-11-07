@@ -54,7 +54,7 @@ module Checklists
         item = checklist.checklist_items.new(kind: CountItem::COUNT, label: commitment.title, commitment: commitment, wrapped: true,
           exempt_label: "Doesn't owe", config: config_for(commitment), read_level: commitment.grouped? ? "group" : "self_and_leaders")
         item.save!
-        rules_for(commitment, checklist, item)
+        rules_for(commitment, checklist)
         checklist
       end
     end
@@ -69,23 +69,22 @@ module Checklists
       }.compact
     end
 
-    # Include rules are "any of", so an owing badge narrows the checklist only
-    # when the owing team is the checklist's own; under a lower owing team the
-    # item's rule narrows to the badge instead. Rules are written as they are,
-    # without the reach checks a person's new rule gets: they describe people
-    # the commitment already covers.
-    def rules_for(commitment, checklist, item)
-      if commitment.owing_badge_id && commitment.owing_team_id == commitment.team_id
-        add_rule(checklist, nil, :include, :badge, badge_id: commitment.owing_badge_id)
+    # Who owes: the owing team, or, with an owing badge, the badge's holders
+    # in the owing team (one badge rule limited to that team), less holders
+    # of the exempt badge. Rules are written as they are, without the reach
+    # checks a person's new rule gets: they describe people the commitment
+    # already covers.
+    def rules_for(commitment, checklist)
+      if commitment.owing_badge_id
+        add_rule(checklist, :include, :badge, badge_id: commitment.owing_badge_id, team_id: commitment.owing_team_id)
       else
-        add_rule(checklist, nil, :include, :team, team_id: commitment.owing_team_id, include_managers: true)
-        add_rule(checklist, item, :include, :badge, badge_id: commitment.owing_badge_id) if commitment.owing_badge_id
+        add_rule(checklist, :include, :team, team_id: commitment.owing_team_id, include_managers: true)
       end
-      add_rule(checklist, nil, :exclude, :badge, badge_id: commitment.exempt_badge_id) if commitment.exempt_badge_id
+      add_rule(checklist, :exclude, :badge, badge_id: commitment.exempt_badge_id) if commitment.exempt_badge_id
     end
 
-    def add_rule(checklist, item, effect, target_type, **targets)
-      checklist.checklist_rules.new(item: item, effect: effect, target_type: target_type, **targets).save!(validate: false)
+    def add_rule(checklist, effect, target_type, **targets)
+      checklist.checklist_rules.new(effect: effect, target_type: target_type, **targets).save!(validate: false)
     end
   end
 end

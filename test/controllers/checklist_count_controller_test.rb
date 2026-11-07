@@ -31,6 +31,36 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a pooled parent who isn't a guardian finds the wrapped count in the list and sees their family's row only" do
+    with_settings(feature_badges: "true", commitments_organizers: "Commitment Organizer > Club") do
+      families = create_world_commitment("Family shifts", group_relationship_type: @parent_of)
+      families.commitment_sources.create!(kind: "checkins", subject: @outreach)
+      dad = create_world_person("Dad")
+      Relationship.create!(parent: dad, child: person(:member), relationship_type: @parent_of, created_by: person(:admin))
+      checklist = Checklists::WrapCommitments.new.up.find { |made| made.title == "Family shifts" }
+
+      sign_in dad.user
+      with_checklists do
+        get commitment_path(families)
+        assert_redirected_to checklist_path(checklist)
+
+        get checklists_path
+        assert_response :success
+        assert_select "a[href=?]", checklist_path(checklist)
+
+        get checklist_path(checklist)
+        assert_response :success
+        assert_match person(:member).display_name, response.body
+        assert_match "0 of 2 shifts", response.body
+        assert_no_match person(:kid).display_name, response.body, "another family's row stays hidden"
+        assert_no_match person(:member2).display_name, response.body
+
+        get person_commitments_path(person(:member))
+        assert_redirected_to checklists_path, "he can't open the member's own page, so he gets the list"
+      end
+    end
+  end
+
   test "with checklists off, the commitment pages stay" do
     sign_in person(:admin).user
     with_feature do
@@ -52,7 +82,7 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
   test "an organizer adds a count item, then what counts and credit from its form" do
     sign_in person(:admin).user
     with_checklists do
-      post checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "count", label: "Setup help", counts: "1", start_mode: "checklist",
+      post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "count", label: "Setup help", counts: "1", start_mode: "checklist",
         config: { base_amount: "3", unit: "shifts", group_relationship_type_id: @parent_of.id, additional_amount: "1", counts_when: "planned" } } }
       item = @checklist.checklist_items.find_by!(label: "Setup help")
       assert_redirected_to checklist_path(@checklist)
