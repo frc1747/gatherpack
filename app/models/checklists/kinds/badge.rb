@@ -52,7 +52,7 @@ module Checklists
           else
             Result.not_met("No #{wanted.presence || "badge"}",
               detail: config["within_dates"] ? "No #{wanted} given since #{window.starts_on ? I18n.l(window.starts_on, format: :long) : "the start"}" : "Doesn't hold #{wanted.presence || "the badge"}",
-              fix: { "label" => "Ask a leader" })
+              fix: { "label" => "Ask a leader", "by" => "leader" })
           end
         end
       end
