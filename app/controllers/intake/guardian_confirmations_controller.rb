@@ -2,7 +2,7 @@
 # Confirming verifies the guardian's email, finds their login by that email
 # or makes one, and links them as the young person's guardian. A young
 # person can't make the tie; only the guardian's confirmation does.
-class Intake::GuardianConfirmationsController < ApplicationController
+class Intake::GuardianConfirmationsController < InternalController
   include Intake::PublicPages
 
   skip_before_action :check_for_user

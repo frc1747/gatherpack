@@ -8,7 +8,7 @@
 # or one the person signed up through. Only someone who doesn't need a
 # guardian adds family members; only someone who does names a guardian,
 # one request at a time. Both are limited per person per day.
-class Intake::MeController < ApplicationController
+class Intake::MeController < InternalController
   include Intake::PublicPages
 
   before_action :set_registration
