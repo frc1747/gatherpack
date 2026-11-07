@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_101100) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -230,8 +230,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101100) do
     t.integer "access", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "created_by_id"
     t.index ["badge_id"], name: "index_checklist_grants_on_badge_id"
     t.index ["checklist_id"], name: "index_checklist_grants_on_checklist_id"
+    t.index ["created_by_id"], name: "index_checklist_grants_on_created_by_id"
     t.index ["team_id"], name: "index_checklist_grants_on_team_id"
   end
 
@@ -1006,6 +1008,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101100) do
   add_foreign_key "checklist_excuses", "people", on_delete: :cascade
   add_foreign_key "checklist_grants", "badges"
   add_foreign_key "checklist_grants", "checklists"
+  add_foreign_key "checklist_grants", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "checklist_grants", "teams"
   add_foreign_key "checklist_items", "checklist_items", column: "parent_id"
   add_foreign_key "checklist_items", "checklists"

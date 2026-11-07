@@ -59,6 +59,31 @@ module ChecklistsTestKinds
   # A kind like a private field: a person's result shows only to them and
   # to admins, and only admins may set it up. Not met, with the "value" in
   # its summary.
+  # Only admins may grant full access to it.
+  class GrantGuarded < Checklists::ItemKind
+    def self.grantable_by?(_item, person, access)
+      access != :full || person.admin?
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("Guarded") }
+    end
+  end
+
+  # Names badges; only admins may set it up on a badge named "Restricted...".
+  class RestrictedBadges < Checklists::ItemKind
+    def self.settings = [ Setting.new(key: "badge_ids", type: :badges, label: "Badges") ]
+    def self.references = { "badge_ids" => "Badge" }
+
+    def self.authorable_by?(item, author)
+      author.admin? || referenced_records(item, "badge_ids").none? { |badge| badge.name.start_with?("Restricted") }
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("Named") }
+    end
+  end
+
   class Private < Checklists::ItemKind
     def self.visible_to?(_item, viewer, person)
       viewer.admin? || viewer.id == person.id

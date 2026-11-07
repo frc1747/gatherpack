@@ -16,6 +16,19 @@ module Checklists
       def model = record.class
     end
 
+    # The copy was refused: by may not set up items (labels; their kind's
+    # authorable_by? said no to the copied config, replacements included) or
+    # make grants (holder names) it would hold. Nothing is saved.
+    class Refused < StandardError
+      attr_reader :items, :grants
+
+      def initialize(items, grants)
+        @items = items
+        @grants = grants
+        super("Can't copy #{(items + grants).to_sentence}")
+      end
+    end
+
     attr_reader :checklist, :shift_months
 
     def initialize(checklist, shift_months: 12)
@@ -61,7 +74,8 @@ module Checklists
     end
 
     # dates: { key => Date or string } overriding the proposals (blank keeps
-    # the old date); replace: { key => id } (blank keeps the record).
+    # the old date); replace: { key => id } (blank keeps the record). Raises
+    # Refused when by couldn't set up a copied item or make a copied grant.
     def call(title:, by:, dates: {}, replace: {})
       dates = date_changes.to_h { |change| [ change.key, change.proposed ] }.merge(dates.to_h.transform_values { |value| cast_date(value) }.compact)
       known = replacements.to_h { |replacement| [ replacement.key, replacement.model ] }
@@ -78,12 +92,22 @@ module Checklists
         end
 
         item_ids = {}
-        checklist.top_level_items.each { |item| copy_item(item, copy, nil, dates, replace, item_ids) }
+        @refused_items = []
+        checklist.top_level_items.each { |item| copy_item(item, copy, nil, dates, replace, item_ids, by) }
+        raise Refused.new(@refused_items, []) if @refused_items.any?
+
         checklist.population_rules.each { |rule| copy_rule(rule, copy, nil, replace) }
-        checklist.checklist_grants.each do |grant|
-          copy.checklist_grants.create!(badge_id: swap(grant.badge, replace), team_id: swap(grant.team, replace),
-            access: grant.access, item_ids: grant.item_ids.filter_map { |id| item_ids[id] })
+        refused_grants = checklist.checklist_grants.filter_map do |grant|
+          new_grant = copy.checklist_grants.new(badge_id: swap(grant.badge, replace), team_id: swap(grant.team, replace),
+            access: grant.access, item_ids: grant.item_ids.filter_map { |id| item_ids[id] }, created_by: by)
+          refused = by ? new_grant.refused_items(by) : []
+          next "#{new_grant.holder_name}' #{new_grant.access} access to #{refused.map(&:label).to_sentence}" if refused.any?
+
+          new_grant.save!
+          nil
         end
+        raise Refused.new([], refused_grants) if refused_grants.any?
+
         copy
       end
     end
@@ -132,14 +156,21 @@ module Checklists
       replace[key_for(record)].presence || record.id
     end
 
-    def copy_item(item, copy, parent, dates, replace, item_ids)
+    # Each copied item is checked against by (ItemKind.authorable_by? on the
+    # copy's config) before it's saved. Once one is refused nothing more is
+    # saved, but the rest are still checked so the refusal names them all.
+    def copy_item(item, copy, parent, dates, replace, item_ids, by)
       new_item = item.dup
       new_item.assign_attributes(checklist: copy, parent: parent, config: copy_config(item, dates, replace))
       %w[starts_on ends_on due_on].each { |field| new_item[field] = dates.fetch("#{item.id}.#{field}", new_item[field]) }
-      new_item.save!
-      item_ids[item.id] = new_item.id
-      item.checklist_rules.each { |rule| copy_rule(rule, copy, new_item, replace) }
-      item.children.each { |child| copy_item(child, copy, new_item, dates, replace, item_ids) }
+      kind = new_item.kind_class
+      @refused_items << new_item.label if by && kind && !kind.authorable_by?(new_item, by)
+      if @refused_items.empty?
+        new_item.save!
+        item_ids[item.id] = new_item.id
+        item.checklist_rules.each { |rule| copy_rule(rule, copy, new_item, replace) }
+      end
+      item.children.each { |child| copy_item(child, copy, new_item, dates, replace, item_ids, by) }
     end
 
     def copy_config(item, dates, replace)
