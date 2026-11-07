@@ -34,7 +34,7 @@ Rails.application.config.to_prepare do
     archived: ->(scope) { scope.archived },
     archive: ->(checklist) { checklist.update!(status: :archived) },
     restore: ->(checklist) { checklist.update!(status: :active) },
-    used_by: ->(checklist) { checklist.dependents.refreshable.pluck(:title) },
+    used_by: ->(checklist) { Checklists::Housekeeping.used_by(checklist) },
     permitted: ->(user, checklist, _action) { checklist.organizer?(user.person) },
     copy: Checklists::Copier,
     auto_scope: ->(scope) { scope.active },
