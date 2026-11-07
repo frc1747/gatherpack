@@ -5,7 +5,8 @@
 # "Not found". Rows are ordered as the report does (not done first, then by what's left, then
 # name), at most `limit`; the viewer's own and their wards' rows come first as "Your family" when
 # they see others too. as_of (a date) recomputes as of then and stores nothing, and the page offers
-# it only to those who run the checklist, so for anyone else it is ignored. A person the viewer
+# it only to those who may change the checklist (ChecklistPolicy#update?: its organizers, not once
+# it is archived), so for anyone else it is ignored. A person the viewer
 # sees no part of isn't in rows at all. Needs the checklists feature.
 class Mcp::Tools::ChecklistResults < Mcp::Tool
   include Mcp::ChecklistRecords
@@ -13,7 +14,7 @@ class Mcp::Tools::ChecklistResults < Mcp::Tool
   tool_name "checklist_results"
   description "A checklist's results for everyone, as its report page shows you: one row per person you may see, with the overall and each item " \
     "(count items carry confirmed, planned, owed and remaining in measures). A checklist you can't see is \"Not found\". " \
-    "as_of only applies if you run the checklist."
+    "as_of only applies if you run the checklist and it isn't archived."
   scope :read
   feature :checklists
   input_schema(
@@ -49,7 +50,7 @@ class Mcp::Tools::ChecklistResults < Mcp::Tool
 
   def call(checklist_id:, as_of: nil, limit: DEFAULT_LIMIT)
     checklist = find_checklist(checklist_id)
-    report = Checklists::Report.new(checklist, ctx.person, as_of: (parse_date(as_of) if checklist.organizer?(ctx.person)))
+    report = Checklists::Report.new(checklist, ctx.person, as_of: (parse_date(as_of) if ctx.allowed?(checklist, :update?)))
     rows = report.sections.flat_map { |_, statuses| statuses }
     limit = limit.to_i.clamp(1, MAX_LIMIT)
 

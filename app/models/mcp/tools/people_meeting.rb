@@ -2,9 +2,9 @@
 # overall column filter, as Checklists.people_meeting does for features that use a checklist as a
 # test, but limited to the rows the viewer may see (Checklists::Report#statuses), so it tells
 # them nothing the report page wouldn't. The checklist must be one the viewer can see, otherwise
-# "Not found". A row whose overall the viewer can't see isn't matched by any status. not_done
-# is the report's "isn't Done": Almost, Not yet and Not counted together, here pending, not_met
-# and exempt. Needs the checklists feature.
+# "Not found". A row whose overall the viewer can't see isn't matched by a specific status. not_done
+# is the report's "isn't Done" (Almost, Not yet and Not counted together), which also keeps a row
+# whose overall the viewer can't see, as the page's filter does; those rows have blank text. Needs the checklists feature.
 class Mcp::Tools::PeopleMeeting < Mcp::Tool
   include Mcp::ChecklistRecords
 
@@ -45,17 +45,24 @@ class Mcp::Tools::PeopleMeeting < Mcp::Tool
   def call(checklist_id:, status: "met", limit: DEFAULT_LIMIT)
     checklist = find_checklist(checklist_id)
     report = Checklists::Report.new(checklist, ctx.person)
-    wanted = status == "not_done" ? %w[pending not_met exempt] : [ status ]
-    matches = report.statuses.values.select { |entry| entry.overall && wanted.include?(entry.overall.status) }
+    matches = report.statuses.values.select { |entry| matches?(entry, status) }
       .sort_by { |entry| [ report.name(entry.person_id).to_s, entry.person_id ] }
     limit = limit.to_i.clamp(1, MAX_LIMIT)
 
     {
       checklist: checklist_json(checklist),
       status: status,
-      people: matches.first(limit).map { |entry| { person: person_json(report.people.fetch(entry.person_id)), text: entry.overall.text } },
+      people: matches.first(limit).map { |entry| { person: person_json(report.people.fetch(entry.person_id)), text: entry.overall&.text.to_s } },
       total: matches.size,
       truncated: matches.size > limit
     }
+  end
+
+  private
+
+  # not_done is the report's filter, which keeps a row whose overall the viewer can't see.
+  def matches?(entry, status)
+    overall = entry.overall&.status
+    status == "not_done" ? overall != "met" : overall == status
   end
 end

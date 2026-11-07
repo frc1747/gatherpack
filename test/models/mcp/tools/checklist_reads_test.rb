@@ -156,4 +156,30 @@ class Mcp::Tools::ChecklistReadsTest < ActionDispatch::IntegrationTest
     assert_equal "Not found", call_tool("people_meeting", user: user(:beta_member), checklist_id: @checklist.neat_id).error
     assert_equal 1, call_tool("people_meeting", user: user(:alpha_manager), checklist_id: @checklist.neat_id, status: "not_done", limit: 1).value["people"].size
   end
+
+  test "as_of recomputes only where the page offers it: not on an archived checklist" do
+    # A change the stored rows haven't caught up with, which only a live computation shows.
+    BadgeAssignment.create!(badge: @safety, person: person(:alpha_member))
+    today = Date.current.iso8601
+    safety = lambda do |viewer, **arguments|
+      rows(viewer, **arguments).fetch(person(:alpha_member).neat_id)["items"].find { |cell| cell["item"]["label"] == "Safety" }["status"]
+    end
+
+    assert_equal %w[not_met met], [ safety.call(:organizer), safety.call(:organizer, as_of: today) ]
+    @checklist.update!(status: :archived)
+    assert_equal %w[not_met not_met], [ safety.call(:organizer), safety.call(:organizer, as_of: today) ], "stored rows, as the page shows"
+    assert_equal %w[not_met not_met], [ safety.call(:admin), safety.call(:admin, as_of: today) ]
+  end
+
+  test "not_done keeps a row whose overall the viewer can't see, as the report filter does" do
+    @checklist.update!(read_level: "self_and_leaders")
+    @login.update!(read_level: "family")
+    refresh_checklist
+    kid = person(:kid).neat_id
+    meeting = ->(status) { call_tool("people_meeting", user: user(:kid_parent), checklist_id: @checklist.neat_id, status: status).value["people"] }
+
+    assert_nil rows(:kid_parent).fetch(kid)["overall"], "the guardian sees an item but not the overall"
+    assert_equal [ [ kid, "" ] ], meeting.call("not_done").map { |entry| [ entry["person"]["id"], entry["text"] ] }
+    %w[met pending not_met exempt].each { |status| assert_empty meeting.call(status), status }
+  end
 end
