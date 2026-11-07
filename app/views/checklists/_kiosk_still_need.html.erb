@@ -1,0 +1,19 @@
+<%# "You still need" on the time kiosk, after a scan: the person's items
+    that aren't done, from checklists whose organizers chose to show them
+    here (show_on_kiosk). A shared screen, so one short line each, no
+    numbers or details, and nothing for managers. %>
+<% if Checklists.enabled? && person && !person.manager? %>
+  <% lines = Checklists.checklist_for(person, viewer: person).flat_map do |_checklist, status|
+       status.items.select { |entry| entry.item.show_on_kiosk? && (entry.not_met? || entry.pending?) }.map { |entry| entry.item.label }
+     end.uniq %>
+  <% if lines.any? %>
+    <div class="alert alert-warning mt-3" id="kiosk-still-need">
+      <h3 class="h5">You still need</h3>
+      <ul class="mb-0">
+        <% lines.each do |line| %>
+          <li><%= line %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+<% end %>

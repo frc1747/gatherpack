@@ -1,0 +1,8 @@
+<%# The registration's checklist (checklists feature): rendered by _form. %>
+<% if Checklists.enabled? %>
+  <h2 class="h5 mt-4">Checklist</h2>
+  <% choices = (intake_choosable_checklists | [ f.object.checklist ].compact).sort_by(&:title) %>
+  <%= f.input :checklist_id, label: "What people joining need to do", collection: choices, label_method: :title, value_method: :id,
+    include_blank: "No checklist", hint: "People see it on their registration page, and managers see it beside each application. Only checklists you run are listed." %>
+  <%= f.input :gate_approval, label: "Approve only when the checklist is done", hint: "Off: managers can approve before everything is in." %>
+<% end %>

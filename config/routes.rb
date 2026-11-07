@@ -281,6 +281,7 @@ Rails.application.routes.draw do
     end
     resources :teams, only: [] do
       resources :registrations, only: %i[index new]
+      post "applications/bulk" => "bulk_decisions#create", :as => :bulk_decisions
     end
   end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -254,6 +254,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
     t.string "exempt_label"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "show_on_kiosk", default: false, null: false
     t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
     t.index ["kind"], name: "index_checklist_items_on_kind"
     t.index ["parent_id"], name: "index_checklist_items_on_parent_id"
@@ -468,6 +469,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.uuid "kiosk_field_ids", default: [], null: false, array: true
+    t.index ["checklist_id"], name: "index_intake_registrations_on_checklist_id"
     t.index ["created_by_id"], name: "index_intake_registrations_on_created_by_id"
     t.index ["guardian_relationship_type_id"], name: "index_intake_registrations_on_guardian_relationship_type_id"
     t.index ["slug"], name: "index_intake_registrations_on_slug", unique: true
@@ -1123,6 +1125,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
   add_foreign_key "intake_registration_badges", "intake_registrations", column: "registration_id", on_delete: :cascade
   add_foreign_key "intake_registration_teams", "intake_registrations", column: "registration_id", on_delete: :cascade
   add_foreign_key "intake_registration_teams", "teams", on_delete: :cascade
+  add_foreign_key "intake_registrations", "checklists"
   add_foreign_key "intake_registrations", "intake_registrations", column: "successor_id", on_delete: :nullify
   add_foreign_key "intake_registrations", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "intake_registrations", "relationship_types", column: "guardian_relationship_type_id", on_delete: :nullify

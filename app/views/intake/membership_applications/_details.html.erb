@@ -8,6 +8,11 @@
   <div class="small mt-1" id="<%= dom_id(application, :intake) %>">
     <span class="text-muted"><%= intake_source_label(application) %>: <%= application.registration.title %></span>
     <% if decides %>
+      <%# Ticks into the bulk form, which only the team's applications page has. %>
+      <% if application.pending? && !own && @pending_applications %>
+        <%= check_box_tag "application_ids[]", application.id, false, id: "bulk_#{application.id}", form: intake_bulk_form_id(application.team),
+          class: "form-check-input me-1", aria: { label: "Tick #{application.person.display_name}" } %>
+      <% end %>
       <% application.intake_flags.each do |flag| %>
         <span class="badge text-bg-warning ms-1"><%= flag %></span>
       <% end %>
@@ -15,6 +20,7 @@
         <%= render "intake/matches/flag", member: application.intake_household_member, registration: application.registration %>
         <%= render "intake/guardians/manage", ward: application.person, registration: application.registration %>
       <% end %>
+      <%= render "intake/membership_applications/checklist", application: application %>
     <% end %>
     <% if application.approved? && decides && (summary = application.intake_placement_summary) %>
       <div>Approval <%= summary.downcase_first %>.</div>
