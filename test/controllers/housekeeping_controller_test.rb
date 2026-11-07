@@ -63,7 +63,7 @@ class HousekeepingControllerTest < ActionDispatch::IntegrationTest
       assert_nil @old_event.reload.archived_at
 
       post housekeeping_apply_path(:events), params: { act: "archive", ids: [ @old_event.id ] }
-      assert_redirected_to housekeeping_list_path(:events)
+      assert_redirected_to housekeeping_list_path(:events, older: { mode: "" })
       assert @old_event.reload.archived_at
 
       get events_path
@@ -188,11 +188,46 @@ class HousekeepingControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the people filter keeps the list's search" do
+  test "after archiving or restoring, the list comes back on the view acted on, not the saved default" do
     with_housekeeping do
+      sign_in person(:club_manager).user
+      HousekeepingPreference.save_for!(person(:club_manager), :events, view: "archived", older: { "mode" => "within", "amount" => 6, "unit" => "months" })
+      older = { mode: "within", amount: "12", unit: "months" }
+
+      get housekeeping_list_path(:events, older: older)
+      assert_select "form[action='#{housekeeping_preview_path(:events)}'] input[type=hidden][name='older[amount]'][value='12']"
+      post housekeeping_preview_path(:events), params: { act: "archive", ids: [ @old_event.id ], older: older }
+      assert_select "input[type=hidden][name='older[amount]'][value='12']"
+
+      post housekeeping_apply_path(:events), params: { act: "archive", ids: [ @old_event.id ], older: older }
+      assert_redirected_to housekeeping_list_path(:events, older: older)
+      follow_redirect!
+      assert_select "input#archived[checked]", count: 0
+      assert_select "input#older_amount[value='12']"
+
+      post housekeeping_apply_path(:events), params: { act: "restore", ids: [ @old_event.id ], archived: "1", older: older }
+      assert_redirected_to housekeeping_list_path(:events, archived: "1", older: older)
+      assert_nil @old_event.reload.archived_at
+    end
+  end
+
+  test "the people filter joins the list's search form, so both go in one request" do
+    with_housekeeping do
+      Person.where(id: @members.memberships.select(:person_id)).update_all(created_at: 3.years.ago)
+      Checkin.create!(event: @new_event, person: person(:member))
       sign_in person(:admin).user
-      get people_path(q: { display_name_i_cont: "Member" })
-      assert_select "form input[type=hidden][name='q[display_name_i_cont]'][value='Member']"
+
+      get people_path
+      assert_select "form#person_search"
+      assert_select "input[name='no_activity[mode]'][form='person_search']", count: 3
+      assert_select "input[name='no_activity[amount]'][form='person_search']"
+      assert_select "select[name='no_activity[unit]'][form='person_search']"
+      assert_select "button[type=submit][form='person_search']", text: "Find"
+
+      get people_path(q: { display_name_i_cont: "Member" }, no_activity: { mode: "within", amount: "1", unit: "months" })
+      assert_match "MemberTwo World", response.body
+      assert_no_match(/>\s*Member World\s*</, response.body)
+      assert_no_match "Kid World", response.body
     end
   end
 

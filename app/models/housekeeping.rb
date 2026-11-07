@@ -98,6 +98,30 @@ module Housekeeping
       end
     end
 
+    # While Housekeeping is off, a type with a fallback_setting still
+    # archives what that older setting says is due, as it did before it was
+    # registered here (checklists under checklists_archive_after; run by
+    # ChecklistNightlyJob). Does nothing while Housekeeping is on, when run
+    # covers it. Returns the records archived.
+    def run_fallback(key, today = Date.current)
+      type = types[key.to_s]
+      return [] if enabled? || type.nil? || !type.fallback_setting?
+
+      archived = type.due(today).reject { |record| type.used_by(record).any? }
+      archived.each { |record| type.archive!(record) }
+      archived
+    end
+
+    # The type for a key whose automatic archiving is in force: any
+    # available type while Housekeeping is on, and a type with a
+    # fallback_setting while it's off.
+    def archiving_type(key)
+      type = types[key.to_s]
+      return if type.nil?
+
+      enabled? ? self.type(key) : (type if type.fallback_setting?)
+    end
+
     private
 
     def register_setting(type)

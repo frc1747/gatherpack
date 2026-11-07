@@ -62,8 +62,8 @@ class HousekeepingTest < ActiveSupport::TestCase
 
   test "archiving skips a checklist another one requires, and says so" do
     with_housekeeping do
-      travel_prep = create_world_checklist("Gear check")
-      add_item(travel_prep, :checklist, "Trip done", { checklist_id: @trip.id })
+      gear = create_world_checklist("Gear check")
+      add_item(gear, :checklist, "Trip done", { checklist_id: @trip.id })
       plain = create_world_checklist("Plain 2025", starts_on: Date.new(2024, 9, 1), ends_on: Date.new(2025, 6, 30))
 
       preview = Housekeeping::Preview.new(Housekeeping.type(:checklists), :archive, [ @trip, plain ], user(:club_manager))
@@ -155,6 +155,33 @@ class HousekeepingTest < ActiveSupport::TestCase
       end
 
       Housekeeping.run(Date.new(2026, 11, 1))
+      assert @trip.reload.archived?
+    end
+  end
+
+  test "with housekeeping off, checklists still archive each night under checklists_archive_after" do
+    with_settings(feature_checklists: "true", checklists_archive_after: "2026-07-01") do
+      assert_not Housekeeping.enabled?
+      gear = create_world_checklist("Gear check")
+      add_item(gear, :checklist, "Trip done", { checklist_id: @trip.id })
+      plain = create_world_checklist("Plain 2025", starts_on: Date.new(2024, 9, 1), ends_on: Date.new(2025, 6, 30))
+      draft = create_world_checklist("Draft 2025", status: :draft, starts_on: Date.new(2024, 9, 1), ends_on: Date.new(2025, 6, 30))
+
+      ChecklistNightlyJob.perform_now
+      assert plain.reload.archived?
+      assert draft.reload.draft?, "only active checklists, as before"
+      assert @trip.reload.active?, "one another requires is skipped"
+      assert_includes @trip.problems.join, "Gear check still requires it"
+      assert gear.reload.active?
+    end
+  end
+
+  test "with housekeeping on, the housekeeping job archives checklists and the checklists job leaves it to it" do
+    with_housekeeping(checklists_archive_after: "2026-07-01") do
+      ChecklistNightlyJob.perform_now
+      assert @trip.reload.active?
+
+      HousekeepingNightlyJob.perform_now
       assert @trip.reload.archived?
     end
   end

@@ -25,8 +25,9 @@ Rails.application.config.to_prepare do
     "Admins can clear these answers for people with no activity for a while")
 
   # Checklists read their older checklists_archive_after setting (a date or
-  # days) while the "Archive automatically" one is blank. Clearing results
-  # of archived checklists stays with ChecklistNightlyJob.
+  # days) while the "Archive automatically" one is blank, and only it while
+  # Housekeeping is off (then ChecklistNightlyJob archives them, as before).
+  # Clearing results of archived checklists stays with ChecklistNightlyJob.
   Housekeeping.register(Checklist,
     ended_on: :ends_on,
     available: -> { Checklists.enabled? },
@@ -36,6 +37,7 @@ Rails.application.config.to_prepare do
     used_by: ->(checklist) { checklist.dependents.refreshable.pluck(:title) },
     permitted: ->(user, checklist, _action) { checklist.organizer?(user.person) },
     copy: Checklists::Copier,
+    auto_scope: ->(scope) { scope.active },
     fallback_setting: :checklists_archive_after,
     list_path: :checklists_path)
   # An event with no end time ended when it started.

@@ -19,4 +19,10 @@ module HousekeepingHelper
       hidden_field_tag(name, value, id: nil)
     end
   end
+
+  # Hidden older[...] fields for a list's "ended before" filter (blank mode
+  # when there's none), so a form acting on the list can come back to it.
+  def housekeeping_older_fields(older)
+    housekeeping_hidden_params(:older, older&.to_config || { "mode" => "" })
+  end
 end

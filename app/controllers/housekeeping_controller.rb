@@ -65,7 +65,9 @@ class HousekeepingController < InternalController
       done = @preview.apply!
       "#{done.size} #{@action == :archive ? "archived" : "restored"}."
     end
-    redirect_to housekeeping_list_path(@type.key, archived: (@action == :restore ? nil : params[:archived].presence)), notice: notice, status: :see_other
+    # Back to the view acted on (its filter), not the saved default.
+    redirect_to housekeeping_list_path(@type.key, archived: params[:archived].presence, older: older_params.presence || { mode: "" }),
+      notice: notice, status: :see_other
   end
 
   private
@@ -91,6 +93,7 @@ class HousekeepingController < InternalController
   end
 
   def build_change
+    @older_than = Checklists::RelativeDate.from_config(older_params)
     @action = ACTIONS.include?(params[:act]) ? params[:act].to_sym : :archive
     if @action == :copy && @type.copyable?
       @shift_months = (params[:shift_months].presence || 12).to_i

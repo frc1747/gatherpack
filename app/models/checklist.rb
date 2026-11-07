@@ -167,7 +167,7 @@ class Checklist < ApplicationRecord
       where = rule.item ? "#{rule.item.label}: a" : "A"
       list << "#{where} rule's #{rule.target_type == "applicants" ? "team" : rule.target_type} was deleted; it matches nobody"
     end
-    if active? && ::Housekeeping.type(:checklists)&.due?(self) && dependents.refreshable.exists?
+    if active? && ::Housekeeping.archiving_type(:checklists)&.due?(self) && dependents.refreshable.exists?
       list << "Ended, but not archived: #{dependents.refreshable.pluck(:title).to_sentence} still requires it"
     end
     list

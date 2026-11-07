@@ -8,6 +8,7 @@
     <%= form_with url: housekeeping_apply_path(@type.key), method: :post do %>
       <%= hidden_field_tag :act, @action %>
       <%= hidden_field_tag :archived, "1" if params[:archived].present? %>
+      <%= housekeeping_older_fields(@older_than) %>
       <%= hidden_field_tag :shift_months, @shift_months if @copy %>
       <% change.ready.each do |record| %>
         <%= hidden_field_tag "ids[]", record.id, id: nil %>
@@ -96,7 +97,7 @@
       <% if change.ready.any? %>
         <%= submit_tag "#{verb} #{change.ready.size}", class: "btn btn-primary" %>
       <% end %>
-      <%= link_to "Cancel", housekeeping_list_path(@type.key, archived: params[:archived].presence), class: "btn btn-link" %>
+      <%= link_to "Cancel", housekeeping_list_path(@type.key, archived: params[:archived].presence, older: @older_than&.to_config || { mode: "" }), class: "btn btn-link" %>
     <% end %>
   </div>
 </div>

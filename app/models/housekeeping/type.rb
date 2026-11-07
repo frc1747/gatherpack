@@ -21,22 +21,27 @@ module Housekeeping
   # - available: -> { true/false }, usually its feature's switch.
   # - auto_archive: false when the type archives itself on its own schedule
   #   (no "Archive automatically" setting here).
+  # - auto_scope: ->(scope) { the ones automatic archiving may touch }, such
+  #   as only active checklists (not drafts). Default: every unarchived one.
   # - fallback_setting: an older setting read while the "Archive
   #   automatically" one is blank: a number of days, or a date (YYYY-MM-DD)
-  #   meaning "ended before it".
+  #   meaning "ended before it". It's also the only one read while
+  #   Housekeeping is off, so a type that archived itself before keeps doing
+  #   so (Housekeeping.run_fallback).
   # - label: the plural shown on screens. Default: the model's.
   # - list_path: the route helper of its list page, for a link back.
   class Type
     attr_reader :model, :key, :label, :list_path, :copier
 
     def initialize(model, key: nil, label: nil, ended_on:, ended_type: :datetime, archived: nil, archive: nil, restore: nil,
-      used_by: nil, permitted: nil, copy: nil, available: nil, auto_archive: true, fallback_setting: nil, list_path: nil)
+      used_by: nil, permitted: nil, copy: nil, available: nil, auto_archive: true, auto_scope: nil, fallback_setting: nil, list_path: nil)
       @model = model
       @key = (key || model.table_name).to_s
       @label = label || model.model_name.human.pluralize
       @ended_on = ended_on
       @ended_type = ended_type
       @fallback_setting = fallback_setting
+      @auto_scope = auto_scope
       @archived = archived
       @archive = archive
       @restore = restore
@@ -70,11 +75,15 @@ module Housekeeping
       value.to_i if value.match?(/\A\d+\z/)
     end
 
+    def fallback_setting?
+      !@fallback_setting.nil?
+    end
+
     # Records that ended on or before this date are due to be archived
     # automatically; nil: never. From the setting, or the fallback setting
-    # while it's blank.
+    # while it's blank. With Housekeeping off, only the fallback setting.
     def auto_archive_cutoff(today = Date.current)
-      days = auto_archive_days
+      days = Housekeeping.enabled? ? auto_archive_days : nil
       return today - days.days - 1.day if days
       return if @fallback_setting.nil?
 
@@ -137,12 +146,16 @@ module Housekeeping
     # Unarchived records due to be archived automatically.
     def due(today = Date.current)
       cutoff = auto_archive_cutoff(today)
-      cutoff ? ended_by(unarchived, cutoff) : model.none
+      return model.none if cutoff.nil?
+
+      scope = unarchived
+      ended_by(@auto_scope ? @auto_scope.call(scope) : scope, cutoff)
     end
 
     def due?(record, today = Date.current)
       cutoff = auto_archive_cutoff(today)
       return false if cutoff.nil? || archived?(record)
+      return false if @auto_scope && !@auto_scope.call(model.where(id: record.id)).exists?
 
       (ended = ended_on(record)) ? ended <= cutoff : false
     end
