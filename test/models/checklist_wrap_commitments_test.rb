@@ -95,6 +95,52 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     end
   end
 
+  test "a guardian or leader with nobody to see on a wrapped checklist doesn't get it listed; a plain checklist still lists" do
+    with_checklists do
+      Checklists::WrapCommitments.new.up
+      alone = Commitment.find(@commitments.first.id).checklist_item.checklist
+      volunteers = Commitment.find(@commitments.third.id).checklist_item.checklist
+      listed = ->(name) { ChecklistPolicy::Scope.new(person(name).user, Checklist).resolve }
+
+      assert_not_includes listed.(:guardian), alone
+      assert_not_includes listed.(:lead), volunteers, "the lead manages Members but doesn't run it or hold the badge"
+      assert_includes listed.(:lead), alone, "the lead is a member of Members, so owes it"
+      assert_includes listed.(:member2), alone, "member2 owes it"
+      assert_includes listed.(:organizer), alone
+
+      BadgeAssignment.create!(badge: @rookie, person: person(:guardian))
+      ChecklistGrant.create!(checklist: alone, badge: @rookie)
+      assert_includes listed.(:guardian), alone, "a grant still opens it"
+      assert ChecklistPolicy.new(person(:guardian).user, alone).show?
+      plain = Checklist.create!(team: @members, title: "Plain", status: :active, created_by: person(:admin))
+      plain.checklist_results.create!(person: person(:member2), item: nil, status: :not_met, computed_at: Time.current)
+      assert_includes listed.(:guardian), plain, "a guardian sees their ward's plain checklist"
+    end
+  end
+
+  test "organizers keep running a wrapped checklist once checklists_organizers names a different badge" do
+    with_checklists do
+      Checklists::WrapCommitments.new.up
+      wrapped = Commitment.find(@commitments.first.id).checklist_item.checklist
+      plain = Checklist.create!(team: @club, title: "Plain", status: :active, created_by: person(:admin))
+      ChecklistOrganizer.new(checklist: plain, person: person(:organizer)).save!(validate: false)
+      Badge.create!(name: "Checklist Organizer", short: "CO", color: "#336699", badge_type: badge_types(:one), permission: :added_by_admin)
+      with_settings(checklists_organizers: "Checklist Organizer") do
+        organizer = person(:organizer)
+
+        assert wrapped.reload.organizer?(organizer), "the commitment's organizer still runs its checklist"
+        assert Commitment.find(@commitments.first.id).organizer?(organizer)
+        assert wrapped.organizer_candidate?(organizer)
+        assert_equal :full, Checklists::Visibility.new(wrapped, organizer).prepare([ person(:member2).id ]).access(nil, person(:member2).id)
+        assert_includes ChecklistPolicy::Scope.new(organizer.user, Checklist).resolve, wrapped
+        assert ChecklistPolicy.new(organizer.user, wrapped).update?
+        assert_not plain.organizer?(organizer), "a plain checklist follows checklists_organizers alone"
+        assert_not plain.organizer_candidate?(organizer)
+        assert_not wrapped.organizer?(person(:lapsed)), "the badge must still reach the team"
+      end
+    end
+  end
+
   test "the checklist mirrors the commitment and its item counts the same" do
     commitment = @commitments.second
     checklist = Checklists::WrapCommitments.new.up.find { |made| made.title == commitment.title }
@@ -155,16 +201,22 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     @people.values.sort_by(&:id)
   end
 
-  # The checklist covers exactly the people who owed the commitment, and
-  # shows a person's count, and their row, to exactly the viewers whose
-  # commitment pages showed it (the snapshot's profile matrix), whether at
-  # full level or not at all.
+  # The checklist covers exactly the people who owed the commitment, is
+  # listed and opens for exactly the viewers the commitment was, and shows a
+  # person's count, and their row, to exactly the viewers whose commitment
+  # pages showed it (the snapshot's profile matrix), whether at full level or
+  # not at all.
   def assert_checklist_shows_as_before(commitment, before)
     item = Commitment.find(commitment.id).checklist_item
     checklist = item.checklist
     covered = Checklists.people_covered_by(checklist).ids
     assert_equal before[:owing], covered.sort, "#{commitment.title}: the checklist covers who owed it"
     assert_equal before[:owing], Checklists::Population.applicable_ids(item, covered).sort, "#{commitment.title}: and the item applies to all of them"
+    people.each_with_index do |viewer, v|
+      message = "#{commitment.title}: listed to #{viewer.first_name}"
+      assert_equal before[:listed][v], ChecklistPolicy::Scope.new(viewer.user, Checklist).resolve.exists?(id: checklist.id), message
+      assert_equal before[:shown][v].first, ChecklistPolicy.new(viewer.user, checklist).show?, message
+    end
     people.each_with_index do |viewer, v|
       visibility = Checklists::Visibility.new(checklist, viewer).prepare(covered)
       seen = Checklists.status_for(checklist, covered, viewer: viewer).keys

@@ -3,7 +3,8 @@
 # prepends the delegation that lets a linked commitment answer from its item,
 # sends the commitment pages to the checklist screens while checklists are
 # on, and treats Commitments as on whenever Checklists is, since count items
-# need it.
+# need it. A wrapped commitment's checklist keeps the commitment's
+# audience: who it's listed to, who sees each count and who runs it.
 
 # With checklists on, Commitments counts as on too (its controllers, sign-up
 # credit and the rest check Features.enabled?(:commitments)); its own switch
@@ -32,6 +33,8 @@ Rails.application.config.to_prepare do
   ChecklistItem.include(Checklists::CountItem) unless ChecklistItem < Checklists::CountItem
   Checklists::Refresher.prepend(Checklists::CountPeriods) unless Checklists::Refresher < Checklists::CountPeriods
   Checklists::Visibility.prepend(Checklists::WrappedVisibility) unless Checklists::Visibility < Checklists::WrappedVisibility
+  ChecklistPolicy::Scope.prepend(Checklists::WrappedChecklistScope) unless ChecklistPolicy::Scope < Checklists::WrappedChecklistScope
+  Checklist.prepend(Checklists::WrappedOrganizers) unless Checklist < Checklists::WrappedOrganizers
   CommitmentAdjustment.include(Checklists::CountAdjustment) unless CommitmentAdjustment < Checklists::CountAdjustment
   Checklists::Kinds::Count::WATCHED.each do |name|
     model = name.constantize
