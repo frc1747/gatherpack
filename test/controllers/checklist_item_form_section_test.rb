@@ -26,7 +26,7 @@ class ChecklistItemFormSectionTest < ActionDispatch::IntegrationTest
     config = ChecklistsTestKinds::Rows.normalize_config({ "rows" => { "0" => { "name" => " Summer ", "share" => "10" }, "1" => { "name" => "" } } })
 
     assert_equal({ "rows" => [ { "name" => "Summer", "share" => 10 } ] }, config)
-    assert_equal [ { rows: %i[name share] } ], ChecklistsTestKinds::Rows.permitted_config
+    assert_equal [ { rows: %i[name share from] } ], ChecklistsTestKinds::Rows.permitted_config
   end
 
   test "the item form renders the kind's section and saves its rows" do

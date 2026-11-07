@@ -18,18 +18,33 @@ module ChecklistsTestKinds
   end
 
   # A kind with a form section of its own: a table of named rows with a
-  # share each. Met when it has at least one row.
+  # share each and an optional start date. Met when it has at least one row.
+  # Its rows' dates shift when a checklist is copied (copy_dates).
   class Rows < Checklists::ItemKind
     VIEWS = Rails.root.join("test/fixtures/files/checklist_views").to_s
 
     def self.form_partial = "checklist_items/test_rows"
-    def self.form_params = [ { rows: %i[name share] } ]
+    def self.form_params = [ { rows: %i[name share from] } ]
 
     def self.normalize_form(params)
       rows = params["rows"]
       rows = rows.values if rows.is_a?(Hash)
       { "rows" => Array(rows).map { |row| row.to_h.stringify_keys }.select { |row| row["name"].present? }
-        .map { |row| { "name" => row["name"].strip, "share" => row["share"].to_i } } }
+        .map { |row| { "name" => row["name"].strip, "share" => row["share"].to_i, "from" => row["from"].presence }.compact } }
+    end
+
+    def self.copy_dates(item)
+      Array(item.config["rows"]).each_with_index.filter_map do |row, index|
+        { key: "rows.#{index}.from", label: "#{row["name"]} starts", value: Date.iso8601(row["from"]) } if row["from"]
+      end
+    end
+
+    def self.apply_copy_dates(_item, config, dates)
+      dates.each do |key, date|
+        _, index, field = key.split(".")
+        config["rows"][index.to_i][field] = date.iso8601
+      end
+      config
     end
 
     def self.validate(item)

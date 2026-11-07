@@ -5,6 +5,8 @@ module Checklists
   #   self.label, self.description  # shown in the "Add item" menu
   #   self.settings                 # the form's fields (Setting below)
   #   self.settings_for(viewer)     # the fields as offered to this author (narrowed choices)
+  #   self.copy_dates(item)         # fixed dates in its config that "Copy checklist" shifts
+  #   self.apply_copy_dates(item, config, dates)  # the copied config with the new dates in place
   #   self.form_partial             # a partial for a form section of its own (a table of rows)
   #   self.form_params              # what that section posts under config, as permit arguments
   #   self.normalize_form(params)   # the config the section's params give
@@ -53,6 +55,31 @@ module Checklists
 
       def settings
         []
+      end
+
+      # The fixed dates in an item's config that copying a checklist shifts,
+      # as [{ key:, label:, value: }]. key is the kind's own name for each
+      # date (a setting key, or a path into its rows such as "rules.0.from");
+      # copying hands the keys back to apply_copy_dates. Defaults to the
+      # :date settings and the :relative_date ones set to "on or after"; a
+      # "within the last N" stays as it is.
+      def copy_dates(item)
+        settings.select { |setting| %i[date relative_date].include?(setting.type) && !setting.list? }.filter_map do |setting|
+          value = item.config[setting.key.to_s]
+          date = value.is_a?(Hash) ? RelativeDate.from_config(value)&.date : (Date.iso8601(value) if value.present?)
+          { key: setting.key.to_s, label: setting.label, value: date } if date
+        rescue Date::Error
+          nil
+        end
+      end
+
+      # The copied config with the dates confirmed for the copy ({ key =>
+      # Date }, keys from copy_dates) in place.
+      def apply_copy_dates(_item, config, dates)
+        dates.each do |key, date|
+          config[key] = config[key].is_a?(Hash) ? RelativeDate.new(date: date).to_config : date.iso8601
+        end
+        config
       end
 
       # The settings as the item form offers them to this author (a Person):
