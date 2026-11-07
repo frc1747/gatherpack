@@ -36,6 +36,24 @@ class Team < ApplicationRecord
     [ "team_type", "parent" ]
   end
 
+  # Ids of the given teams and every team below them, in one recursive query.
+  # UNION (not UNION ALL) drops rows already seen, so a cycle in parent_id
+  # cannot loop forever.
+  def self.subtree_ids(ids)
+    ids = Array(ids).compact
+    return [] if ids.empty?
+
+    sql = sanitize_sql_array([ <<~SQL.squish, ids ])
+      WITH RECURSIVE subtree(id) AS (
+        SELECT teams.id FROM teams WHERE teams.id IN (?)
+        UNION
+        SELECT teams.id FROM teams INNER JOIN subtree ON teams.parent_id = subtree.id
+      )
+      SELECT id FROM subtree
+    SQL
+    connection.select_values(sql)
+  end
+
   def siblings
     if parent
       Team.where(parent_id: parent_id).where.not(id: id)
@@ -45,7 +63,7 @@ class Team < ApplicationRecord
   end
 
   def all_descendant_ids
-    children.flat_map { |child| [ child.id ] + child.all_descendant_ids }
+    self.class.subtree_ids(id) - [ id ]
   end
 
   def all_descendants
