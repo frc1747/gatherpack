@@ -30,6 +30,19 @@ module Checklists
       end
     end
 
+    # [[column index, key, label]] for the number filters: the overall's
+    # items to do, then each column's measures. Owner-only measures are left
+    # out, since most rows wouldn't carry them.
+    def measure_filters
+      filters = [ [ 1, "unmet", "Overall: items to do" ] ]
+      columns.each_with_index do |item, index|
+        Array(item.kind_class&.measures).reject(&:owner_only).each do |measure|
+          filters << [ index + 2, measure.key.to_s, "#{item.label}: #{measure.label}" ]
+        end
+      end
+      filters
+    end
+
     def family_ids
       @family_ids ||= ([ viewer.id ] + viewer.wards.ids) & statuses.keys
     end
@@ -46,7 +59,7 @@ module Checklists
     end
 
     def counts
-      statuses.values.group_by { |status| status.overall.status }.transform_values(&:size)
+      statuses.values.filter_map(&:overall).group_by(&:status).transform_values(&:size)
     end
 
     # Whether the viewer may excuse this person (a manager or admin, never
@@ -69,7 +82,7 @@ module Checklists
     def sorted(list)
       order = { "not_met" => 0, "pending" => 1, "met" => 2, "exempt" => 3 }
       list.sort_by do |status|
-        [ order.fetch(status.overall.status, 4), -status.overall.measures.to_h["unmet"].to_i, name(status.person_id).to_s ]
+        [ order.fetch(status.overall&.status, 4), -status.overall&.measures.to_h["unmet"].to_i, name(status.person_id).to_s ]
       end
     end
   end

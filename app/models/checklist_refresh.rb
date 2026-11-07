@@ -13,4 +13,11 @@ class ChecklistRefresh < ApplicationRecord
 
     ids.include?(nil) ? :all : ids
   end
+
+  # Restores marks taken by take, without queueing a job (the clock job picks
+  # up marks left for more than a couple of minutes).
+  def self.put_back(checklist_id, marked)
+    ids = marked == :all ? [ nil ] : Array(marked)
+    insert_all(ids.map { |id| { checklist_id: checklist_id, person_id: id, created_at: Time.current } }, unique_by: %i[checklist_id person_id])
+  end
 end

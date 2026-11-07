@@ -201,6 +201,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_170000) do
     t.uuid "attested_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "attested_as"
     t.index ["attested_by_id"], name: "index_checklist_attestations_on_attested_by_id"
     t.index ["person_id", "key", "attested_at"], name: "idx_on_person_id_key_attested_at_7a011ce05e"
     t.index ["person_id"], name: "index_checklist_attestations_on_person_id"
@@ -1186,7 +1187,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_170000) do
   add_foreign_key "checklist_rules", "badges"
   add_foreign_key "checklist_rules", "checklist_items", column: "item_id"
   add_foreign_key "checklist_rules", "checklists"
-  add_foreign_key "checklist_rules", "people", on_delete: :cascade
+  add_foreign_key "checklist_rules", "people", on_delete: :nullify
   add_foreign_key "checklist_rules", "teams"
   add_foreign_key "checklists", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "checklists", "teams"

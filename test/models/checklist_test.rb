@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/checklists_world"
+require_relative "../support/checklists_test_kinds"
 
 class ChecklistTest < ActiveSupport::TestCase
   include ChecklistsWorld
@@ -130,6 +131,43 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_not_includes Checklists.people_covered_by(@checklist.reload), person(:applicant)
   end
 
+  test "a badge rule with a team covers only holders in that team or below" do
+    give_badge(:member, @safety)
+    give_badge(:organizer, @safety)
+    rule = add_rule(@checklist, :include, :badge, badge_id: @safety.id, team_id: @members.id)
+
+    assert_equal [ person(:member) ], Checklists.people_covered_by(@checklist.reload).to_a
+    assert_equal "Include Safety 2026 badge holders in Members", rule.description
+    assert_equal @members.id, rule.reload.team_id, "kept for a badge rule"
+
+    other_org_team = Team.create!(name: "Far", team_type: team_types(:one), parent: @other_org)
+    outside = @checklist.checklist_rules.new(effect: :include, target_type: :badge, badge: @safety, team: other_org_team)
+    assert_not outside.valid?
+    assert_includes outside.errors[:base].join, "Must be within Club"
+  end
+
+  test "an item rule with a badge and team narrows to both" do
+    item = add_item(@checklist, :has_login, "Login")
+    give_badge(:member, @safety)
+    give_badge(:organizer, @safety)
+    add_rule(@checklist, :include, :badge, item: item, badge_id: @safety.id, team_id: @crew.id)
+
+    assert_equal "met", evaluate(@checklist, :organizer, item).status
+    assert_equal "exempt", evaluate(@checklist, :member, item).status
+  end
+
+  test "copying keeps a badge rule's team, and replaces it when asked" do
+    next_crew = Team.create!(name: "Crew 2027", team_type: team_types(:one), parent: @club)
+    old_crew = Team.create!(name: "Crew 2026", team_type: team_types(:one), parent: @club)
+    add_rule(@checklist, :include, :badge, badge_id: @safety.id, team_id: old_crew.id)
+
+    copy = Checklists::Copier.new(@checklist).call(title: "Copy", by: person(:admin))
+    assert_equal old_crew.id, copy.population_rules.first.team_id
+    moved = Checklists::Copier.new(@checklist).call(title: "Moved", by: person(:admin), replace: { "Team:#{old_crew.id}" => next_crew.id })
+    assert_equal next_crew.id, moved.population_rules.first.team_id
+    assert_equal @safety.id, moved.population_rules.first.badge_id
+  end
+
   test "rules must stay within the checklist's team" do
     rule = @checklist.checklist_rules.new(effect: :include, target_type: :team, team: @other_org)
 
@@ -188,6 +226,209 @@ class ChecklistTest < ActiveSupport::TestCase
     end
   end
 
+  # Review fixes
+
+  test "a confirmation through another item counts only if this item's setting allows it" do
+    manager_item = add_item(@checklist, :attested, "Physical", { statement: "Physical on file", attested_by: "manager" })
+    other = create_world_checklist("Crew list", team: @members)
+    self_item = add_item(other, :attested, "Physical", { statement: "Physical on file", attested_by: "person" })
+    assert_equal manager_item.config["key"], self_item.config["key"], "same statement, same key"
+
+    ChecklistAttestation.create!(person: person(:member), key: self_item.config["key"], statement: "Physical on file", attested_by: person(:member))
+    assert_equal "met", evaluate(other, :member, self_item).status
+    assert_equal "not_met", evaluate(@checklist, :member, manager_item).status, "a self-confirmation doesn't pass a manager-only item"
+
+    ChecklistAttestation.create!(person: person(:member), key: manager_item.config["key"], statement: "Physical on file", attested_by: person(:club_manager))
+    assert_equal "met", evaluate(@checklist, :member, manager_item).status
+  end
+
+  test "a confirmation keeps counting after its maker stops being a manager" do
+    item = add_item(@checklist, :attested, "Cleared", { statement: "Cleared", attested_by: "manager" })
+    ChecklistAttestation.create!(person: person(:member), key: item.config["key"], statement: "Cleared",
+      attested_by: person(:club_manager), attested_as: "manager")
+    assert_equal "met", evaluate(@checklist, :member, item).status
+
+    Membership.find_by(person: person(:club_manager), team: @club).update!(manager: false)
+    assert_equal "met", evaluate(@checklist, :member, item).status
+  end
+
+  test "a confirmation recorded at a weaker level, or none, is checked against roles today" do
+    item = add_item(@checklist, :attested, "Cleared", { statement: "Cleared", attested_by: "manager" })
+    ChecklistAttestation.create!(person: person(:member), key: item.config["key"], statement: "Cleared", attested_by: person(:member), attested_as: "person")
+    assert_equal "not_met", evaluate(@checklist, :member, item).status
+
+    legacy = ChecklistAttestation.create!(person: person(:member2), key: item.config["key"], statement: "Cleared", attested_by: person(:club_manager))
+    assert_nil legacy.attested_as
+    assert_equal "met", evaluate(@checklist, :member2, item).status
+    Membership.find_by(person: person(:club_manager), team: @club).update!(manager: false)
+    assert_equal "not_met", evaluate(@checklist, :member2, item).status
+  end
+
+  test "copying leaves out a rule whose person was deleted" do
+    gone = Person.create!(first_name: "Gone", last_name: "World")
+    Membership.create!(person: gone, team: @members)
+    add_rule(@checklist, :exclude, :person, person_id: gone.id)
+    add_rule(@checklist, :exclude, :person, person_id: person(:rookie).id)
+    gone.destroy!
+
+    copier = Checklists::Copier.new(@checklist)
+    assert_equal 1, copier.empty_rules.size
+    copy = copier.call(title: "Next", by: person(:admin))
+    assert_equal [ person(:rookie).id ], copy.population_rules.map(&:person_id)
+  end
+
+  test "the clock refresh covers a kind's within-the-last setting by itself" do
+    Checklists.register_item_kind(:joined_since, ChecklistsTestKinds::JoinedSince)
+    @checklist.update!(ends_on: nil)
+    add_item(@checklist, :joined_since, "New", { since: { mode: "within", amount: 1, unit: "days" } })
+
+    travel_to(Time.zone.parse("2026-11-10 10:00")) do
+      assert_equal Time.zone.parse("2026-11-11 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
+    end
+  ensure
+    Checklists.unregister_item_kind(:joined_since)
+  end
+
+  test "the change banner names no item for viewers who don't see everything" do
+    item = add_item(@checklist, :has_login, "Background check")
+    PaperTrail.request(whodunnit: person(:admin).user.id) { item.update!(label: "Background check 2") }
+
+    assert_match "item Background check 2 edited", @checklist.last_change_text
+    assert_equal "Changed #{I18n.l(Date.current, format: :long)} by an admin", @checklist.last_change_text(details: false)
+  end
+
+  test "a guardian-confirmed item doesn't accept a stranger's confirmation" do
+    item = add_item(@checklist, :attested, "Permission", { statement: "Permission given", attested_by: "guardian" })
+    ChecklistAttestation.create!(person: person(:kid), key: item.config["key"], statement: "Permission given", attested_by: person(:member))
+    assert_equal "not_met", evaluate(@checklist, :kid, item).status
+
+    ChecklistAttestation.create!(person: person(:kid), key: item.config["key"], statement: "Permission given", attested_by: person(:parent))
+    assert_equal "met", evaluate(@checklist, :kid, item).status
+  end
+
+  test "a group can't be moved inside a group it holds" do
+    outer = add_item(@checklist, :any_of, "Outer")
+    inner = add_item(@checklist, :any_of, "Inner", parent: outer)
+    add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, parent: inner)
+
+    outer.parent = inner
+    assert_not outer.valid?
+    assert_includes outer.errors[:parent], "can't be the item itself or a group inside it"
+    assert_equal "not_met", evaluate(@checklist, :member).status
+  end
+
+  test "deleting a person named in an include rule leaves a rule that matches nobody" do
+    add_rule(@checklist, :include, :person, person_id: person(:member).id)
+    item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_rule(@checklist, :include, :person, item: item, person_id: person(:member).id)
+    assert_equal [ person(:member) ], Checklists.people_covered_by(@checklist.reload).to_a
+
+    person(:member).destroy!
+    assert_empty Checklists.people_covered_by(@checklist.reload)
+    assert_equal 2, @checklist.checklist_rules.where(person_id: nil).count
+    assert_match "rule's person was deleted; it matches nobody", @checklist.problems.join
+
+    other = create_world_checklist("Other")
+    narrowed = add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_rule(other, :include, :person, item: narrowed, person_id: person(:member2).id)
+    person(:member2).destroy!
+    assert_equal "exempt", evaluate(other, :kid, narrowed).status, "the item still applies to nobody else"
+  end
+
+  test "applicants to a team outside the checklist's reach aren't covered" do
+    outside = Team.create!(name: "Elsewhere", team_type: team_types(:one), parent: @other_org, join_permission: :requires_approval)
+    MembershipApplication.create!(person: person(:outsider), team: outside)
+    rule = @checklist.checklist_rules.new(effect: :include, target_type: :applicants, team: outside)
+
+    assert_not rule.valid?
+    assert_not_includes Checklists::Population.new(@checklist, rules: [ rule ]).person_ids, person(:outsider).id
+  end
+
+  test "a cutoff or as-of date ignores badges, teams and logins added after it" do
+    @checklist.update!(cutoff_on: Date.new(2026, 10, 1))
+    badge = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    team = add_item(@checklist, :team_member, "Crew", { team_ids: [ @crew.id ] })
+    login = add_item(@checklist, :has_login, "Login")
+    travel_to(Time.zone.parse("2026-10-05")) do
+      give_badge(:member, @safety)
+      Membership.create!(person: person(:member), team: @crew)
+    end
+
+    travel_to(Time.zone.parse("2026-10-10")) do
+      assert_equal "not_met", evaluate(@checklist, :member, badge).status
+      assert_equal "not_met", evaluate(@checklist, :member, team).status
+      assert_equal "not_met", evaluate(@checklist, :member, login).status, "the login was made after the cutoff"
+    end
+  end
+
+  test "the clock refresh covers an excuse ending and an item's moving start" do
+    item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    travel_to(Time.zone.parse("2026-11-10 10:00")) do
+      ChecklistExcuse.create!(item: item, person: person(:member), reason: "Until the 20th", expires_on: Date.new(2026, 11, 20), created_by: person(:club_manager))
+      assert_equal Time.zone.parse("2026-11-21 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
+
+      item.update!(starts_within_amount: 30, starts_within_unit: "days")
+      assert_equal Time.zone.parse("2026-11-11 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
+    end
+  end
+
+  test "an organizer who loses their badge loses the full view" do
+    with_settings(checklists_organizers: "Checklist Organizer > Club") do
+      @checklist.checklist_organizers.create!(person: person(:organizer))
+      assert Checklists::Visibility.new(@checklist, person(:organizer)).full?
+
+      BadgeAssignment.find_by(person: person(:organizer), badge: @organizer_badge).destroy!
+      assert_not @checklist.reload.organizer?(person(:organizer))
+      assert_not Checklists::Visibility.new(@checklist, person(:organizer)).full?
+      assert_not ChecklistPolicy.new(person(:organizer).user, @checklist).show?
+    end
+  end
+
+  test "drafts show only to the people who run them" do
+    @checklist.update!(status: :draft)
+    add_item(@checklist, :has_login, "Login")
+    refresh(@checklist)
+
+    assert_empty Checklists.checklist_for(person(:member))
+    assert_not ChecklistPolicy.new(person(:member).user, @checklist).show?
+    assert_equal [ @checklist ], Checklists.checklist_for(person(:member), viewer: person(:admin)).map(&:first)
+  end
+
+  test "the overall's count of things to do counts only items the viewer sees" do
+    login = add_item(@checklist, :has_login, "Login")
+    add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_item(@checklist, :badge, "Viewer", { badge_ids: [ @viewer_badge.id ] })
+    Person.find(person(:member).id).user.update_columns(email: "")
+    @checklist.checklist_grants.create!(badge: @viewer_badge, item_ids: [ login.id ], access: :full)
+    give_badge(:outsider, @viewer_badge)
+    refresh(@checklist)
+
+    overall = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:outsider))[person(:member).id].overall
+    assert_equal({ "unmet" => 1 }, overall.measures)
+    assert_equal "1 to do", overall.summary
+    assert_equal "3 to do", Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id].overall.summary
+  end
+
+  test "archived checklists are read-only, and can be restored" do
+    @checklist.update!(status: :archived)
+    policy = ChecklistPolicy.new(person(:admin).user, @checklist)
+
+    assert_not policy.update?
+    assert policy.restore?
+    assert policy.copy?
+    assert_not ChecklistItemPolicy.new(person(:admin).user, @checklist.checklist_items.new).create?
+    assert_not ChecklistRulePolicy.new(person(:admin).user, @checklist.checklist_rules.new).create?
+  end
+
+  test "the change banner names the role of who changed it" do
+    item = add_item(@checklist, :has_login, "Login")
+    PaperTrail.request(whodunnit: person(:club_manager).user.id) { item.update!(label: "Sign-in") }
+    assert_equal "Changed #{I18n.l(Date.current, format: :long)} by a manager: item Sign-in edited", @checklist.last_change_text
+
+    PaperTrail.request(whodunnit: person(:admin).user.id) { item.destroy! }
+    assert_match "by an admin: item Sign-in removed", @checklist.reload.last_change_text
+  end
+
   # Grants and organizers
 
   test "only admin-assigned badges can grant" do
@@ -223,11 +464,38 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_not Checklists.meets?(@checklist, person(:member2))
   end
 
+  test "people_meeting counts met and exempt overalls, and never people it doesn't cover" do
+    refresh(@checklist)
+    ChecklistResult.where(checklist: @checklist, item_id: nil, person: person(:member)).update_all(status: ChecklistResult.statuses[:exempt])
+    ChecklistResult.where(checklist: @checklist, item_id: nil, person: person(:member2)).update_all(status: ChecklistResult.statuses[:pending])
+
+    meeting = Checklists.people_meeting(@checklist)
+    assert_includes meeting, person(:member), "exempt counts as done"
+    assert_includes meeting, person(:kid)
+    assert_not_includes meeting, person(:member2), "pending only when asked"
+    assert_not_includes meeting, person(:outsider)
+    assert_includes Checklists.people_meeting(@checklist, accept: %i[met pending]), person(:member2)
+    assert_not_includes Checklists.people_meeting(@checklist, accept: :pending), person(:member)
+  end
+
   test "the team and rule targets can't be deleted while used" do
     add_rule(@checklist, :include, :badge, badge_id: @safety.id)
 
-    assert_not @safety.destroy
-    assert_not @club.destroy
-    assert Badge.exists?(@safety.id)
+    with_feature do
+      assert_not @safety.destroy
+      assert_match "Used by the checklist Trip", @safety.errors.full_messages.to_sentence
+      assert_not @club.destroy
+      assert Badge.exists?(@safety.id)
+    end
+  end
+
+  test "with the feature off, deleting runs no checklist checks" do
+    doomed = create_world_badge("Old 2025")
+    add_item(@checklist, :badge, "Old", { badge_ids: [ doomed.id ] })
+
+    queries = []
+    counter = ->(*, payload) { queries << payload[:sql] if payload[:sql].include?("checklist") }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { assert doomed.destroy }
+    assert_empty queries
   end
 end

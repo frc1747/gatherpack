@@ -39,7 +39,7 @@ module Checklists
 
       def evaluate(person_ids)
         teams = self.class.referenced_records(item, "team_ids")
-        memberships = ::Membership.where(person_id: person_ids, team_id: Checklists.team_subtree_ids(teams.map(&:id)))
+        memberships = ::Membership.where(person_id: person_ids, team_id: Checklists.team_subtree_ids(teams.map(&:id)), created_at: ..window.end_time)
         memberships = memberships.where(created_at: window.start_time..window.end_time) if config["within_dates"]
         team_names = ::Team.where(id: memberships.select(:team_id)).pluck(:id, :name).to_h
         on = memberships.pluck(:person_id, :team_id).group_by(&:first)
