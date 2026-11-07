@@ -223,12 +223,15 @@ Rails.application.routes.draw do
     post "verify" => "verifications#create"
     get "guardian" => "guardian_confirmations#show", :as => :guardian_confirmation
     post "guardian" => "guardian_confirmations#create"
+    get "email" => "email_changes#show", :as => :email_change
+    post "email" => "email_changes#create"
     get ":slug" => "join#show", :as => :join
     post ":slug" => "join#create"
     get ":slug/me" => "me#show", :as => :me
     patch ":slug/me/people/:person_id" => "me#update_person", :as => :me_person
     post ":slug/me/guardians" => "me#add_guardian", :as => :me_guardians
     post ":slug/me/members" => "me#add_member", :as => :me_members
+    post ":slug/me/email" => "me#change_email", :as => :me_email
     delete ":slug/me/applications/:id" => "me#withdraw", :as => :me_application
     get ":slug/kiosk" => "kiosk#show", :as => :kiosk
     post ":slug/kiosk" => "kiosk#create"

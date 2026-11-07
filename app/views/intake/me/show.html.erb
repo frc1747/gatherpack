@@ -8,6 +8,19 @@
   <% end %>
 <% end %>
 
+<div class="card mb-3">
+  <div class="card-body d-flex flex-wrap align-items-center gap-2">
+    <span>Your email: <strong><%= current_user.email %></strong></span>
+    <details>
+      <summary class="btn btn-sm btn-outline-secondary">Change email</summary>
+      <%= form_with url: intake_me_email_path(@registration.slug), class: "d-flex gap-2 mt-2" do %>
+        <%= email_field_tag :email, nil, required: true, class: "form-control form-control-sm", aria: { label: "New email" } %>
+        <%= submit_tag "Send a link", class: "btn btn-sm btn-primary" %>
+      <% end %>
+    </details>
+  </div>
+</div>
+
 <% @people.each do |person| %>
   <% applications = @applications[person.id] || [] %>
   <% next if person != @person && applications.empty? %>

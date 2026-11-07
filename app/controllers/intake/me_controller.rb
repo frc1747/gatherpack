@@ -77,6 +77,21 @@ class Intake::MeController < ApplicationController
     redirect_to intake_me_path(@registration.slug), alert: "Enter a valid date."
   end
 
+  # POST /join/:slug/me/email: "Change email". The login changes only when
+  # the new address opens its link (Intake::EmailChange).
+  def change_email
+    user = current_user
+    email = Intake.normalize_email(params[:email])
+    return back_with("Enter a valid email.") unless email.match?(URI::MailTo::EMAIL_REGEXP)
+    return back_with("That's already your email.") if email == Intake.normalize_email(user.email)
+    return back_with(Intake::PublicPages::TRY_AGAIN) if household_over_limit?("email", Intake.setting(:intake_rate_resend_per_day, 3))
+
+    # Sent whether or not another login has the address, so this says
+    # nothing about other accounts; such a link just won't work.
+    Intake::EmailChangeJob.perform_later(user.id, email)
+    redirect_to intake_me_path(@registration.slug), notice: "Check your new address for a link to confirm the change."
+  end
+
   # DELETE /join/:slug/me/applications/:id
   def withdraw
     people = [ current_user.person ] + current_user.person.wards.to_a
