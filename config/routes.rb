@@ -143,6 +143,13 @@ Rails.application.routes.draw do
     resources :checklist_lists, path: "lists", only: %i[show create]
   end
   get "people/:person_id/checklists", to: "person_checklists#show", as: :person_checklists
+  resources :commitments do
+    post :message, on: :member
+    resources :commitment_sources, only: %i[new create edit update destroy]
+    resources :commitment_adjustments, only: %i[new create destroy]
+    resources :commitment_organizers, only: %i[create destroy]
+  end
+  get "people/:person_id/commitments", to: "person_commitments#show", as: :person_commitments
 
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
