@@ -1,0 +1,193 @@
+module Checklists
+  module Kinds
+    # A person's value for a profile field passes a test. The tests offered
+    # depend on the field's data type; a blank value counts as met or not yet
+    # as the item says (default not yet). Results say whether the test passed,
+    # never what the value is.
+    class PersonField < ItemKind
+      OPERATORS = {
+        "any_of" => "is any of",
+        "none_of" => "is none of",
+        "yes" => "is yes",
+        "no" => "is no",
+        "on_or_after" => "is on or after",
+        "on_or_before" => "is on or before",
+        "at_least" => "is at least",
+        "at_most" => "is at most",
+        "filled_in" => "is filled in"
+      }.freeze
+
+      OPERATORS_BY_TYPE = {
+        "string" => %w[ any_of none_of filled_in ],
+        "text" => %w[ any_of none_of filled_in ],
+        "phone" => %w[ any_of none_of filled_in ],
+        "email" => %w[ any_of none_of filled_in ],
+        "select" => %w[ any_of none_of filled_in ],
+        "multi_select" => %w[ any_of none_of filled_in ],
+        "boolean" => %w[ yes no filled_in ],
+        "date" => %w[ on_or_after on_or_before filled_in ],
+        "integer" => %w[ at_least at_most filled_in ]
+      }.freeze
+
+      class << self
+        def label = "Profile field"
+        def description = "Has a profile field filled in a certain way"
+
+        def settings
+          [
+            ItemKind::Setting.new(key: :field_id, type: :choice, label: "Field", options: field_options),
+            ItemKind::Setting.new(key: :operator, type: :choice, label: "Test", options: OPERATORS.invert.to_a,
+              hint: "Which tests fit depends on the field: choices and text use \"is any of\" or \"is none of\", yes/no fields \"is yes\" or \"is no\", dates \"on or after\" or \"on or before\", numbers \"at least\" or \"at most\""),
+            ItemKind::Setting.new(key: :values, type: :text, label: "Values", hint: "For \"is any of\" and \"is none of\": one or more, separated by commas"),
+            ItemKind::Setting.new(key: :date, type: :date, label: "Date", hint: "For the date tests"),
+            ItemKind::Setting.new(key: :number, type: :number, label: "Number", hint: "For the number tests"),
+            ItemKind::Setting.new(key: :blank, type: :choice, label: "If it's blank", options: [ [ "Not yet", "not_met" ], [ "Counts as met", "met" ] ]),
+            ItemKind::Setting.new(key: :changed_since, type: :date, label: "Last changed on or after", hint: "Optional. A value not updated since then doesn't count")
+          ]
+        end
+
+        def references = { "field_id" => "PersonField" }
+
+        def invalidations
+          [
+            [ ::PersonFieldValue, ->(value) { [ value.person_id ] } ],
+            [ ::Person, ->(person) { [ person.id ] } ],
+            [ ::User, ->(user) { [ user.person&.id ] } ]
+          ]
+        end
+
+        def field(item)
+          ::PersonField.find_by(id: item.config["field_id"]) if item.config["field_id"].present?
+        end
+
+        def problems(item)
+          problems = missing_references(item)
+          field = field(item)
+          if item.config["field_id"].blank?
+            problems << "No field chosen"
+          elsif field&.archived?
+            problems << "#{field.name} is archived"
+          end
+          problems << "\"#{OPERATORS[item.config["operator"]]}\" doesn't fit #{field.name}" if field && !operator_fits?(field, item.config["operator"])
+          problems
+        end
+
+        def validate(item)
+          field = field(item)
+          return item.errors.add(:base, "Choose a field") if field.nil?
+
+          operator = item.config["operator"]
+          return item.errors.add(:base, "\"#{OPERATORS[operator] || "That test"}\" doesn't fit #{field.name}") unless operator_fits?(field, operator)
+
+          item.errors.add(:base, "Give at least one value") if %w[ any_of none_of ].include?(operator) && values(item).empty?
+          item.errors.add(:base, "Choose a date") if %w[ on_or_after on_or_before ].include?(operator) && item.config["date"].blank?
+          item.errors.add(:base, "Give a number") if %w[ at_least at_most ].include?(operator) && item.config["number"].blank?
+        end
+
+        def describe(item)
+          field = field(item)
+          return "A profile field that no longer exists" unless field
+
+          operator = item.config["operator"]
+          operand = case operator
+          when "any_of", "none_of" then values(item).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
+          when "on_or_after", "on_or_before" then item.config["date"].present? ? I18n.l(Date.parse(item.config["date"]), format: :long) : nil
+          when "at_least", "at_most" then item.config["number"]
+          end
+          sentence = [ field.name, OPERATORS[operator], operand ].compact.join(" ")
+          sentence += ", changed since #{I18n.l(Date.parse(item.config["changed_since"]), format: :long)}" if item.config["changed_since"].present?
+          sentence
+        rescue Date::Error
+          field.name
+        end
+
+        def values(item)
+          item.config["values"].to_s.split(",").map(&:strip).compact_blank
+        end
+
+        def operator_fits?(field, operator)
+          OPERATORS_BY_TYPE.fetch(field.data_type, []).include?(operator)
+        end
+
+        private
+
+        def field_options
+          ::PersonField.in_use.ordered.map { |field| [ field.name, field.id ] }
+        end
+      end
+
+      def evaluate(person_ids)
+        field = self.class.field(item)
+        sentence = self.class.describe(item)
+        return person_ids.index_with { Result.not_met("Its field was deleted", detail: "The profile field this item tests was deleted") } if field.nil?
+        return person_ids.index_with { Result.not_met("Can't be checked", detail: "#{sentence} can't be tested: the test doesn't fit the field") } unless self.class.operator_fits?(field, config["operator"])
+
+        stored = load_values(field, person_ids)
+        person_ids.index_with { |person_id| judge(field, sentence, *stored.fetch(person_id, [ nil, nil ])) }
+      end
+
+      private
+
+      # { person_id => [raw value or nil, when it last changed] }
+      def load_values(field, person_ids)
+        if field.system?
+          rows = ::Person.where(id: person_ids).includes(:user).to_a
+          rows.to_h { |person| [ person.id, [ field.system_value(person), person.updated_at ] ] }
+        else
+          ::PersonFieldValue.where(person_field_id: field.id, person_id: person_ids).pluck(:person_id, :value, :updated_at)
+            .to_h { |person_id, value, updated_at| [ person_id, [ value.nil? ? nil : field.cast(value), updated_at ] ] }
+        end
+      end
+
+      def judge(field, sentence, value, changed_at)
+        return judge_blank(field, sentence) if blank?(value)
+        return Result.met(sentence) if config["operator"] == "filled_in" && stale_value(changed_at).nil?
+        return Result.not_met("Not changed since #{since}", detail: "#{field.name} hasn't been updated since #{since}", fix: fix(field)) if stale_value(changed_at)
+
+        passes?(field, value) ? Result.met(sentence) : Result.not_met("Not: #{sentence.downcase_first}", fix: fix(field))
+      end
+
+      def judge_blank(field, sentence)
+        if config["blank"] == "met" && config["operator"] != "filled_in"
+          Result.met(sentence, detail: "#{field.name} is blank, which this item counts as met")
+        else
+          Result.not_met("No #{field.name.downcase_first} on file", detail: "#{field.name} is blank", fix: fix(field))
+        end
+      end
+
+      def blank?(value)
+        value.nil? || (value.respond_to?(:empty?) && value.empty?)
+      end
+
+      def stale_value(changed_at)
+        config["changed_since"].present? && changed_at < Date.parse(config["changed_since"]).in_time_zone.beginning_of_day
+      end
+
+      def since
+        I18n.l(Date.parse(config["changed_since"]), format: :long)
+      end
+
+      def passes?(field, value)
+        case config["operator"]
+        when "any_of" then (Array(value).map(&:to_s).map(&:downcase) & wanted).any?
+        when "none_of" then (Array(value).map(&:to_s).map(&:downcase) & wanted).empty?
+        when "yes" then value == true
+        when "no" then value == false
+        when "on_or_after" then value >= Date.parse(config["date"])
+        when "on_or_before" then value <= Date.parse(config["date"])
+        when "at_least" then value.to_i >= config["number"].to_i
+        when "at_most" then value.to_i <= config["number"].to_i
+        else true
+        end
+      end
+
+      def wanted
+        @wanted ||= self.class.values(item).map(&:downcase)
+      end
+
+      def fix(field)
+        { "label" => "Update #{field.name.downcase_first}" }
+      end
+    end
+  end
+end
