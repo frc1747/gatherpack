@@ -30,7 +30,13 @@ module Checklists
     # type: the item form renders the partial checklist_items/settings/_<type>
     # when there is one, and an unknown type's value is kept as text (or
     # override cast_setting).
-    Setting = Struct.new(:key, :type, :label, :hint, :options, keyword_init: true)
+    # list: true makes any type a list of values (several forms, several
+    # choices); :badges and :teams are always lists.
+    Setting = Struct.new(:key, :type, :label, :hint, :options, :list, keyword_init: true) do
+      def list?
+        list.present? || %i[badges teams].include?(type)
+      end
+    end
 
     # A named number in a result. owner_only measures show only to the
     # person, their guardians and leaders.
@@ -174,9 +180,8 @@ module Checklists
       # plus the form section's.
       def permitted_config
         keys = settings.map do |setting|
-          case setting.type
-          when :badges, :teams then { setting.key => [] }
-          when :relative_date then { setting.key => %i[mode date amount unit] }
+          if setting.list? then { setting.key => [] }
+          elsif setting.type == :relative_date then { setting.key => %i[mode date amount unit] }
           else setting.key
           end
         end
@@ -202,8 +207,14 @@ module Checklists
       private
 
       def cast(setting, value)
+        return Array(value).compact_blank.filter_map { |one| cast_one(setting, one) } if setting.list?
+
+        cast_one(setting, value)
+      end
+
+      def cast_one(setting, value)
         case setting.type
-        when :badges, :teams then Array(value).compact_blank
+        when :badges, :teams then value.to_s.presence
         when :number then value.presence && value.to_i
         when :boolean then ActiveModel::Type::Boolean.new.cast(value) || false
         when :date then value.presence && Date.parse(value.to_s).iso8601

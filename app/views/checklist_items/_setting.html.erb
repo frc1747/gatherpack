@@ -53,7 +53,11 @@
     </div>
   <% when :choice %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
-    <%= select_tag name, options_for_select(setting.options, value), id: field_id, class: "form-select" %>
+    <% if setting.list? %>
+      <%= select_tag "#{name}[]", options_for_select(setting.options, value), multiple: true, id: field_id, class: "form-select" %>
+    <% else %>
+      <%= select_tag name, options_for_select(setting.options, value), id: field_id, class: "form-select" %>
+    <% end %>
   <% else %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
     <%= text_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control" %>

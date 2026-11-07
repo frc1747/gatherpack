@@ -110,4 +110,20 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.met(config["colour"]) }
     end
   end
+
+  # A kind with list settings of ordinary types: several choices, several
+  # numbers.
+  class Lists < Checklists::ItemKind
+    def self.settings
+      [
+        Checklists::ItemKind::Setting.new(key: :forms, type: :choice, label: "Forms", list: true, options: [ %w[Consent consent], %w[Medical medical], %w[Photo photo] ]),
+        Checklists::ItemKind::Setting.new(key: :years, type: :number, label: "Years", list: true),
+        Checklists::ItemKind::Setting.new(key: :mode, type: :choice, label: "Mode", options: [ %w[All all], %w[Any any] ])
+      ]
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met(config["forms"].join(", ")) }
+    end
+  end
 end
