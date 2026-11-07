@@ -1,6 +1,12 @@
 # Shared by intake's public pages: their own layout (no navigation, not
 # indexed), the feature flag, rate limits, and the audit actor for changes
 # made by someone who isn't signed in.
+#
+# These pages have no Pundit policy: who may use one is decided by its
+# registration link, the token emailed to the person, the signed-in
+# person's own household, or the kiosk account, which each controller
+# checks itself. They skip authorization explicitly so InternalController's
+# check still covers any action added without that.
 module Intake::PublicPages
   extend ActiveSupport::Concern
 
@@ -9,6 +15,7 @@ module Intake::PublicPages
   included do
     layout "intake_public"
     before_action :require_intake_feature
+    before_action :skip_authorization
   end
 
   private

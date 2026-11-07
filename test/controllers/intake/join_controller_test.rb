@@ -90,7 +90,9 @@ class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
       post intake_join_path(@registration.slug), params: join_params(email: "warm.up@example.com")
       [ existing.user.email, "someone.new@example.com" ].each do |email|
         statements = sql_statements { post intake_join_path(@registration.slug), params: join_params(first_name: "Casey", email: email) }
-        responses << [ response.status, response.body.gsub(/name="authenticity_token" value="[^"]+"/, "").gsub(/content="[^"]+" name="csrf-token"|name="csrf-token" content="[^"]+"/, "") ]
+        # Per-request tokens and script nonces differ on every page.
+        body = response.body.gsub(/name="authenticity_token" value="[^"]+"/, "").gsub(/content="[^"]+" name="csrf-token"|name="csrf-token" content="[^"]+"/, "")
+        responses << [ response.status, body.gsub(/name="csp-nonce" content="[^"]+"|nonce="[^"]+"/, "") ]
         counts << statements.size
         assert_not statements.any? { |sql| sql.include?(%("users")) }, "the request must not look up users"
       end
