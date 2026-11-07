@@ -20,7 +20,7 @@ module Checklists
           if with_login.include?(person_id)
             Result.met("Has a login", detail: "Has a login with an email")
           else
-            Result.not_met("No login", detail: "No login with an email yet", fix: { "label" => "Ask a leader to invite you" })
+            Result.not_met("No login", detail: "No login with an email yet", fix: { "label" => "Ask a leader to invite you", "by" => "leader" })
           end
         end
       end
