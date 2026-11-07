@@ -18,6 +18,26 @@
   <% when :date %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
     <%= date_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control", style: "max-width: 14em" %>
+  <% when :relative_date %>
+    <% picked = Checklists::RelativeDate.from_config(value) %>
+    <fieldset>
+      <legend class="form-label fs-6"><%= setting.label %></legend>
+      <div class="form-check">
+        <%= radio_button_tag "#{name}[mode]", "", picked.nil?, id: "#{field_id}_none", class: "form-check-input" %>
+        <%= label_tag "#{field_id}_none", "Any time", class: "form-check-label" %>
+      </div>
+      <div class="form-check d-flex gap-2 align-items-center">
+        <%= radio_button_tag "#{name}[mode]", "date", picked && !picked.relative?, id: "#{field_id}_date", class: "form-check-input" %>
+        <%= label_tag "#{field_id}_date", "On or after", class: "form-check-label" %>
+        <%= date_field_tag "#{name}[date]", picked&.date, id: "#{field_id}_date_value", autocomplete: "off", class: "form-control form-control-sm w-auto", "aria-label": "#{setting.label}: date" %>
+      </div>
+      <div class="form-check d-flex gap-2 align-items-center mt-1">
+        <%= radio_button_tag "#{name}[mode]", "within", picked&.relative?, id: "#{field_id}_within", class: "form-check-input" %>
+        <%= label_tag "#{field_id}_within", "Within the last", class: "form-check-label" %>
+        <%= number_field_tag "#{name}[amount]", picked&.amount, min: 1, id: "#{field_id}_amount", autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em", "aria-label": "#{setting.label}: how many" %>
+        <%= select_tag "#{name}[unit]", options_for_select(Checklists::RelativeDate::UNITS.map { |unit| [ unit, unit ] }, picked&.unit), id: "#{field_id}_unit", class: "form-select form-select-sm w-auto", "aria-label": "#{setting.label}: days or months" %>
+      </div>
+    </fieldset>
   <% when :boolean %>
     <div class="form-check">
       <%= hidden_field_tag name, "0", id: nil %>

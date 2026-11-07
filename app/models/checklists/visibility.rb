@@ -7,7 +7,9 @@ module Checklists
   # team or a team above it, or one of its organizers. Otherwise, for each
   # person: the overall and items whose read level (AudienceLevels) reaches
   # the viewer, at full level; plus what a grant gives, at the grant's
-  # access. Nothing else: such people aren't shown at all.
+  # access. Nothing else: such people aren't shown at all. On top of all of
+  # that, an item's kind can hide a person's result from a viewer
+  # (ItemKind.visible_to?), whoever they are.
   class Visibility
     attr_reader :checklist, :viewer
 
@@ -19,7 +21,9 @@ module Checklists
     def full?
       return @full if defined?(@full)
 
-      @full = viewer.present? && (viewer.admin? || manager? || checklist.checklist_organizers.exists?(person_id: viewer.id))
+      # organizer? also rechecks that an organizer still holds a badge that
+      # reaches the checklist's team.
+      @full = viewer.present? && (manager? || checklist.organizer?(viewer))
     end
 
     # An admin, or a manager of the checklist's team or a team above it: who
@@ -35,11 +39,24 @@ module Checklists
     def prepare(person_ids)
       @person_ids = person_ids
       @components = nil
+      @kind_allowed = nil
       self
+    end
+
+    # The item's kind may cap who sees a person's result (ItemKind.visible_to?).
+    def kind_allows?(item, person_id)
+      return true if viewer.nil?
+
+      kind = Checklists.item_kind(item.kind)
+      return true if kind.nil?
+
+      allowed = (@kind_allowed ||= {})[item.id] ||= kind.visible_person_ids(item, viewer, @person_ids || [ person_id ]).to_set
+      allowed.include?(person_id) || (!@person_ids && kind.visible_person_ids(item, viewer, [ person_id ]).include?(person_id))
     end
 
     # :full, :status or nil for an item (nil item: the overall).
     def access(item, person_id)
+      return nil if item && !kind_allows?(item, person_id)
       return :full if full?
       return nil if viewer.nil?
 

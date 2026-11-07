@@ -18,6 +18,7 @@ class ChecklistItemsController < InternalController
   def create
     @item = authorize @checklist.checklist_items.new(kind: params.dig(:checklist_item, :kind))
     @item.assign_attributes(item_params)
+    return render(:new, status: :unprocessable_entity) unless authorable?(@item)
 
     if @item.valid? && needs_confirmation?
       @impact = Checklists::Impact.new(@checklist, items: draft_tree)
@@ -34,6 +35,7 @@ class ChecklistItemsController < InternalController
   # PATCH/PUT /checklists/1/items/1
   def update
     @item.assign_attributes(item_params)
+    return render(:edit, status: :unprocessable_entity) unless authorable?(@item)
 
     if @item.valid? && needs_confirmation?
       @impact = Checklists::Impact.new(@checklist, items: draft_tree)
@@ -49,6 +51,10 @@ class ChecklistItemsController < InternalController
 
   # DELETE /checklists/1/items/1
   def destroy
+    if needs_confirmation? && (impact = Checklists::Impact.new(@checklist, items: tree_without(@item))).any?
+      return render_impact(impact, url: checklist_checklist_item_path(@checklist, @item), method: :delete)
+    end
+
     @item.destroy!
     redirect_to @checklist, notice: "#{@item.label} removed.", status: :see_other
   end
@@ -60,22 +66,41 @@ class ChecklistItemsController < InternalController
     @item = item
     item.assign_attributes(item_params)
     item.id ||= SecureRandom.uuid
-    render partial: "checklists/preview", locals: { preview: Checklists::Preview.new(@checklist, item: item), checklist: @checklist }
+    return render(plain: "You can't set up this item this way.", status: :unprocessable_entity) unless authorable?(item)
+
+    render partial: "checklists/preview", locals: { preview: Checklists::Preview.new(@checklist, item: item, viewer: current_user.person), checklist: @checklist }
   end
 
   private
+
+  # The kind may refuse a config for this author (ItemKind.authorable_by?).
+  def authorable?(item)
+    kind = item.kind_class
+    return true if kind.nil? || kind.authorable_by?(item, current_user.person)
+
+    item.errors.add(:base, "You can't set up this item this way")
+    false
+  end
 
   def set_item
     @item = authorize @checklist.checklist_items.find(params[:id])
   end
 
-  def needs_confirmation?
-    @checklist.active? && params[:confirmed].blank?
+  # The checklist's items without this one (and what's inside it).
+  def tree_without(item)
+    tree = item_tree
+    parent = item.parent_id && find_in_tree(tree, item.parent_id)
+    if parent
+      parent.association(:children).target = parent.children.to_a.reject { |child| child.id == item.id }
+    else
+      tree.reject! { |top| top.id == item.id }
+    end
+    tree
   end
 
   # The checklist's items with the unsaved change in place.
   def draft_tree
-    tree = @checklist.top_level_items.includes(children: :children).to_a
+    tree = item_tree
     @item.id ||= SecureRandom.uuid
     if @item.parent_id.present?
       parent = all_items(tree).find { |item| item.id == @item.parent_id }
@@ -98,8 +123,18 @@ class ChecklistItemsController < InternalController
     config = params.dig(:checklist_item, :config)
     return {} unless kind && config.respond_to?(:permit)
 
-    keys = kind.settings.map { |setting| %i[badges teams].include?(setting.type) ? { setting.key => [] } : setting.key }
-    config.permit(*keys).to_h
+    permitted = config.permit(*kind.permitted_config).to_h
+    hide_unseen_checklists(kind, permitted)
+  end
+
+  # A checklist setting may only name a checklist the acting person can see,
+  # or its results would show through this one.
+  def hide_unseen_checklists(kind, config)
+    kind.settings.select { |setting| setting.type == :checklist }.each do |setting|
+      id = config[setting.key.to_s]
+      config[setting.key.to_s] = nil if id.present? && !policy_scope(Checklist).exists?(id: id)
+    end
+    config
   end
 
   def item_params

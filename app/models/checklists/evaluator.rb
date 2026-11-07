@@ -61,7 +61,13 @@ module Checklists
     def next_change_at
       now = context.as_of
       times = all_items(items).filter_map { |item| kind_for(item)&.next_change_at(item, context) }
-      times << now.to_date.tomorrow.in_time_zone.beginning_of_day if checklist.starts_within_amount.present?
+      # "Within the last N" starts move at midnight.
+      relative = checklist.starts_within_amount.present? || all_items(items).any? { |item| item.starts_within_amount.present? }
+      times << now.to_date.tomorrow.in_time_zone.beginning_of_day if relative
+      # An excuse stops applying the day after it expires.
+      expiry = ChecklistExcuse.where(item_id: all_items(items).filter_map { |item| item.id if item.persisted? })
+        .where(expires_on: now.to_date..).minimum(:expires_on)
+      times << expiry.tomorrow.in_time_zone.beginning_of_day if expiry
       dates = [ checklist.cutoff_on, checklist.ends_on ] + all_items(items).flat_map { |item| [ item.ends_on, item.due_on ] }
       times += dates.compact.map { |date| date.tomorrow.in_time_zone.beginning_of_day }
       times.select { |time| time > now }.min

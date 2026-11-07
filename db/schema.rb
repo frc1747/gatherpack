@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_100900) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_101000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1019,7 +1019,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_100900) do
   add_foreign_key "checklist_rules", "badges"
   add_foreign_key "checklist_rules", "checklist_items", column: "item_id"
   add_foreign_key "checklist_rules", "checklists"
-  add_foreign_key "checklist_rules", "people", on_delete: :cascade
+  add_foreign_key "checklist_rules", "people", on_delete: :nullify
   add_foreign_key "checklist_rules", "teams"
   add_foreign_key "checklists", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "checklists", "teams"
