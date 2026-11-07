@@ -51,14 +51,30 @@ module Checklists
 
         statuses = Checklists::Reader.new(other, nil).overall_statuses(person_ids)
         word = ->(status) { other.word_for(status) }
+        acts = who_acts(other, person_ids)
 
         person_ids.index_with do |person_id|
           status = statuses[person_id]
           next Result.exempt("Not on #{other.title}") if status.nil?
 
-          Result.new(status: status, summary: "#{other.title}: #{word.call(status)}",
-            fix: status == "met" ? nil : { "label" => "See #{other.title}", "path" => "/checklists/#{other.to_param}" })
+          fix = { "label" => "See #{other.title}", "path" => "/checklists/#{other.to_param}", "by" => acts[person_id] }.compact
+          Result.new(status: status, summary: "#{other.title}: #{word.call(status)}", fix: status == "met" ? nil : fix)
         end
+      end
+
+      private
+
+      # { person_id => "by" } from the other checklist's stored results on its
+      # counting items that aren't done: "person" when any is the person's,
+      # else "guardian" when any is a guardian's, else "leader". Absent when
+      # none says who acts. One query for everyone.
+      def who_acts(other, person_ids)
+        counting = other.top_level_items.where(counts: true).select(:id)
+        ChecklistResult.where(checklist_id: other.id, person_id: person_ids, item_id: counting, status: %w[not_met pending])
+          .pluck(:person_id, :fix).group_by(&:first).transform_values do |rows|
+            by = rows.filter_map { |_, fix| fix&.dig("by") }
+            %w[person guardian leader].find { |who| by.include?(who) }
+          end.compact
       end
     end
   end

@@ -50,7 +50,7 @@ module Checklists
           if names.any?
             Result.met("On #{names.to_sentence}")
           else
-            Result.not_met("Not on #{wanted.presence || "the team"}", fix: { "label" => "Ask a leader" })
+            Result.not_met("Not on #{wanted.presence || "the team"}", fix: { "label" => "Ask a leader", "by" => "leader" })
           end
         end
       end
