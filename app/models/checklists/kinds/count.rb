@@ -27,7 +27,7 @@ module Checklists
             ItemKind::Setting.new(key: :unit, type: :text, label: "Of what", hint: "For example shifts, events or hours"),
             ItemKind::Setting.new(key: :group_relationship_type_id, type: :choice, label: "Owe together through",
               hint: "People connected through this relationship, directly or through one person related to both, owe as one group and pool their credit",
-              options: [ [ "Nobody, everyone owes on their own", "" ] ] + RelationshipType.order(:parent_label).map { |type| [ type.identifier_name, type.id ] }),
+              options: -> { [ [ "Nobody, everyone owes on their own", "" ] ] + RelationshipType.order(:parent_label).map { |type| [ type.identifier_name, type.id ] } }),
             ItemKind::Setting.new(key: :additional_amount, type: :number, label: "Each other group member adds",
               hint: "A group owes the amount plus this for each member after the first"),
             ItemKind::Setting.new(key: :counts_when, type: :choice, label: "Done when", options: COUNTS_WHEN)
@@ -322,7 +322,7 @@ module Checklists
         earn.each do |how|
           how.links.each do |label, target|
             path = link_path(target)
-            return { "label" => "Next: #{label}", "path" => path } if path
+            return { "label" => "Next: #{label}", "path" => path, "by" => "person" } if path
           end
         end
         nil

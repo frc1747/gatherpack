@@ -337,7 +337,7 @@ class ChecklistCountTest < ActiveSupport::TestCase
 
     result = count_result(@checklist, :member, item)
     assert_includes result.detail, "Check in at any Outreach event. Coming up: Fall Fair, Sun Oct 25; Harvest Day, Wed Oct 28."
-    assert_equal({ "label" => "Next: Fall Fair, Sun Oct 25", "path" => "/events/#{later.to_param}" }, result.fix)
+    assert_equal({ "label" => "Next: Fall Fair, Sun Oct 25", "path" => "/events/#{later.to_param}", "by" => "person" }, result.fix)
   end
 
   test "organizers see a count with nothing counting toward it as a problem" do
@@ -346,5 +346,16 @@ class ChecklistCountTest < ActiveSupport::TestCase
 
     item.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
     assert_empty @checklist.reload.problems
+  end
+
+  test "the kind reads its settings without touching the database, so it can register while booting a fresh one" do
+    queries = []
+    counter = ->(*, payload) { queries << payload[:sql] unless payload[:name].in?(%w[ SCHEMA TRANSACTION ]) }
+    settings = ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { Checklists::Kinds::Count.settings }
+
+    assert_empty queries
+    choice = settings.find { |setting| setting.key == :group_relationship_type_id }
+    assert_equal [ "Nobody, everyone owes on their own", "" ], choice.options.first
+    assert_includes choice.options.map(&:last), @parent_of.id
   end
 end
