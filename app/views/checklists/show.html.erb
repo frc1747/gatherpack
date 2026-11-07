@@ -31,7 +31,7 @@
         <% end %>
       </p>
     <% end %>
-    <% if (change = @checklist.last_change_text) %>
+    <% if (change = @checklist.last_change_text(details: @full_view)) %>
       <p class="small text-body-secondary mb-1"><%= change %>.</p>
     <% end %>
     <% if @checklist.archived? %>

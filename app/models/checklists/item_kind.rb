@@ -4,6 +4,7 @@ module Checklists
   #
   #   self.label, self.description  # shown in the "Add item" menu
   #   self.settings                 # the form's fields (Setting below)
+  #   self.settings_for(viewer)     # the fields as offered to this author (narrowed choices)
   #   self.form_partial             # a partial for a form section of its own (a table of rows)
   #   self.form_params              # what that section posts under config, as permit arguments
   #   self.normalize_form(params)   # the config the section's params give
@@ -43,6 +44,14 @@ module Checklists
 
       def settings
         []
+      end
+
+      # The settings as the item form offers them to this author (a Person):
+      # a kind narrows its choices here (only the fields they may read, say).
+      # Defaults to settings. What's saved is still checked by settings and
+      # authorable_by?, so narrowing here is about what's offered.
+      def settings_for(_viewer)
+        settings
       end
 
       def problems(_item)
@@ -88,8 +97,11 @@ module Checklists
       # A cap on top of read levels and grants: whether viewer may see
       # person's result on this item at all. Applied to every viewer, admins
       # and organizers included, wherever results show (the report, its sort
-      # and filters, status_for, the preview). A kind whose result carries
-      # data the viewer may not read (a field value) says no here.
+      # and filters, status_for, the preview, recorded lists). A kind whose
+      # result carries data the viewer may not read (a field value) says no
+      # here. The cap carries upward: a group holding a capped item is
+      # capped too, and the overall that viewer sees is worked out from the
+      # counting items they may see, so neither gives the answer away.
       def visible_to?(_item, _viewer, _person)
         true
       end

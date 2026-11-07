@@ -194,9 +194,12 @@ class Checklist < ApplicationRecord
   end
 
   # "Changed 6 Nov 2026 by an organizer: item Safety edited", for the banner.
-  def last_change_text
+  # Without details (for viewers who don't see everything) only "Changed
+  # <date> by <role>", so it names no item they can't see.
+  def last_change_text(details: true)
     change = last_change
     return unless change
+    return "Changed #{I18n.l(change.created_at.to_date, format: :long)} by #{role_of(change)}" unless details
 
     what = case change.item_type
     when "Checklist" then "settings"

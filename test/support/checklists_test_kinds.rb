@@ -74,4 +74,28 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.not_met("1 of 2 shifts") }
     end
   end
+
+  # A kind whose choice of "field" is narrowed per author: only admins are
+  # offered the "secret" one, and only admins may save it.
+  class Narrowed < Checklists::ItemKind
+    OPTIONS = [ [ "Shirt size", "shirt" ], [ "Secret", "secret" ] ].freeze
+
+    def self.settings
+      [ Checklists::ItemKind::Setting.new(key: :field, type: :choice, label: "Field", options: OPTIONS) ]
+    end
+
+    def self.settings_for(viewer)
+      return settings if viewer.admin?
+
+      [ Checklists::ItemKind::Setting.new(key: :field, type: :choice, label: "Field", options: OPTIONS.reject { |_, value| value == "secret" }) ]
+    end
+
+    def self.authorable_by?(item, author)
+      item.config["field"] != "secret" || author.admin?
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("Filled in") }
+    end
+  end
 end

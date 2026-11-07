@@ -54,6 +54,12 @@ module Checklists
       end
     end
 
+    # Rules left with no target (a deleted person, team or badge), which a
+    # copy leaves out.
+    def empty_rules
+      checklist.checklist_rules.includes(:team, :badge, :person, :item).reject(&:target)
+    end
+
     # dates: { key => Date or string } overriding the proposals (blank keeps
     # the old date); replace: { key => id } (blank keeps the record).
     def call(title:, by:, dates: {}, replace: {})
@@ -167,7 +173,11 @@ module Checklists
       config
     end
 
+    # Rules whose person, team or badge was deleted match nobody; they're
+    # left out of the copy (see empty_rules).
     def copy_rule(rule, copy, item, replace)
+      return if rule.target.nil?
+
       copy.checklist_rules.create!(item: item, effect: rule.effect, target_type: rule.target_type,
         team_id: swap(rule.team, replace), badge_id: swap(rule.badge, replace), person_id: rule.person_id,
         include_managers: rule.include_managers)

@@ -61,6 +61,12 @@ module Checklists
     def next_change_at
       now = context.as_of
       times = all_items(items).filter_map { |item| kind_for(item)&.next_change_at(item, context) }
+      # "Within the last N" settings move at midnight, whether or not the
+      # kind says so itself.
+      times += all_items(items).flat_map do |item|
+        Array(kind_for(item)&.settings).select { |setting| setting.type == :relative_date }
+          .filter_map { |setting| RelativeDate.from_config(item.config[setting.key.to_s])&.next_change_at(now) }
+      end
       # "Within the last N" starts move at midnight.
       relative = checklist.starts_within_amount.present? || all_items(items).any? { |item| item.starts_within_amount.present? }
       times << now.to_date.tomorrow.in_time_zone.beginning_of_day if relative

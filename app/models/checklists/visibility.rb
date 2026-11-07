@@ -43,15 +43,16 @@ module Checklists
       self
     end
 
-    # The item's kind may cap who sees a person's result (ItemKind.visible_to?).
+    # The item's kind, and the kinds of items inside it, may cap who sees a
+    # person's result (ItemKind.visible_to?, Checklists.visible_person_ids).
     def kind_allows?(item, person_id)
       return true if viewer.nil?
 
-      kind = Checklists.item_kind(item.kind)
-      return true if kind.nil?
+      ids = @person_ids || [ person_id ]
+      allowed = ((@kind_allowed ||= {})[[ item.id, ids.equal?(@person_ids) ]] ||= Checklists.visible_person_ids(item, viewer, ids).to_set)
+      return true if allowed.include?(person_id)
 
-      allowed = (@kind_allowed ||= {})[item.id] ||= kind.visible_person_ids(item, viewer, @person_ids || [ person_id ]).to_set
-      allowed.include?(person_id) || (!@person_ids && kind.visible_person_ids(item, viewer, [ person_id ]).include?(person_id))
+      !@person_ids.nil? ? false : Checklists.visible_person_ids(item, viewer, [ person_id ]).include?(person_id)
     end
 
     # :full, :status or nil for an item (nil item: the overall).

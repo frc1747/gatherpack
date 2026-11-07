@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/checklists_world"
+require_relative "../support/checklists_test_kinds"
 
 class ChecklistTest < ActiveSupport::TestCase
   include ChecklistsWorld
@@ -239,6 +240,61 @@ class ChecklistTest < ActiveSupport::TestCase
 
     ChecklistAttestation.create!(person: person(:member), key: manager_item.config["key"], statement: "Physical on file", attested_by: person(:club_manager))
     assert_equal "met", evaluate(@checklist, :member, manager_item).status
+  end
+
+  test "a confirmation keeps counting after its maker stops being a manager" do
+    item = add_item(@checklist, :attested, "Cleared", { statement: "Cleared", attested_by: "manager" })
+    ChecklistAttestation.create!(person: person(:member), key: item.config["key"], statement: "Cleared",
+      attested_by: person(:club_manager), attested_as: "manager")
+    assert_equal "met", evaluate(@checklist, :member, item).status
+
+    Membership.find_by(person: person(:club_manager), team: @club).update!(manager: false)
+    assert_equal "met", evaluate(@checklist, :member, item).status
+  end
+
+  test "a confirmation recorded at a weaker level, or none, is checked against roles today" do
+    item = add_item(@checklist, :attested, "Cleared", { statement: "Cleared", attested_by: "manager" })
+    ChecklistAttestation.create!(person: person(:member), key: item.config["key"], statement: "Cleared", attested_by: person(:member), attested_as: "person")
+    assert_equal "not_met", evaluate(@checklist, :member, item).status
+
+    legacy = ChecklistAttestation.create!(person: person(:member2), key: item.config["key"], statement: "Cleared", attested_by: person(:club_manager))
+    assert_nil legacy.attested_as
+    assert_equal "met", evaluate(@checklist, :member2, item).status
+    Membership.find_by(person: person(:club_manager), team: @club).update!(manager: false)
+    assert_equal "not_met", evaluate(@checklist, :member2, item).status
+  end
+
+  test "copying leaves out a rule whose person was deleted" do
+    gone = Person.create!(first_name: "Gone", last_name: "World")
+    Membership.create!(person: gone, team: @members)
+    add_rule(@checklist, :exclude, :person, person_id: gone.id)
+    add_rule(@checklist, :exclude, :person, person_id: person(:rookie).id)
+    gone.destroy!
+
+    copier = Checklists::Copier.new(@checklist)
+    assert_equal 1, copier.empty_rules.size
+    copy = copier.call(title: "Next", by: person(:admin))
+    assert_equal [ person(:rookie).id ], copy.population_rules.map(&:person_id)
+  end
+
+  test "the clock refresh covers a kind's within-the-last setting by itself" do
+    Checklists.register_item_kind(:joined_since, ChecklistsTestKinds::JoinedSince)
+    @checklist.update!(ends_on: nil)
+    add_item(@checklist, :joined_since, "New", { since: { mode: "within", amount: 1, unit: "days" } })
+
+    travel_to(Time.zone.parse("2026-11-10 10:00")) do
+      assert_equal Time.zone.parse("2026-11-11 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
+    end
+  ensure
+    Checklists.unregister_item_kind(:joined_since)
+  end
+
+  test "the change banner names no item for viewers who don't see everything" do
+    item = add_item(@checklist, :has_login, "Background check")
+    PaperTrail.request(whodunnit: person(:admin).user.id) { item.update!(label: "Background check 2") }
+
+    assert_match "item Background check 2 edited", @checklist.last_change_text
+    assert_equal "Changed #{I18n.l(Date.current, format: :long)} by an admin", @checklist.last_change_text(details: false)
   end
 
   test "a guardian-confirmed item doesn't accept a stranger's confirmation" do

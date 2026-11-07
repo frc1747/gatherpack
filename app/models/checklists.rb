@@ -140,6 +140,25 @@ module Checklists
       team_tree_ids(team_ids, "teams.id = tree.parent_id")
     end
 
+    # The ids among person_ids whose result on this item the viewer may see
+    # under its kind's cap (ItemKind.visible_to?) and the caps of every item
+    # inside it: a group whose answer could come from a capped child is
+    # capped too.
+    def visible_person_ids(item, viewer, person_ids)
+      ([ item ] + descendants_of(item)).reduce(person_ids.to_a) do |ids, entry|
+        kind = item_kind(entry.kind)
+        kind && ids.any? ? kind.visible_person_ids(entry, viewer, ids) : ids
+      end
+    end
+
+    # The ids among person_ids whose overall depends on a counting item
+    # (among these top-level items) whose kind hides it from the viewer.
+    def capped_person_ids(items, viewer, person_ids)
+      return [] if viewer.nil? || person_ids.empty?
+
+      items.select(&:counts?).flat_map { |item| person_ids - visible_person_ids(item, viewer, person_ids) }.uniq
+    end
+
     # Whether the two are related by any relationship, which rules out
     # excusing or attesting for each other.
     def related?(person, other)
@@ -150,6 +169,10 @@ module Checklists
     end
 
     private
+
+    def descendants_of(item)
+      item.children.to_a.flat_map { |child| [ child ] + descendants_of(child) }
+    end
 
     def team_tree_ids(team_ids, join)
       team_ids = Array(team_ids).compact
