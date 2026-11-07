@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_190100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -88,6 +88,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
     t.uuid "team_id"
     t.string "title"
     t.datetime "updated_at", null: false
+    t.datetime "archived_at"
     t.index ["team_id"], name: "index_announcements_on_team_id"
   end
 
@@ -373,6 +374,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
     t.uuid "team_id"
     t.uuid "time_clock_period_id"
     t.datetime "updated_at", null: false
+    t.datetime "archived_at"
     t.index ["event_type_id"], name: "index_events_on_event_type_id"
     t.index ["team_id"], name: "index_events_on_team_id"
     t.index ["time_clock_period_id"], name: "index_events_on_time_clock_period_id"
@@ -392,6 +394,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
     t.string "event"
     t.string "name"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "housekeeping_purges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "key", null: false
+    t.date "cutoff_on", null: false
+    t.integer "count", default: 0, null: false
+    t.uuid "person_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_housekeeping_purges_on_person_id"
   end
 
   create_table "ledger_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1029,6 +1041,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
   add_foreign_key "checklists", "teams"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
+  add_foreign_key "housekeeping_purges", "people", on_delete: :nullify
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
   add_foreign_key "ledger_entry_linkings", "ledger_entry_links"

@@ -1,0 +1,20 @@
+<%# Housekeeping on a list page (one render line there): find the ones that
+    ended before a date, then archive, restore or copy several at once.
+    Locals: type (a Housekeeping type key). Shows nothing while it's off. %>
+<% hk_type = Housekeeping.type(type) %>
+<% if hk_type %>
+  <details class="card mt-3">
+    <summary class="card-header">Old <%= hk_type.label.downcase %>: archive, restore or copy several at once</summary>
+    <div class="card-body">
+      <%= form_with url: housekeeping_list_path(hk_type.key), method: :get, data: { turbo: false } do %>
+        <%= render "checklists/relative_date_field", name: "older", field_id: "housekeeping_older", legend: "Ended",
+          picked: nil, none_label: "Any time", date_label: "On or before", within_label: "More than", after_label: "ago" %>
+        <div class="form-check mt-2">
+          <%= check_box_tag :archived, "1", false, id: "housekeeping_archived", class: "form-check-input" %>
+          <%= label_tag :housekeeping_archived, "Archived ones", class: "form-check-label" %>
+        </div>
+        <%= submit_tag "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
+      <% end %>
+    </div>
+  </details>
+<% end %>

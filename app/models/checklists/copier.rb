@@ -9,12 +9,10 @@ module Checklists
   #   copier.replacements   # [Replacement] records named with a year
   #   copier.call(title:, by:, dates: { key => date }, replace: { key => id })
   class Copier
-    YEAR = /\b(19|20)\d{2}\b/
+    include ::Housekeeping::DateShift
 
     DateChange = Struct.new(:key, :label, :old, :proposed, keyword_init: true)
-    Replacement = Struct.new(:key, :record, :proposed, keyword_init: true) do
-      def model = record.class
-    end
+    Replacement = ::Housekeeping::DateShift::Replacement
 
     # The copy was refused: by may not set up items (labels; their kind's
     # authorable_by? said no to the copied config, replacements included) or
@@ -29,7 +27,7 @@ module Checklists
       end
     end
 
-    attr_reader :checklist, :shift_months
+    attr_reader :checklist
 
     def initialize(checklist, shift_months: 12)
       @checklist = checklist
@@ -58,13 +56,7 @@ module Checklists
     # Badges, teams, checklists... named with a year, matched to the name
     # with the year shifted when one exists.
     def replacements
-      referenced_records.filter_map do |record|
-        name = name_of(record)
-        next unless name.to_s.match?(YEAR)
-
-        shifted = name.gsub(YEAR) { |year| (year.to_i + shift_years).to_s }
-        Replacement.new(key: key_for(record), record: record, proposed: find_named(record.class, shifted))
-      end
+      replacements_for(referenced_records)
     end
 
     # Rules left with no target (a deleted person, team or badge), which a
@@ -115,14 +107,6 @@ module Checklists
 
     private
 
-    def shift_years
-      (shift_months / 12.0).round
-    end
-
-    def shift(date)
-      date && date + shift_months.months
-    end
-
     def items
       @items ||= checklist.checklist_items.order(:position).to_a
     end
@@ -138,23 +122,10 @@ module Checklists
       records.compact.uniq
     end
 
-    def key_for(record)
-      "#{record.class.name}:#{record.id}"
-    end
-
-    def name_of(record)
-      record.respond_to?(:title) ? record.title : record.try(:name)
-    end
-
-    def find_named(model, name)
-      column = model.column_names.include?("title") ? :title : :name
-      model.find_by(column => name)
-    end
-
     def swap(record, replace)
       return if record.nil?
 
-      replace[key_for(record)].presence || record.id
+      replace[replacement_key(record)].presence || record.id
     end
 
     # Each copied item is checked against by (ItemKind.authorable_by? on the

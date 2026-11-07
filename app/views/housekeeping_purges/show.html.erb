@@ -1,0 +1,40 @@
+<div class="card">
+  <div class="card-header"><h1>Clear <%= @purge.label.downcase_first %></h1></div>
+  <div class="card-body">
+    <% if @cutoff.nil? %>
+      <p>This is turned off: its age setting (<%= @purge.setting_name %>) is blank.</p>
+    <% else %>
+      <p>
+        Everything from before <strong><%= l(@cutoff, format: :long) %></strong> (older than <%= pluralize(@purge.months, "month") %>, set in settings).
+        It's removed for good, including from the change history. People stay, and so does the rest of their record.
+      </p>
+      <% if @count.zero? %>
+        <p class="text-body-secondary">Nothing to clear.</p>
+      <% else %>
+        <p class="fw-semibold"><%= @count %> will be cleared:</p>
+        <table class="table table-sm">
+          <tbody>
+            <% @rows.each do |heading, detail| %>
+              <tr><td><%= heading %></td><td class="text-body-secondary"><%= detail %></td></tr>
+            <% end %>
+          </tbody>
+        </table>
+        <% if @count > @rows.size %><p class="small text-body-secondary">And <%= @count - @rows.size %> more.</p><% end %>
+
+        <%= form_with url: housekeeping_purge_path(@purge.key), method: :post do %>
+          <%= hidden_field_tag :count, @count %>
+          <div class="form-check mb-3">
+            <%= check_box_tag :confirmed, "1", false, required: true, class: "form-check-input" %>
+            <%= label_tag :confirmed, "I understand these #{@count} can't be brought back", class: "form-check-label" %>
+          </div>
+          <%= submit_tag "Clear #{@count}", class: "btn btn-danger" %>
+        <% end %>
+      <% end %>
+    <% end %>
+    <% if @last %>
+      <p class="small text-body-secondary mt-3">
+        Last cleared <%= l(@last.created_at.to_date, format: :long) %><%= " by #{@last.person.display_name}" if @last.person %>: <%= @last.count %>.
+      </p>
+    <% end %>
+  </div>
+</div>
