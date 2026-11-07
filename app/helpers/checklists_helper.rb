@@ -30,7 +30,8 @@ module ChecklistsHelper
     return tag.span(fix["label"], class: "text-body-secondary") unless checklist_fix_allowed?(fix["requires"])
 
     if fix["action"] == "attest"
-      item = entry.item
+      # A group ("any of") shows its child's fix, with that child's item_id.
+      item = (fix["item_id"] && checklist.checklist_items.find_by(id: fix["item_id"])) || entry.item
       attestation = ChecklistAttestation.new(person_id: person_id)
       attestation.item = item
       return tag.span(fix["label"] == "I confirm" ? "Not confirmed yet" : fix["label"], class: "text-body-secondary") unless policy(attestation).create?

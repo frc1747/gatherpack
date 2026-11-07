@@ -31,9 +31,21 @@ module Checklists
             Result.pending("Almost: #{counted.select { |_, result| result.pending? }.map { |child, _| child.label }.to_sentence}")
           else
             Result.not_met("None done yet", detail: "Any one of these is enough: #{children.map(&:label).to_sentence}",
-              fix: counted.filter_map { |_, result| result.fix }.first)
+              fix: fix_for(counted))
           end
         end
+      end
+
+      private
+
+      # The fix of the first child the person (or a guardian) can act on, or
+      # else the first child's: any one is enough, so one they can do alone
+      # beats asking a leader. It keeps its "by", and carries the child's
+      # item_id, which a confirm button needs (the group isn't the item
+      # confirmed).
+      def fix_for(counted)
+        fixes = counted.filter_map { |child, result| result.fix&.reverse_merge("item_id" => child.id) }
+        fixes.find { |fix| fix["by"].present? && fix["by"] != "leader" } || fixes.first
       end
     end
   end
