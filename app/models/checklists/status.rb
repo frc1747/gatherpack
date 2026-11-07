@@ -1,7 +1,8 @@
 module Checklists
   # One person's results on one checklist as one viewer may see them, from
   # Checklists.status_for. overall and items are ItemStatus; items are the
-  # top-level items in order, groups carrying their children.
+  # top-level items in order, groups carrying their children. overall is
+  # nil when the viewer sees only some items (its level doesn't reach them).
   Status = Struct.new(:person_id, :overall, :items, keyword_init: true) do
     # Every visible item, groups' children included, in order.
     def all_items

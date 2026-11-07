@@ -8,7 +8,7 @@ class ChecklistAttestationsController < InternalController
     item = @checklist.checklist_items.where(kind: "attested").find(params[:item_id])
     subject = Checklists.people_covered_by(@checklist).find(params[:person_id])
     attestation = ChecklistAttestation.new(person: subject, key: item.config["key"], statement: item.config["statement"],
-      attested_by: current_user.person)
+      attested_by: current_user.person, attested_as: item.config["attested_by"].presence || "person")
     attestation.item = item
     authorize attestation
     attestation.save!

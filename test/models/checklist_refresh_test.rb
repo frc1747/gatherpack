@@ -158,6 +158,35 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
+  test "after the cutoff nothing is scheduled, so the clock leaves it alone" do
+    with_feature do
+      @checklist.update!(cutoff_on: Date.new(2026, 10, 1), starts_within_amount: 30, starts_within_unit: "days")
+      ChecklistExcuse.create!(item: @safety_item, person: person(:member), reason: "Later", expires_on: Date.new(2026, 12, 1), created_by: person(:club_manager))
+
+      travel_to(Time.zone.parse("2026-09-30 10:00")) do
+        assert_equal Time.zone.parse("2026-10-01 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
+      end
+      travel_to(Time.zone.parse("2026-10-02 10:00")) do
+        assert_nil Checklists::Evaluator.new(@checklist.reload).next_change_at
+        refresh(@checklist)
+        assert_nil @checklist.reload.next_refresh_at
+        computed_at = @checklist.computed_at
+        ChecklistRefresh.delete_all
+
+        travel 10.minutes
+        ChecklistClockJob.perform_now
+        assert_equal computed_at, @checklist.reload.computed_at
+      end
+    end
+  end
+
+  test "before the cutoff nothing is scheduled past it" do
+    @checklist.update!(cutoff_on: Date.new(2026, 10, 1))
+    travel_to(Time.zone.parse("2026-09-20 10:00")) do
+      assert_equal Time.zone.parse("2026-10-02 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
+    end
+  end
+
   test "a cutoff freezes results at the end of that day" do
     @checklist.update!(cutoff_on: Date.new(2026, 10, 1))
     travel_to(Time.zone.parse("2026-10-05")) { give_badge(:member, @safety) }

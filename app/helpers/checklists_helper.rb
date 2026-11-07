@@ -21,10 +21,13 @@ module ChecklistsHelper
   end
 
   # The fix as a link, a confirm button, or plain text (something only a
-  # leader can do).
+  # leader can do). A fix may carry a requirement, { "record" => a global
+  # id, "query" => a policy question such as "update?" }: the link shows
+  # only when the viewer's policy answers yes, else the label as text.
   def checklist_fix(checklist, entry, person_id)
     fix = entry.fix
     return if fix.blank? || entry.met? || entry.exempt?
+    return tag.span(fix["label"], class: "text-body-secondary") unless checklist_fix_allowed?(fix["requires"])
 
     if fix["action"] == "attest"
       item = entry.item
@@ -40,6 +43,21 @@ module ChecklistsHelper
     else
       tag.span(fix["label"], class: "text-body-secondary")
     end
+  end
+
+  def checklist_fix_allowed?(requires)
+    return true if requires.blank?
+
+    query = requires["query"].to_s
+    return false unless query.match?(/\A[a-z_]+\?\z/)
+
+    record = GlobalID::Locator.locate(requires["record"].to_s)
+    return false if record.nil?
+
+    record_policy = policy(record)
+    record_policy.respond_to?(query) && record_policy.public_send(query)
+  rescue ActiveRecord::RecordNotFound, URI::InvalidURIError, Pundit::NotDefinedError
+    false
   end
 
   def checklist_kind_options

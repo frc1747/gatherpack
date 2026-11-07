@@ -26,7 +26,7 @@ class ChecklistItemFormSectionTest < ActionDispatch::IntegrationTest
     config = ChecklistsTestKinds::Rows.normalize_config({ "rows" => { "0" => { "name" => " Summer ", "share" => "10" }, "1" => { "name" => "" } } })
 
     assert_equal({ "rows" => [ { "name" => "Summer", "share" => 10 } ] }, config)
-    assert_equal [ { rows: %i[name share] } ], ChecklistsTestKinds::Rows.permitted_config
+    assert_equal [ { rows: %i[name share from] } ], ChecklistsTestKinds::Rows.permitted_config
   end
 
   test "the item form renders the kind's section and saves its rows" do
@@ -53,6 +53,28 @@ class ChecklistItemFormSectionTest < ActionDispatch::IntegrationTest
 
       assert_response :unprocessable_entity
       assert_match "Add at least one row", response.body
+    end
+  end
+
+  test "a setting type a connector brings renders its own partial" do
+    Checklists.register_item_kind(:coloured, ChecklistsTestKinds::Coloured)
+    with_feature do
+      sign_in person(:admin).user
+      get new_checklist_checklist_item_path(@checklist, kind: "coloured")
+      assert_select "input.test-colour-setting[name='checklist_item[config][colour]']"
+
+      post checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "coloured", label: "Shirt", config: { colour: "#336699" } } }
+      assert_equal "#336699", @checklist.checklist_items.find_by!(label: "Shirt").config["colour"]
+    end
+  ensure
+    Checklists.unregister_item_kind(:coloured)
+  end
+
+  test "built-in setting types still render without a partial of their own" do
+    with_feature do
+      sign_in person(:admin).user
+      get new_checklist_checklist_item_path(@checklist, kind: "badge")
+      assert_select "select[name='checklist_item[config][badge_ids][]']"
     end
   end
 

@@ -1,7 +1,8 @@
 # Who sees and runs checklists. The list shows checklists someone runs
 # (as a manager of its team, or an organizer who still holds a badge that
 # reaches it), and those with results they may see: their own, their wards',
-# the people they lead, or through a grant. Drafts and archived checklists
+# the people they lead, their teammates' or their group's through an item's
+# level, or through a grant. Drafts and archived checklists
 # are only for the people who run them, and archived ones are read-only.
 # Which rows and columns someone sees inside is Checklists::Visibility's
 # job.
@@ -18,10 +19,35 @@ class ChecklistPolicy < ApplicationPolicy
       shown = scope.where(id: results.where(person_id: seen).select(:checklist_id))
         .or(scope.where(id: results.where(person_id: person.all_managed_people.select(:id)).select(:checklist_id)))
         .or(scope.where(id: granted_ids))
+        .or(scope.where(id: teammate_ids))
+        .or(scope.where(id: group_ids))
       run.or(shown.where.not(status: :draft))
     end
 
     private
+
+    # Checklists whose overall or an item is open to teammates, with a
+    # result for one of the viewer's teammates.
+    def teammate_ids
+      teammates = Membership.where(team_id: person.memberships.select(:team_id)).select(:person_id)
+      team_items = ChecklistItem.where(read_level: "team").select(:id)
+      ChecklistResult.where(person_id: teammates)
+        .where(item_id: team_items).or(ChecklistResult.where(person_id: teammates, item_id: nil, checklist_id: Checklist.where(read_level: "team").select(:id)))
+        .select(:checklist_id)
+    end
+
+    # Checklists with an item at the "group" level whose kind pools people
+    # (ItemKind.group_reach) and reaches one of its results for the viewer:
+    # a parent pooled with a child, say, who isn't their guardian.
+    def group_ids
+      kinds = Checklists.item_kinds.select { |_, kind| kind.method(:group_reach).owner != Checklists::ItemKind.singleton_class }
+      return [] if kinds.empty?
+
+      ChecklistItem.where(kind: kinds.keys).includes(:checklist).select { |item| item.effective_read_level == "group" }.filter_map do |item|
+        ids = ChecklistResult.where(item_id: item.id).pluck(:person_id)
+        item.checklist_id if ids.any? && Array(kinds[item.kind].group_reach(item, person, ids)).any?
+      end
+    end
 
     def granted_ids
       badge_ids = BadgeAssignment.where(person_id: person.id).select(:badge_id)

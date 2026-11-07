@@ -13,10 +13,10 @@
         <tr><th>Name</th><th>Overall</th><% items.each do |item| %><th><%= item["label"] %></th><% end %></tr>
       </thead>
       <tbody>
-        <% @list.rows.each do |row| %>
+        <% @rows.each do |row| %>
           <tr>
             <td><%= row["name"] %></td>
-            <td><span class="badge <%= checklist_status_class(row["overall"]) %>"><%= row["overall_text"] %></span></td>
+            <td><% if row["overall"] %><span class="badge <%= checklist_status_class(row["overall"]) %>"><%= row["overall_text"] %></span><% end %></td>
             <% items.each do |item| %>
               <% entry = row.dig("items", item["id"]) %>
               <td><% if entry %><span class="badge <%= checklist_status_class(entry["status"]) %>"><%= entry["text"] %></span> <small><%= entry["summary"] %></small><% end %></td>

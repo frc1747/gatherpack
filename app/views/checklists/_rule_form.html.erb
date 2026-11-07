@@ -6,7 +6,7 @@
     <div class="col-4"><%= f.select :effect, [ %w[Include include], %w[Exclude exclude] ], {}, class: "form-select form-select-sm", "aria-label": "Include or exclude" %></div>
     <div class="col-8"><%= f.select :target_type, [ [ "A team", "team" ], [ "A badge's holders", "badge" ], [ "One person", "person" ], [ "Applicants to a team", "applicants" ] ], {},
       class: "form-select form-select-sm", "aria-label": "Who" %></div>
-    <div class="col-12"><%= f.select :team_id, Team.where(id: Checklists.team_subtree_ids(checklist.team_id)).order(:name).pluck(:name, :id), { include_blank: "Team (for a team or applicants)…" }, class: "form-select form-select-sm" %></div>
+    <div class="col-12"><%= f.select :team_id, Team.where(id: Checklists.team_subtree_ids(checklist.team_id)).order(:name).pluck(:name, :id), { include_blank: "Team (for a team or applicants; for badge holders, only those in it)…" }, class: "form-select form-select-sm" %></div>
     <div class="col-12"><%= f.select :badge_id, Badge.order(:name).pluck(:name, :id), { include_blank: "Badge…" }, class: "form-select form-select-sm" %></div>
     <div class="col-12"><%= f.select :person_id, Person.where(id: Checklists.people_covered_by(checklist).select(:id)).order(:last_name, :first_name).pluck(:display_name, :id), { include_blank: "Person…" }, class: "form-select form-select-sm" %></div>
     <div class="col-12 form-check ms-2">

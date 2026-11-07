@@ -508,6 +508,47 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     Checklists.unregister_item_kind(:joined_since)
   end
 
+  test "covered members see when and by whom a checklist changed, but not which item" do
+    hidden = add_item(@checklist, :has_login, "Background check", {}, read_level: "guardians")
+    PaperTrail.request(whodunnit: person(:admin).user.id) { hidden.update!(label: "Background check 2") }
+    refresh(@checklist)
+    with_feature do
+      sign_in person(:member).user
+      get checklist_path(@checklist)
+      assert_match "by an admin", response.body
+      assert_no_match "Background check 2", response.body
+
+      sign_in person(:admin).user
+      get checklist_path(@checklist)
+      assert_match "item Background check 2 edited", response.body
+    end
+  end
+
+  test "the copy page lists rules that will be left out" do
+    gone = Person.create!(first_name: "Gone", last_name: "World")
+    Membership.create!(person: gone, team: @members)
+    add_rule(@checklist, :exclude, :person, person_id: gone.id)
+    gone.destroy!
+    with_feature do
+      sign_in person(:admin).user
+      get copy_checklist_path(@checklist)
+      assert_match "1 rule naming a deleted person, team or badge will be left out", response.body
+
+      post copy_checklist_path(@checklist), params: { title: "Next", shift_months: 12 }
+      assert Checklist.exists?(title: "Next")
+      assert_match "1 rule naming something deleted was left out", flash[:notice]
+    end
+  end
+
+  test "confirming records the level it satisfied" do
+    item = add_item(@checklist, :attested, "Permission", { statement: "Permission given", attested_by: "guardian" })
+    with_feature do
+      sign_in person(:parent).user
+      post checklist_checklist_attestations_path(@checklist, item_id: item.id, person_id: person(:kid).id)
+      assert_equal "guardian", ChecklistAttestation.last.attested_as
+    end
+  end
+
   test "the as-of picker computes live for organizers" do
     with_feature do
       sign_in person(:admin).user

@@ -22,12 +22,16 @@ module Checklists
       visibility = Visibility.new(checklist, viewer).prepare(rows.keys)
       reasons = excuse_reasons(rows, visibility)
 
+      # A row shows when its overall or any of its items reaches the viewer
+      # (a pooled count seen by a relative, say); the overall shows only at
+      # its own level, else it's nil.
       rows.each_with_object({}) do |(person_id, by_item), statuses|
-        next unless visibility.row_visible?(person_id)
-
         overall = build(nil, by_item[nil], person_id, visibility, reasons)
         built = build_items(items, by_item, person_id, visibility, reasons)
-        restrict_overall(overall, built) unless visibility.full? && built.size == items.size
+        overall = cap_overall(overall, by_item, person_id, visibility) if overall
+        next if overall.nil? && built.empty?
+
+        restrict_overall(overall, built) if overall && !(visibility.full? && built.size == items.size)
         statuses[person_id] = Status.new(person_id: person_id, overall: overall, items: built)
       end
     end
@@ -112,6 +116,28 @@ module Checklists
         summary: full ? row.summary : nil, detail: full ? row.detail : nil, measures: measures,
         fix: full ? row.fix : nil, acts_for: visibility.acts_for(person_id), access: access,
         excuse: row.excuse && excuse_for(row.excuse, full, reasons), changed_at: row.changed_at, stale: row.stale)
+    end
+
+    # When an item's kind hides a counting item from this viewer, the overall
+    # they see is worked out from the counting items they may see, so it
+    # can't give the hidden answer away. (Items hidden only by their read
+    # level still count: the overall has its own level.) When every counting
+    # item is hidden from them, they don't see the overall at all.
+    def cap_overall(overall, by_item, person_id, visibility)
+      counting = items.select(&:counts?)
+      shown = counting.select { |item| visibility.kind_allows?(item, person_id) }
+      return overall if shown.size == counting.size
+      return nil if shown.empty?
+
+      statuses = shown.filter_map { |item| by_item[item.id]&.status }.reject { |status| status == "exempt" }
+      status = if statuses.include?("not_met") then "not_met"
+      elsif statuses.include?("pending") then "pending"
+      else "met"
+      end
+      overall.status = status
+      overall.word = checklist.word_for(status)
+      overall.label = nil
+      overall
     end
 
     # The overall's "n to do" counts only the counting items this viewer

@@ -6,6 +6,10 @@ class ChecklistAttestation < ApplicationRecord
   include CanBeHooked
   has_paper_trail versions: { class_name: "AuditLog" }
 
+  # "Who confirms" levels, least strict first. attested_as is the level a
+  # confirmation satisfied when it was made (checked by may_attest?).
+  LEVELS = { "person" => 0, "guardian" => 1, "manager" => 2 }.freeze
+
   belongs_to :person
   belongs_to :attested_by, class_name: "Person", optional: true
 
@@ -16,6 +20,7 @@ class ChecklistAttestation < ApplicationRecord
   validates :statement, presence: true
   validates :attested_at, presence: true
   validates :attested_by, presence: true, on: :create
+  validates :attested_as, inclusion: { in: LEVELS.keys }, allow_nil: true
 
   before_validation { self.attested_at ||= Time.current }
 
@@ -28,10 +33,22 @@ class ChecklistAttestation < ApplicationRecord
   # confirmation made through another item with the same key counts only
   # when it would have been allowed here too. Batch: a few queries per
   # distinct attester, whatever the number of people.
+  #
+  # A confirmation recorded as satisfying a level at least as strict as the
+  # item's counts as made, whatever its maker's roles are now; older ones
+  # without a recorded level are checked against the maker's roles today.
   def self.accepted_by(item, attestations)
     return [] if attestations.empty?
 
     who = item.config["attested_by"]
+    needed = LEVELS.fetch(who.to_s, 0)
+    recorded, unrecorded = attestations.partition { |attestation| attestation.attested_as && LEVELS[attestation.attested_as].to_i >= needed }
+    recorded + current_roles_accept(who, unrecorded)
+  end
+
+  def self.current_roles_accept(who, attestations)
+    return [] if attestations.empty?
+
     attester_ids = attestations.map(&:attested_by_id).compact.uniq
     person_ids = attestations.map(&:person_id).uniq
     admin_ids = Person.joins(:user).where(id: attester_ids, users: { admin: true }).ids.to_set

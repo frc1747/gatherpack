@@ -34,9 +34,9 @@ module Checklists
           old = item.public_send(field)
           changes << DateChange.new(key: "#{item.id}.#{field}", label: "#{item.label}: #{field.humanize(capitalize: false)}", old: old, proposed: shift(old)) if old
         end
-        date_settings(item).each do |key|
-          old = fixed_date(item, key)
-          changes << DateChange.new(key: "#{item.id}.config.#{key}", label: "#{item.label}: #{key.humanize(capitalize: false)}", old: old, proposed: shift(old)) if old
+        Array(item.kind_class&.copy_dates(item)).each do |entry|
+          old = entry[:value]
+          changes << DateChange.new(key: "#{item.id}.config.#{entry[:key]}", label: "#{item.label}: #{entry[:label].to_s.downcase_first}", old: old, proposed: shift(old)) if old
         end
       end
       changes
@@ -52,6 +52,12 @@ module Checklists
         shifted = name.gsub(YEAR) { |year| (year.to_i + shift_years).to_s }
         Replacement.new(key: key_for(record), record: record, proposed: find_named(record.class, shifted))
       end
+    end
+
+    # Rules left with no target (a deleted person, team or badge), which a
+    # copy leaves out.
+    def empty_rules
+      checklist.checklist_rules.includes(:team, :badge, :person, :item).reject(&:target)
     end
 
     # dates: { key => Date or string } overriding the proposals (blank keeps
@@ -96,20 +102,6 @@ module Checklists
       @items ||= checklist.checklist_items.order(:position).to_a
     end
 
-    # Date settings with a fixed date: :date ones, and :relative_date ones
-    # set to "on or after <date>" (a "within the last N" stays as it is).
-    def date_settings(item)
-      Array(item.kind_class&.settings).select { |setting| %i[date relative_date].include?(setting.type) }.map { |setting| setting.key.to_s }
-    end
-
-    def fixed_date(item, key)
-      value = item.config[key]
-      return RelativeDate.from_config(value)&.date if value.is_a?(Hash)
-
-      value.presence && Date.iso8601(value)
-    rescue Date::Error
-      nil
-    end
 
     def referenced_records
       records = items.flat_map do |item|
@@ -158,16 +150,20 @@ module Checklists
         swap_id = ->(id) { replace["#{model_name}:#{id}"].presence || id }
         config[key] = config[key].is_a?(Array) ? config[key].map(&swap_id) : swap_id.call(config[key])
       end
-      date_settings(item).each do |key|
-        date = dates["#{item.id}.config.#{key}"]
-        next unless date && fixed_date(item, key)
+      kind = item.kind_class
+      return config unless kind
 
-        config[key] = config[key].is_a?(Hash) ? RelativeDate.new(date: date).to_config : date.iso8601
-      end
-      config
+      prefix = "#{item.id}.config."
+      own = kind.copy_dates(item).map { |entry| entry[:key].to_s }
+      picked = own.to_h { |key| [ key, dates["#{prefix}#{key}"] ] }.compact
+      picked.any? ? kind.apply_copy_dates(item, config, picked) : config
     end
 
+    # Rules whose person, team or badge was deleted match nobody; they're
+    # left out of the copy (see empty_rules).
     def copy_rule(rule, copy, item, replace)
+      return if rule.target.nil?
+
       copy.checklist_rules.create!(item: item, effect: rule.effect, target_type: rule.target_type,
         team_id: swap(rule.team, replace), badge_id: swap(rule.badge, replace), person_id: rule.person_id,
         include_managers: rule.include_managers)
