@@ -4,7 +4,7 @@
 class Intake::RegistrationsController < InternalController
   before_action :require_intake_feature
   before_action :set_team, only: %i[index new]
-  before_action :set_registration, only: %i[show edit update destroy copy close destroy_entries]
+  before_action :set_registration, only: %i[show edit update destroy copy close destroy_entries waiting]
 
   # GET /registrations or /teams/:team_id/registrations
   def index
@@ -79,6 +79,13 @@ class Intake::RegistrationsController < InternalController
   def destroy_entries
     count = @registration.entries.unverified.where(person_id: nil, id: Array(params[:entry_ids])).destroy_all.size
     redirect_to intake_registration_path(@registration), notice: "Deleted #{count} #{"sign-up".pluralize(count)}.", status: :see_other
+  end
+
+  # GET /registrations/:id/waiting: kiosk sign-ups whose person hasn't
+  # opened their invitation yet, with what managers need to chase them.
+  def waiting
+    @entries = @registration.entries.source_kiosk.unverified.where.not(person_id: nil)
+      .includes(:person, :household_members).order(:created_at)
   end
 
   private

@@ -17,16 +17,20 @@ class Intake::Enrollment
   end
 
   # Applies a person to the given teams (the entry's choice by default),
-  # limited to the registration's teams. Already a member, or already
-  # waiting: nothing new. Returns the applications made.
+  # limited to the registration's teams. Already a member, already waiting,
+  # or decided before: nothing new. Returns the pending applications.
   def apply(person, teams = entry.teams)
     teams = registration.apply_teams.where(id: Array(teams).map { |team| team.try(:id) || team })
     teams.filter_map do |team|
       next if person.memberships.exists?(team: team)
 
       if team.requires_approval?
-        existing = team.membership_applications.pending.find_by(person: person)
-        existing || MembershipApplication.create!(person: person, team: team, registration: registration, source: source)
+        # Upstream keeps one application per person and team, whatever its
+        # status, so someone denied before isn't asked again here.
+        existing = team.membership_applications.find_by(person: person)
+        next existing if existing&.pending?
+        next if existing
+        MembershipApplication.create!(person: person, team: team, registration: registration, source: source)
       else
         Membership.create!(person: person, team: team, manager: false)
         Intake::Placement.new(person: person, registration: registration).apply!

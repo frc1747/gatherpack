@@ -4,6 +4,9 @@
     <div class="d-flex gap-2 flex-wrap">
       <%= link_to "Edit", edit_intake_registration_path(@registration), class: "btn btn-primary" %>
       <%= link_to "Copy", copy_intake_registration_path(@registration), class: "btn btn-outline-primary" %>
+      <% if @registration.kiosk? %>
+        <%= link_to "Waiting to finish", waiting_intake_registration_path(@registration), class: "btn btn-outline-primary" %>
+      <% end %>
       <% unless @registration.closed? %>
         <%= button_to "Close now", close_intake_registration_path(@registration), method: :patch, class: "btn btn-warning",
           form: { data: { turbo_confirm: "Close this registration now? The link will say registration has closed." } } %>
@@ -25,6 +28,10 @@
         <dd class="col-sm-9"><code><%= intake_join_url(@registration.slug) %></code></dd>
         <dt class="col-sm-3">Bot check</dt>
         <dd class="col-sm-9"><%= Intake::BotCheck.installed? ? Intake::BotCheck.adapter.name : "No bot check" %> (a hidden field and a minimum time always run)</dd>
+      <% end %>
+      <% if @registration.kiosk? %>
+        <dt class="col-sm-3">Kiosk</dt>
+        <dd class="col-sm-9"><%= link_to intake_kiosk_url(@registration.slug), intake_kiosk_path(@registration.slug) %> (open it on the kiosk account)</dd>
       <% end %>
       <dt class="col-sm-3">Teams</dt>
       <dd class="col-sm-9"><%= safe_join(@registration.apply_teams.map { |team| as_badge team }, " ") %></dd>

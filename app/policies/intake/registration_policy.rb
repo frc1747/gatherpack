@@ -49,6 +49,10 @@ class Intake::RegistrationPolicy < ApplicationPolicy
     manages?
   end
 
+  def waiting?
+    manages?
+  end
+
   private
 
   def manages?

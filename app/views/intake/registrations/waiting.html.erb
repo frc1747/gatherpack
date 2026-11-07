@@ -1,0 +1,43 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h1 class="mb-0">Waiting to finish</h1>
+    <%= link_to "Back to #{@registration.title}", intake_registration_path(@registration), class: "btn btn-outline-secondary" %>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">People signed up at the kiosk who haven't opened their invitation yet. Only managers see this.</p>
+    <% if @entries.any? %>
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Name</th><th>Teams</th><th>Invited</th><th>Notes</th><th></th></tr></thead>
+        <tbody>
+          <% @entries.each do |entry| %>
+            <% days = ((Time.current - entry.created_at) / 1.day).floor %>
+            <% member = entry.household_members.detect(&:applicant?) %>
+            <% guardians = entry.household_members.select(&:guardian?) %>
+            <tr id="<%= dom_id(entry) %>">
+              <td><%= link_to entry.person.display_name, person_path(entry.person) %></td>
+              <td><%= entry.team_names %></td>
+              <td><%= days.zero? ? "Today" : "#{days} #{"day".pluralize(days)} ago" %></td>
+              <td>
+                <% if days >= 3 %><span class="badge text-bg-warning">Email not opened</span><% end %>
+                <% if (match = member&.possible_match) %>
+                  <span class="badge text-bg-info">Might be the same person as <%= link_to match.display_name, person_path(match) %></span>
+                <% end %>
+                <% guardians.each do |row| %>
+                  <span class="badge <%= row.guardian_confirmed_at ? "text-bg-success" : "text-bg-secondary" %>">
+                    <%= row.guardian_confirmed_at ? "Guardian confirmed by email on #{l row.guardian_confirmed_at.to_date, format: :long}" : "Waiting for a guardian (#{row.facts["first_name"]})" %>
+                  </span>
+                <% end %>
+                <% if entry.facts["needs_guardian"] && guardians.none? && !entry.person.guardians.exists? %>
+                  <span class="badge text-bg-secondary">No guardian yet</span>
+                <% end %>
+              </td>
+              <td><%= link_to "Send again", resend_intake_registration_entry_path(@registration, entry), data: { turbo_method: :post }, class: "btn btn-sm btn-outline-secondary" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="mb-0">Nobody is waiting.</p>
+    <% end %>
+  </div>
+</div>

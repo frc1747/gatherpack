@@ -230,12 +230,15 @@ Rails.application.routes.draw do
     post ":slug/me/guardians" => "me#add_guardian", :as => :me_guardians
     post ":slug/me/members" => "me#add_member", :as => :me_members
     delete ":slug/me/applications/:id" => "me#withdraw", :as => :me_application
+    get ":slug/kiosk" => "kiosk#show", :as => :kiosk
+    post ":slug/kiosk" => "kiosk#create"
   end
   scope module: :intake, as: :intake do
     resources :spam_people, only: %i[show destroy], path: "registration-spam"
     resources :registrations do
       member do
         get :copy
+        get :waiting
         patch :close
         delete :entries, action: :destroy_entries
       end

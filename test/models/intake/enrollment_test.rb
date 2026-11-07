@@ -43,6 +43,14 @@ class Intake::EnrollmentTest < ActiveSupport::TestCase
     assert_equal [ @juniors ], @adult.membership_applications.map(&:team)
   end
 
+  test "someone denied before isn't applied again" do
+    entry = verified_entry(@adult)
+    MembershipApplication.create!(person: @adult, team: @juniors).deny!
+
+    assert_empty Intake::Enrollment.new(entry).apply(@adult)
+    assert_equal 1, @adult.membership_applications.count
+  end
+
   test "teams outside the registration are ignored" do
     entry = verified_entry(@adult, teams: [ @juniors ])
     Intake::Enrollment.new(entry).apply(@adult, [ @families.id ])
