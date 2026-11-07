@@ -99,6 +99,32 @@ class Intake::MatchesAndGuardiansTest < ActionDispatch::IntegrationTest
     assert_empty @placeholder.membership_applications
   end
 
+  test "Link waits until a kiosk sign-up has finished joining" do
+    @registration.update!(kiosk: true)
+    with_intake do
+      post intake_kiosk_path(@registration.slug), params: { kiosk: { first_name: "Riley", last_name: "Rivera", birth_year: 1990,
+        email: "riley.kiosk@example.com", email_confirmation: "riley.kiosk@example.com", team_ids: [ @mentors.id ] } }
+    end
+    entry = Intake::Entry.source_kiosk.sole
+    member = entry.household_members.applicant.sole
+    assert_equal @placeholder, member.possible_match
+
+    with_intake { post link_intake_registration_match_path(@registration, member) }
+
+    assert_equal "Wait until they finish joining.", flash[:alert]
+    assert_equal entry.person, member.reload.person
+    assert_empty @placeholder.membership_applications
+
+    # The person can still finish, and Link works once they have.
+    token = entry.issue_token!
+    sign_out @leader.user
+    with_intake { post intake_verification_path, params: { token: token, password: "Password1!", password_confirmation: "Password1!" } }
+    assert entry.reload.verified_at
+    sign_in @leader.user
+    with_intake { post link_intake_registration_match_path(@registration, member) }
+    assert_equal [ @mentors ], @placeholder.membership_applications.map(&:team)
+  end
+
   test "Keep separate clears the flag" do
     with_intake { post keep_separate_intake_registration_match_path(@registration, @member) }
 

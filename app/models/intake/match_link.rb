@@ -41,6 +41,10 @@ class Intake::MatchLink
 
   def link!(by:)
     raise Refused, "There's no possible match to link." unless person && match
+    # Until the email link is used the entry still belongs to the login it
+    # will verify (a kiosk sign-up makes one at once); moving it now would
+    # leave that person unable to finish.
+    raise Refused, "Wait until they finish joining." unless member.entry.verified_at
     refuse_unless_allowed(by)
 
     Person.transaction do
