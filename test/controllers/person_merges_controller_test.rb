@@ -13,7 +13,7 @@ class PersonMergesControllerTest < ActionDispatch::IntegrationTest
     enable_merge(true)
   end
 
-  teardown { enable_merge(@was_enabled) }
+  teardown { restore_settings }
 
   test "an admin previews a merge" do
     sign_in @admin
@@ -70,11 +70,25 @@ class PersonMergesControllerTest < ActionDispatch::IntegrationTest
 
   private
 
-  # Flips the flag in memory only: Setting#value= writes the shared settings
-  # file, which parallel test workers would race on.
+  # Sets the flag in a throwaway copy of the settings file: the shared one
+  # is raced on by parallel test workers. Covers settings that keep their
+  # value in the process and settings that read the file.
   def enable_merge(on)
-    setting = Settings.get(:feature_person_merge)
-    @was_enabled = setting.value if @was_enabled.nil?
-    setting.instance_variable_set(:@value, on.to_s)
+    settings = Settings.instance
+    unless @original_store
+      @original_store = settings.store
+      @was_enabled = Settings.get(:feature_person_merge).instance_variable_get(:@value)
+      @store_path = Rails.root.join("tmp", "test-settings-#{Process.pid}-#{SecureRandom.hex(4)}.pstore").to_s
+      current = @original_store.transaction(true) { @original_store.roots.to_h { |key| [ key, @original_store[key] ] } }
+      settings.store = PStore.new(@store_path, true)
+      settings.store.transaction { current.each { |key, value| settings.store[key] = value } }
+    end
+    Settings[:feature_person_merge] = on.to_s
+  end
+
+  def restore_settings
+    Settings.get(:feature_person_merge).instance_variable_set(:@value, @was_enabled)
+    Settings.instance.store = @original_store
+    FileUtils.rm_f(@store_path)
   end
 end
