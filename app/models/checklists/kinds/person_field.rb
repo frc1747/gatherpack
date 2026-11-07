@@ -39,10 +39,10 @@ module Checklists
             ItemKind::Setting.new(key: :operator, type: :choice, label: "Test", options: OPERATORS.invert.to_a,
               hint: "Which tests fit depends on the field: choices and text use \"is any of\" or \"is none of\", yes/no fields \"is yes\" or \"is no\", dates \"on or after\" or \"on or before\", numbers \"at least\" or \"at most\""),
             ItemKind::Setting.new(key: :values, type: :text, label: "Values", hint: "For \"is any of\" and \"is none of\": one or more, separated by commas"),
-            ItemKind::Setting.new(key: :date, type: :date, label: "Date", hint: "For the date tests"),
+            ItemKind::Setting.new(key: :date, type: :relative_date, label: "Date", hint: "For the date tests. \"Within the last\" counts back from today"),
             ItemKind::Setting.new(key: :number, type: :number, label: "Number", hint: "For the number tests"),
             ItemKind::Setting.new(key: :blank, type: :choice, label: "If it's blank", options: [ [ "Not yet", "not_met" ], [ "Counts as met", "met" ] ]),
-            ItemKind::Setting.new(key: :changed_since, type: :date, label: "Last changed on or after", hint: "Optional. A value not updated since then doesn't count")
+            ItemKind::Setting.new(key: :changed_since, type: :relative_date, label: "Last changed", hint: "Optional. A value not updated since then doesn't count")
           ]
         end
 
@@ -103,7 +103,7 @@ module Checklists
           item.errors.add(:base, reason) if reason && field.system?
           unknown_choices(item, field).each { |value| item.errors.add(:base, "\"#{value}\" isn't one of #{field.name}'s choices") }
           item.errors.add(:base, "Give at least one value") if %w[ any_of none_of ].include?(operator) && values(item).empty?
-          item.errors.add(:base, "Choose a date") if %w[ on_or_after on_or_before ].include?(operator) && item.config["date"].blank?
+          item.errors.add(:base, "Choose a date") if %w[ on_or_after on_or_before ].include?(operator) && relative(item, "date").nil?
           item.errors.add(:base, "Give a number") if %w[ at_least at_most ].include?(operator) && item.config["number"].blank?
         end
 
@@ -112,16 +112,65 @@ module Checklists
           return "A profile field that no longer exists" unless field
 
           operator = item.config["operator"]
-          operand = case operator
-          when "any_of", "none_of" then values(item).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
-          when "on_or_after", "on_or_before" then item.config["date"].present? ? I18n.l(Date.parse(item.config["date"]), format: :long) : nil
-          when "at_least", "at_most" then item.config["number"]
+          sentence = case operator
+          when "any_of", "none_of" then "#{field.name} #{OPERATORS[operator]} #{values(item).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")}"
+          when "on_or_after", "on_or_before" then "#{field.name} #{date_phrase(operator, relative(item, "date"))}".strip
+          when "at_least", "at_most" then "#{field.name} #{OPERATORS[operator]} #{item.config["number"]}"
+          else "#{field.name} #{OPERATORS[operator]}"
           end
-          sentence = [ field.name, OPERATORS[operator], operand ].compact.join(" ")
-          sentence += ", changed since #{I18n.l(Date.parse(item.config["changed_since"]), format: :long)}" if item.config["changed_since"].present?
-          sentence
-        rescue Date::Error
-          field.name
+          changed = relative(item, "changed_since")
+          changed ? "#{sentence}, changed #{changed.relative? ? changed.describe : "since #{I18n.l(changed.date, format: :long)}"}" : sentence
+        end
+
+        # A stored relative date setting, or nil.
+        def relative(item, key)
+          RelativeDate.from_config(item.config[key])
+        end
+
+        # The date tests read plainly for both kinds of date.
+        def date_phrase(operator, date)
+          return OPERATORS[operator] if date.nil?
+
+          if date.relative?
+            operator == "on_or_after" ? "is #{date.describe}" : "is at least #{date.amount} #{date.amount == 1 ? date.unit.singularize : date.unit} ago"
+          else
+            "#{OPERATORS[operator]} #{I18n.l(date.date, format: :long)}"
+          end
+        end
+
+        # Relative dates move at midnight.
+        def next_change_at(item, context)
+          dates = []
+          dates << relative(item, "date") if %w[ on_or_after on_or_before ].include?(item.config["operator"])
+          dates << relative(item, "changed_since")
+          dates.compact.filter_map { |date| date.next_change_at(context.as_of) }.min
+        end
+
+        # Reading a field's value can't show anyone more than the field does:
+        # a person's result is hidden from a viewer who can't read the field
+        # for that person (its audience, badge grants and team), whoever the
+        # viewer is.
+        def visible_to?(item, viewer, person)
+          field = field(item)
+          field.nil? || field.readable_by?(viewer, person)
+        end
+
+        def visible_person_ids(item, viewer, person_ids)
+          field = field(item)
+          return person_ids if field.nil?
+
+          readable = field.readable_subjects_for(viewer).where(id: person_ids).pluck(:id).to_set
+          person_ids.select { |id| readable.include?(id) }
+        end
+
+        # Nobody sets up a test on a field they couldn't read for everyone
+        # the checklist covers.
+        def authorable_by?(item, author)
+          field = field(item)
+          return true if field.nil? || item.checklist.nil?
+
+          covered = Checklists::Evaluator.new(item.checklist).covered_ids
+          (covered - visible_person_ids(item, author, covered)).empty?
         end
 
         def values(item)
@@ -186,11 +235,12 @@ module Checklists
       end
 
       def stale_value(changed_at)
-        config["changed_since"].present? && changed_at < Date.parse(config["changed_since"]).in_time_zone.beginning_of_day
+        since = relative_date(:changed_since)&.resolve(context.as_of)
+        since.present? && changed_at < since.in_time_zone.beginning_of_day
       end
 
       def since
-        I18n.l(Date.parse(config["changed_since"]), format: :long)
+        I18n.l(relative_date(:changed_since).resolve(context.as_of), format: :long)
       end
 
       def passes?(field, value)
@@ -199,8 +249,8 @@ module Checklists
         when "none_of" then (Array(value).map(&:to_s).map(&:downcase) & wanted).empty?
         when "yes" then value == true
         when "no" then value == false
-        when "on_or_after" then value >= Date.parse(config["date"])
-        when "on_or_before" then value <= Date.parse(config["date"])
+        when "on_or_after" then value >= relative_date(:date).resolve(context.as_of)
+        when "on_or_before" then value <= relative_date(:date).resolve(context.as_of)
         when "at_least" then value.to_i >= config["number"].to_i
         when "at_most" then value.to_i <= config["number"].to_i
         else true

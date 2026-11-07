@@ -72,8 +72,8 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
       physical = create_field("Physical date", :date)
       assign(:member, physical, Date.new(2026, 9, 15))
       assign(:member2, physical, Date.new(2025, 9, 15))
-      after = add_field_item(physical, "on_or_after", date: "2026-09-01")
-      before = add_field_item(physical, "on_or_before", date: "2025-12-31")
+      after = add_field_item(physical, "on_or_after", date: { mode: "date", date: "2026-09-01" })
+      before = add_field_item(physical, "on_or_before", date: { mode: "date", date: "2025-12-31" })
 
       assert_equal "met", evaluate(@checklist, :member, after).status
       assert_equal "not_met", evaluate(@checklist, :member2, after).status
@@ -101,7 +101,7 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     with_fields do
       PersonField.ensure_system_fields!
       birthday = PersonField.system_field("birthday")
-      item = add_field_item(birthday, "on_or_before", date: "2015-01-01")
+      item = add_field_item(birthday, "on_or_before", date: { mode: "date", date: "2015-01-01" })
 
       assert_equal "met", evaluate(@checklist, :kid, item).status
       assert_equal "not_met", evaluate(@checklist, :member, item).status, "no birthday"
@@ -147,7 +147,7 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     with_fields do
       note = create_field("Emergency contact", :string)
       assign(:member, note, "Pat 555-0100")
-      item = add_field_item(note, "filled_in", changed_since: "2026-09-01")
+      item = add_field_item(note, "filled_in", changed_since: { mode: "date", date: "2026-09-01" })
 
       travel_to(Time.zone.parse("2026-10-01")) { PersonFieldValue.where(person: person(:member)).update_all(updated_at: Time.current) }
       assert_equal "met", evaluate(@checklist, :member, item).status
@@ -256,7 +256,7 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
       PersonField.ensure_system_fields!
       birthday = PersonField.system_field("birthday")
 
-      error = assert_raises(ActiveRecord::RecordInvalid) { add_field_item(birthday, "filled_in", changed_since: "2026-09-01") }
+      error = assert_raises(ActiveRecord::RecordInvalid) { add_field_item(birthday, "filled_in", changed_since: { mode: "date", date: "2026-09-01" }) }
       assert_match "built-in field", error.message
       item = add_field_item(birthday, "filled_in")
       item.update_columns(config: item.config.merge("changed_since" => "2026-09-01"))
@@ -272,6 +272,108 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
       error = assert_raises(ActiveRecord::RecordInvalid) { add_field_item(size, "none_of", values: "XXLL") }
       assert_match "isn't one of Size's choices", error.message
       assert_not_nil add_field_item(size, "none_of", values: "xxl, s")
+    end
+  end
+
+  test "dates can be relative: within the last N months, resolved from the as-of day" do
+    with_fields do
+      physical = create_field("Physical date", :date)
+      note = create_field("Emergency contact", :string)
+      assign(:member, physical, Date.new(2026, 6, 1))
+      assign(:member2, physical, Date.new(2025, 6, 1))
+      assign(:member, note, "Pat 555-0100")
+      recent = add_field_item(physical, "on_or_after", date: { mode: "within", amount: 12, unit: "months" })
+      current = add_field_item(note, "filled_in", changed_since: { mode: "within", amount: 30, unit: "days" })
+      PersonFieldValue.where(person: person(:member), person_field: note).update_all(updated_at: Time.zone.parse("2026-10-20"))
+
+      travel_to(Time.zone.parse("2026-11-06 12:00")) do
+        assert_equal "met", evaluate(@checklist, :member, recent).status
+        assert_equal "not_met", evaluate(@checklist, :member2, recent).status
+        assert_equal "met", evaluate(@checklist, :member, current).status
+        assert_equal "within the last 12 months", Checklists::Kinds::PersonField.relative(recent, "date").describe
+        assert_equal "Physical date is within the last 12 months", recent.describe
+      end
+      travel_to(Time.zone.parse("2027-02-01 12:00")) do
+        assert_equal "not_met", evaluate(@checklist, :member, current).status, "the 30 days ran out with no change"
+      end
+      assert_equal Time.zone.parse("2026-11-07 00:00"), Checklists::Kinds::PersonField.next_change_at(recent, Checklists::Context.new(@checklist, as_of: Time.zone.parse("2026-11-06 12:00")))
+      fixed = add_field_item(physical, "on_or_after", date: { mode: "date", date: "2026-01-01" })
+      assert_nil Checklists::Kinds::PersonField.next_change_at(fixed, Checklists::Context.new(@checklist, as_of: Time.zone.parse("2026-11-06 12:00")))
+    end
+  end
+
+  # Visibility: a result is never visible to someone who can't read the field.
+  def build_private_field
+    @secret = create_field("Medical notes", :string, read_permission: "self_and_leaders", write_permission: "self_and_leaders")
+    assign(:kid, @secret, "asthma")
+    assign(:member, @secret, "none")
+    add_rule(@checklist, :include, :team, team_id: @members.id)
+    @secret_item = add_field_item(@secret, "any_of", values: "asthma")
+    refresh(@checklist)
+  end
+
+  test "a field's result is hidden from people who can't read the field" do
+    with_fields do
+      build_private_field
+      visible = ->(viewer) { Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(viewer))[person(:kid).id]&.item(@secret_item.id) }
+
+      assert visible.call(:kid), "the person reads their own"
+      assert visible.call(:admin)
+      assert_nil visible.call(:parent), "a guardian isn't in a self-and-leaders field"
+      assert_nil visible.call(:member2), "a teammate"
+      assert_equal "met", evaluate(@checklist, :kid, @secret_item).status, "evaluation itself reads directly"
+    end
+  end
+
+  test "organizers and grant holders don't get past the field's read level" do
+    with_fields do
+      build_private_field
+      secret_team = create_field("Team notes", :string, read_permission: "admin", write_permission: "admin")
+      assign(:kid, secret_team, "x")
+      admin_only = add_field_item(secret_team, "filled_in")
+      @checklist.checklist_grants.create!(badge: @viewer_badge, item_ids: [ @secret_item.id, admin_only.id ], access: :full)
+      give_badge(:outsider, @viewer_badge)
+      refresh(@checklist)
+
+      [ :outsider, :organizer, :kid ].each do |viewer|
+        status = Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(viewer))[person(:kid).id]
+        assert_nil status&.item(admin_only.id), "#{viewer} can't read an admin-only field"
+      end
+      assert_nil Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(:outsider))[person(:kid).id]&.item(@secret_item.id)
+      assert_not_nil Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(:admin))[person(:kid).id].item(admin_only.id)
+    end
+  end
+
+  test "a field with a team only shows for people it applies to" do
+    with_fields do
+      build_private_field
+      crew_field = create_field("Crew notes", :string, read_permission: "everyone", write_permission: "admin", team: @crew)
+      item = add_field_item(crew_field, "filled_in")
+      ids = [ person(:kid).id, person(:organizer).id ]
+
+      visible = Checklists::Kinds::PersonField.visible_person_ids(item, person(:member), ids)
+      assert_equal [ person(:organizer).id ], visible, "Kid isn't on the field's team"
+      assert Checklists::Kinds::PersonField.visible_to?(item, person(:member), person(:organizer))
+      assert_not Checklists::Kinds::PersonField.visible_to?(item, person(:member), person(:kid))
+    end
+  end
+
+  test "an author can't set up a test on a field they can't read for everyone covered" do
+    with_fields do
+      build_private_field
+      mine = Checklists::Kinds::PersonField
+      item = @checklist.checklist_items.new(kind: "person_field", label: "Notes")
+      item.config_params = { field_id: @secret.id, operator: "filled_in" }
+
+      assert mine.authorable_by?(item, person(:admin))
+      assert_not mine.authorable_by?(item, person(:parent))
+      assert mine.authorable_by?(item, person(:club_manager)), "a leader of everyone covered"
+      assert_not mine.authorable_by?(item, person(:crew_manager)), "a manager who doesn't lead everyone covered"
+
+      open_field = create_field("Open", :string, read_permission: "everyone", write_permission: "admin")
+      open_item = @checklist.checklist_items.new(kind: "person_field", label: "Open")
+      open_item.config_params = { field_id: open_field.id, operator: "filled_in" }
+      assert mine.authorable_by?(open_item, person(:parent))
     end
   end
 end
