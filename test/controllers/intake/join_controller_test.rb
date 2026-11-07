@@ -185,6 +185,7 @@ class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an installed bot check that fails is dropped quietly" do
+    original = Intake::BotCheck.adapter
     failing = Class.new(Intake::BotCheck::None) { def passed?(*) = false }.new
     Intake::BotCheck.adapter = failing
 
@@ -194,12 +195,13 @@ class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
       end
     end
   ensure
-    Intake::BotCheck.adapter = nil
+    Intake::BotCheck.adapter = original
   end
 
   test "with Turnstile on, a form that can't be checked is sent back with a message and makes no entry" do
     keys = { intake_turnstile_site_key: "site-key", intake_turnstile_secret: "s3cret" }
-    adapter = Intake::BotCheck.adapter
+    original = Intake::BotCheck.adapter
+    adapter = Intake::BotCheck.adapter = Intake::BotCheck::Turnstile.new
 
     with_intake(keys) do
       get intake_join_path(@registration.slug)
@@ -221,6 +223,8 @@ class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
       end
       assert_select "h1", "Thanks, Riley. Check your email to finish."
     end
+  ensure
+    Intake::BotCheck.adapter = original
   end
 
   test "with Turnstile keys blank the form has no widget and still submits" do

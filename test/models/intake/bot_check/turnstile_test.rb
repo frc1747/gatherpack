@@ -69,7 +69,7 @@ class Intake::BotCheck::TurnstileTest < ActiveSupport::TestCase
 
   test "fails closed on a timeout, a network error, an error status or a garbled reply" do
     with_settings(@keys) do
-      [ -> { raise Net::OpenTimeout }, -> { raise Errno::ECONNREFUSED }, -> { raise SocketError }, -> { nil }, "<html>" ].each do |result|
+      [ -> { raise Net::OpenTimeout }, -> { raise Errno::ECONNREFUSED }, -> { raise SocketError }, -> { raise EOFError }, -> { raise Net::HTTPBadResponse }, -> { nil }, "<html>", "null", "[]" ].each do |result|
         with_response(result) { assert_not @adapter.passed?(@params, @request) }
       end
     end

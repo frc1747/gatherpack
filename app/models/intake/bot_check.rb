@@ -4,8 +4,9 @@
 #   Intake::BotCheck.adapter = MyAdapter.new
 #
 # An adapter responds to name, partial (rendered in the form, or nil) and
-# passed?(params, request). The honeypot and minimum time (FormGuard) always
-# run, whatever the adapter.
+# passed?(params, request); it may also respond to failure_message, shown when
+# passed? is false (without one the submission is dropped quietly). The honeypot
+# and minimum time (FormGuard) always run, whatever the adapter.
 module Intake::BotCheck
   class None
     def name

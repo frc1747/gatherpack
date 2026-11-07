@@ -1,7 +1,8 @@
 # Cloudflare Turnstile as the sign-up form's challenge. It is off while the
 # site key or the secret is blank: the form shows no widget and everything
 # passes, so only the honeypot and minimum time (FormGuard) apply. Settings
-# are read on every request, so changing them needs no restart.
+# are cached per process, so changing the keys needs a restart (until every
+# worker restarts, some show the form without the widget and others check it).
 #
 # A submission that can't be checked (no token, a refusal, Cloudflare down or
 # slow) fails, and the person is asked to try again.
@@ -57,8 +58,9 @@ class Intake::BotCheck::Turnstile
   # logs it, the token or the response.
   def verified?(token, remote_ip)
     body = JSON.parse(post(secret: secret, response: token, remoteip: remote_ip).to_s)
-    body["success"] == true
-  rescue JSON::ParserError, SocketError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError, Net::ProtocolError
+    body.is_a?(Hash) && body["success"] == true
+  rescue StandardError
+    # Whatever goes wrong (timeout, closed connection, bad reply), it fails.
     false
   end
 end
