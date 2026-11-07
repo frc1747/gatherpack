@@ -23,3 +23,7 @@ form_schedule_job:
   class: FormScheduleJob
   queue: default
   schedule: every 5 minutes
+form_expiry_job:
+  class: FormExpiryJob
+  queue: default
+  schedule: every hour
