@@ -1,0 +1,26 @@
+<%# One date row: f is a fields_for builder for a SignupDateRow. %>
+<% if compact && row.errors.any? %>
+  <div class="col-12">
+    <div class="text-danger small"><%= row.errors.full_messages.to_sentence %></div>
+  </div>
+<% end %>
+<div class="col-6 col-md-2">
+  <%= f.label :date, class: "form-label#{" visually-hidden" if compact}" %>
+  <%= f.date_field :date, class: "form-control#{" is-invalid" if row.errors[:date].any?}" %>
+</div>
+<div class="col-3 col-md-2">
+  <%= f.label :start_time, "Starts", class: "form-label#{" visually-hidden" if compact}" %>
+  <%= f.time_field :start_time, class: "form-control#{" is-invalid" if row.errors[:start_time].any?}" %>
+</div>
+<div class="col-3 col-md-2">
+  <%= f.label :end_time, "Ends", class: "form-label#{" visually-hidden" if compact}" %>
+  <%= f.time_field :end_time, class: "form-control#{" is-invalid" if row.errors[:end_time].any?}" %>
+</div>
+<div class="col-12 col-md-3">
+  <%= f.label :name, class: "form-label#{" visually-hidden" if compact}" %>
+  <%= f.text_field :name, class: "form-control", placeholder: name_placeholder %>
+</div>
+<div class="col-12 col-md-3">
+  <%= f.label :location, class: "form-label#{" visually-hidden" if compact}" %>
+  <%= f.text_field :location, class: "form-control" %>
+</div>
