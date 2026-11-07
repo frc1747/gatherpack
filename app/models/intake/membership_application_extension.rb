@@ -30,7 +30,7 @@ module Intake::MembershipApplicationExtension
         super
         if intake
           added = Intake::Placement.new(application: self, pick_team: intake_pick_team, approver: intake_approver).apply!
-          update!(intake_placement: added.merge(approved_by_id: intake_approver&.person&.id, approved_at: Time.current))
+          update!(intake_placement: (intake_placement || {}).merge(added, approved_by_id: intake_approver&.person&.id, approved_at: Time.current))
         end
       end
       Intake::Notices.approved(self) if intake

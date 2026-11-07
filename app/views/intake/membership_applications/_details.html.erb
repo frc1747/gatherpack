@@ -1,18 +1,20 @@
 <%# Intake's additions to an application row: where it came from and, for
     people who decide it, flags (matches are for staff only), what approval
     adds, the manager's pick, and a denial reason. Rendered by the upstream
-    application views; renders nothing for other applications. %>
-<% if Intake.enabled? && application.registration %>
+    application views. Other applications get only the bulk tick. %>
+<% if Intake.enabled? %>
   <% decides = policy(application).update? %>
   <% own = Intake.own_or_relatives?(current_user.person, application.person) %>
+  <%# Ticks into the bulk form, which only the team's applications page has. %>
+  <% if decides && application.pending? && !own && @pending_applications %>
+    <%= check_box_tag "application_ids[]", application.id, false, id: "bulk_#{application.id}", form: intake_bulk_form_id(application.team),
+      class: "form-check-input me-1", aria: { label: "Tick #{application.person.display_name}" } %>
+  <% end %>
+<% end %>
+<% if Intake.enabled? && application.registration %>
   <div class="small mt-1" id="<%= dom_id(application, :intake) %>">
     <span class="text-muted"><%= intake_source_label(application) %>: <%= application.registration.title %></span>
     <% if decides %>
-      <%# Ticks into the bulk form, which only the team's applications page has. %>
-      <% if application.pending? && !own && @pending_applications %>
-        <%= check_box_tag "application_ids[]", application.id, false, id: "bulk_#{application.id}", form: intake_bulk_form_id(application.team),
-          class: "form-check-input me-1", aria: { label: "Tick #{application.person.display_name}" } %>
-      <% end %>
       <% application.intake_flags.each do |flag| %>
         <span class="badge text-bg-warning ms-1"><%= flag %></span>
       <% end %>

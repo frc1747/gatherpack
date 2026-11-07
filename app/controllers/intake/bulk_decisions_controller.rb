@@ -4,7 +4,8 @@
 # team the manager must pick, or an application that is the manager's own or
 # a relative's. Deny keeps one reason for all and sends it. Each decision is
 # the same as deciding the row on its own (placement, notices, hooks and the
-# checklist state kept with it).
+# checklist state kept with it). Rows not from a registration are decided
+# as on their own too.
 class Intake::BulkDecisionsController < InternalController
   before_action :require_intake_feature
   before_action :set_team
@@ -14,11 +15,12 @@ class Intake::BulkDecisionsController < InternalController
     applications = @team.membership_applications.pending.where(id: Array(params[:application_ids])).includes(:person, :registration).order(:created_at)
     return redirect_to(applications_team_path(@team), alert: "Choose at least one application.") if applications.empty?
 
-    case params[:decision]
-    when "approved" then approve(applications)
-    when "denied" then deny(applications)
-    else redirect_to applications_team_path(@team), alert: "Choose Approve or Deny."
-    end
+    return redirect_to(applications_team_path(@team), alert: "Choose Approve or Deny.") unless %w[approved denied].include?(params[:decision])
+
+    # One checklist evaluation for all the ticked people, which the gate and
+    # the state kept with each decision then reuse.
+    applications = MembershipApplication.preload_intake_checklist_statuses(applications)
+    params[:decision] == "approved" ? approve(applications) : deny(applications)
   end
 
   private

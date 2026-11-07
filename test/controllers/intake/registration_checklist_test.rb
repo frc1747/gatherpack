@@ -281,43 +281,117 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     assert_match "It doesn't cover people applying to Mentors and Volunteers.", response.body
   end
 
+  test "pressing Enter in the bulk reason box decides nothing" do
+    sign_in @leader.user
+    with_checklists do
+      get applications_team_path(@juniors)
+      # The form's first submit button, which Enter uses, is disabled.
+      assert_select "form#intake-bulk-#{@juniors.id} button[type=submit]:first-of-type[disabled][value='']"
+
+      post intake_team_bulk_decisions_path(@juniors), params: { reason: "We're full this year", application_ids: [ @application.id ] }
+    end
+
+    assert_equal "Choose Approve or Deny.", flash[:alert]
+    assert @application.reload.pending?
+    assert_nil @application.reviewer_notes
+  end
+
+  test "an archived checklist holds nothing and shows nothing" do
+    @registration.update!(gate_approval: true)
+    @checklist.update!(status: :archived)
+    sign_in @applicant.user
+
+    with_checklists do
+      get intake_me_path(@registration.slug)
+      assert_no_match "Your checklist", response.body
+      assert_nil Intake::ApprovalGate.new(@application.reload).reason
+      @application.approve!
+    end
+    assert @application.reload.approved?
+  end
+
+  test "a draft checklist holds nothing, and isn't offered for a registration" do
+    @registration.update!(gate_approval: true)
+    @checklist.update!(status: :draft)
+    sign_in @leader.user
+
+    with_checklists do
+      assert_nil Intake::ApprovalGate.new(@application).reason
+      get edit_intake_registration_path(@registration)
+      assert_select "select[name='intake_registration[checklist_id]'] option[value='#{@checklist.id}']", count: 1
+      get intake_registration_path(@registration)
+      assert_match "It's a draft, so nobody sees it here", response.body
+
+      draft = Checklist.create!(title: "Another draft", team: @northwind, status: :draft, created_by: @leader)
+      get edit_intake_registration_path(@registration)
+      assert_select "option[value='#{draft.id}']", count: 0
+    end
+  end
+
+  test "deciding many works the checklist out once, and the gate and the kept state reuse it" do
+    @registration.update!(gate_approval: true)
+    other = create_intake_person("Oli", "Other", birthday: 30.years.ago.to_date)
+    MembershipApplication.create!(person: other, team: @juniors, registration: @registration, source: :link)
+
+    with_checklists do
+      applications = MembershipApplication.preload_intake_checklist_statuses(MembershipApplication.pending.includes(:person))
+      statements = sql_statements do
+        applications.each { |application| Intake::ApprovalGate.new(application).reason && application.intake_checklist_state }
+      end
+
+      assert_equal 2, applications.size
+      assert_empty statements
+    end
+  end
+
+  test "the checklist state is saved with the approval, before its hooks run" do
+    Hook.create!(name: "Check state", event: "membership_applications - approved",
+      code: 'raise "no checklist state" unless model.reload.intake_placement&.dig("checklist", "status") == "not_met"')
+
+    with_checklists do
+      @application.intake_approver = @leader.user
+      @application.approve!
+    end
+
+    placement = @application.reload.intake_placement
+    assert_equal "not_met", placement.dig("checklist", "status")
+    assert_equal [ "Everyone" ], placement["teams"]
+  end
+
+  test "managers see who has to do each item that isn't done" do
+    badge = Badge.create!(name: "Safety", short: "S", color: "red", badge_type: badge_types(:one), permission: "added_by_admin")
+    add_item("Safety training", :badge, "badge_ids" => [ badge.id ])
+    sign_in @leader.user
+
+    with_checklists { get applications_team_path(@juniors) }
+
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@application, :intake_checklist)} li" do |items|
+      lines = items.map { |item| item.text.squish }
+      assert lines.any? { |line| line.include?("Team agreement") && line.include?("to do: Riley or a guardian") }
+      assert lines.any? { |line| line.include?("Safety training") && line.include?("to do: a leader") }
+      assert lines.none? { |line| line.include?("Login") && line.include?("to do") }
+    end
+  end
+
+  test "a request made on the team's page can be ticked and denied with the rest" do
+    asker = create_intake_person("Ash", "Asker", birthday: 30.years.ago.to_date)
+    request = MembershipApplication.create!(person: asker, team: @juniors)
+    sign_in @leader.user
+
+    with_checklists do
+      get applications_team_path(@juniors)
+      assert_select "input[type=checkbox][name='application_ids[]'][value='#{request.id}']"
+
+      post intake_team_bulk_decisions_path(@juniors), params: { decision: "denied", reason: "Not this year.", application_ids: [ request.id, @application.id ] }
+    end
+
+    assert_equal "Denied 2.", flash[:notice]
+    assert request.reload.denied?
+    assert_equal "Not this year.", request.reviewer_notes
+  end
+
   test "a checklist a registration uses can't be deleted" do
     assert_not @checklist.destroy
     assert_match "registrations", @checklist.errors.full_messages.to_sentence.downcase
-  end
-
-  test "the time kiosk lists items chosen for it that aren't done, for the person who scanned" do
-    @agreement.update!(show_on_kiosk: true)
-    Membership.create!(person: @applicant, team: @juniors)
-    refresh
-    token = Token.create!(tokenable: @applicant, value: "scan-#{SecureRandom.hex(4)}")
-    sign_in @admin.user
-
-    with_checklists { get time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: token.value } } }
-
-    assert_response :success
-    assert_select "#kiosk-still-need li", count: 1, text: "Team agreement"
-  end
-
-  test "the time kiosk lists nothing for items not chosen for it" do
-    Membership.create!(person: @applicant, team: @juniors)
-    refresh
-    token = Token.create!(tokenable: @applicant, value: "scan-#{SecureRandom.hex(4)}")
-    sign_in @admin.user
-
-    with_checklists { get time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: token.value } } }
-
-    assert_response :success
-    assert_select "#kiosk-still-need", count: 0
-  end
-
-  test "an organizer chooses whether an item shows at the kiosk" do
-    sign_in @leader.user
-    with_checklists do
-      patch checklist_checklist_item_path(@checklist, @agreement), params: { confirmed: "1", checklist_item: { label: "Team agreement",
-        show_on_kiosk: "1", config: { statement: "Agreement signed", attested_by: "guardian" } } }
-    end
-
-    assert @agreement.reload.show_on_kiosk?
   end
 end

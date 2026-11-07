@@ -12,10 +12,11 @@ module Intake::RegistrationChecklist
     validate :gate_has_a_checklist
   end
 
-  # The checklist, while both features are on. Nil otherwise, so nothing
+  # The checklist while it's active and both features are on. Nil
+  # otherwise (a draft, or one archived when its dates ended), so nothing
   # about it shows and nothing waits on it.
   def active_checklist
-    checklist if checklist && Intake.enabled? && Checklists.enabled?
+    checklist if checklist&.active? && Intake.enabled? && Checklists.enabled?
   end
 
   # The teams people may apply to whose applicants the checklist doesn't

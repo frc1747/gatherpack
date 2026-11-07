@@ -254,7 +254,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_180000) do
     t.string "exempt_label"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.boolean "show_on_kiosk", default: false, null: false
     t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
     t.index ["kind"], name: "index_checklist_items_on_kind"
     t.index ["parent_id"], name: "index_checklist_items_on_parent_id"

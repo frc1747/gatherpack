@@ -22,5 +22,4 @@ Rails.application.config.to_prepare do
   MembershipApplication.include(Intake::ApplicationChecklist)
   MembershipApplicationsController.include(Intake::ApplicationGating)
   Intake::RegistrationsController.prepend(Intake::RegistrationChecklistParams)
-  ChecklistItemsController.prepend(Checklists::KioskItemParams)
 end

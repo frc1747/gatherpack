@@ -30,18 +30,10 @@ class Intake::ApprovalGate
     status ? "#{name} hasn't finished #{checklist.title}." : "#{checklist.title} doesn't cover #{name}."
   end
 
-  # The applicant's overall on the checklist, or nil when it doesn't cover
-  # them.
+  # The applicant's overall on the checklist, worked out now
+  # (MembershipApplication#intake_checklist_status), or nil when it doesn't
+  # cover them.
   def status
-    return @status if defined?(@status)
-
-    @status = self.class.overall_status(application.registration.checklist, application.person_id)
-  end
-
-  # Worked out now rather than read from stored results, which may be
-  # waiting for their refresh after a change: a decision goes by what's true
-  # at the moment it's made. One person, so it's cheap.
-  def self.overall_status(checklist, person_id)
-    Checklists::Evaluator.new(checklist).call([ person_id ]).dig(person_id, nil)&.status
+    application.intake_checklist_status
   end
 end

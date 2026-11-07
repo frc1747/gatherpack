@@ -1,5 +1,6 @@
 <%# The applicant's checklist beside their application, for people who
-    decide it: "4 of 6 done", what's missing, and each item on opening. %>
+    decide it: "4 of 6 done", what's missing, and on opening each item and
+    who has to do it. %>
 <% status = intake_application_checklist(application) %>
 <% if status %>
   <% open_items = status.explained.select { |entry| entry.item.counts? && (entry.not_met? || entry.pending?) } %>
@@ -14,12 +15,10 @@
         <li>
           <%= checklist_status_badge(entry) %> <%= entry.item.label %><%= ": #{entry.summary}" if entry.full? && entry.summary.present? %>
           <% if entry.excuse && entry.excuse["by"] %><span class="text-muted">(excused by <%= entry.excuse["by"] %>)</span><% end %>
+          <% if (owner = intake_item_owner(application, entry)) %><span class="text-muted">· to do: <%= owner %></span><% end %>
         </li>
       <% end %>
     </ul>
-    <% if Intake.person_needs_guardian?(application.person) %>
-      <div class="text-muted">A guardian can do these for them.</div>
-    <% end %>
   </details>
   <% if application.pending? && application.registration.gate_approval? && !status.overall&.met? && !status.overall&.exempt? %>
     <div class="text-muted">Approval waits until this is done.</div>
