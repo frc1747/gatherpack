@@ -16,7 +16,13 @@ module Checklists
       @counts = STATUSES.index_with { |status| Array(grouped[status]).size }
       @names = grouped.transform_values { |rows| rows.map { |id, _| people[id] }.compact.sort.first(LIMIT) }
       @sentence = item ? item.describe : "Covers #{ids.size} #{"person".pluralize(ids.size)}"
-      @checklist = checklist
+      @item = item
+    end
+
+    # Whether this previews one item (its words are the defaults) rather than
+    # the overall (the checklist's words).
+    def item?
+      @item.present?
     end
 
     def total

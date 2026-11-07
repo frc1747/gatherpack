@@ -26,6 +26,15 @@ class ChecklistTest < ActiveSupport::TestCase
     assert login
   end
 
+  test "the checklist's words are for the overall; items keep the defaults" do
+    @checklist.update!(met_word: "Eligible", not_met_word: "Not eligible")
+    item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    status = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id]
+
+    assert_equal "Not eligible", status.overall.text
+    assert_equal "Not yet", status.item(item.id).text
+  end
+
   test "a checklist with no items is done for everyone it covers" do
     assert_equal "met", evaluate(@checklist, :member).status
   end

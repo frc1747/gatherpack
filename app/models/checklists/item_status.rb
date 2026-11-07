@@ -8,7 +8,8 @@ module Checklists
       Array(children).flat_map { |child| [ child ] + child.all_children }
     end
 
-    # The word to show: the kind's label ("Rookie", "Missed") or the status word.
+    # The word to show: the kind's label ("Rookie", "Missed") or the status
+    # word (the checklist's own words for the overall, the defaults for items).
     def text
       label.presence || word
     end

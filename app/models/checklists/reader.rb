@@ -105,7 +105,7 @@ module Checklists
 
       full = access == :full
       measures = full ? visible_measures(item, row.measures, person_id, visibility) : nil
-      ItemStatus.new(item: item, status: row.status, word: checklist.word_for(row.status), label: row.label,
+      ItemStatus.new(item: item, status: row.status, word: item ? Checklists.word_for(row.status) : checklist.word_for(row.status), label: row.label,
         summary: full ? row.summary : nil, detail: full ? row.detail : nil, measures: measures,
         fix: full ? row.fix : nil, acts_for: visibility.acts_for(person_id), access: access,
         excuse: row.excuse && excuse_for(row.excuse, full, reasons), changed_at: row.changed_at, stale: row.stale)
