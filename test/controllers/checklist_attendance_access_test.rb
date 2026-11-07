@@ -3,8 +3,9 @@ require_relative "../support/checklists_world"
 
 # An attendance result carries hours: in full to those who could see the
 # person's punches in the app and to holders of a full grant on the
-# checklist, status only to anyone else the checklist lets see it. Only
-# admins and managers of the checklist's team set one up.
+# checklist made by an admin or a manager of its team, status only to anyone
+# else the checklist lets see it. Only admins and managers of the checklist's
+# team set one up or grant it in full.
 class ChecklistAttendanceAccessTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include ChecklistsWorld
@@ -45,9 +46,9 @@ class ChecklistAttendanceAccessTest < ActionDispatch::IntegrationTest
   end
 
   test "a full grant on the checklist sees everything for the item; a status grant sees the status" do
-    @checklist.checklist_grants.create!(badge: @viewer_badge, item_ids: [ @item.id ], access: :full)
+    @checklist.checklist_grants.create!(badge: @viewer_badge, item_ids: [ @item.id ], access: :full, created_by: person(:admin))
     give_badge(:outsider, @viewer_badge)
-    @checklist.checklist_grants.create!(team: @crew, item_ids: [ @item.id ], access: :status)
+    @checklist.checklist_grants.create!(team: @crew, item_ids: [ @item.id ], access: :status, created_by: person(:admin))
 
     granted = seen_by(person(:outsider))
     assert granted.full?, "as the report Page shows its viewers today"
@@ -58,9 +59,39 @@ class ChecklistAttendanceAccessTest < ActionDispatch::IntegrationTest
     assert_nil status_grant.summary
 
     other = add_item(@checklist, :attendance, "Spring", { rules: [ { name: "Spring", share: "10" } ] })
-    @checklist.checklist_grants.create!(badge: @viewer_badge, item_ids: [ @login.id, other.id ], access: :status)
+    @checklist.checklist_grants.create!(badge: @viewer_badge, item_ids: [ @login.id, other.id ], access: :status, created_by: person(:admin))
     assert_equal :status, Checklists::Kinds::Attendance.cap_levels(other, person(:outsider), [ person(:kid).id ])[person(:kid).id],
       "a full grant on one item doesn't open another"
+  end
+
+  test "an organizer who isn't a manager can't grant full access, and a grant from them isn't honoured" do
+    with_settings(feature_checklists: "true", checklists_organizers: "Checklist Organizer > Club") do
+      @checklist.checklist_organizers.create!(person: person(:organizer))
+      sign_in person(:organizer).user
+      assert_no_difference -> { ChecklistGrant.count } do
+        post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @item.id ] } }
+      end
+      assert_response :unprocessable_entity
+      assert_equal "You can't grant access to Attendance; ask someone who can.", response.body
+      assert_nil seen_by(person(:organizer)).summary
+
+      post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "status", item_ids: [ @item.id ] } }
+      assert_response :see_other
+      assert_equal "not_met", seen_by(person(:organizer)).status
+
+      sign_in person(:club_manager).user
+      post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @item.id ] } }
+      assert_response :see_other
+      assert_equal "25% of 2 h", seen_by(person(:organizer)).summary, "a manager of the checklist's team may"
+    end
+
+    @checklist.checklist_grants.destroy_all
+    @checklist.checklist_grants.create!(team: @crew, item_ids: [ @item.id ], access: :full, created_by: person(:organizer))
+    assert_nil seen_by(person(:organizer)).summary, "a full grant someone else made isn't honoured"
+    @checklist.checklist_grants.update_all(created_by_id: nil)
+    assert_nil seen_by(person(:organizer)).summary, "nor one with no recorded maker"
+    @checklist.checklist_grants.update_all(created_by_id: person(:crew_manager).id)
+    assert_nil seen_by(person(:organizer)).summary, "managing another team isn't enough"
   end
 
   test "the report shows a guardian the status without the hours" do

@@ -86,9 +86,9 @@ module Checklists
         # shows to viewers who could see the person's punches in the app
         # (TimeClockPunchPolicy::Scope: an admin, a manager of a team
         # they're on, or the person), and to holders of a full grant on the
-        # checklist that covers the item (admin-given, as the report Page
-        # does). Anyone else the checklist lets see the item, guardians
-        # included, sees only its status.
+        # checklist that covers the item, made by an admin or a manager of
+        # its team (as the report Page does). Anyone else the checklist lets
+        # see the item, guardians included, sees only its status.
         def cap_levels(item, viewer, person_ids)
           return person_ids.index_with(:full) if viewer.nil? || viewer.user&.admin? || full_grant?(item, viewer)
 
@@ -135,13 +135,18 @@ module Checklists
           ]
         end
 
-        # The item's rules, in order, each with its pool; a relative start
-        # resolves against as_of. share is nil when it isn't a whole number.
+        # Full access shows everyone's hours, so only those who may set the
+        # item up (admins and managers of the checklist's team) grant it.
+        def grantable_by?(item, person, access)
+          access != :full || authorable_by?(item, person)
+        end
+
         # Whether the viewer holds a full grant on the item's checklist that
-        # covers the item (or the group it's in), by badge or team.
+        # covers the item (or the group it's in), by badge or team, made by
+        # someone who may still grant it.
         def full_grant?(item, viewer)
-          grants = ChecklistGrant.where(checklist_id: item.checklist_id, access: :full).to_a
-          grants = grants.select { |grant| (grant.item_ids & [ item.id, item.parent_id ].compact).any? }
+          grants = ChecklistGrant.where(checklist_id: item.checklist_id, access: :full).includes(:created_by).to_a
+          grants = grants.select { |grant| (grant.item_ids & [ item.id, item.parent_id ].compact).any? && honours_grant?(item, grant) }
           return false if grants.empty?
 
           badge_ids = BadgeAssignment.where(person_id: viewer.id).pluck(:badge_id)
@@ -149,6 +154,8 @@ module Checklists
           grants.any? { |grant| badge_ids.include?(grant.badge_id) || team_ids.include?(grant.team_id) }
         end
 
+        # The item's rules, in order, each with its pool; a relative start
+        # resolves against as_of. share is nil when it isn't a whole number.
         def rules(item, as_of: Time.current)
           rules = Array((item.config || {})["rules"]).each_with_index.map do |row, index|
             starts = RelativeDate.from_config(row["starts"])
