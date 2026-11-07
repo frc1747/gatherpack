@@ -3,7 +3,7 @@
 # when the email is confirmed. Every address gets the same page, words and
 # work here; whether it already has a login is decided by the email job.
 # Signed in, it applies the person to the teams directly.
-class Intake::JoinController < ApplicationController
+class Intake::JoinController < InternalController
   include Intake::PublicPages
 
   skip_before_action :check_for_user

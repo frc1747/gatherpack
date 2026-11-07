@@ -4,7 +4,7 @@
 # can't. For a new email it creates the person and login and asks for a
 # password. For an email that already has a login it attaches the entry to
 # that person and says to sign in; it never signs anyone in.
-class Intake::VerificationsController < ApplicationController
+class Intake::VerificationsController < InternalController
   include Intake::PublicPages
 
   skip_before_action :check_for_user

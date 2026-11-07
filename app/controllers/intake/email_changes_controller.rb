@@ -1,6 +1,6 @@
 # The link in "Confirm your new email": /join/email?token=... Opening it
 # shows a page; submitting it changes the login's email.
-class Intake::EmailChangesController < ApplicationController
+class Intake::EmailChangesController < InternalController
   include Intake::PublicPages
 
   skip_before_action :check_for_user
