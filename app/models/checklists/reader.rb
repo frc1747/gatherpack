@@ -27,7 +27,7 @@ module Checklists
 
         overall = build(nil, by_item[nil], person_id, visibility, reasons)
         built = build_items(items, by_item, person_id, visibility, reasons)
-        restrict_overall(overall, built) unless visibility.full?
+        restrict_overall(overall, built) unless visibility.full? && built.size == items.size
         statuses[person_id] = Status.new(person_id: person_id, overall: overall, items: built)
       end
     end

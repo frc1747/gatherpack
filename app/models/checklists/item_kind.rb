@@ -7,6 +7,8 @@ module Checklists
   #   self.form_partial             # a partial for a form section of its own (a table of rows)
   #   self.form_params              # what that section posts under config, as permit arguments
   #   self.normalize_form(params)   # the config the section's params give
+  #   self.visible_to?(item, viewer, person)  # a cap on who sees a person's result (default true)
+  #   self.authorable_by?(item, author)       # whether this author may set the item up so (default true)
   #   self.problems(item)           # deleted badge, missing field... shown to organizers
   #   self.references               # { "badge_ids" => "Badge" }: config keys naming records
   #   self.invalidations            # [[Model, ->(record) { person ids or :all }]] (§8.2)
@@ -81,6 +83,33 @@ module Checklists
 
       def describe(item)
         item.label
+      end
+
+      # A cap on top of read levels and grants: whether viewer may see
+      # person's result on this item at all. Applied to every viewer, admins
+      # and organizers included, wherever results show (the report, its sort
+      # and filters, status_for, the preview). A kind whose result carries
+      # data the viewer may not read (a field value) says no here.
+      def visible_to?(_item, _viewer, _person)
+        true
+      end
+
+      # The batch form of visible_to?: the ids among person_ids whose
+      # results viewer may see. Override it to answer in a few queries; the
+      # default asks visible_to? per person, and only when a kind overrides
+      # it.
+      def visible_person_ids(item, viewer, person_ids)
+        return person_ids if method(:visible_to?).owner == ItemKind.singleton_class
+
+        people = ::Person.where(id: person_ids).index_by(&:id)
+        person_ids.select { |id| people[id] && visible_to?(item, viewer, people[id]) }
+      end
+
+      # Whether author (a Person) may set the item up with its config, so
+      # nobody builds an item that reads what they couldn't see themselves.
+      # Checked when an item is created, edited, previewed or copied.
+      def authorable_by?(_item, _author)
+        true
       end
 
       # For pooled kinds: the people, among person_ids, whose results the

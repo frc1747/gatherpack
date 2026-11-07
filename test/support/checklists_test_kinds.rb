@@ -40,4 +40,21 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.met("#{config["rows"].size} rows") }
     end
   end
+
+  # A kind like a private field: a person's result shows only to them and
+  # to admins, and only admins may set it up. Not met, with the "value" in
+  # its summary.
+  class Private < Checklists::ItemKind
+    def self.visible_to?(_item, viewer, person)
+      viewer.admin? || viewer.id == person.id
+    end
+
+    def self.authorable_by?(_item, author)
+      author.admin?
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("Private value") }
+    end
+  end
 end

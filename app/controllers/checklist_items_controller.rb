@@ -18,6 +18,7 @@ class ChecklistItemsController < InternalController
   def create
     @item = authorize @checklist.checklist_items.new(kind: params.dig(:checklist_item, :kind))
     @item.assign_attributes(item_params)
+    return render(:new, status: :unprocessable_entity) unless authorable?(@item)
 
     if @item.valid? && needs_confirmation?
       @impact = Checklists::Impact.new(@checklist, items: draft_tree)
@@ -34,6 +35,7 @@ class ChecklistItemsController < InternalController
   # PATCH/PUT /checklists/1/items/1
   def update
     @item.assign_attributes(item_params)
+    return render(:edit, status: :unprocessable_entity) unless authorable?(@item)
 
     if @item.valid? && needs_confirmation?
       @impact = Checklists::Impact.new(@checklist, items: draft_tree)
@@ -64,10 +66,21 @@ class ChecklistItemsController < InternalController
     @item = item
     item.assign_attributes(item_params)
     item.id ||= SecureRandom.uuid
-    render partial: "checklists/preview", locals: { preview: Checklists::Preview.new(@checklist, item: item), checklist: @checklist }
+    return render(plain: "You can't set up this item this way.", status: :unprocessable_entity) unless authorable?(item)
+
+    render partial: "checklists/preview", locals: { preview: Checklists::Preview.new(@checklist, item: item, viewer: current_user.person), checklist: @checklist }
   end
 
   private
+
+  # The kind may refuse a config for this author (ItemKind.authorable_by?).
+  def authorable?(item)
+    kind = item.kind_class
+    return true if kind.nil? || kind.authorable_by?(item, current_user.person)
+
+    item.errors.add(:base, "You can't set up this item this way")
+    false
+  end
 
   def set_item
     @item = authorize @checklist.checklist_items.find(params[:id])
