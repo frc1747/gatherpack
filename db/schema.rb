@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -233,6 +233,86 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "intake_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "registration_id", null: false
+    t.integer "source", default: 0, null: false
+    t.text "email"
+    t.string "first_name"
+    t.string "last_name"
+    t.text "facts"
+    t.string "token_digest"
+    t.datetime "expires_at"
+    t.datetime "verified_at"
+    t.uuid "person_id"
+    t.string "created_ip_prefix"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_intake_entries_on_person_id"
+    t.index ["registration_id", "verified_at"], name: "index_intake_entries_on_registration_id_and_verified_at"
+    t.index ["registration_id"], name: "index_intake_entries_on_registration_id"
+    t.index ["token_digest"], name: "index_intake_entries_on_token_digest", unique: true
+  end
+
+  create_table "intake_household_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "entry_id", null: false
+    t.uuid "person_id"
+    t.integer "role", default: 0, null: false
+    t.text "facts"
+    t.datetime "guardian_confirmed_at"
+    t.string "token_digest"
+    t.datetime "token_expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["entry_id"], name: "index_intake_household_members_on_entry_id"
+    t.index ["person_id"], name: "index_intake_household_members_on_person_id"
+    t.index ["token_digest"], name: "index_intake_household_members_on_token_digest", unique: true
+  end
+
+  create_table "intake_registration_badges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "registration_id", null: false
+    t.uuid "badge_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_intake_registration_badges_on_badge_id"
+    t.index ["registration_id", "badge_id"], name: "index_intake_registration_badges_unique", unique: true
+    t.index ["registration_id"], name: "index_intake_registration_badges_on_registration_id"
+  end
+
+  create_table "intake_registration_teams", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "registration_id", null: false
+    t.uuid "team_id", null: false
+    t.integer "kind", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["registration_id", "team_id", "kind"], name: "index_intake_registration_teams_unique", unique: true
+    t.index ["registration_id"], name: "index_intake_registration_teams_on_registration_id"
+    t.index ["team_id"], name: "index_intake_registration_teams_on_team_id"
+  end
+
+  create_table "intake_registrations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "title", null: false
+    t.string "slug", null: false
+    t.text "description"
+    t.datetime "opens_at", null: false
+    t.datetime "closes_at"
+    t.boolean "self_service", default: true, null: false
+    t.boolean "kiosk", default: false, null: false
+    t.uuid "checklist_id"
+    t.boolean "gate_approval", default: false, null: false
+    t.boolean "pick_one_required", default: false, null: false
+    t.uuid "guardian_relationship_type_id"
+    t.uuid "successor_id"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_intake_registrations_on_created_by_id"
+    t.index ["guardian_relationship_type_id"], name: "index_intake_registrations_on_guardian_relationship_type_id"
+    t.index ["slug"], name: "index_intake_registrations_on_slug", unique: true
+    t.index ["successor_id"], name: "index_intake_registrations_on_successor_id"
+    t.index ["team_id"], name: "index_intake_registrations_on_team_id"
+  end
+
   create_table "ledger_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.integer "amount_cents", default: 0
     t.boolean "approved"
@@ -359,8 +439,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
     t.integer "status", default: 0, null: false
     t.uuid "team_id", null: false
     t.datetime "updated_at", null: false
+    t.uuid "registration_id"
+    t.integer "source", default: 0, null: false
     t.index ["person_id", "team_id"], name: "index_membership_applications_on_person_id_and_team_id_pending", unique: true, where: "(status = 0)"
     t.index ["person_id"], name: "index_membership_applications_on_person_id"
+    t.index ["registration_id"], name: "index_membership_applications_on_registration_id"
     t.index ["team_id"], name: "index_membership_applications_on_team_id"
   end
 
@@ -811,6 +894,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
     t.string "reset_password_token"
     t.string "uid"
     t.datetime "updated_at", null: false
+    t.datetime "intake_login_verified_at"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
@@ -841,6 +925,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
   add_foreign_key "checkins", "people"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
+  add_foreign_key "intake_entries", "intake_registrations", column: "registration_id", on_delete: :cascade
+  add_foreign_key "intake_entries", "people", on_delete: :nullify
+  add_foreign_key "intake_household_members", "intake_entries", column: "entry_id", on_delete: :cascade
+  add_foreign_key "intake_household_members", "people", on_delete: :nullify
+  add_foreign_key "intake_registration_badges", "badges", on_delete: :cascade
+  add_foreign_key "intake_registration_badges", "intake_registrations", column: "registration_id", on_delete: :cascade
+  add_foreign_key "intake_registration_teams", "intake_registrations", column: "registration_id", on_delete: :cascade
+  add_foreign_key "intake_registration_teams", "teams", on_delete: :cascade
+  add_foreign_key "intake_registrations", "intake_registrations", column: "successor_id", on_delete: :nullify
+  add_foreign_key "intake_registrations", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "intake_registrations", "relationship_types", column: "guardian_relationship_type_id", on_delete: :nullify
+  add_foreign_key "intake_registrations", "teams", on_delete: :cascade
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
   add_foreign_key "ledger_entry_linkings", "ledger_entry_links"
@@ -852,6 +948,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
   add_foreign_key "lego_lottery_drawing_tickets", "people"
   add_foreign_key "mailbox_assignments", "mailboxes"
   add_foreign_key "mailbox_messages", "mailboxes"
+  add_foreign_key "membership_applications", "intake_registrations", column: "registration_id", on_delete: :nullify
   add_foreign_key "membership_applications", "people"
   add_foreign_key "membership_applications", "teams"
   add_foreign_key "memberships", "people"

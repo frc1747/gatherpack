@@ -1,0 +1,31 @@
+<% teams = intake_manageable_teams.to_a %>
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs">
+  <%= f.input :title, hint: "People see this at the top of the page." %>
+  <%= f.input :team_id, label: "Run by", collection: teams, label_method: :name, value_method: :id, hint: "This team's managers run the registration." %>
+  <%= f.input :description, as: :text, input_html: { rows: 3 } %>
+  <div class="row">
+    <div class="col-md"><%= f.input :opens_at, as: :string, label: "Opens", input_html: { type: "datetime-local", value: f.object.opens_at&.strftime("%Y-%m-%dT%H:%M") } %></div>
+    <div class="col-md"><%= f.input :closes_at, as: :string, label: "Closes", hint: "Blank: stays open.", input_html: { type: "datetime-local", value: f.object.closes_at&.strftime("%Y-%m-%dT%H:%M") } %></div>
+  </div>
+  <%= f.input :self_service, label: "Anyone with the link can sign up" %>
+  <%= f.input :kiosk, label: "Kiosk sign-ups (a manager's device in the room)" %>
+  <%= f.input :slug, label: "Link", hint: "The end of the link (/join/...). Leave the random one unless you need a short one; anyone who guesses it can open it.", required: false %>
+
+  <h2 class="h5 mt-4">Teams</h2>
+  <%= render "team_list", f: f, teams: teams, attribute: :apply_team_ids, label: "People can apply to any of these teams", hint: "They pick the ones they want. Each pick is its own application." %>
+  <%= render "team_list", f: f, teams: teams, attribute: :also_add_team_ids, label: "Also add to these teams", hint: "Added when approved." %>
+  <%= f.input :badge_ids, label: "Also give these badges", collection: Badge.order(:name), label_method: :name, value_method: :id, input_html: { multiple: true, size: 4 }, include_blank: false, hint: "Given when approved." %>
+  <%= render "team_list", f: f, teams: teams, attribute: :pick_one_team_ids, label: "Also pick one of these teams", hint: "The approving manager picks one." %>
+  <%= f.input :pick_one_required, label: "A pick is required to approve" %>
+
+  <h2 class="h5 mt-4">Families</h2>
+  <%= f.input :guardian_relationship_type_id, label: "Link guardians with", collection: RelationshipType.where.not(guardianship: :none).order(:parent_label), label_method: :identifier_name, value_method: :id,
+    hint: "People can add family members, and young people can name a guardian. Blank: no family sign-up." %>
+  <%= render "team_list", f: f, teams: teams, attribute: :guardian_also_add_team_ids, label: "Also add a guardian to these teams", hint: "Added when their young person is approved." %>
+
+  <%= f.input :successor_id, label: "Next registration", collection: policy_scope(Intake::Registration).where.not(id: f.object.id).order(opens_at: :desc), label_method: :title, value_method: :id,
+    hint: "Once this one closes, its page says when the next one opens." %>
+</div>
