@@ -42,6 +42,14 @@ module Checklists
       rows_for(person_ids).transform_values { |by_item| by_item[nil]&.status }.compact
     end
 
+    # { person_id => { item_id => row } }, without visibility, from the same
+    # read as overall_statuses (stored, or live where stored rows are too
+    # old), for kinds that need more than the overall. People it doesn't
+    # cover are absent.
+    def rows(person_ids)
+      rows_for(person_ids)
+    end
+
     def items
       @items ||= checklist.top_level_items.includes(children: :children).to_a
     end
