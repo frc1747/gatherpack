@@ -247,11 +247,23 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
 
   private
 
+  # Sets the flag in a throwaway copy of the settings file: parallel test
+  # workers share the real one, and settings that read the file would see
+  # another worker's value. Covers settings that keep their value in the
+  # process too.
   def with_oauth_provider_feature(value)
-    original = Settings.get(:feature_oauth_provider).value.to_s
+    settings = Settings.instance
+    original_store = settings.store
+    original_value = Settings.get(:feature_oauth_provider).instance_variable_get(:@value)
+    path = Rails.root.join("tmp", "test-settings-#{Process.pid}-#{SecureRandom.hex(4)}.pstore").to_s
+    current = original_store.transaction(true) { original_store.roots.to_h { |key| [ key, original_store[key] ] } }
+    settings.store = PStore.new(path, true)
+    settings.store.transaction { current.each { |key, stored| settings.store[key] = stored } }
     Settings[:feature_oauth_provider] = value
     yield
   ensure
-    Settings[:feature_oauth_provider] = original
+    Settings.get(:feature_oauth_provider).instance_variable_set(:@value, original_value)
+    settings.store = original_store
+    FileUtils.rm_f(path)
   end
 end
