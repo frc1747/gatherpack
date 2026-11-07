@@ -10,9 +10,10 @@ class PersonMerger
   # Profile columns that are never copied from the person merged away.
   SKIPPED_FIELDS = %w[id user_id created_at updated_at].freeze
 
-  # What happens to one registered column: rows that move, and rows that are
-  # removed because keep already has them (or they point at keep already).
-  Change = Struct.new(:entry, :moving, :removing, keyword_init: true) do
+  # What happens to one registered column: rows that move, rows that are
+  # removed because keep already has them (or they point at keep already),
+  # and a warning about moved rows that clash with keep's (or nil).
+  Change = Struct.new(:entry, :moving, :removing, :warning, keyword_init: true) do
     def label
       entry.label
     end
@@ -22,7 +23,7 @@ class PersonMerger
     end
 
     def any?
-      moving.any? || removing.any?
+      moving.any? || removing.any? || warning.present?
     end
   end
 
@@ -132,21 +133,21 @@ class PersonMerger
   end
 
   def person_changes
-    GatherPack::PersonMerge.entries(:person).map { |entry| plan(entry, drop.id, keep.id, Person.polymorphic_name) }
+    GatherPack::PersonMerge.entries(:person).map { |entry| plan(entry, drop.id, keep.id) }
   end
 
   def login_changes
     return [] unless removed_login
-    GatherPack::PersonMerge.entries(:user).map { |entry| plan(entry, removed_login.id, kept_login.id, User.polymorphic_name) }
+    GatherPack::PersonMerge.entries(:user).map { |entry| plan(entry, removed_login.id, kept_login.id) }
   end
 
   # Sorts from's rows into moving and removing. A removed row is paired with
   # the row of to's that it duplicates (nil when it points at to already).
-  def plan(entry, from, to, type)
-    from_rows = rows(entry, from, type)
+  def plan(entry, from, to)
+    from_rows = rows(entry, from)
     return Change.new(entry: entry, moving: [], removing: from_rows.map { |row| [ row, nil ] }) if entry.action == :delete
 
-    kept = entry.unique_by.any? ? rows(entry, to, type).select { |row| applies?(entry, row) } : []
+    kept = entry.unique_by.any? ? rows(entry, to).select { |row| applies?(entry, row) } : []
     kept_by_key = kept.index_by { |row| row.values_at(*entry.unique_by) }
 
     moving = []
@@ -160,14 +161,12 @@ class PersonMerger
         moving << row
       end
     end
-    Change.new(entry: entry, moving: moving, removing: removing)
+    warning = entry.check&.call(from, to) if moving.any?
+    Change.new(entry: entry, moving: moving, removing: removing, warning: warning)
   end
 
-  def rows(entry, owner_id, type)
-    table = Arel::Table.new(entry.table)
-    query = table.project(Arel.star).where(table[entry.column].eq(owner_id))
-    query = query.where(table[entry.type_column].eq(type)) if entry.type_column
-    connection.select_all(query.to_sql).to_a
+  def rows(entry, owner_id)
+    connection.select_all(entry.rows_sql(owner_id)).to_a
   end
 
   def applies?(entry, row)
@@ -194,6 +193,7 @@ class PersonMerger
       execute("UPDATE #{quoted(entry.table)} SET #{connection.quote_column_name(entry.column)} = ? WHERE id IN (?)", to, ids)
       summary["#{entry.table}.#{entry.column} moved"] = [ ids.join(", "), to ]
     end
+    summary["#{entry.table}.#{entry.column} warning"] = [ change.warning, nil ] if change.warning
   end
 
   def move_login(summary)

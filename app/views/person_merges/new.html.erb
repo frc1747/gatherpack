@@ -75,6 +75,9 @@
             <% end %>
           </tbody>
         </table>
+        <% changes.select(&:warning).each do |change| %>
+          <div class="alert alert-warning"><b><%= change.label %>:</b> <%= change.warning %></div>
+        <% end %>
       <% else %>
         <p class="text-muted">There is nothing to move.</p>
       <% end %>

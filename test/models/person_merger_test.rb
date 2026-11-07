@@ -8,46 +8,103 @@ class PersonMergerTest < ActiveSupport::TestCase
     @drop = Person.create!(first_name: "Dana", last_name: "Rivers", phone_number: "555-0199")
   end
 
-  # One row per registered person column, owned by drop. Each returns
-  # [table, id] so the test can check the row now points at keep.
-  ROWS = {
-    "memberships" => -> { [ "memberships", Membership.create!(person: @drop, team: teams(:one)).id ] },
-    "membership_applications" => -> { [ "membership_applications", saved(MembershipApplication.new(person: @drop, team: teams(:one))).id ] },
-    "relationships.parent_id" => -> { [ "relationships", saved(Relationship.new(parent: @drop, child: people(:one), relationship_type: relationship_types(:one))).id ] },
-    "relationships.child_id" => -> { [ "relationships", saved(Relationship.new(parent: people(:one), child: @drop, relationship_type: relationship_types(:one))).id ] },
-    "badge_assignments" => -> { [ "badge_assignments", saved(BadgeAssignment.new(person: @drop, badge: badges(:one))).id ] },
-    "checkins" => -> { [ "checkins", saved(Checkin.new(person: @drop, event: events(:one))).id ] },
-    "time_clock_punches" => -> { [ "time_clock_punches", saved(TimeClockPunch.new(person: @drop, start_time: 1.hour.ago)).id ] },
-    "questions" => -> { [ "questions", Question.create!(person: @drop, team: teams(:one), title: "Room?", content: "Which room?").id ] },
-    "replies" => -> { [ "replies", Reply.create!(person: @drop, question: questions(:one), content: "Room 4").id ] },
-    "reply_votes" => -> { [ "reply_votes", ReplyVote.create!(person: @drop, question: questions(:two), reply: replies(:one).tap { |r| r.update_columns(question_id: questions(:two).id) }).id ] },
-    "lego_lottery_drawing_tickets" => -> { [ "lego_lottery_drawing_tickets", insert_row(:lego_lottery_drawing_tickets, lego_lottery_drawing_id: insert_row(:lego_lottery_drawings, name: "Draw"), person_id: @drop.id) ] },
-    "tokens" => -> { [ "tokens", Token.create!(tokenable: @drop, value: "merge-card").id ] },
-    "calendar_notes" => -> { [ "calendar_notes", CalendarNote.create!(noteable: @drop, name: "Away", start_time: Time.current).id ] },
-    "ledger_ownerships" => -> { [ "ledger_ownerships", LedgerOwnership.create!(owner: @drop, ledger: ledgers(:one)).id ] },
-    "mailbox_assignments" => -> { [ "mailbox_assignments", MailboxAssignment.create!(target: @drop, mailbox: mailboxes(:one)).id ] },
-    "ledger_entries" => -> { [ "ledger_entries", insert_row(:ledger_entries, ledger_id: ledgers(:one).id, created_by_id: @drop.id, created_by_type: "Person", amount_cents: 100) ] },
-    "transactions" => -> { [ "transactions", insert_row(:transactions, account_id: account_id, created_by_id: @drop.id, created_by_type: "Person") ] },
-    "account_relationships" => -> { [ "account_relationships", insert_row(:account_relationships, account_id: account_id, holder_id: @drop.id, holder_type: "Person") ] },
-    "active_storage_attachments" => -> { @drop.avatar.attach(io: StringIO.new("img"), filename: "a.png"); [ "active_storage_attachments", @drop.avatar.attachment.id ] },
-    "action_text_rich_texts" => -> { [ "action_text_rich_texts", insert_row(:action_text_rich_texts, name: "notes", body: "Hi", record_type: "Person", record_id: @drop.id) ] }
+  # Builders for one row pointing at `o`, returning its id. Polymorphic ones
+  # are used for both owners: `o` is the person merged away, or the login
+  # the merge deletes.
+  PERSON_ROWS = {
+    "memberships.person_id" => ->(o) { Membership.create!(person: o, team: teams(:one)).id },
+    "membership_applications.person_id" => ->(o) { saved(MembershipApplication.new(person: o, team: teams(:one))).id },
+    "relationships.parent_id" => ->(o) { saved(Relationship.new(parent: o, child: people(:one), relationship_type: relationship_types(:one))).id },
+    "relationships.child_id" => ->(o) { saved(Relationship.new(parent: people(:one), child: o, relationship_type: relationship_types(:one))).id },
+    "badge_assignments.person_id" => ->(o) { saved(BadgeAssignment.new(person: o, badge: badges(:one))).id },
+    "checkins.person_id" => ->(o) { saved(Checkin.new(person: o, event: events(:one))).id },
+    "time_clock_punches.person_id" => ->(o) { saved(TimeClockPunch.new(person: o, start_time: 1.hour.ago)).id },
+    "questions.person_id" => ->(o) { Question.create!(person: o, team: teams(:one), title: "Room?", content: "Which room?").id },
+    "replies.person_id" => ->(o) { Reply.create!(person: o, question: questions(:one), content: "Room 4").id },
+    "reply_votes.person_id" => ->(o) { ReplyVote.create!(person: o, question: questions(:one), reply: replies(:one)).id },
+    "lego_lottery_drawing_tickets.person_id" => ->(o) { insert_row(:lego_lottery_drawing_tickets, lego_lottery_drawing_id: insert_row(:lego_lottery_drawings, name: "Draw"), person_id: o.id) }
   }.freeze
 
-  ROWS.each do |name, build|
-    test "moves #{name} to the kept person" do
-      table, id = instance_exec(&build)
-      entry = GatherPack::PersonMerge.entries(:person).find { |e| e.table == table && (name.exclude?(".") || name.end_with?(e.column)) }
+  POLYMORPHIC_ROWS = {
+    "tokens.tokenable_id" => ->(o) { Token.create!(tokenable: o, value: "merge-card-#{o.id}").id },
+    "calendar_notes.noteable_id" => ->(o) { CalendarNote.create!(noteable: o, name: "Away", start_time: Time.current).id },
+    "ledger_ownerships.owner_id" => ->(o) { LedgerOwnership.create!(owner: o, ledger: ledgers(:one)).id },
+    "mailbox_assignments.target_id" => ->(o) { MailboxAssignment.create!(target: o, mailbox: mailboxes(:one)).id },
+    "ledger_entries.created_by_id" => ->(o) { insert_row(:ledger_entries, ledger_id: ledgers(:one).id, created_by_id: o.id, created_by_type: o.class.name, amount_cents: 100) },
+    "transactions.created_by_id" => ->(o) { insert_row(:transactions, account_id: account_id, created_by_id: o.id, created_by_type: o.class.name) },
+    "account_relationships.holder_id" => ->(o) { insert_row(:account_relationships, account_id: account_id, holder_id: o.id, holder_type: o.class.name) },
+    "active_storage_attachments.record_id" => ->(o) { insert_row(:active_storage_attachments, name: "avatar", record_type: o.class.name, record_id: o.id, blob_id: blob_id) },
+    "action_text_rich_texts.record_id" => ->(o) { insert_row(:action_text_rich_texts, name: "notes", body: "Hi", record_type: o.class.name, record_id: o.id) }
+  }.freeze
 
-      assert merge.merge(actor: @admin), merge.errors.full_messages.to_sentence
-      assert_equal @keep.id, column_value(table, entry.column, id)
+  USER_ROWS = {
+    "oauth_access_grants.resource_owner_id" => ->(o) { insert_row(:oauth_access_grants, application_id: oauth_application_id, resource_owner_id: o.id, token: "g-#{o.id}", expires_in: 60, redirect_uri: "https://example.com/cb") },
+    "oauth_access_tokens.resource_owner_id" => ->(o) { insert_row(:oauth_access_tokens, application_id: oauth_application_id, resource_owner_id: o.id, token: "t-#{o.id}") }
+  }.freeze
+
+  ROWS = PERSON_ROWS.transform_keys { |k| "person:#{k}" }
+    .merge(POLYMORPHIC_ROWS.transform_keys { |k| "person:#{k}" })
+    .merge(POLYMORPHIC_ROWS.transform_keys { |k| "user:#{k}" })
+    .merge(USER_ROWS.transform_keys { |k| "user:#{k}" }).freeze
+
+  ROWS.each do |key, build|
+    test "merges #{key}" do
+      entry = entry_for(key)
+      from, to = owners_for(entry.owner)
+      id = instance_exec(from, &build)
+
+      assert merge(keep_login: "keep").merge(actor: @admin), "merge refused"
+      if entry.action == :delete
+        assert_nil column_value(entry.table, :id, id)
+      else
+        assert_equal to.id, column_value(entry.table, entry.column, id)
+      end
     end
   end
 
-  test "every registered person column has a move test" do
-    tested = ROWS.keys.map { |name| name.include?(".") ? name : "#{name}.#{GatherPack::PersonMerge.entries(:person).find { |e| e.table == name }.column}" }
-    registered = GatherPack::PersonMerge.entries(:person).map { |e| "#{e.table}.#{e.column}" }
+  # Builders for a duplicate: a row for `from` that `to` already has.
+  # Returns [from's row id, to's row id].
+  PERSON_CONFLICTS = {
+    "memberships.person_id" => ->(from, to) { [ from, to ].map { |o| Membership.create!(person: o, team: teams(:one)).id } },
+    "membership_applications.person_id" => ->(from, to) { [ from, to ].map { |o| saved(MembershipApplication.new(person: o, team: teams(:one))).id } },
+    "relationships.parent_id" => ->(from, to) { [ from, to ].map { |o| saved(Relationship.new(parent: o, child: people(:one), relationship_type: relationship_types(:one))).id } },
+    "relationships.child_id" => ->(from, to) { [ from, to ].map { |o| saved(Relationship.new(parent: people(:one), child: o, relationship_type: relationship_types(:one))).id } },
+    "badge_assignments.person_id" => ->(from, to) { [ from, to ].map { |o| saved(BadgeAssignment.new(person: o, badge: badges(:one))).id } },
+    "checkins.person_id" => ->(from, to) { [ from, to ].map { |o| saved(Checkin.new(person: o, event: events(:one))).id } },
+    "reply_votes.person_id" => ->(from, to) { [ from, to ].map { |o| ReplyVote.create!(person: o, question: questions(:one), reply: replies(:one)).id } }
+  }.freeze
 
-    assert_empty registered - tested
+  POLYMORPHIC_CONFLICTS = %w[
+    ledger_ownerships.owner_id mailbox_assignments.target_id account_relationships.holder_id
+    active_storage_attachments.record_id action_text_rich_texts.record_id
+  ].to_h { |k| [ k, ->(from, to) { [ from, to ].map { |o| instance_exec(o, &POLYMORPHIC_ROWS.fetch(k)) } } ] }.freeze
+
+  CONFLICTS = PERSON_CONFLICTS.transform_keys { |k| "person:#{k}" }
+    .merge(POLYMORPHIC_CONFLICTS.transform_keys { |k| "person:#{k}" })
+    .merge(POLYMORPHIC_CONFLICTS.transform_keys { |k| "user:#{k}" }).freeze
+
+  CONFLICTS.each do |key, build|
+    test "removes a duplicate in #{key}" do
+      entry = entry_for(key)
+      from, to = owners_for(entry.owner)
+      from_id, to_id = instance_exec(from, to, &build)
+
+      assert merge(keep_login: "keep").merge(actor: @admin), "merge refused"
+      assert_nil column_value(entry.table, :id, from_id)
+      assert_equal to.id, column_value(entry.table, entry.column, to_id)
+    end
+  end
+
+  test "every registered column has a merge test" do
+    registered = GatherPack::PersonMerge.entries.map { |e| "#{e.owner}:#{e.table}.#{e.column}" }
+
+    assert_empty registered - ROWS.keys
+  end
+
+  test "every column with duplicates has a conflict test" do
+    registered = GatherPack::PersonMerge.entries.select { |e| e.unique_by.any? }.map { |e| "#{e.owner}:#{e.table}.#{e.column}" }
+
+    assert_empty registered - CONFLICTS.keys
   end
 
   test "deletes the merged person and records one merge entry" do
@@ -87,20 +144,44 @@ class PersonMergerTest < ActiveSupport::TestCase
     assert kept.reload.manager
   end
 
-  test "removes a duplicate badge" do
-    saved(BadgeAssignment.new(person: @keep, badge: badges(:one)))
-    saved(BadgeAssignment.new(person: @drop, badge: badges(:one)))
+  test "a duplicate check-in keeps the removed one's notes and answers" do
+    field = checkin_fields(:one)
+    other_field = CheckinField.create!(event_type: field.event_type, name: "Ride home")
+    kept = saved(Checkin.new(person: @keep, event: events(:one)))
+    removed = saved(Checkin.new(person: @drop, event: events(:one), notes: "arrived late"))
+    CheckinFieldResponse.create!(checkin: kept, checkin_field: field, response: "")
+    CheckinFieldResponse.create!(checkin: kept, checkin_field: other_field, response: "Bus")
+    CheckinFieldResponse.create!(checkin: removed, checkin_field: field, response: "Yes")
+    CheckinFieldResponse.create!(checkin: removed, checkin_field: other_field, response: "Car")
 
     assert merge.merge(actor: @admin)
-    assert_equal 1, BadgeAssignment.where(person: @keep, badge: badges(:one)).count
+    assert_not Checkin.exists?(removed.id)
+    kept.reload
+    assert_equal "arrived late", kept.notes
+    assert_equal({ field.id => "Yes", other_field.id => "Bus" }, kept.checkin_field_responses.pluck(:checkin_field_id, :response).to_h)
   end
 
-  test "removes a check-in at an event the kept person already checked in to" do
-    saved(Checkin.new(person: @keep, event: events(:one)))
-    saved(Checkin.new(person: @drop, event: events(:one)))
+  test "warns about overlapping and open punches but still moves them" do
+    saved(TimeClockPunch.new(person: @keep, start_time: 2.hours.ago))
+    open = saved(TimeClockPunch.new(person: @drop, start_time: 1.hour.ago))
+    saved(TimeClockPunch.new(person: @drop, start_time: 3.days.ago, end_time: 3.days.ago + 1.hour))
+
+    change = merge.changes.find { |c| c.entry.table == "time_clock_punches" }
+    assert_equal 2, change.moving.size
+    assert_includes change.warning, "1 punch overlap"
+    assert_includes change.warning, "Both are clocked in"
 
     assert merge.merge(actor: @admin)
-    assert_equal 1, Checkin.where(person: @keep, event: events(:one)).count
+    assert_equal @keep.id, open.reload.person_id
+    log = PaperTrail.serializer.load(AuditLog.find_by(event: "merge").object_changes)
+    assert log.key?("time_clock_punches.person_id warning")
+  end
+
+  test "no punch warning when punches don't overlap" do
+    saved(TimeClockPunch.new(person: @keep, start_time: 2.days.ago, end_time: 2.days.ago + 1.hour))
+    saved(TimeClockPunch.new(person: @drop, start_time: 3.days.ago, end_time: 3.days.ago + 1.hour))
+
+    assert_nil merge.changes.find { |c| c.entry.table == "time_clock_punches" }.warning
   end
 
   test "removes relationships between the two people and duplicate relationships" do
@@ -185,6 +266,25 @@ class PersonMergerTest < ActiveSupport::TestCase
     assert_includes merger.errors[:keep_login].first, "admin access"
   end
 
+  test "references? says whether anything else points at a person" do
+    loner = Person.create!(first_name: "Lee", last_name: "Park")
+    assert_not GatherPack::PersonMerge.references?(loner)
+
+    Membership.create!(person: loner, team: teams(:one))
+    rows = GatherPack::PersonMerge.rows_for(loner)
+    assert_equal({ "memberships" => 1 }, rows.transform_keys(&:table))
+    assert GatherPack::PersonMerge.references?(loner)
+    assert_not GatherPack::PersonMerge.references?(loner, except: :memberships)
+  end
+
+  test "references? counts rows pointing at the person's login" do
+    loner = Person.create!(first_name: "Lee", last_name: "Park", user: User.create!(email: "lee@example.com", password: "Password1!"))
+    Token.create!(tokenable: loner.user, value: "lee-card")
+
+    assert GatherPack::PersonMerge.references?(loner)
+    assert_not GatherPack::PersonMerge.references?(loner, include_login: false)
+  end
+
   test "refuses to merge a person into themselves" do
     merger = PersonMerger.new(keep_nid: @keep.neat_id, drop_nid: @keep.neat_id)
     assert_not merger.valid?
@@ -217,6 +317,29 @@ class PersonMergerTest < ActiveSupport::TestCase
 
   def account_id
     @account_id ||= insert_row(:accounts, name: "Dues")
+  end
+
+  def blob_id
+    ActiveStorage::Blob.create_and_upload!(io: StringIO.new("file"), filename: "file.txt").id
+  end
+
+  def oauth_application_id
+    @oauth_application_id ||= OauthApplication.create!(name: "App", redirect_uri: "https://example.com/cb").id
+  end
+
+  def entry_for(key)
+    owner, column = key.split(":")
+    GatherPack::PersonMerge.entries(owner.to_sym).find { |e| "#{e.table}.#{e.column}" == column }
+  end
+
+  # [the record rows move from, the record they move to]. For logins, both
+  # people get one and the merge keeps the kept person's.
+  def owners_for(owner)
+    return [ @drop, @keep ] if owner == :person
+
+    @keep.update!(user: User.create!(email: "dana@example.com", password: "Password1!"))
+    @drop.update!(user: User.create!(email: "dana.r@example.com", password: "Password1!"))
+    [ @drop.user, @keep.user ]
   end
 
   def column_value(table, column, id)

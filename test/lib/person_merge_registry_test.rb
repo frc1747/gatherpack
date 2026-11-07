@@ -20,6 +20,18 @@ class PersonMergeRegistryTest < ActiveSupport::TestCase
     assert_empty missing.map { |e| "#{e.table}.#{e.column}" }
   end
 
+  # Feature initializers that sort before person_merge.rb register first; a
+  # reload of the built-ins must not wipe them.
+  test "registrations made elsewhere survive the built-ins being prepared again" do
+    GatherPack::PersonMerge.register(:checkin_field_responses, :checkin_id, label: "Probe")
+    Rails.application.reloader.prepare!
+
+    assert GatherPack::PersonMerge.covers?(:checkin_field_responses, :checkin_id)
+    assert GatherPack::PersonMerge.covers?(:memberships, :person_id)
+  ensure
+    GatherPack::PersonMerge.unregister(:checkin_field_responses, :checkin_id)
+  end
+
   private
 
   def connection
