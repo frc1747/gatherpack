@@ -128,6 +128,29 @@ class FormAudienceChecklistRulesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "copying a checklist can't swap in a form the copier doesn't manage" do
+    crew_checklist = create_world_checklist("Crew Trip 2026", team: @crew)
+    this_year = Form.create!(title: "Crew Release 2026", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
+    next_year = Form.create!(title: "Crew Release 2027", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
+    hidden = Form.create!(title: "Club Release 2027", team: @club, respond_permission: "self_and_leaders", read_permission: "self_and_leaders", status: :draft)
+    with_features do
+      add_item(crew_checklist, :form_complete, "Release", { form_ids: [ this_year.id ] })
+      sign_in person(:crew_manager).user
+      key = "Form:#{this_year.id}"
+
+      assert_no_difference -> { Checklist.count } do
+        post copy_checklist_path(crew_checklist), params: { title: "Sneaky Copy", shift_months: 12, replace: { key => hidden.id } }
+      end
+      assert_redirected_to copy_checklist_path(crew_checklist)
+      assert_equal "You can't copy Release: ask someone who can set those items up.", flash[:alert]
+
+      post copy_checklist_path(crew_checklist), params: { title: "Crew Trip 2027", shift_months: 12, replace: { key => next_year.id } }
+      copy = Checklist.find_by!(title: "Crew Trip 2027")
+      assert_redirected_to checklist_path(copy)
+      assert_equal [ next_year.id ], copy.checklist_items.sole.config["form_ids"]
+    end
+  end
+
   test "the preview of a saved item checks its forms even when no kind is sent" do
     crew_checklist = create_world_checklist("Crew Trip", team: @crew)
     crew_form = Form.create!(title: "Crew Form", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
