@@ -146,6 +146,51 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     assert_includes rule.errors[:kind], "This position already has a checklist rule; change it instead"
   end
 
+  test "a draft or archived checklist lets nobody through, with a fixed reason, and a draft's results aren't computed" do
+    rule = @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
+
+    @checklist.update!(status: :archived)
+    assert_equal "Needs Trip: Done (Trip is archived)", rule.reload.check(person(:worker), @event)
+
+    @checklist.update!(status: :draft)
+    ChecklistResult.where(checklist: @checklist).delete_all
+    assert_equal "Needs Trip: Done (Trip is a draft)", rule.reload.check(person(:worker), @event)
+    assert_nil rule.checklist_status(person(:worker))
+    assert_not ChecklistResult.exists?(checklist: @checklist)
+    assert_empty Checklists::SignupSheetNeeds.new(@sheet, person(:student)).entries
+  end
+
+  test "housekeeping doesn't archive a checklist a sheet still needs, and says why" do
+    @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
+
+    with_settings(checklists_archive_after: "30") do
+      travel_to Date.new(2027, 8, 15) do
+        assert_empty Checklists::Housekeeping.run[:archived]
+        assert @checklist.reload.active?
+        assert_includes @checklist.problems, "Ended, but not archived: the sign-up sheet Snack Stand still needs it"
+
+        other = Checklist.create!(title: "Later", team: @club, status: :active, created_by: person(:admin))
+        item = other.checklist_items.new(kind: "checklist", label: "Trip done")
+        item.config_params = { checklist_id: @checklist.id }
+        item.save!
+        assert_includes @checklist.problems, "Ended, but not archived: Later and the sign-up sheet Snack Stand still need it"
+        other.destroy!
+
+        @sheet.update!(status: :archived)
+        assert_equal [ @checklist ], Checklists::Housekeeping.run[:archived]
+        assert @checklist.reload.archived?
+      end
+    end
+  end
+
+  test "housekeeping still archives checklists no sheet needs" do
+    with_settings(checklists_archive_after: "30") do
+      travel_to Date.new(2027, 8, 15) do
+        assert_equal [ @checklist ], Checklists::Housekeeping.run[:archived]
+      end
+    end
+  end
+
   test "a checklist a rule needs can't be deleted" do
     @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
 

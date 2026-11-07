@@ -1,10 +1,11 @@
 module Checklists
-  # For the sign-up sheet panel: the checklists the sheet's positions need
-  # that the viewer, or someone they can sign up, hasn't finished. Each
-  # entry has the checklist, the names of the positions needing it, and
-  # [person, status, covered] for the people who don't pass: status is the
-  # Checklists::Status the viewer may see (nil when they see none), covered
-  # whether the checklist covers the person at all.
+  # For the sign-up sheet panel: the active checklists the sheet's positions
+  # need that the viewer, or someone they can sign up, hasn't finished (a
+  # draft's or archived one's contents aren't shown). Each entry has the
+  # checklist, the names of the positions needing it, and [person, status,
+  # covered] for the people who don't pass: status is the Checklists::Status
+  # the viewer may see (nil when they see none), covered whether the
+  # checklist covers the person at all.
   class SignupSheetNeeds
     Entry = Struct.new(:checklist, :position_names, :people, keyword_init: true)
 
@@ -17,7 +18,7 @@ module Checklists
       return [] if @viewer.nil? || !Checklists.enabled?
 
       rules = SignupPositionRule.checklist.where(signup_position_id: @signup_sheet.signup_positions.select(:id))
-        .where.not(checklist_id: nil).includes(:checklist, :signup_position).to_a
+        .where(checklist_id: Checklist.active.select(:id)).includes(:checklist, :signup_position).to_a
       return [] if rules.empty?
 
       takers = @signup_sheet.takers_for(@viewer).to_a

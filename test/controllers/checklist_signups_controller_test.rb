@@ -22,8 +22,18 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
 
   teardown { @restore_settings&.call }
 
-  def create_checklist(title, team)
-    Checklist.create!(title: title, team: team, status: :active, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2027, 6, 30),
+  # Met for everyone, but its kind hides it from anyone who doesn't run
+  # the checklist, so a grant's view of the overall doesn't cover it.
+  class HiddenFromViewers < Checklists::ItemKind
+    def self.visible_person_ids(_item, _viewer, _person_ids) = []
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("Fine") }
+    end
+  end
+
+  def create_checklist(title, team, status: :active)
+    Checklist.create!(title: title, team: team, status: status, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2027, 6, 30),
       created_by: person(:admin))
   end
 
@@ -42,7 +52,12 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist, **attributes)
   end
 
-  test "an organizer adds a checklist rule from the position's rules" do
+  def grant_to_sheet_organizers
+    ChecklistGrant.create!(checklist: @checklist, badge: @organizer_badge, item_ids: [], access: :status, created_by: person(:admin))
+  end
+
+  test "a grant holder adds a checklist rule from the position's rules" do
+    grant_to_sheet_organizers
     sign_in person(:worker).user
 
     get edit_signup_sheet_signup_position_path(@sheet, @position)
@@ -58,22 +73,63 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Rule added: Needs Trip: Done or Almost.", flash[:notice]
   end
 
-  test "a checklist the organizer can't see, or an archived one, can't be chosen" do
-    hidden = create_checklist("Elsewhere", @other_org)
-    archived = create_checklist("Last Year", @club)
-    Checklists::Refresher.new(archived, silent: true).call
-    archived.update!(status: :archived)
+  test "someone who runs the checklist can choose it" do
+    sign_in person(:admin).user
+
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "option[value=?]", @checklist.id, text: "Trip"
+  end
+
+  test "an organizer covered by a checklist, who doesn't run it, can't choose it" do
+    sign_in person(:worker).user
+    assert ChecklistResult.exists?(checklist: @checklist, item_id: nil, person: person(:worker)), "the worker has a row of their own"
+
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "option[value=?]", @checklist.id, count: 0
+
+    assert_no_difference "SignupPositionRule.count" do
+      post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: @checklist.id } }
+    end
+    assert_equal "Pick an active checklist whose results you can see for everyone.", flash[:alert]
+  end
+
+  test "a grant whose view of the overall an item hides doesn't let them choose it" do
+    grant_to_sheet_organizers
+    Checklists.register_item_kind(:hidden_from_grants, HiddenFromViewers)
+    add_item(@checklist, :hidden_from_grants, "Private", {})
     sign_in person(:worker).user
 
     get edit_signup_sheet_signup_position_path(@sheet, @position)
-    assert_select "option[value=?]", hidden.id, count: 0
+    assert_select "option[value=?]", @checklist.id, count: 0
+  ensure
+    Checklists.unregister_item_kind(:hidden_from_grants)
+  end
+
+  test "a draft, an archived checklist, or one they can't see, can't be chosen" do
+    hidden = create_checklist("Elsewhere", @other_org)
+    draft = create_checklist("Next Year", @club, status: :draft)
+    archived = create_checklist("Last Year", @club)
+    Checklists::Refresher.new(archived, silent: true).call
+    archived.update!(status: :archived)
+    sign_in person(:admin).user
+
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "option[value=?]", hidden.id, count: 1, message: "an admin sees every active checklist"
+    assert_select "option[value=?]", draft.id, count: 0
     assert_select "option[value=?]", archived.id, count: 0
 
-    [ hidden, archived ].each do |checklist|
+    [ draft, archived ].each do |checklist|
       assert_no_difference "SignupPositionRule.count" do
         post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: checklist.id } }
       end
-      assert_equal "Pick a checklist you can see.", flash[:alert]
+      assert_equal "Pick an active checklist whose results you can see for everyone.", flash[:alert]
+    end
+
+    sign_out :user
+    grant_to_sheet_organizers
+    sign_in person(:worker).user
+    assert_no_difference "SignupPositionRule.count" do
+      post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: hidden.id } }
     end
 
     post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: "" } }
@@ -181,6 +237,18 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
       get signup_sheet_path(@sheet)
       assert_select "#checklist_signup_panel", count: 0
       assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /checklists are turned off/
+    end
+  end
+
+  test "a rule on a checklist set back to draft, or archived, shows no panel and a fixed reason" do
+    require_checklist
+    sign_in person(:student).user
+
+    { draft: "is a draft", archived: "is archived" }.each do |status, words|
+      @checklist.update!(status: status)
+      get signup_sheet_path(@sheet)
+      assert_select "#checklist_signup_panel", count: 0
+      assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Needs Trip: Done \(Trip #{words}\)/
     end
   end
 

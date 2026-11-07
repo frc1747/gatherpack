@@ -6,8 +6,8 @@ module Checklists
   # never does. Read from stored results, computing anyone not yet stored
   # (Checklists::Reader), so a rule follows the checklist's refreshes.
   #
-  # With checklists turned off the rule fails with its reason, never a
-  # silent pass. Prepended to SignupPositionRule by
+  # With checklists turned off, or the checklist a draft or archived, the
+  # rule fails with its reason, never a silent pass. Prepended to SignupPositionRule by
   # config/initializers/checklists_signups.rb.
   module SignupRule
     extend ActiveSupport::Concern
@@ -29,14 +29,17 @@ module Checklists
       return super unless checklist?
       return checklist_requirement if checklist.nil?
       return "#{checklist_requirement} (checklists are turned off)" unless Checklists.enabled?
+      return "#{checklist_requirement} (#{checklist.title} #{checklist.draft? ? "is a draft" : "is archived"})" unless checklist.active?
 
       checklist_requirement unless accepted_statuses.include?(checklist_status(person))
     end
 
     # The checklist's overall for the person (met, pending, not_met, exempt),
-    # or nil when it doesn't cover them.
+    # or nil when it doesn't cover them. Only an active checklist answers:
+    # a draft's results are for the people running it, and an archived
+    # one's are frozen.
     def checklist_status(person)
-      return if checklist.nil? || person.nil?
+      return if checklist.nil? || person.nil? || !checklist.active?
 
       @checklist_statuses ||= {}
       return @checklist_statuses[person.id] if @checklist_statuses.key?(person.id)
