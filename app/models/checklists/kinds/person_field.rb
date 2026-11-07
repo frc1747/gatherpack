@@ -34,8 +34,14 @@ module Checklists
         def description = "Has a profile field filled in a certain way"
 
         def settings
+          settings_for(nil)
+        end
+
+        # The form as offered to an author: only fields they can read for
+        # someone (all of them for an admin, or when no author is given).
+        def settings_for(author)
           [
-            ItemKind::Setting.new(key: :field_id, type: :choice, label: "Field", options: field_options),
+            ItemKind::Setting.new(key: :field_id, type: :choice, label: "Field", options: field_options(author)),
             ItemKind::Setting.new(key: :operator, type: :choice, label: "Test", options: OPERATORS.invert.to_a,
               hint: "Which tests fit depends on the field: choices and text use \"is any of\" or \"is none of\", yes/no fields \"is yes\" or \"is no\", dates \"on or after\" or \"on or before\", numbers \"at least\" or \"at most\""),
             ItemKind::Setting.new(key: :values, type: :text, label: "Values", hint: "For \"is any of\" and \"is none of\": one or more, separated by commas"),
@@ -183,8 +189,10 @@ module Checklists
 
         private
 
-        def field_options
-          ::PersonField.in_use.ordered.map { |field| [ field.name, field.id ] }
+        def field_options(author)
+          fields = ::PersonField.in_use.ordered
+          fields = fields.select { |field| field.readable_subjects_for(author).exists? } if author && !author.admin?
+          fields.map { |field| [ field.name, field.id ] }
         end
       end
 

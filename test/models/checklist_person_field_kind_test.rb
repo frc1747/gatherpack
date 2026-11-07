@@ -376,4 +376,65 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
       assert mine.authorable_by?(open_item, person(:parent))
     end
   end
+
+  test "the overall and an any-of group don't give away a hidden field's answer" do
+    with_fields do
+      build_private_field
+      group = add_item(@checklist, :any_of, "Either")
+      add_item(@checklist, :person_field, "Notes", { field_id: @secret.id, operator: "any_of", values: "asthma" }, parent: group)
+      add_item(@checklist, :has_login, "Login", {}, parent: group)
+      add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+      refresh(@checklist)
+      seen = ->(viewer) { Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(viewer))[person(:kid).id] }
+
+      assert_equal 1, seen.call(:kid).overall.measures["unmet"], "only Safety is left to do"
+      assert_nil seen.call(:parent).item(@secret_item.id)
+      assert_nil seen.call(:parent).item(group.id), "a group holding the hidden item is hidden too"
+      assert_nil seen.call(:parent).item(group.children.first.id)
+      assert_equal 1, seen.call(:parent).overall.measures["unmet"]
+    end
+  end
+
+  test "a checklist whose only item is a hidden field doesn't show the parent an overall" do
+    with_fields do
+      build_private_field
+      status = Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(:parent))[person(:kid).id]
+
+      assert_nil status, "nothing is left to show the parent"
+      assert_nil Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(:member2))[person(:kid).id]
+      assert_equal "met", Checklists.status_for(@checklist, [ person(:kid) ], viewer: person(:kid))[person(:kid).id].overall.status.to_s
+    end
+  end
+
+  test "an impact check doesn't name people moved by a field the viewer can't read" do
+    with_fields do
+      build_private_field
+      with_settings(checklists_organizers: "Checklist Organizer > Club") do
+        @checklist.checklist_organizers.create!(person: person(:organizer))
+        gone = []
+        impact = Checklists::Impact.new(@checklist, items: gone, viewer: person(:organizer))
+
+        assert_empty impact.moves.flat_map(&:names), "the organizer doesn't lead anyone whose answer moves"
+        assert_operator impact.hidden, :>=, 3, "Member, MemberTwo and Rookie would move, counted only as hidden"
+        assert_match "through an item you can't see", impact.sentences.join
+        full = Checklists::Impact.new(@checklist, items: gone, viewer: person(:admin))
+        assert_includes full.moves.flat_map(&:names).join, "Rookie"
+      end
+    end
+  end
+
+  test "the item form offers only fields the author can read" do
+    with_fields do
+      create_field("Open", :string, read_permission: "everyone", write_permission: "admin")
+      create_field("Admin only", :string, read_permission: "admin", write_permission: "admin")
+      create_field("Leaders", :string, read_permission: "self_and_leaders", write_permission: "self_and_leaders")
+      names = ->(author) { Checklists::Kinds::PersonField.settings_for(author).first.options.map(&:first) }
+
+      assert_equal [ "Admin only", "Leaders", "Open" ], names.call(person(:admin)).sort
+      assert_equal [ "Leaders", "Open" ], names.call(person(:club_manager)).sort
+      assert_equal [ "Leaders", "Open" ], names.call(person(:outsider)).sort, "everyone can read their own"
+      assert_not_includes names.call(person(:club_manager)), "Admin only"
+      assert_equal 3, names.call(nil).size
+    end
+  end
 end
