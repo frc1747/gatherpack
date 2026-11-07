@@ -5,4 +5,5 @@ Rails.application.config.to_prepare do
 
   Checklists.register_item_kind(:attendance, Checklists::Kinds::Attendance)
   ChecklistExcusesController.include(ChecklistMeetingExcuses) unless ChecklistExcusesController < ChecklistMeetingExcuses
+  ChecklistItemsController.include(ChecklistAttendanceForm) unless ChecklistItemsController < ChecklistAttendanceForm
 end

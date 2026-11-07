@@ -35,6 +35,21 @@ module Checklists
           a.sum { |a_start, a_end| b.sum { |b_start, b_end| [ [ a_end, b_end ].min - [ a_start, b_start ].max, 0 ].max } }
         end
 
+        # The parts of merged intervals outside the merged cuts.
+        def self.subtract(intervals, cuts)
+          intervals.flat_map do |start_time, end_time|
+            pieces = [ [ start_time, end_time ] ]
+            cuts.each do |cut_start, cut_end|
+              pieces = pieces.flat_map do |piece_start, piece_end|
+                next [ [ piece_start, piece_end ] ] if cut_end <= piece_start || cut_start >= piece_end
+
+                [ [ piece_start, cut_start ], [ cut_end, piece_end ] ].select { |from, to| to > from }
+              end
+            end
+            pieces
+          end
+        end
+
         def self.duration(intervals)
           intervals.sum { |start_time, end_time| end_time - start_time }
         end

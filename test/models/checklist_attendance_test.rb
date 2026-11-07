@@ -149,7 +149,8 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       result = evaluate(@checklist, :member, item)
       assert_equal "met", result.status
       assert_equal 1, result.measures["held"]
-      assert_equal "✓ Fall: 100% of 2 h (needs 60%); Excused from Meeting (Oct 7)", result.detail
+      assert_equal "✓ Fall: 100% of 2 h (needs 60%); Excused from Meeting (Oct 7) by ClubManager World, Oct 10", result.detail,
+        "who excused it and when, never the reason"
       assert_equal "not_met", evaluate(@checklist, :member2, item).status, "excuses only the person"
 
       ChecklistExcuse.create!(item: item, person: person(:member), event: first, reason: "Ill", created_by: person(:club_manager))
@@ -163,13 +164,42 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     punch_at(:member, first)
     punch_at(:member, second)
     item = attendance([ { name: "Fall", share: "60" } ])
-    ChecklistExcuse.create!(item: item, person: person(:member), event: second, reason: "Counted elsewhere", created_by: person(:club_manager))
 
     travel_to Time.zone.parse("2026-10-10 12:00") do
+      ChecklistExcuse.create!(item: item, person: person(:member), event: second, reason: "Counted elsewhere", created_by: person(:club_manager))
       result = evaluate(@checklist, :member, item)
       assert_equal 2.0, result.measures["credited"]
-      assert_equal "✓ Fall: 100% of 2 h (needs 60%); Excused from Meeting (Oct 7)", result.detail
+      assert_equal 0.0, result.measures["extra"], "time at the excused meeting isn't extra time"
+      assert_equal "✓ Fall: 100% of 2 h (needs 60%); Excused from Meeting (Oct 7) by ClubManager World, Oct 10", result.detail
     end
+  end
+
+  test "with extra hours counting, time at an excused meeting doesn't make up a missed one" do
+    missed = meeting("2026-10-05")
+    excused = meeting("2026-10-07")
+    punch_at(:member, excused)
+    item = attendance([ { name: "Fall", share: "100" } ], extra_hours_count: true)
+
+    travel_to Time.zone.parse("2026-10-10 12:00") do
+      ChecklistExcuse.create!(item: item, person: person(:member), event: excused, reason: "Away", created_by: person(:club_manager))
+      result = evaluate(@checklist, :member, item)
+      assert_equal "not_met", result.status
+      assert_equal 0.0, result.measures["credited"]
+      assert_equal 0.0, result.measures["extra"]
+      assert missed
+    end
+  end
+
+  test "an expired meeting excuse no longer counts" do
+    first = meeting("2026-10-05")
+    missed = meeting("2026-10-07")
+    punch_at(:member, first)
+    item = attendance([ { name: "Fall", share: "60" } ])
+    ChecklistExcuse.create!(item: item, person: person(:member), event: missed, reason: "Ill", created_by: person(:club_manager),
+      expires_on: Date.new(2026, 10, 9))
+
+    travel_to(Time.zone.parse("2026-10-08 12:00")) { assert_equal "met", evaluate(@checklist, :member, item).status }
+    travel_to(Time.zone.parse("2026-10-10 12:00")) { assert_equal "not_met", evaluate(@checklist, :member, item).status }
   end
 
   test "no meetings yet is not counted" do
@@ -285,28 +315,101 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     item.config_params = { rule_1_name: "Summer", rule_1_share: "110" }
     assert_not item.valid?
 
+    item.config_params = { rule_1_name: "Fall" }
+    assert_not item.valid?, "a named rule with no share would pass everyone"
+    assert_includes item.errors[:base], "Fall needs a share of meeting hours"
+
+    item.config_params = { rule_1_starts_on: "2026-09-01" }
+    assert_not item.valid?
+    assert_includes item.errors[:base], "Rule 1 needs a share of meeting hours"
+
+    item.config_params = { rule_1_name: "Fall", rule_1_share: "12.5" }
+    assert_not item.valid?
+    assert_includes item.errors[:base], "Fall: the share must be a whole percent"
+    assert_equal "12.5", item.config["rule_1_share"], "kept as typed, not rounded"
+
+    item.config_params = { rule_1_name: "Fall", rule_1_share: "40", rule_1_weekly: "1" }
+    assert item.valid?
+    assert_equal "At least 40% of meeting hours each week in Fall, judged on its own", item.describe
+
     item.config_params = { rule_1_name: "Summer", rule_1_share: "10", rule_1_with: "Fall", rule_2_name: "Fall", rule_2_share: "20" }
     assert item.valid?, item.errors.full_messages.to_sentence
     assert_equal "At least 10% of meeting hours in Summer, counted together with Fall; 20% of meeting hours in Fall, counted together with Summer", item.describe
   end
 
-  test "a named period narrows the meetings, and a deleted one is a problem" do
+  test "named periods narrow the meetings to any of them, and a deleted one is a problem" do
     other = TimeClockPeriod.create!(name: "Other", start_time: Date.new(2026, 4, 1), end_time: Date.new(2027, 5, 31), permission: :added_by_admin)
+    third = TimeClockPeriod.create!(name: "Crew", team: @crew, start_time: Date.new(2026, 4, 1), end_time: Date.new(2027, 5, 31), permission: :added_by_admin)
     meeting("2026-10-05")
-    Event.create!(name: "Elsewhere", event_type: event_types(:one), team: @club, time_clock_period: other,
-      start_time: Time.zone.parse("2026-10-06 18:00"), end_time: Time.zone.parse("2026-10-06 20:00"))
-    item = attendance([ { name: "Fall", share: "50" } ], period_id: @period.id)
+    [ [ other, "2026-10-06" ], [ third, "2026-10-08" ] ].each do |period, day|
+      Event.create!(name: "Elsewhere", event_type: event_types(:one), team: @club, time_clock_period: period,
+        start_time: Time.zone.parse("#{day} 18:00"), end_time: Time.zone.parse("#{day} 20:00"))
+    end
+    item = attendance([ { name: "Fall", share: "50" } ], period_1_id: @period.id)
 
     travel_to Time.zone.parse("2026-10-10 12:00") do
       assert_equal 1, evaluate(@checklist, :member, item).measures["held"]
-      item.update!(config: item.config.merge("period_id" => nil))
-      assert_equal 2, evaluate(@checklist, :member, item).measures["held"], "every overlapping period by default"
+      item.update!(config: item.config.merge("period_2_id" => third.id))
+      assert_equal 2, evaluate(@checklist, :member, item).measures["held"], "any of the named periods"
+      item.update!(config: item.config.merge("period_1_id" => nil, "period_2_id" => nil))
+      assert_equal 3, evaluate(@checklist, :member, item).measures["held"], "every overlapping period of the checklist's teams by default"
     end
 
-    item.update!(config: item.config.merge("period_id" => @period.id))
+    item.update!(config: item.config.merge("period_3_id" => @period.id))
     assert_not @period.destroy, "the item protects the period"
-    item.update_columns(config: item.config.merge("period_id" => SecureRandom.uuid))
+    item.update_columns(config: item.config.merge("period_3_id" => SecureRandom.uuid))
     assert_includes @checklist.reload.problems.join, "was deleted"
+  end
+
+  test "periods of other teams don't count, and can't be named" do
+    outside = TimeClockPeriod.create!(name: "Other Org season", team: @other_org, start_time: Date.new(2026, 4, 1),
+      end_time: Date.new(2027, 5, 31), permission: :added_by_admin)
+    first = meeting("2026-10-05")
+    Event.create!(name: "Their meeting", event_type: event_types(:one), team: @other_org, time_clock_period: outside,
+      start_time: Time.zone.parse("2026-10-06 18:00"), end_time: Time.zone.parse("2026-10-06 20:00"))
+    punch_at(:member, first)
+    item = attendance([ { name: "Fall", share: "60" } ])
+
+    travel_to Time.zone.parse("2026-10-10 12:00") do
+      result = evaluate(@checklist, :member, item)
+      assert_equal 1, result.measures["held"]
+      assert_equal "met", result.status
+    end
+
+    item.config = item.config.merge("period_1_id" => outside.id)
+    assert_not item.valid?
+    assert_includes item.errors[:base], "Pick time clock periods of this checklist's team or the teams below it"
+
+    Checklists::Kinds::Attendance::Form.checklist = @checklist
+    options = Checklists::Kinds::Attendance.settings.find { |setting| setting.key == :period_1_id }.options.map(&:last)
+    assert_includes options, @period.id
+    assert_not_includes options, outside.id
+  ensure
+    Checklists::Kinds::Attendance::Form.reset
+  end
+
+  test "only punches on the meetings' periods count" do
+    first = meeting("2026-10-05")
+    TimeClockPunch.create!(person: person(:member), created_by: person(:admin), start_time: first.start_time, end_time: first.end_time)
+    item = attendance([ { name: "Fall", share: "50" } ])
+
+    travel_to Time.zone.parse("2026-10-10 12:00") do
+      result = evaluate(@checklist, :member, item)
+      assert_equal "not_met", result.status, "a punch on no period doesn't count, as on the report Page"
+      assert_equal 0.0, result.measures["credited"]
+    end
+  end
+
+  test "time outside the item's dates isn't extra time" do
+    last = meeting("2027-04-28")
+    punch_at(:member, last)
+    punch(:member, "2027-05-20", "10:00", "18:00")
+    punch(:member, "2026-04-20", "10:00", "18:00")
+    item = attendance([ { name: "Spring", share: "50" } ])
+
+    travel_to Time.zone.parse("2027-05-25 12:00") do
+      assert_equal 0.0, evaluate(@checklist, :member, item).measures["extra"]
+    end
   end
 
   test "the next refresh is just after the next meeting ends" do
@@ -317,6 +420,23 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     travel_to Time.zone.parse("2026-10-06 12:00") do
       context = Checklists::Context.new(@checklist.reload)
       assert_equal upcoming.end_time + 1.second, Checklists::Kinds::Attendance.next_change_at(item, context)
+    end
+  end
+
+  test "moving a punch to someone else marks both people" do
+    meeting("2026-10-05")
+    attendance([ { name: "Fall", share: "50" } ])
+    wrong = punch(:member, "2026-10-05", "18:00", "20:00")
+
+    with_feature do
+      travel_to Time.zone.parse("2026-10-10 12:00") do
+        refresh(@checklist, silent: true)
+        wrong.update!(person: person(:member2), created_by: person(:admin))
+
+        assert ChecklistResult.where(checklist: @checklist, person: person(:member)).all?(&:stale)
+        assert ChecklistResult.where(checklist: @checklist, person: person(:member2)).all?(&:stale)
+        assert_not ChecklistResult.where(checklist: @checklist, person: person(:kid)).any?(&:stale)
+      end
     end
   end
 

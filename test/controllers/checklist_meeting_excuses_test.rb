@@ -87,9 +87,13 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
     with_feature do
       travel_to Time.zone.parse("2026-10-10 12:00") do
         sign_in person(:club_manager).user
+        TimeClockPeriod.create!(name: "Other Org season", team: @other_org, start_time: Date.new(2026, 9, 1),
+          end_time: Date.new(2027, 6, 30), permission: :added_by_admin)
         get new_checklist_checklist_item_path(@checklist, kind: "attendance")
         assert_response :success
         assert_match "Rule 1: share of meeting hours (%)", response.body
+        assert_match "Season", response.body
+        assert_no_match "Other Org season", response.body, "only the checklist's periods are offered"
         assert_match "Rule 4: counted together with", response.body
 
         post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "attendance", label: "Meetings",
@@ -105,6 +109,26 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
         get checklist_path(@checklist)
         assert_response :success
         assert_match "Below minimum", response.body
+      end
+    end
+  end
+
+  test "an expired meeting excuse is shown as expired and the meeting can be excused again" do
+    ChecklistExcuse.create!(item: @item, person: person(:member), event: @missed, reason: "Ill", created_by: person(:club_manager),
+      expires_on: Date.new(2026, 10, 8))
+
+    with_feature do
+      travel_to Time.zone.parse("2026-10-10 12:00") do
+        sign_in person(:club_manager).user
+        get new_checklist_checklist_excuse_path(@checklist, item_id: @item.id, person_id: person(:member).id)
+        assert_response :success
+        assert_match "Expired October 08, 2026", response.body
+        assert_select "option[value=?]", @missed.id
+
+        post checklist_checklist_excuses_path(@checklist),
+          params: { checklist_excuse: { item_id: @item.id, person_id: person(:member).id, event_id: @missed.id, reason: "Ill again" } }
+        assert_redirected_to checklist_path(@checklist)
+        assert_equal 2, ChecklistExcuse.where(event: @missed).count
       end
     end
   end

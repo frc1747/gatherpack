@@ -6,13 +6,20 @@
     <p class="text-body-secondary">The meeting won't count for them on <%= @excuse.item.label %>: not in the hours they need, and not in the hours they have. Others who see the item see who excused it and when; only managers and admins see the reason.</p>
 
     <% if @meeting_excuses.any? %>
-      <h2 class="h6">Already excused</h2>
+      <h2 class="h6">Excused meetings</h2>
       <ul class="list-unstyled">
         <% @meeting_excuses.each do |excuse| %>
           <li class="d-flex justify-content-between gap-2">
             <span>
               <%= excuse.event&.name.presence || "A meeting" %><%= ", #{l(excuse.event.start_time.in_time_zone.to_date, format: :long)}" if excuse.event %>
-              <span class="small text-body-secondary">by <%= excuse.created_by&.display_name %>: <%= excuse.reason %></span>
+              <span class="small text-body-secondary">
+                by <%= excuse.created_by&.display_name %>, <%= l(excuse.created_at.to_date, format: :long) %>: <%= excuse.reason %>
+                <% if excuse.expires_on && excuse.expires_on < Date.current %>
+                  <span class="badge text-bg-secondary">Expired <%= l(excuse.expires_on, format: :long) %></span>
+                <% elsif excuse.expires_on %>
+                  (until <%= l(excuse.expires_on, format: :long) %>)
+                <% end %>
+              </span>
             </span>
             <%= button_to "Remove", checklist_checklist_excuse_path(@checklist, excuse), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
           </li>

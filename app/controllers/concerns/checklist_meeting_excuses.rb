@@ -52,7 +52,8 @@ module ChecklistMeetingExcuses
   end
 
   # The item's held meetings, newest first, with the time the person was
-  # there, and the meetings they're already excused from.
+  # there, and their meeting excuses (expired ones too, marked). A meeting
+  # whose excuse has expired can be excused again.
   def load_meetings
     @meetings = []
     @time_at_meetings = {}
@@ -62,7 +63,7 @@ module ChecklistMeetingExcuses
     kind = Checklists::Kinds::Attendance.new(@excuse.item, Checklists::Context.new(@checklist))
     @meeting_excuses = ChecklistExcuse.where(item: @excuse.item, person: @excuse.person).where.not(event_id: nil)
       .includes(:event, :created_by).order(:created_at)
-    excused = @meeting_excuses.map(&:event_id)
+    excused = @meeting_excuses.in_force(Date.current).map(&:event_id)
     @meetings = kind.meetings.reverse.reject { |meeting| excused.include?(meeting.id) }
     @time_at_meetings = kind.time_at_meetings(@excuse.person.id)
   end
