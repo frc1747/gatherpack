@@ -1,0 +1,13 @@
+<%# A count item's form (Checklists::Kinds::Count): the item's settings, then what counts and the credit given or taken, on its commitment. %>
+<% breadcrumb :checklist_item, @item %>
+
+<div class="card">
+  <div class="card-header"><h1>Edit <%= @item.label_was %></h1></div>
+  <div class="card-body"><%= render "form", checklist: @checklist, item: @item, impact: @impact %></div>
+</div>
+
+<% if (@commitment = @item.commitment) %>
+  <h2 class="h4 mt-4">What counts</h2>
+  <%= render "commitments/manage_sources" %>
+  <%= render "checklist_items/count_adjustments", commitment: @commitment %>
+<% end %>
