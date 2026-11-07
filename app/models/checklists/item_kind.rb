@@ -38,7 +38,16 @@ module Checklists
     # types can be lists, and the item form draws one field per value;
     # :boolean and :relative_date can't (registering such a kind fails).
     # :badges and :teams are always lists.
+    #
+    # options may be a lambda, called each time they are read, for choices
+    # that come from the database: a kind registers (and so reads its
+    # settings) during app boot, before the tables may exist on a fresh DB.
     Setting = Struct.new(:key, :type, :label, :hint, :options, :list, keyword_init: true) do
+      def options
+        value = self[:options]
+        value.respond_to?(:call) ? value.call : value
+      end
+
       def list?
         list.present? || %i[badges teams].include?(type)
       end
