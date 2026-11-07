@@ -40,6 +40,14 @@
     <%= f.email_field :email_confirmation, value: @form["email_confirmation"], required: true, class: "form-control form-control-lg" %>
   </div>
 
+  <% if (questions = @registration.kiosk_fields.to_a).any? %>
+    <%= simple_fields_for :person, Person.new do |pf| %>
+      <% questions.each do |field| %>
+        <%= person_field_input(pf, field, @answers[field.key]) %>
+      <% end %>
+    <% end %>
+  <% end %>
+
   <% if @registration.guardian_relationship_type %>
     <fieldset class="mb-3 border rounded p-3">
       <legend class="form-label fs-6 float-none w-auto px-1">Under <%= Relationship.guardianship_age_limit || 18 %>? A guardian's name and email</legend>

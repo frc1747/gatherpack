@@ -12,6 +12,9 @@
   </div>
   <%= f.input :self_service, label: "Anyone with the link can sign up" %>
   <%= f.input :kiosk, label: "Kiosk sign-ups (a manager's device in the room)" %>
+  <%= f.input :kiosk_field_ids, label: "The kiosk also asks", collection: PersonField.in_use.custom.ordered, label_method: :name, value_method: :id,
+    input_html: { multiple: true, size: 4 }, include_blank: false,
+    hint: "Person fields asked at the kiosk, after the name and email. Pick only what's fine on a shared screen; answers are saved for people new to the site." %>
   <%= f.input :slug, label: "Link", hint: "The end of the link (/join/...). Leave the random one unless you need a short one; anyone who guesses it can open it.", required: false %>
 
   <h2 class="h5 mt-4">Teams</h2>

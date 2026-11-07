@@ -109,7 +109,7 @@ class Intake::RegistrationsController < InternalController
   def registration_params
     permitted = params.require(:intake_registration).permit(:team_id, :title, :slug, :description, :opens_at, :closes_at,
       :self_service, :kiosk, :gate_approval, :pick_one_required, :guardian_relationship_type_id, :successor_id,
-      badge_ids: [], apply_team_ids: [], also_add_team_ids: [], pick_one_team_ids: [], guardian_also_add_team_ids: [])
+      badge_ids: [], kiosk_field_ids: [], apply_team_ids: [], also_add_team_ids: [], pick_one_team_ids: [], guardian_also_add_team_ids: [])
     manageable = helpers.intake_manageable_teams.pluck(:id)
     %i[apply_team_ids also_add_team_ids pick_one_team_ids guardian_also_add_team_ids].each do |key|
       next unless permitted.key?(key)

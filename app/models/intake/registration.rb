@@ -25,6 +25,7 @@ class Intake::Registration < ApplicationRecord
   validate :closes_after_opening
   validate :has_teams_to_apply_to
   validate :guardian_type_is_a_guardianship
+  validate :kiosk_fields_are_custom
 
   before_validation :assign_slug, on: :create
   after_save :save_team_lists
@@ -56,6 +57,16 @@ class Intake::Registration < ApplicationRecord
     define_method(:"#{kind}_teams") do
       Team.where(id: public_send(:"#{kind}_team_ids")).order(:name)
     end
+  end
+
+  # The kiosk's first-step questions: custom person fields (never the
+  # built-in profile data, such as birthday or phone), in field order.
+  def kiosk_fields
+    PersonField.in_use.custom.where(id: kiosk_field_ids).ordered
+  end
+
+  def kiosk_field_ids=(ids)
+    super(Array(ids).compact_blank.uniq)
   end
 
   def open?(at = Time.current)
@@ -92,7 +103,7 @@ class Intake::Registration < ApplicationRecord
   # this one's open and close dates, for a person to confirm.
   def copy
     copy = self.class.new(attributes.slice("team_id", "title", "description", "self_service", "kiosk", "checklist_id",
-      "gate_approval", "pick_one_required", "guardian_relationship_type_id"))
+      "gate_approval", "pick_one_required", "guardian_relationship_type_id", "kiosk_field_ids"))
     if closes_at
       gap = closes_at - opens_at
       copy.opens_at = opens_at + gap
@@ -129,6 +140,11 @@ class Intake::Registration < ApplicationRecord
   def guardian_type_is_a_guardianship
     return if guardian_relationship_type.nil? || guardian_relationship_type.guardianship?
     errors.add(:guardian_relationship_type, "must be a guardianship type")
+  end
+
+  def kiosk_fields_are_custom
+    return if kiosk_field_ids.blank?
+    errors.add(:kiosk_field_ids, "can only be custom person fields") if PersonField.custom.where(id: kiosk_field_ids).count != kiosk_field_ids.size
   end
 
   def save_team_lists

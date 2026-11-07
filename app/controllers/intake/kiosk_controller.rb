@@ -20,11 +20,13 @@ class Intake::KioskController < ApplicationController
   # GET /join/:slug/kiosk
   def show
     @form = {}
+    @answers = {}
   end
 
   # POST /join/:slug/kiosk
   def create
     @form = kiosk_params.to_h
+    @answers = answer_params
     if intake_over_limit?("kiosk", current_user.id, to: Intake.setting(:intake_rate_kiosk_per_minute, 30), within: 1.minute)
       flash.now[:alert] = Intake::PublicPages::TRY_AGAIN
       return render :show, status: :too_many_requests
@@ -64,6 +66,22 @@ class Intake::KioskController < ApplicationController
       :guardian_first_name, :guardian_last_name, :guardian_email, team_ids: [])
   end
 
+  # Answers to the registration's first-step questions, by field key.
+  def answer_params
+    keys = @registration.kiosk_fields.map(&:key)
+    values = params.dig(:person, :person_field_values)
+    return {} unless values.respond_to?(:permit)
+    # A key may come as one value or, for a multi-select, a list.
+    values.permit(*keys, **keys.index_with { [] }).to_h
+  end
+
+  def normalized_answers
+    @normalized_answers ||= @registration.kiosk_fields.each_with_object({}) do |field, answers|
+      value, error = field.normalize(@answers[field.key], current: nil)
+      answers[field] = [ value, error ]
+    end
+  end
+
   def team_ids
     chosen = Array(@form["team_ids"]).map(&:to_s) & @registration.apply_team_ids
     chosen.presence || (@registration.apply_team_ids.one? ? @registration.apply_team_ids : [])
@@ -93,11 +111,28 @@ class Intake::KioskController < ApplicationController
         errors << "The guardian's email must be their own."
       end
     end
+    normalized_answers.each do |field, (value, error)|
+      if error
+        errors << "#{field.name} #{error}."
+      elsif field.required? && value.blank? && value != false
+        errors << "#{field.name} can't be blank."
+      end
+    end
     errors
   end
 
   # The same work for an email with a login and a new one; the screen says
   # the same either way.
+  # Answers are written only for someone new to the site, as they typed them
+  # and where the field lets a person set their own. Someone already on
+  # file isn't changed from a shared screen; the answers stay on the entry.
+  def save_answers(person)
+    access = PersonFieldAccess.new(person, person)
+    normalized_answers.each do |field, (value, _)|
+      person.set_field_value(field, value) if !value.nil? && access.writable?(field)
+    end
+  end
+
   def sign_up
     email = Intake.normalize_email(@form["email"])
     user = Intake.user_for_email(email)
@@ -108,7 +143,9 @@ class Intake::KioskController < ApplicationController
 
     entry = @registration.entries.create!(source: :kiosk, email: email, first_name: @form["first_name"].strip, last_name: @form["last_name"].strip,
       person: person, created_ip_prefix: Intake.ip_prefix(request.remote_ip),
-      facts: { "team_ids" => team_ids, "birth_year" => @form["birth_year"], "needs_guardian" => needs_guardian?, "new_login" => new_login })
+      facts: { "team_ids" => team_ids, "birth_year" => @form["birth_year"], "needs_guardian" => needs_guardian?, "new_login" => new_login,
+        "answers" => normalized_answers.to_h { |field, (value, _)| [ field.key, value ] }.compact })
+    save_answers(person) if new_login
     enrollment = Intake::Enrollment.new(entry)
     enrollment.applicant_member!(person)
     enrollment.apply(person)
