@@ -4,6 +4,11 @@ module Checklists
   # Moving the form, or the checklist, so that no longer holds is refused
   # while such a rule exists, so the rule can't quietly ask nobody and
   # Duplicate can still copy it.
+  #
+  # Moving a team under another parent isn't guarded: a rule left outside
+  # the checklist's team then asks nobody (its description says it's
+  # ignored) and Duplicate refuses to copy it. That's accepted, so teams
+  # carry no checklist rules.
   module FormAudienceTeamGuard
     # The rules of these forms or checklists that ask by finished or not.
     def self.status_rules(scope)
