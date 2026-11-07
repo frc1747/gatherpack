@@ -271,11 +271,11 @@ For self-service no `Person`, `User`, `Relationship`, application or form respon
 
 ### 9.6 Audit trail
 
-Every intake model has `has_paper_trail versions: { class_name: "AuditLog" }`. Public requests have no signed-in user (`application_controller.rb:82` returns the true user), so a public-request concern sets whodunnit to `entry:<id>`; for the kiosk it is the device account. A decision records actor, checklist state and what placement added, so "why was this person approved?" has an answer.
+Every intake model has `has_paper_trail versions: { class_name: "AuditLog" }`. Public requests have no signed-in user (`application_controller.rb:82` returns the true user), so a public-request concern sets whodunnit to the entry's id (`versions.whodunnit` is a uuid column, so no `entry:` prefix; an id that isn't a user's belongs to an entry); for the kiosk it is the device account. A decision records actor, checklist state and what placement added, so "why was this person approved?" has an answer.
 
 ### 9.7 Data protection
 
-Entries encrypt the email and any minor's facts (`encrypts`). Active Record encryption isn't configured today (`grep encrypts app config` finds nothing), so Phase 1 adds keys to credentials; this is the one new secret. Tokens are 128-bit random, stored as SHA-256 digests, single use. Emails carry first names and the team name only. Nothing from an entry goes in URLs, logs or the flash; parameter filtering covers email, guardian email, token and answers.
+Entries encrypt the email and any minor's facts (`encrypts`). Active Record encryption isn't configured today (`grep encrypts app config` finds nothing), so Phase 1 reads keys from credentials, then the three `ACTIVE_RECORD_ENCRYPTION_*` environment variables, and otherwise derives them from `secret_key_base` (no new secret is needed to deploy; rotating `secret_key_base` without first setting the keys makes pending entries unreadable, which the initializer documents). Tokens are 128-bit random, stored as SHA-256 digests, single use. Emails carry first names and the team name only. Nothing from an entry goes in URLs, logs or the flash; parameter filtering covers email, guardian email, token and answers.
 
 ### 9.8 The kiosk account
 
