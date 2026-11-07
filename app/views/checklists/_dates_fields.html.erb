@@ -1,0 +1,23 @@
+<%# The start as "on or after <date>" or "within the last N days/months", and the end. %>
+<% mode = record.starts_within_amount.present? ? "within" : (allow_inherit && record.starts_on.blank? ? "checklist" : "date") %>
+<fieldset class="mb-3">
+  <legend class="form-label fs-6">Starts</legend>
+  <% if allow_inherit %>
+    <div class="form-check">
+      <%= f.radio_button :start_mode, "checklist", checked: mode == "checklist", class: "form-check-input" %>
+      <%= f.label :start_mode_checklist, "Same as the checklist", class: "form-check-label" %>
+    </div>
+  <% end %>
+  <div class="form-check d-flex gap-2 align-items-center">
+    <%= f.radio_button :start_mode, "date", checked: mode == "date", class: "form-check-input" %>
+    <%= f.label :start_mode_date, "On or after", class: "form-check-label" %>
+    <%= f.date_field :starts_on, class: "form-control form-control-sm w-auto" %>
+  </div>
+  <div class="form-check d-flex gap-2 align-items-center mt-1">
+    <%= f.radio_button :start_mode, "within", checked: mode == "within", class: "form-check-input" %>
+    <%= f.label :start_mode_within, "Within the last", class: "form-check-label" %>
+    <%= f.number_field :starts_within_amount, min: 1, class: "form-control form-control-sm", style: "width: 6em" %>
+    <%= f.select :starts_within_unit, [ %w[days days], %w[months months] ], {}, class: "form-select form-select-sm w-auto" %>
+  </div>
+</fieldset>
+<%= f.input :ends_on, as: :date, html5: true, label: "Until", hint: allow_inherit ? "Blank: the checklist's end" : "Blank: up to now" %>

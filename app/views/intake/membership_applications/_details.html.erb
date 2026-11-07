@@ -1,0 +1,62 @@
+<%# Intake's additions to an application row: where it came from and, for
+    people who decide it, flags (matches are for staff only), what approval
+    adds, the manager's pick, and a denial reason. Rendered by the upstream
+    application views. Other applications get only the bulk tick. %>
+<% if Intake.enabled? %>
+  <% decides = policy(application).update? %>
+  <% own = Intake.own_or_relatives?(current_user.person, application.person) %>
+  <%# Ticks into the bulk form, which only the team's applications page has. %>
+  <% if decides && application.pending? && !own && @pending_applications %>
+    <%= check_box_tag "application_ids[]", application.id, false, id: "bulk_#{application.id}", form: intake_bulk_form_id(application.team),
+      class: "form-check-input me-1", aria: { label: "Tick #{application.person.display_name}" } %>
+  <% end %>
+<% end %>
+<% if Intake.enabled? && application.registration %>
+  <div class="small mt-1" id="<%= dom_id(application, :intake) %>">
+    <span class="text-muted"><%= intake_source_label(application) %>: <%= application.registration.title %></span>
+    <% if decides %>
+      <% application.intake_flags.each do |flag| %>
+        <span class="badge text-bg-warning ms-1"><%= flag %></span>
+      <% end %>
+      <% if application.pending? %>
+        <%= render "intake/matches/flag", member: application.intake_household_member, registration: application.registration %>
+        <%= render "intake/guardians/manage", ward: application.person, registration: application.registration %>
+      <% end %>
+      <%= render "intake/membership_applications/checklist", application: application %>
+    <% end %>
+    <% if application.approved? && decides && (summary = application.intake_placement_summary) %>
+      <div>Approval <%= summary.downcase_first %>.</div>
+    <% end %>
+    <% if application.pending? && decides && own %>
+      <div class="text-muted">Someone else decides this one: it's yours or a relative's.</div>
+    <% elsif application.pending? && decides %>
+      <% preview = application.intake_placement_preview(current_user) %>
+      <% if preview[:teams].any? || preview[:guardian_teams].any? %>
+        <div>Will also join: <%= preview[:teams].to_sentence.presence || "nothing else" %><%= "; guardians join #{preview[:guardian_teams].to_sentence}" if preview[:guardian_teams].any? %></div>
+      <% end %>
+      <% if preview[:badges].any? %>
+        <div>Will get: <%= preview[:badges].to_sentence %></div>
+      <% end %>
+      <% placement = Intake::Placement.new(application: application) %>
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <% if placement.pick_teams.exists? %>
+          <%= form_with url: team_membership_application_path(application.team, application), method: :patch, class: "d-flex gap-2 align-items-center" do %>
+            <%= hidden_field_tag :status, "approved" %>
+            <%= label_tag "pick_team_id_#{application.id}", "Also join", class: "visually-hidden" %>
+            <%= select_tag :pick_team_id, options_from_collection_for_select(placement.pick_teams, :id, :name, placement.suggested_pick&.id),
+              include_blank: placement.pick_required? ? "Choose a team" : "No extra team", id: "pick_team_id_#{application.id}", class: "form-select form-select-sm" %>
+            <%= submit_tag "Approve", class: "btn btn-sm btn-success" %>
+          <% end %>
+        <% end %>
+        <%= form_with url: team_membership_application_path(application.team, application), method: :patch, class: "d-flex gap-2 align-items-center" do %>
+          <%= hidden_field_tag :status, "denied" %>
+          <%= label_tag "reason_#{application.id}", "Reason", class: "visually-hidden" %>
+          <%= text_field_tag :reason, nil, id: "reason_#{application.id}", placeholder: "Reason (sent to them)", class: "form-control form-control-sm" %>
+          <%= submit_tag "Deny with reason", class: "btn btn-sm btn-outline-danger" %>
+        <% end %>
+      </div>
+    <% elsif application.denied? && admin? && Intake::SpamPerson.new(application.person).deletable? %>
+      <%= link_to "Delete as spam", intake_spam_person_path(application.person), class: "btn btn-sm btn-outline-danger ms-2" %>
+    <% end %>
+  </div>
+<% end %>

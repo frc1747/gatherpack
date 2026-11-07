@@ -1,0 +1,18 @@
+<%# The registration's checklist on its page, and who it leaves out. A
+    draft or archived checklist is named, with why it does nothing. %>
+<% checklist = registration.checklist %>
+<% if checklist && Checklists.enabled? %>
+  <dt class="col-sm-3">Checklist</dt>
+  <dd class="col-sm-9">
+    <%= policy(checklist).show? ? link_to(checklist.title, checklist_path(checklist)) : checklist.title %>
+    <% if registration.active_checklist %>
+      <%= registration.gate_approval? ? "(approval waits for it)" : "(approval doesn't wait for it)" %>
+      <% uncovered = registration.checklist_uncovered_teams %>
+      <% if uncovered.any? %>
+        <div class="text-warning-emphasis small">It doesn't cover people applying to <%= uncovered.map(&:name).to_sentence %>. Add "Applicants to" that team to who it covers.</div>
+      <% end %>
+    <% else %>
+      <div class="text-warning-emphasis small">It's <%= checklist.draft? ? "a draft" : "archived" %>, so nobody sees it here and approval doesn't wait for it.</div>
+    <% end %>
+  </dd>
+<% end %>

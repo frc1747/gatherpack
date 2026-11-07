@@ -1,0 +1,6 @@
+<p>Hi <%= @first_name %>,</p>
+
+<p>You're in: <%= @team_name %>.</p>
+<% if @still_to_do.present? %>
+  <p>Next: <%= @still_to_do.to_sentence %>.</p>
+<% end %>

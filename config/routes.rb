@@ -23,7 +23,9 @@ Rails.application.routes.draw do
   resources :variables
 
   resources :teams do
-    resources :memberships
+    resources :memberships do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show update]
     member do
       get :badges if GatherPack::Features.enabled?(:badges)
@@ -35,9 +37,25 @@ Rails.application.routes.draw do
 
   resources :team_types
   resources :relationship_types
+  resources :person_fields do
+    collection do
+      get :preview
+      post :apply_recommended
+    end
+    member do
+      patch :move
+      patch :archive
+      patch :restore
+    end
+  end
+  resources :person_field_groups do
+    member { patch :move }
+  end
 
   resources :people do
-    resources :memberships, only: %i[index new create destroy]
+    resources :memberships, only: %i[index new create destroy] do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show create destroy]
     resources :relationships, only: %i[new create destroy] do
       member do
@@ -63,7 +81,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:badges)
     resources :badges do
-      resources :badge_assignments
+      resources :badge_assignments do
+        get "candidates", on: :collection
+      end
     end
     resources :badge_types
   end
@@ -74,7 +94,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:events)
     resources :events do
-      resources :checkins, except: %i[index]
+      resources :checkins, except: %i[index] do
+        get "candidates", on: :collection
+      end
       member do
         get "arrange"
         get "print"
@@ -109,6 +131,27 @@ Rails.application.routes.draw do
       end
     end
   end
+
+  # Always drawn; the controllers check the feature (default off).
+  resources :checklists do
+    member do
+      get :copy, action: :copy_form
+      post :copy
+      post :preview
+      post :refresh
+      post :restore
+    end
+    resources :checklist_items, path: "items", except: %i[index show] do
+      post :preview, on: :collection
+    end
+    resources :checklist_rules, path: "rules", only: %i[create destroy]
+    resources :checklist_grants, path: "grants", only: %i[create destroy]
+    resources :checklist_organizers, path: "organizers", only: %i[create destroy]
+    resources :checklist_excuses, path: "excuses", only: %i[new create destroy]
+    resources :checklist_attestations, path: "attestations", only: %i[create destroy]
+    resources :checklist_lists, path: "lists", only: %i[show create]
+  end
+  get "people/:person_id/checklists", to: "person_checklists#show", as: :person_checklists
 
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
@@ -203,6 +246,54 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", :as => :rails_health_check
   get "service-worker" => "rails/pwa#service_worker", :as => :pwa_service_worker
   get "manifest" => "rails/pwa#manifest", :as => :pwa_manifest
+
+  # Membership intake (feature :intake): public registration pages under
+  # /join, staff screens under /registrations. Fixed paths before :slug.
+  scope "/join", module: :intake, as: :intake do
+    get "verify" => "verifications#show", :as => :verification
+    post "verify" => "verifications#create"
+    get "guardian" => "guardian_confirmations#show", :as => :guardian_confirmation
+    post "guardian" => "guardian_confirmations#create"
+    get "email" => "email_changes#show", :as => :email_change
+    post "email" => "email_changes#create"
+    get ":slug" => "join#show", :as => :join
+    post ":slug" => "join#create"
+    get ":slug/me" => "me#show", :as => :me
+    patch ":slug/me/people/:person_id" => "me#update_person", :as => :me_person
+    post ":slug/me/guardians" => "me#add_guardian", :as => :me_guardians
+    post ":slug/me/members" => "me#add_member", :as => :me_members
+    post ":slug/me/email" => "me#change_email", :as => :me_email
+    delete ":slug/me/applications/:id" => "me#withdraw", :as => :me_application
+    get ":slug/kiosk" => "kiosk#show", :as => :kiosk
+    post ":slug/kiosk" => "kiosk#create"
+  end
+  scope module: :intake, as: :intake do
+    resources :spam_people, only: %i[show destroy], path: "registration-spam"
+    resources :registrations do
+      member do
+        get :copy
+        get :waiting
+        patch :close
+        delete :entries, action: :destroy_entries
+      end
+      resources :entries, only: [] do
+        post :resend, on: :member
+      end
+      resources :matches, only: [] do
+        member do
+          post :link
+          post :keep_separate
+        end
+      end
+      resources :guardians, only: %i[create update] do
+        post :resend, on: :member
+      end
+    end
+    resources :teams, only: [] do
+      resources :registrations, only: %i[index new]
+      post "applications/bulk" => "bulk_decisions#create", :as => :bulk_decisions
+    end
+  end
 
   root "welcome#index"
 end

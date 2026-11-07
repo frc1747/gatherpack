@@ -1,0 +1,18 @@
+<%# Approve or deny the ticked applications on a team's page. Rows tick
+    into this form through the form attribute (intake_bulk_form_id).
+    Pressing Enter in the reason box submits the form's first button, so
+    that one is hidden and disabled: Enter does nothing, and both real
+    buttons ask first. %>
+<% if Intake.enabled? && applications.any? && policy(team).applications? %>
+  <%= form_with url: intake_team_bulk_decisions_path(team), id: intake_bulk_form_id(team), class: "d-flex flex-wrap gap-2 align-items-center mb-3" do %>
+    <%= button_tag "", type: "submit", name: "decision", value: "", hidden: true, disabled: true, tabindex: -1, aria: { hidden: true } %>
+    <span class="text-muted">Ticked:</span>
+    <%= button_tag "Approve", name: "decision", value: "approved", class: "btn btn-sm btn-success",
+      data: { turbo_confirm: "Approve the ticked applications?" } %>
+    <%= label_tag "bulk_reason_#{team.id}", "Reason", class: "visually-hidden" %>
+    <%= text_field_tag :reason, nil, id: "bulk_reason_#{team.id}", placeholder: "Reason (sent to them)", class: "form-control form-control-sm w-auto" %>
+    <%= button_tag "Deny", name: "decision", value: "denied", class: "btn btn-sm btn-outline-danger",
+      data: { turbo_confirm: "Deny the ticked applications?" } %>
+    <span class="small text-muted">Approve skips anyone whose checklist isn't done (when approval waits for it) or who needs a team picked.</span>
+  <% end %>
+<% end %>
