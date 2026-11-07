@@ -62,6 +62,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "not_met", result(:member2).status
     assert_equal "No response yet", result(:member2).detail
     assert_equal "Fill it in", result(:member2).fix["label"]
+    assert_equal "person", result(:member2).fix["by"]
     assert_equal "/forms/#{@form.to_param}/responses/#{person(:member2).to_param}/edit", result(:member2).fix["path"]
   end
 
@@ -189,14 +190,25 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "pending", result(:kid).status
     assert_equal "Started", result(:kid).summary
     assert_equal "Finish it", result(:kid).fix["label"]
+    assert_equal "guardian", result(:kid).fix["by"], "a guardian signs it for them"
 
     @form.response_for(person(:kid)).open_submission.submit!(person(:parent), FormAccess.new(person(:parent), person(:kid), @form))
     assert_equal "pending", result(:kid).status
     assert_equal "Waiting for #{person(:parent).identifier_name}'s signature", result(:kid).summary
     assert_equal "Sign it", result(:kid).fix["label"]
+    assert_equal "guardian", result(:kid).fix["by"]
 
     sign(@form, :kid, as: :parent)
     assert_equal "met", result(:kid).status
+  end
+
+  test "a signature only a leader gives is a leader's to sign; the person still fills the form in" do
+    @form.form_questions.create!(kind: :signature, label: "Coach sign-off", signer: "leader")
+    assert_equal "person", result(:member).fix["by"], "nothing filled in yet"
+
+    respond(@form, :member)
+    assert_equal "Sign it", result(:member).fix["label"]
+    assert_equal "leader", result(:member).fix["by"]
   end
 
   test "a guardian's signature for someone with no guardian linked is not yet, with a fix to add one" do
@@ -207,6 +219,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "not_met", result(:rookie).status, "nothing is in motion"
     assert_equal "Needs a guardian linked", result(:rookie).summary
     assert_equal "Add a guardian", result(:rookie).fix["label"]
+    assert_equal "leader", result(:rookie).fix["by"]
     assert_equal "/people/#{person(:rookie).to_param}/relationships", result(:rookie).fix["path"]
 
     respond(@form, :kid, as: :parent)
@@ -232,6 +245,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "not_met", result(:member2).status
     assert_equal "This form isn't asking them; add them to its audience", result(:member2).detail
     assert_equal "/forms/#{@form.to_param}/edit?tab=audience", result(:member2).fix["path"]
+    assert_equal "leader", result(:member2).fix["by"]
     assert_includes @checklist.reload.problems, "Medical: 1 person covered here isn't asked Medical Release; add the checklist to its audience"
   end
 

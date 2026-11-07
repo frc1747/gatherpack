@@ -171,13 +171,13 @@ module Checklists
         unless asked
           return Result.not_met("Not asked", detail: "This form isn't asking them; add them to its audience",
             fix: { "label" => "Add them to the form's audience", "path" => routes.edit_form_path(form, tab: "audience"),
-              "requires" => { "record" => form.to_global_id.to_s, "query" => "audience?" } })
+              "requires" => { "record" => form.to_global_id.to_s, "query" => "audience?" }, "by" => "leader" })
         end
 
         if needs_guardian?(form, person, guardians)
           return Result.not_met("Needs a guardian linked", detail: "Needs a guardian linked: a guardian signs this form",
             fix: { "label" => "Add a guardian", "path" => routes.relationships_person_path(person),
-              "requires" => { "record" => person.to_global_id.to_s, "query" => "update_profile?" } })
+              "requires" => { "record" => person.to_global_id.to_s, "query" => "update_profile?" }, "by" => "leader" })
         end
 
         open = response&.open_submission
@@ -185,25 +185,25 @@ module Checklists
 
         if signed && expired
           return Result.not_met("Expired #{day(expires_at)}", detail: "Expired #{day(expires_at)}",
-            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
         end
 
         if signed && (reason = reconfirm_reason(response, signed))
           detail = reason == :profile ? "Needs confirming again: their profile details changed" : "Needs confirming again: the form changed"
           return Result.not_met("Needs confirming again", detail: detail,
-            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
         end
 
         later = response&.form_submissions&.select { |submission| submission.activated_at && submission.activated_at > window.end_time }&.min_by(&:activated_at)
         if (outside = signed || later)
           at = outside.activated_at
           return Result.not_met("Needs doing again", detail: sentence("Completed #{day(at)}, #{outside_window(at)}", good_until(expiry_for(form, at))),
-            fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
+            fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
         end
 
         withdrawn = response&.form_submissions&.any?(&:withdrawn?)
         Result.not_met(withdrawn ? "Withdrawn" : "Not started", detail: withdrawn ? "The response was withdrawn" : "No response yet",
-          fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
+          fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
       end
 
       # The version that counted at the end of the window (or at the as-of
@@ -260,10 +260,11 @@ module Checklists
       def open_result(form, person, submission, guardians)
         if submission.pending?
           waiting = waiting_for(submission, person, guardians)
-          Result.pending(waiting, detail: waiting, fix: { "label" => "Sign it", "path" => routes.form_response_path(form, person), "requires" => slot_requires(form, person, "sign?") })
+          Result.pending(waiting, detail: waiting, fix: { "label" => "Sign it", "path" => routes.form_response_path(form, person), "requires" => slot_requires(form, person, "sign?"),
+            "by" => sign_by(submission, person) })
         else
           Result.pending("Started", detail: "A new version is started but not submitted",
-            fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?") })
+            fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
         end
       end
 
@@ -281,6 +282,24 @@ module Checklists
           "Waiting for their signature"
         else
           "Waiting for #{missing.first.signer_description}'s signature"
+        end
+      end
+
+      # Who acts on filling the form in (Result "by"): a guardian, or the
+      # person, when a guardian signs it for them; else the person.
+      def fill_by(form, person)
+        roles = form.signature_questions.flat_map { |question| FormAccess.signer_roles(question, person) }
+        roles.include?(:guardian) ? "guardian" : "person"
+      end
+
+      # Who acts on the signatures still missing: a guardian (or the person)
+      # when a guardian may give one, the person when only they may, else
+      # a leader.
+      def sign_by(submission, person)
+        roles = submission.missing_signatures.flat_map { |question| FormAccess.signer_roles(question, person) }
+        if roles.include?(:guardian) then "guardian"
+        elsif roles.include?(:subject) || roles.empty? then "person"
+        else "leader"
         end
       end
 
