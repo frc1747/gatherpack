@@ -214,16 +214,42 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_match "Needs Trip: Done", response.body
   end
 
-  test "someone signing up a relative sees the relative's need, without what they may not see" do
+  test "someone who can sign a relative up but can't see their result learns nothing until refused, and then only the fixed reason" do
     require_checklist
-    attest(:parent)
     sign_in person(:parent).user
 
     get signup_sheet_path(@sheet)
-    assert_select "#checklist_signup_panel" do
-      assert_select "p", text: "#{person(:student).display_name} hasn't finished Trip. Ask a leader what's left."
-      assert_select "li", text: /Handbook/, count: 0
+    assert_select "#checklist_signup_panel", count: 0
+    assert_no_match "Needs Trip", response.body
+    assert_select "a[href=?]", new_signup_sheet_signup_path(@sheet, slot_id: slot_for(@position).id), text: "Sign up"
+
+    assert_no_difference "Signup.count" do
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
     end
+    assert_response :unprocessable_entity
+    assert_match "You can't see their Trip results, so can't sign them up here", response.body
+    assert_no_match "Needs Trip: Done", response.body
+    assert_no_match "Handbook", response.body
+  end
+
+  test "a guardian who can sign their ward up sees the ward's need, with its items" do
+    guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin, guardianship: :minor)
+    @people[:guardian] = create_world_person("Guardian")
+    relate(:guardian, :student, guardian_of)
+    @sheet.update!(others_relationship_type_ids: [ @parent_of.id, guardian_of.id ])
+    require_checklist
+    sign_in person(:guardian).user
+
+    get signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Needs Trip: Done/
+    assert_select "#checklist_signup_panel" do
+      assert_select "h3", text: person(:student).display_name
+      assert_select "li", text: /Handbook/
+    end
+
+    post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
+    assert_response :unprocessable_entity
+    assert_match "Needs Trip: Done", response.body
   end
 
   test "someone the checklist doesn't cover is told so" do
@@ -270,7 +296,7 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_select "##{ActionView::RecordIdentifier.dom_id(signup)}", text: /Doesn't meet: Needs Trip: Done/, message: "the admin sees it"
     sign_out :user
 
-    hidden = "You can't see Trip results, so can't place people here"
+    hidden = "You can't see their Trip results, so can't sign them up here"
     sign_in person(:worker).user
     get roster_signup_sheet_path(@sheet)
     assert_response :success
@@ -292,8 +318,16 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
       end
     end
 
-    patch move_signup_sheet_roster_signup_path(@sheet, signup), params: { signup: { signup_slot_id: slot_for(@position).id, override_rules: "1" } }
-    assert_no_match "Needs Trip: Done", response.body
+    helper = slot_for(@sheet.signup_positions.create!(name: "Helper", capacity: 4))
+    moving = Signup.place!(slot: helper, person: person(:student2), signed_up_by: person(:student2))
+    [ nil, "1" ].each do |override|
+      patch move_signup_sheet_roster_signup_path(@sheet, moving),
+        params: { signup: { signup_slot_id: slot_for(@position).id, override_rules: override }.compact }
+      assert_response :unprocessable_entity
+      assert_match hidden, response.body
+      assert_no_match "Needs Trip: Done", response.body
+      assert_equal helper, moving.reload.signup_slot
+    end
   end
 
   test "an organizer who sees the results places as before" do

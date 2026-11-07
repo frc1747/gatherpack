@@ -1,7 +1,8 @@
 module Checklists
   # For the sign-up sheet panel: the active checklists the sheet's positions
-  # need that the viewer, or someone they can sign up, hasn't finished (a
-  # draft's or archived one's contents aren't shown). Each entry has the
+  # need that the viewer, or someone they can sign up and whose result they
+  # may see, hasn't finished (a draft's or archived one's contents aren't
+  # shown). Each entry has the
   # checklist, the names of the positions needing it, and [person, status,
   # covered] for the people who don't pass: status is the Checklists::Status
   # the viewer may see (nil when they see none), covered whether the
@@ -23,7 +24,10 @@ module Checklists
 
       takers = @signup_sheet.takers_for(@viewer).to_a
       rules.group_by(&:checklist).filter_map do |checklist, checklist_rules|
-        failing = takers.select { |taker| checklist_rules.any? { |rule| rule.check(taker, nil) } }
+        # People whose result the viewer may not see aren't listed.
+        failing = Checklists::SignupViewer.set(person: @viewer, placing: false) do
+          takers.select { |taker| checklist_rules.any? { |rule| rule.check(taker, nil) } }
+        end
         next if failing.empty?
 
         statuses = Checklists.status_for(checklist, failing, viewer: @viewer)

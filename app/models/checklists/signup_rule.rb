@@ -9,12 +9,15 @@ module Checklists
   # With checklists turned off, or the checklist a draft or archived, the
   # rule fails with its reason, never a silent pass.
   #
-  # The person, and whoever signs up for them, get the real answer: that is
-  # the sheet's own gate. Anyone else (an organizer on the roster, set in
-  # Checklists::SignupViewer) gets it only when they may see the person's
-  # overall, uncapped by any item's kind (spec §10.1). Otherwise roster rows
-  # show nothing for the rule, and placing is refused with a reason that
-  # doesn't depend on the person, even against the rules.
+  # The answer depends on who is looking (Checklists::SignupViewer: the
+  # viewer of the sheet page or roster, or whoever places or moves a
+  # sign-up). The person gets their own answer, and so does anyone who may
+  # see the person's overall, uncapped by any item's kind (spec §10.1).
+  # Anyone else, whether they sign the person up from the sheet page or run
+  # the sheet, sees nothing for the rule, and placing is refused with a
+  # reason that doesn't depend on the person, even against the rules. (A
+  # refusal itself still tells them the person doesn't pass.) With no
+  # viewer set the rule gives its real answer.
   #
   # Prepended to SignupPositionRule by config/initializers/checklists_signups.rb.
   module SignupRule
@@ -55,16 +58,15 @@ module Checklists
     end
 
     # Whether viewer may learn the person's result through the rule: they
-    # are the person or can sign them up, or they see the person's overall
-    # and no item's kind caps it for them.
+    # are the person, or they see the person's overall and no item's kind
+    # caps it for them. Being able to sign someone up isn't enough.
     def sees_result?(viewer, person)
       return true if viewer.id == person.id
 
       @sees_result ||= {}
       @sees_result.fetch([ viewer.id, person.id ]) do
-        @sees_result[[ viewer.id, person.id ]] = signup_sheet.takers_for(viewer).exists?(id: person.id) ||
-          (Checklists.status_for(checklist, [ person ], viewer: viewer)[person.id]&.overall.present? &&
-            Checklists.capped_person_ids(checklist.top_level_items.to_a, viewer, [ person.id ]).empty?)
+        @sees_result[[ viewer.id, person.id ]] = Checklists.status_for(checklist, [ person ], viewer: viewer)[person.id]&.overall.present? &&
+          Checklists.capped_person_ids(checklist.top_level_items.to_a, viewer, [ person.id ]).empty?
       end
     end
 
@@ -93,7 +95,7 @@ module Checklists
     private
 
     def hidden_reason
-      "You can't see #{checklist.title} results, so can't place people here"
+      "You can't see their #{checklist.title} results, so can't sign them up here"
     end
 
     # "Needs Trip Eligibility: Done", "Needs Trip Eligibility: Done or Almost",
