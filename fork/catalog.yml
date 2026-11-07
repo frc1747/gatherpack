@@ -656,6 +656,17 @@ feature/mcp-checklists:
     same rules as the checklist pages.
   audience: Members who use an AI client
 
+feature/mcp-intake:
+  title: Ask an AI client about registrations
+  emoji: "📝"
+  description: >-
+    A connected AI client can list registrations and who has started or is
+    waiting to finish, and show an application's checklist. When an admin
+    allows changes, it can open or close a registration, copy one, clear old
+    entries and decide applications, under the same rules as the registration
+    pages.
+  audience: Members who use an AI client
+
 feature/hook-catalog-models:
   title: Hooks can run on every kind of record
   emoji: "🪝"
