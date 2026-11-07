@@ -260,4 +260,51 @@ class Intake::ReviewFixesTest < ActionDispatch::IntegrationTest
     assert_equal [ "Juniors" ], applicant.teams.pluck(:name)
     assert_empty applicant.badges
   end
+
+  # 8. Lists keep what the editor can't manage
+
+  test "a manager's edit keeps teams an admin added outside their tree" do
+    shared = Team.create!(name: "Shared Families", team_type: team_types(:one))
+    @registration.update!(guardian_also_add_team_ids: [ @families.id, shared.id ], apply_team_ids: [ @juniors.id, @mentors.id, shared.id ])
+    sign_in @leader.user
+
+    with_intake do
+      patch intake_registration_path(@registration), params: { intake_registration: { title: "Join us",
+        apply_team_ids: [ "", @juniors.id ], guardian_also_add_team_ids: [ "", @families.id ] } }
+    end
+
+    @registration.reload
+    assert_equal [ @juniors.id, shared.id ].sort, @registration.apply_team_ids.sort
+    assert_equal [ @families.id, shared.id ].sort, @registration.guardian_also_add_team_ids.sort
+  end
+
+  # 9. Signed-in join with no team
+
+  test "signed in, joining with no team checked shows the form again" do
+    person = create_intake_person("Casey", "Quinn", birthday: 30.years.ago.to_date)
+    sign_in person.user
+
+    with_intake { post intake_join_path(@registration.slug), params: { entry: { team_ids: [ "" ] } } }
+
+    assert_response :unprocessable_content
+    assert_select ".alert-danger", "Choose at least one team."
+    assert_empty Intake::Entry.all
+  end
+
+  # 10. One "closed" hook
+
+  test "close now fires the closed hook once, from the hourly job" do
+    Hook.create!(name: "Closed", event: "intake_registrations - closed", code: "(Thread.current[:intake_hooks] ||= []) << 'closed'")
+    sign_in @leader.user
+
+    with_intake do
+      patch close_intake_registration_path(@registration)
+      patch close_intake_registration_path(@registration)
+      Intake::RegistrationDatesJob.perform_now(1.minute.from_now)
+    end
+
+    assert_equal %w[closed], Thread.current[:intake_hooks]
+  ensure
+    Thread.current[:intake_hooks] = nil
+  end
 end

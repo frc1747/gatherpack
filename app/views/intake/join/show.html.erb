@@ -4,6 +4,9 @@
   <p><%= simple_format(@registration.description) %></p>
 <% end %>
 
+<% @entry.errors.full_messages.each do |message| %>
+  <div class="alert alert-danger"><%= message %></div>
+<% end %>
 <% if current_user %>
   <%= form_with url: intake_join_path(@registration.slug), scope: :entry, data: { turbo: false } do |f| %>
     <p>You're signed in as <strong><%= current_user.person.display_name %></strong>.</p>
@@ -12,9 +15,6 @@
     <%= link_to "See what's next", intake_me_path(@registration.slug), class: "btn btn-link" %>
   <% end %>
 <% else %>
-  <% @entry.errors.full_messages.each do |message| %>
-    <div class="alert alert-danger"><%= message %></div>
-  <% end %>
   <%= form_with url: intake_join_path(@registration.slug), scope: :entry, data: { turbo: false } do |f| %>
     <%= render "teams", f: f, selected: @entry.team_ids %>
     <div class="row">

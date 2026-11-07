@@ -81,6 +81,11 @@ class Intake::JoinController < ApplicationController
 
   def apply_signed_in
     person = current_user.person
+    if chosen_team_ids.empty?
+      @entry = Intake::Entry.new(facts: { "team_ids" => [] })
+      @entry.errors.add(:base, "Choose at least one team.")
+      return render :show, status: :unprocessable_content
+    end
     entry = @registration.entries.verified.where(person: person).order(:created_at).last ||
       @registration.entries.create!(source: :link, person: person, verified_at: Time.current, first_name: person.first_name,
         last_name: person.last_name, facts: { "team_ids" => chosen_team_ids })
