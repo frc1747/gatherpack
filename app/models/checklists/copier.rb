@@ -82,7 +82,7 @@ module Checklists
         checklist.population_rules.each { |rule| copy_rule(rule, copy, nil, replace) }
         checklist.checklist_grants.each do |grant|
           copy.checklist_grants.create!(badge_id: swap(grant.badge, replace), team_id: swap(grant.team, replace),
-            access: grant.access, item_ids: grant.item_ids.filter_map { |id| item_ids[id] })
+            access: grant.access, item_ids: grant.item_ids.filter_map { |id| item_ids[id] }, created_by: by)
         end
         copy
       end

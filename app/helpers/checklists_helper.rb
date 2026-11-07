@@ -60,7 +60,15 @@ module ChecklistsHelper
     false
   end
 
-  def checklist_kind_options
-    Checklists.item_kinds.map { |key, kind| [ kind.label, key, kind.description ] }
+  # The kinds the current person may set up on this checklist
+  # (ItemKind.authorable_by? on a new item of each kind, built outside the
+  # checklist's loaded items so the page doesn't list it).
+  def checklist_kind_options(checklist)
+    person = current_user&.person
+    Checklists.item_kinds.filter_map do |key, kind|
+      next if person.nil? || !kind.authorable_by?(ChecklistItem.new(checklist: checklist, kind: key), person)
+
+      [ kind.label, key, kind.description ]
+    end
   end
 end
