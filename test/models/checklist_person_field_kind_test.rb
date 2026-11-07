@@ -125,6 +125,22 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     end
   end
 
+  test "the kind's settings don't touch the database until the field choices are read" do
+    with_fields do
+      note = create_field("Note", :string)
+      queries = []
+      counter = ->(*, payload) { queries << payload[:sql] unless payload[:name].in?(%w[SCHEMA TRANSACTION]) }
+      settings = ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+        Checklists.register_item_kind(:person_field, Checklists::Kinds::PersonField)
+        Checklists::Kinds::PersonField.settings
+      end
+
+      assert_empty queries
+      choice = settings.find { |setting| setting.key == :field_id }
+      assert_includes choice.options, [ "Note", note.id ]
+    end
+  end
+
   test "missing data is not yet unless the item says blank counts as met" do
     with_fields do
       note = create_field("Note", :string)
