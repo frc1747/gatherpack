@@ -356,6 +356,7 @@ Checklists.people_covered_by(checklist)              # everyone it covers
 Strict by default (`met` or `exempt`); a caller may accept `pending` where signing up is the way to finish. Callers:
 
 - **Sign-up position rule** `checklist` (a fourth kind: "is done", or "is done or almost"). Needs an enum value and a column in `signup_position_rules`, in a connector branch editing the signups feature.
+  - What a rule shows follows §10.1 per viewer: the person, and anyone who may see their result, get the real answer. Organizers and people signing someone up who can't see the result get no per-person badge and, on a refusal, a fixed reason naming only the checklist. A refused sign-up still tells them the person doesn't meet it; that is accepted, since the gate can't work without refusing.
 - **Form audience rule** target `checklist`: asked of people who finish it, don't, or everyone it covers (how applicants, on no team yet, get the joining forms; intake §10.6). Connector in `feature_forms`.
 - **Checklists page, profile tab, dashboard card** (§10.4).
 
