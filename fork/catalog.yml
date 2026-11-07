@@ -434,6 +434,229 @@ feature/event-type-change-answers:
     switching back brings them back.
   audience: Managers
 
+feature/forms-expiry:
+  title: Form answers that expire
+  emoji: "⏳"
+  description: >-
+    A form can say its answers stop counting on a set date for everyone, or a
+    number of months after each person signed. Expired answers show as needing
+    to be confirmed again, and people see "Good until" beside the ones still
+    current.
+  audience: Form creators set it; members and families re-confirm
+
+feature/person-merge:
+  title: Merge duplicate people
+  emoji: "🧬"
+  description: >-
+    Admins combine two records of the same person into one. A preview shows
+    what moves across (teams, badges, check-ins, hours, family links, cards and
+    more) and what is left out, and fills in details the kept record is
+    missing.
+  audience: Admins
+  settings:
+    - name: Merge people
+      key: feature_person_merge
+      default: "off"
+
+feature/team-subtree-queries:
+  title: Faster team and people lists
+  emoji: "🌳"
+  description: >-
+    Looking up everyone on a team and the teams beneath it now takes a single
+    step instead of one per team, so lists of people stay quick as the
+    organization grows. Nothing changes on screen.
+  audience: Everyone (behind the scenes)
+
+feature/recurring-routes-seams:
+  title: Features can add their own pages and scheduled jobs
+  emoji: "🔌"
+  description: >-
+    A feature can now keep its page addresses and its scheduled jobs in files
+    of its own instead of changing shared ones. Nothing changes on screen.
+  audience: Admins (behind the scenes)
+
+feature/mcp-forms-expiry:
+  title: Ask an AI client when form answers expire
+  emoji: "⏳"
+  description: >-
+    When a connected AI client opens a form, it also sees when the form's
+    answers expire.
+  audience: Members who use an AI client
+
+feature/intake:
+  title: Registration
+  emoji: "📥"
+  description: >-
+    People join teams through a registration link or a kiosk without anyone
+    typing in their records. They confirm their email, a guardian can confirm
+    for a young person, and a family can add its members. Managers see who is
+    waiting, link a sign-up to someone already on file, and approve or deny
+    with a reason. Approval can add people to teams and give badges, and
+    sign-ups that never finish are cleared out.
+  audience: Anyone joining signs up; managers review; admins set it up
+  settings:
+    - name: Registration
+      key: feature_intake
+      default: "off"
+    - name: "Registration Kiosk: Kiosk Accounts Team"
+      key: intake_kiosk_users_team
+      default: blank (the time kiosk's team, or any manager of the team)
+    - name: Days to Keep Unfinished Sign-ups
+      key: intake_entry_days
+      default: "7"
+    - name: Hours a Confirmation Link Works
+      key: intake_link_hours
+      default: "48"
+    - name: Sign-ups per Hour from One Address
+      key: intake_rate_ip_per_hour
+      default: "5"
+
+feature/intake-turnstile:
+  title: Bot check on the sign-up form
+  emoji: "🤖"
+  description: >-
+    Adds a Cloudflare Turnstile check to the public registration form, so
+    automated sign-ups are turned away. It stays off until an admin enters
+    both keys.
+  audience: Admins
+  settings:
+    - name: Turnstile Site Key
+      key: intake_turnstile_site_key
+      default: blank (no bot check)
+    - name: Turnstile Secret
+      key: intake_turnstile_secret
+      default: blank (no bot check)
+
+feature/checklists:
+  title: Checklists
+  emoji: "✅"
+  description: >-
+    A checklist lists what people must have, do or be, such as a login, a
+    badge, a team, an age or a parent's confirmation, and shows each person
+    where they stand and what is left to do. Leaders run checklists for their
+    teams, excuse an item with a reason, give credit by hand and keep a record
+    of who met it. People see their own on a Checklists tab of their profile,
+    and guardians see their students'.
+  audience: People see their own; leaders and organizers run them; admins turn it on
+  settings:
+    - name: Checklists
+      key: feature_checklists
+      default: "off"
+    - name: Checklist Organizers
+      key: checklists_organizers
+      default: blank (only admins and team managers run checklists)
+    - name: Checklist Results Max Age (hours)
+      key: checklists_max_age_hours
+      default: "24"
+    - name: Archive Checklists Ended Before
+      key: checklists_archive_after
+      default: blank (never)
+    - name: Clear Results of Archived Checklists Ended Before
+      key: checklists_prune_results_after
+      default: blank (never)
+
+feature/checklists-attendance:
+  title: Checklist items for attendance
+  emoji: "🕒"
+  description: >-
+    A checklist item can ask for a share of the meeting hours in a time clock
+    period, with a different share for different stretches of it. A missed
+    meeting can be excused with a reason.
+  audience: Leaders who build checklists
+
+feature/checklists-count:
+  title: Checklist items that count
+  emoji: "🔢"
+  description: >-
+    A checklist item can count shifts, check-ins or other credit, for a person
+    or pooled across a family, and shows how close they are. Existing
+    commitments appear as checklists and keep their rules, and turning on
+    Checklists turns on Commitments with it.
+  audience: Leaders who build checklists; everyone sees their progress
+
+feature/checklists-person-fields:
+  title: Checklist items for profile fields
+  emoji: "🗂️"
+  description: >-
+    A checklist item can ask that a profile field be filled in, have a certain
+    answer, or have been updated since a date. The checklist says who may
+    update the field, such as the person or a guardian.
+  audience: Leaders who build checklists
+
+feature/checklists-forms:
+  title: Checklist items for forms
+  emoji: "📝"
+  description: >-
+    A checklist item can ask that a form be complete and signed. A form can
+    also ask exactly the people a checklist covers. Where form answers expire,
+    the item shows how long the answer is good for.
+  audience: Leaders who build checklists and forms
+
+feature/checklists-signups:
+  title: Checklists on sign-up sheets
+  emoji: "📋"
+  description: >-
+    A sign-up position can require a checklist to be done. The sheet shows
+    each person whether they qualify, and what is left, only to people who may
+    see it, and refuses a sign-up for someone who doesn't qualify.
+  audience: Everyone signs up; organizers set the rule
+
+feature/housekeeping:
+  title: Housekeeping
+  emoji: "🧹"
+  description: >-
+    From the list pages for events, announcements, checklists and applications,
+    leaders find old records by how long ago they ended, then archive them,
+    restore them or copy them forward. Checklists that depend on each other
+    are handled together. Admins can also clear medical and emergency answers
+    for people who have had no activity for a while.
+  audience: Leaders tidy their lists; admins clear old personal data
+  settings:
+    - name: Housekeeping
+      key: feature_housekeeping
+      default: "off"
+    - name: Medical and Emergency Fields
+      key: housekeeping_purge_fields
+      default: blank (nothing can be cleared)
+
+feature/kiosk-scan-panels:
+  title: Extra panels on the time kiosk card
+  emoji: "🧩"
+  description: >-
+    A feature can add a box to the card the time kiosk shows after a scan. The
+    kiosk now also acts only for the card that was scanned. Nothing changes on
+    screen until a feature adds a panel.
+  audience: Everyone at the kiosk (behind the scenes)
+
+feature/checklists-kiosk:
+  title: What's left, at the time kiosk
+  emoji: "🪧"
+  description: >-
+    After someone scans their card, the kiosk lists the checklist items they
+    still need to do, for the items a leader marked to show there. Nothing
+    shows once everything is done.
+  audience: Everyone at the kiosk; leaders choose which items show
+
+feature/intake-checklist:
+  title: Checklists for registrations
+  emoji: "🧾"
+  description: >-
+    A registration can point to a checklist. People joining see what is left,
+    managers see each applicant's progress when they decide, and a
+    registration can hold approval until the checklist is done. Returning
+    members show up on the same list.
+  audience: People joining; managers who approve
+
+feature/mcp-checklists:
+  title: Ask an AI client about checklists
+  emoji: "✅"
+  description: >-
+    A connected AI client can list checklists, show where each person stands,
+    and say who meets them. When an admin allows changes, it can give credit,
+    excuse an item, confirm one, copy a checklist and record a list, under the
+    same rules as the checklist pages.
+  audience: Members who use an AI client
+
 feature/hook-catalog-models:
   title: Hooks can run on every kind of record
   emoji: "🪝"
