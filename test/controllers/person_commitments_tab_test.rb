@@ -1,9 +1,11 @@
 require "test_helper"
 require_relative "../support/commitments_world"
+require_relative "../support/checklists_flag_helper"
 
 class PersonCommitmentsTabTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include CommitmentsWorld
+  include ChecklistsFlagHelper
 
   setup do
     travel_to Time.zone.parse("2026-10-20 12:00")
@@ -62,5 +64,17 @@ class PersonCommitmentsTabTest < ActionDispatch::IntegrationTest
     get person_path(person(:member))
     assert_response :success
     assert_select "a.nav-link", text: "Commitments", count: 0
+  end
+
+  test "no tab while checklists are on, which has its own" do
+    with_checklists_on do
+      with_feature do
+        sign_in person(:member).user
+
+        get person_path(person(:member))
+        assert_response :success
+        assert_select "a.nav-link", text: "Commitments", count: 0
+      end
+    end
   end
 end
