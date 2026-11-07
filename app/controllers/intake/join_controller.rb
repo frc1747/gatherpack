@@ -11,12 +11,14 @@ class Intake::JoinController < InternalController
 
   # GET /join/:slug
   def show
+    skip_authorization
     @entry = Intake::Entry.new(facts: { "team_ids" => default_team_ids })
     @stamp = Intake::FormGuard.stamp
   end
 
   # POST /join/:slug
   def create
+    skip_authorization
     return apply_signed_in if current_user
 
     @entry = @registration.entries.new(id: SecureRandom.uuid, source: :link, first_name: entry_params[:first_name].to_s.strip,

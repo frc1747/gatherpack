@@ -19,12 +19,14 @@ class Intake::KioskController < InternalController
 
   # GET /join/:slug/kiosk
   def show
+    skip_authorization
     @form = {}
     @answers = {}
   end
 
   # POST /join/:slug/kiosk
   def create
+    skip_authorization
     @form = kiosk_params.to_h
     @answers = answer_params
     if intake_over_limit?("kiosk", current_user.id, to: Intake.setting(:intake_rate_kiosk_per_minute, 30), within: 1.minute)

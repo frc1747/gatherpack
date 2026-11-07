@@ -5,8 +5,8 @@
 # These pages have no Pundit policy: who may use one is decided by its
 # registration link, the token emailed to the person, the signed-in
 # person's own household, or the kiosk account, which each controller
-# checks itself. They skip authorization explicitly so InternalController's
-# check still covers any action added without that.
+# checks itself. Each action that does so calls skip_authorization, so
+# InternalController's check still fails an action added without either.
 module Intake::PublicPages
   extend ActiveSupport::Concern
 
@@ -15,7 +15,6 @@ module Intake::PublicPages
   included do
     layout "intake_public"
     before_action :require_intake_feature
-    before_action :skip_authorization
   end
 
   private
