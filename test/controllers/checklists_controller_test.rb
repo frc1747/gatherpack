@@ -153,6 +153,30 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the profile shows a Checklists tab to people who can see one of the person's checklists" do
+    with_feature do
+      sign_in person(:parent).user
+      get person_path(person(:kid))
+      assert_response :success
+      assert_select "a.nav-link[href=?]", person_checklists_path(person(:kid)), text: "Checklists"
+
+      sign_in person(:member2).user
+      get person_path(person(:member))
+      assert_select "a.nav-link", text: "Checklists", count: 0
+    end
+  end
+
+  test "the Checklists tab is hidden when the feature is off or nothing covers the person" do
+    sign_in person(:admin).user
+    get person_path(person(:member))
+    assert_select "a.nav-link", text: "Checklists", count: 0
+
+    with_feature do
+      get person_path(person(:outsider))
+      assert_select "a.nav-link", text: "Checklists", count: 0
+    end
+  end
+
   # Running a checklist
 
   test "a manager makes a checklist and adds an item" do
