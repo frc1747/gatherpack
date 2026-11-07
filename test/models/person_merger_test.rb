@@ -246,7 +246,7 @@ class PersonMergerTest < ActiveSupport::TestCase
     new_login = User.create!(email: "dana.r@example.com", password: "Password1!")
     @keep.update!(user: old_login)
     @drop.update!(user: new_login)
-    application = OauthApplication.create!(name: "App", redirect_uri: "https://example.com/cb")
+    application = OauthApplication.create!(name: "App", redirect_uri: "https://example.com/cb", scopes: "user_read")
     grant = insert_row(:oauth_access_grants, application_id: application.id, resource_owner_id: old_login.id, token: "g", expires_in: 60, redirect_uri: "https://example.com/cb")
     entry = insert_row(:ledger_entries, ledger_id: ledgers(:one).id, created_by_id: old_login.id, created_by_type: "User", amount_cents: 100)
 
@@ -324,7 +324,7 @@ class PersonMergerTest < ActiveSupport::TestCase
   end
 
   def oauth_application_id
-    @oauth_application_id ||= OauthApplication.create!(name: "App", redirect_uri: "https://example.com/cb").id
+    @oauth_application_id ||= OauthApplication.create!(name: "App", redirect_uri: "https://example.com/cb", scopes: "user_read").id
   end
 
   def entry_for(key)
