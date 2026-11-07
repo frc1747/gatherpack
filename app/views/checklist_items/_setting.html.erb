@@ -1,7 +1,14 @@
 <% value = item.config[setting.key.to_s] %>
 <% name = "checklist_item[config][#{setting.key}]" %>
 <% field_id = "checklist_item_config_#{setting.key}" %>
+<%# A setting type a connector brings has its own partial,
+    checklist_items/settings/_<type>, with locals f, item, checklist, setting,
+    value, name (the param name) and field_id. %>
+<% custom = "checklist_items/settings/#{setting.type}" %>
 <div class="mb-3">
+  <% if lookup_context.exists?(custom, [], true) %>
+    <%= render custom, f: f, item: item, checklist: checklist, setting: setting, value: value, name: name, field_id: field_id %>
+  <% else %>
   <% case setting.type %>
   <% when :badges %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
@@ -50,6 +57,7 @@
   <% else %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
     <%= text_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control" %>
+  <% end %>
   <% end %>
   <% if setting.hint.present? %><div class="form-text"><%= setting.hint %></div><% end %>
 </div>

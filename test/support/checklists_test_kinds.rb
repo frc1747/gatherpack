@@ -98,4 +98,16 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.met("Filled in") }
     end
   end
+
+  # A kind with a setting type of its own (:colour), drawn by its own
+  # partial (test/fixtures/files/checklist_views/checklist_items/settings).
+  class Coloured < Checklists::ItemKind
+    def self.settings
+      [ Checklists::ItemKind::Setting.new(key: :colour, type: :colour, label: "Colour") ]
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met(config["colour"]) }
+    end
+  end
 end

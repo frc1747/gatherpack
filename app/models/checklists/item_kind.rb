@@ -26,7 +26,10 @@ module Checklists
     # One form field. type is :badges, :teams, :checklist, :number, :date,
     # :relative_date (on or after a date, or within the last N days or
     # months; see Checklists::RelativeDate), :choice, :text or :boolean;
-    # options for :choice as [[label, value]].
+    # options for :choice as [[label, value]]. A connector can bring its own
+    # type: the item form renders the partial checklist_items/settings/_<type>
+    # when there is one, and an unknown type's value is kept as text (or
+    # override cast_setting).
     Setting = Struct.new(:key, :type, :label, :hint, :options, keyword_init: true)
 
     # A named number in a result. owner_only measures show only to the
