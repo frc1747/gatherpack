@@ -202,12 +202,16 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "met", result(:kid).status
   end
 
-  test "who fills a form in follows who may fill it in for someone" do
-    { "leaders" => "leader", "admin" => "leader", "guardians" => "guardian", "self" => "person", "family" => "person" }.each do |level, by|
+  test "who fills a form in follows who may fill it in for someone, and whether they have a guardian" do
+    # The member has no guardian; the kid has one (their parent).
+    expected = { "leaders" => %w[leader leader], "admin" => %w[leader leader], "guardians" => %w[leader guardian],
+      "self" => %w[person person], "family" => %w[person person] }
+    expected.each do |level, (member_by, kid_by)|
       form = create_form("Evaluation #{level}", respond_permission: level, read_permission: "family")
       item = add_item(@checklist, :form_complete, "Evaluation #{level}", { form_ids: [ form.id ] })
       assert_equal "Fill it in", result(:member, item).fix["label"]
-      assert_equal by, result(:member, item).fix["by"], level
+      assert_equal member_by, result(:member, item).fix["by"], "#{level}, no guardian"
+      assert_equal kid_by, result(:kid, item).fix["by"], "#{level}, with a guardian"
     end
   end
 

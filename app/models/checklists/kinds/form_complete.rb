@@ -185,25 +185,25 @@ module Checklists
 
         if signed && expired
           return Result.not_met("Expired #{day(expires_at)}", detail: "Expired #{day(expires_at)}",
-            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person, guardians) })
         end
 
         if signed && (reason = reconfirm_reason(response, signed))
           detail = reason == :profile ? "Needs confirming again: their profile details changed" : "Needs confirming again: the form changed"
           return Result.not_met("Needs confirming again", detail: detail,
-            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person, guardians) })
         end
 
         later = response&.form_submissions&.select { |submission| submission.activated_at && submission.activated_at > window.end_time }&.min_by(&:activated_at)
         if (outside = signed || later)
           at = outside.activated_at
           return Result.not_met("Needs doing again", detail: sentence("Completed #{day(at)}, #{outside_window(at)}", good_until(expiry_for(form, at))),
-            fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
+            fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person, guardians) })
         end
 
         withdrawn = response&.form_submissions&.any?(&:withdrawn?)
         Result.not_met(withdrawn ? "Withdrawn" : "Not started", detail: withdrawn ? "The response was withdrawn" : "No response yet",
-          fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
+          fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person, guardians) })
       end
 
       # The version that counted at the end of the window (or at the as-of
@@ -264,7 +264,7 @@ module Checklists
             "by" => sign_by(submission, person) })
         else
           Result.pending("Started", detail: "A new version is started but not submitted",
-            fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person) })
+            fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person), "requires" => slot_requires(form, person, "edit?"), "by" => fill_by(form, person, guardians) })
         end
       end
 
@@ -287,15 +287,16 @@ module Checklists
 
       # Who acts on filling the form in (Result "by"), first from who may
       # fill it in for someone (respond_permission): a leader when neither
-      # the person nor a guardian may, a guardian when only guardians (and
-      # leaders) may. Otherwise a guardian, or the person, when a guardian
-      # signs it for them; else the person.
-      def fill_by(form, person)
+      # the person nor a guardian may, and when only guardians (and leaders)
+      # may, a guardian if they have one, else a leader. Otherwise a
+      # guardian, or the person, when a guardian signs it for them; else the
+      # person.
+      def fill_by(form, person, guardians)
         level = form.respond_permission
         unless level == "everyone"
           parts = AudienceLevels.components(level)
           return "leader" unless parts.include?(:subject) || parts.include?(:guardian)
-          return "guardian" unless parts.include?(:subject)
+          return guardians.present? ? "guardian" : "leader" unless parts.include?(:subject)
         end
 
         roles = form.signature_questions.flat_map { |question| FormAccess.signer_roles(question, person) }
