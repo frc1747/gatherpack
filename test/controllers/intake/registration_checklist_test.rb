@@ -390,6 +390,31 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     assert_equal "Not this year.", request.reviewer_notes
   end
 
+  test "a request made on the team's page is sent its denial reason too" do
+    asker = create_intake_person("Ash", "Asker", birthday: 30.years.ago.to_date)
+    request = MembershipApplication.create!(person: asker, team: @juniors)
+    sign_in @leader.user
+
+    bodies = with_checklists do
+      queued_email_bodies do
+        post intake_team_bulk_decisions_path(@juniors), params: { decision: "denied", reason: "Not this year.", application_ids: [ request.id ] }
+      end
+    end
+
+    assert request.reload.denied?
+    assert_equal 1, bodies.size
+    assert_match "Hi Ash", bodies.first
+    assert_match "Not this year.", bodies.first
+  end
+
+  test "a request made on the team's page is denied quietly while intake is off" do
+    asker = create_intake_person("Ash", "Asker", birthday: 30.years.ago.to_date)
+    request = MembershipApplication.create!(person: asker, team: @juniors)
+
+    assert_no_enqueued_jobs(only: SendEmailJob) { request.deny! }
+    assert request.reload.denied?
+  end
+
   test "a checklist a registration uses can't be deleted" do
     assert_not @checklist.destroy
     assert_match "registrations", @checklist.errors.full_messages.to_sentence.downcase
