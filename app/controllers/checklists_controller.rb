@@ -76,17 +76,13 @@ class ChecklistsController < InternalController
     replace = params.fetch(:replace, {}).permit(*copier.replacements.map(&:key)).to_h
     # A replacement checklist must be one the person can see.
     replace.reject! { |key, id| key.start_with?("Checklist:") && id.present? && !policy_scope(Checklist).exists?(id: id) }
-    copy = nil
-    refused = []
-    Checklist.transaction do
+    begin
       copy = copier.call(title: params[:title], by: current_user.person, dates: dates, replace: replace)
-      # Each copied item's kind may refuse its config for this author.
-      refused = copy.checklist_items.reject { |item| item.kind_class.nil? || item.kind_class.authorable_by?(item, current_user.person) }
-      raise ActiveRecord::Rollback if refused.any?
-    end
-    if refused.any?
-      return redirect_to(copy_checklist_path(@checklist), alert: "You can't copy #{refused.map(&:label).to_sentence}: ask someone who can set those items up.",
-        status: :see_other)
+    rescue Checklists::Copier::Refused => e
+      alerts = []
+      alerts << "You can't copy #{e.items.to_sentence}: ask someone who can set those items up." if e.items.any?
+      alerts << "You can't copy #{e.grants.to_sentence}: ask someone who can grant it." if e.grants.any?
+      return redirect_to(copy_checklist_path(@checklist), alert: alerts.join(" "), status: :see_other)
     end
 
     left_out = copier.empty_rules.size
