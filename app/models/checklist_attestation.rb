@@ -6,9 +6,16 @@ class ChecklistAttestation < ApplicationRecord
   include CanBeHooked
   has_paper_trail versions: { class_name: "AuditLog" }
 
-  # "Who confirms" levels, least strict first. attested_as is the level a
-  # confirmation satisfied when it was made (checked by may_attest?).
-  LEVELS = { "person" => 0, "guardian" => 1, "manager" => 2 }.freeze
+  # "Who confirms" levels. attested_as is the level a confirmation
+  # satisfied when it was made (checked by may_attest?). The levels aren't
+  # nested: "manager" excludes the person and relatives, whom "person" and
+  # "guardian" allow.
+  LEVELS = %w[person guardian manager].freeze
+
+  # For an item's level, the recorded levels whose every allowed maker the
+  # item allows too: a "person" confirmation passes a "guardian" item, but a
+  # manager's or a guardian's never passes a "person" one.
+  SATISFIES = { "person" => %w[person], "guardian" => %w[person guardian], "manager" => %w[manager] }.freeze
 
   belongs_to :person
   belongs_to :attested_by, class_name: "Person", optional: true
@@ -20,7 +27,7 @@ class ChecklistAttestation < ApplicationRecord
   validates :statement, presence: true
   validates :attested_at, presence: true
   validates :attested_by, presence: true, on: :create
-  validates :attested_as, inclusion: { in: LEVELS.keys }, allow_nil: true
+  validates :attested_as, inclusion: { in: LEVELS }, allow_nil: true
 
   before_validation { self.attested_at ||= Time.current }
 
@@ -34,15 +41,16 @@ class ChecklistAttestation < ApplicationRecord
   # when it would have been allowed here too. Batch: a few queries per
   # distinct attester, whatever the number of people.
   #
-  # A confirmation recorded as satisfying a level at least as strict as the
-  # item's counts as made, whatever its maker's roles are now; older ones
-  # without a recorded level are checked against the maker's roles today.
+  # A confirmation recorded at a level the item's level accepts (SATISFIES)
+  # counts as made, whatever its maker's roles are now; any other (an older
+  # one without a level, or one made at a level this item doesn't accept)
+  # is checked against the maker's roles today.
   def self.accepted_by(item, attestations)
     return [] if attestations.empty?
 
     who = item.config["attested_by"]
-    needed = LEVELS.fetch(who.to_s, 0)
-    recorded, unrecorded = attestations.partition { |attestation| attestation.attested_as && LEVELS[attestation.attested_as].to_i >= needed }
+    accepted = SATISFIES.fetch(who.to_s, SATISFIES["person"])
+    recorded, unrecorded = attestations.partition { |attestation| accepted.include?(attestation.attested_as) }
     recorded + current_roles_accept(who, unrecorded)
   end
 

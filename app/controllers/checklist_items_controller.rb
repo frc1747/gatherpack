@@ -34,8 +34,18 @@ class ChecklistItemsController < InternalController
 
   # PATCH/PUT /checklists/1/items/1
   def update
+    saved_config = @item.config.deep_dup
+    saved_authorable = @item.kind_class.nil? || @item.kind_class.authorable_by?(@item, current_user.person)
     @item.assign_attributes(item_params)
-    return render(:edit, status: :unprocessable_entity) unless authorable?(@item)
+    # Someone who couldn't have set the item up may still rename it or
+    # change its other fields, but not its config.
+    if @item.config != saved_config
+      unless saved_authorable
+        @item.errors.add(:base, "You can't change how this item is set up; ask someone who can")
+        return render(:edit, status: :unprocessable_entity)
+      end
+      return render(:edit, status: :unprocessable_entity) unless authorable?(@item)
+    end
 
     if @item.valid? && needs_confirmation?
       @impact = Checklists::Impact.new(@checklist, items: draft_tree, viewer: current_user.person)
@@ -131,8 +141,11 @@ class ChecklistItemsController < InternalController
   # or its results would show through this one.
   def hide_unseen_checklists(kind, config)
     kind.settings.select { |setting| setting.type == :checklist }.each do |setting|
-      id = config[setting.key.to_s]
-      config[setting.key.to_s] = nil if id.present? && !policy_scope(Checklist).exists?(id: id)
+      key = setting.key.to_s
+      saved = Array(@item&.config&.dig(key)) if @item&.persisted?
+      allowed = ->(id) { id.blank? || Array(saved).include?(id) || policy_scope(Checklist).exists?(id: id) }
+      value = config[key]
+      config[key] = value.is_a?(Array) ? value.select(&allowed) : (allowed.call(value) ? value : nil)
     end
     config
   end

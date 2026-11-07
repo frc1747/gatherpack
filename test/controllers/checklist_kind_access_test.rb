@@ -82,8 +82,7 @@ class ChecklistKindAccessTest < ActionDispatch::IntegrationTest
       assert_not ChecklistItem.exists?(label: "Mine")
 
       patch checklist_checklist_item_path(@checklist, @private), params: { confirmed: "1", checklist_item: { label: "Renamed" } }
-      assert_response :unprocessable_entity
-      assert_equal "Private", @private.reload.label
+      assert_equal "Renamed", @private.reload.label, "a rename that leaves the config alone is allowed"
 
       post preview_checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "private", label: "Peek" } }
       assert_response :unprocessable_entity
@@ -91,7 +90,7 @@ class ChecklistKindAccessTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { Checklist.count } do
         post copy_checklist_path(@checklist), params: { title: "Copy", shift_months: 12 }
       end
-      assert_match "You can't copy Private", flash[:alert]
+      assert_match "You can't copy Renamed", flash[:alert]
 
       sign_in person(:admin).user
       post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "private", label: "Mine" } }
@@ -203,6 +202,44 @@ class ChecklistKindAccessTest < ActionDispatch::IntegrationTest
     end
   ensure
     Checklists.unregister_item_kind(:narrowed)
+  end
+
+  test "editing an item set up with a value the editor isn't offered keeps that value" do
+    Checklists.register_item_kind(:narrowed, ChecklistsTestKinds::Narrowed)
+    item = add_item(@checklist, :narrowed, "Secret field", { field: "secret" })
+    with_feature do
+      sign_in person(:club_manager).user
+      get edit_checklist_checklist_item_path(@checklist, item)
+      assert_select "select[name='checklist_item[config][field]'] option[value=secret][selected]", 1
+      assert_select "select[name='checklist_item[config][field]'] option[value=shirt]"
+
+      patch checklist_checklist_item_path(@checklist, item), params: { confirmed: "1", checklist_item: { label: "Renamed", config: { field: "secret" } } }
+      assert_equal "Renamed", item.reload.label
+      assert_equal "secret", item.config["field"]
+
+      patch checklist_checklist_item_path(@checklist, item), params: { confirmed: "1", checklist_item: { label: "Renamed", config: { field: "shirt" } } }
+      assert_response :unprocessable_entity
+      assert_match "change how this item is set up", response.body
+      assert_equal "secret", item.reload.config["field"], "not switched to a field they may use"
+
+      sign_in person(:admin).user
+      patch checklist_checklist_item_path(@checklist, item), params: { confirmed: "1", checklist_item: { label: "Renamed", config: { field: "shirt" } } }
+      assert_equal "shirt", item.reload.config["field"]
+    end
+  ensure
+    Checklists.unregister_item_kind(:narrowed)
+  end
+
+  test "offered settings keep saved values whatever settings_for narrows, with one or two arguments" do
+    two_args = Class.new(ChecklistsTestKinds::Narrowed) do
+      def self.settings_for(_author, item)
+        [ Checklists::ItemKind::Setting.new(key: :field, type: :choice, label: "Field", options: item ? [] : OPTIONS) ]
+      end
+    end
+    item = @checklist.checklist_items.new(kind: "narrowed", config: { "field" => "secret" })
+
+    assert_equal [ [ "Shirt size", "shirt" ], [ "Secret", "secret" ] ], ChecklistsTestKinds::Narrowed.offered_settings(person(:club_manager), item).first.options
+    assert_equal [ [ "Secret", "secret" ] ], two_args.offered_settings(person(:club_manager), item).first.options
   end
 
   test "the default batch check asks visible_to? once per person, in one query for the people" do
