@@ -1,5 +1,5 @@
 # Prepended to ChecklistItemsController from
-# config/initializers/time_kiosk_scan_panels_checklists.rb: an item can be listed at the kiosk
+# config/initializers/checklists.rb: an item can be listed at the kiosk
 # while it isn't done (show_on_kiosk, off until an organizer turns it on).
 module Checklists::KioskItemParams
   private
