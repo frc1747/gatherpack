@@ -133,6 +133,9 @@ module ChecklistsTestKinds
       [
         Checklists::ItemKind::Setting.new(key: :forms, type: :choice, label: "Forms", list: true, options: [ %w[Consent consent], %w[Medical medical], %w[Photo photo] ]),
         Checklists::ItemKind::Setting.new(key: :years, type: :number, label: "Years", list: true),
+        Checklists::ItemKind::Setting.new(key: :dates, type: :date, label: "Dates", list: true),
+        Checklists::ItemKind::Setting.new(key: :notes, type: :text, label: "Notes", list: true),
+        Checklists::ItemKind::Setting.new(key: :others, type: :checklist, label: "Other checklists", list: true),
         Checklists::ItemKind::Setting.new(key: :mode, type: :choice, label: "Mode", options: [ %w[All all], %w[Any any] ])
       ]
     end

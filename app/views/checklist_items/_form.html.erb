@@ -20,7 +20,7 @@
       <p class="text-body-secondary"><%= kind&.description %></p>
       <%= f.input :label, hint: "What people see, e.g. \"Safety training\"" %>
 
-      <% Array(kind&.settings_for(current_user.person)).each do |setting| %>
+      <% Array(kind&.offered_settings(current_user.person, item)).each do |setting| %>
         <%= render "checklist_items/setting", f: f, item: item, setting: setting, checklist: checklist %>
       <% end %>
       <% if kind&.form_partial %>
