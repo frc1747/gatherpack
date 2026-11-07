@@ -19,3 +19,7 @@ checklist_nightly_job:
   class: ChecklistNightlyJob
   queue: default
   schedule: at 3am every day
+form_schedule_job:
+  class: FormScheduleJob
+  queue: default
+  schedule: every 5 minutes
