@@ -1,9 +1,11 @@
 require "test_helper"
 require_relative "../support/forms_world"
+require_relative "../support/settings_test_helper"
 
-# Runs only where people can be merged (feature/person-merge is present).
+# Runs only where people can be merged (GatherPack::PersonMerge is loaded).
 class FormsPersonMergeTest < ActiveSupport::TestCase
   include FormsWorld
+  include SettingsTestHelper
 
   COLUMNS = %w[
     forms.created_by_id form_responses.subject_id form_submissions.created_by_id form_submissions.submitted_by_id
@@ -48,6 +50,38 @@ class FormsPersonMergeTest < ActiveSupport::TestCase
     response = FormResponse.find_by!(form: form, subject: person(:a1))
     assert_equal kept, response.active_submission
     assert_equal 1, FormSubmission.where(form_response: form.form_responses).count
+  end
+
+  test "a response that moves over is checked against the kept person's profile" do
+    with_settings(feature_person_fields: "true") do
+      build_person_fields_world
+      form = create_world_form
+      shirt = create_world_field("Shirt Size", read: "family", write: "family")
+      add_profile_question(form, shirt, :update_profile)
+      form.update!(reconfirm_on_profile_change: true)
+      person(:a1).set_field_value(shirt, "L")
+      respond(form, :a1, as: :a1, answers: { "shirt_size" => "L" }, submit: false)
+      respond(form, :a2, as: :a2, answers: { "shirt_size" => "M" })
+
+      merge(keep: person(:a1), drop: person(:a2))
+
+      response = FormResponse.find_by!(form: form, subject: person(:a1))
+      assert_equal "M", response.active_submission.answer(form.form_questions.first)
+      assert response.needs_reconfirmation?
+      assert_equal :profile, response.reconfirmation_reason
+    end
+  end
+
+  test "the preview names the forms both people answered" do
+    build_person_fields_world
+    form = create_world_form
+    other = create_world_form("Ride Home")
+    [ :a1, :a2 ].each { |name| form.form_responses.create!(subject: person(name)) }
+    other.form_responses.create!(subject: person(:a2))
+
+    assert_equal "Both people have a response to Meal Choices. The more complete one stays; the other is removed.",
+      FormResponseMerge.both_answered(person(:a2).id, person(:a1).id)
+    assert_nil FormResponseMerge.both_answered(person(:b1).id, person(:a1).id)
   end
 
   private

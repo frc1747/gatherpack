@@ -1,5 +1,5 @@
-# Forms' columns that point at a person, for merging two people into one
-# (feature/person-merge). Without that feature there's nothing to register.
+# Forms' columns that point at a person, registered where people can be
+# merged (GatherPack::PersonMerge); without it there's nothing to register.
 # GatherPack::PersonMerge is required by its own initializer, and to_prepare
 # runs after every initializer has loaded, so file order doesn't matter.
 Rails.application.config.to_prepare do
@@ -9,7 +9,7 @@ Rails.application.config.to_prepare do
 
   merge.register :forms, :created_by_id, label: "Forms created"
   merge.register :form_responses, :subject_id, unique_by: :form_id, model: FormResponse, label: "Form responses",
-    on_conflict: FormResponseMerge.method(:resolve)
+    on_conflict: FormResponseMerge.method(:resolve), check: FormResponseMerge.method(:both_answered)
   merge.register :form_submissions, :created_by_id, label: "Form answers started"
   merge.register :form_submissions, :submitted_by_id, label: "Form answers submitted"
   merge.register :form_signatures, :signer_id, label: "Signatures"
