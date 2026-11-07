@@ -93,9 +93,10 @@ module Checklists
       end
     end
 
-    # Whether the person finishes the checklist. accept: :met counts met and
-    # exempt (not covered by an item counts as done); pass [:met, :pending]
-    # where signing up is the way to finish.
+    # Whether the person finishes the checklist. accept: :met counts a met or
+    # exempt overall (an item that doesn't apply to them already counts as
+    # done inside it); pass [:met, :pending] where signing up is the way to
+    # finish. Someone the checklist doesn't cover never meets it.
     def meets?(checklist, person, accept: :met)
       people_meeting(checklist, accept: accept).exists?(id: person.id)
     end

@@ -464,6 +464,20 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_not Checklists.meets?(@checklist, person(:member2))
   end
 
+  test "people_meeting counts met and exempt overalls, and never people it doesn't cover" do
+    refresh(@checklist)
+    ChecklistResult.where(checklist: @checklist, item_id: nil, person: person(:member)).update_all(status: ChecklistResult.statuses[:exempt])
+    ChecklistResult.where(checklist: @checklist, item_id: nil, person: person(:member2)).update_all(status: ChecklistResult.statuses[:pending])
+
+    meeting = Checklists.people_meeting(@checklist)
+    assert_includes meeting, person(:member), "exempt counts as done"
+    assert_includes meeting, person(:kid)
+    assert_not_includes meeting, person(:member2), "pending only when asked"
+    assert_not_includes meeting, person(:outsider)
+    assert_includes Checklists.people_meeting(@checklist, accept: %i[met pending]), person(:member2)
+    assert_not_includes Checklists.people_meeting(@checklist, accept: :pending), person(:member)
+  end
+
   test "the team and rule targets can't be deleted while used" do
     add_rule(@checklist, :include, :badge, badge_id: @safety.id)
 
