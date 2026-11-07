@@ -197,6 +197,22 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     end
   end
 
+  test "checklist: who acts comes from the same answer as the status, when old stored rows are worked out again" do
+    other = create_world_checklist("Safety cleared", team: @members)
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    give_badge(:member, @safety)
+    refresh(other)
+    item = add_item(@checklist, :checklist, "Season ready", { checklist_id: other.id })
+    # The badge goes without telling the checklist, and its rows grow old.
+    BadgeAssignment.where(person: person(:member), badge: @safety).delete_all
+    ChecklistResult.where(checklist: other).update_all(computed_at: 30.hours.ago)
+
+    result = evaluate(@checklist, :member, item)
+
+    assert_equal "not_met", result.status
+    assert_equal "leader", result.fix["by"]
+  end
+
   test "an unregistered kind is unavailable and not met, never a pass" do
     item = add_item(@checklist, :has_login, "Login")
     item.update_columns(kind: "nonesuch")
