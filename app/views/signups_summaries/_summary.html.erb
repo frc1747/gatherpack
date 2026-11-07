@@ -3,7 +3,7 @@
 <% unless summary.empty? %>
   <div class="card signups-summary">
     <div class="card-header">
-      <h2>My Sign-ups and Commitments</h2>
+      <h2><%= summary.title %></h2>
     </div>
     <div class="card-body">
       <% if summary.signups.any? %>
@@ -44,6 +44,26 @@
             </ul>
           <% end %>
           <%= link_to summary.more_signups? ? "All your sign-ups" : "Sign-up sheets", signup_sheets_path, class: "small" %>
+        </section>
+      <% end %>
+
+      <% if summary.checklists.any? %>
+        <section class="signups-summary-checklists mb-3">
+          <h3 class="h6">Checklists</h3>
+          <ul class="list-unstyled mb-0">
+            <% summary.checklists.each do |entry| %>
+              <li class="mb-2" id="<%= dom_id entry.checklist, "summary_#{entry.person.id}" %>">
+                <strong><%= link_to entry.checklist.title, entry.checklist %></strong>
+                <% if entry.person.id != summary.person.id %>for <%= entry.person.display_name %><% end %>
+                <% entry.open_items.each do |item| %>
+                  <div class="small">
+                    <%= checklist_status_badge(item) %> <%= item.item.label %><%= ": #{item.summary}" if item.summary.present? %>
+                    <%= checklist_fix(entry.checklist, item, entry.status.person_id) %>
+                  </div>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
         </section>
       <% end %>
 

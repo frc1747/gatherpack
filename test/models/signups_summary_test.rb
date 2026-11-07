@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/commitments_world"
+require_relative "../support/checklists_flag_helper"
 
 # SignupsSummary's commitments copy the own-page rule of
 # PersonCommitmentsPolicy#visible_commitments (less ended commitments) so it
@@ -7,6 +8,7 @@ require_relative "../support/commitments_world"
 # drifting apart.
 class SignupsSummaryTest < ActiveSupport::TestCase
   include CommitmentsWorld
+  include ChecklistsFlagHelper
 
   setup do
     travel_to Time.zone.parse("2026-10-05 12:00")
@@ -63,7 +65,57 @@ class SignupsSummaryTest < ActiveSupport::TestCase
     end
   end
 
+  test "is the sign-ups and commitments card, with no checklists, while checklists are off" do
+    create_world_commitment("Shifts")
+
+    with_feature do
+      summary = SignupsSummary.new(person(:member).user)
+      assert_equal "My Sign-ups and Commitments", summary.title
+      assert_not summary.checklists_enabled?
+      assert_empty summary.checklists
+      assert_equal %w[ Shifts ], summary_titles(person(:member))
+    end
+  end
+
+  test "with checklists on, is the sign-ups and checklists card and leaves out commitments that are count items" do
+    create_world_commitment("Dues")
+    with_count_item_commitment("Crew shifts") do
+      with_feature do
+        assert_equal [ "Crew shifts", "Dues" ], summary_titles(person(:member)).sort
+
+        with_checklists_on do
+          summary = SignupsSummary.new(person(:member).user)
+          assert_equal "My Sign-ups and Checklists", summary.title
+          assert_equal %w[ Dues ], summary_titles(person(:member))
+        end
+      end
+    end
+  end
+
   private
+
+  # Yields with a commitment titled `title` that is a checklist's count item:
+  # a real one where the checklists feature is present, otherwise a commitment
+  # made to answer checklist_item.
+  def with_count_item_commitment(title)
+    if Commitment.reflect_on_association(:checklist_item)
+      checklist = Checklist.create!(title: "Eligibility", team: @club, status: :active, starts_on: Date.new(2026, 10, 1),
+        ends_on: Date.new(2026, 10, 31), created_by: person(:admin))
+      checklist.checklist_rules.create!(effect: :include, target_type: :team, team: @members)
+      item = checklist.checklist_items.new(kind: "count", label: title)
+      item.config_params = { base_amount: 2, unit: "shifts" }
+      item.save!
+      yield
+    else
+      commitment_id = create_world_commitment(title).id
+      Commitment.define_method(:checklist_item) { id == commitment_id ? :item : nil }
+      begin
+        yield
+      ensure
+        Commitment.remove_method(:checklist_item)
+      end
+    end
+  end
 
   def summary_titles(viewer)
     SignupsSummary.new(viewer.user).commitments.map { |item| item.progress.commitment.title }

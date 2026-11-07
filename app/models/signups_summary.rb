@@ -1,6 +1,8 @@
 # What a signed-in person has coming up and still owes, for the
 # "My Sign-ups and Commitments" dashboard card (signups spec §7, phase 6),
-# rendered by signups_summaries/_summary.
+# rendered by signups_summaries/_summary. With checklists on, the card is
+# "My Sign-ups and Checklists" and its second half reads checklist items
+# (checklists spec §11.4, §10.4): see #checklists.
 #
 # Sign-ups are the upcoming active ones the person takes, made, or that
 # count for them (as on a sheet's My sign-ups), on sheets they may see.
@@ -19,6 +21,10 @@ class SignupsSummary
   # page to link to.
   Item = Struct.new(:progress, :page_person, keyword_init: true)
 
+  # One checklist a person (or a ward) is covered by, with the items they
+  # can still finish, as the viewer may see them.
+  ChecklistEntry = Struct.new(:person, :checklist, :status, :open_items, keyword_init: true)
+
   attr_reader :user, :person, :limit
 
   def initialize(user, limit: DEFAULT_LIMIT)
@@ -35,8 +41,16 @@ class SignupsSummary
     person.present? && GatherPack::Features.enabled?(:commitments)
   end
 
+  def checklists_enabled?
+    person.present? && GatherPack::Features.enabled?(:checklists)
+  end
+
+  def title
+    checklists_enabled? ? "My Sign-ups and Checklists" : "My Sign-ups and Commitments"
+  end
+
   def empty?
-    signups.empty? && commitments.empty?
+    signups.empty? && commitments.empty? && checklists.empty?
   end
 
   # The first `limit` upcoming sign-ups, soonest first.
@@ -72,6 +86,22 @@ class SignupsSummary
     end
   end
 
+  # With checklists on: each checklist covering the person or one of their
+  # wards that has an item the viewer can see and that isn't done, as the
+  # viewer may see it. Empty while checklists are off.
+  def checklists
+    @checklists ||= if checklists_enabled?
+      [ person, *person.wards ].flat_map do |subject|
+        Checklists.checklist_for(subject, viewer: person).filter_map do |checklist, status|
+          open_items = status.explained.select { |entry| entry.full? && %w[ not_met pending ].include?(entry.status) }
+          ChecklistEntry.new(person: subject, checklist: checklist, status: status, open_items: open_items) if open_items.any?
+        end
+      end
+    else
+      []
+    end
+  end
+
   private
 
   # The current commitments the person's own commitments page shows them:
@@ -82,6 +112,12 @@ class SignupsSummary
   def visible_commitments
     Commitment.where(ends_on: Date.current..).includes(:team, :owing_team).order(:starts_on, :title).to_a
       .select { |commitment| commitment.covers?(person) || commitment.group_relative?(person) }
+      .reject { |commitment| shown_as_checklist_item?(commitment) }
+  end
+
+  # A count item's commitment is listed with its checklist instead.
+  def shown_as_checklist_item?(commitment)
+    checklists_enabled? && commitment.respond_to?(:checklist_item) && commitment.checklist_item.present?
   end
 
   def all_signups
