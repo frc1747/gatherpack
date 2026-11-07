@@ -146,7 +146,7 @@ Any person with a verified email has a `User`. Intake never creates a `User` fro
 On approval, intake can add the person to more than the team applied for. The registration has two plain lists:
 
 - **Also add to these teams.** Always added, idempotent.
-- **Also give these badges.** Always given. Badges record facts ("Applied through the 2027 callout"), not status.
+- **Also give these badges.** Given on approval, as the approving manager could give them; on a team that needs no approval, only badges the joiner could give themselves (so an admin-only badge never reaches anyone unapproved). Badges record facts ("Applied through the 2027 callout"), not status.
 - **Also add a guardian to these teams** (only when a guardian is involved): the guardian joins the listed teams.
 
 That is all the machinery. The two cases that used to need rules:
