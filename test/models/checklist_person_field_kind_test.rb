@@ -165,8 +165,9 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
       item = add_field_item(note, "filled_in")
       assign(:member, note, "x")
 
-      assert_not note.destroy, "the item protects the field (or archiving comes first)"
       note.archive!
+      assert_not note.destroy, "the item protects the field"
+      assert_match "Used by the checklist Trip", note.errors.full_messages.to_sentence
       assert_includes @checklist.reload.problems.join, "archived"
       assert_equal "met", evaluate(@checklist, :member, item).status, "an archived field still has its values"
 
@@ -230,6 +231,47 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
       assert ChecklistRefresh.where(checklist: @checklist, person_id: person(:member).id).exists?
       assert ChecklistResult.where(checklist: @checklist, person: person(:member)).all?(&:stale)
       assert_not ChecklistRefresh.where(checklist: @checklist, person_id: person(:rookie).id).exists?
+    end
+  end
+
+  test "with person fields off, a custom field item is a problem and passes nobody" do
+    note = nil
+    with_fields do
+      note = create_field("Note", :string)
+      assign(:member, note, "hello")
+      assert_equal "met", evaluate(@checklist, :member, add_field_item(note, "filled_in")).status
+    end
+
+    with_settings(feature_person_fields: "false", feature_checklists: "true") do
+      item = @checklist.checklist_items.find_by!(label: "Note")
+      result = evaluate(@checklist, :member, item)
+      assert_equal "not_met", result.status
+      assert_match "switched off", result.summary
+      assert_includes @checklist.reload.problems.join, "switched off"
+    end
+  end
+
+  test "last changed is refused on a built-in field" do
+    with_fields do
+      PersonField.ensure_system_fields!
+      birthday = PersonField.system_field("birthday")
+
+      error = assert_raises(ActiveRecord::RecordInvalid) { add_field_item(birthday, "filled_in", changed_since: "2026-09-01") }
+      assert_match "built-in field", error.message
+      item = add_field_item(birthday, "filled_in")
+      item.update_columns(config: item.config.merge("changed_since" => "2026-09-01"))
+      assert_includes @checklist.reload.problems.join, "built-in field"
+      assert_equal "not_met", evaluate(@checklist, :kid, item).status
+    end
+  end
+
+  test "values for a choice field must be among its choices" do
+    with_fields do
+      size = create_field("Size", :select, choices: %w[ S M XXL ])
+
+      error = assert_raises(ActiveRecord::RecordInvalid) { add_field_item(size, "none_of", values: "XXLL") }
+      assert_match "isn't one of Size's choices", error.message
+      assert_not_nil add_field_item(size, "none_of", values: "xxl, s")
     end
   end
 end

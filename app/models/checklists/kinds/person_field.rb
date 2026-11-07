@@ -69,7 +69,27 @@ module Checklists
             problems << "#{field.name} is archived"
           end
           problems << "\"#{OPERATORS[item.config["operator"]]}\" doesn't fit #{field.name}" if field && !operator_fits?(field, item.config["operator"])
+          problems << unusable_reason(item, field) if field && unusable_reason(item, field)
+          problems.concat(unknown_choices(item, field).map { |value| "\"#{value}\" isn't one of #{field.name}'s choices" }) if field
           problems
+        end
+
+        # Why the item can't be tested at all, or nil.
+        def unusable_reason(item, field)
+          if !field.system? && !GatherPack::Features.enabled?(:person_fields)
+            "Profile fields are switched off"
+          elsif field.system? && item.config["changed_since"].present?
+            "\"Last changed\" can't be checked on a built-in field"
+          end
+        end
+
+        # The typed values that aren't among a choice field's choices.
+        def unknown_choices(item, field)
+          return [] unless field.type_select? || field.type_multi_select?
+          return [] unless %w[ any_of none_of ].include?(item.config["operator"])
+
+          choices = field.choice_list.map(&:downcase)
+          values(item).reject { |value| choices.include?(value.downcase) }
         end
 
         def validate(item)
@@ -79,6 +99,9 @@ module Checklists
           operator = item.config["operator"]
           return item.errors.add(:base, "\"#{OPERATORS[operator] || "That test"}\" doesn't fit #{field.name}") unless operator_fits?(field, operator)
 
+          reason = unusable_reason(item, field)
+          item.errors.add(:base, reason) if reason && field.system?
+          unknown_choices(item, field).each { |value| item.errors.add(:base, "\"#{value}\" isn't one of #{field.name}'s choices") }
           item.errors.add(:base, "Give at least one value") if %w[ any_of none_of ].include?(operator) && values(item).empty?
           item.errors.add(:base, "Choose a date") if %w[ on_or_after on_or_before ].include?(operator) && item.config["date"].blank?
           item.errors.add(:base, "Give a number") if %w[ at_least at_most ].include?(operator) && item.config["number"].blank?
@@ -121,6 +144,9 @@ module Checklists
         sentence = self.class.describe(item)
         return person_ids.index_with { Result.not_met("Its field was deleted", detail: "The profile field this item tests was deleted") } if field.nil?
         return person_ids.index_with { Result.not_met("Can't be checked", detail: "#{sentence} can't be tested: the test doesn't fit the field") } unless self.class.operator_fits?(field, config["operator"])
+
+        reason = self.class.unusable_reason(item, field)
+        return person_ids.index_with { Result.not_met(reason, detail: "#{sentence} can't be tested: #{reason.downcase_first}") } if reason
 
         stored = load_values(field, person_ids)
         person_ids.index_with { |person_id| judge(field, sentence, *stored.fetch(person_id, [ nil, nil ])) }
