@@ -9,7 +9,7 @@
 # above it) who are direct members of the kiosk accounts team
 # (intake_kiosk_users_team, else the time kiosk's; when neither is set, any
 # such manager).
-class Intake::KioskController < ApplicationController
+class Intake::KioskController < InternalController
   include Intake::PublicPages
 
   layout "intake_kiosk"
