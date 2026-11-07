@@ -58,7 +58,14 @@ module Checklists
 
     # The earliest moment an answer can change with no data change: a kind's
     # own clock, the window's moving edge, the cutoff, an item's due date.
+    #
+    # Once the cutoff has passed, answers are as of the cutoff and only data
+    # changes move them, so there's nothing to schedule. Before it, the cutoff
+    # itself is the latest moment worth scheduling.
     def next_change_at
+      cutoff = checklist.cutoff_on&.tomorrow&.in_time_zone&.beginning_of_day
+      return if cutoff && Time.current >= cutoff
+
       now = context.as_of
       times = all_items(items).filter_map { |item| kind_for(item)&.next_change_at(item, context) }
       # "Within the last N" settings move at midnight, whether or not the
@@ -76,7 +83,7 @@ module Checklists
       times << expiry.tomorrow.in_time_zone.beginning_of_day if expiry
       dates = [ checklist.cutoff_on, checklist.ends_on ] + all_items(items).flat_map { |item| [ item.ends_on, item.due_on ] }
       times += dates.compact.map { |date| date.tomorrow.in_time_zone.beginning_of_day }
-      times.select { |time| time > now }.min
+      [ times.select { |time| time > now }.min, cutoff ].compact.min
     end
 
     def kind_for(item)
