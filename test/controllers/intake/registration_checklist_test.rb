@@ -361,6 +361,8 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
   test "managers see who has to do each item that isn't done" do
     badge = Badge.create!(name: "Safety", short: "S", color: "red", badge_type: badge_types(:one), permission: "added_by_admin")
     add_item("Safety training", :badge, "badge_ids" => [ badge.id ])
+    # Nobody can fix being outside an age range, so it names no one.
+    add_item("Ages 14 to 18", :age, "min" => 14, "max" => 18)
     sign_in @leader.user
 
     with_checklists { get applications_team_path(@juniors) }
@@ -370,6 +372,9 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
       assert lines.any? { |line| line.include?("Team agreement") && line.include?("to do: Riley or a guardian") }
       assert lines.any? { |line| line.include?("Safety training") && line.include?("to do: a leader") }
       assert lines.none? { |line| line.include?("Login") && line.include?("to do") }
+      age = lines.find { |line| line.include?("Ages 14 to 18") }
+      assert_match "Not yet", age
+      assert_no_match "to do", age
     end
   end
 

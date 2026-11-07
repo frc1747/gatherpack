@@ -31,23 +31,18 @@ module IntakeChecklistsHelper
   end
 
   # Who has to act on an item that isn't done, for the managers deciding:
-  # "Riley", "Riley or a guardian", or "a leader". Read from the item's fix:
-  # a confirmation goes by who the item lets confirm; a link is the
-  # person's to follow (or a guardian's, for someone who needs one); a fix
-  # that only says to ask someone is a leader's. Nil when it's done or the
-  # viewer sees only its status.
+  # "Riley", "Riley or a guardian", or "a leader", from who its fix says
+  # acts ("by"; a person who needs a guardian may have one act for them).
+  # Nil when it's done, the viewer sees only its status, or nothing says
+  # who can act (no fix, or a fix without "by").
   def intake_item_owner(application, entry)
     return if entry.met? || entry.exempt? || !entry.full?
 
     person = application.person
-    themselves = Intake.person_needs_guardian?(person) ? "#{person.first_name} or a guardian" : person.first_name
-    fix = entry.fix || {}
-    if fix["action"] == "attest"
-      { "manager" => "a leader", "guardian" => "#{person.first_name} or a guardian" }.fetch(entry.item.config["attested_by"].to_s, person.first_name)
-    elsif fix["path"].present? || !fix["label"].to_s.start_with?("Ask")
-      themselves
-    else
-      "a leader"
+    case entry.fix&.dig("by")
+    when "person" then Intake.person_needs_guardian?(person) ? "#{person.first_name} or a guardian" : person.first_name
+    when "guardian" then "#{person.first_name} or a guardian"
+    when "leader" then "a leader"
     end
   end
 
