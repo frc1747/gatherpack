@@ -32,7 +32,8 @@ class Mcp::Tools::CommitmentProgress < Mcp::Tool
   tool_name "commitment_progress"
   description "Progress on a commitment you can see: owed, confirmed, planned and remaining per person or group. " \
     "Organizers get every row (filter: met, not_met or nothing_planned); others get their own. " \
-    "With person_id, one person's row with each record and what it came from; a record may count for less than a credit (see sources)."
+    "With person_id, one person's row with each record and what it came from; a record may count for less than a credit (see sources). " \
+    "Superseded by checklist_status and checklist_results where checklists are on; still works the same."
   scope :read
   feature :commitments
   input_schema(

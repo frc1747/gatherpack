@@ -14,7 +14,8 @@ class Mcp::Tools::RemoveCommitmentAdjustment < Mcp::Tool
   tool_name "remove_commitment_adjustment"
   description "Remove a manual commitment adjustment, as Remove in the commitment page's progress table does, by the ID commitment_progress shows an organizer. " \
     "Only the commitment's organizers, and not for their own family's credit: that is \"Not allowed\"; one you can't see is \"Not found\". " \
-    "Returns the person's progress as commitment_progress shows it."
+    "Returns the person's progress as commitment_progress shows it. " \
+    "Superseded by remove_credit_adjustment where checklists are on; still works the same."
   scope :write
   feature :commitments
   destructive

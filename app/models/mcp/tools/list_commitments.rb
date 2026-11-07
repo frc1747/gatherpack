@@ -13,7 +13,8 @@
 class Mcp::Tools::ListCommitments < Mcp::Tool
   tool_name "list_commitments"
   description "Current commitments you can see (ones you run, owe, or are related to the people who owe), " \
-    "with who owes (team, badge limits, grouping), the amounts and the period, ordered by start date."
+    "with who owes (team, badge limits, grouping), the amounts and the period, ordered by start date. " \
+    "Superseded by list_checklists where checklists are on; still works the same."
   scope :read
   feature :commitments
   input_schema(properties: { limit: limit_property })

@@ -26,7 +26,8 @@ class Mcp::Tools::AddCommitmentAdjustment < Mcp::Tool
   tool_name "add_commitment_adjustment"
   description "Credit or debit (negative credits) a person who owes a commitment, with a reason, as the commitment page's Adjust does. " \
     "Only the commitment's organizers, and not for themselves, their relatives or anyone in a group with either: that is \"Not allowed\". " \
-    "A commitment you can't see, or a person who doesn't owe it, is \"Not found\". Returns the person's progress as commitment_progress shows it."
+    "A commitment you can't see, or a person who doesn't owe it, is \"Not found\". Returns the person's progress as commitment_progress shows it. " \
+    "Superseded by add_credit_adjustment where checklists are on; still works the same."
   scope :write
   feature :commitments
   # Free text about a member, as a note.

@@ -78,4 +78,13 @@ class Mcp::Tools::ListCommitmentsTest < ActiveSupport::TestCase
   def badge_for(name, holder)
     create_world_badge(name).tap { |badge| BadgeAssignment.create!(badge: badge, person: holder) }
   end
+
+  test "the four commitment tools say they are superseded by the checklist tools" do
+    replacements = { "list_commitments" => "list_checklists", "commitment_progress" => "checklist_status",
+      "add_commitment_adjustment" => "add_credit_adjustment", "remove_commitment_adjustment" => "remove_credit_adjustment" }
+    replacements.each do |name, replacement|
+      tool = Mcp.tool(name)
+      assert_includes tool.description, "Superseded by #{replacement}", name
+    end
+  end
 end
