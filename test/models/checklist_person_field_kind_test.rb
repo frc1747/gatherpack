@@ -108,6 +108,18 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     end
   end
 
+  test "the fix says who may update the field, from its write level" do
+    with_fields do
+      expected = { "admin" => "leader", "leaders" => "leader", "self" => "person", "self_and_leaders" => "person",
+        "guardians" => "guardian", "family" => "guardian", "team" => "guardian", "everyone" => "person" }
+      expected.each do |level, by|
+        field = create_field("Note #{level}", :string, read_permission: "everyone", write_permission: level)
+        result = evaluate(@checklist, :member, add_field_item(field, "filled_in"))
+        assert_equal by, result.fix["by"], level
+      end
+    end
+  end
+
   test "missing data is not yet unless the item says blank counts as met" do
     with_fields do
       note = create_field("Note", :string)

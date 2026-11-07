@@ -30,6 +30,20 @@ module Checklists
       }.freeze
 
       class << self
+        # Who acts on "Update <field>" (Result "by"), from who may write the
+        # field: "guardian" when a guardian may (with the person, at family
+        # and team), "person" when only the person and leaders may, else
+        # "leader". A field the person can only read isn't theirs to update.
+        def updated_by(field)
+          return "person" if field.write_permission == "everyone"
+
+          parts = AudienceLevels.components(field.write_permission)
+          if parts.include?(:guardian) then "guardian"
+          elsif parts.include?(:subject) && !field.system_read_only? then "person"
+          else "leader"
+          end
+        end
+
         def label = "Profile field"
         def description = "Has a profile field filled in a certain way"
 
@@ -273,7 +287,7 @@ module Checklists
       end
 
       def fix(field)
-        { "label" => "Update #{field.name.downcase_first}" }
+        { "label" => "Update #{field.name.downcase_first}", "by" => self.class.updated_by(field) }
       end
     end
   end
