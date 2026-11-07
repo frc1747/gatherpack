@@ -6,7 +6,8 @@ module Checklists
   # dates into it every time. The title is set once and never follows the
   # label, because reports find commitments by title (spec §11.1). Removing
   # the item removes its commitment; a copied item gets a new commitment
-  # with the same sources (spec §9.3).
+  # with the same sources (spec §9.3). A wrapped commitment's count can't be
+  # put in a group.
   module CountItem
     extend ActiveSupport::Concern
 
@@ -17,6 +18,7 @@ module Checklists
 
       validates :commitment_id, uniqueness: true, allow_nil: true
       validate :count_commitment_valid, if: :count?
+      validate :wrapped_count_ungrouped, if: -> { count? && wrapped? }
 
       before_validation :default_count_exempt_label, if: :count?
       before_save :save_count_commitment, if: :count?
@@ -54,6 +56,12 @@ module Checklists
 
     def default_count_exempt_label
       self.exempt_label = "Doesn't owe" if exempt_label.blank?
+    end
+
+    # A group's result would show what the count hides from the people
+    # outside the commitment's audience, so a wrapped count stays on its own.
+    def wrapped_count_ungrouped
+      errors.add(:base, "A wrapped commitment's count can't go in a group.") if parent_id.present?
     end
 
     def count_commitment_valid

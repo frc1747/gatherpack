@@ -145,6 +145,28 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     end
   end
 
+  test "a wrapped count can't go in a group, and a group holding one doesn't list the checklist" do
+    with_checklists do
+      Checklists::WrapCommitments.new.up
+      alone = Commitment.find(@commitments.first.id).checklist_item.checklist
+      count = alone.checklist_items.find_by(wrapped: true)
+      group = alone.checklist_items.create!(kind: "any_of", label: "Either", read_level: "family")
+
+      assert_not count.update(parent: group)
+      assert_equal [ "A wrapped commitment's count can't go in a group." ], count.errors.full_messages
+      assert_nil count.reload.parent_id
+
+      # Stored before the rule (by hand, say): the group still doesn't list it.
+      count.update_column(:parent_id, group.id)
+      Checklists::Refresher.new(alone.reload, silent: true).call
+      member2 = person(:member2).id
+      assert ChecklistResult.exists?(checklist_id: alone.id, item_id: group.id, person_id: member2)
+      guardian = person(:guardian)
+      assert_not_includes ChecklistPolicy::Scope.new(guardian.user, Checklist).resolve, alone, "the guardian isn't listed through the group"
+      assert_not ChecklistPolicy.new(guardian.user, alone).show?
+    end
+  end
+
   test "organizers keep running a wrapped checklist once checklists_organizers names a different badge" do
     with_checklists do
       Checklists::WrapCommitments.new.up

@@ -45,12 +45,24 @@ module Checklists
       # Someone with a result on the count owes it, and sees their own.
       return true if counted.include?(person.id) || Checklists::Kinds::Count.commitment_reach(wrapped, person, counted).any?
 
-      other_item_reaches?(checklist, items - [ wrapped ], results)
+      other_item_reaches?(checklist, items - [ wrapped ] - ancestor_groups(wrapped, items), results)
     end
 
-    # Whether any other item shows the viewer one of its stored results
-    # (Checklists::Visibility: its read level, grants and its kind's cap,
-    # Checklists.visible_person_ids).
+    # The groups above the count (none, as a wrapped count refuses a parent;
+    # left out anyway, since a group's result shows what the count hides).
+    def ancestor_groups(item, items)
+      by_id = items.index_by(&:id)
+      groups = []
+      while (parent = by_id[item.parent_id]) && !groups.include?(parent)
+        groups << parent
+        item = parent
+      end
+      groups
+    end
+
+    # Whether any other item (not a group holding the count) shows the
+    # viewer one of its stored results (Checklists::Visibility: its read
+    # level, grants and its kind's cap, Checklists.visible_person_ids).
     def other_item_reaches?(checklist, items, results)
       ids = items.flat_map { |item| results.fetch(item.id, []) }.uniq
       return false if ids.empty?

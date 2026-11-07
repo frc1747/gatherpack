@@ -61,6 +61,22 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the form refuses to put a wrapped count in a group" do
+    sign_in person(:admin).user
+    wrapped = create_world_commitment("Wrapped shifts")
+    checklist = Checklists::WrapCommitments.new.up.find { |made| made.title == "Wrapped shifts" }
+    count = checklist.checklist_items.sole
+    group = checklist.checklist_items.create!(kind: "any_of", label: "Either")
+    with_checklists do
+      patch checklist_checklist_item_path(checklist, count), params: { confirmed: "1", checklist_item: { label: count.label, parent_id: group.id, counts: "1",
+        config: { base_amount: "2", unit: "shifts", additional_amount: "0", counts_when: "confirmed" } } }
+      assert_response :unprocessable_entity
+      assert_select ".alert-danger", text: "A wrapped commitment's count can't go in a group."
+    end
+    assert_nil count.reload.parent_id
+    assert_equal count, wrapped.reload.checklist_item
+  end
+
   test "with checklists off, the commitment pages stay" do
     sign_in person(:admin).user
     with_feature do
