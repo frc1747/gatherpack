@@ -72,7 +72,8 @@ module Checklists
     def save_count_commitment
       record = count_commitment
       created = record.new_record?
-      record.save!
+      # Unchanged, it isn't saved: a save fires "commitments - update" hooks.
+      record.save! if created || record.changed?
       self.commitment = record
       copy_sources_from(@copied_from_commitment_id) if created && @copied_from_commitment_id
     end

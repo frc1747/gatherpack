@@ -31,7 +31,7 @@ class ChecklistCountTest < ActiveSupport::TestCase
     assert_equal [ Date.new(2026, 10, 1), Date.new(2026, 10, 31) ], [ commitment.starts_on, commitment.ends_on ]
     assert_equal "Doesn't owe", item.exempt_label
 
-    item.update!(label: "Concessions", config_params: { base_amount: 3, unit: "hours" })
+    item.update!(label: "Setup help", config_params: { base_amount: 3, unit: "hours" })
     commitment.reload
     assert_equal [ "Shifts", 3, "hours" ], [ commitment.title, commitment.base_amount, commitment.unit ]
     assert commitment.counts_confirmed?
@@ -257,17 +257,68 @@ class ChecklistCountTest < ActiveSupport::TestCase
     assert_equal :full, visibility.access(@checklist.checklist_items.find(alone.id), person(:kid).id)
   end
 
-  test "a check-in, and a source's watched notification, mark count checklists" do
-    Commitments.register_source(:notified, NotifiedSource)
-    add_count_item(@checklist)
+  test "a check-in marks only the checklists counting it, and only the person or their group" do
+    item = add_count_item(@checklist)
+    item.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    pooled_list = create_count_checklist("Families")
+    pooled = add_count_item(pooled_list, "Family shifts", { group_relationship_type_id: @parent_of.id })
+    pooled.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    other = create_count_checklist("Meetings")
+    add_count_item(other).commitment.commitment_sources.create!(kind: "checkins", subject: @meeting)
+    outreach = create_world_event("Outreach", "2026-10-11 10:00")
+
     with_checklists do
       ChecklistRefresh.delete_all
-      check_in(:member, create_world_event("Outreach", "2026-10-11 10:00"))
-      assert ChecklistRefresh.exists?(checklist: @checklist, person_id: nil)
+      check_in(:outsider, create_world_event("Elsewhere", "2026-10-11 10:00", event_type: @meeting, team: @other_org))
+      check_in(:member, create_world_event("Too late", "2026-11-11 10:00"))
+      assert_empty ChecklistRefresh.all
+
+      check_in(:member, outreach)
+      assert_equal [ person(:member).id ], ChecklistRefresh.where(checklist: @checklist).pluck(:person_id)
+      assert_equal [ person(:member).id ], ChecklistRefresh.where(checklist: pooled_list).pluck(:person_id)
+      assert_not ChecklistRefresh.exists?(checklist: other)
 
       ChecklistRefresh.delete_all
+      check_in(:organizer, outreach)
+      assert_equal [ person(:organizer).id, person(:kid).id ].sort, ChecklistRefresh.where(checklist: pooled_list).pluck(:person_id).sort,
+        "a relative's check-in marks the group it credits"
+    end
+  end
+
+  test "a change to a commitment, its source or adjustment marks only its item's checklist" do
+    item = add_count_item(@checklist)
+    other = create_count_checklist("Other")
+    add_count_item(other)
+
+    with_checklists do
+      ChecklistRefresh.delete_all
+      item.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+      item.commitment.commitment_adjustments.create!(person: person(:member), credits: 1, reason: "Raffle")
+      assert_equal [ @checklist.id ], ChecklistRefresh.distinct.pluck(:checklist_id)
+    end
+  end
+
+  test "saving an item without changing its commitment doesn't save the commitment" do
+    item = add_count_item(@checklist)
+
+    assert_no_difference -> { AuditLog.where(item_id: item.commitment_id, event: "update").count } do
+      item.reload.update!(label: "Renamed", position: 5)
+    end
+    assert_difference -> { AuditLog.where(item_id: item.commitment_id, event: "update").count }, 1 do
+      item.reload.update!(config_params: { base_amount: 4, unit: "shifts" })
+    end
+  end
+
+  test "a source's watched notification marks the checklists counting that kind" do
+    Commitments.register_source(:notified, NotifiedSource)
+    item = add_count_item(@checklist)
+    item.commitment.commitment_sources.create!(kind: "notified", subject: @outreach)
+    other = create_count_checklist("Other")
+    add_count_item(other)
+    with_checklists do
+      ChecklistRefresh.delete_all
       ActiveSupport::Notifications.instrument("thing_changed.gatherpack")
-      assert ChecklistRefresh.exists?(checklist: @checklist, person_id: nil)
+      assert_equal [ @checklist.id ], ChecklistRefresh.distinct.pluck(:checklist_id)
 
       ChecklistRefresh.delete_all
       ActiveSupport::Notifications.instrument("unwatched.gatherpack")
@@ -275,6 +326,18 @@ class ChecklistCountTest < ActiveSupport::TestCase
     end
   ensure
     Commitments.unregister_source(:notified)
+  end
+
+  test "a count not yet done says how to earn it and links the next event" do
+    travel_to Time.zone.parse("2026-10-20 12:00")
+    item = add_count_item(@checklist)
+    item.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    later = create_world_event("Fall Fair", "2026-10-25 10:00")
+    create_world_event("Harvest Day", "2026-10-28 10:00")
+
+    result = count_result(@checklist, :member, item)
+    assert_includes result.detail, "Check in at any Outreach event. Coming up: Fall Fair, Sun Oct 25; Harvest Day, Wed Oct 28."
+    assert_equal({ "label" => "Next: Fall Fair, Sun Oct 25", "path" => "/events/#{later.to_param}" }, result.fix)
   end
 
   test "organizers see a count with nothing counting toward it as a problem" do

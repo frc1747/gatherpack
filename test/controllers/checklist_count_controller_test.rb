@@ -52,11 +52,11 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
   test "an organizer adds a count item, then what counts and credit from its form" do
     sign_in person(:admin).user
     with_checklists do
-      post checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "count", label: "Concessions", counts: "1", start_mode: "checklist",
+      post checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "count", label: "Setup help", counts: "1", start_mode: "checklist",
         config: { base_amount: "3", unit: "shifts", group_relationship_type_id: @parent_of.id, additional_amount: "1", counts_when: "planned" } } }
-      item = @checklist.checklist_items.find_by!(label: "Concessions")
+      item = @checklist.checklist_items.find_by!(label: "Setup help")
       assert_redirected_to checklist_path(@checklist)
-      assert_equal [ "Concessions", 3, @parent_of.id, 1 ], [ item.commitment.title, item.commitment.base_amount, item.commitment.group_relationship_type_id, item.commitment.additional_amount ]
+      assert_equal [ "Setup help", 3, @parent_of.id, 1 ], [ item.commitment.title, item.commitment.base_amount, item.commitment.group_relationship_type_id, item.commitment.additional_amount ]
 
       get edit_checklist_checklist_item_path(@checklist, item)
       assert_response :success
@@ -66,8 +66,42 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
 
       post commitment_commitment_sources_path(item.commitment), params: { commitment_source: { kind: "checkins", subject_id: @outreach.id, per: 1, credits: 1 } }
       assert_equal 1, item.commitment.commitment_sources.count
-      follow_redirect!
       assert_redirected_to edit_checklist_checklist_item_path(@checklist, item, anchor: "sources")
+    end
+  end
+
+  test "a count item's source and credit pages belong to the item, in its words" do
+    sign_in person(:admin).user
+    with_checklists do
+      get new_commitment_commitment_source_path(@commitment, kind: "checkins")
+      assert_response :success
+      assert_select ".breadcrumb a[href=?]", edit_checklist_checklist_item_path(@checklist, @item), text: "Shifts"
+      assert_select ".breadcrumb a[href=?]", checklist_path(@checklist)
+      assert_select "a[href=?]", edit_checklist_checklist_item_path(@checklist, @item, anchor: "sources"), text: "Cancel"
+      assert_no_match(/commitment/i, css_select(".breadcrumb, h1").map(&:text).join(" "))
+
+      get new_commitment_commitment_adjustment_path(@commitment)
+      assert_response :success
+      assert_select "h1", text: "Give or take credit on Shifts"
+      assert_no_match(/commitment/i, css_select(".breadcrumb, h1").map(&:text).join(" "))
+
+      outsider = @commitment.commitment_adjustments.new(person: person(:outsider), credits: 1, reason: "Nope")
+      assert_not outsider.valid?
+      assert_equal [ "doesn't owe Shifts" ], outsider.errors[:person]
+
+      post commitment_commitment_adjustments_path(@commitment), params: { commitment_adjustment: { person_id: person(:member).id, credits: 1, reason: "Raffle" } }
+      assert_redirected_to edit_checklist_checklist_item_path(@checklist, @item, anchor: "adjustments")
+      delete commitment_commitment_adjustment_path(@commitment, CommitmentAdjustment.find_by!(reason: "Raffle"))
+      assert_redirected_to edit_checklist_checklist_item_path(@checklist, @item, anchor: "adjustments")
+    end
+  end
+
+  test "a commitment with no item keeps its own source pages" do
+    sign_in person(:admin).user
+    with_checklists do
+      get new_commitment_commitment_source_path(@plain, kind: "checkins")
+      assert_select ".breadcrumb", text: /Commitments.*Not on a checklist/m
+      assert_select "a[href=?]", edit_commitment_path(@plain, anchor: "sources"), text: "Cancel"
     end
   end
 

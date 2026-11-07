@@ -11,6 +11,9 @@ module Checklists
     # Done: the progress is met. Almost: counting confirmed credit only, and
     # confirmed plus planned would reach the amount. Not yet: otherwise.
     class Count < ItemKind
+      # The models whose changes can change a count (Checklists::CountWatched).
+      WATCHED = %w[Checkin Event Relationship CommitmentSource CommitmentAdjustment Commitment].freeze
+
       COUNTS_WHEN = [ [ "Confirmed credit reaches the amount", "confirmed" ], [ "Confirmed and planned credit together reach it", "planned" ] ].freeze
 
       class << self
@@ -40,11 +43,40 @@ module Checklists
           ]
         end
 
-        # Credit comes from activity anywhere in the item's reach, and a
-        # relative's record credits a whole group, so these mark the whole
-        # checklist.
+        # None through the core's per-kind marking, which would mark every
+        # checklist with a count item: Checklists::CountWatched marks only
+        # the checklists a change can affect (see changed).
         def invalidations
-          [ ::Checkin, ::Event, ::Relationship, ::CommitmentSource, ::CommitmentAdjustment, ::Commitment ].map { |model| [ model, ->(_record) { :all } ] }
+          []
+        end
+
+        # Marks the checklists a change can affect:
+        # - a check-in or event: checklists whose count items count check-ins
+        #   at the event's type, with the event in their period and reach;
+        #   the person (and, when pooled, their group) for a check-in, the
+        #   whole checklist for an event;
+        # - a relationship: checklists whose count items pool through its type;
+        # - a commitment, its source or adjustment: its item's checklist.
+        def changed(record)
+          case record
+          when ::Checkin
+            mark_for_events(type_ids: [ record.event&.event_type_id ], times: [ record.event&.start_time ],
+              team_ids: [ record.event&.team_id ], person_id: record.person_id)
+          when ::Event
+            return unless record.destroyed? || (record.saved_changes.keys & %w[start_time end_time event_type_id team_id]).any?
+            return unless record.destroyed? || ::Checkin.where(event_id: record.id).exists?
+
+            mark_for_events(type_ids: [ record.event_type_id, record.event_type_id_before_last_save ],
+              times: [ record.start_time, record.start_time_before_last_save ], team_ids: [ record.team_id, record.team_id_before_last_save ])
+          when ::Relationship
+            type_ids = [ record.relationship_type_id, record.relationship_type_id_before_last_save ].compact.uniq.map(&:to_s)
+            items = ::ChecklistItem.where(kind: CountItem::COUNT).where("config ->> 'group_relationship_type_id' IN (?)", type_ids)
+            mark_items(items, :all)
+          when ::CommitmentSource, ::CommitmentAdjustment
+            mark_items(::ChecklistItem.where(commitment_id: record.commitment_id), :all)
+          when ::Commitment
+            mark_items(::ChecklistItem.where(commitment_id: record.id), :all) unless record.saved_changes.keys == [ "updated_at" ]
+          end
         end
 
         def validate(item)
@@ -159,13 +191,29 @@ module Checklists
           return nil if item.config["group_relationship_type_id"].blank?
           return [] if viewer.nil?
 
-          item.count_group_reach_cache[[ viewer.id, person_ids ]] ||= begin
+          item.count_group_reach_cache[[ :group, viewer.id, person_ids ]] ||= begin
             commitment = commitment_for(item)
-            type_id = commitment.group_relationship_type_id
-            related = Relationship.where(relationship_type_id: type_id, parent_id: viewer.id).pluck(:child_id) +
-              Relationship.where(relationship_type_id: type_id, child_id: viewer.id).pluck(:parent_id)
-            reach = [ viewer.id ] + related
+            reach = [ viewer.id ] + pooled_relative_ids(commitment, viewer)
             person_ids.select { |id| commitment.group_ids_for(id).intersect?(reach) }
+          end
+        end
+
+        # Among person_ids, the people whose count the viewer saw on the
+        # commitment pages (PersonCommitmentsPolicy, for people who don't run
+        # it): themselves if they owe, and, when pooled, people who owe whose
+        # group has a member
+        # the viewer is related to through the pooling relationship
+        # (Commitment#group_relative_of?). For wrapped items
+        # (Checklists::WrappedVisibility).
+        def commitment_reach(item, viewer, person_ids)
+          return [] if viewer.nil?
+
+          item.count_group_reach_cache[[ :commitment, viewer.id, person_ids ]] ||= begin
+            commitment = commitment_for(item)
+            owing = person_ids & commitment.owing_people.ids
+            reach = owing.include?(viewer.id) ? [ viewer.id ] : []
+            related = commitment.grouped? ? pooled_relative_ids(commitment, viewer) : []
+            reach | owing.select { |id| commitment.group_ids_for(id).intersect?(related) }
           end
         end
 
@@ -182,20 +230,63 @@ module Checklists
           end
         end
 
-        # Marks every checklist with a count item when a credit source's
-        # watched notification fires (sign-ups, say).
+        # Marks the checklists whose count items have a source of a kind
+        # watching this notification (sign-ups, say).
         def source_changed(name)
           return unless Checklists.enabled?
-          return unless Commitments.source_kinds.values.any? { |kind| kind.watches.include?(name) }
 
-          Checklists.mark(::Checklist.refreshable.where(id: ::ChecklistItem.where(kind: CountItem::COUNT).select(:checklist_id)).to_a, :all)
+          kinds = Commitments.source_kinds.select { |_, kind| kind.watches.include?(name) }.keys
+          return if kinds.empty?
+
+          mark_items(::ChecklistItem.where(commitment_id: ::CommitmentSource.where(kind: kinds).select(:commitment_id)), :all)
+        end
+
+        private
+
+        def pooled_relative_ids(commitment, viewer)
+          type_id = commitment.group_relationship_type_id
+          Relationship.where(relationship_type_id: type_id, parent_id: viewer.id).pluck(:child_id) +
+            Relationship.where(relationship_type_id: type_id, child_id: viewer.id).pluck(:parent_id)
+        end
+
+        def mark_items(items, person_ids)
+          checklists = ::Checklist.refreshable.where(id: items.where(kind: CountItem::COUNT).select(:checklist_id)).to_a
+          Checklists.mark(checklists, person_ids)
+        end
+
+        # Check-in sources count check-ins at events of their event type,
+        # held by the checklist's team or below, in the item's period.
+        def mark_for_events(type_ids:, times:, team_ids:, person_id: nil)
+          type_ids = type_ids.compact.uniq
+          return if type_ids.empty?
+
+          sources = ::CommitmentSource.where(kind: "checkins", subject_type: "EventType", subject_id: type_ids).select(:commitment_id)
+          items = ::ChecklistItem.where(kind: CountItem::COUNT, commitment_id: sources).includes(:checklist, :checklist_rules)
+          items.each do |item|
+            next unless item.checklist.draft? || item.checklist.active?
+
+            period = period_for(item)
+            next unless times.compact.any? { |time| period.cover?(time) }
+            next unless team_ids.compact.intersect?(Checklists.team_subtree_ids(item.checklist.team_id))
+
+            Checklists.mark(item.checklist, person_id ? group_of(item, person_id) : :all)
+          end
+        end
+
+        # The person, and when pooled everyone in the group their records
+        # credit (theirs, or the group they're a relative of).
+        def group_of(item, person_id)
+          return [ person_id ] if item.config["group_relationship_type_id"].blank?
+
+          commitment = commitment_for(item)
+          ([ person_id ] + commitment.group_ids_for(person_id) + commitment.group_relatives_index.fetch(person_id, [])).uniq
         end
       end
 
       def evaluate(person_ids)
         commitment = self.class.commitment_for(item, owing_ids: self.class.owing_ids(item, covered_ids), as_of: context.as_of)
         progress = commitment.progress(Person.where(id: person_ids))
-        earn = commitment.commitment_sources.select(&:available?).map { |source| source.kind_instance.how_to_earn.text }
+        earn = commitment.commitment_sources.select(&:available?).map { |source| source.kind_instance.how_to_earn }
 
         person_ids.index_with do |person_id|
           group = progress[person_id]
@@ -222,13 +313,31 @@ module Checklists
         elsif !commitment.counts_planned? && group.confirmed + group.planned >= group.owed
           Result.pending(summary, detail: detail, measures: measures)
         else
-          Result.not_met(summary, detail: detail, measures: measures)
+          Result.not_met(summary, detail: detail, measures: measures, fix: next_event_fix(earn))
         end
       end
 
-      # The breakdown per source and adjustments, how to earn more, and the
-      # size of a pooled group (never its members' names: a result shows only
-      # what is about its own person).
+      # The first upcoming place to earn credit, as the fix link.
+      def next_event_fix(earn)
+        earn.each do |how|
+          how.links.each do |label, target|
+            path = link_path(target)
+            return { "label" => "Next: #{label}", "path" => path } if path
+          end
+        end
+        nil
+      end
+
+      def link_path(target)
+        path = target.is_a?(String) ? target : Rails.application.routes.url_helpers.polymorphic_path(target)
+        path if path.to_s.start_with?("/")
+      rescue NoMethodError, ActionController::UrlGenerationError
+        nil
+      end
+
+      # The breakdown per source and adjustments, how to earn more with the
+      # next few places to do it, and the size of a pooled group (never its
+      # members' names: a result shows only what is about its own person).
       def detail_for(commitment, group, earn)
         parts = group.lines.map do |line|
           text = "#{line.source.label}: #{line.confirmed_credits}"
@@ -238,8 +347,13 @@ module Checklists
         parts << "Adjusted: #{format("%+d", group.adjustment_credits)}" if group.adjustments.any?
         sentence = parts.any? ? "#{parts.join("; ")}." : "Nothing counts toward it yet."
         sentence += " Shared by a group of #{group.members.size}." if group.members.size > 1
-        sentence += " #{group.remaining} to go. #{earn.join(" ")}" if !group.met? && group.remaining.positive?
+        sentence += " #{group.remaining} to go. #{earn.map { |how| how_to_earn_sentence(how) }.join(" ")}" if !group.met? && group.remaining.positive?
         sentence.strip
+      end
+
+      def how_to_earn_sentence(how)
+        upcoming = how.links.first(3).map(&:first)
+        upcoming.any? ? "#{how.text}. Coming up: #{upcoming.join("; ")}." : "#{how.text}."
       end
     end
   end

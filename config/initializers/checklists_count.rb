@@ -31,10 +31,18 @@ Rails.application.config.to_prepare do
   Commitment.prepend(Checklists::CountCommitment) unless Commitment < Checklists::CountCommitment
   ChecklistItem.include(Checklists::CountItem) unless ChecklistItem < Checklists::CountItem
   Checklists::Refresher.prepend(Checklists::CountPeriods) unless Checklists::Refresher < Checklists::CountPeriods
+  Checklists::Visibility.prepend(Checklists::WrappedVisibility) unless Checklists::Visibility < Checklists::WrappedVisibility
+  CommitmentAdjustment.include(Checklists::CountAdjustment) unless CommitmentAdjustment < Checklists::CountAdjustment
+  Checklists::Kinds::Count::WATCHED.each do |name|
+    model = name.constantize
+    model.include(Checklists::CountWatched) unless model < Checklists::CountWatched
+  end
 
   Checklists.register_item_kind(:count, Checklists::Kinds::Count)
 
   CommitmentsController.include(CommitmentsToChecklists) unless CommitmentsController < CommitmentsToChecklists
   PersonCommitmentsController.include(CommitmentsToChecklists) unless PersonCommitmentsController < CommitmentsToChecklists
   ChecklistItemsController.before_action { request.variant = :count if @item&.count? }
+  CommitmentSourcesController.include(CountItemCommitmentPages) unless CommitmentSourcesController < CountItemCommitmentPages
+  CommitmentAdjustmentsController.include(CountItemCommitmentPages) unless CommitmentAdjustmentsController < CountItemCommitmentPages
 end
