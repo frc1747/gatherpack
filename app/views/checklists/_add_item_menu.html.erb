@@ -3,7 +3,7 @@
     <%= parent ? "Add to group" : "Add item" %>
   </button>
   <ul class="dropdown-menu">
-    <% checklist_kind_options.each do |label, key, description| %>
+    <% checklist_kind_options(checklist).each do |label, key, description| %>
       <li>
         <%= link_to new_checklist_checklist_item_path(checklist, kind: key, parent_id: parent&.id), class: "dropdown-item" do %>
           <%= label %><% if description.present? %> <small class="text-body-secondary">— <%= description %></small><% end %>
