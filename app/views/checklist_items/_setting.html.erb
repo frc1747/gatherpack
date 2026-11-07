@@ -8,6 +8,23 @@
 <div class="mb-3">
   <% if lookup_context.exists?(custom, [], true) %>
     <%= render custom, f: f, item: item, checklist: checklist, setting: setting, value: value, name: name, field_id: field_id %>
+  <% elsif setting.list? && %i[number date text].include?(setting.type) %>
+    <%# One field per value, and an empty one to add another. %>
+    <fieldset>
+      <legend class="form-label fs-6"><%= setting.label %></legend>
+      <% (Array(value) + [ nil ]).each_with_index do |one, index| %>
+        <% input_id = "#{field_id}_#{index}" %>
+        <% label = "#{setting.label} #{index + 1}" %>
+        <% case setting.type %>
+        <% when :number %>
+          <%= number_field_tag "#{name}[]", one, id: input_id, autocomplete: "off", class: "form-control mb-1", style: "max-width: 10em", "aria-label": label %>
+        <% when :date %>
+          <%= date_field_tag "#{name}[]", one, id: input_id, autocomplete: "off", class: "form-control mb-1", style: "max-width: 14em", "aria-label": label %>
+        <% else %>
+          <%= text_field_tag "#{name}[]", one, id: input_id, autocomplete: "off", class: "form-control mb-1", "aria-label": label %>
+        <% end %>
+      <% end %>
+    </fieldset>
   <% else %>
   <% case setting.type %>
   <% when :badges %>
@@ -17,8 +34,15 @@
     <%= label_tag field_id, setting.label, class: "form-label" %>
     <%= select_tag "#{name}[]", options_for_select(Team.order(:name).pluck(:name, :id), value), multiple: true, id: field_id, class: "form-select", size: 6 %>
   <% when :checklist %>
+    <%# A saved checklist the author can't see stays chosen, without its title. %>
+    <% options = policy_scope(Checklist).where.not(id: checklist.id).order(:title).pluck(:title, :id) %>
+    <% options += (Array(value).compact_blank - options.map(&:last)).map { |id| [ "(a checklist you can't see)", id ] } %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
-    <%= select_tag name, options_for_select(policy_scope(Checklist).where.not(id: checklist.id).order(:title).pluck(:title, :id), value), include_blank: true, id: field_id, class: "form-select" %>
+    <% if setting.list? %>
+      <%= select_tag "#{name}[]", options_for_select(options, value), multiple: true, id: field_id, class: "form-select" %>
+    <% else %>
+      <%= select_tag name, options_for_select(options, value), include_blank: true, id: field_id, class: "form-select" %>
+    <% end %>
   <% when :number %>
     <%= label_tag field_id, setting.label, class: "form-label" %>
     <%= number_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control", style: "max-width: 10em" %>
