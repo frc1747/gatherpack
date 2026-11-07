@@ -300,7 +300,7 @@ class Form < ApplicationRecord
         copy.form_questions.create!(question.attributes.except("id", "form_id", "created_at", "updated_at"))
       end
       form_audience_rules.each do |rule|
-        copy.form_audience_rules.create!(rule.attributes.slice("effect", "target_type", "team_id", "badge_id", "person_id", "include_managers"))
+        copy.form_audience_rules.create!(rule.attributes.slice("effect", "target_type", "team_id", "badge_id", "person_id", "include_managers", "checklist_id", "checklist_match"))
       end
       form_badge_grants.each { |grant| copy.form_badge_grants.create!(badge_id: grant.badge_id, access: grant.access) }
       copy

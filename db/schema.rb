@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -385,8 +385,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
     t.boolean "include_managers", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "checklist_id"
+    t.integer "checklist_match", default: 0, null: false
     t.index ["badge_id"], name: "index_form_audience_rules_on_badge_id"
-    t.index ["form_id", "effect", "target_type", "team_id", "badge_id", "person_id"], name: "index_form_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["checklist_id"], name: "index_form_audience_rules_on_checklist_id"
+    t.index ["form_id", "effect", "target_type", "team_id", "badge_id", "person_id", "checklist_id", "checklist_match"], name: "index_form_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
     t.index ["form_id"], name: "index_form_audience_rules_on_form_id"
     t.index ["person_id"], name: "index_form_audience_rules_on_person_id"
     t.index ["team_id"], name: "index_form_audience_rules_on_team_id"
@@ -1190,6 +1193,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "checklists"
   add_foreign_key "form_audience_rules", "forms", on_delete: :cascade
   add_foreign_key "form_audience_rules", "people", on_delete: :cascade
   add_foreign_key "form_audience_rules", "teams", on_delete: :cascade

@@ -71,6 +71,9 @@
           <%= r.button :submit, "Add person", class: "btn btn-sm btn-secondary" %>
         <% end %>
       </div>
+      <% if defined?(Checklists::FormAudienceTarget) && Checklists.enabled? %>
+        <%= render "forms/audience_checklist_rule", form: @form, effects: effects %>
+      <% end %>
     </div>
   </div>
 </div>

@@ -28,8 +28,13 @@
     <%= label_tag field_id, setting.label, class: "form-label" %>
     <%= select_tag name, options_for_select(setting.options, value), id: field_id, class: "form-select" %>
   <% else %>
-    <%= label_tag field_id, setting.label, class: "form-label" %>
-    <%= text_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control" %>
+    <%# A kind from another branch can bring its own field: checklist_items/settings/_<type>. %>
+    <% if lookup_context.exists?("checklist_items/settings/#{setting.type}", [], true) %>
+      <%= render "checklist_items/settings/#{setting.type}", name: name, field_id: field_id, value: value, setting: setting, checklist: checklist %>
+    <% else %>
+      <%= label_tag field_id, setting.label, class: "form-label" %>
+      <%= text_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control" %>
+    <% end %>
   <% end %>
   <% if setting.hint.present? %><div class="form-text"><%= setting.hint %></div><% end %>
 </div>
