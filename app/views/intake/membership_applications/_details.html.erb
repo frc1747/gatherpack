@@ -22,7 +22,7 @@
     <% if application.pending? && decides && own %>
       <div class="text-muted">Someone else decides this one: it's yours or a relative's.</div>
     <% elsif application.pending? && decides %>
-      <% preview = application.intake_placement_preview %>
+      <% preview = application.intake_placement_preview(current_user) %>
       <% if preview[:teams].any? || preview[:guardian_teams].any? %>
         <div>Will also join: <%= preview[:teams].to_sentence.presence || "nothing else" %><%= "; guardians join #{preview[:guardian_teams].to_sentence}" if preview[:guardian_teams].any? %></div>
       <% end %>

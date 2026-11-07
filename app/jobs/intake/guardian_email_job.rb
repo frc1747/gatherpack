@@ -6,6 +6,7 @@ class Intake::GuardianEmailJob < ApplicationJob
   def perform(row_id)
     row = Intake::HouseholdMember.unconfirmed_guardians.find_by(id: row_id)
     return unless row&.ward
+    return if row.facts["manager_confirms"]
     Intake::Notices.confirm_guardian(row, row.issue_token!)
   end
 end

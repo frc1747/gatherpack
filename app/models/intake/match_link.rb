@@ -1,12 +1,16 @@
 # A manager's answer to "Might be the same person as <name>. Link or keep
 # separate." on a person intake created.
 #
-# Link attaches what intake made for this registration to the matched
-# person: the applications, the entry and household rows, the guardian ties
-# and the login (the matched person has none: matches are only people with
-# no login). It is not a merge: it is refused when the intake-made person
-# has anything else (memberships, badges, check-ins, punches, tokens, other
-# applications), and the person intake made, then empty, is deleted.
+# Link attaches this registration's applications and the sign-up (entry
+# and household row) to the matched person. It never moves a login or a
+# guardian tie, so it can't hand one person's account or family to
+# another: the new record keeps its login and ties. When the new person had
+# guardians, each becomes a guardian request on the matched person that a
+# manager must confirm (nothing is emailed to them). Merging the two
+# records is left to person merge.
+#
+# Only for a linker who can manage the matched person, and never onto
+# someone who manages a team or holds a badge the linker couldn't give.
 #
 # Keep separate clears the flag and remembers the answer.
 class Intake::MatchLink
@@ -25,68 +29,60 @@ class Intake::MatchLink
     member.update!(facts: member.facts.except("possible_match_id").merge("kept_separate_from_id" => match&.id))
   end
 
-  def link!
+  # What Link would do, for its confirmation.
+  def description
+    applications = applications_to_move.map { |application| application.team.name }
+    text = "Moves #{person.first_name}'s sign-up"
+    text += " and #{"application".pluralize(applications.size)} to #{applications.to_sentence}" if applications.any?
+    text += " to #{match.display_name}. #{person.first_name}'s login and family links stay where they are"
+    text += guardians.any? ? "; a manager confirms #{guardians.map(&:display_name).to_sentence} as #{match.first_name}'s guardian." : "."
+    text
+  end
+
+  def link!(by:)
     raise Refused, "There's no possible match to link." unless person && match
-    raise Refused, "#{match.display_name} has a login now. Ask an admin to sort it out." if match.user && person.user
-    raise Refused, "#{person.display_name} has other records, so they can't be linked here. Keep them separate for now." unless only_intake_records?
+    refuse_unless_allowed(by)
 
     Person.transaction do
-      move_applications
-      Intake::Entry.where(person: person).find_each { |entry| entry.update!(person: match) }
-      Intake::HouseholdMember.where(person: person).find_each { |row| row.update!(person: match) }
-      move_relationships
-      move_details
-      move_login
-      member.update!(facts: member.facts.except("possible_match_id").merge("linked_from_id" => person.id))
-      person.reload.destroy!
+      applications_to_move.each do |application|
+        if match.membership_applications.exists?(team_id: application.team_id)
+          application.destroy!
+        else
+          application.update!(person: match)
+        end
+      end
+      member.entry.update!(person: match) if member.entry.person == person
+      guardians.each { |guardian| request_guardian(guardian) }
+      member.update!(person: match, facts: member.facts.except("possible_match_id").merge("linked_from_id" => person.id))
     end
     match
   end
 
   private
 
-  def only_intake_records?
-    person.memberships.none? && person.badge_assignments.none? && person.checkins.none? &&
-      person.time_clock_punches.none? && person.tokens.none? &&
-      person.membership_applications.where.not(registration_id: registration.id).none?
-  end
-
-  def move_applications
-    person.membership_applications.where(registration: registration).find_each do |application|
-      if match.membership_applications.exists?(team_id: application.team_id)
-        application.destroy!
-      else
-        application.update!(person: match)
-      end
+  def refuse_unless_allowed(by)
+    raise Refused, "You can only link to someone you manage." unless by&.can_manage(match)
+    raise Refused, "#{match.display_name} manages a team, so they can't be linked here." if match.memberships.where(manager: true).exists?
+    if match.badges.any? { |badge| !BadgePolicy.new(by.user, badge).update? }
+      raise Refused, "#{match.display_name} holds a badge you can't give, so they can't be linked here."
     end
   end
 
-  # Guardian ties intake made. The type's "added by" rule is about members
-  # adding ties by hand, so it isn't run (as when intake made them).
-  def move_relationships
-    person.relationships.find_each do |relationship|
-      side = relationship.parent_id == person.id ? :parent : :child
-      other = side == :parent ? relationship.child : relationship.parent
-      if other == match || Relationship.exists?(relationship_type_id: relationship.relationship_type_id, side => match, (side == :parent ? :child : :parent) => other)
-        relationship.destroy!
-      else
-        relationship.public_send(:"#{side}=", match)
-        relationship.save!(validate: false)
-      end
-    end
+  def applications_to_move
+    person.membership_applications.pending.where(registration: registration).includes(:team).to_a
   end
 
-  # A birthday or field answer the matched person doesn't have yet.
-  def move_details
-    match.update!(birthday: person.birthday) if match.birthday.nil? && person.birthday
-    have = match.person_field_values.pluck(:person_field_id)
-    person.person_field_values.where.not(person_field_id: have).find_each { |row| row.update!(person: match) }
+  def guardians
+    @guardians ||= person.guardians.to_a
   end
 
-  def move_login
-    user = person.user
-    return unless user
-    person.update!(user: nil)
-    match.update!(user: user)
+  # A guardian request a manager confirms on the guardian tools; it has no
+  # link, so the would-be guardian can't confirm it themselves.
+  def request_guardian(guardian)
+    return if match.guardians.include?(guardian)
+    member.entry.household_members.create!(role: :guardian, facts: {
+      "ward_id" => match.id, "first_name" => guardian.first_name, "last_name" => guardian.last_name,
+      "person_id" => guardian.id, "manager_confirms" => true
+    })
   end
 end

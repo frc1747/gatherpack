@@ -5,14 +5,24 @@ class Intake::GuardiansController < InternalController
   before_action :set_registration
   before_action :set_row, only: %i[update resend]
 
-  # POST /registrations/:registration_id/guardians (ward_id, guardian: email or person id)
+  # POST /registrations/:registration_id/guardians (ward_id, guardian: email
+  # or person id, row_id: the ward's waiting request on this registration)
+  #
+  # Only for an applicant who needs a guardian and has none, never with the
+  # manager themselves as guardian, and not for the manager's own
+  # application or a relative's.
   def create
     ward = applicant_people.find(params[:ward_id])
+    row = params[:row_id].presence && registration_rows.unconfirmed_guardians.find(params[:row_id])
+    raise ActiveRecord::RecordNotFound if row && row.facts["ward_id"] != ward.id
     guardian = find_guardian(params[:guardian].to_s.strip)
     return back_with(alert: "No one on file has that login email or id.") unless guardian
+    return back_with(alert: "#{ward.first_name} doesn't need a guardian linked.") unless Intake.person_needs_guardian?(ward) && !ward.guardians.exists?
+    if guardian == current_user.person || Intake.own_or_relatives?(current_user.person, ward)
+      return back_with(alert: "Someone else links this guardian: it's you or a relative.")
+    end
 
-    Intake::Enrollment.new(entry_for(ward)).link_existing_guardian(ward: ward, guardian: guardian, by: current_user.person,
-      row: Intake::HouseholdMember.unconfirmed_guardians.find_by(id: params[:row_id]))
+    Intake::Enrollment.new(entry_for(ward)).link_existing_guardian(ward: ward, guardian: guardian, by: current_user.person, row: row)
     back_with(notice: "Linked #{guardian.display_name} as #{ward.first_name}'s guardian.")
   rescue Intake::Enrollment::Refused => e
     back_with(alert: e.message)
@@ -29,6 +39,7 @@ class Intake::GuardiansController < InternalController
 
   # POST /registrations/:registration_id/guardians/:id/resend
   def resend
+    return back_with(alert: "A manager confirms this guardian; there's no email to send.") if @row.facts["manager_confirms"]
     store = Intake.rate_limit_store || Rails.cache
     count = store.increment("intake-rate-limit:guardian-resend:#{@row.id}", 1, expires_in: 1.day)
     return back_with(alert: "That request was sent again too often today. Try again tomorrow.") if count && count > Intake.setting(:intake_rate_resend_per_day, 3)
@@ -48,7 +59,11 @@ class Intake::GuardiansController < InternalController
   end
 
   def set_row
-    @row = Intake::HouseholdMember.unconfirmed_guardians.joins(:entry).where(intake_entries: { registration_id: @registration.id }).find(params[:id])
+    @row = registration_rows.unconfirmed_guardians.find(params[:id])
+  end
+
+  def registration_rows
+    Intake::HouseholdMember.joins(:entry).where(intake_entries: { registration_id: @registration.id })
   end
 
   # People with an application from this registration: the only ones a

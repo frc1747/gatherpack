@@ -6,7 +6,7 @@ class Intake::MatchesController < InternalController
 
   # POST /registrations/:registration_id/matches/:id/link
   def link
-    match = Intake::MatchLink.new(@member).link!
+    match = Intake::MatchLink.new(@member).link!(by: current_user.person)
     redirect_back_or_to intake_registration_path(@registration), notice: "Linked to #{match.display_name}."
   rescue Intake::MatchLink::Refused => e
     redirect_back_or_to intake_registration_path(@registration), alert: e.message

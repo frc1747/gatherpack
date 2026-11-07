@@ -59,8 +59,9 @@ module Intake::MembershipApplicationExtension
     parts.join("; ").upcase_first.presence
   end
 
-  def intake_placement_preview
-    Intake::Placement.new(application: self).preview
+  # What approval by this login would add.
+  def intake_placement_preview(approver)
+    Intake::Placement.new(application: self, approver: approver).preview
   end
 
   # Shown to managers next to the application.

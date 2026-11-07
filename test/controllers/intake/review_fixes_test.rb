@@ -307,4 +307,112 @@ class Intake::ReviewFixesTest < ActionDispatch::IntegrationTest
   ensure
     Thread.current[:intake_hooks] = nil
   end
+
+  # Re-review 2. Linking a guardian on file
+
+  def young_applicant(first, registration: @registration, team: @juniors)
+    young = Person.create!(first_name: first, last_name: "Park", birthday: 12.years.ago.to_date)
+    MembershipApplication.create!(person: young, team: team, registration: registration, source: :kiosk)
+    young
+  end
+
+  test "a guardian can't be linked to an applicant who doesn't need one" do
+    adult = create_intake_person("Ada", "Grown", birthday: 40.years.ago.to_date)
+    MembershipApplication.create!(person: adult, team: @juniors, registration: @registration, source: :link)
+    robin = create_intake_person("Robin", "Park")
+    sign_in @leader.user
+
+    with_intake { post intake_registration_guardians_path(@registration), params: { ward_id: adult.id, guardian: robin.neat_id } }
+
+    assert_equal "Ada doesn't need a guardian linked.", flash[:alert]
+    assert_empty adult.guardians
+  end
+
+  test "a manager can't link themselves as a guardian" do
+    young = young_applicant("Sky")
+    sign_in @leader.user
+
+    with_intake { post intake_registration_guardians_path(@registration), params: { ward_id: young.id, guardian: @leader.user.email } }
+
+    assert_match "it's you or a relative", flash[:alert]
+    assert_empty young.guardians
+  end
+
+  test "a request from another registration, or for another young person, can't be used" do
+    other_registration = Intake::Registration.create!(team: @mentors, title: "Mentors", opens_at: 1.day.ago, apply_team_ids: [ @mentors.id ],
+      guardian_relationship_type: @parent_of)
+    their_kid = young_applicant("Kit", registration: other_registration, team: @mentors)
+    entry = other_registration.entries.create!(first_name: "Kit", last_name: "Park", person: their_kid, verified_at: Time.current, facts: { "team_ids" => [ @mentors.id ] })
+    foreign_row = Intake::Enrollment.new(entry).name_guardian(ward: their_kid, first_name: "Robin", last_name: "Park", email: "robin@example.com")
+    mine = young_applicant("Sky")
+    robin = create_intake_person("Robin", "Park")
+    sign_in @juniors_leader.user
+    Intake::Registration.where(id: @registration.id).update_all(team_id: @juniors.id)
+
+    with_intake { post intake_registration_guardians_path(@registration), params: { ward_id: mine.id, row_id: foreign_row.id, guardian: robin.neat_id } }
+    assert_response :not_found
+
+    own_entry = @registration.entries.create!(first_name: "Sky", last_name: "Park", person: mine, verified_at: Time.current, facts: { "team_ids" => [ @juniors.id ] })
+    other_young = young_applicant("Lu")
+    row = Intake::Enrollment.new(own_entry).name_guardian(ward: mine, first_name: "Robin", last_name: "Park", email: "robin2@example.com")
+    sign_in @juniors_leader.user # a 404 response doesn't keep the test's session
+    with_intake { post intake_registration_guardians_path(@registration), params: { ward_id: other_young.id, row_id: row.id, guardian: robin.neat_id } }
+    assert_response :not_found
+
+    assert_empty their_kid.guardians
+    assert_empty other_young.guardians
+  end
+
+  # Re-review 3. Badges on joins that need no approval
+
+  test "joining a team that needs no approval gives only badges the joiner could give" do
+    @registration.update!(badge_ids: [ @joined_badge.id, @admin_badge.id ])
+    member = create_intake_person("Pat", "Joiner", birthday: 30.years.ago.to_date)
+    sign_in member.user
+
+    with_intake { post intake_join_path(@registration.slug), params: { entry: { team_ids: [ @volunteers.id ] } } }
+
+    assert_includes member.teams, @volunteers
+    assert_equal [ "Joined Online" ], member.badges.pluck(:name)
+  end
+
+  test "a family member joining a team that needs no approval gets only badges their adder could give" do
+    @registration.update!(badge_ids: [ @admin_badge.id ])
+    adult = create_intake_person("Morgan", "Lee", birthday: 40.years.ago.to_date)
+    ward = with_intake { Intake::Enrollment.new(verified_entry(adult)).add_ward(adder: adult, first_name: "Sam", last_name: "Lee", teams: [ @volunteers.id ]) }
+
+    assert_includes ward.teams, @volunteers
+    assert_empty ward.badges
+  end
+
+  # Re-review 5. No confirmed guardian without a tie
+
+  test "a guardian link can't be confirmed once the registration stops linking guardians" do
+    young = create_intake_person("Sky", "Park")
+    entry = verified_entry(young)
+    row = Intake::Enrollment.new(entry).name_guardian(ward: young, first_name: "Robin", last_name: "Park", email: "robin@example.com")
+    token = row.issue_token!
+    @registration.update!(guardian_relationship_type: nil)
+
+    with_intake do
+      get intake_guardian_confirmation_path(token: token)
+      assert_response :unprocessable_content
+      post intake_guardian_confirmation_path, params: { token: token, password: "Password1!", password_confirmation: "Password1!" }
+    end
+
+    assert_response :unprocessable_content
+    assert_nil row.reload.guardian_confirmed_at
+    assert_nil User.find_by(email: "robin@example.com")
+  end
+
+  test "confirming a guardian without a guardianship type is refused" do
+    young = create_intake_person("Sky", "Park")
+    entry = verified_entry(young)
+    row = Intake::Enrollment.new(entry).name_guardian(ward: young, first_name: "Robin", last_name: "Park", email: "robin@example.com")
+    @registration.update!(guardian_relationship_type: nil)
+    robin = create_intake_person("Robin", "Park")
+
+    assert_raises(Intake::Enrollment::Refused) { Intake::Enrollment.new(entry.reload).confirm_guardian(row, robin) }
+    assert_nil row.reload.guardian_confirmed_at
+  end
 end

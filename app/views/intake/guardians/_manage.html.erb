@@ -9,6 +9,14 @@
           <span class="badge text-bg-success">Guardian <%= row.person&.display_name %> linked by <%= linked_by.display_name %> on <%= l row.guardian_confirmed_at.to_date, format: :long %></span>
         <% elsif row.guardian_confirmed_at %>
           <span class="badge text-bg-success">Guardian confirmed by email on <%= l row.guardian_confirmed_at.to_date, format: :long %></span>
+        <% elsif row.facts["manager_confirms"] %>
+          <span class="badge text-bg-secondary">Waiting for a manager to confirm <%= row.facts["first_name"] %> <%= row.facts["last_name"] %></span>
+          <%= form_with url: intake_registration_guardians_path(registration) do %>
+            <%= hidden_field_tag :ward_id, ward.id, id: nil %>
+            <%= hidden_field_tag :row_id, row.id, id: nil %>
+            <%= hidden_field_tag :guardian, row.facts["person_id"], id: nil %>
+            <%= submit_tag "Confirm as guardian", class: "btn btn-sm btn-outline-primary" %>
+          <% end %>
         <% else %>
           <span class="badge text-bg-secondary">Waiting for <%= row.facts["first_name"] %> to confirm</span>
           <%= form_with url: intake_registration_guardian_path(registration, row), method: :patch, class: "d-flex gap-1" do %>

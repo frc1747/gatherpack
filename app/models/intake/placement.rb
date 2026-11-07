@@ -6,10 +6,11 @@
 class Intake::Placement
   attr_reader :person, :registration, :pick_team
 
-  # approver: the login deciding. Badges are given only when it may assign
-  # them, so a list an admin set up gives a manager's approvals only the
-  # badges that manager could give by hand. Without one (joining a team that
-  # needs no approval) the registration's creator is asked.
+  # approver: the login deciding, or for a team that needs no approval the
+  # login joining (or adding the person). Badges are given only when it may
+  # assign them, so a list an admin set up gives a manager's approvals, or
+  # someone's own join, only the badges they could give by hand. Without one,
+  # no badges.
   def initialize(application: nil, person: nil, registration: nil, pick_team: nil, approver: nil)
     @person = person || application&.person
     @registration = registration || application&.registration
@@ -86,7 +87,6 @@ class Intake::Placement
   end
 
   def may_give?(badge)
-    approver = @approver || registration.created_by&.user
-    approver&.person.present? && BadgePolicy.new(approver, badge).update?
+    @approver&.person.present? && BadgePolicy.new(@approver, badge).update?
   end
 end

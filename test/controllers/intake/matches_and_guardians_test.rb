@@ -10,6 +10,7 @@ class Intake::MatchesAndGuardiansTest < ActionDispatch::IntegrationTest
     host! "localhost"
     build_intake_world
     @placeholder = Person.create!(first_name: "Riley", last_name: "Rivera")
+    Membership.create!(person: @placeholder, team: @everyone)
     @riley = create_intake_person("Riley", "Rivera", email: "riley@example.com", birthday: 30.years.ago.to_date)
     @entry = @registration.entries.create!(first_name: "Riley", last_name: "Rivera", person: @riley, verified_at: Time.current,
       facts: { "team_ids" => [ @juniors.id ] })
@@ -18,48 +19,84 @@ class Intake::MatchesAndGuardiansTest < ActionDispatch::IntegrationTest
     sign_in @leader.user
   end
 
-  test "managers see the possible match with Link and Keep separate" do
+  test "managers see the possible match with Link and Keep separate, and what Link moves" do
     with_intake { get applications_team_path(@juniors) }
 
     assert_match "Might be the same person as", response.body
-    assert_select "form[action='#{link_intake_registration_match_path(@registration, @member)}']"
     assert_select "form[action='#{keep_separate_intake_registration_match_path(@registration, @member)}']"
+    assert_select "form[action='#{link_intake_registration_match_path(@registration, @member)}'][data-turbo-confirm=?]",
+      "Moves Riley's sign-up and application to Juniors to Riley Rivera. Riley's login and family links stay where they are. Link?"
   end
 
-  test "Link attaches the sign-up, application and login to the person on file" do
+  test "Link attaches the sign-up and application, never the login" do
     login = @riley.user
     with_intake { post link_intake_registration_match_path(@registration, @member) }
 
     assert_equal "Linked to Riley Rivera.", flash[:notice]
-    assert_not Person.exists?(@riley.id)
     @placeholder.reload
-    assert_equal login, @placeholder.user
+    assert_nil @placeholder.user
+    assert_equal login, @riley.reload.user
     assert_equal [ @juniors ], @placeholder.membership_applications.map(&:team)
+    assert_empty @riley.membership_applications
     assert_equal @placeholder, @entry.reload.person
     assert_equal @placeholder, @member.reload.person
     assert_nil @member.possible_match
-    assert_equal 30.years.ago.to_date, @placeholder.birthday
   end
 
-  test "Link moves a ward's guardian tie" do
-    kid_on_file = Person.create!(first_name: "Sam", last_name: "Rivera")
+  test "Link never carries guardian ties: the adder becomes a request a manager confirms" do
+    kid_on_file = Person.create!(first_name: "Sam", last_name: "Rivera", birthday: 9.years.ago.to_date)
+    Membership.create!(person: kid_on_file, team: @everyone)
     ward = Intake::Enrollment.new(@entry).add_ward(adder: @riley, first_name: "Sam", last_name: "Rivera", teams: [ @juniors.id ])
     ward_row = @entry.household_members.find_by!(person: ward)
-    assert_equal kid_on_file, ward_row.possible_match
 
-    with_intake { post link_intake_registration_match_path(@registration, ward_row) }
+    with_intake do
+      assert_no_enqueued_jobs(only: Intake::GuardianEmailJob) { post link_intake_registration_match_path(@registration, ward_row) }
+    end
 
-    assert_includes @riley.wards, kid_on_file
+    assert_empty kid_on_file.guardians
+    assert_includes @riley.wards, ward
     assert_equal [ @juniors ], kid_on_file.membership_applications.map(&:team)
-    assert_not Person.exists?(ward.id)
+    request = Intake::HouseholdMember.guardian.sole
+    assert_equal [ kid_on_file.id, @riley.id, true ], request.facts.values_at("ward_id", "person_id", "manager_confirms")
+    assert_nil request.token_digest
+
+    with_intake do
+      get applications_team_path(@juniors)
+      assert_match "Waiting for a manager to confirm Riley Rivera", response.body
+      post resend_intake_registration_guardian_path(@registration, request)
+      assert_match "no email to send", flash[:alert]
+      post intake_registration_guardians_path(@registration), params: { ward_id: kid_on_file.id, row_id: request.id, guardian: @riley.id }
+    end
+    assert_equal [ @riley ], kid_on_file.guardians.to_a
   end
 
-  test "Link is refused when the new person has other records" do
-    Membership.create!(person: @riley, team: @everyone)
+  test "a manager can't link to someone outside their teams" do
+    Membership.where(person: @placeholder).destroy_all
+    Membership.create!(person: @placeholder, team: Team.create!(name: "Elsewhere", team_type: team_types(:one)))
+    sign_in @juniors_leader.user
+    Intake::Registration.where(id: @registration.id).update_all(team_id: @juniors.id)
+
     with_intake { post link_intake_registration_match_path(@registration, @member) }
 
-    assert_match "has other records", flash[:alert]
-    assert Person.exists?(@riley.id)
+    assert_equal "You can only link to someone you manage.", flash[:alert]
+    assert_equal [ @juniors ], @riley.membership_applications.map(&:team)
+  end
+
+  test "Link refuses someone who manages a team" do
+    Membership.create!(person: @placeholder, team: @mentors, manager: true)
+    with_intake { post link_intake_registration_match_path(@registration, @member) }
+
+    assert_match "manages a team", flash[:alert]
+    assert_empty @placeholder.membership_applications
+  end
+
+  test "Link refuses someone holding a badge the linker couldn't give" do
+    admin_badge = Badge.create!(name: "Admin Only", short: "AO", color: "red", badge_type: badge_types(:one), permission: "added_by_admin")
+    BadgeAssignment.create!(person: @placeholder, badge: admin_badge)
+    with_intake { post link_intake_registration_match_path(@registration, @member) }
+
+    assert_match "holds a badge you can't give", flash[:alert]
+    assert_empty @placeholder.membership_applications
   end
 
   test "Keep separate clears the flag" do

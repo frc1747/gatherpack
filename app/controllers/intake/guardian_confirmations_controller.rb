@@ -47,7 +47,9 @@ class Intake::GuardianConfirmationsController < ApplicationController
   def set_row
     @token = params[:token].to_s
     @row = Intake::HouseholdMember.find_guardian_by_token(@token)
-    render "intake/verifications/expired", status: :not_found unless @row&.ward
+    return render("intake/verifications/expired", status: :not_found) unless @row&.ward
+    # The registration stopped linking guardians while this waited.
+    render_refused unless @row.entry.registration.guardian_relationship_type
   end
 
   def existing_login

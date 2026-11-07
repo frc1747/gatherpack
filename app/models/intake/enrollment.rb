@@ -19,7 +19,9 @@ class Intake::Enrollment
   # Applies a person to the given teams (the entry's choice by default),
   # limited to the registration's teams. Already a member, already waiting,
   # or decided before: nothing new. Returns the pending applications.
-  def apply(person, teams = entry.teams)
+  # actor: the login acting (the person themselves, or whoever adds them);
+  # on teams that need no approval it decides which badges placement gives.
+  def apply(person, teams = entry.teams, actor: person.user)
     teams = registration.apply_teams.where(id: Array(teams).map { |team| team.try(:id) || team })
     teams.filter_map do |team|
       next if person.memberships.exists?(team: team)
@@ -33,7 +35,7 @@ class Intake::Enrollment
         MembershipApplication.create!(person: person, team: team, registration: registration, source: source)
       else
         Membership.create!(person: person, team: team, manager: false)
-        Intake::Placement.new(person: person, registration: registration).apply! if Intake.enabled?
+        Intake::Placement.new(person: person, registration: registration, approver: actor).apply! if Intake.enabled?
         nil
       end
     end
@@ -62,7 +64,7 @@ class Intake::Enrollment
       match = Intake.possible_match(first_name: first_name, last_name: last_name, birthday: birthday, except: [ ward.id ] + entry.household_people.ids)
       entry.household_members.create!(person: ward, role: :ward, facts: { "possible_match_id" => match&.id }.compact)
       link_guardian(guardian: adder, ward: ward)
-      apply(ward, teams)
+      apply(ward, teams, actor: adder.user)
       ward
     end
   end
@@ -92,6 +94,7 @@ class Intake::Enrollment
   def correct_guardian_email(row, email)
     email = Intake.normalize_email(email)
     raise Refused, "That request is already confirmed." if row.guardian_confirmed_at
+    raise Refused, "A manager confirms this guardian; there's no email to change." if row.facts["manager_confirms"]
     raise Refused, "Enter a valid email." unless email.match?(URI::MailTo::EMAIL_REGEXP)
     raise Refused, "That's #{row.ward.first_name}'s own email or another one in their household." if household_emails(row.ward).include?(email)
     row.update!(facts: row.facts.merge("email" => email), token_digest: nil, token_expires_at: nil)
@@ -121,6 +124,7 @@ class Intake::Enrollment
   def confirm_guardian(row, guardian, linked_by: nil)
     ward = row.ward
     raise Refused, "This link is for a guardian, not for #{ward&.first_name}." if guardian.nil? || ward.nil? || guardian == ward
+    raise Refused, "This registration no longer links guardians." unless registration.guardian_relationship_type
 
     Person.transaction do
       link_guardian(guardian: guardian, ward: ward, created_by: linked_by)

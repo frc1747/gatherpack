@@ -14,6 +14,7 @@ class Intake::PlacementTest < ActiveSupport::TestCase
   test "approval adds the also-add teams, the badges and the pick, in the same step" do
     with_intake do
       @application.intake_pick_team = @class_2031
+      @application.intake_approver = @leader.user
       @application.approve!
     end
 
@@ -25,7 +26,7 @@ class Intake::PlacementTest < ActiveSupport::TestCase
 
   test "placement is idempotent" do
     Membership.create!(person: @applicant, team: @everyone)
-    placement = Intake::Placement.new(application: @application)
+    placement = Intake::Placement.new(application: @application, approver: @leader.user)
 
     first = placement.apply!
     second = placement.apply!
@@ -35,6 +36,13 @@ class Intake::PlacementTest < ActiveSupport::TestCase
     assert_equal({ teams: [], badges: [], guardian_teams: [] }, second)
     assert_equal 1, @applicant.memberships.where(team: @everyone).count
     assert_equal 1, @applicant.badge_assignments.where(badge: @joined_badge).count
+  end
+
+  test "without an approver, placement gives no badges" do
+    Intake::Placement.new(application: @application).apply!
+
+    assert_includes @applicant.teams, @everyone
+    assert_empty @applicant.badges
   end
 
   test "a pick outside the pick-one list is ignored" do
@@ -69,7 +77,7 @@ class Intake::PlacementTest < ActiveSupport::TestCase
   end
 
   test "the preview names what approval would add" do
-    preview = Intake::Placement.new(application: @application).preview
+    preview = Intake::Placement.new(application: @application, approver: @leader.user).preview
 
     assert_equal [ "Everyone" ], preview[:teams]
     assert_equal [ "Joined Online" ], preview[:badges]
