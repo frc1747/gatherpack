@@ -1,0 +1,31 @@
+<%# One row of the attendance rules table. The month pickers only fill in the dates; they aren't posted. %>
+<% starts = Checklists::RelativeDate.from_config(rule["starts"]) %>
+<% mode = starts.nil? ? "" : (starts.relative? ? "within" : "date") %>
+<tr>
+  <td><%= text_field_tag "#{prefix}[name]", rule["name"], id: nil, autocomplete: "off", class: "form-control form-control-sm", placeholder: "e.g. Fall", "aria-label": "Rule name", style: "min-width: 8em" %></td>
+  <td>
+    <%= select_tag "#{prefix}[starts][mode]", options_for_select([ [ "The item's start", "" ], [ "On or after", "date" ], [ "Within the last", "within" ] ], mode),
+      id: nil, class: "form-select form-select-sm", "aria-label": "Rule starts", data: { field: "starts-mode", action: "attendance-rules#showStart" } %>
+    <%= date_field_tag "#{prefix}[starts][date]", starts&.date, id: nil, autocomplete: "off", class: "form-control form-control-sm mt-1 #{"d-none" unless mode == "date"}", "aria-label": "Rule starts on", data: { field: "starts-date", start: "date" } %>
+    <div class="d-flex gap-1 mt-1 <%= "d-none" unless mode == "within" %>" data-start="within">
+      <%= number_field_tag "#{prefix}[starts][amount]", starts&.amount, min: 1, id: nil, autocomplete: "off", class: "form-control form-control-sm", style: "width: 5em", "aria-label": "How many" %>
+      <%= select_tag "#{prefix}[starts][unit]", options_for_select(Checklists::RelativeDate::UNITS.map { |unit| [ unit, unit ] }, starts&.unit), id: nil, class: "form-select form-select-sm", "aria-label": "Days or months" %>
+    </div>
+    <div class="d-flex gap-1 mt-1 align-items-center small text-nowrap">
+      Every
+      <%= content_tag :select, options_for_select(months, 5), class: "form-select form-select-sm", style: "width: 5.5em", "aria-label": "First month", data: { month: "from" } %>
+      to
+      <%= content_tag :select, options_for_select(months, 8), class: "form-select form-select-sm", style: "width: 5.5em", "aria-label": "Last month", data: { month: "to" } %>
+      <button type="button" class="btn btn-sm btn-link p-0" data-action="attendance-rules#fill">Fill in</button>
+    </div>
+  </td>
+  <td><%= date_field_tag "#{prefix}[ends_on]", rule["ends_on"], id: nil, autocomplete: "off", class: "form-control form-control-sm", "aria-label": "Rule ends on", data: { field: "ends-on" } %></td>
+  <td><%= number_field_tag "#{prefix}[share]", rule["share"], min: 0, max: 100, step: 1, id: nil, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em", "aria-label": "Share of meeting hours" %></td>
+  <td>
+    <%= hidden_field_tag "#{prefix}[weekly]", "0", id: nil %>
+    <%= check_box_tag "#{prefix}[weekly]", "1", rule["weekly"] == true, id: nil, class: "form-check-input", "aria-label": "Every week passes on its own" %>
+  </td>
+  <td><%= text_field_tag "#{prefix}[with]", rule["with"], id: nil, autocomplete: "off", list: "attendance-rule-names", class: "form-control form-control-sm", placeholder: "Judged on its own", "aria-label": "Counted together with", style: "min-width: 9em" %></td>
+  <td><%= number_field_tag "#{prefix}[judge_after]", rule["judge_after"].to_i.positive? ? rule["judge_after"] : nil, min: 0, id: nil, autocomplete: "off", class: "form-control form-control-sm", style: "width: 5em", placeholder: "0", "aria-label": "Judge after this many meetings" %></td>
+  <td><button type="button" class="btn btn-sm btn-link text-danger p-0" data-action="attendance-rules#remove">Remove</button></td>
+</tr>

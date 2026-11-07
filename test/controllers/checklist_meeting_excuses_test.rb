@@ -15,7 +15,7 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
     @missed = meeting("Build night", "2026-10-07")
     TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
       start_time: @attended.start_time, end_time: @attended.end_time)
-    @item = add_item(@checklist, :attendance, "Attendance", { rule_1_name: "Fall", rule_1_share: "60" })
+    @item = add_item(@checklist, :attendance, "Attendance", { rules: [ { name: "Fall", share: "60" } ] })
     @badge_item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
   end
 
@@ -41,9 +41,9 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
   end
 
   test "a manager excuses one meeting, which leaves the person's hours" do
-    give_badge(:member, @safety)
     with_feature do
       travel_to Time.zone.parse("2026-10-10 12:00") do
+        give_badge(:member, @safety)
         sign_in person(:club_manager).user
         post checklist_checklist_excuses_path(@checklist),
           params: { checklist_excuse: { item_id: @item.id, person_id: person(:member).id, event_id: @missed.id, reason: "Ill" } }
@@ -91,19 +91,28 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
           end_time: Date.new(2027, 6, 30), permission: :added_by_admin)
         get new_checklist_checklist_item_path(@checklist, kind: "attendance")
         assert_response :success
-        assert_match "Rule 1: share of meeting hours (%)", response.body
-        assert_match "Season", response.body
-        assert_no_match "Other Org season", response.body, "only the checklist's periods are offered"
-        assert_match "Rule 4: counted together with", response.body
+        assert_select "#attendance-rules tbody tr", 1, "one blank row to start"
+        assert_select "template[data-attendance-rules-target=template]"
+        assert_match "Judged on its own", response.body
+        assert_select "#attendance_period_ids option", text: /Season/
+        assert_select "#attendance_period_ids option", text: /Other Org season/, count: 0
 
         post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "attendance", label: "Meetings",
-          config: { rule_1_name: "Summer", rule_1_starts_on: "2026-09-01", rule_1_ends_on: "2026-10-31", rule_1_share: "10",
-            rule_1_with: "Late", rule_2_name: "Late", rule_2_starts_on: "2026-11-01", rule_2_share: "20", rule_2_weekly: "0",
-            rule_2_judge_after: "2", extra_hours_count: "1", leeway_minutes: "2" } } }
+          config: { extra_hours_count: "1", leeway_minutes: "2", period_ids: [ "", @period.id ], rules: {
+            "0" => { name: "Summer", starts: { mode: "date", date: "2026-09-01" }, ends_on: "2026-10-31", share: "10", with: "Late", weekly: "0" },
+            "1" => { name: "Late", starts: { mode: "within", amount: "2", unit: "months" }, ends_on: "", share: "20", weekly: "0", judge_after: "2" },
+            "1700000000000" => { name: "", starts: { mode: "" }, ends_on: "", share: "", weekly: "0", judge_after: "" } } } } }
         item = @checklist.checklist_items.find_by!(label: "Meetings")
-        assert_equal({ "rule_1_name" => "Summer", "rule_1_starts_on" => "2026-09-01", "rule_1_ends_on" => "2026-10-31", "rule_1_share" => 10,
-          "rule_1_with" => "Late", "rule_2_name" => "Late", "rule_2_starts_on" => "2026-11-01", "rule_2_share" => 20, "rule_2_weekly" => false,
-          "rule_2_judge_after" => 2, "extra_hours_count" => true, "leeway_minutes" => 2 }, item.config)
+        assert_equal({ "extra_hours_count" => true, "leeway_minutes" => 2, "period_ids" => [ @period.id ], "rules" => [
+          { "name" => "Summer", "starts" => { "mode" => "date", "date" => "2026-09-01" }, "ends_on" => "2026-10-31", "share" => 10,
+            "weekly" => false, "with" => "Late", "judge_after" => 0 },
+          { "name" => "Late", "starts" => { "mode" => "within", "amount" => 2, "unit" => "months" }, "ends_on" => nil, "share" => 20,
+            "weekly" => false, "with" => nil, "judge_after" => 2 }
+        ] }, item.config)
+
+        get edit_checklist_checklist_item_path(@checklist, item)
+        assert_select "#attendance-rules tbody tr", 3, "the two rules and a blank row"
+        assert_select "#attendance-rules input[value=Summer]"
 
         refresh(@checklist)
         get checklist_path(@checklist)

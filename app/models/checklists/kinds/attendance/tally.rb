@@ -88,7 +88,7 @@ module Checklists
             pool = rule_for(events.first.start_time).pool
             intervals = Tally.merge(events.map { |event| [ event.start_time, event.end_time ] })
             needed = events.group_by { |event| rule_for(event.start_time) }.sum do |rule, rule_events|
-              Tally.duration(Tally.merge(rule_events.map { |event| [ event.start_time, event.end_time ] })) * rule.share / 100.0
+              Tally.duration(Tally.merge(rule_events.map { |event| [ event.start_time, event.end_time ] })) * rule.share.to_i / 100.0
             end
             Group.new(key: [ pool_key, week ], label: week ? "#{pool.label}, week of #{week.strftime("%b %-d")}" : pool.label,
               intervals: intervals, held: Tally.duration(intervals), needed: needed, pool: pool,

@@ -11,30 +11,24 @@ module Checklists
     # punched outside meetings makes up missed time in the same group, never
     # above 100%.
     #
-    # Rules are rows in the config (rule_1_name, rule_1_starts_on, ...), so
-    # the item form, preview and copy work on them like any other setting.
-    # A rule is a share of meeting hours over dates, optionally for every
-    # week on its own, judged alone or counted together with other rules (a
-    # pool), and judged only once enough meetings are held. Each meeting's
-    # hours count toward a pool's minimum at its own rule's share. Nothing is
-    # built in: no months, shares or pools.
+    # Config: "rules" (rows from the item form's rules table,
+    # checklist_items/_attendance_rules), "period_ids", and the settings
+    # extra_hours_count and leeway_minutes. A rule is a share of meeting
+    # hours over dates (its start a date or "within the last N", its end a
+    # date; blank ends are the item's), optionally for every week on its
+    # own, judged alone or counted together with other rules (a pool), and
+    # judged only once enough meetings are held. Each meeting's hours count
+    # toward a pool's minimum at its own rule's share. Nothing is built in:
+    # no months, shares or pools.
     #
     # A manager can excuse a person from one meeting (a ChecklistExcuse with
     # an event): it leaves their required and credited hours.
     class Attendance < ItemKind
-      RULES = 4
-      PERIODS = 3
-      PERIOD_KEYS = (1..PERIODS).map { |number| "period_#{number}_id" }.freeze
-      RULE_FIELDS = %w[name starts_on ends_on share weekly with judge_after].freeze
+      RULE_FIELDS = %w[name starts ends_on share weekly with judge_after].freeze
 
-      # The checklist whose item form is being drawn, so the period lists
-      # offer only its periods (set by ChecklistAttendanceForm).
-      class Form < ActiveSupport::CurrentAttributes
-        attribute :checklist
-      end
-
-      # A rule row from the config, with the pool it's judged in.
-      Rule = Struct.new(:name, :starts_on, :ends_on, :share, :weekly, :with, :judge_after, :pool, keyword_init: true) do
+      # A rule row from the config, its start resolved against the as-of
+      # moment, with the pool it's judged in.
+      Rule = Struct.new(:index, :name, :starts, :starts_on, :ends_on, :share, :weekly, :with, :judge_after, :pool, keyword_init: true) do
         def cover?(date, window)
           from = starts_on || window.starts_on
           to = ends_on || window.ends_on
@@ -55,22 +49,32 @@ module Checklists
         def uses_dates? = true
 
         def settings
-          periods = (Form.checklist ? team_periods(Form.checklist) : TimeClockPeriod.all).order(start_time: :desc).pluck(:name, :id)
-          period_settings = (1..PERIODS).map do |number|
-            ItemKind::Setting.new(key: :"period_#{number}_id", type: :choice, options: [ [ number == 1 ? "Any period" : "", "" ] ] + periods,
-              label: number == 1 ? "Time clock period" : "Or period",
-              hint: (number == 1 ? "Any period: every period of this checklist's teams overlapping the item's dates. Pick more to count any of them" : nil))
-          end
-          period_settings + [
+          [
             ItemKind::Setting.new(key: :extra_hours_count, type: :boolean,
               label: "Time outside meetings makes up missed meeting time",
               hint: "Within the same rule, or the same week for weekly rules. Never above 100%"),
             ItemKind::Setting.new(key: :leeway_minutes, type: :number, label: "Leeway (minutes)",
               hint: "Someone this close to a minimum passes. Blank: 1")
-          ] + (1..RULES).flat_map { |number| rule_settings(number) }
+          ]
         end
 
-        def references = PERIOD_KEYS.index_with { "TimeClockPeriod" }
+        def form_partial = "checklist_items/attendance_rules"
+
+        def form_params
+          [ { period_ids: [] }, { rules: [ :name, :ends_on, :share, :weekly, :with, :judge_after, { starts: %i[mode date amount unit] } ] } ]
+        end
+
+        # Rows that are wholly blank are dropped. A share that isn't a whole
+        # number is kept as typed, so validate can say so instead of
+        # rounding it quietly.
+        def normalize_form(params)
+          rows = params["rules"]
+          rows = rows.sort_by { |key, _| key.to_s.to_i }.map(&:last) if rows.is_a?(Hash)
+          rules = Array(rows).map { |row| cast_rule(row.to_h.stringify_keys) }.select { |rule| rule_filled?(rule) }
+          { "period_ids" => Array(params["period_ids"]).compact_blank.uniq, "rules" => rules }
+        end
+
+        def references = { "period_ids" => "TimeClockPeriod" }
 
         def invalidations
           [
@@ -91,31 +95,14 @@ module Checklists
           ]
         end
 
-        # Shares are whole percents. A share that isn't one is kept as typed,
-        # so validate can say so instead of rounding it quietly.
-        def normalize_config(params)
-          config = super
-          raw = params.to_h.stringify_keys
-          (1..RULES).each do |number|
-            key = "rule_#{number}_share"
-            value = raw[key].to_s.strip
-            config[key] = value if value.present? && !value.match?(/\A\d+\z/)
-          end
-          config
-        end
-
-        # The item's rule rows, in order, each with its pool. A row with
-        # nothing filled in is an empty slot; share is nil when it's blank
-        # or not a whole number.
-        def rules(item)
-          config = item.config || {}
-          rules = (1..RULES).filter_map do |number|
-            values = rule_values(config, number)
-            next unless rule_filled?(values)
-
-            Rule.new(name: values["name"].presence || "Rule #{number}", starts_on: parse_date(values["starts_on"]),
-              ends_on: parse_date(values["ends_on"]), share: whole_number(values["share"]), weekly: values["weekly"] == true,
-              with: values["with"].to_s.strip.presence, judge_after: values["judge_after"].to_i)
+        # The item's rules, in order, each with its pool; a relative start
+        # resolves against as_of. share is nil when it isn't a whole number.
+        def rules(item, as_of: Time.current)
+          rules = Array((item.config || {})["rules"]).each_with_index.map do |row, index|
+            starts = RelativeDate.from_config(row["starts"])
+            Rule.new(index: index, name: row["name"].presence || "Rule #{index + 1}", starts: starts, starts_on: starts&.resolve(as_of),
+              ends_on: parse_date(row["ends_on"]), share: whole_number(row["share"]), weekly: row["weekly"] == true,
+              with: row["with"].to_s.strip.presence, judge_after: row["judge_after"].to_i)
           end
           assign_pools(rules)
           rules
@@ -127,19 +114,17 @@ module Checklists
 
           names = rules.map(&:name)
           names.tally.each { |name, count| item.errors.add(:base, "Two rules are named #{name}") if count > 1 }
-          (1..RULES).each do |number|
-            values = rule_values(item.config, number)
-            next unless rule_filled?(values)
-
-            label = values["name"].presence || "Rule #{number}"
-            if values["share"].blank?
-              item.errors.add(:base, "#{label} needs a share of meeting hours")
-            elsif whole_number(values["share"]).nil?
-              item.errors.add(:base, "#{label}: the share must be a whole percent")
-            end
-          end
+          rows = Array(item.config["rules"])
           rules.each do |rule|
-            item.errors.add(:base, "#{rule.name}: the share must be from 0 to 100%") if rule.share && !(0..100).cover?(rule.share)
+            share = rows[rule.index]["share"]
+            if share.blank?
+              item.errors.add(:base, "#{rule.name} needs a share of meeting hours")
+            elsif rule.share.nil?
+              item.errors.add(:base, "#{rule.name}: the share must be a whole percent")
+            elsif !(0..100).cover?(rule.share)
+              item.errors.add(:base, "#{rule.name}: the share must be from 0 to 100%")
+            end
+            item.errors.add(:base, "#{rule.name} has an end date that isn't a date") if rows[rule.index]["ends_on"].present? && rule.ends_on.nil?
             item.errors.add(:base, "#{rule.name} ends before it starts") if rule.starts_on && rule.ends_on && rule.ends_on < rule.starts_on
             item.errors.add(:base, "#{rule.name} is counted together with #{rule.with}, but no other rule has that name") if rule.with && (rule.with == rule.name || names.exclude?(rule.with))
           end
@@ -161,11 +146,14 @@ module Checklists
         end
 
         # A meeting ending changes the answer with no data change; the next
-        # one's end (just after, so it counts as held).
+        # one's end (just after, so it counts as held). A rule starting
+        # "within the last N" moves at midnight.
         def next_change_at(item, context)
           window = context.window_for(item)
           ends = meetings_scope(item, window, upcoming: true).where("events.end_time >= ?", context.as_of).minimum(:end_time)
-          ends && ends + 1.second
+          times = [ ends && ends + 1.second ]
+          times += rules(item, as_of: context.as_of).map { |rule| rule.starts&.next_change_at(context.as_of) }
+          times.compact.min
         end
 
         def describe(item)
@@ -176,7 +164,7 @@ module Checklists
         end
 
         def period_ids(item)
-          PERIOD_KEYS.filter_map { |key| item.config[key].presence }.uniq
+          Array(item.config["period_ids"]).compact_blank.uniq
         end
 
         # Periods of the checklist's team and the teams below it, and
@@ -210,13 +198,30 @@ module Checklists
 
         private
 
-        def rule_values(config, number)
-          RULE_FIELDS.to_h { |field| [ field, config["rule_#{number}_#{field}"] ] }
+        def cast_rule(row)
+          share = row["share"].to_s.strip
+          {
+            "name" => row["name"].to_s.strip.presence,
+            "starts" => row["starts"].respond_to?(:to_h) ? RelativeDate.cast(row["starts"]) : nil,
+            "ends_on" => cast_date(row["ends_on"]),
+            "share" => share.match?(/\A\d+\z/) ? share.to_i : share.presence,
+            "weekly" => ActiveModel::Type::Boolean.new.cast(row["weekly"]) || false,
+            "with" => row["with"].to_s.strip.presence,
+            "judge_after" => row["judge_after"].to_i
+          }
         end
 
-        def rule_filled?(values)
-          %w[name starts_on ends_on share with].any? { |field| values[field].present? } ||
-            values["weekly"] == true || values["judge_after"].to_i.positive?
+        def cast_date(value)
+          value = value.to_s.strip
+          return if value.blank?
+
+          Date.parse(value).iso8601
+        rescue Date::Error
+          value
+        end
+
+        def rule_filled?(rule)
+          %w[name starts ends_on share with].any? { |field| rule[field].present? } || rule["weekly"] || rule["judge_after"].positive?
         end
 
         def whole_number(value)
@@ -231,22 +236,6 @@ module Checklists
 
           outside = TimeClockPeriod.where(id: ids).where.not(id: team_periods(item.checklist).select(:id))
           item.errors.add(:base, "Pick time clock periods of this checklist's team or the teams below it") if outside.exists?
-        end
-
-        def rule_settings(number)
-          prefix = "rule_#{number}"
-          [
-            ItemKind::Setting.new(key: :"#{prefix}_name", type: :text, label: "Rule #{number}: name",
-              hint: number == 1 ? "e.g. \"Fall\". Leave a rule's name and share blank to skip it" : nil),
-            ItemKind::Setting.new(key: :"#{prefix}_starts_on", type: :date, label: "Rule #{number}: from", hint: "Blank: the item's start"),
-            ItemKind::Setting.new(key: :"#{prefix}_ends_on", type: :date, label: "Rule #{number}: until", hint: "Blank: the item's end"),
-            ItemKind::Setting.new(key: :"#{prefix}_share", type: :number, label: "Rule #{number}: share of meeting hours (%)", hint: "A whole percent"),
-            ItemKind::Setting.new(key: :"#{prefix}_weekly", type: :boolean, label: "Rule #{number}: every week passes on its own"),
-            ItemKind::Setting.new(key: :"#{prefix}_with", type: :text, label: "Rule #{number}: counted together with",
-              hint: "Another rule's name, to judge their meetings as one. Blank: judged on its own"),
-            ItemKind::Setting.new(key: :"#{prefix}_judge_after", type: :number, label: "Rule #{number}: judge after this many meetings",
-              hint: "Until then it shows as Almost. Blank or 0: from the first meeting")
-          ]
         end
 
         # Rules linked by "counted together with", in either direction and
@@ -273,8 +262,9 @@ module Checklists
         end
 
         def rule_sentence(rule)
-          share = "#{rule.share.to_s.sub(/\.0\z/, "")}% of meeting hours"
+          share = "#{rule.share}% of meeting hours"
           share += " each week" if rule.weekly
+          share += " #{rule.starts.describe}" if rule.starts&.relative?
           others = rule.pool.rules.map(&:name) - [ rule.name ]
           others.any? ? "#{share} in #{rule.name}, counted together with #{others.to_sentence}" : "#{share} in #{rule.name}, judged on its own"
         end
@@ -287,7 +277,7 @@ module Checklists
       end
 
       def evaluate(person_ids)
-        rules = self.class.rules(item)
+        rules = self.class.rules(item, as_of: context.as_of)
         meetings = self.meetings
         excused = excused_meeting_ids(person_ids)
         punches = punches_by_person(person_ids)

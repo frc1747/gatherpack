@@ -59,7 +59,7 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       assert_equal "✗ Summer and Fall: 2 h of 30 h (needs 4 h)", kid.detail
     end
 
-    item.update!(config: item.config.merge("rule_1_with" => nil))
+    change_rule(item, 0, "with" => nil)
     travel_to Time.zone.parse("2027-01-02 12:00") do
       alone = evaluate(@checklist, :member, item)
       assert_equal "not_met", alone.status, "judged on its own, summer fails"
@@ -228,7 +228,7 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       assert_equal "not_met", evaluate(@checklist, :member, item).status
     end
 
-    item.update!(config: item.config.merge("rule_1_judge_after" => 0))
+    change_rule(item, 0, "judge_after" => 0)
     travel_to Time.zone.parse("2026-10-05 21:00") do
       assert_equal "met", evaluate(@checklist, :member, item).status, "default 0 judges from the first meeting"
     end
@@ -300,41 +300,77 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
 
   test "the rules are checked when saved" do
     item = @checklist.checklist_items.new(kind: "attendance", label: "Attendance")
-    item.config_params = {}
-    assert_not item.valid?
+    check = lambda do |*rules|
+      item.config_params = { rules: rules.each_with_index.to_h { |rule, index| [ index.to_s, rule ] } }
+      item.valid?
+    end
+
+    assert_not check.call
     assert_includes item.errors[:base], "Add at least one rule with a share of meeting hours"
 
-    item.config_params = { rule_1_name: "Summer", rule_1_share: "10", rule_1_with: "Autumn" }
-    assert_not item.valid?
+    assert_not check.call({ name: "Summer", share: "10", with: "Autumn" })
     assert_includes item.errors[:base].join, "no other rule has that name"
 
-    item.config_params = { rule_1_name: "Summer", rule_1_share: "10", rule_1_with: "Fall", rule_2_name: "Fall", rule_2_share: "20", rule_2_weekly: "1" }
-    assert_not item.valid?
+    assert_not check.call({ name: "Summer", share: "10", with: "Fall" }, { name: "Fall", share: "20", weekly: "1" })
     assert_includes item.errors[:base], "Rules counted together must all be weekly, or none of them"
 
-    item.config_params = { rule_1_name: "Summer", rule_1_share: "110" }
-    assert_not item.valid?
+    assert_not check.call({ name: "Summer", share: "110" })
 
-    item.config_params = { rule_1_name: "Fall" }
-    assert_not item.valid?, "a named rule with no share would pass everyone"
+    assert_not check.call({ name: "Fall" }), "a named rule with no share would pass everyone"
     assert_includes item.errors[:base], "Fall needs a share of meeting hours"
 
-    item.config_params = { rule_1_starts_on: "2026-09-01" }
-    assert_not item.valid?
+    assert_not check.call({ starts: { mode: "date", date: "2026-09-01" } })
     assert_includes item.errors[:base], "Rule 1 needs a share of meeting hours"
 
-    item.config_params = { rule_1_name: "Fall", rule_1_share: "12.5" }
-    assert_not item.valid?
+    assert_not check.call({ name: "Fall", share: "12.5" })
     assert_includes item.errors[:base], "Fall: the share must be a whole percent"
-    assert_equal "12.5", item.config["rule_1_share"], "kept as typed, not rounded"
+    assert_equal "12.5", item.config["rules"].first["share"], "kept as typed, not rounded"
 
-    item.config_params = { rule_1_name: "Fall", rule_1_share: "40", rule_1_weekly: "1" }
-    assert item.valid?
+    assert_not check.call({ name: "Fall", share: "40", starts: { mode: "date", date: "2026-10-01" }, ends_on: "2026-09-30" })
+    assert_includes item.errors[:base], "Fall ends before it starts"
+
+    assert check.call({ name: "Fall", share: "40", weekly: "1" }, { name: "", share: "", weekly: "0", judge_after: "" })
+    assert_equal 1, item.config["rules"].size, "a blank row is dropped"
     assert_equal "At least 40% of meeting hours each week in Fall, judged on its own", item.describe
 
-    item.config_params = { rule_1_name: "Summer", rule_1_share: "10", rule_1_with: "Fall", rule_2_name: "Fall", rule_2_share: "20" }
-    assert item.valid?, item.errors.full_messages.to_sentence
+    assert check.call({ name: "Summer", share: "10", with: "Fall" }, { name: "Fall", share: "20" }), item.errors.full_messages.to_sentence
     assert_equal "At least 10% of meeting hours in Summer, counted together with Fall; 20% of meeting hours in Fall, counted together with Summer", item.describe
+
+    assert check.call({ name: "Recent", share: "30", starts: { mode: "within", amount: "3", unit: "months" } })
+    assert_equal "At least 30% of meeting hours within the last 3 months in Recent, judged on its own", item.describe
+  end
+
+  test "any number of rules" do
+    rules = (1..6).map { |number| { name: "Block #{number}", starts_on: "2026-#{format("%02d", number + 4)}-01", ends_on: Date.new(2026, number + 4, 1).end_of_month.iso8601, share: "50" } }
+    item = attendance(rules)
+    (5..10).each { |month| meeting("2026-#{format("%02d", month)}-10") }
+    [ 5, 6, 7, 8, 9 ].each { |month| punch(:member, "2026-#{format("%02d", month)}-10", "18:00", "20:00") }
+
+    travel_to Time.zone.parse("2026-11-01 12:00") do
+      result = evaluate(@checklist, :member, item)
+      assert_equal 6, Checklists::Kinds::Attendance.rules(item).size
+      assert_equal "not_met", result.status
+      assert_equal 5, result.detail.scan("✓").size
+      assert_includes result.detail, "✗ Block 6: 0% of 2 h (needs 50%)"
+    end
+  end
+
+  test "a rule can start within the last N months, moving with the as-of date" do
+    (1..4).each { |month| meeting("2026-#{format("%02d", month + 8)}-10") }
+    punch(:member, "2026-11-10", "18:00", "20:00")
+    punch(:member, "2026-12-10", "18:00", "20:00")
+    item = attendance([ { name: "Recent", share: "100", starts: { mode: "within", amount: "2", unit: "months" } } ])
+
+    travel_to Time.zone.parse("2026-12-20 12:00") do
+      result = evaluate(@checklist, :member, item)
+      assert_equal "met", result.status, "only Nov and Dec are judged"
+      assert_equal "✓ Recent: 100% of 4 h (needs 100%)", result.detail
+      context = Checklists::Context.new(@checklist.reload)
+      assert_equal Time.zone.parse("2026-12-21 00:00"), Checklists::Kinds::Attendance.next_change_at(item, context), "it moves at midnight"
+    end
+    travel_to Time.zone.parse("2026-11-20 12:00") do
+      assert_equal "not_met", evaluate(@checklist, :member, item).status, "as of Nov 20 it covers Sep 20 on: the October meeting was missed"
+    end
   end
 
   test "named periods narrow the meetings to any of them, and a deleted one is a problem" do
@@ -345,19 +381,19 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       Event.create!(name: "Elsewhere", event_type: event_types(:one), team: @club, time_clock_period: period,
         start_time: Time.zone.parse("#{day} 18:00"), end_time: Time.zone.parse("#{day} 20:00"))
     end
-    item = attendance([ { name: "Fall", share: "50" } ], period_1_id: @period.id)
+    item = attendance([ { name: "Fall", share: "50" } ], period_ids: [ @period.id ])
 
     travel_to Time.zone.parse("2026-10-10 12:00") do
       assert_equal 1, evaluate(@checklist, :member, item).measures["held"]
-      item.update!(config: item.config.merge("period_2_id" => third.id))
+      item.update!(config: item.config.merge("period_ids" => [ @period.id, third.id ]))
       assert_equal 2, evaluate(@checklist, :member, item).measures["held"], "any of the named periods"
-      item.update!(config: item.config.merge("period_1_id" => nil, "period_2_id" => nil))
+      item.update!(config: item.config.merge("period_ids" => []))
       assert_equal 3, evaluate(@checklist, :member, item).measures["held"], "every overlapping period of the checklist's teams by default"
     end
 
-    item.update!(config: item.config.merge("period_3_id" => @period.id))
-    assert_not @period.destroy, "the item protects the period"
-    item.update_columns(config: item.config.merge("period_3_id" => SecureRandom.uuid))
+    item.update!(config: item.config.merge("period_ids" => [ other.id, @period.id ]))
+    with_feature { assert_not @period.destroy, "the item protects the period" }
+    item.update_columns(config: item.config.merge("period_ids" => [ @period.id, SecureRandom.uuid ]))
     assert_includes @checklist.reload.problems.join, "was deleted"
   end
 
@@ -376,16 +412,13 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       assert_equal "met", result.status
     end
 
-    item.config = item.config.merge("period_1_id" => outside.id)
+    item.config = item.config.merge("period_ids" => [ outside.id ])
     assert_not item.valid?
     assert_includes item.errors[:base], "Pick time clock periods of this checklist's team or the teams below it"
 
-    Checklists::Kinds::Attendance::Form.checklist = @checklist
-    options = Checklists::Kinds::Attendance.settings.find { |setting| setting.key == :period_1_id }.options.map(&:last)
-    assert_includes options, @period.id
-    assert_not_includes options, outside.id
-  ensure
-    Checklists::Kinds::Attendance::Form.reset
+    offered = Checklists::Kinds::Attendance.team_periods(@checklist).ids
+    assert_includes offered, @period.id
+    assert_not_includes offered, outside.id
   end
 
   test "only punches on the meetings' periods count" do
@@ -455,12 +488,22 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     end
   end
 
-  test "copying shifts the rules' dates" do
-    attendance([ { name: "Summer", starts_on: "2026-05-01", ends_on: "2026-08-31", share: "10" } ])
+  test "copying shifts the rules' fixed dates and keeps relative ones" do
+    attendance([ { name: "Summer", starts_on: "2026-05-01", ends_on: "2026-08-31", share: "10" },
+      { name: "Recent", share: "20", starts: { mode: "within", amount: "2", unit: "months" } } ])
 
-    changes = Checklists::Copier.new(@checklist.reload).date_changes.map { |change| [ change.label, change.proposed ] }
-    assert_includes changes, [ "Attendance: rule 1 starts on", Date.new(2027, 5, 1) ]
-    assert_includes changes, [ "Attendance: rule 1 ends on", Date.new(2027, 8, 31) ]
+    copier = Checklists::Copier.new(@checklist.reload)
+    changes = copier.date_changes.map { |change| [ change.label, change.proposed ] }
+    assert_includes changes, [ "Attendance: Summer from", Date.new(2027, 5, 1) ]
+    assert_includes changes, [ "Attendance: Summer until", Date.new(2027, 8, 31) ]
+    assert_not changes.any? { |label, _| label.include?("Recent") }, "a relative start isn't a date to shift"
+
+    key = copier.date_changes.find { |change| change.label == "Attendance: Summer until" }.key
+    copy = copier.call(title: "Next year", by: person(:admin), dates: { key => "2027-09-15" })
+    rules = copy.checklist_items.find_by!(kind: "attendance").config["rules"]
+    assert_equal({ "mode" => "date", "date" => "2027-05-01" }, rules[0]["starts"])
+    assert_equal "2027-09-15", rules[0]["ends_on"], "an edited proposal wins"
+    assert_equal({ "mode" => "within", "amount" => 2, "unit" => "months" }, rules[1]["starts"])
   end
 
   private
@@ -480,10 +523,21 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       start_time: event.start_time, end_time: event.end_time)
   end
 
+  # rules as the table posts them; starts_on is shorthand for an "on or
+  # after" start.
   def attendance(rules, label: "Attendance", **options)
-    config = options.transform_keys(&:to_s)
-    rules.each.with_index(1) { |rule, number| rule.each { |key, value| config["rule_#{number}_#{key}"] = value } }
-    add_item(@checklist, :attendance, label, config)
+    rows = rules.map do |rule|
+      rule = rule.dup
+      starts_on = rule.delete(:starts_on)
+      starts_on ? rule.merge(starts: { mode: "date", date: starts_on }) : rule
+    end
+    add_item(@checklist, :attendance, label, options.merge(rules: rows))
+  end
+
+  def change_rule(item, index, changes)
+    rules = item.config["rules"].deep_dup
+    rules[index] = rules[index].merge(changes)
+    item.update!(config: item.config.merge("rules" => rules))
   end
 
   # The eligibility Page's attendance (pages/eligibility-report.html.erb,
