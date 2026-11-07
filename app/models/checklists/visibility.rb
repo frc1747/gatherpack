@@ -129,15 +129,27 @@ module Checklists
     def grant_access(item)
       accesses = grants.filter_map do |grant|
         next grant.access.to_sym if item.nil?
-        next grant.access.to_sym if grant.item_ids.include?(item.id)
-        next grant.access.to_sym if item.parent_id && grant.item_ids.include?(item.parent_id)
+        next unless grant.item_ids.include?(item.id) || (item.parent_id && grant.item_ids.include?(item.parent_id))
+        next unless honours?(item, grant)
+
+        grant.access.to_sym
       end
       accesses.include?(:full) ? :full : accesses.first
     end
 
+    # Whether the item's kind lets the grant show it (ItemKind.honours_grant?),
+    # asked once per grant and item.
+    def honours?(item, grant)
+      kind = item.kind_class
+      return true if kind.nil?
+
+      @honoured ||= {}
+      @honoured.fetch([ grant.id, item.id ]) { @honoured[[ grant.id, item.id ]] = kind.honours_grant?(item, grant) }
+    end
+
     def grants
       @grants ||= begin
-        all = checklist.checklist_grants.to_a
+        all = checklist.checklist_grants.includes(:created_by).to_a
         if all.empty?
           []
         else

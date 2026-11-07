@@ -9,7 +9,8 @@ class ChecklistGrantsController < InternalController
     grant.created_by = current_user.person
     refused = grant.access.present? ? grant.refused_items(current_user.person) : []
     if refused.any?
-      return render(plain: "You can't grant access to #{refused.map(&:label).to_sentence}; ask someone who can.", status: :unprocessable_entity)
+      return redirect_to(checklist_path(@checklist, anchor: "setup"),
+        alert: "You can't grant access to #{refused.map(&:label).to_sentence}; ask someone who can.", status: :see_other)
     end
 
     if grant.save
