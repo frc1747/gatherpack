@@ -13,9 +13,9 @@ module Intake::MembershipApplicationExtension
     enum :source, { request: 0, link: 1, kiosk: 2 }, prefix: true
 
     # The approving manager's pick from the registration's pick-one list and
-    # their login (for which badges they may give), set before approve!, and
-    # what placement added, set by it.
-    attr_accessor :intake_pick_team, :intake_approver, :intake_placement
+    # their login (for which badges they may give), set before approve!.
+    # What placement added is stored with the decision (intake_placement).
+    attr_accessor :intake_pick_team, :intake_approver
 
     after_create_commit { Intake.fire("membership_applications - submitted", self) }
 
@@ -28,7 +28,10 @@ module Intake::MembershipApplicationExtension
       intake = registration && Intake.enabled?
       transaction do
         super
-        self.intake_placement = Intake::Placement.new(application: self, pick_team: intake_pick_team, approver: intake_approver).apply! if intake
+        if intake
+          added = Intake::Placement.new(application: self, pick_team: intake_pick_team, approver: intake_approver).apply!
+          update!(intake_placement: added.merge(approved_by_id: intake_approver&.person&.id, approved_at: Time.current))
+        end
       end
       Intake::Notices.approved(self) if intake
       Intake.fire("membership_applications - approved", self)
@@ -43,6 +46,17 @@ module Intake::MembershipApplicationExtension
       Intake.fire("membership_applications - denied", self)
       true
     end
+  end
+
+  # "Added to Everyone and Class of 2031; gave Joined Online", from what
+  # placement stored with the approval.
+  def intake_placement_summary
+    added = intake_placement || {}
+    parts = []
+    parts << "added to #{Array(added["teams"]).to_sentence}" if Array(added["teams"]).any?
+    parts << "gave #{Array(added["badges"]).to_sentence}" if Array(added["badges"]).any?
+    parts << "guardians added to #{Array(added["guardian_teams"]).to_sentence}" if Array(added["guardian_teams"]).any?
+    parts.join("; ").upcase_first.presence
   end
 
   def intake_placement_preview

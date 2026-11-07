@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -306,6 +306,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
     t.uuid "created_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "kiosk_field_ids", default: [], null: false, array: true
     t.index ["created_by_id"], name: "index_intake_registrations_on_created_by_id"
     t.index ["guardian_relationship_type_id"], name: "index_intake_registrations_on_guardian_relationship_type_id"
     t.index ["slug"], name: "index_intake_registrations_on_slug", unique: true
@@ -441,6 +442,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
     t.datetime "updated_at", null: false
     t.uuid "registration_id"
     t.integer "source", default: 0, null: false
+    t.jsonb "intake_placement"
     t.index ["person_id", "team_id"], name: "index_membership_applications_on_person_id_and_team_id_pending", unique: true, where: "(status = 0)"
     t.index ["person_id"], name: "index_membership_applications_on_person_id"
     t.index ["registration_id"], name: "index_membership_applications_on_registration_id"

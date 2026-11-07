@@ -64,6 +64,13 @@ module Intake
     needs_guardian?(birthday: person.birthday)
   end
 
+  # Whether a person is deciding about themselves or someone they have any
+  # relationship with (who may not approve, deny or decide for them).
+  def self.own_or_relatives?(decider, person)
+    return false if decider.nil? || person.nil?
+    decider == person || decider.relatives.exists?(person.id)
+  end
+
   # Runs the hooks registered for a named intake event, while the feature is on.
   def self.fire(event, model)
     return unless enabled?

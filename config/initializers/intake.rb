@@ -22,8 +22,10 @@ Rails.application.config.to_prepare do
     )
   )
 
-  Settings.register(:intake_kiosk_users_team, :string, "Registration Kiosk: Kiosk Accounts Team", "", "Intake",
-    "Name of the team whose members can open a registration kiosk (they must also manage the registration's team). Blank uses the time kiosk's team; if neither is set, any manager of the team can.")
+  # :intake_team renders as IntakeTeamInput (a team picker storing the id).
+  SimpleForm.wrapper_mappings = (SimpleForm.wrapper_mappings || {}).merge(intake_team: :vertical_select)
+  Settings.register(:intake_kiosk_users_team, :intake_team, "Registration Kiosk: Kiosk Accounts Team", "", "Intake",
+    "Members of this team can open a registration kiosk (they must also manage the registration's team). Blank uses the time kiosk's team; if neither is set, any manager of the team can.")
   Settings.register(:intake_domain_hints, :string, "Email Domain Hints", "gmail.com, yahoo.com, outlook.com, hotmail.com, icloud.com, aol.com", "Intake",
     "Comma-separated email domains. An address with a near miss of one gets a \"Did you mean\" hint.")
   Settings.register(:intake_entry_cap, :integer, "Unfinished Sign-ups per Registration", "500", "Intake",

@@ -49,12 +49,10 @@ class Intake::KioskController < ApplicationController
     return if current_user.admin
     person = current_user.person
     manages = person&.all_managed_teams&.exists?(id: @registration.team_id)
-    team_name = Settings[:intake_kiosk_users_team].to_s.strip.presence
-    kiosk_team = if team_name
-      Team.find_by(name: team_name) || :missing
-    elsif (time_kiosk_team = Settings[:time_kiosk_users_team].to_s.strip.presence)
-      Team.find_by(id: time_kiosk_team) || Team.find_by(name: time_kiosk_team) || :missing
-    end
+    # Both settings hold a team's id. One that names no team (deleted, or
+    # an old value) lets nobody but admins in.
+    team_id = Settings[:intake_kiosk_users_team].to_s.strip.presence || Settings[:time_kiosk_users_team].to_s.strip.presence
+    kiosk_team = team_id && (Team.find_by(id: team_id) || :missing)
     on_team = kiosk_team.nil? || (kiosk_team != :missing && person.teams.exists?(id: kiosk_team.id))
     return if manages && on_team
 

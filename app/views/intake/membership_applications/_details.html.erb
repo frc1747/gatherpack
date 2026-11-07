@@ -4,6 +4,7 @@
     application views; renders nothing for other applications. %>
 <% if Intake.enabled? && application.registration %>
   <% decides = policy(application).update? %>
+  <% own = Intake.own_or_relatives?(current_user.person, application.person) %>
   <div class="small mt-1" id="<%= dom_id(application, :intake) %>">
     <span class="text-muted"><%= intake_source_label(application) %>: <%= application.registration.title %></span>
     <% if decides %>
@@ -11,7 +12,12 @@
         <span class="badge text-bg-warning ms-1"><%= flag %></span>
       <% end %>
     <% end %>
-    <% if application.pending? && decides %>
+    <% if application.approved? && decides && (summary = application.intake_placement_summary) %>
+      <div>Approval <%= summary.downcase_first %>.</div>
+    <% end %>
+    <% if application.pending? && decides && own %>
+      <div class="text-muted">Someone else decides this one: it's yours or a relative's.</div>
+    <% elsif application.pending? && decides %>
       <% preview = application.intake_placement_preview %>
       <% if preview[:teams].any? || preview[:guardian_teams].any? %>
         <div>Will also join: <%= preview[:teams].to_sentence.presence || "nothing else" %><%= "; guardians join #{preview[:guardian_teams].to_sentence}" if preview[:guardian_teams].any? %></div>

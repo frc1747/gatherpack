@@ -20,7 +20,7 @@ class Intake::PlacementTest < ActiveSupport::TestCase
     assert @application.reload.approved?
     assert_equal [ @class_2031, @everyone, @juniors ].map(&:name).sort, @applicant.teams.pluck(:name).sort
     assert_includes @applicant.badges, @joined_badge
-    assert_equal [ "Everyone", "Class of 2031" ], @application.intake_placement[:teams]
+    assert_equal [ "Everyone", "Class of 2031" ], @application.reload.intake_placement["teams"]
   end
 
   test "placement is idempotent" do

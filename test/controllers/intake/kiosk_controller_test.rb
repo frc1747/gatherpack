@@ -30,7 +30,7 @@ class Intake::KioskControllerTest < ActionDispatch::IntegrationTest
   test "someone who doesn't manage the registration's team can't open the kiosk" do
     member = create_intake_person("Pat", "Member", team: @kiosk_accounts)
     sign_in member.user
-    with_intake(intake_kiosk_users_team: "Kiosk Accounts") { get intake_kiosk_path(@registration.slug) }
+    with_intake(intake_kiosk_users_team: @kiosk_accounts.id) { get intake_kiosk_path(@registration.slug) }
 
     assert_redirected_to root_path
     assert_equal "The registration kiosk is for kiosk accounts only.", flash[:alert]
@@ -45,24 +45,24 @@ class Intake::KioskControllerTest < ActionDispatch::IntegrationTest
 
   test "a manager off the kiosk accounts team can't open it when one is set" do
     sign_in @leader.user
-    with_intake(intake_kiosk_users_team: "Kiosk Accounts") { get intake_kiosk_path(@registration.slug) }
+    with_intake(intake_kiosk_users_team: @kiosk_accounts.id) { get intake_kiosk_path(@registration.slug) }
 
     assert_redirected_to root_path
   end
 
   test "a kiosk team that doesn't exist lets nobody but admins in" do
     sign_in @device.user
-    with_intake(intake_kiosk_users_team: "No Such Team") { get intake_kiosk_path(@registration.slug) }
+    with_intake(intake_kiosk_users_team: "Kiosk Accounts") { get intake_kiosk_path(@registration.slug) }
     assert_redirected_to root_path
 
     sign_in @admin.user
-    with_intake(intake_kiosk_users_team: "No Such Team") { get intake_kiosk_path(@registration.slug) }
+    with_intake(intake_kiosk_users_team: "Kiosk Accounts") { get intake_kiosk_path(@registration.slug) }
     assert_response :success
   end
 
   test "a manager on the kiosk accounts team opens it, with no names, photos or links out" do
     sign_in @device.user
-    with_intake(intake_kiosk_users_team: "Kiosk Accounts") { get intake_kiosk_path(@registration.slug) }
+    with_intake(intake_kiosk_users_team: @kiosk_accounts.id) { get intake_kiosk_path(@registration.slug) }
 
     assert_response :success
     assert_select "input[name='kiosk[email_confirmation]']"
