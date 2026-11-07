@@ -21,7 +21,7 @@ class ChecklistItemsController < InternalController
     return render(:new, status: :unprocessable_entity) unless authorable?(@item)
 
     if @item.valid? && needs_confirmation?
-      @impact = Checklists::Impact.new(@checklist, items: draft_tree)
+      @impact = Checklists::Impact.new(@checklist, items: draft_tree, viewer: current_user.person)
       return render(:new, status: :unprocessable_entity) if @impact.any?
     end
 
@@ -38,7 +38,7 @@ class ChecklistItemsController < InternalController
     return render(:edit, status: :unprocessable_entity) unless authorable?(@item)
 
     if @item.valid? && needs_confirmation?
-      @impact = Checklists::Impact.new(@checklist, items: draft_tree)
+      @impact = Checklists::Impact.new(@checklist, items: draft_tree, viewer: current_user.person)
       return render(:edit, status: :unprocessable_entity) if @impact.any?
     end
 
@@ -51,7 +51,7 @@ class ChecklistItemsController < InternalController
 
   # DELETE /checklists/1/items/1
   def destroy
-    if needs_confirmation? && (impact = Checklists::Impact.new(@checklist, items: tree_without(@item))).any?
+    if needs_confirmation? && (impact = Checklists::Impact.new(@checklist, items: tree_without(@item), viewer: current_user.person)).any?
       return render_impact(impact, url: checklist_checklist_item_path(@checklist, @item), method: :delete)
     end
 

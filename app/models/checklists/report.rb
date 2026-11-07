@@ -59,7 +59,7 @@ module Checklists
     end
 
     def counts
-      statuses.values.group_by { |status| status.overall.status }.transform_values(&:size)
+      statuses.values.filter_map(&:overall).group_by(&:status).transform_values(&:size)
     end
 
     # Whether the viewer may excuse this person (a manager or admin, never
@@ -82,7 +82,7 @@ module Checklists
     def sorted(list)
       order = { "not_met" => 0, "pending" => 1, "met" => 2, "exempt" => 3 }
       list.sort_by do |status|
-        [ order.fetch(status.overall.status, 4), -status.overall.measures.to_h["unmet"].to_i, name(status.person_id).to_s ]
+        [ order.fetch(status.overall&.status, 4), -status.overall&.measures.to_h["unmet"].to_i, name(status.person_id).to_s ]
       end
     end
   end

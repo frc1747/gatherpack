@@ -45,6 +45,10 @@ class Checklist < ApplicationRecord
     %w[title team_id status starts_on ends_on updated_at]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   def identifier_icon
     "list-check"
   end
@@ -134,11 +138,14 @@ class Checklist < ApplicationRecord
     checklist_items.select { |item| item.kind == "checklist" }.filter_map { |item| item.config["checklist_id"].presence }
   end
 
-  # People whose stored overall is accepted: :met by default; pass
-  # [:met, :pending] to take people who are almost done too. A relation, so
-  # it combines with other scopes.
+  # People whose stored overall is accepted. Strict by default (spec
+  # §10.3): :met takes met and exempt overalls; pass [:met, :pending] to take
+  # people who are almost done too. Only people the checklist covers have an
+  # overall, so people it doesn't cover never meet it. A relation, so it
+  # combines with other scopes.
   def people_meeting(accept: :met)
     statuses = Array(accept).map(&:to_s)
+    statuses |= [ "exempt" ] if statuses.include?("met")
     Person.where(id: checklist_results.where(item_id: nil, status: statuses).select(:person_id))
   end
 
@@ -190,9 +197,12 @@ class Checklist < ApplicationRecord
   end
 
   # "Changed 6 Nov 2026 by an organizer: item Safety edited", for the banner.
-  def last_change_text
+  # Without details (for viewers who don't see everything) only "Changed
+  # <date> by <role>", so it names no item they can't see.
+  def last_change_text(details: true)
     change = last_change
     return unless change
+    return "Changed #{I18n.l(change.created_at.to_date, format: :long)} by #{role_of(change)}" unless details
 
     what = case change.item_type
     when "Checklist" then "settings"

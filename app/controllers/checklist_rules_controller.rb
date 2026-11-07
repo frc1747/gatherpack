@@ -38,7 +38,7 @@ class ChecklistRulesController < InternalController
     if rule.item_id.nil?
       rules = @checklist.population_rules.to_a.reject { |existing| existing.id == rule.id }
       rules << rule if change == :add
-      return Checklists::Impact.new(@checklist, rules: rules)
+      return Checklists::Impact.new(@checklist, rules: rules, viewer: current_user.person)
     end
 
     tree = item_tree
@@ -46,7 +46,7 @@ class ChecklistRulesController < InternalController
     rules = item.checklist_rules.to_a.reject { |existing| existing.id == rule.id }
     rules << rule if change == :add
     item.association(:checklist_rules).target = rules
-    Checklists::Impact.new(@checklist, items: tree)
+    Checklists::Impact.new(@checklist, items: tree, viewer: current_user.person)
   end
 
   def setup_path(rule)

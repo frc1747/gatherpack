@@ -14,6 +14,7 @@ class ChecklistsController < InternalController
   # GET /checklists/1
   def show
     @organizer = policy(@checklist).update?
+    @full_view = Checklists::Visibility.new(@checklist, current_user.person).full?
     @as_of = parse_date(params[:as_of]) if @organizer
     @report = Checklists::Report.new(@checklist, current_user.person, as_of: @as_of)
   end
@@ -42,7 +43,7 @@ class ChecklistsController < InternalController
   def update
     @checklist.assign_attributes(checklist_params)
     if @checklist.valid? && needs_confirmation?
-      @impact = Checklists::Impact.new(@checklist)
+      @impact = Checklists::Impact.new(@checklist, viewer: current_user.person)
       return render(:edit, status: :unprocessable_entity) if @impact.any?
     end
 
@@ -88,7 +89,10 @@ class ChecklistsController < InternalController
         status: :see_other)
     end
 
-    redirect_to copy, notice: "Copied as a draft. Check it, then make it active.", status: :see_other
+    left_out = copier.empty_rules.size
+    notice = "Copied as a draft. Check it, then make it active."
+    notice += " #{left_out} #{"rule".pluralize(left_out)} naming something deleted #{left_out == 1 ? "was" : "were"} left out." if left_out.positive?
+    redirect_to copy, notice: notice, status: :see_other
   rescue ActiveRecord::RecordInvalid => e
     redirect_to copy_checklist_path(@checklist), alert: "Couldn't copy: #{e.record.errors.full_messages.to_sentence}", status: :see_other
   end
@@ -98,7 +102,7 @@ class ChecklistsController < InternalController
     rules = @checklist.population_rules.to_a
     draft = @checklist.checklist_rules.new(rule_params)
     rules << draft if draft.valid?
-    @preview = Checklists::Preview.new(@checklist, rules: rules)
+    @preview = Checklists::Preview.new(@checklist, rules: rules, viewer: current_user.person)
     render partial: "checklists/preview", locals: { preview: @preview, checklist: @checklist }
   end
 

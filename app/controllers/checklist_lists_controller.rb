@@ -6,6 +6,7 @@ class ChecklistListsController < InternalController
   # GET /checklists/1/lists/1
   def show
     @list = authorize @checklist.checklist_lists.find(params[:id])
+    @rows = @list.rows_for(current_user.person)
   end
 
   # POST /checklists/1/lists

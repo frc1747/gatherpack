@@ -93,9 +93,10 @@ module Checklists
       end
     end
 
-    # Whether the person finishes the checklist. accept: :met counts met and
-    # exempt (not covered by an item counts as done); pass [:met, :pending]
-    # where signing up is the way to finish.
+    # Whether the person finishes the checklist. accept: :met counts a met or
+    # exempt overall (an item that doesn't apply to them already counts as
+    # done inside it); pass [:met, :pending] where signing up is the way to
+    # finish. Someone the checklist doesn't cover never meets it.
     def meets?(checklist, person, accept: :met)
       people_meeting(checklist, accept: accept).exists?(id: person.id)
     end
@@ -140,6 +141,40 @@ module Checklists
       team_tree_ids(team_ids, "teams.id = tree.parent_id")
     end
 
+    # The ids among person_ids whose result on this item the viewer may see
+    # under its kind's cap (ItemKind.visible_to?) and the caps of every item
+    # inside it: a group whose answer could come from a capped child is
+    # capped too.
+    def visible_person_ids(item, viewer, person_ids)
+      cap_levels(item, viewer, person_ids).keys
+    end
+
+    # { person_id => :full or :status } for the people whose result on this
+    # item viewer may see, and how much: the most any of the item's kind and
+    # the kinds of items inside it allow (status only when any says status
+    # only; hidden when any hides it).
+    def cap_levels(item, viewer, person_ids)
+      ([ item ] + descendants_of(item)).reduce(person_ids.to_a.index_with(:full)) do |levels, entry|
+        kind = item_kind(entry.kind)
+        next levels if kind.nil? || levels.empty?
+
+        capped = kind.cap_levels(entry, viewer, levels.keys)
+        levels.each_with_object({}) do |(id, level), kept|
+          next unless capped[id]
+
+          kept[id] = level == :status || capped[id] == :status ? :status : :full
+        end
+      end
+    end
+
+    # The ids among person_ids whose overall depends on a counting item
+    # (among these top-level items) whose kind hides it from the viewer.
+    def capped_person_ids(items, viewer, person_ids)
+      return [] if viewer.nil? || person_ids.empty?
+
+      items.select(&:counts?).flat_map { |item| person_ids - visible_person_ids(item, viewer, person_ids) }.uniq
+    end
+
     # Whether the two are related by any relationship, which rules out
     # excusing or attesting for each other.
     def related?(person, other)
@@ -150,6 +185,10 @@ module Checklists
     end
 
     private
+
+    def descendants_of(item)
+      item.children.to_a.flat_map { |child| [ child ] + descendants_of(child) }
+    end
 
     def team_tree_ids(team_ids, join)
       team_ids = Array(team_ids).compact
