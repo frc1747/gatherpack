@@ -337,7 +337,7 @@ class ChecklistCountTest < ActiveSupport::TestCase
 
     result = count_result(@checklist, :member, item)
     assert_includes result.detail, "Check in at any Outreach event. Coming up: Fall Fair, Sun Oct 25; Harvest Day, Wed Oct 28."
-    assert_equal({ "label" => "Next: Fall Fair, Sun Oct 25", "path" => "/events/#{later.to_param}" }, result.fix)
+    assert_equal({ "label" => "Next: Fall Fair, Sun Oct 25", "path" => "/events/#{later.to_param}", "by" => "person" }, result.fix)
   end
 
   test "organizers see a count with nothing counting toward it as a problem" do

@@ -322,7 +322,7 @@ module Checklists
         earn.each do |how|
           how.links.each do |label, target|
             path = link_path(target)
-            return { "label" => "Next: #{label}", "path" => path } if path
+            return { "label" => "Next: #{label}", "path" => path, "by" => "person" } if path
           end
         end
         nil
