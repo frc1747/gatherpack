@@ -623,9 +623,8 @@ feature/kiosk-scan-panels:
   title: Extra panels on the time kiosk card
   emoji: "🧩"
   description: >-
-    A feature can add a box to the card the time kiosk shows after a scan. The
-    kiosk now also acts only for the card that was scanned. Nothing changes on
-    screen until a feature adds a panel.
+    A feature can add a box to the card the time kiosk shows after a scan.
+    Nothing changes on screen until a feature adds a panel.
   audience: Everyone at the kiosk (behind the scenes)
 
 feature/checklists-kiosk:
