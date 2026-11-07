@@ -53,30 +53,41 @@ class GatherPack::RecurringScheduleTest < ActiveSupport::TestCase
     assert_raises(GatherPack::RecurringSchedule::DuplicateTask) { GatherPack::RecurringSchedule.tasks }
   end
 
-  test "SolidQueue configuration schedules fragment tasks alongside recurring.yml" do
+  test "a file scoped to another environment adds nothing, even twice" do
+    write "a.yml", "other_env:\n  x_job:\n    class: GenerateNotificationsJob\n    schedule: every hour\n"
+    write "b.yml", "other_env:\n  x_job:\n    class: GenerateNotificationsJob\n    schedule: every hour\n"
+
+    assert_empty GatherPack::RecurringSchedule.tasks
+  end
+
+  test "recurring.yml, as SolidQueue parses it, includes fragment tasks" do
     write "extra.yml", <<~YAML
       extra_job:
         class: GenerateNotificationsJob
         schedule: every 10 minutes
     YAML
 
-    configuration = SolidQueue::Configuration.new(recurring_schedule_file: Rails.root.join("config/recurring.yml"))
-    keys = configuration.send(:recurring_tasks).map(&:key)
+    config = parse_recurring_yml
 
-    assert_includes keys, "extra_job"
-    assert_includes keys, "generate_notifications_job"
+    assert_equal "every 10 minutes", config[:extra_job][:schedule]
+    assert_equal "every 5 minutes", config[:generate_notifications_job][:schedule]
   end
 
   test "a task in recurring.yml wins over a fragment with the same name" do
     write "clash.yml", "generate_notifications_job:\n  class: GenerateNotificationsJob\n  schedule: every day\n"
 
-    configuration = SolidQueue::Configuration.new(recurring_schedule_file: Rails.root.join("config/recurring.yml"))
-    task = configuration.send(:recurring_tasks).find { |t| t.key == "generate_notifications_job" }
+    assert_equal "every 5 minutes", parse_recurring_yml[:generate_notifications_job][:schedule]
+  end
 
-    assert_equal "every 5 minutes", task.schedule
+  test "recurring.yml is unchanged when there are no fragments" do
+    assert_equal %i[generate_notifications_job], parse_recurring_yml.keys
   end
 
   private
+
+  def parse_recurring_yml
+    ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/recurring.yml")).deep_symbolize_keys
+  end
 
   def write(name, content)
     File.write(File.join(@dir, name), content)
