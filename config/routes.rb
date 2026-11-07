@@ -173,13 +173,13 @@ Rails.application.routes.draw do
 
   # Feature routes. A feature can register a routes_proc on its Feature, or
   # drop a file in config/routes/ (config/routes/<name>.rb holds the usual
-  # routing DSL, without the outer `Rails.application.routes.draw`). Every
-  # directory in `draw_paths` is searched.
+  # routing DSL, without the outer `Rails.application.routes.draw`). Only the
+  # app's own routes directories are searched, not those of engines.
   GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
     instance_exec(&feature.routes_proc)
   end
 
-  Rails.application.routes.draw_paths.flat_map { |path| Dir[File.join(path, "*.rb")] }.map { |file| File.basename(file, ".rb") }.uniq.sort.each do |name|
+  Rails.application.paths["config/routes"].paths.flat_map { |path| Dir[File.join(path, "*.rb")] }.map { |file| File.basename(file, ".rb") }.uniq.sort.each do |name|
     draw name
   end
 

@@ -3,11 +3,14 @@ require "test_helper"
 class FeatureRoutesTest < ActionDispatch::IntegrationTest
   setup do
     @dir = Dir.mktmpdir
+    @routes_path = Rails.application.paths["config/routes"]
+    @routes_path << @dir
     Rails.application.routes.draw_paths << Pathname.new(@dir)
   end
 
   teardown do
     Rails.application.routes.draw_paths.delete(Pathname.new(@dir))
+    @routes_path.paths.delete(@dir)
     GatherPack::Features.instance_variable_get(:@plugins).delete(:route_seam_test)
     FileUtils.remove_entry(@dir)
     Rails.application.reload_routes!
