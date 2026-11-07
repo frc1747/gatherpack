@@ -23,6 +23,9 @@
       <% Array(kind&.settings).each do |setting| %>
         <%= render "checklist_items/setting", f: f, item: item, setting: setting, checklist: checklist %>
       <% end %>
+      <% if kind&.form_partial %>
+        <%= render kind.form_partial, f: f, item: item, checklist: checklist, field_name: "checklist_item[config]" %>
+      <% end %>
 
       <% if kind&.uses_dates? %>
         <%= render "checklists/dates_fields", f: f, record: item, allow_inherit: true %>

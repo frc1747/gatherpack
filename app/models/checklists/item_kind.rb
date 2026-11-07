@@ -4,6 +4,9 @@ module Checklists
   #
   #   self.label, self.description  # shown in the "Add item" menu
   #   self.settings                 # the form's fields (Setting below)
+  #   self.form_partial             # a partial for a form section of its own (a table of rows)
+  #   self.form_params              # what that section posts under config, as permit arguments
+  #   self.normalize_form(params)   # the config the section's params give
   #   self.problems(item)           # deleted badge, missing field... shown to organizers
   #   self.references               # { "badge_ids" => "Badge" }: config keys naming records
   #   self.invalidations            # [[Model, ->(record) { person ids or :all }]] (§8.2)
@@ -90,15 +93,50 @@ module Checklists
       # Validates the item's config (add errors to item.errors).
       def validate(_item); end
 
-      # The config from form params, keeping only this kind's settings.
+      # A kind whose form needs more than settings (a table of rows, say)
+      # names a partial here. It's rendered in the item form after the
+      # settings, with locals f (the item form), item, checklist and
+      # field_name (the param prefix for its fields, "checklist_item[config]").
+      def form_partial
+        nil
+      end
+
+      # What the form section posts under config, as arguments to permit:
+      # [{ rules: [:name, :share] }] for rows of rules.
+      def form_params
+        []
+      end
+
+      # The config the form section's params give (permitted already), kept
+      # alongside the settings. Cast and validate here.
+      def normalize_form(_params)
+        {}
+      end
+
+      # The config from form params, keeping only this kind's settings and
+      # what its form section gives.
       def normalize_config(params)
         params = params.to_h.stringify_keys
-        settings.each_with_object({}) do |setting, config|
+        config = settings.each_with_object({}) do |setting, values|
           key = setting.key.to_s
           next unless params.key?(key)
 
-          config[key] = cast(setting, params[key])
+          values[key] = cast(setting, params[key])
         end
+        config.merge(normalize_form(params).to_h.stringify_keys)
+      end
+
+      # The arguments to permit the item form's config with: each setting
+      # plus the form section's.
+      def permitted_config
+        keys = settings.map do |setting|
+          case setting.type
+          when :badges, :teams then { setting.key => [] }
+          when :relative_date then { setting.key => %i[mode date amount unit] }
+          else setting.key
+          end
+        end
+        keys + Array(form_params)
       end
 
       # The records an item's config names, by config key, missing ones

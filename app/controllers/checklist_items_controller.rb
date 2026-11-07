@@ -110,14 +110,7 @@ class ChecklistItemsController < InternalController
     config = params.dig(:checklist_item, :config)
     return {} unless kind && config.respond_to?(:permit)
 
-    keys = kind.settings.map do |setting|
-      case setting.type
-      when :badges, :teams then { setting.key => [] }
-      when :relative_date then { setting.key => %i[mode date amount unit] }
-      else setting.key
-      end
-    end
-    permitted = config.permit(*keys).to_h
+    permitted = config.permit(*kind.permitted_config).to_h
     hide_unseen_checklists(kind, permitted)
   end
 
