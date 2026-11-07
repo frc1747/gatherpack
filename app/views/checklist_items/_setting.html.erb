@@ -1,0 +1,35 @@
+<% value = item.config[setting.key.to_s] %>
+<% name = "checklist_item[config][#{setting.key}]" %>
+<% field_id = "checklist_item_config_#{setting.key}" %>
+<div class="mb-3">
+  <% case setting.type %>
+  <% when :badges %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= select_tag "#{name}[]", options_for_select(Badge.order(:name).pluck(:name, :id), value), multiple: true, id: field_id, class: "form-select", size: 6 %>
+  <% when :teams %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= select_tag "#{name}[]", options_for_select(Team.order(:name).pluck(:name, :id), value), multiple: true, id: field_id, class: "form-select", size: 6 %>
+  <% when :checklist %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= select_tag name, options_for_select(policy_scope(Checklist).where.not(id: checklist.id).order(:title).pluck(:title, :id), value), include_blank: true, id: field_id, class: "form-select" %>
+  <% when :number %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= number_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control", style: "max-width: 10em" %>
+  <% when :date %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= date_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control", style: "max-width: 14em" %>
+  <% when :boolean %>
+    <div class="form-check">
+      <%= hidden_field_tag name, "0", id: nil %>
+      <%= check_box_tag name, "1", value, id: field_id, class: "form-check-input" %>
+      <%= label_tag field_id, setting.label, class: "form-check-label" %>
+    </div>
+  <% when :choice %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= select_tag name, options_for_select(setting.options, value), id: field_id, class: "form-select" %>
+  <% else %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= text_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control" %>
+  <% end %>
+  <% if setting.hint.present? %><div class="form-text"><%= setting.hint %></div><% end %>
+</div>

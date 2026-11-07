@@ -1,0 +1,14 @@
+<div class="dropdown">
+  <button class="btn btn-sm btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+    <%= parent ? "Add to group" : "Add item" %>
+  </button>
+  <ul class="dropdown-menu">
+    <% checklist_kind_options.each do |label, key, description| %>
+      <li>
+        <%= link_to new_checklist_checklist_item_path(checklist, kind: key, parent_id: parent&.id), class: "dropdown-item" do %>
+          <%= label %><% if description.present? %> <small class="text-body-secondary">— <%= description %></small><% end %>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+</div>

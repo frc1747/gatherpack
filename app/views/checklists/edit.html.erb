@@ -1,0 +1,6 @@
+<% breadcrumb @checklist %>
+
+<div class="card">
+  <div class="card-header"><h1>Edit <%= @checklist.title_was %></h1></div>
+  <div class="card-body"><%= render "form", checklist: @checklist, impact: @impact %></div>
+</div>

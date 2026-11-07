@@ -1,0 +1,62 @@
+<% breadcrumb @checklist %>
+
+<div class="card">
+  <div class="card-header"><h1>Copy <%= @checklist.title %></h1></div>
+  <div class="card-body">
+    <%= form_with url: copy_checklist_path(@checklist), method: :get, class: "d-flex gap-2 align-items-center mb-3" do %>
+      <%= label_tag :shift_months, "Move dates by", class: "form-label mb-0" %>
+      <%= number_field_tag :shift_months, @shift_months, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em" %>
+      <span>months</span>
+      <%= submit_tag "Update", class: "btn btn-sm btn-outline-primary", name: nil %>
+    <% end %>
+
+    <%= form_with url: copy_checklist_path(@checklist), method: :post do %>
+      <%= hidden_field_tag :shift_months, @shift_months %>
+      <div class="mb-3">
+        <%= label_tag :title, "Name of the copy", class: "form-label" %>
+        <%= text_field_tag :title, @checklist.title.gsub(Checklists::Copier::YEAR) { |year| (year.to_i + (@shift_months / 12.0).round).to_s }, autocomplete: "off", class: "form-control" %>
+      </div>
+
+      <h2 class="h5">Dates</h2>
+      <p class="small text-body-secondary">Check each new date. Dates like "within the last 12 months" stay as they are.</p>
+      <table class="table table-sm">
+        <thead><tr><th>Date</th><th>Now</th><th>In the copy</th></tr></thead>
+        <tbody>
+          <% @copier.date_changes.each do |change| %>
+            <tr>
+              <td><%= change.label %></td>
+              <td><%= l(change.old, format: :long) %></td>
+              <td><%= date_field_tag "dates[#{change.key}]", change.proposed, autocomplete: "off", class: "form-control form-control-sm w-auto", "aria-label": "New #{change.label}" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+
+      <% replacements = @copier.replacements %>
+      <% if replacements.any? %>
+        <h2 class="h5">Named with a year</h2>
+        <p class="small text-body-secondary">Pick what the copy should use instead, or keep the same one.</p>
+        <table class="table table-sm">
+          <thead><tr><th>Now</th><th>In the copy</th></tr></thead>
+          <tbody>
+            <% replacements.each do |replacement| %>
+              <% column = replacement.model.column_names.include?("title") ? :title : :name %>
+              <tr>
+                <td><%= replacement.record.public_send(column) %></td>
+                <td>
+                  <%= select_tag "replace[#{replacement.key}]",
+                    options_for_select(replacement.model.where.not(id: replacement.record.id).order(column).pluck(column, :id), replacement.proposed&.id),
+                    include_blank: "Keep #{replacement.record.public_send(column)}", class: "form-select form-select-sm", "aria-label": "Replacement for #{replacement.record.public_send(column)}" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+
+      <p class="small text-body-secondary">The copy starts as a draft, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
+      <%= submit_tag "Make the copy", class: "btn btn-primary" %>
+      <%= link_to "Cancel", @checklist, class: "btn btn-link" %>
+    <% end %>
+  </div>
+</div>

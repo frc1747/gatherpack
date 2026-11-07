@@ -9,6 +9,9 @@ class Checklist < ApplicationRecord
 
   WITHIN_UNITS = %w[days months].freeze
 
+  # The form's start choice ("date", "within", "checklist"); not stored.
+  attr_accessor :start_mode
+
   belongs_to :team
   belongs_to :created_by, class_name: "Person", optional: true
 

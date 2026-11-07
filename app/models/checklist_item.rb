@@ -8,6 +8,9 @@ class ChecklistItem < ApplicationRecord
   include CanBeHooked
   has_paper_trail versions: { class_name: "AuditLog" }
 
+  # The form's start choice ("date", "within", "checklist"); not stored.
+  attr_accessor :start_mode
+
   belongs_to :checklist, inverse_of: :checklist_items
   belongs_to :parent, class_name: "ChecklistItem", optional: true, inverse_of: :children
   has_many :children, -> { order(:position, :created_at) }, class_name: "ChecklistItem", foreign_key: :parent_id,

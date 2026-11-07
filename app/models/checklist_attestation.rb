@@ -9,6 +9,9 @@ class ChecklistAttestation < ApplicationRecord
   belongs_to :person
   belongs_to :attested_by, class_name: "Person", optional: true
 
+  # The attested item it's made through, for the permission check; not stored.
+  attr_accessor :item
+
   validates :key, presence: true
   validates :statement, presence: true
   validates :attested_at, presence: true

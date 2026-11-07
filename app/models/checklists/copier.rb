@@ -58,7 +58,8 @@ module Checklists
     # the old date); replace: { key => id } (blank keeps the record).
     def call(title:, by:, dates: {}, replace: {})
       dates = date_changes.to_h { |change| [ change.key, change.proposed ] }.merge(dates.to_h.transform_values { |value| cast_date(value) }.compact)
-      replace = replace.to_h.compact_blank
+      known = replacements.to_h { |replacement| [ replacement.key, replacement.model ] }
+      replace = replace.to_h.compact_blank.select { |key, id| known[key]&.exists?(id: id) }
 
       Checklist.transaction do
         copy = checklist.dup

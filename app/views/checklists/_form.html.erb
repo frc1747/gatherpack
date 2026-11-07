@@ -1,0 +1,37 @@
+<%= simple_form_for checklist do |f| %>
+  <%= f.error_notification %>
+  <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+  <% if defined?(impact) && impact&.any? %>
+    <div class="alert alert-warning">
+      <p class="fw-semibold mb-1">Saving this changes people's results:</p>
+      <ul class="mb-2"><% impact.sentences.each do |sentence| %><li><%= sentence %></li><% end %></ul>
+      <%= hidden_field_tag :confirmed, "1" %>
+      <%= f.submit "Save anyway", class: "btn btn-warning btn-sm" %>
+    </div>
+  <% end %>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :title %>
+      <%= f.input :description, as: :text, input_html: { rows: 3 } %>
+      <%= f.input :team_id, as: :select, label: "Team", collection: Team.where(id: Checklist.creatable_team_ids(current_user.person) + [ checklist.team_id ].compact).order(:name),
+        include_blank: false, hint: "It covers people in this team and the teams below it, unless you narrow it" %>
+      <%= f.input :status, as: :select, collection: Checklist.statuses.keys.map { |s| [ s.humanize, s ] }, include_blank: false,
+        hint: "Drafts don't notify anyone. Archived checklists are read-only." %>
+      <%= f.input :read_level, as: :select, label: "Who sees a person's result",
+        collection: Checklists::READ_LEVELS.except("group").map { |key, text| [ text, key ] }, include_blank: false %>
+    </div>
+    <div class="col-md-6">
+      <%= render "checklists/dates_fields", f: f, record: checklist, allow_inherit: false %>
+      <%= f.input :cutoff_on, as: :date, html5: true, label: "Count up to", hint: "Optional. After this day, results stay as they were then" %>
+      <div class="row">
+        <div class="col"><%= f.input :met_word, label: "Word for done", placeholder: "Done" %></div>
+        <div class="col"><%= f.input :pending_word, label: "Word for almost", placeholder: "Almost" %></div>
+        <div class="col"><%= f.input :not_met_word, label: "Word for not yet", placeholder: "Not yet" %></div>
+      </div>
+    </div>
+  </div>
+
+  <%= f.button :submit, "Save", class: "btn btn-primary" %>
+<% end %>

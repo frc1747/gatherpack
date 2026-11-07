@@ -1,0 +1,24 @@
+<%# Adds an include/exclude rule; for the checklist (item nil) or one item. %>
+<%= form_with model: [ checklist, ChecklistRule.new ], url: checklist_checklist_rules_path(checklist),
+  data: preview_url ? { controller: "checklist-preview", checklist_preview_url_value: preview_url, checklist_preview_target: "form" } : {} do |f| %>
+  <%= f.hidden_field :item_id, value: item&.id %>
+  <div class="row g-2">
+    <div class="col-4"><%= f.select :effect, [ %w[Include include], %w[Exclude exclude] ], {}, class: "form-select form-select-sm", "aria-label": "Include or exclude" %></div>
+    <div class="col-8"><%= f.select :target_type, [ [ "A team", "team" ], [ "A badge's holders", "badge" ], [ "One person", "person" ], [ "Applicants to a team", "applicants" ] ], {},
+      class: "form-select form-select-sm", "aria-label": "Who" %></div>
+    <div class="col-12"><%= f.select :team_id, Team.where(id: Checklists.team_subtree_ids(checklist.team_id)).order(:name).pluck(:name, :id), { include_blank: "Team (for a team or applicants)…" }, class: "form-select form-select-sm" %></div>
+    <div class="col-12"><%= f.select :badge_id, Badge.order(:name).pluck(:name, :id), { include_blank: "Badge…" }, class: "form-select form-select-sm" %></div>
+    <div class="col-12"><%= f.select :person_id, Person.where(id: Checklists.people_covered_by(checklist).select(:id)).order(:last_name, :first_name).pluck(:display_name, :id), { include_blank: "Person…" }, class: "form-select form-select-sm" %></div>
+    <div class="col-12 form-check ms-2">
+      <%= f.check_box :include_managers, { checked: true, class: "form-check-input" } %>
+      <%= f.label :include_managers, "Include the team's managers", class: "form-check-label" %>
+    </div>
+  </div>
+  <%= f.submit "Add rule", class: "btn btn-sm btn-primary mt-2" %>
+  <% if preview_url %>
+    <div class="border rounded p-2 mt-2 small">
+      <div class="fw-semibold">Who this passes</div>
+      <div data-checklist-preview-target="output" class="text-body-secondary">Pick a rule to see who the checklist would cover and how they'd do.</div>
+    </div>
+  <% end %>
+<% end %>

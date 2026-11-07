@@ -7,9 +7,12 @@ module Checklists
   class Reader
     attr_reader :checklist, :viewer
 
-    def initialize(checklist, viewer)
+    # as_of computes live as of that date, storing nothing (organizers' "as
+    # of" picker).
+    def initialize(checklist, viewer, as_of: nil)
       @checklist = checklist
       @viewer = viewer
+      @as_of = as_of
     end
 
     # { person_id => Status } for the people the viewer may see.
@@ -44,6 +47,7 @@ module Checklists
     # live Result-backed stand-ins, for the covered people among ids.
     def rows_for(ids)
       return {} if ids.empty?
+      return live_rows(ids, Evaluator.new(checklist, as_of: @as_of.in_time_zone.end_of_day).call(ids)) if @as_of
 
       stored = ChecklistResult.where(checklist_id: checklist.id, person_id: ids).to_a.group_by(&:person_id)
       missing = ids - stored.select { |_, rows| rows.any? { |row| row.item_id.nil? } }.keys
@@ -60,17 +64,22 @@ module Checklists
 
     def refresh_live(ids, by_person)
       computed = Evaluator.new(checklist).call(ids)
-      computed.each do |person_id, by_item|
-        by_person[person_id] = by_item.to_h do |item_id, result|
-          stored = by_person.dig(person_id, item_id)
-          row = ChecklistResult.new(checklist_id: checklist.id, item_id: item_id, person_id: person_id, status: result.status,
-            label: result.label, summary: result.summary, detail: result.detail, measures: result.measures, fix: result.fix,
-            excuse: result.excuse, changed_at: stored&.changed_at, computed_at: Time.current)
-          [ item_id, row ]
-        end
-      end
+      by_person.merge!(live_rows(ids, computed, by_person))
       (ids - computed.keys).each { |id| by_person.delete(id) }
       Checklists.mark(checklist, ids)
+    end
+
+    # Unsaved result rows from computed results, keeping stored change times.
+    def live_rows(ids, computed, stored_rows = {})
+      computed.slice(*ids).to_h do |person_id, by_item|
+        rows = by_item.to_h do |item_id, result|
+          stored = stored_rows.dig(person_id, item_id)
+          [ item_id, ChecklistResult.new(checklist_id: checklist.id, item_id: item_id, person_id: person_id, status: result.status,
+            label: result.label, summary: result.summary, detail: result.detail, measures: result.measures, fix: result.fix,
+            excuse: result.excuse, changed_at: stored&.changed_at, computed_at: Time.current) ]
+        end
+        [ person_id, rows ]
+      end
     end
 
     def max_age
@@ -113,7 +122,8 @@ module Checklists
     def excuse_for(excuse, full, reasons)
       return { "excused" => true } unless full
 
-      { "by" => excuse["by"], "at" => excuse["at"], "expires_on" => excuse["expires_on"], "reason" => reasons[excuse["id"]] }.compact
+      { "by" => excuse["by"], "at" => excuse["at"], "expires_on" => excuse["expires_on"], "reason" => reasons[excuse["id"]],
+        "id" => reasons.key?(excuse["id"]) ? excuse["id"] : nil }.compact
     end
 
     def excuse_reasons(rows, visibility)
