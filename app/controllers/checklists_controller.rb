@@ -1,7 +1,7 @@
 class ChecklistsController < InternalController
   include ChecklistsFeature
 
-  before_action :load_checklist, only: %i[ show edit update destroy copy_form copy preview refresh ]
+  before_action :load_checklist, only: %i[ show edit update destroy copy_form copy preview refresh restore ]
 
   # GET /checklists
   def index
@@ -73,6 +73,8 @@ class ChecklistsController < InternalController
     copier = Checklists::Copier.new(@checklist, shift_months: params[:shift_months].to_i)
     dates = params.fetch(:dates, {}).permit(*copier.date_changes.map(&:key)).to_h
     replace = params.fetch(:replace, {}).permit(*copier.replacements.map(&:key)).to_h
+    # A replacement checklist must be one the person can see.
+    replace.reject! { |key, id| key.start_with?("Checklist:") && id.present? && !policy_scope(Checklist).exists?(id: id) }
     copy = copier.call(title: params[:title], by: current_user.person, dates: dates, replace: replace)
     redirect_to copy, notice: "Copied as a draft. Check it, then make it active.", status: :see_other
   rescue ActiveRecord::RecordInvalid => e
@@ -83,7 +85,7 @@ class ChecklistsController < InternalController
   def preview
     rules = @checklist.population_rules.to_a
     draft = @checklist.checklist_rules.new(rule_params)
-    rules << draft if draft.target
+    rules << draft if draft.valid?
     @preview = Checklists::Preview.new(@checklist, rules: rules)
     render partial: "checklists/preview", locals: { preview: @preview, checklist: @checklist }
   end
@@ -94,6 +96,12 @@ class ChecklistsController < InternalController
     redirect_to @checklist, notice: "Results recomputed.", status: :see_other
   end
 
+  # POST /checklists/1/restore: an archived checklist runs again.
+  def restore
+    @checklist.update!(status: :active)
+    redirect_to @checklist, notice: "Checklist restored.", status: :see_other
+  end
+
   private
 
   def load_checklist
@@ -101,7 +109,7 @@ class ChecklistsController < InternalController
   end
 
   def needs_confirmation?
-    @checklist.active? && params[:confirmed].blank? &&
+    super &&
       (@checklist.changed & %w[team_id starts_on starts_within_amount starts_within_unit ends_on cutoff_on]).any?
   end
 

@@ -237,11 +237,11 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
   test "an organizer adds and removes a population rule" do
     with_feature do
       sign_in person(:admin).user
-      post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:rookie).id } }
+      post checklist_checklist_rules_path(@checklist), params: { confirmed: "1", checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:rookie).id } }
       assert_not_includes Checklists.people_covered_by(@checklist.reload), person(:rookie)
 
       rule = @checklist.checklist_rules.find_by(person: person(:rookie))
-      delete checklist_checklist_rule_path(@checklist, rule)
+      delete checklist_checklist_rule_path(@checklist, rule), params: { confirmed: "1" }
       assert_includes Checklists.people_covered_by(@checklist.reload), person(:rookie)
     end
   end
@@ -334,6 +334,160 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
 
       get checklist_checklist_list_path(@checklist, list)
       assert_redirected_to root_path
+    end
+  end
+
+  # Review fixes
+
+  test "an organizer can't delete a confirmation for someone their checklist doesn't cover" do
+    club_item = add_item(@checklist, :attested, "Physical", { statement: "Physical on file", attested_by: "person" })
+    attestation = ChecklistAttestation.create!(person: person(:member), key: club_item.config["key"], statement: "Physical on file", attested_by: person(:member))
+    crew = create_world_checklist("Crew", team: @crew)
+    crew_item = add_item(crew, :attested, "Physical", { statement: "Physical on file", attested_by: "person" })
+    Membership.create!(person: person(:crew_manager), team: @club)
+    with_feature do
+      sign_in person(:crew_manager).user
+      delete checklist_checklist_attestation_path(crew, attestation, item_id: crew_item.id)
+
+      assert_response :not_found
+      assert ChecklistAttestation.exists?(attestation.id)
+    end
+  end
+
+  test "an item can't name a checklist its maker can't see, nor preview one" do
+    secret = create_world_checklist("Secret", team: @org)
+    crew = create_world_checklist("Crew", team: @crew)
+    with_feature do
+      sign_in person(:crew_manager).user
+      post checklist_checklist_items_path(crew), params: { checklist_item: { kind: "checklist", label: "Peek", config: { checklist_id: secret.id } } }
+      assert_not crew.checklist_items.exists?(label: "Peek")
+      assert_match "Choose a checklist", response.body
+
+      post preview_checklist_checklist_items_path(crew), params: { checklist_item: { kind: "checklist", label: "Peek", config: { checklist_id: secret.id } } }
+      assert_no_match "Secret", response.body
+    end
+  end
+
+  test "the population preview ignores rules outside the checklist's team" do
+    outside = Team.create!(name: "Elsewhere", team_type: team_types(:one), parent: @other_org, join_permission: :requires_approval)
+    MembershipApplication.create!(person: person(:outsider), team: outside)
+    with_feature do
+      sign_in person(:club_manager).user
+      post preview_checklist_path(@checklist), params: { checklist_rule: { effect: "include", target_type: "applicants", team_id: outside.id } }
+
+      assert_response :success
+      assert_no_match "Outsider", response.body
+    end
+  end
+
+  test "a draft is hidden from the people it covers" do
+    @checklist.update!(status: :draft)
+    with_feature do
+      sign_in person(:member).user
+      get checklist_path(@checklist)
+      assert_response :not_found
+
+      get person_checklists_path(person(:member))
+      assert_no_match "Trip", response.body
+    end
+  end
+
+  test "an archived checklist can't be changed, but can be copied and restored" do
+    @checklist.update!(status: :archived)
+    with_feature do
+      sign_in person(:admin).user
+      post checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "has_login", label: "Late" } }
+      assert_not ChecklistItem.exists?(label: "Late")
+      patch checklist_path(@checklist), params: { checklist: { title: "Renamed" } }
+      assert_equal "Trip", @checklist.reload.title
+
+      get checklist_path(@checklist)
+      assert_match "Archived: read-only", response.body
+      assert_select "#setup", 0
+
+      post restore_checklist_path(@checklist)
+      assert @checklist.reload.active?
+    end
+  end
+
+  test "sorting and filtering data carry only what the viewer may see" do
+    hidden = add_item(@checklist, :badge, "Viewer", { badge_ids: [ @viewer_badge.id ] })
+    @checklist.checklist_grants.create!(team: @crew, item_ids: [ @safety_item.id ], access: :full)
+    refresh(@checklist)
+    with_feature do
+      sign_in person(:organizer).user
+      get checklist_path(@checklist)
+
+      assert_response :success
+      assert_no_match ">Viewer<", response.body.gsub(/\s+/, "")
+      assert_no_match hidden.id, response.body
+      assert_no_match "3 to do", response.body
+      assert_no_match "&quot;unmet&quot;:3", response.body
+      assert_match "&quot;unmet&quot;:1", response.body, "MemberTwo misses only the one item the grant shows"
+    end
+  end
+
+  test "the report offers tick filters on every column and number filters" do
+    with_feature do
+      sign_in person(:admin).user
+      get checklist_path(@checklist)
+
+      assert_select "input[data-checklist-report-target=tick][data-column='1']", 4
+      assert_select "input[data-checklist-report-target=tick][data-column='2']", 4
+      assert_select "input[data-checklist-report-target=bound][data-key=unmet]", 2
+    end
+  end
+
+  test "adding or removing a rule on an active checklist shows the impact first" do
+    with_feature do
+      sign_in person(:admin).user
+      post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
+      assert_response :unprocessable_entity
+      assert_match "would go from Done to not covered: Member World", response.body
+      assert_not @checklist.checklist_rules.exists?(person: person(:member))
+
+      post checklist_checklist_rules_path(@checklist), params: { confirmed: "1", checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
+      rule = @checklist.checklist_rules.find_by!(person: person(:member))
+      refresh(@checklist)
+
+      delete checklist_checklist_rule_path(@checklist, rule)
+      assert_response :unprocessable_entity
+      assert ChecklistRule.exists?(rule.id)
+      delete checklist_checklist_rule_path(@checklist, rule), params: { confirmed: "1" }
+      assert_not ChecklistRule.exists?(rule.id)
+    end
+  end
+
+  test "an item rule shows its impact too" do
+    with_feature do
+      sign_in person(:admin).user
+      post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { item_id: @safety_item.id, effect: "exclude", target_type: "person", person_id: person(:member2).id } }
+
+      assert_response :unprocessable_entity
+      assert_match "MemberTwo World", response.body
+    end
+  end
+
+  test "removing an item shows its impact first" do
+    with_feature do
+      sign_in person(:admin).user
+      delete checklist_checklist_item_path(@checklist, @safety_item)
+      assert_response :unprocessable_entity
+      assert_match "would go from Not yet to Done", response.body
+      assert ChecklistItem.exists?(@safety_item.id)
+
+      delete checklist_checklist_item_path(@checklist, @safety_item), params: { confirmed: "1" }
+      assert_not ChecklistItem.exists?(@safety_item.id)
+    end
+  end
+
+  test "the change banner names who changed it by role" do
+    with_feature do
+      sign_in person(:club_manager).user
+      patch checklist_checklist_item_path(@checklist, @login_item), params: { confirmed: "1", checklist_item: { label: "Sign-in" } }
+      get checklist_path(@checklist)
+
+      assert_match "by a manager: item Sign-in edited", response.body
     end
   end
 

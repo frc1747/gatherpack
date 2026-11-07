@@ -19,7 +19,7 @@ class ChecklistAttestationsController < InternalController
   # DELETE /checklists/1/attestations/1?item_id=..
   def destroy
     item = @checklist.checklist_items.where(kind: "attested").find(params[:item_id])
-    attestation = ChecklistAttestation.where(key: item.config["key"]).find(params[:id])
+    attestation = ChecklistAttestation.where(key: item.config["key"], person_id: Checklists.people_covered_by(@checklist).select(:id)).find(params[:id])
     attestation.item = item
     authorize attestation
     attestation.destroy!

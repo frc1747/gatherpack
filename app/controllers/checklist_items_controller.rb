@@ -49,6 +49,10 @@ class ChecklistItemsController < InternalController
 
   # DELETE /checklists/1/items/1
   def destroy
+    if needs_confirmation? && (impact = Checklists::Impact.new(@checklist, items: tree_without(@item))).any?
+      return render_impact(impact, url: checklist_checklist_item_path(@checklist, @item), method: :delete)
+    end
+
     @item.destroy!
     redirect_to @checklist, notice: "#{@item.label} removed.", status: :see_other
   end
@@ -69,13 +73,21 @@ class ChecklistItemsController < InternalController
     @item = authorize @checklist.checklist_items.find(params[:id])
   end
 
-  def needs_confirmation?
-    @checklist.active? && params[:confirmed].blank?
+  # The checklist's items without this one (and what's inside it).
+  def tree_without(item)
+    tree = item_tree
+    parent = item.parent_id && find_in_tree(tree, item.parent_id)
+    if parent
+      parent.association(:children).target = parent.children.to_a.reject { |child| child.id == item.id }
+    else
+      tree.reject! { |top| top.id == item.id }
+    end
+    tree
   end
 
   # The checklist's items with the unsaved change in place.
   def draft_tree
-    tree = @checklist.top_level_items.includes(children: :children).to_a
+    tree = item_tree
     @item.id ||= SecureRandom.uuid
     if @item.parent_id.present?
       parent = all_items(tree).find { |item| item.id == @item.parent_id }
@@ -99,7 +111,18 @@ class ChecklistItemsController < InternalController
     return {} unless kind && config.respond_to?(:permit)
 
     keys = kind.settings.map { |setting| %i[badges teams].include?(setting.type) ? { setting.key => [] } : setting.key }
-    config.permit(*keys).to_h
+    permitted = config.permit(*keys).to_h
+    hide_unseen_checklists(kind, permitted)
+  end
+
+  # A checklist setting may only name a checklist the acting person can see,
+  # or its results would show through this one.
+  def hide_unseen_checklists(kind, config)
+    kind.settings.select { |setting| setting.type == :checklist }.each do |setting|
+      id = config[setting.key.to_s]
+      config[setting.key.to_s] = nil if id.present? && !policy_scope(Checklist).exists?(id: id)
+    end
+    config
   end
 
   def item_params

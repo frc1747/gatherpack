@@ -131,6 +131,7 @@ Rails.application.routes.draw do
       post :copy
       post :preview
       post :refresh
+      post :restore
     end
     resources :checklist_items, path: "items", except: %i[index show] do
       post :preview, on: :collection
