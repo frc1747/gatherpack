@@ -141,4 +141,19 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.met(config["forms"].join(", ")) }
     end
   end
+
+  # A kind whose fix is a link only some viewers may follow: editing the
+  # badge in its config, which needs BadgePolicy#update?.
+  class FixLink < Checklists::ItemKind
+    def self.settings
+      [ Checklists::ItemKind::Setting.new(key: :badge_id, type: :text, label: "Badge") ]
+    end
+
+    def evaluate(person_ids)
+      badge = ::Badge.find(config["badge_id"])
+      fix = { "label" => "Edit the badge", "path" => "/badges/#{badge.to_param}",
+        "requires" => { "record" => badge.to_global_id.to_s, "query" => "update?" } }
+      person_ids.index_with { Checklists::Result.not_met("Not yet", fix: fix) }
+    end
+  end
 end
