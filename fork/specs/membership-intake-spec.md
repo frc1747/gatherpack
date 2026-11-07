@@ -352,7 +352,7 @@ Feature `intake`, `default_enabled: false`, nav under People. Settings (`Setting
 
 | Branch | Content | Depends on | Upstream? |
 |---|---|---|---|
-| `feature/intake` | Registrations, entries, household, both modes, matching, placement lists, application columns, notices, §9 controls | `feature/search-and-add` | Yes, generic |
+| `feature/intake` | Registrations, entries, household, both modes, matching, placement lists, application columns, notices, §9 controls | `feature/search-and-add`, `feature/person-fields` (guardianship), `feature/extension-registries` (settings and hook seams) | Yes, generic |
 | `feature/intake-checklist` | Checklist panel and approval columns using checklists | `feature/intake`, `feature/checklists` | Yes |
 | `feature/forms-expiry` | §7.5: `forms.expires_on`, `forms.valid_for_months`, `:expired` reason, `FormExpiryJob`, form details field, alerts | `feature/forms` | Yes, generic |
 | `feature/mcp-intake` | §12.1 | `feature/mcp`, `feature/intake` | No |

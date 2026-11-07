@@ -445,7 +445,7 @@ Creating a count item creates its `Commitment` row (team = the checklist's team,
 
 | Branch | Based on | Contents |
 |---|---|---|
-| `feature/checklists` | `upstream/main` | Flag, tables, registry, base kind, evaluator, refresh, results, excuses, grants, attestations, population rules, report, profile tab, settings, hooks, copy, record, housekeeping; kinds `badge`, `team_member`, `has_login`, `age`, `attested`, `checklist`, `any_of`. Written to be an upstream PR unchanged. Depends on nothing. |
+| `feature/checklists` | `upstream/main` + `feature/person-fields` + `feature/extension-registries` | Flag, tables, registry, base kind, evaluator, refresh, results, excuses, grants, attestations, population rules, report, profile tab, settings, hooks, copy, record, housekeeping; kinds `badge`, `team_member`, `has_login`, `age`, `attested`, `checklist`, `any_of`. Written to be an upstream PR unchanged. Depends on person-fields (audience levels, guardianship) and extension-registries (settings and hook seams). |
 | `feature/checklists-attendance` | `feature/checklists` | `attendance`, excused meetings. Needs only upstream time clock and events. |
 | `feature/checklists-count` | `feature/checklists` + `feature/commitments` | `count` kind, the wrap migration, delegation module, redirects, item form (sources, adjustments, how to earn) |
 | `feature/checklists-person-fields` | `feature/checklists` + `feature/person-fields` | `person_field` |
