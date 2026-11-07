@@ -55,6 +55,30 @@ class FormExpiryFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an expired response shows as expired and can be signed again before the job runs" do
+    @form.update!(valid_for_months: 12, allow_updates: false)
+    travel 13.months
+    with_feature do
+      as(:a1) do
+        get form_response_path(@form, person(:a1))
+        assert_select ".badge", text: "Needs re-confirmation"
+        assert_select ".badge", text: "Complete", count: 0
+        assert_select ".alert-warning", text: /This has expired\. Please review the answers and sign again\./
+        assert_select "a[href=?]", edit_form_response_path(@form, person(:a1)), text: "Update answers"
+
+        get edit_form_response_path(@form, person(:a1))
+        assert_response :success
+        assert_select ".alert-warning", text: /This has expired\./
+
+        get person_forms_path(person(:a1))
+        assert_select "a[href=?]", edit_form_response_path(@form, person(:a1)), text: "Review"
+
+        patch form_response_path(@form, person(:a1)), params: { form_response: { answers: { "cleared" => "Yes" } }, submit: "1" }
+        assert @form.response_for(person(:a1)).reload.complete?, "signing again counts again"
+      end
+    end
+  end
+
   private
 
   def with_feature(&block)

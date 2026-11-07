@@ -22,6 +22,10 @@ class FormExpiryTest < ActiveSupport::TestCase
     BadgeAssignment.exists?(badge: @badge, person: person(name))
   end
 
+  def stored_complete?(name)
+    FormResponse.where(form: @form, subject: person(name), status: :complete).exists?
+  end
+
   def run_job
     with_settings(feature_forms: "true") { FormExpiryJob.perform_now }
   end
@@ -97,6 +101,25 @@ class FormExpiryTest < ActiveSupport::TestCase
     assert holds_badge?(:a1)
   end
 
+  test "an expired response reads as needing re-confirmation before the job runs" do
+    @form.update!(valid_for_months: 12, allow_updates: false)
+    respond(@form, :a1, as: :a1, answers: { "cleared" => "Yes" })
+    respond(@form, :b1, as: :b1, answers: { "cleared" => "Yes" })
+    assert_not FormAccess.new(person(:a1), person(:a1), @form).can_update?, "updates are off while it counts"
+
+    travel 13.months
+    response = response_for(:a1)
+    assert stored_complete?(:a1), "the job hasn't stored it"
+    assert_equal "needs_reconfirmation", response.status
+    assert response.needs_reconfirmation?
+    assert_not response.complete?
+    assert FormAccess.new(person(:a1), person(:a1), @form).can_update?
+
+    counts = FormReport.new(Form.find(@form.id), viewer: person(:admin)).status_counts
+    assert_equal 0, counts["complete"]
+    assert_equal 2, counts["needs_reconfirmation"]
+  end
+
   test "the job marks an expired response once and runs the incomplete hook once" do
     events = []
     Hook.create!(name: "Incomplete", event: "form_responses - incomplete", code: "Thread.current[:form_expiry_events] << model.status")
@@ -120,11 +143,12 @@ class FormExpiryTest < ActiveSupport::TestCase
     travel 2.months
 
     FormExpiryJob.perform_now
-    assert response_for(:a1).complete?
+    assert stored_complete?(:a1), "nothing is stored while forms are off"
     assert holds_badge?(:a1)
 
     run_job
-    assert response_for(:a1).needs_reconfirmation?
+    assert_not stored_complete?(:a1)
+    assert_not holds_badge?(:a1)
   end
 
   test "saving the expiry resyncs the form's responses" do

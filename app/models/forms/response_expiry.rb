@@ -1,8 +1,8 @@
 # Form expiry on a response (Forms::Expiry): past its expiry, a response
-# needs re-confirmation for the reason :expired. Computed when read, so a
-# response never shows as complete past its expiry; FormExpiryJob stores
-# the status, which removes the completion badge and runs the incomplete
-# hooks.
+# needs re-confirmation for the reason :expired. It counts from the moment
+# it expires: a response stored as complete reads as needing
+# re-confirmation (#status, #complete?) until FormExpiryJob stores that,
+# which also removes the completion badge and runs the incomplete hooks.
 module Forms::ResponseExpiry
   def self.prepended(base)
     # Complete responses whose expiry has passed: their form's date, or
@@ -16,7 +16,9 @@ module Forms::ResponseExpiry
 
   # When the active submission stops counting, or nil if it doesn't expire.
   def expires_at
-    form.expiry_for(active_submission.activated_at) if active_submission&.active?
+    return unless form&.expires? && (submission = signed_submission)&.active?
+
+    form.expiry_for(submission.activated_at)
   end
 
   def expired?(now = Time.current)
@@ -28,6 +30,18 @@ module Forms::ResponseExpiry
     expired? ? :expired : super
   end
 
+  def status
+    expired_unstored? ? "needs_reconfirmation" : super
+  end
+
+  def complete?
+    !expired_unstored? && super
+  end
+
+  def needs_reconfirmation?
+    expired_unstored? || super
+  end
+
   # "Good until <date>" while the active submission counts and has an
   # expiry, "Expired <date>" once it has passed, nil if it doesn't expire.
   # The date is the last day it counts.
@@ -35,5 +49,20 @@ module Forms::ResponseExpiry
     return unless (at = expires_at)
 
     expired? ? "Expired #{at.strftime("%B %-d, %Y")}" : "Good until #{(at - 1.second).strftime("%B %-d, %Y")}"
+  end
+
+  private
+
+  # Stored as complete, but past its expiry: the job hasn't run yet.
+  def expired_unstored?
+    read_attribute(:status) == "complete" && expired?
+  end
+
+  # The active submission, from the loaded submissions when a list (the
+  # form's report) has them, so rows don't each query for it.
+  def signed_submission
+    return active_submission if association(:active_submission).loaded? || !association(:form_submissions).loaded?
+
+    form_submissions.detect { |submission| submission.id == active_submission_id }
   end
 end
