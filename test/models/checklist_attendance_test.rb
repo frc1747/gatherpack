@@ -338,6 +338,11 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
 
     assert check.call({ name: "Recent", share: "30", starts: { mode: "within", amount: "3", unit: "months" } })
     assert_equal "At least 30% of meeting hours within the last 3 months in Recent, judged on its own", item.describe
+    assert_not check.call({ name: "Fall", share: "30", starts: { mode: "within", amount: "", unit: "months" } }), "a forgotten number isn't the item's start"
+    assert_includes item.errors[:base], "Fall: say how many days or months"
+    assert_equal({ "mode" => "within", "amount" => "", "unit" => "months" }, item.config["rules"].first["starts"], "the mode picked is kept")
+    assert_not check.call({ name: "Fall", share: "30", starts: { mode: "date", date: "" } })
+    assert_includes item.errors[:base], "Fall: say the date it starts on"
   end
 
   test "any number of rules" do

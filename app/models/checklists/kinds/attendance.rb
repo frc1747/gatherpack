@@ -176,6 +176,7 @@ module Checklists
             elsif !(0..100).cover?(rule.share)
               item.errors.add(:base, "#{rule.name}: the share must be from 0 to 100%")
             end
+            validate_start(item, rule, rows[rule.index]["starts"])
             item.errors.add(:base, "#{rule.name} has an end date that isn't a date") if rows[rule.index]["ends_on"].present? && rule.ends_on.nil?
             item.errors.add(:base, "#{rule.name} ends before it starts") if rule.starts_on && rule.ends_on && rule.ends_on < rule.starts_on
             item.errors.add(:base, "#{rule.name} is counted together with #{rule.with}, but no other rule has that name") if rule.with && (rule.with == rule.name || names.exclude?(rule.with))
@@ -254,13 +255,22 @@ module Checklists
           share = row["share"].to_s.strip
           {
             "name" => row["name"].to_s.strip.presence,
-            "starts" => row["starts"].respond_to?(:to_h) ? RelativeDate.cast(row["starts"]) : nil,
+            "starts" => cast_start(row["starts"]),
             "ends_on" => cast_date(row["ends_on"]),
             "share" => share.match?(/\A\d+\z/) ? share.to_i : share.presence,
             "weekly" => ActiveModel::Type::Boolean.new.cast(row["weekly"]) || false,
             "with" => row["with"].to_s.strip.presence,
             "judge_after" => row["judge_after"].to_i
           }
+        end
+
+        # A start that isn't complete keeps what was posted, so the form shows
+        # it again and validate can say what's missing.
+        def cast_start(params)
+          return unless params.respond_to?(:to_h)
+
+          params = params.to_h.stringify_keys
+          RelativeDate.cast(params) || (params.slice("mode", "date", "amount", "unit").transform_values { |value| value.to_s.strip } if %w[date within].include?(params["mode"]))
         end
 
         def cast_date(value)
@@ -280,6 +290,15 @@ module Checklists
           value.is_a?(Integer) ? value : Integer(value.to_s, 10)
         rescue ArgumentError
           nil
+        end
+
+        def validate_start(item, rule, posted)
+          return if rule.starts || !posted.is_a?(Hash)
+
+          case posted["mode"]
+          when "within" then item.errors.add(:base, "#{rule.name}: say how many days or months")
+          when "date" then item.errors.add(:base, "#{rule.name}: say the date it starts on")
+          end
         end
 
         def validate_periods(item)

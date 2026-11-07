@@ -114,6 +114,13 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
         assert_select "#attendance-rules tbody tr", 3, "the two rules and a blank row"
         assert_select "#attendance-rules input[value=Summer]"
 
+        patch checklist_checklist_item_path(@checklist, item), params: { confirmed: "1", checklist_item: { config: { rules: {
+          "0" => { name: "Fall", starts: { mode: "within", amount: "", unit: "months" }, share: "30" } } } } }
+        assert_response :unprocessable_entity
+        assert_match "Fall: say how many days or months", response.body
+        assert_select "#attendance-rules tbody tr:first-child select[aria-label='Rule starts'] option[selected][value=within]"
+        assert_equal "Summer", item.reload.config["rules"].first["name"], "nothing saved"
+
         refresh(@checklist)
         get checklist_path(@checklist)
         assert_response :success
