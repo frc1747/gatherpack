@@ -34,6 +34,7 @@ Rails.application.config.to_prepare do
   Checklists::Refresher.prepend(Checklists::CountPeriods) unless Checklists::Refresher < Checklists::CountPeriods
   Checklists::Visibility.prepend(Checklists::WrappedVisibility) unless Checklists::Visibility < Checklists::WrappedVisibility
   ChecklistPolicy::Scope.prepend(Checklists::WrappedChecklistScope) unless ChecklistPolicy::Scope < Checklists::WrappedChecklistScope
+  ChecklistPolicy.prepend(Checklists::WrappedChecklistShow) unless ChecklistPolicy < Checklists::WrappedChecklistShow
   Checklist.prepend(Checklists::WrappedOrganizers) unless Checklist < Checklists::WrappedOrganizers
   CommitmentAdjustment.include(Checklists::CountAdjustment) unless CommitmentAdjustment < Checklists::CountAdjustment
   Checklists::Kinds::Count::WATCHED.each do |name|

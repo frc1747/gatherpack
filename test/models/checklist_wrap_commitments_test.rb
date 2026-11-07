@@ -118,6 +118,33 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     end
   end
 
+  test "an item added to a wrapped checklist lists it to whoever that item reaches, and the count stays hidden from them" do
+    with_checklists do
+      Checklists::WrapCommitments.new.up
+      alone = Commitment.find(@commitments.first.id).checklist_item.checklist
+      volunteers = Commitment.find(@commitments.third.id).checklist_item.checklist
+      added = [ alone, volunteers ].to_h do |checklist|
+        badge = checklist.checklist_items.new(kind: "badge", label: "Medical form", read_level: "family")
+        badge.config_params = { badge_ids: [ @rookie.id ] }
+        badge.save!
+        Checklists::Refresher.new(checklist.reload, silent: true).call
+        [ checklist, badge ]
+      end
+
+      [ [ :guardian, alone, :member2 ], [ :lead, volunteers, :member ] ].each do |name, checklist, subject|
+        viewer = person(name)
+        count = checklist.checklist_items.find_by(wrapped: true)
+        id = person(subject).id
+        visibility = Checklists::Visibility.new(checklist, viewer).prepare([ id ])
+
+        assert_includes ChecklistPolicy::Scope.new(viewer.user, Checklist).resolve, checklist, "#{name}: listed through the medical form"
+        assert ChecklistPolicy.new(viewer.user, checklist).show?, name
+        assert_equal :full, visibility.access(added[checklist], id), "#{name} sees #{subject}'s medical form"
+        assert_equal [ nil, nil ], [ visibility.access(count, id), visibility.access(nil, id) ], "#{name}: the count and overall stay hidden"
+      end
+    end
+  end
+
   test "organizers keep running a wrapped checklist once checklists_organizers names a different badge" do
     with_checklists do
       Checklists::WrapCommitments.new.up
