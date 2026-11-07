@@ -80,7 +80,10 @@ class GatherPack::RecurringScheduleTest < ActiveSupport::TestCase
   end
 
   test "recurring.yml is unchanged when there are no fragments" do
-    assert_equal %i[generate_notifications_job], parse_recurring_yml.keys
+    own_tasks = YAML.safe_load(Rails.root.join("config/recurring.yml").read.gsub(/^<%.*%>$/, "")).deep_symbolize_keys
+
+    assert_includes own_tasks.keys, :generate_notifications_job
+    assert_equal own_tasks, parse_recurring_yml
   end
 
   private
