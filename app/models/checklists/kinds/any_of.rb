@@ -30,6 +30,7 @@ module Checklists
           elsif counted.any? { |_, result| result.pending? }
             Result.pending("Almost: #{counted.select { |_, result| result.pending? }.map { |child, _| child.label }.to_sentence}")
           else
+            # The first child's fix with who acts on it (its "by"), whole.
             Result.not_met("None done yet", detail: "Any one of these is enough: #{children.map(&:label).to_sentence}",
               fix: counted.filter_map { |_, result| result.fix }.first)
           end
