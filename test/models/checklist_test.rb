@@ -130,6 +130,43 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_not_includes Checklists.people_covered_by(@checklist.reload), person(:applicant)
   end
 
+  test "a badge rule with a team covers only holders in that team or below" do
+    give_badge(:member, @safety)
+    give_badge(:organizer, @safety)
+    rule = add_rule(@checklist, :include, :badge, badge_id: @safety.id, team_id: @members.id)
+
+    assert_equal [ person(:member) ], Checklists.people_covered_by(@checklist.reload).to_a
+    assert_equal "Include Safety 2026 badge holders in Members", rule.description
+    assert_equal @members.id, rule.reload.team_id, "kept for a badge rule"
+
+    other_org_team = Team.create!(name: "Far", team_type: team_types(:one), parent: @other_org)
+    outside = @checklist.checklist_rules.new(effect: :include, target_type: :badge, badge: @safety, team: other_org_team)
+    assert_not outside.valid?
+    assert_includes outside.errors[:base].join, "Must be within Club"
+  end
+
+  test "an item rule with a badge and team narrows to both" do
+    item = add_item(@checklist, :has_login, "Login")
+    give_badge(:member, @safety)
+    give_badge(:organizer, @safety)
+    add_rule(@checklist, :include, :badge, item: item, badge_id: @safety.id, team_id: @crew.id)
+
+    assert_equal "met", evaluate(@checklist, :organizer, item).status
+    assert_equal "exempt", evaluate(@checklist, :member, item).status
+  end
+
+  test "copying keeps a badge rule's team, and replaces it when asked" do
+    next_crew = Team.create!(name: "Crew 2027", team_type: team_types(:one), parent: @club)
+    old_crew = Team.create!(name: "Crew 2026", team_type: team_types(:one), parent: @club)
+    add_rule(@checklist, :include, :badge, badge_id: @safety.id, team_id: old_crew.id)
+
+    copy = Checklists::Copier.new(@checklist).call(title: "Copy", by: person(:admin))
+    assert_equal old_crew.id, copy.population_rules.first.team_id
+    moved = Checklists::Copier.new(@checklist).call(title: "Moved", by: person(:admin), replace: { "Team:#{old_crew.id}" => next_crew.id })
+    assert_equal next_crew.id, moved.population_rules.first.team_id
+    assert_equal @safety.id, moved.population_rules.first.badge_id
+  end
+
   test "rules must stay within the checklist's team" do
     rule = @checklist.checklist_rules.new(effect: :include, target_type: :team, team: @other_org)
 
