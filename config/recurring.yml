@@ -19,3 +19,7 @@ intake_registration_dates:
   class: Intake::RegistrationDatesJob
   queue: default
   schedule: every hour
+intake_digest:
+  class: Intake::DigestJob
+  queue: default
+  schedule: every day at 7am
