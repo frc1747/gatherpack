@@ -76,6 +76,28 @@ module Checklists
 
         def references = { "period_ids" => "TimeClockPeriod" }
 
+        # Only admins and managers of the checklist's team (or a team above
+        # it) set one up: it reads everyone's punches.
+        def authorable_by?(item, author)
+          item.checklist.present? && item.checklist.manager?(author)
+        end
+
+        # A result carries hours, so it shows only to viewers who could see
+        # the person's punches in the app (TimeClockPunchPolicy::Scope): an
+        # admin, a manager of a team they're on, or the person themselves.
+        def visible_to?(item, viewer, person)
+          visible_person_ids(item, viewer, [ person.id ]).include?(person.id)
+        end
+
+        def visible_person_ids(_item, viewer, person_ids)
+          return [] if viewer.nil?
+          return person_ids if viewer.user&.admin?
+
+          punch_people = [ viewer.id ]
+          punch_people += viewer.all_managed_teams.flat_map(&:person_ids) if viewer.manager?
+          person_ids & punch_people
+        end
+
         def invalidations
           [
             # A punch moved to someone else changes the old owner's result too.
