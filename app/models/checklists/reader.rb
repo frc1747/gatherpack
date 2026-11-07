@@ -26,8 +26,9 @@ module Checklists
         next unless visibility.row_visible?(person_id)
 
         overall = build(nil, by_item[nil], person_id, visibility, reasons)
-        statuses[person_id] = Status.new(person_id: person_id, overall: overall,
-          items: build_items(items, by_item, person_id, visibility, reasons))
+        built = build_items(items, by_item, person_id, visibility, reasons)
+        restrict_overall(overall, built) unless visibility.full? && built.size == items.size
+        statuses[person_id] = Status.new(person_id: person_id, overall: overall, items: built)
       end
     end
 
@@ -51,6 +52,8 @@ module Checklists
 
       stored = ChecklistResult.where(checklist_id: checklist.id, person_id: ids).to_a.group_by(&:person_id)
       missing = ids - stored.select { |_, rows| rows.any? { |row| row.item_id.nil? } }.keys
+      # People it doesn't cover never get rows; don't recompute for them.
+      missing &= Population.new(checklist).person_ids if missing.any? && !checklist.archived?
       if missing.any? && !checklist.archived?
         Refresher.new(checklist, silent: true).call(missing)
         ChecklistResult.where(checklist_id: checklist.id, person_id: missing).to_a.group_by(&:person_id).each { |id, rows| stored[id] = rows }
@@ -109,6 +112,14 @@ module Checklists
         summary: full ? row.summary : nil, detail: full ? row.detail : nil, measures: measures,
         fix: full ? row.fix : nil, acts_for: visibility.acts_for(person_id), access: access,
         excuse: row.excuse && excuse_for(row.excuse, full, reasons), changed_at: row.changed_at, stale: row.stale)
+    end
+
+    # The overall's "n to do" counts only the counting items this viewer
+    # sees, so neither it nor the report's order gives away hidden ones.
+    def restrict_overall(overall, built)
+      unmet = built.count { |entry| entry.item.counts? && (entry.not_met? || entry.pending?) }
+      overall.measures = { "unmet" => unmet } if overall.full?
+      overall.summary = overall.full? && unmet.positive? ? "#{unmet} to do" : nil
     end
 
     def visible_measures(item, measures, person_id, visibility)

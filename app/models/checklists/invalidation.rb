@@ -4,13 +4,16 @@ module Checklists
   # the kind includes Invalidation::Watched in those models, whose
   # after_commit marks the people of every checklist using the kind (see
   # Checklists.mark). Population changes (memberships, badges, applications,
-  # teams) mark every checklist. With the feature off nothing happens.
+  # teams, a deleted person) mark every checklist. With the feature off
+  # nothing happens.
   module Invalidation
     POPULATION = {
       "Membership" => ->(record) { [ record.person_id ] },
       "BadgeAssignment" => ->(record) { [ record.person_id ] },
       "MembershipApplication" => ->(record) { [ record.person_id ] },
-      "Team" => ->(_record) { :all }
+      "Team" => ->(_record) { :all },
+      # A deleted person leaves rules naming them with no target.
+      "Person" => ->(record) { record.destroyed? ? :all : [] }
     }.freeze
 
     module Watched
@@ -47,7 +50,8 @@ module Checklists
       def changed(record)
         name = record.class.name
         if (population = POPULATION[name])
-          Checklists.mark(Checklist.refreshable.to_a, population.call(record))
+          people = population.call(record)
+          Checklists.mark(Checklist.refreshable.to_a, people) if people == :all || people.any?
         end
 
         Checklists.item_kinds.each do |kind_name, kind|

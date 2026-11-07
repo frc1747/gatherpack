@@ -30,6 +30,19 @@ module Checklists
       end
     end
 
+    # [[column index, key, label]] for the number filters: the overall's
+    # items to do, then each column's measures. Owner-only measures are left
+    # out, since most rows wouldn't carry them.
+    def measure_filters
+      filters = [ [ 1, "unmet", "Overall: items to do" ] ]
+      columns.each_with_index do |item, index|
+        Array(item.kind_class&.measures).reject(&:owner_only).each do |measure|
+          filters << [ index + 2, measure.key.to_s, "#{item.label}: #{measure.label}" ]
+        end
+      end
+      filters
+    end
+
     def family_ids
       @family_ids ||= ([ viewer.id ] + viewer.wards.ids) & statuses.keys
     end

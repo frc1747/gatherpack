@@ -217,6 +217,78 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     assert_equal "not_met", stored_status(@checklist, :member)
   end
 
+  test "one failing checklist doesn't stop the clock job for the others" do
+    with_feature do
+      broken = create_world_checklist("Broken")
+      add_item(broken, :has_login, "Login")
+      [ broken, @checklist ].each { |checklist| checklist.update_columns(next_refresh_at: 1.minute.ago) }
+      failing = Class.new(Checklists::Refresher) do
+        def call(*)
+          raise "boom" if checklist.title == "Broken"
+
+          super
+        end
+      end
+      original = Checklists.send(:remove_const, :Refresher)
+      Checklists.const_set(:Refresher, failing)
+
+      ChecklistClockJob.perform_now
+      assert_not_nil @checklist.reload.computed_at
+      assert_nil broken.reload.computed_at
+    ensure
+      Checklists.send(:remove_const, :Refresher)
+      Checklists.const_set(:Refresher, original)
+    end
+  end
+
+  test "a failed refresh puts its marks back" do
+    with_feature do
+      Checklists.mark(@checklist, [ person(:member).id ])
+      @safety_item.update_columns(kind: "badge")
+      Checklists::Evaluator.class_eval { alias_method :original_call, :call; def call(*) = raise("boom") }
+
+      assert_raises(RuntimeError) { ChecklistRefreshJob.perform_now(@checklist.id) }
+      assert ChecklistRefresh.exists?(checklist: @checklist, person_id: person(:member).id)
+    ensure
+      Checklists::Evaluator.class_eval { alias_method :call, :original_call; remove_method :original_call }
+    end
+  end
+
+  test "asking about someone the checklist doesn't cover writes nothing" do
+    refresh(@checklist)
+    computed_at = @checklist.reload.computed_at
+
+    queries = count_queries do
+      statuses = Checklists.status_for(@checklist, [ person(:kid), person(:outsider) ], viewer: person(:parent))
+      assert_equal [ person(:kid).id ], statuses.keys
+    end
+    assert_equal computed_at, @checklist.reload.computed_at
+    assert_operator queries, :<=, 20
+  end
+
+  test "status_for stays bounded for a guardian and a grant holder over 200 people" do
+    team = Team.create!(name: "Big", team_type: team_types(:one), parent: @club)
+    ids = Person.insert_all(200.times.map { |index| { first_name: "P#{index}", last_name: "Big", display_name: "P#{index} Big" } }, returning: :id).rows.flatten
+    Membership.insert_all(ids.map { |id| { person_id: id, team_id: team.id } })
+    big = create_world_checklist("Big", team: @club)
+    add_item(big, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_item(big, :has_login, "Login", {}, read_level: "self_and_leaders")
+    add_item(big, :team_member, "Team", { team_ids: [ team.id ] })
+    big.checklist_grants.create!(badge: @viewer_badge, item_ids: [ big.checklist_items.first.id ], access: :full)
+    give_badge(:outsider, @viewer_badge)
+    refresh(big)
+    people = Person.where(id: ids).to_a + [ person(:kid) ]
+
+    fresh = -> { Checklist.find(big.id) }
+    guardian = count_queries { assert_equal [ person(:kid).id ], Checklists.status_for(fresh.call, people, viewer: person(:parent)).keys }
+    granted = count_queries { assert_equal 201, Checklists.status_for(fresh.call, people, viewer: person(:outsider)).size }
+    assert_operator guardian, :<=, 20
+    assert_operator granted, :<=, 20
+
+    few = count_queries { Checklists.status_for(fresh.call, people.first(10), viewer: person(:outsider)) }
+    assert_equal few, granted, "the same number of queries whatever the number of people"
+  end
+
   test "status_for reads 200 people and 10 items in a bounded number of queries" do
     team = Team.create!(name: "Big", team_type: team_types(:one), parent: @club)
     rows = 200.times.map { |index| { first_name: "P#{index}", last_name: "Big", display_name: "P#{index} Big", created_at: Time.current, updated_at: Time.current } }
@@ -245,10 +317,14 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
 
   private
 
+  # Queries run by the block, with the query cache off so earlier calls
+  # don't hide any.
   def count_queries(&block)
     count = 0
     counter = ->(*, payload) { count += 1 unless payload[:name].in?(%w[SCHEMA TRANSACTION]) || payload[:cached] }
-    ActiveSupport::Notifications.subscribed(counter, "sql.active_record", &block)
+    ActiveRecord::Base.uncached do
+      ActiveSupport::Notifications.subscribed(counter, "sql.active_record", &block)
+    end
     count
   end
 end

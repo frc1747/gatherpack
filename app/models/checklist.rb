@@ -154,17 +154,53 @@ class Checklist < ApplicationRecord
 
       kind.problems(item).map { |problem| "#{item.label}: #{problem}" }
     end
+    checklist_rules.includes(:item).each do |rule|
+      next if rule.target
+
+      where = rule.item ? "#{rule.item.label}: a" : "A"
+      list << "#{where} rule's #{rule.target_type == "applicants" ? "team" : rule.target_type} was deleted; it matches nobody"
+    end
     if active? && Checklists::Housekeeping.archive_due?(self) && dependents.refreshable.exists?
       list << "Ended, but not archived: #{dependents.refreshable.pluck(:title).to_sentence} still requires it"
     end
     list
   end
 
-  # The last change to its settings, items or rules, for the banner.
+  # The last change to its settings, items, rules or grants after it was
+  # made, for the banner.
   def last_change
+    types = %w[Checklist ChecklistItem ChecklistRule ChecklistGrant]
     ids = [ id ] + checklist_items.ids + checklist_rules.ids + checklist_grants.ids
-    AuditLog.where(item_id: ids, item_type: %w[Checklist ChecklistItem ChecklistRule ChecklistGrant])
-      .where.not(event: "create").order(created_at: :desc).first
+    current = AuditLog.where(item_id: ids, item_type: types)
+    # Removed parts are no longer in the lists above; their last version
+    # names this checklist.
+    removed = AuditLog.where(item_type: types - [ "Checklist" ], event: "destroy").where("object LIKE ?", "%#{id}%")
+    current.or(removed).order(created_at: :desc).first
+  end
+
+  # Who made a change, as a role ("an admin", "a manager", "an organizer").
+  def role_of(change)
+    person = User.find_by(id: change&.whodunnit)&.person
+    if person.nil? then "someone"
+    elsif person.admin? then "an admin"
+    elsif manager?(person) then "a manager"
+    elsif checklist_organizers.exists?(person_id: person.id) then "an organizer"
+    else "someone"
+    end
+  end
+
+  # "Changed 6 Nov 2026 by an organizer: item Safety edited", for the banner.
+  def last_change_text
+    change = last_change
+    return unless change
+
+    what = case change.item_type
+    when "Checklist" then "settings"
+    when "ChecklistItem" then "item #{checklist_items.find_by(id: change.item_id)&.label || change.reify&.label}".strip
+    when "ChecklistRule" then "who it covers"
+    else "who can see it"
+    end
+    "Changed #{I18n.l(change.created_at.to_date, format: :long)} by #{role_of(change)}: #{what} #{change.event == "destroy" ? "removed" : "edited"}"
   end
 
   private

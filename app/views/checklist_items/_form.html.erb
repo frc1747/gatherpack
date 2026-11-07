@@ -23,6 +23,9 @@
       <% Array(kind&.settings).each do |setting| %>
         <%= render "checklist_items/setting", f: f, item: item, setting: setting, checklist: checklist %>
       <% end %>
+      <% if kind&.form_partial %>
+        <%= render kind.form_partial, f: f, item: item, checklist: checklist, field_name: "checklist_item[config]" %>
+      <% end %>
 
       <% if kind&.uses_dates? %>
         <%= render "checklists/dates_fields", f: f, record: item, allow_inherit: true %>
@@ -64,7 +67,7 @@
       <div class="card-header">Who this passes <span class="spinner-border spinner-border-sm d-none" data-checklist-preview-target="spinner" aria-hidden="true"></span></div>
       <div class="card-body small" data-checklist-preview-target="output">
         <% if kind && item.persisted? && item.errors.empty? %>
-          <%= render "checklists/preview", preview: Checklists::Preview.new(checklist, item: item), checklist: checklist %>
+          <%= render "checklists/preview", preview: Checklists::Preview.new(checklist, item: item, viewer: current_user.person), checklist: checklist %>
         <% else %>
           <span class="text-body-secondary">Fill in the item to see who it passes.</span>
         <% end %>

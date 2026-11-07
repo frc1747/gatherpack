@@ -47,9 +47,9 @@ module Checklists
       end
 
       def evaluate(person_ids)
-        attestations = ::ChecklistAttestation.where(person_id: person_ids, key: config["key"])
-          .where(attested_at: window.start_time..window.end_time)
-          .order(:attested_at).index_by(&:person_id)
+        found = ::ChecklistAttestation.where(person_id: person_ids, key: config["key"])
+          .where(attested_at: window.start_time..window.end_time).order(:attested_at).to_a
+        attestations = ::ChecklistAttestation.accepted_by(item, found).index_by(&:person_id)
 
         person_ids.index_with do |person_id|
           attestation = attestations[person_id]

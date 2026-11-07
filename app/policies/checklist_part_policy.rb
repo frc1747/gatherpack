@@ -1,12 +1,13 @@
 # Items, rules, grants, organizers and recorded lists belong to their
-# checklist: its organizers manage them.
+# checklist: its organizers manage them, and nothing changes on an archived
+# checklist (recorded lists stay readable).
 class ChecklistPartPolicy < ApplicationPolicy
   def show?
     checklist.organizer?(person)
   end
 
   def create?
-    checklist.organizer?(person)
+    !checklist.archived? && checklist.organizer?(person)
   end
 
   def update?
