@@ -138,19 +138,40 @@ module Checklists
       # here. The cap carries upward: a group holding a capped item is
       # capped too, and the overall that viewer sees is worked out from the
       # counting items they may see, so neither gives the answer away.
+      #
+      # Answer true (or :full) to show the result as usual, :status to show
+      # only its status (Done, Not yet, a label such as "Excused") with no
+      # summary, detail, measures or fix, or false to hide it.
       def visible_to?(_item, _viewer, _person)
         true
       end
 
-      # The batch form of visible_to?: the ids among person_ids whose
-      # results viewer may see. Override it to answer in a few queries; the
-      # default asks visible_to? per person, and only when a kind overrides
-      # it.
-      def visible_person_ids(item, viewer, person_ids)
-        return person_ids if method(:visible_to?).owner == ItemKind.singleton_class
+      # The batch form of the cap: { person_id => :full or :status } for the
+      # people among person_ids whose result viewer may see (at most at that
+      # level); the rest are hidden. Override it to answer in a few queries.
+      # The default asks visible_to? per person when a kind overrides that,
+      # else takes visible_person_ids at :full.
+      def cap_levels(item, viewer, person_ids)
+        if overrides?(:visible_to?)
+          people = ::Person.where(id: person_ids).index_by(&:id)
+          person_ids.each_with_object({}) do |id, levels|
+            level = people[id] && cap_level(visible_to?(item, viewer, people[id]))
+            levels[id] = level if level
+          end
+        elsif overrides?(:visible_person_ids)
+          visible_person_ids(item, viewer, person_ids).index_with(:full)
+        else
+          person_ids.index_with(:full)
+        end
+      end
 
-        people = ::Person.where(id: person_ids).index_by(&:id)
-        person_ids.select { |id| people[id] && visible_to?(item, viewer, people[id]) }
+      # The ids among person_ids whose result viewer may see at all (at
+      # either level). Overriding it caps at :full or hidden; override
+      # cap_levels instead for status-only answers.
+      def visible_person_ids(item, viewer, person_ids)
+        return cap_levels(item, viewer, person_ids).keys if overrides?(:cap_levels) || overrides?(:visible_to?)
+
+        person_ids
       end
 
       # Whether author (a Person) may set the item up with its config, so
@@ -232,6 +253,17 @@ module Checklists
       end
 
       private
+
+      def overrides?(name)
+        method(name).owner != ItemKind.singleton_class
+      end
+
+      def cap_level(answer)
+        case answer
+        when :status then :status
+        when true, :full then :full
+        end
+      end
 
       def cast(setting, value)
         return Array(value).compact_blank.filter_map { |one| cast_one(setting, one) } if setting.list?

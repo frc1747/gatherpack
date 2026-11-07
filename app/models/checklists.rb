@@ -146,9 +146,24 @@ module Checklists
     # inside it: a group whose answer could come from a capped child is
     # capped too.
     def visible_person_ids(item, viewer, person_ids)
-      ([ item ] + descendants_of(item)).reduce(person_ids.to_a) do |ids, entry|
+      cap_levels(item, viewer, person_ids).keys
+    end
+
+    # { person_id => :full or :status } for the people whose result on this
+    # item viewer may see, and how much: the most any of the item's kind and
+    # the kinds of items inside it allow (status only when any says status
+    # only; hidden when any hides it).
+    def cap_levels(item, viewer, person_ids)
+      ([ item ] + descendants_of(item)).reduce(person_ids.to_a.index_with(:full)) do |levels, entry|
         kind = item_kind(entry.kind)
-        kind && ids.any? ? kind.visible_person_ids(entry, viewer, ids) : ids
+        next levels if kind.nil? || levels.empty?
+
+        capped = kind.cap_levels(entry, viewer, levels.keys)
+        levels.each_with_object({}) do |(id, level), kept|
+          next unless capped[id]
+
+          kept[id] = level == :status || capped[id] == :status ? :status : :full
+        end
       end
     end
 

@@ -156,4 +156,27 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.not_met("Not yet", fix: fix) }
     end
   end
+
+  # A kind like hours: everyone who may see the item sees Done or Not yet,
+  # but only the person and admins see the numbers.
+  class StatusOnly < Checklists::ItemKind
+    def self.visible_to?(_item, viewer, person)
+      viewer.admin? || viewer.id == person.id ? true : :status
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("12 of 20 hours", detail: "Short by 8 hours", measures: { "hours" => 12 }) }
+    end
+  end
+
+  # The same answered in batch: status only for everyone but admins.
+  class BatchStatusOnly < Checklists::ItemKind
+    def self.cap_levels(_item, viewer, person_ids)
+      person_ids.index_with(viewer.admin? ? :full : :status)
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("12 of 20 hours") }
+    end
+  end
 end
