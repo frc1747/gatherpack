@@ -18,7 +18,9 @@ module Checklists
   # kind never writes, calls the network or depends on the viewer.
   class ItemKind
     # One form field. type is :badges, :teams, :checklist, :number, :date,
-    # :choice, :text or :boolean; options for :choice as [[label, value]].
+    # :relative_date (on or after a date, or within the last N days or
+    # months; see Checklists::RelativeDate), :choice, :text or :boolean;
+    # options for :choice as [[label, value]].
     Setting = Struct.new(:key, :type, :label, :hint, :options, keyword_init: true)
 
     # A named number in a result. owner_only measures show only to the
@@ -123,6 +125,7 @@ module Checklists
         when :number then value.presence && value.to_i
         when :boolean then ActiveModel::Type::Boolean.new.cast(value) || false
         when :date then value.presence && Date.parse(value.to_s).iso8601
+        when :relative_date then value.respond_to?(:to_h) ? RelativeDate.cast(value) : nil
         else value.to_s.strip.presence
         end
       rescue Date::Error
@@ -151,6 +154,11 @@ module Checklists
 
     def window
       @window ||= context.window_for(item)
+    end
+
+    # A :relative_date setting, or nil when it isn't set.
+    def relative_date(key)
+      RelativeDate.from_config(config[key.to_s])
     end
   end
 end

@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/checklists_world"
+require_relative "../support/checklists_test_kinds"
 
 class ChecklistsControllerTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
@@ -489,6 +490,22 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
 
       assert_match "by a manager: item Sign-in edited", response.body
     end
+  end
+
+  test "a relative date setting shows as a choice and saves from the form" do
+    Checklists.register_item_kind(:joined_since, ChecklistsTestKinds::JoinedSince)
+    with_feature do
+      sign_in person(:admin).user
+      get new_checklist_checklist_item_path(@checklist, kind: "joined_since")
+      assert_select "input[type=radio][name='checklist_item[config][since][mode]'][value=within]"
+      assert_select "input[type=date][name='checklist_item[config][since][date]']"
+
+      post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "joined_since", label: "New",
+        config: { since: { mode: "within", amount: "6", unit: "months", date: "", extra: "dropped" } } } }
+      assert_equal({ "mode" => "within", "amount" => 6, "unit" => "months" }, @checklist.checklist_items.find_by!(label: "New").config["since"])
+    end
+  ensure
+    Checklists.unregister_item_kind(:joined_since)
   end
 
   test "the as-of picker computes live for organizers" do
