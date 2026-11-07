@@ -134,6 +134,31 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "Completed November 03, 2026, after October 15, 2026", result(:rookie).detail
   end
 
+  test "needing to confirm again by the cutoff still counts after it" do
+    @checklist.update!(cutoff_on: Date.new(2026, 10, 15))
+    respond(@form, :member)
+    republish = -> { @form.update!(content_version: @form.content_version + 1) && @form.publish!(reconfirm: true) }
+
+    travel_to(Time.zone.local(2026, 10, 5)) { republish.call }
+    travel_to Time.zone.local(2026, 10, 6)
+    assert_equal "Needs confirming again", result(:member).summary
+
+    travel_to Time.zone.local(2026, 10, 20, 9)
+    assert_equal "not_met", result(:member).status, "the form changed before the cutoff"
+    assert_equal "Needs confirming again", result(:member).summary
+    travel_to(Time.zone.local(2026, 10, 21)) { respond(@form, :member) }
+    assert_equal "not_met", result(:member).status, "confirmed again only after the cutoff"
+  end
+
+  test "a form changed after the cutoff doesn't undo a result" do
+    @checklist.update!(cutoff_on: Date.new(2026, 10, 15))
+    respond(@form, :member)
+    travel_to(Time.zone.local(2026, 10, 20)) { @form.update!(content_version: @form.content_version + 1) && @form.publish!(reconfirm: true) }
+
+    travel_to Time.zone.local(2026, 10, 21)
+    assert_equal "met", result(:member).status
+  end
+
   test "a version withdrawn after the cutoff counted at the cutoff" do
     @checklist.update!(cutoff_on: Date.new(2026, 10, 15))
     respond(@form, :member)

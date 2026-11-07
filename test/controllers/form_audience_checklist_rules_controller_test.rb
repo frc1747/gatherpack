@@ -91,12 +91,12 @@ class FormAudienceChecklistRulesControllerTest < ActionDispatch::IntegrationTest
     with_features do
       sign_in person(:crew_manager).user
       post checklist_checklist_items_path(crew_checklist), params: params
-      assert_redirected_to checklist_path(crew_checklist)
-      assert_equal "You can only choose forms you manage.", flash[:alert]
+      assert_response :unprocessable_entity
+      assert_select ".alert", text: "You can't set up this item this way"
       assert_not ChecklistItem.exists?(label: "Sneaky")
 
       post preview_checklist_checklist_items_path(crew_checklist), params: params
-      assert_response :forbidden
+      assert_response :unprocessable_entity
 
       item = add_item(crew_checklist, :form_complete, "Medical", { form_ids: [ hidden.id ] })
       get edit_checklist_checklist_item_path(crew_checklist, item)
@@ -108,6 +108,42 @@ class FormAudienceChecklistRulesControllerTest < ActionDispatch::IntegrationTest
       crew_form = Form.create!(title: "Crew Form", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
       patch checklist_checklist_item_path(crew_checklist, item), params: { checklist_item: { label: "Medical form", config: { form_ids: [ hidden.id, crew_form.id ] } }, confirmed: "1" }
       assert_equal [ hidden.id, crew_form.id ], item.reload.config["form_ids"]
+    end
+  end
+
+  test "moving a form out of the checklist's team is refused while it asks by finished or not, and Duplicate works" do
+    with_features do
+      add_rule_as(:club_manager, match: "not_met")
+      other = create_world_team("Elsewhere")
+      sign_in person(:admin).user
+      patch form_path(@form), params: { form: { team_id: other.id } }
+      assert_response :unprocessable_entity
+      assert_match "ask everyone it covers first", response.body
+      assert_equal @club.id, @form.reload.team_id
+
+      post duplicate_form_path(@form)
+      copy = Form.find_by!(title: "Medical Release (copy)")
+      assert_redirected_to edit_form_path(copy, tab: "details")
+      assert copy.form_audience_rules.sole.checklist_not_met?
+    end
+  end
+
+  test "the preview of a saved item checks its forms even when no kind is sent" do
+    crew_checklist = create_world_checklist("Crew Trip", team: @crew)
+    crew_form = Form.create!(title: "Crew Form", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
+    hidden = Form.create!(title: "Club Only", team: @club, respond_permission: "self_and_leaders", read_permission: "self_and_leaders", status: :draft)
+    with_features do
+      item = add_item(crew_checklist, :form_complete, "Medical", { form_ids: [ crew_form.id ] })
+      sign_in person(:crew_manager).user
+      [ {}, { kind: "badge" } ].each do |sent|
+        post preview_checklist_checklist_items_path(crew_checklist, id: item.id), params: { checklist_item: sent.merge(config: { form_ids: [ hidden.id ] }) }
+        assert_response :unprocessable_entity, "sent #{sent.inspect}"
+        assert_no_match "Club Only", response.body
+      end
+
+      post preview_checklist_checklist_items_path(crew_checklist, id: item.id), params: { checklist_item: { config: { form_ids: [ crew_form.id ] } } }
+      assert_response :success
+      assert_match "Crew Form", response.body
     end
   end
 end

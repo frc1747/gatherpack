@@ -5,12 +5,13 @@ Rails.application.config.to_prepare do
   next unless defined?(Checklists) && Checklists.respond_to?(:register_item_kind) && defined?(FormAudienceRule)
 
   Checklists.register_item_kind(:form_complete, Checklists::Kinds::FormComplete)
-  ChecklistItemsController.include(Checklists::FormItemAccess) unless ChecklistItemsController < Checklists::FormItemAccess
 
   FormAudienceRule.prepend(Checklists::FormAudienceTarget) unless FormAudienceRule < Checklists::FormAudienceTarget
   FormAudienceRulePolicy.prepend(Checklists::FormAudienceRuleAccess) unless FormAudienceRulePolicy < Checklists::FormAudienceRuleAccess
   FormAudienceRulesController.prepend(Checklists::FormAudienceRuleParams) unless FormAudienceRulesController < Checklists::FormAudienceRuleParams
   Form.prepend(Checklists::FormOpenable) unless Form < Checklists::FormOpenable
+  Form.include(Checklists::FormAudienceTeamGuard::OnForm) unless Form < Checklists::FormAudienceTeamGuard::OnForm
+  Checklist.include(Checklists::FormAudienceTeamGuard::OnChecklist) unless Checklist < Checklists::FormAudienceTeamGuard::OnChecklist
   ChecklistItem.include(Checklists::FormRequirementGuard) unless ChecklistItem < Checklists::FormRequirementGuard
   ChecklistRule.include(Checklists::FormAudienceRefresh::RuleChanges) unless ChecklistRule < Checklists::FormAudienceRefresh::RuleChanges
   Checklists::Refresher.prepend(Checklists::FormAudienceRefresh::OverallChanges) unless Checklists::Refresher < Checklists::FormAudienceRefresh::OverallChanges

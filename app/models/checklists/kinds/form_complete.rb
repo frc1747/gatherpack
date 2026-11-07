@@ -74,6 +74,20 @@ module Checklists
           problems
         end
 
+        # An author may make an item read only forms they may see the setup
+        # of (FormPolicy::Scope: forms they manage or run as their creator),
+        # so an item can't reveal who did a form they can't see. Forms
+        # already saved on the item stay. The core asks this once the item's
+        # kind is fixed: on create, update, the live preview and copy.
+        def authorable_by?(item, author)
+          kept = item.new_record? ? [] : Array(item.attribute_in_database("config")&.dig("form_ids")).map(&:to_s)
+          wanted = (Array(item.config["form_ids"]).compact_blank.map(&:to_s) - kept).uniq
+          return true if wanted.empty?
+
+          user = author&.user
+          user.present? && Pundit.policy_scope!(user, ::Form).where(id: wanted).count == wanted.size
+        end
+
         def describe(item)
           titles = referenced_records(item, "form_ids").map(&:title)
           "Completes #{titles.to_sentence.presence || "a form"}#{" (any time)" if item.config["ever"]}"
@@ -206,14 +220,29 @@ module Checklists
         latest if latest.withdrawn? && latest.updated_at > context.as_of
       end
 
-      # Why the current version must be confirmed again (the form or the
-      # profile changed), judged live only: after the cutoff these come too
-      # late to count. Expiry is judged separately, at the as-of moment.
+      # Why the version that counted must be confirmed again: the form
+      # changed and asked for it, or (for the current version) the profile
+      # changed. Expiry is judged separately, at the as-of moment.
+      #
+      # After the cutoff a form change counts only if it was published by
+      # the as-of moment, read from the form's history. A profile change
+      # can't be dated, so it still counts: wrongly showing Not yet is the
+      # safer mistake than wrongly showing Done.
       def reconfirm_reason(response, signed)
-        return if frozen? || signed.id != response.active_submission_id
+        form = response.form
+        current = signed.id == response.active_submission_id
+        return :form if frozen? && signed.form_version < reconfirm_from_version_at(form)
+        return unless current
+        return :form if !frozen? && signed.form_version < form.reconfirm_from_version
 
-        reason = response.reconfirmation_reason
-        reason unless reason == :expired
+        :profile if form.reconfirm_on_profile_change? && response.profile_changes.any?
+      end
+
+      # The form's "confirm again from" version as it stood at the as-of
+      # moment (its version history), or as it is now without one.
+      def reconfirm_from_version_at(form)
+        @reconfirm_from_version_at ||= {}
+        @reconfirm_from_version_at[form.id] ||= form.paper_trail.version_at(context.as_of)&.reconfirm_from_version || form.reconfirm_from_version
       end
 
       def frozen?

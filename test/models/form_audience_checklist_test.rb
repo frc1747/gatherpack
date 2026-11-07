@@ -138,6 +138,25 @@ class FormAudienceChecklistTest < ActiveSupport::TestCase
     end
   end
 
+  test "a form or checklist can't move teams out from under a finished-or-not rule, so Duplicate still works" do
+    other = create_world_team("Elsewhere")
+    crew_checklist = create_world_checklist("Crew Trip", team: @crew)
+    crew_form = Form.create!(title: "Crew Form", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
+    crew_form.form_audience_rules.create!(effect: :include, target_type: :checklist, checklist: crew_checklist, checklist_match: :not_met)
+
+    assert_not crew_form.update(team: @club)
+    assert_equal [ "can't change while the audience asks people who have or haven't finished Crew Trip; ask everyone it covers first" ], crew_form.errors[:team_id]
+    assert_not crew_checklist.update(team: other)
+    assert_equal [ "can't change while Crew Form asks people who have or haven't finished it; those forms must stay in its team or below" ], crew_checklist.errors[:team_id]
+    assert crew_checklist.update(team: @club), "the form is still below the checklist's new team"
+
+    crew_form.reload
+    assert crew_form.duplicate!(title: "Crew Form copy").form_audience_rules.any?(&:target_checklist?)
+
+    crew_form.form_audience_rules.update_all(checklist_match: FormAudienceRule.checklist_matches[:covered])
+    assert crew_form.reload.update(team: other), "everyone it covers can ask from any team"
+  end
+
   test "while checklists are off a checklist rule doesn't make the form openable" do
     add_checklist_rule
     assert_not @form.reload.openable?
