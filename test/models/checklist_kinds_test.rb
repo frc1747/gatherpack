@@ -49,7 +49,7 @@ class ChecklistKindsTest < ActiveSupport::TestCase
       add_item(@checklist, :attested, "Own", { statement: "Own", attested_by: "person" }) => "person",
       add_item(@checklist, :attested, "Guardian", { statement: "Guardian", attested_by: "guardian" }) => "guardian",
       add_item(@checklist, :attested, "Leader", { statement: "Leader", attested_by: "manager" }) => "leader",
-      add_item(@checklist, :checklist, "Other", { checklist_id: other.id }) => "person"
+      add_item(@checklist, :checklist, "Other", { checklist_id: other.id }) => "leader"
     }
     either = add_item(@checklist, :any_of, "Either")
     add_item(@checklist, :badge, "Badge first", { badge_ids: [ @safety.id ] }, parent: either)
@@ -178,6 +178,23 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     assert_equal "met", evaluate(@checklist, :member, item).status
     assert_equal "not_met", evaluate(@checklist, :member2, item).status
     assert_equal "exempt", evaluate(@checklist, :organizer, item).status
+  end
+
+  test "checklist: the fix says who acts on what's left on the other checklist" do
+    other = create_world_checklist("Safety cleared", team: @members)
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    confirm = add_item(other, :attested, "Rules", { statement: "Rules read", attested_by: "person" })
+    add_item(other, :attested, "Extra", { statement: "Extra", attested_by: "person" }, counts: false)
+    ChecklistAttestation.create!(person: person(:member), key: confirm.config["key"], statement: "Rules read", attested_by: person(:member),
+      attested_as: "person", attested_at: Time.zone.parse("2026-10-01"))
+    item = add_item(@checklist, :checklist, "Season ready", { checklist_id: other.id })
+
+    travel_to Time.zone.parse("2026-11-01 12:00") do
+      refresh(other)
+      assert_equal "leader", evaluate(@checklist, :member, item).fix["by"], "only the badge is left, and the uncounted item doesn't count"
+      assert_equal "person", evaluate(@checklist, :member2, item).fix["by"], "they can confirm the rules themselves"
+      assert_equal "See Safety cleared", evaluate(@checklist, :member2, item).fix["label"]
+    end
   end
 
   test "an unregistered kind is unavailable and not met, never a pass" do
