@@ -1,0 +1,24 @@
+<%# Checklists the sheet's places need that the viewer, or someone they can
+    sign up, hasn't finished, with what to do (Checklists::SignupSheetNeeds). %>
+<% entries = signup_sheet.archived? ? [] : Checklists::SignupSheetNeeds.new(signup_sheet, viewer).entries %>
+<% if entries.any? %>
+  <div class="card mb-3" id="checklist_signup_panel">
+    <div class="card-header"><h2 class="h5 mb-0">Before you sign up</h2></div>
+    <div class="card-body">
+      <% entries.each do |entry| %>
+        <p><%= entry.position_names.to_sentence %> <%= entry.position_names.size > 1 ? "need" : "needs" %> <%= entry.checklist.title %> finished first.</p>
+        <% entry.people.each do |person, status, covered| %>
+          <% name = person.id == viewer.id ? "You" : person.display_name %>
+          <% if status %>
+            <% if person.id != viewer.id %><h3 class="h6"><%= person.display_name %></h3><% end %>
+            <%= render "checklists/person_status", checklist: entry.checklist, status: status %>
+          <% elsif !covered %>
+            <p class="text-body-secondary"><%= name %> <%= name == "You" ? "aren't" : "isn't" %> on <%= entry.checklist.title %>, so can't take these places.</p>
+          <% else %>
+            <p class="text-body-secondary"><%= name %> <%= name == "You" ? "haven't" : "hasn't" %> finished <%= entry.checklist.title %>. Ask a leader what's left.</p>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
