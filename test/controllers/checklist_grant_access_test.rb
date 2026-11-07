@@ -77,9 +77,40 @@ class ChecklistGrantAccessTest < ActionDispatch::IntegrationTest
     assert_equal :full, visibility.access(login_inside, person(:member).id)
     assert_nil visibility.access(moved, person(:member).id), "an item added under the granted group"
     assert_nil visibility.access(@guarded, person(:member).id), "an item moved under the granted group"
+    assert_nil visibility.access(other_group, person(:member).id), "the group, whose result tells of the item"
 
     @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ other_group.id ], created_by: person(:admin))
-    assert_equal :full, Checklists::Visibility.new(@checklist, crewmate).access(moved, person(:member).id), "an admin's grant still counts"
+    by_admin = Checklists::Visibility.new(@checklist, crewmate)
+    assert_equal :full, by_admin.access(moved, person(:member).id), "an admin's grant still counts"
+    assert_equal :full, by_admin.access(other_group, person(:member).id)
+  end
+
+  test "a grant doesn't show a group with a refusing item further down" do
+    outer = add_item(@checklist, :any_of, "Outer")
+    inner = add_item(@checklist, :any_of, "Inner", parent: outer)
+    @guarded.update!(parent: inner)
+    @checklist.checklist_grants.create!(team: @crew, access: :full, item_ids: [ outer.id ], created_by: person(:organizer))
+
+    visibility = Checklists::Visibility.new(@checklist, create_world_person("Crewmate", @crew))
+    assert_nil visibility.access(inner, person(:member).id)
+    assert_nil visibility.access(outer, person(:member).id)
+  end
+
+  test "copied items are checked against the copy's population" do
+    Checklists.register_item_kind(:no_applicants, ChecklistsTestKinds::NoApplicants)
+    @checklist.checklist_grants.destroy_all
+    add_rule(@checklist, :include, :applicants, team_id: @joiners.id)
+    add_item(@checklist, :no_applicants, "Members only")
+
+    with_organizers do
+      sign_in person(:organizer).user
+      assert_no_difference "Checklist.count" do
+        post copy_checklist_path(@checklist), params: { title: "Copy", shift_months: 12 }
+      end
+      assert_equal "You can't copy Members only: ask someone who can set those items up.", flash[:alert]
+    end
+  ensure
+    Checklists.unregister_item_kind(:no_applicants)
   end
 
   test "kinds that don't limit grants honour every grant, including ones with no maker" do

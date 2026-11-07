@@ -84,6 +84,17 @@ module ChecklistsTestKinds
     end
   end
 
+  # Only admins may set it up on a checklist covering applicants.
+  class NoApplicants < Checklists::ItemKind
+    def self.authorable_by?(item, author)
+      author.admin? || Checklists::Population.new(item.checklist).person_ids.none? { |id| MembershipApplication.exists?(person_id: id) }
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("Fine") }
+    end
+  end
+
   class Private < Checklists::ItemKind
     def self.visible_to?(_item, viewer, person)
       viewer.admin? || viewer.id == person.id
