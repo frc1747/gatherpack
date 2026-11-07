@@ -57,4 +57,21 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.not_met("Private value") }
     end
   end
+
+  # A kind that pools people like a count item: seen at the "group" level,
+  # and a person reaches the results of anyone related to them by any
+  # relationship, guardian or not. Always not met.
+  class Pooled < Checklists::ItemKind
+    def self.default_read_level(_item) = "group"
+
+    def self.group_reach(_item, viewer, person_ids)
+      related = Relationship.where(parent_id: viewer.id, child_id: person_ids).pluck(:child_id) +
+        Relationship.where(child_id: viewer.id, parent_id: person_ids).pluck(:parent_id)
+      ([ viewer.id ] & person_ids) + related
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("1 of 2 shifts") }
+    end
+  end
 end

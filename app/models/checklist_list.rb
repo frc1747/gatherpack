@@ -23,7 +23,7 @@ class ChecklistList < ApplicationRecord
     rows = statuses.values.sort_by { |status| people[status.person_id].display_name.to_s }.map do |status|
       {
         "person_id" => status.person_id, "name" => people[status.person_id].display_name,
-        "overall" => status.overall.status, "overall_text" => status.overall.text,
+        "overall" => status.overall&.status, "overall_text" => status.overall&.text,
         "items" => status.all_items.to_h { |entry| [ entry.item.id, { "status" => entry.status, "text" => entry.text, "summary" => entry.summary } ] }
       }
     end

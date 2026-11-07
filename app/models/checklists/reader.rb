@@ -22,12 +22,15 @@ module Checklists
       visibility = Visibility.new(checklist, viewer).prepare(rows.keys)
       reasons = excuse_reasons(rows, visibility)
 
+      # A row shows when its overall or any of its items reaches the viewer
+      # (a pooled count seen by a relative, say); the overall shows only at
+      # its own level, else it's nil.
       rows.each_with_object({}) do |(person_id, by_item), statuses|
-        next unless visibility.row_visible?(person_id)
-
         overall = build(nil, by_item[nil], person_id, visibility, reasons)
         built = build_items(items, by_item, person_id, visibility, reasons)
-        restrict_overall(overall, built) unless visibility.full? && built.size == items.size
+        next if overall.nil? && built.empty?
+
+        restrict_overall(overall, built) if overall && !(visibility.full? && built.size == items.size)
         statuses[person_id] = Status.new(person_id: person_id, overall: overall, items: built)
       end
     end

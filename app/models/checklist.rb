@@ -45,6 +45,10 @@ class Checklist < ApplicationRecord
     %w[title team_id status starts_on ends_on updated_at]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   def identifier_icon
     "list-check"
   end

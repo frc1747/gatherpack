@@ -71,9 +71,12 @@
                   <td data-value="<%= report.name(status.person_id) %>">
                     <%= link_to report.name(status.person_id), person_checklists_path(status.person_id) %>
                   </td>
-                  <td data-value="<%= order.index(status.overall.status) %>" data-status="<%= status.overall.status %>" data-measures="<%= status.overall.measures.to_h.to_json %>">
-                    <%= checklist_status_badge(status.overall) %>
-                    <% if status.overall.summary.present? %><div class="small"><%= status.overall.summary %></div><% end %>
+                  <% overall = status.overall %>
+                  <td data-value="<%= overall ? order.index(overall.status) : 9 %>" data-status="<%= overall&.status %>" data-measures="<%= overall&.measures.to_h.to_json %>">
+                    <% if overall %>
+                      <%= checklist_status_badge(overall) %>
+                      <% if overall.summary.present? %><div class="small"><%= overall.summary %></div><% end %>
+                    <% end %>
                   </td>
                   <% report.columns.each do |item| %>
                     <% entry = status.item(item.id) %>

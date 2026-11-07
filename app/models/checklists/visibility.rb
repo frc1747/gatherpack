@@ -66,8 +66,10 @@ module Checklists
       grant_access(item)
     end
 
-    def row_visible?(person_id)
-      access(nil, person_id).present?
+    # Whether the viewer sees anything of this person's row: the overall, or
+    # any of these items.
+    def row_visible?(person_id, items = [])
+      access(nil, person_id).present? || items.any? { |item| access(item, person_id).present? }
     end
 
     # Owner-only measures: the person, their guardians and leaders.
