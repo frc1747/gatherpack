@@ -12,6 +12,7 @@ module Checklists
   #   self.normalize_form(params)   # the config the section's params give
   #   self.visible_to?(item, viewer, person)  # a cap on who sees a person's result (default true)
   #   self.authorable_by?(item, author)       # whether this author may set the item up so (default true)
+  #   self.grantable_by?(item, person, access)  # whether person may grant access to it (default true)
   #   self.problems(item)           # deleted badge, missing field... shown to organizers
   #   self.references               # { "badge_ids" => "Badge" }: config keys naming records
   #   self.invalidations            # [[Model, ->(record) { person ids or :all }]] (§8.2)
@@ -201,6 +202,21 @@ module Checklists
       # Checked when an item is created, edited, previewed or copied.
       def authorable_by?(_item, _author)
         true
+      end
+
+      # Whether person may make a grant (ChecklistGrant) showing this item at
+      # access (:status or :full). Checked when a grant is made; a kind that
+      # also honours grants in visible_to? or cap_levels can ask
+      # honours_grant? about one already made.
+      def grantable_by?(_item, _person, _access)
+        true
+      end
+
+      # Whether grant's maker may still grant it this item at its access. A
+      # grant with no recorded maker (made before makers were kept, or whose
+      # maker was deleted) isn't honoured.
+      def honours_grant?(item, grant)
+        grant.created_by.present? && grantable_by?(item, grant.created_by, grant.access.to_sym)
       end
 
       # For pooled kinds: the people, among person_ids, whose results the
