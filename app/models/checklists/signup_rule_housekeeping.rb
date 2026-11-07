@@ -12,5 +12,12 @@ module Checklists
 
       ignoring_signups || !checklist.signup_sheets_needing.exists?
     end
+
+    # Where archiving reads what still uses a checklist (the Housekeeping
+    # pattern's checklist type, when it's there), the sheets count too.
+    def used_by(checklist)
+      names = defined?(super) ? super : []
+      names + checklist.signup_sheets_needing.order(:title).pluck(:title).map { |title| "the sign-up sheet #{title}" }
+    end
   end
 end
