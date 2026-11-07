@@ -1,12 +1,12 @@
 require "test_helper"
 require_relative "../support/signups_world"
 
-# Runs only where feature/person-merge is present (an integration build).
+# Runs only where people can be merged (GatherPack::PersonMerge is loaded).
 class SignupsPersonMergeTest < ActiveSupport::TestCase
   include SignupsWorld
 
   setup do
-    skip "needs feature/person-merge" unless defined?(GatherPack::PersonMerge)
+    skip "people can't be merged here" unless defined?(GatherPack::PersonMerge)
     build_signups_world
   end
 

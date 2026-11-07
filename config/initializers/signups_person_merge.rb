@@ -1,6 +1,7 @@
-# Sign-ups' columns for the person merge registry. Guarded, so this branch
-# runs without feature/person-merge. to_prepare runs after every
-# initializer, so the registry is loaded by then whatever the file order.
+# Sign-ups' columns for the person merge registry. Guarded, so this runs
+# where people can't be merged (no GatherPack::PersonMerge). to_prepare runs
+# after every initializer, so the registry is loaded by then whatever the
+# file order.
 Rails.application.config.to_prepare do
   next unless defined?(GatherPack::PersonMerge)
 
