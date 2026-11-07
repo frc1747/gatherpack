@@ -52,6 +52,9 @@ module Checklists
     end
 
     def register_item_kind(kind, klass)
+      unlisted = klass.settings.select { |setting| setting.list? && %i[boolean relative_date].include?(setting.type) }
+      raise ArgumentError, "#{klass.name}: a #{unlisted.first.type} setting can't be a list" if unlisted.any?
+
       @kinds[kind.to_s] = klass
       Checklists::Invalidation.install(klass)
       Checklists::ProtectsReferences.install(klass)

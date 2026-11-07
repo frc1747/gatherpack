@@ -4,7 +4,7 @@ module Checklists
   #
   #   self.label, self.description  # shown in the "Add item" menu
   #   self.settings                 # the form's fields (Setting below)
-  #   self.settings_for(viewer)     # the fields as offered to this author (narrowed choices)
+  #   self.settings_for(author, item)  # the fields as offered to this author (narrowed choices)
   #   self.copy_dates(item)         # fixed dates in its config that "Copy checklist" shifts
   #   self.apply_copy_dates(item, config, dates)  # the copied config with the new dates in place
   #   self.form_partial             # a partial for a form section of its own (a table of rows)
@@ -32,8 +32,11 @@ module Checklists
     # type: the item form renders the partial checklist_items/settings/_<type>
     # when there is one, and an unknown type's value is kept as text (or
     # override cast_setting).
-    # list: true makes any type a list of values (several forms, several
-    # choices); :badges and :teams are always lists.
+    # list: true makes a setting a list of values (several forms, several
+    # choices): :choice, :checklist, :number, :date, :text and connectors' own
+    # types can be lists, and the item form draws one field per value;
+    # :boolean and :relative_date can't (registering such a kind fails).
+    # :badges and :teams are always lists.
     Setting = Struct.new(:key, :type, :label, :hint, :options, :list, keyword_init: true) do
       def list?
         list.present? || %i[badges teams].include?(type)
@@ -82,12 +85,31 @@ module Checklists
         config
       end
 
-      # The settings as the item form offers them to this author (a Person):
-      # a kind narrows its choices here (only the fields they may read, say).
-      # Defaults to settings. What's saved is still checked by settings and
-      # authorable_by?, so narrowing here is about what's offered.
-      def settings_for(_viewer)
+      # The settings as the item form offers them to this author (a Person)
+      # for this item: a kind narrows its choices here (only the fields they
+      # may read, say). Defaults to settings. What's saved is still checked by
+      # settings and authorable_by?, so narrowing here is about what's
+      # offered. (A one-argument settings_for(author) still works.)
+      def settings_for(_author, _item = nil)
         settings
+      end
+
+      # settings_for, with the item's saved values kept among each choice's
+      # options, so opening an item to rename it never quietly picks
+      # something else. What the form draws.
+      def offered_settings(author, item)
+        offered = method(:settings_for).arity == 1 ? settings_for(author) : settings_for(author, item)
+        full = settings.index_by(&:key)
+        offered.map do |setting|
+          next setting unless setting.type == :choice && setting.options
+
+          saved = Array(item.config[setting.key.to_s]).compact_blank
+          missing = saved - setting.options.map { |_, value| value.to_s }
+          next setting if missing.empty?
+
+          known = Array(full[setting.key]&.options).to_h { |label, value| [ value.to_s, label ] }
+          setting.dup.tap { |kept| kept.options = setting.options + missing.map { |value| [ known[value] || value, value ] } }
+        end
       end
 
       def problems(_item)

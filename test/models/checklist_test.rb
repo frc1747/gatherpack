@@ -234,12 +234,32 @@ class ChecklistTest < ActiveSupport::TestCase
     self_item = add_item(other, :attested, "Physical", { statement: "Physical on file", attested_by: "person" })
     assert_equal manager_item.config["key"], self_item.config["key"], "same statement, same key"
 
-    ChecklistAttestation.create!(person: person(:member), key: self_item.config["key"], statement: "Physical on file", attested_by: person(:member))
+    ChecklistAttestation.create!(person: person(:member), key: self_item.config["key"], statement: "Physical on file",
+      attested_by: person(:member), attested_as: "person")
     assert_equal "met", evaluate(other, :member, self_item).status
     assert_equal "not_met", evaluate(@checklist, :member, manager_item).status, "a self-confirmation doesn't pass a manager-only item"
 
-    ChecklistAttestation.create!(person: person(:member), key: manager_item.config["key"], statement: "Physical on file", attested_by: person(:club_manager))
-    assert_equal "met", evaluate(@checklist, :member, manager_item).status
+    ChecklistAttestation.create!(person: person(:member2), key: manager_item.config["key"], statement: "Physical on file",
+      attested_by: person(:club_manager), attested_as: "manager")
+    assert_equal "met", evaluate(@checklist, :member2, manager_item).status
+    assert_equal "not_met", evaluate(other, :member2, self_item).status, "a manager's confirmation doesn't pass a self-only item"
+  end
+
+  test "recorded levels aren't nested: each item takes only levels whose makers it allows" do
+    self_item = add_item(@checklist, :attested, "Code", { statement: "I agree to the code", attested_by: "person" })
+    other = create_world_checklist("Permissions")
+    guardian_item = add_item(other, :attested, "Code", { statement: "I agree to the code", attested_by: "guardian" })
+    key = self_item.config["key"]
+
+    ChecklistAttestation.create!(person: person(:kid), key: key, statement: "I agree to the code", attested_by: person(:parent), attested_as: "guardian")
+    assert_equal "met", evaluate(other, :kid, guardian_item).status
+    assert_equal "not_met", evaluate(@checklist, :kid, self_item).status, "a parent's confirmation doesn't pass the kid's own item"
+
+    ChecklistAttestation.create!(person: person(:member), key: key, statement: "I agree to the code", attested_by: person(:member), attested_as: "person")
+    assert_equal "met", evaluate(other, :member, guardian_item).status, "the person themselves passes a guardian-or-person item"
+
+    ChecklistAttestation.create!(person: person(:member2), key: key, statement: "I agree to the code", attested_by: person(:club_manager), attested_as: "manager")
+    assert_equal "not_met", evaluate(other, :member2, guardian_item).status, "a coach's confirmation doesn't pass a guardian item"
   end
 
   test "a confirmation keeps counting after its maker stops being a manager" do
