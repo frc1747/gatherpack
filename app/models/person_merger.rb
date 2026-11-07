@@ -95,7 +95,8 @@ class PersonMerger
         summary["merged_person"] = [ "#{drop.display_name} (#{drop.id})", nil ]
         dropped = Person.find(drop.id)
         dropped.destroy!
-        removed_login&.reload&.destroy!
+        # Destroying the person may already have taken an unshared login with it.
+        User.find_by(id: removed_login.id)&.destroy! if removed_login
 
         AuditLog.create!(
           item_type: "Person", item_id: keep.id, event: "merge", whodunnit: actor.id,
