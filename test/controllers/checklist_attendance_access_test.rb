@@ -71,8 +71,8 @@ class ChecklistAttendanceAccessTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { ChecklistGrant.count } do
         post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @item.id ] } }
       end
-      assert_response :unprocessable_entity
-      assert_equal "You can't grant access to Attendance; ask someone who can.", response.body
+      assert_redirected_to checklist_path(@checklist, anchor: "setup")
+      assert_equal "You can't grant access to Attendance; ask someone who can.", flash[:alert]
       assert_nil seen_by(person(:organizer)).summary
 
       post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "status", item_ids: [ @item.id ] } }
@@ -87,11 +87,11 @@ class ChecklistAttendanceAccessTest < ActionDispatch::IntegrationTest
 
     @checklist.checklist_grants.destroy_all
     @checklist.checklist_grants.create!(team: @crew, item_ids: [ @item.id ], access: :full, created_by: person(:organizer))
-    assert_nil seen_by(person(:organizer)).summary, "a full grant someone else made isn't honoured"
+    assert_nil seen_by(person(:organizer)), "a full grant someone else made isn't honoured: it shows nothing"
     @checklist.checklist_grants.update_all(created_by_id: nil)
-    assert_nil seen_by(person(:organizer)).summary, "nor one with no recorded maker"
+    assert_nil seen_by(person(:organizer)), "nor one with no recorded maker"
     @checklist.checklist_grants.update_all(created_by_id: person(:crew_manager).id)
-    assert_nil seen_by(person(:organizer)).summary, "managing another team isn't enough"
+    assert_nil seen_by(person(:organizer)), "managing another team isn't enough"
   end
 
   test "the report shows a guardian the status without the hours" do
