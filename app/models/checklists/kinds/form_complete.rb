@@ -5,14 +5,16 @@ module Checklists
     # response that needs confirming again, including one past the form's
     # expiry, isn't done whatever the dates say (spec §6.4):
     #
-    # - Done: complete, and the active version was made within the dates.
+    # - Done: the version that counted at the window's end was made within
+    #   the dates, hadn't expired and needs no confirming again.
     # - Almost: a newer version is open, or it waits for a signature.
     # - Not yet: no response, needs confirming again, made before the dates,
     #   the form isn't asking the person, or it needs a guardian's signature
     #   and the person has no guardian linked.
     #
     # A form's expiry (Forms::Expiry, when that feature is present) shows as
-    # "Good until <date>" or "Expired <date>".
+    # "Good until <date>" or "Expired <date>". Everything is judged as of the
+    # as-of moment, so results stay put once a cutoff has passed (§9.2).
     class FormComplete < ItemKind
       STATUS_ORDER = %w[not_met pending met].freeze
 
@@ -43,6 +45,7 @@ module Checklists
             [ ::FormSubmission, ->(submission) { [ submission.form_response&.subject_id ] } ],
             [ ::FormSignature, ->(signature) { [ signature.form_submission&.form_response&.subject_id ] } ],
             [ ::Relationship, ->(relationship) { [ relationship.parent_id, relationship.child_id ] } ],
+            [ ::Person, ->(person) { [ person.id ] } ],
             [ ::Form, ->(_form) { :all } ],
             [ ::FormAudienceRule, ->(_rule) { :all } ]
           ]
@@ -83,12 +86,21 @@ module Checklists
         end
 
         # The earliest coming expiry among the forms' complete responses, and
-        # midnight for a "within the last N" window.
+        # midnight for a "within the last N" window. Nothing once the cutoff
+        # has passed.
         def next_change_at(item, context)
+          return if frozen?(context)
+
           times = referenced_records(item, "form_ids").filter_map { |form| next_expiry(form, context.as_of) }
           relative = item.starts_within_amount.present? || (!Window.own_start?(item) && context.checklist.starts_within_amount.present?)
           times << context.as_of.to_date.tomorrow.in_time_zone.beginning_of_day if relative && !item.config["ever"]
           times.min
+        end
+
+        # Past the cutoff the answer no longer moves with the clock.
+        def frozen?(context)
+          cutoff = context.checklist.cutoff_on&.in_time_zone&.end_of_day
+          cutoff.present? && context.as_of >= cutoff
         end
 
         def forms_enabled?
@@ -134,12 +146,18 @@ module Checklists
 
       private
 
+      # Judged as of the as-of moment (now, or the end of the cutoff day once
+      # it has passed): the version that counted then, its expiry then, and
+      # only versions started by then. A later signing or expiry doesn't
+      # change a result frozen at the cutoff.
       def form_result(form, person, response, asked, guardians)
-        submission = response&.active_submission
-        signed_at = submission&.activated_at
+        signed = signed_by_end(response)
+        signed_at = signed&.activated_at
+        expires_at = expiry_for(form, signed_at)
+        expired = expires_at.present? && expires_at <= context.as_of
 
-        if response&.complete? && signed_at && (config["ever"] || window.cover?(signed_at))
-          return Result.met("Completed #{day(signed_at)}", detail: sentence("Completed #{day(signed_at)}", expiry(response)))
+        if signed && !expired && (config["ever"] || window.cover?(signed_at)) && !reconfirm_reason(response, signed)
+          return Result.met("Completed #{day(signed_at)}", detail: sentence("Completed #{day(signed_at)}", good_until(expires_at)))
         end
 
         unless asked
@@ -152,22 +170,66 @@ module Checklists
             fix: { "label" => "Add a guardian", "path" => routes.relationships_person_path(person) })
         end
 
-        if (open = response&.open_submission)
-          return open_result(form, person, open, guardians)
+        open = response&.open_submission
+        return open_result(form, person, open, guardians) if open && open.created_at <= context.as_of
+
+        if signed && expired
+          return Result.not_met("Expired #{day(expires_at)}", detail: "Expired #{day(expires_at)}",
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person) })
         end
 
-        if response&.needs_reconfirmation?
-          return reconfirmation_result(form, person, response)
+        if signed && (reason = reconfirm_reason(response, signed))
+          detail = reason == :profile ? "Needs confirming again: their profile details changed" : "Needs confirming again: the form changed"
+          return Result.not_met("Needs confirming again", detail: detail,
+            fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person) })
         end
 
-        if response&.complete?
-          return Result.not_met("Needs doing again", detail: sentence("Completed #{day(signed_at)}, #{outside_window(signed_at)}", expiry(response)),
+        later = response&.form_submissions&.select { |submission| submission.activated_at && submission.activated_at > window.end_time }&.min_by(&:activated_at)
+        if (outside = signed || later)
+          at = outside.activated_at
+          return Result.not_met("Needs doing again", detail: sentence("Completed #{day(at)}, #{outside_window(at)}", good_until(expiry_for(form, at))),
             fix: { "label" => "Do it again", "path" => routes.edit_form_response_path(form, person) })
         end
 
-        Result.not_met(response&.withdrawn? ? "Withdrawn" : "Not started",
-          detail: response&.withdrawn? ? "The response was withdrawn" : "No response yet",
+        withdrawn = response&.form_submissions&.any?(&:withdrawn?)
+        Result.not_met(withdrawn ? "Withdrawn" : "Not started", detail: withdrawn ? "The response was withdrawn" : "No response yet",
           fix: { "label" => "Fill it in", "path" => routes.edit_form_response_path(form, person) })
+      end
+
+      # The version that counted at the end of the window (or at the as-of
+      # moment, for any time): the latest one activated by then, unless it
+      # was withdrawn by the as-of moment.
+      def signed_by_end(response)
+        return unless response
+
+        limit = config["ever"] ? context.as_of : window.end_time
+        latest = response.form_submissions.select { |submission| submission.activated_at && submission.activated_at <= limit }.max_by(&:activated_at)
+        return unless latest
+        return latest if latest.active? || latest.superseded?
+
+        latest if latest.withdrawn? && latest.updated_at > context.as_of
+      end
+
+      # Why the current version must be confirmed again (the form or the
+      # profile changed), judged live only: after the cutoff these come too
+      # late to count. Expiry is judged separately, at the as-of moment.
+      def reconfirm_reason(response, signed)
+        return if frozen? || signed.id != response.active_submission_id
+
+        reason = response.reconfirmation_reason
+        reason unless reason == :expired
+      end
+
+      def frozen?
+        self.class.frozen?(context)
+      end
+
+      def expiry_for(form, signed_at)
+        form.expiry_for(signed_at) if signed_at && form.respond_to?(:expires?) && form.expires?
+      end
+
+      def good_until(expires_at)
+        "Good until #{day(expires_at - 1.second)}" if expires_at
       end
 
       def open_result(form, person, submission, guardians)
@@ -178,17 +240,6 @@ module Checklists
           Result.pending("Started", detail: "A new version is started but not submitted",
             fix: { "label" => "Finish it", "path" => routes.edit_form_response_path(form, person) })
         end
-      end
-
-      def reconfirmation_result(form, person, response)
-        reason = response.reconfirmation_reason
-        summary = reason == :expired ? expiry(response) : "Needs confirming again"
-        detail = case reason
-        when :expired then expiry(response)
-        when :profile then "Needs confirming again: their profile details changed"
-        else "Needs confirming again: the form changed"
-        end
-        Result.not_met(summary, detail: detail, fix: { "label" => "Confirm it again", "path" => routes.edit_form_response_path(form, person) })
       end
 
       # "Waiting for Pat World's signature" for a guardian's; the form's own
@@ -231,15 +282,11 @@ module Checklists
         Result.new(status: worst.status, summary: "#{done} of #{results.size} forms done", detail: detail, fix: worst.fix)
       end
 
-      def expiry(response)
-        response.expiry_summary if response.respond_to?(:expiry_summary)
-      end
-
       def outside_window(time)
         if window.start_time && time < window.start_time
           "before #{day(window.starts_on)}"
         else
-          "after #{day(window.ends_on || window.as_of)}"
+          "after #{day(window.end_time)}"
         end
       end
 

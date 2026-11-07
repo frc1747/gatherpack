@@ -6,10 +6,15 @@ Rails.application.config.to_prepare do
 
   Checklists.register_item_kind(:form_complete, Checklists::Kinds::FormComplete)
   ChecklistItemsController.prepend(Checklists::FormItemParams) unless ChecklistItemsController < Checklists::FormItemParams
+  ChecklistItemsController.include(Checklists::FormItemAccess) unless ChecklistItemsController < Checklists::FormItemAccess
 
   FormAudienceRule.prepend(Checklists::FormAudienceTarget) unless FormAudienceRule < Checklists::FormAudienceTarget
   FormAudienceRulePolicy.prepend(Checklists::FormAudienceRuleAccess) unless FormAudienceRulePolicy < Checklists::FormAudienceRuleAccess
   FormAudienceRulesController.prepend(Checklists::FormAudienceRuleParams) unless FormAudienceRulesController < Checklists::FormAudienceRuleParams
+  Form.prepend(Checklists::FormOpenable) unless Form < Checklists::FormOpenable
+  ChecklistItem.include(Checklists::FormRequirementGuard) unless ChecklistItem < Checklists::FormRequirementGuard
+  ChecklistRule.include(Checklists::FormAudienceRefresh::RuleChanges) unless ChecklistRule < Checklists::FormAudienceRefresh::RuleChanges
+  Checklists::Refresher.prepend(Checklists::FormAudienceRefresh::OverallChanges) unless Checklists::Refresher < Checklists::FormAudienceRefresh::OverallChanges
 
   # A checklist a form asks can't be deleted while it does.
   Checklist.has_many :form_audience_rules, dependent: :restrict_with_error

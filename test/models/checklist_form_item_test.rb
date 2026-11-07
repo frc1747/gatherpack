@@ -96,16 +96,50 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     respond(@form, :member)
 
     assert_equal "met", result(:member).status
-    assert_equal "Completed October 01, 2026. Good until April 1, 2027", result(:member).detail
+    assert_equal "Completed October 01, 2026. Good until April 01, 2027", result(:member).detail
     assert_equal Time.zone.local(2027, 4, 1, 10), Checklists::Kinds::FormComplete.next_change_at(@item.reload, Checklists::Context.new(@checklist.reload))
 
     travel_to Time.zone.local(2027, 4, 1, 11)
     assert_equal "not_met", result(:member).status, "expired before the expiry job stores it"
-    assert_equal "Expired April 1, 2027", result(:member).summary
+    assert_equal "Expired April 01, 2027", result(:member).summary
     assert_equal "Confirm it again", result(:member).fix["label"]
 
     @item.update!(config: @item.config.merge("ever" => true))
     assert_equal "not_met", result(:member).status, "an expired response isn't done whatever the dates say"
+  end
+
+  test "after the cutoff, signing again or expiring later doesn't change the result" do
+    @checklist.update!(cutoff_on: Date.new(2026, 10, 15))
+    @form.update!(expires_on: Date.new(2026, 10, 20))
+    respond(@form, :member)
+    travel_to(Time.zone.local(2026, 10, 10)) { respond(@form, :member2) && @form.response_for(person(:member2)).active_submission.withdraw!(by: person(:member2)) }
+
+    travel_to Time.zone.local(2026, 10, 25, 9)
+    assert_equal "met", result(:member).status, "the form expired after the cutoff"
+    assert_equal "Completed October 01, 2026. Good until October 19, 2026", result(:member).detail
+    assert_nil Checklists::Kinds::FormComplete.next_change_at(@item.reload, Checklists::Context.new(@checklist.reload)), "nothing moves with the clock after the cutoff"
+
+    @form.update!(expires_on: nil)
+    travel_to(Time.zone.local(2026, 11, 1)) { respond(@form, :member) }
+    travel_to Time.zone.local(2026, 11, 2)
+    assert_equal "met", result(:member).status, "signed again after the cutoff: the version that counted then still counts"
+    assert_equal "Completed October 01, 2026", result(:member).summary
+
+    @form.response_for(person(:member)).start_submission!(person(:member))
+    assert_equal "met", result(:member).status, "a draft started after the cutoff is ignored"
+    assert_equal "Withdrawn", result(:member2).summary, "withdrawn before the cutoff"
+
+    travel_to(Time.zone.local(2026, 11, 3)) { respond(@form, :rookie) }
+    assert_equal "not_met", result(:rookie).status
+    assert_equal "Completed November 03, 2026, after October 15, 2026", result(:rookie).detail
+  end
+
+  test "a version withdrawn after the cutoff counted at the cutoff" do
+    @checklist.update!(cutoff_on: Date.new(2026, 10, 15))
+    respond(@form, :member)
+    travel_to Time.zone.local(2026, 10, 20)
+    @form.response_for(person(:member)).active_submission.withdraw!(by: person(:member))
+    assert_equal "met", result(:member).status
   end
 
   test "a form's fixed expiry date is the next change while anyone has a complete response" do
@@ -156,6 +190,15 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
 
     person(:member).update!(birthday: Date.new(1990, 1, 1))
     assert_equal "No response yet", result(:member).detail, "of age signs for themselves"
+  end
+
+  test "entering a birthday marks the person, since it decides who needs a guardian" do
+    with_settings(feature_checklists: "true", feature_forms: "true") do
+      refresh(@checklist)
+      ChecklistRefresh.delete_all
+      person(:rookie).update!(birthday: Date.new(2013, 1, 1))
+      assert ChecklistRefresh.exists?(checklist: @checklist, person_id: person(:rookie).id)
+    end
   end
 
   test "someone the form doesn't ask is not yet, never exempt, and listed as a problem" do

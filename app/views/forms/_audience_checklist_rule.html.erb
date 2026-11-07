@@ -9,7 +9,8 @@
         <%= r.select :checklist_id, checklists.map { |checklist| [ checklist.title, checklist.id ] }, { prompt: "Checklist…" }, class: "form-select", required: true %>
       </div>
       <%= r.input :checklist_match, label: false, include_blank: false, wrapper_html: { class: "mb-2" },
-            collection: [ [ "Everyone it covers", "covered" ], [ "People who have finished it", "met" ], [ "People who haven't finished it", "not_met" ] ] %>
+            collection: [ [ "Everyone it covers", "covered" ], [ "People who have finished it", "met" ], [ "People who haven't finished it", "not_met" ] ],
+            hint: "Finished or not: only for a checklist of #{form.team.name} or a team above it." %>
       <%= r.button :submit, "Add checklist", class: "btn btn-sm btn-secondary" %>
     <% end %>
   </div>

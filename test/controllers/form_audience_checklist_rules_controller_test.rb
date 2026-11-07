@@ -71,4 +71,40 @@ class FormAudienceChecklistRulesControllerTest < ActionDispatch::IntegrationTest
       assert_equal "Completes Medical Release", item.kind_class.describe(item)
     end
   end
+
+  test "a checklist rule is refused while checklists are off, and for an archived checklist" do
+    with_settings(feature_forms: "true") do
+      add_rule_as(:admin)
+      assert_not @form.form_audience_rules.exists?
+    end
+    @checklist.update!(status: :archived)
+    with_features do
+      add_rule_as(:admin)
+      assert_not @form.form_audience_rules.exists?
+    end
+  end
+
+  test "an organizer can't make an item read a form they don't manage" do
+    crew_checklist = create_world_checklist("Crew Trip", team: @crew)
+    hidden = Form.create!(title: "Club Only", team: @club, respond_permission: "self_and_leaders", read_permission: "self_and_leaders", status: :draft)
+    params = { checklist_item: { kind: "form_complete", label: "Sneaky", counts: "1", start_mode: "checklist", config: { form_ids: [ hidden.id ] } }, confirmed: "1" }
+    with_features do
+      sign_in person(:crew_manager).user
+      post checklist_checklist_items_path(crew_checklist), params: params
+      assert_redirected_to checklist_path(crew_checklist)
+      assert_equal "You can only choose forms you manage.", flash[:alert]
+      assert_not ChecklistItem.exists?(label: "Sneaky")
+
+      post preview_checklist_checklist_items_path(crew_checklist), params: params
+      assert_response :forbidden
+
+      item = add_item(crew_checklist, :form_complete, "Medical", { form_ids: [ hidden.id ] })
+      patch checklist_checklist_item_path(crew_checklist, item), params: { checklist_item: { label: "Medical form", config: { form_ids: [ hidden.id ] } }, confirmed: "1" }
+      assert_equal "Medical form", item.reload.label, "a form already on the item stays"
+
+      crew_form = Form.create!(title: "Crew Form", team: @crew, respond_permission: "family", read_permission: "family", status: :draft)
+      patch checklist_checklist_item_path(crew_checklist, item), params: { checklist_item: { label: "Medical form", config: { form_ids: [ hidden.id, crew_form.id ] } }, confirmed: "1" }
+      assert_equal [ hidden.id, crew_form.id ], item.reload.config["form_ids"]
+    end
+  end
 end
