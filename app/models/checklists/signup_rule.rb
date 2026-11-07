@@ -14,10 +14,11 @@ module Checklists
   # sign-up). The person gets their own answer, and so does anyone who may
   # see the person's overall, uncapped by any item's kind (spec §10.1).
   # Anyone else, whether they sign the person up from the sheet page or run
-  # the sheet, sees nothing for the rule, and placing is refused with a
-  # reason that doesn't depend on the person, even against the rules. (A
-  # refusal itself still tells them the person doesn't pass.) With no
-  # viewer set the rule gives its real answer.
+  # the sheet, sees nothing for the rule. A person who passes can still be
+  # placed by them; one who fails is refused with a reason naming only the
+  # checklist, even when placing against the rules (spec §10.3: a refusal
+  # still tells them the person doesn't pass). With no viewer set the rule
+  # gives its real answer.
   #
   # Prepended to SignupPositionRule by config/initializers/checklists_signups.rb.
   module SignupRule
@@ -41,32 +42,45 @@ module Checklists
       return checklist_requirement if checklist.nil?
       return "#{checklist_requirement} (checklists are turned off)" unless Checklists.enabled?
       return "#{checklist_requirement} (#{checklist.title} #{checklist.draft? ? "is a draft" : "is archived"})" unless checklist.active?
-
+      return if passes?(person)
 
       viewer = Checklists::SignupViewer.person
-      return (hidden_reason if Checklists::SignupViewer.placing) unless viewer.nil? || sees_result?(viewer, person)
+      return checklist_requirement if viewer.nil? || sees_result?(viewer, person)
 
-      checklist_requirement unless accepted_statuses.include?(checklist_status(person))
+      hidden_reason if Checklists::SignupViewer.placing
     end
 
-    # The fixed reason when viewer may not learn whether the person passes,
-    # else nil.
+    # The fixed reason when the person fails the rule and viewer may not see
+    # their result, else nil. Placing against the rules can't get past it:
+    # nobody overrides a failure they can't see.
     def hidden_reason_for(person, viewer)
       return unless checklist? && checklist&.active? && Checklists.enabled? && viewer && person
+      return if passes?(person) || sees_result?(viewer, person)
 
-      hidden_reason unless sees_result?(viewer, person)
+      hidden_reason
+    end
+
+    def passes?(person)
+      accepted_statuses.include?(checklist_status(person))
     end
 
     # Whether viewer may learn the person's result through the rule: they
     # are the person, or they see the person's overall and no item's kind
-    # caps it for them. Being able to sign someone up isn't enough.
+    # caps it for them. Someone the checklist doesn't cover has no overall;
+    # then it's whether viewer would see one (its read level, running it, or
+    # a grant), since "not covered" is all there is to learn. Being able to
+    # sign someone up isn't enough.
     def sees_result?(viewer, person)
       return true if viewer.id == person.id
 
       @sees_result ||= {}
       @sees_result.fetch([ viewer.id, person.id ]) do
-        @sees_result[[ viewer.id, person.id ]] = Checklists.status_for(checklist, [ person ], viewer: viewer)[person.id]&.overall.present? &&
-          Checklists.capped_person_ids(checklist.top_level_items.to_a, viewer, [ person.id ]).empty?
+        @sees_result[[ viewer.id, person.id ]] = if checklist_status(person).nil?
+          Checklists::Visibility.new(checklist, viewer).prepare([ person.id ]).access(nil, person.id).present?
+        else
+          Checklists.status_for(checklist, [ person ], viewer: viewer)[person.id]&.overall.present? &&
+            Checklists.capped_person_ids(checklist.top_level_items.to_a, viewer, [ person.id ]).empty?
+        end
       end
     end
 

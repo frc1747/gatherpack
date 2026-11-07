@@ -1,5 +1,6 @@
 <%# Checklists the sheet's places need that the viewer, or someone they can
-    sign up, hasn't finished, with what to do (Checklists::SignupSheetNeeds). %>
+    sign up and whose result they may see, hasn't finished, with what to do
+    (Checklists::SignupSheetNeeds). %>
 <% entries = signup_sheet.archived? ? [] : Checklists::SignupSheetNeeds.new(signup_sheet, viewer).entries %>
 <% if entries.any? %>
   <div class="card mb-3" id="checklist_signup_panel">

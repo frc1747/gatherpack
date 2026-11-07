@@ -232,6 +232,51 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match "Handbook", response.body
   end
 
+  test "someone who can't see a relative's result can still sign them up once they pass" do
+    require_checklist
+    attest(:student)
+    Checklists::Refresher.new(@checklist.reload).call
+    sign_in person(:parent).user
+
+    get signup_sheet_path(@sheet)
+    assert_select "#checklist_signup_panel", count: 0
+    assert_select "a[href=?]", new_signup_sheet_signup_path(@sheet, slot_id: slot_for(@position).id), text: "Sign up"
+
+    assert_difference "Signup.count", 1 do
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
+    end
+    assert_redirected_to signup_sheet_path(@sheet)
+  end
+
+  test "a guardian whose ward the checklist doesn't cover is told so, with the real reason" do
+    guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin, guardianship: :minor)
+    @people[:guardian] = create_world_person("Guardian")
+    relate(:guardian, :student, guardian_of)
+    @sheet.update!(others_relationship_type_ids: [ @parent_of.id, guardian_of.id ])
+    @checklist = create_checklist("Crew Trip", @concessions)
+    require_checklist
+    sign_in person(:guardian).user
+
+    get signup_sheet_path(@sheet)
+    assert_select "#checklist_signup_panel p", text: "#{person(:student).display_name} isn't on Crew Trip, so can't take these places."
+
+    post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
+    assert_response :unprocessable_entity
+    assert_match "Needs Crew Trip: Done", response.body
+    assert_no_match "You can't see", response.body
+  end
+
+  test "someone who can't see whether a relative is covered gets the fixed reason" do
+    @checklist = create_checklist("Crew Trip", @concessions)
+    require_checklist
+    sign_in person(:parent).user
+
+    post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
+    assert_response :unprocessable_entity
+    assert_match "You can't see their Crew Trip results, so can't sign them up here", response.body
+    assert_no_match "Needs Crew Trip", response.body
+  end
+
   test "a guardian who can sign their ward up sees the ward's need, with its items" do
     guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin, guardianship: :minor)
     @people[:guardian] = create_world_person("Guardian")
@@ -286,7 +331,7 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "one organizer adds the rule; another, who can't see the results, learns nothing on the roster and can't place" do
+  test "one organizer adds the rule; another, who can't see the results, learns nothing on the roster and places only people who pass" do
     signup = Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:student))
     sign_in person(:admin).user
     post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: @checklist.id } }
@@ -304,22 +349,27 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match "Doesn't meet", response.body
     assert_no_match hidden, response.body
 
-    attest(:student2)
-    Checklists::Refresher.new(@checklist.reload).call
-    [ :student, :student2 ].each do |name|
-      [ nil, "1" ].each do |override|
-        assert_no_difference "Signup.count", "#{name}, override #{override.inspect}" do
-          post signup_sheet_roster_signups_path(@sheet),
-            params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(name).id, override_rules: override }.compact }
-        end
-        assert_response :unprocessable_entity
-        assert_match hidden, response.body
-        assert_no_match "Needs Trip: Done", response.body
+    # Someone who fails is refused with the fixed reason, override or not.
+    [ nil, "1" ].each do |override|
+      assert_no_difference "Signup.count", "override #{override.inspect}" do
+        post signup_sheet_roster_signups_path(@sheet),
+          params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:concessions_manager).id, override_rules: override }.compact }
       end
+      assert_response :unprocessable_entity
+      assert_match hidden, response.body
+      assert_no_match "Needs Trip: Done", response.body
     end
 
+    # Someone who passes is placed, though the organizer can't see why.
+    attest(:student2)
+    Checklists::Refresher.new(@checklist.reload).call
+    assert_difference "Signup.count", 1 do
+      post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student2).id } }
+    end
+    assert_redirected_to roster_signup_sheet_path(@sheet)
+
     helper = slot_for(@sheet.signup_positions.create!(name: "Helper", capacity: 4))
-    moving = Signup.place!(slot: helper, person: person(:student2), signed_up_by: person(:student2))
+    moving = Signup.place!(slot: helper, person: person(:concessions_manager), signed_up_by: person(:concessions_manager))
     [ nil, "1" ].each do |override|
       patch move_signup_sheet_roster_signup_path(@sheet, moving),
         params: { signup: { signup_slot_id: slot_for(@position).id, override_rules: override }.compact }

@@ -1,8 +1,9 @@
 module Checklists
   # Placing or moving a sign-up checks a checklist rule as the person doing
-  # it (Checklists::SignupRule): someone who may not see the person's
-  # result is refused with a fixed reason, even when placing against the
-  # rules, since the override would otherwise pass where the rule fails.
+  # it (Checklists::SignupRule): when the person fails and the placer may
+  # not see their result, it's refused with a fixed reason, even when
+  # placing against the rules, since nobody overrides a failure they can't
+  # see.
   # Prepended to Signup by config/initializers/checklists_signups.rb.
   module SignupPlacement
     private
