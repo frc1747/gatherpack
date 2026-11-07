@@ -1,0 +1,23 @@
+module Checklists
+  # One answer for one person and one item (or the overall): status is one of
+  # Checklists::STATUSES. label overrides the status word ("Rookie",
+  # "Excused", "Missed"). summary is short ("Holds Safety"), detail the full
+  # sentence. measures are named numbers, fix the best next action as
+  # { "label", "path", "action" } (action "attest" carries "key").
+  Result = Struct.new(:status, :label, :summary, :detail, :measures, :fix, :excuse, keyword_init: true) do
+    def initialize(**)
+      super
+      self.status = status.to_s
+      self.measures ||= {}
+    end
+
+    STATUSES.each do |name|
+      define_method(:"#{name}?") { status == name }
+    end
+
+    def self.met(summary = nil, **attributes) = new(status: "met", summary: summary, **attributes)
+    def self.pending(summary = nil, **attributes) = new(status: "pending", summary: summary, **attributes)
+    def self.not_met(summary = nil, **attributes) = new(status: "not_met", summary: summary, **attributes)
+    def self.exempt(label, **attributes) = new(status: "exempt", label: label, summary: label, **attributes)
+  end
+end
