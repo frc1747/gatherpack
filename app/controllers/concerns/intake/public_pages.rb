@@ -34,7 +34,9 @@ module Intake::PublicPages
   end
 
   # Changes made for someone who isn't signed in are attributed to their
-  # entry (whodunnit holds the entry's id).
+  # entry. The audit log's whodunnit column is a uuid, so it holds the
+  # entry's id itself rather than "entry:<id>"; an id that isn't a user's
+  # is an Intake::Entry's.
   def as_entry(entry, &block)
     PaperTrail.request(whodunnit: entry.id, &block)
   end

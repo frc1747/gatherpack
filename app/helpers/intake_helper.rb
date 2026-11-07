@@ -6,6 +6,12 @@ module IntakeHelper
     (current_user.admin ? Team.all : person.all_managed_teams).order(:name)
   end
 
+  # Badges the signed-in person may give, so may put on "Also give these badges".
+  def intake_assignable_badges
+    return [] unless current_user&.person
+    Badge.order(:name).select { |badge| BadgePolicy.new(current_user, badge).update? }
+  end
+
   def intake_status_label(application)
     case application.status
     when "pending"

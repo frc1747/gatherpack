@@ -70,8 +70,8 @@ class Intake::RegistrationsController < InternalController
 
   # PATCH /registrations/:id/close
   def close
+    # The "closed" hook fires from Intake::RegistrationDatesJob, once.
     @registration.update!(closes_at: Time.current) unless @registration.closed?
-    Intake.fire("intake_registrations - closed", @registration)
     redirect_to intake_registration_path(@registration), notice: "Registration closed."
   end
 
@@ -102,16 +102,28 @@ class Intake::RegistrationsController < InternalController
     @registration = authorize policy_scope(Intake::Registration).find(params[:id])
   end
 
-  # Team lists are limited to teams the person manages (any, for admins).
+  # Team lists are limited to teams the person manages (any, for admins),
+  # badges to those they may give, and the successor to registrations they
+  # can see. Teams and badges already on the lists that the person can't
+  # choose are kept: someone else put them there.
   def registration_params
     permitted = params.require(:intake_registration).permit(:team_id, :title, :slug, :description, :opens_at, :closes_at,
       :self_service, :kiosk, :gate_approval, :pick_one_required, :guardian_relationship_type_id, :successor_id,
       badge_ids: [], apply_team_ids: [], also_add_team_ids: [], pick_one_team_ids: [], guardian_also_add_team_ids: [])
     manageable = helpers.intake_manageable_teams.pluck(:id)
     %i[apply_team_ids also_add_team_ids pick_one_team_ids guardian_also_add_team_ids].each do |key|
-      permitted[key] = Array(permitted[key]).compact_blank & manageable if permitted.key?(key)
+      next unless permitted.key?(key)
+      kept = Array(@registration&.public_send(key)) - manageable
+      permitted[key] = (Array(permitted[key]).compact_blank & manageable) | kept
     end
-    permitted[:badge_ids] = Array(permitted[:badge_ids]).compact_blank if permitted.key?(:badge_ids)
+    if permitted.key?(:badge_ids)
+      assignable = helpers.intake_assignable_badges.map(&:id)
+      kept = Array(@registration&.badge_ids) - assignable
+      permitted[:badge_ids] = (Array(permitted[:badge_ids]).compact_blank & assignable) | kept
+    end
+    if permitted[:successor_id].present? && !policy_scope(Intake::Registration).exists?(id: permitted[:successor_id])
+      permitted[:successor_id] = @registration&.successor_id
+    end
     permitted[:slug] = permitted[:slug].to_s.strip.downcase if permitted.key?(:slug)
     permitted
   end

@@ -24,6 +24,7 @@ module Intake::ApplicationDecisions
         redirect_back_or_to applications_team_path(application.team), alert: "Choose a team for #{application.person.first_name}."
       else
         application.intake_pick_team = pick
+        application.intake_approver = current_user
       end
     when "denied"
       application.reviewer_notes = params[:reason].to_s.strip.presence || application.reviewer_notes

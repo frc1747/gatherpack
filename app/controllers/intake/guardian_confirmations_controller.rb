@@ -17,7 +17,7 @@ class Intake::GuardianConfirmationsController < ApplicationController
   # POST /join/guardian
   def create
     if (user = existing_login)
-      as_entry(@row.entry) { confirm(user.person) }
+      return render_refused if as_entry(@row.entry) { confirm(user.person) } == :refused
       session[:user_return_to] = intake_me_path(@row.entry.registration.slug)
       return render :sign_in
     end
@@ -30,6 +30,7 @@ class Intake::GuardianConfirmationsController < ApplicationController
       end
     end
     return render(:show, status: :unprocessable_content) unless saved
+    return render_refused if saved == :refused
 
     sign_in(@user)
     redirect_to intake_me_path(@row.entry.registration.slug), notice: "Thanks. You're linked as #{@row.ward.first_name}'s guardian."
@@ -57,11 +58,19 @@ class Intake::GuardianConfirmationsController < ApplicationController
     User.new(email: @row.facts["email"], person: Person.new(first_name: @row.facts["first_name"], last_name: @row.facts["last_name"]))
   end
 
+  # Returns true, or :refused when the link's young person is the one
+  # opening it (a young person can't be their own guardian).
   def confirm(guardian)
     Intake::Enrollment.new(@row.entry).confirm_guardian(@row, guardian)
     # A young person's own invitation waits for their guardian (kiosk).
     entry = @row.entry
-    Intake::EntryEmailJob.perform_later(entry) if entry.source_kiosk? && entry.verified_at.nil? && entry.person == @row.ward
+    Intake::EntryEmailJob.perform_later(entry.id) if entry.source_kiosk? && entry.verified_at.nil? && entry.person == @row.ward
     true
+  rescue Intake::Enrollment::Refused
+    :refused
+  end
+
+  def render_refused
+    render "intake/verifications/expired", status: :unprocessable_content
   end
 end

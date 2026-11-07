@@ -107,7 +107,7 @@ class Intake::MeControllerTest < ActionDispatch::IntegrationTest
     with_intake do
       get intake_me_path(@registration.slug)
       assert_match "Waiting for a guardian", response.body
-      assert_enqueued_jobs 1, only: SendEmailJob do
+      assert_enqueued_jobs 1, only: Intake::GuardianEmailJob do
         post intake_me_guardians_path(@registration.slug), params: { guardian: { first_name: "Robin", last_name: "Park" }, guardian_email: "robin@example.com" }
       end
     end

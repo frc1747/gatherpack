@@ -30,7 +30,7 @@ module IntakeWorld
     @admin = create_intake_person("Ada", "Admin", admin: true)
 
     @parent_of = RelationshipType.create!(parent_label: "Parent of", child_label: "Child of", permission: :added_by_admin, guardianship: :minor)
-    @joined_badge = Badge.create!(name: "Joined Online", short: "JO", color: "blue", badge_type: badge_types(:one))
+    @joined_badge = Badge.create!(name: "Joined Online", short: "JO", color: "blue", badge_type: badge_types(:one), permission: "has_account")
 
     @registration = Intake::Registration.create!(team: @northwind, title: "Join Northwind", opens_at: 1.day.ago,
       closes_at: 30.days.from_now, created_by: @leader, guardian_relationship_type: @parent_of,
@@ -64,6 +64,17 @@ module IntakeWorld
   def join_params(first_name: "Riley", last_name: "Rivera", email: "riley@example.com", teams: [ @juniors ], started: 10.seconds.ago)
     { entry: { first_name: first_name, last_name: last_name, email: email, team_ids: teams.map(&:id) },
       started: Intake::FormGuard.stamp(started), website: "" }
+  end
+
+  # Emails intake sends at once (those carrying a link), as
+  # [address, subject, body].
+  def capture_intake_mail
+    sent = []
+    Intake::Notices.sender = ->(_gateway, address, subject, body) { sent << [ address, subject, body ] }
+    yield
+    sent
+  ensure
+    Intake::Notices.sender = nil
   end
 
   # SQL statements run by the block, without schema and transaction noise.

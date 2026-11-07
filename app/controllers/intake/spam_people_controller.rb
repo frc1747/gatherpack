@@ -1,6 +1,7 @@
 # Admins delete a person who came in through a registration as spam, with
 # their login, after seeing what will go. The deletion is in the audit log.
 class Intake::SpamPeopleController < InternalController
+  before_action :require_intake_feature
   before_action :set_person
 
   # GET /registration-spam/:id
@@ -16,6 +17,10 @@ class Intake::SpamPeopleController < InternalController
   end
 
   private
+
+  def require_intake_feature
+    redirect_to root_path, notice: "Registration isn't turned on." unless Intake.enabled?
+  end
 
   def set_person
     @person = Person.find(params[:id])

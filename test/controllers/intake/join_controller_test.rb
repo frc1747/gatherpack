@@ -104,17 +104,29 @@ class Intake::JoinControllerTest < ActionDispatch::IntegrationTest
     unknown, = create_intake_entry(email: "new.person@example.com")
     known.update!(token_digest: nil)
 
-    Intake::EntryEmailJob.perform_now(known)
-    Intake::EntryEmailJob.perform_now(unknown)
-    sent = enqueued_jobs.select { |job| job[:job] == SendEmailJob }.map { |job| job[:args] }
+    sent = capture_intake_mail do
+      Intake::EntryEmailJob.perform_now(known.id)
+      Intake::EntryEmailJob.perform_now(unknown.id)
+    end
 
-    assert_equal [ "CASEY@example.com", "new.person@example.com" ], sent.map(&:second)
-    assert_match "You already have an account. Sign in to continue", sent.first.fourth
+    assert_equal [ "CASEY@example.com", "new.person@example.com" ], sent.map(&:first)
+    assert_match "You already have an account. Sign in to continue", sent.first.third
     assert_nil known.reload.token_digest
-    assert_match "Finish joining Juniors", sent.last.third
-    assert_match "/join/verify?token=", sent.last.fourth
+    assert_match "Finish joining Juniors", sent.last.second
+    assert_match "/join/verify?token=", sent.last.third
     assert unknown.reload.token_digest
-    assert_not_includes sent.map(&:fourth).join, existing.last_name
+    assert_not_includes sent.map(&:third).join, existing.last_name
+  end
+
+  test "no link or token is ever put in the job queue" do
+    with_intake { post intake_join_path(@registration.slug), params: join_params }
+    entry = Intake::Entry.last
+
+    assert_equal [ [ entry.id ] ], enqueued_jobs.select { |job| job[:job] == Intake::EntryEmailJob }.map { |job| job[:args] }
+    assert_empty enqueued_jobs.select { |job| job[:job] == SendEmailJob }
+    sent = capture_intake_mail { perform_enqueued_jobs(only: Intake::EntryEmailJob) }
+    assert_match "/join/verify?token=", sent.sole.third
+    assert_empty enqueued_jobs.select { |job| job[:job] == SendEmailJob }
   end
 
   test "too many sign-ups from one address" do

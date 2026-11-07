@@ -25,7 +25,7 @@ class Intake::EnrollmentTest < ActiveSupport::TestCase
 
   test "a team that needs no approval is joined at once, with placement" do
     entry = verified_entry(@adult, teams: [ @volunteers ])
-    Intake::Enrollment.new(entry).apply(@adult)
+    with_intake { Intake::Enrollment.new(entry).apply(@adult) }
 
     assert_includes @adult.teams, @volunteers
     assert_includes @adult.teams, @everyone
@@ -116,7 +116,8 @@ class Intake::EnrollmentTest < ActiveSupport::TestCase
     young = create_intake_person("Sky", "Park")
     entry = verified_entry(young)
     enrollment = Intake::Enrollment.new(entry)
-    row, token = enrollment.name_guardian(ward: young, first_name: "Robin", last_name: "Park", email: "Robin.Park@example.com")
+    row = enrollment.name_guardian(ward: young, first_name: "Robin", last_name: "Park", email: "Robin.Park@example.com")
+    token = row.issue_token!
 
     assert_empty young.guardians
     assert_equal row, Intake::HouseholdMember.find_guardian_by_token(token)

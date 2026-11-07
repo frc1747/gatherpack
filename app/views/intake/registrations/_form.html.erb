@@ -17,7 +17,7 @@
   <h2 class="h5 mt-4">Teams</h2>
   <%= render "team_list", f: f, teams: teams, attribute: :apply_team_ids, label: "People can apply to any of these teams", hint: "They pick the ones they want. Each pick is its own application." %>
   <%= render "team_list", f: f, teams: teams, attribute: :also_add_team_ids, label: "Also add to these teams", hint: "Added when approved." %>
-  <%= f.input :badge_ids, label: "Also give these badges", collection: Badge.order(:name), label_method: :name, value_method: :id, input_html: { multiple: true, size: 4 }, include_blank: false, hint: "Given when approved." %>
+  <%= f.input :badge_ids, label: "Also give these badges", collection: (intake_assignable_badges | f.object.badges.to_a).sort_by(&:name), label_method: :name, value_method: :id, input_html: { multiple: true, size: 4 }, include_blank: false, hint: "Given when approved." %>
   <%= render "team_list", f: f, teams: teams, attribute: :pick_one_team_ids, label: "Also pick one of these teams", hint: "The approving manager picks one." %>
   <%= f.input :pick_one_required, label: "A pick is required to approve" %>
 

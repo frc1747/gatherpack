@@ -145,13 +145,9 @@ class Intake::KioskControllerTest < ActionDispatch::IntegrationTest
         guardian_first_name: "Robin", guardian_last_name: "Fox", guardian_email: "robin.fox@example.com")
     end
 
-    sent = enqueued_jobs.select { |job| job[:job] == SendEmailJob }.map { |job| job[:args].second }
-    assert_equal [ "robin.fox@example.com" ], sent
-
-    # The young person's own invitation waits for the guardian.
-    perform_enqueued_jobs(only: Intake::EntryEmailJob)
-    sent = enqueued_jobs.select { |job| job[:job] == SendEmailJob }.map { |job| job[:args].second }
-    assert_not_includes sent, "jamie@example.com"
+    # The guardian's request goes; the young person's own invitation waits for the guardian.
+    sent = capture_intake_mail { perform_enqueued_jobs(only: [ Intake::GuardianEmailJob, Intake::EntryEmailJob ]) }
+    assert_equal [ "robin.fox@example.com" ], sent.map(&:first)
   end
 
   test "a guardian's confirmation sends the young person's invitation" do

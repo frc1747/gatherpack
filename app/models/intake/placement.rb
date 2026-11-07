@@ -6,10 +6,15 @@
 class Intake::Placement
   attr_reader :person, :registration, :pick_team
 
-  def initialize(application: nil, person: nil, registration: nil, pick_team: nil)
+  # approver: the login deciding. Badges are given only when it may assign
+  # them, so a list an admin set up gives a manager's approvals only the
+  # badges that manager could give by hand. Without one (joining a team that
+  # needs no approval) the registration's creator is asked.
+  def initialize(application: nil, person: nil, registration: nil, pick_team: nil, approver: nil)
     @person = person || application&.person
     @registration = registration || application&.registration
     @pick_team = pick_team
+    @approver = approver
   end
 
   def pick_teams
@@ -37,7 +42,7 @@ class Intake::Placement
     return { teams: [], badges: [], guardian_teams: [] } unless registration
     {
       teams: registration.also_add_teams.where.not(id: person.memberships.select(:team_id)).pluck(:name),
-      badges: registration.badges.where.not(id: person.badge_assignments.select(:badge_id)).pluck(:name),
+      badges: registration.badges.where.not(id: person.badge_assignments.select(:badge_id)).select { |badge| may_give?(badge) }.map(&:name),
       guardian_teams: person.guardians.exists? ? registration.guardian_also_add_teams.pluck(:name) : []
     }
   end
@@ -76,7 +81,12 @@ class Intake::Placement
   # A team badge needs its holder on the team; one that can't be given is
   # left out rather than stopping the approval.
   def give_badge(badge)
-    return false if person.badge_assignments.exists?(badge: badge)
+    return false if person.badge_assignments.exists?(badge: badge) || !may_give?(badge)
     BadgeAssignment.new(person: person, badge: badge).save
+  end
+
+  def may_give?(badge)
+    approver = @approver || registration.created_by&.user
+    approver&.person.present? && BadgePolicy.new(approver, badge).update?
   end
 end

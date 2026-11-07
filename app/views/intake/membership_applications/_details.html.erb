@@ -1,13 +1,17 @@
-<%# Intake's additions to an application row: where it came from, flags,
-    what approval adds, the manager's pick, and a denial reason. Rendered by
-    the upstream application views; renders nothing for other applications. %>
+<%# Intake's additions to an application row: where it came from and, for
+    people who decide it, flags (matches are for staff only), what approval
+    adds, the manager's pick, and a denial reason. Rendered by the upstream
+    application views; renders nothing for other applications. %>
 <% if Intake.enabled? && application.registration %>
+  <% decides = policy(application).update? %>
   <div class="small mt-1" id="<%= dom_id(application, :intake) %>">
     <span class="text-muted"><%= intake_source_label(application) %>: <%= application.registration.title %></span>
-    <% application.intake_flags.each do |flag| %>
-      <span class="badge text-bg-warning ms-1"><%= flag %></span>
+    <% if decides %>
+      <% application.intake_flags.each do |flag| %>
+        <span class="badge text-bg-warning ms-1"><%= flag %></span>
+      <% end %>
     <% end %>
-    <% if application.pending? %>
+    <% if application.pending? && decides %>
       <% preview = application.intake_placement_preview %>
       <% if preview[:teams].any? || preview[:guardian_teams].any? %>
         <div>Will also join: <%= preview[:teams].to_sentence.presence || "nothing else" %><%= "; guardians join #{preview[:guardian_teams].to_sentence}" if preview[:guardian_teams].any? %></div>
@@ -15,26 +19,24 @@
       <% if preview[:badges].any? %>
         <div>Will get: <%= preview[:badges].to_sentence %></div>
       <% end %>
-      <% if policy(application).update? %>
-        <% placement = Intake::Placement.new(application: application) %>
-        <div class="d-flex flex-wrap gap-2 mt-2">
-          <% if placement.pick_teams.exists? %>
-            <%= form_with url: team_membership_application_path(application.team, application), method: :patch, class: "d-flex gap-2 align-items-center" do %>
-              <%= hidden_field_tag :status, "approved" %>
-              <%= label_tag "pick_team_id_#{application.id}", "Also join", class: "visually-hidden" %>
-              <%= select_tag :pick_team_id, options_from_collection_for_select(placement.pick_teams, :id, :name, placement.suggested_pick&.id),
-                include_blank: placement.pick_required? ? "Choose a team" : "No extra team", id: "pick_team_id_#{application.id}", class: "form-select form-select-sm" %>
-              <%= submit_tag "Approve", class: "btn btn-sm btn-success" %>
-            <% end %>
-          <% end %>
+      <% placement = Intake::Placement.new(application: application) %>
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <% if placement.pick_teams.exists? %>
           <%= form_with url: team_membership_application_path(application.team, application), method: :patch, class: "d-flex gap-2 align-items-center" do %>
-            <%= hidden_field_tag :status, "denied" %>
-            <%= label_tag "reason_#{application.id}", "Reason", class: "visually-hidden" %>
-            <%= text_field_tag :reason, nil, id: "reason_#{application.id}", placeholder: "Reason (sent to them)", class: "form-control form-control-sm" %>
-            <%= submit_tag "Deny with reason", class: "btn btn-sm btn-outline-danger" %>
+            <%= hidden_field_tag :status, "approved" %>
+            <%= label_tag "pick_team_id_#{application.id}", "Also join", class: "visually-hidden" %>
+            <%= select_tag :pick_team_id, options_from_collection_for_select(placement.pick_teams, :id, :name, placement.suggested_pick&.id),
+              include_blank: placement.pick_required? ? "Choose a team" : "No extra team", id: "pick_team_id_#{application.id}", class: "form-select form-select-sm" %>
+            <%= submit_tag "Approve", class: "btn btn-sm btn-success" %>
           <% end %>
-        </div>
-      <% end %>
+        <% end %>
+        <%= form_with url: team_membership_application_path(application.team, application), method: :patch, class: "d-flex gap-2 align-items-center" do %>
+          <%= hidden_field_tag :status, "denied" %>
+          <%= label_tag "reason_#{application.id}", "Reason", class: "visually-hidden" %>
+          <%= text_field_tag :reason, nil, id: "reason_#{application.id}", placeholder: "Reason (sent to them)", class: "form-control form-control-sm" %>
+          <%= submit_tag "Deny with reason", class: "btn btn-sm btn-outline-danger" %>
+        <% end %>
+      </div>
     <% elsif application.denied? && admin? && Intake::SpamPerson.new(application.person).deletable? %>
       <%= link_to "Delete as spam", intake_spam_person_path(application.person), class: "btn btn-sm btn-outline-danger ms-2" %>
     <% end %>

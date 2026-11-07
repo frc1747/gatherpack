@@ -45,7 +45,9 @@ Rails.application.config.to_prepare do
   Settings.register(:intake_rate_verify_per_hour, :integer, "Confirmation Link Opens per Hour from One Address", "10", "Intake",
     "How many confirmation links one network address can open in an hour.")
   Settings.register(:intake_rate_resend_per_day, :integer, "Resends per Sign-up per Day", "3", "Intake",
-    "How many times a day a sign-up's email can be sent again.")
+    "How many times a day a sign-up's email, or a guardian request, can be sent again (or a guardian or new email named).")
+  Settings.register(:intake_rate_household_per_day, :integer, "Family Members Added per Person per Day", "10", "Intake",
+    "How many family members one person can add through registrations in a day.")
   Settings.register(:intake_rate_kiosk_per_minute, :integer, "Registration Kiosk: Sign-ups per Minute", "30", "Intake",
     "How many sign-ups one kiosk account can submit in a minute.")
 

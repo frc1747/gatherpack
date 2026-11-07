@@ -34,7 +34,7 @@ class Intake::JoinController < ApplicationController
     return render_busy if @registration.at_entry_cap?
 
     as_entry(@entry) { @entry.save! }
-    Intake::EntryEmailJob.perform_later(@entry)
+    Intake::EntryEmailJob.perform_later(@entry.id)
     render :thanks
   end
 

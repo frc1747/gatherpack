@@ -116,10 +116,10 @@ class Intake::KioskController < ApplicationController
     enrollment.apply(person)
 
     if needs_guardian? && @registration.guardian_relationship_type && !person.guardians.exists?
-      row, token = enrollment.name_guardian(ward: person, first_name: @form["guardian_first_name"], last_name: @form["guardian_last_name"],
+      row = enrollment.name_guardian(ward: person, first_name: @form["guardian_first_name"], last_name: @form["guardian_last_name"],
         email: @form["guardian_email"])
-      Intake::Notices.confirm_guardian(row, token)
+      Intake::GuardianEmailJob.perform_later(row.id)
     end
-    Intake::EntryEmailJob.perform_later(entry)
+    Intake::EntryEmailJob.perform_later(entry.id)
   end
 end

@@ -12,22 +12,25 @@ module Intake::MembershipApplicationExtension
     # request: asked from the team's page; link: a registration link; kiosk: a registration kiosk.
     enum :source, { request: 0, link: 1, kiosk: 2 }, prefix: true
 
-    # The approving manager's pick from the registration's pick-one list, and
-    # what placement added (for the notice), set around approve!.
-    attr_accessor :intake_pick_team, :intake_placement
+    # The approving manager's pick from the registration's pick-one list and
+    # their login (for which badges they may give), set before approve!, and
+    # what placement added, set by it.
+    attr_accessor :intake_pick_team, :intake_approver, :intake_placement
 
     after_create_commit { Intake.fire("membership_applications - submitted", self) }
 
     prepend Decisions
   end
 
+  # Placement and notices run only while the feature is on, like its hooks.
   module Decisions
     def approve!
+      intake = registration && Intake.enabled?
       transaction do
         super
-        self.intake_placement = Intake::Placement.new(application: self, pick_team: intake_pick_team).apply! if registration
+        self.intake_placement = Intake::Placement.new(application: self, pick_team: intake_pick_team, approver: intake_approver).apply! if intake
       end
-      Intake::Notices.approved(self) if registration
+      Intake::Notices.approved(self) if intake
       Intake.fire("membership_applications - approved", self)
       true
     end
@@ -36,7 +39,7 @@ module Intake::MembershipApplicationExtension
     def deny!(reason = nil)
       self.reviewer_notes = reason if reason.present?
       super()
-      Intake::Notices.denied(self) if registration
+      Intake::Notices.denied(self) if registration && Intake.enabled?
       Intake.fire("membership_applications - denied", self)
       true
     end

@@ -11,8 +11,8 @@ class Intake::EntriesController < InternalController
     if count && count > Intake.setting(:intake_rate_resend_per_day, 3)
       redirect_back_or_to intake_registration_path(registration), alert: "That sign-up's email was sent again too often today. Try again tomorrow."
     else
-      Intake::EntryEmailJob.perform_later(entry)
-      redirect_back_or_to intake_registration_path(registration), notice: "Sent again to #{entry.first_name}."
+      Intake::EntryEmailJob.perform_later(entry.id)
+      redirect_back_or_to intake_registration_path(registration), notice: "Sent again."
     end
   end
 
