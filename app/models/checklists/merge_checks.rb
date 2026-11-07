@@ -1,5 +1,5 @@
 module Checklists
-  # check callables for merging two people into one (feature/person-merge):
+  # check callables for merging two people into one (GatherPack::PersonMerge):
   # a warning for the merge preview, or nil.
   module MergeChecks
     module_function

@@ -1,5 +1,5 @@
-# Checklists' columns that point at a person, for merging two people into
-# one (feature/person-merge). Without that feature there's nothing to
+# Checklists' columns that point at a person, registered where people can
+# be merged (GatherPack::PersonMerge); without it there's nothing to
 # register. GatherPack::PersonMerge is required by its own initializer, and
 # to_prepare runs after every initializer has loaded, so file order doesn't
 # matter.

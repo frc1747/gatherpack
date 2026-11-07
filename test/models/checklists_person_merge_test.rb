@@ -1,7 +1,7 @@
 require "test_helper"
 require_relative "../support/checklists_world"
 
-# Runs only where people can be merged (feature/person-merge is present).
+# Runs only where people can be merged (GatherPack::PersonMerge is loaded).
 class ChecklistsPersonMergeTest < ActiveSupport::TestCase
   include ChecklistsWorld
 
