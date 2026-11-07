@@ -22,8 +22,8 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
 
   teardown { @restore_settings&.call }
 
-  # Met for everyone, but its kind hides it from anyone who doesn't run
-  # the checklist, so a grant's view of the overall doesn't cover it.
+  # Met for everyone, but its kind hides every result from every viewer,
+  # runners included (kind caps apply to whoever looks).
   class HiddenFromViewers < Checklists::ItemKind
     def self.visible_person_ids(_item, _viewer, _person_ids) = []
 
@@ -93,14 +93,22 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Pick an active checklist whose results you can see for everyone.", flash[:alert]
   end
 
-  test "a grant whose view of the overall an item hides doesn't let them choose it" do
+  test "an overall an item's kind hides can't be chosen, by a grant holder or by someone who runs it" do
     grant_to_sheet_organizers
     Checklists.register_item_kind(:hidden_from_grants, HiddenFromViewers)
     add_item(@checklist, :hidden_from_grants, "Private", {})
-    sign_in person(:worker).user
 
-    get edit_signup_sheet_signup_position_path(@sheet, @position)
-    assert_select "option[value=?]", @checklist.id, count: 0
+    [ :worker, :admin ].each do |name|
+      sign_in person(name).user
+      get edit_signup_sheet_signup_position_path(@sheet, @position)
+      assert_select "option[value=?]", @checklist.id, count: 0
+
+      assert_no_difference "SignupPositionRule.count" do
+        post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: @checklist.id } }
+      end
+      assert_equal "Pick an active checklist whose results you can see for everyone.", flash[:alert]
+      sign_out :user
+    end
   ensure
     Checklists.unregister_item_kind(:hidden_from_grants)
   end
@@ -249,6 +257,58 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
       get signup_sheet_path(@sheet)
       assert_select "#checklist_signup_panel", count: 0
       assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Needs Trip: Done \(Trip #{words}\)/
+    end
+  end
+
+  test "one organizer adds the rule; another, who can't see the results, learns nothing on the roster and can't place" do
+    signup = Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:student))
+    sign_in person(:admin).user
+    post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: @checklist.id } }
+    assert @position.signup_position_rules.exists?(kind: :checklist)
+
+    get roster_signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(signup)}", text: /Doesn't meet: Needs Trip: Done/, message: "the admin sees it"
+    sign_out :user
+
+    hidden = "You can't see Trip results, so can't place people here"
+    sign_in person(:worker).user
+    get roster_signup_sheet_path(@sheet)
+    assert_response :success
+    assert_no_match "Needs Trip", response.body
+    assert_no_match "Doesn't meet", response.body
+    assert_no_match hidden, response.body
+
+    attest(:student2)
+    Checklists::Refresher.new(@checklist.reload).call
+    [ :student, :student2 ].each do |name|
+      [ nil, "1" ].each do |override|
+        assert_no_difference "Signup.count", "#{name}, override #{override.inspect}" do
+          post signup_sheet_roster_signups_path(@sheet),
+            params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(name).id, override_rules: override }.compact }
+        end
+        assert_response :unprocessable_entity
+        assert_match hidden, response.body
+        assert_no_match "Needs Trip: Done", response.body
+      end
+    end
+
+    patch move_signup_sheet_roster_signup_path(@sheet, signup), params: { signup: { signup_slot_id: slot_for(@position).id, override_rules: "1" } }
+    assert_no_match "Needs Trip: Done", response.body
+  end
+
+  test "an organizer who sees the results places as before" do
+    grant_to_sheet_organizers
+    require_checklist
+    attest(:student2)
+    Checklists::Refresher.new(@checklist.reload).call
+    sign_in person(:worker).user
+
+    post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
+    assert_response :unprocessable_entity
+    assert_match "Needs Trip: Done", response.body
+
+    assert_difference "Signup.count", 1 do
+      post signup_sheet_roster_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student2).id } }
     end
   end
 
