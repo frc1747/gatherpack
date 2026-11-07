@@ -1,0 +1,47 @@
+<% breadcrumb @checklist %>
+
+<div class="card">
+  <div class="card-header"><h1>Excuse <%= @excuse.person.display_name %> from a meeting</h1></div>
+  <div class="card-body">
+    <p class="text-body-secondary">The meeting won't count for them on <%= @excuse.item.label %>: not in the hours they need, and not in the hours they have. Others who see the item see who excused it and when; only managers and admins see the reason.</p>
+
+    <% if @meeting_excuses.any? %>
+      <h2 class="h6">Already excused</h2>
+      <ul class="list-unstyled">
+        <% @meeting_excuses.each do |excuse| %>
+          <li class="d-flex justify-content-between gap-2">
+            <span>
+              <%= excuse.event&.name.presence || "A meeting" %><%= ", #{l(excuse.event.start_time.in_time_zone.to_date, format: :long)}" if excuse.event %>
+              <span class="small text-body-secondary">by <%= excuse.created_by&.display_name %>: <%= excuse.reason %></span>
+            </span>
+            <%= button_to "Remove", checklist_checklist_excuse_path(@checklist, excuse), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <% if @meetings.empty? %>
+      <p>No meetings held yet that they could be excused from.</p>
+    <% else %>
+      <%= simple_form_for [ @checklist, @excuse ], url: checklist_checklist_excuses_path(@checklist) do |f| %>
+        <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+        <%= f.hidden_field :item_id %>
+        <%= f.hidden_field :person_id %>
+        <%= f.input :event_id, label: "Meeting", include_blank: "Pick a meeting",
+          collection: @meetings.map { |meeting|
+            there = Checklists::Kinds::Attendance::Tally.hours(@time_at_meetings.fetch(meeting.id, 0))
+            held = Checklists::Kinds::Attendance::Tally.hours(meeting.end_time - meeting.start_time)
+            [ "#{meeting.name.presence || "Meeting"}, #{l(meeting.start_time.in_time_zone.to_date, format: :long)} (there #{there.to_s.sub(/\.0\z/, "")} of #{held.to_s.sub(/\.0\z/, "")} h)", meeting.id ]
+          } %>
+        <%= f.input :reason, as: :text, input_html: { rows: 3 } %>
+        <%= f.input :expires_on, as: :date, html5: true, label: "Until", hint: "Optional. Blank: for as long as the checklist runs" %>
+        <%= f.button :submit, "Excuse this meeting", class: "btn btn-primary" %>
+        <%= link_to "Cancel", checklist_path(@checklist), class: "btn btn-link" %>
+      <% end %>
+    <% end %>
+
+    <p class="mt-3 mb-0 small">
+      <%= link_to "Excuse them from #{@excuse.item.label} entirely instead", new_checklist_checklist_excuse_path(@checklist, item_id: @excuse.item.id, person_id: @excuse.person.id, whole: 1) %>
+    </p>
+  </div>
+</div>
