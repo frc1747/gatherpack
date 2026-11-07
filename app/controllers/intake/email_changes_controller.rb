@@ -9,10 +9,12 @@ class Intake::EmailChangesController < InternalController
 
   # GET /join/email?token=...
   def show
+    skip_authorization
   end
 
   # POST /join/email
   def create
+    skip_authorization
     Intake::EmailChange.apply!(@token)
     render :done
   end

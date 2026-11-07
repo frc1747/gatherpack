@@ -11,11 +11,13 @@ class Intake::GuardianConfirmationsController < InternalController
 
   # GET /join/guardian?token=...
   def show
+    skip_authorization
     @user = existing_login || new_login
   end
 
   # POST /join/guardian
   def create
+    skip_authorization
     if (user = existing_login)
       return render_refused if as_entry(@row.entry) { confirm(user.person) } == :refused
       session[:user_return_to] = intake_me_path(@row.entry.registration.slug)
