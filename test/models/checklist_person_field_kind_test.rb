@@ -141,7 +141,7 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     end
   end
 
-  test "missing data is not yet unless the item says blank counts as met" do
+  test "missing data is not started unless the item says blank counts as met" do
     with_fields do
       note = create_field("Note", :string)
       filled = add_field_item(note, "filled_in")
