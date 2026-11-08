@@ -32,6 +32,15 @@ class Intake::Entry < ApplicationRecord
     Intake.setting(:intake_entry_days, 7).days.ago
   end
 
+  # Sign-ups per local day (the site's time zone, not UTC) over the last
+  # `days` local days including today, newest first: { Date => count }.
+  # Chain it on any entries scope, e.g. `entries.verified.counts_by_day`.
+  def self.counts_by_day(days = 30)
+    zone = ActiveSupport::TimeZone[Settings[:time_zone].presence || "UTC"] || ActiveSupport::TimeZone["UTC"]
+    day = sanitize_sql_array([ "DATE(intake_entries.created_at AT TIME ZONE 'UTC' AT TIME ZONE ?)", zone.tzinfo.name ])
+    where(created_at: (zone.now.beginning_of_day - (days - 1).days)..).group(Arel.sql(day)).order(Arel.sql("#{day} DESC")).count
+  end
+
   def self.expired
     unverified.where(created_at: ...retention_cutoff)
   end

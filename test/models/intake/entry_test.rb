@@ -119,4 +119,32 @@ class Intake::EntryTest < ActiveSupport::TestCase
     assert Intake.needs_guardian?(birth_year: Date.current.year - 18)
     assert_not Intake.needs_guardian?(birth_year: Date.current.year - 19)
   end
+
+  test "sign-ups are counted by the day in the site's time zone" do
+    with_settings(time_zone: "Eastern Time (US & Canada)") do
+      travel_to(Time.utc(2026, 11, 5, 15)) do
+        create_intake_entry
+        evening, = create_intake_entry(email: "evening@example.com")
+        # 9pm on Nov 5 in New York is already Nov 6 in UTC.
+        evening.update_columns(created_at: Time.utc(2026, 11, 6, 2), verified_at: Time.utc(2026, 11, 6, 2))
+
+        assert_equal({ Date.new(2026, 11, 5) => 2 }, @registration.entries.counts_by_day)
+        assert_equal({ Date.new(2026, 11, 5) => 1 }, @registration.entries.verified.counts_by_day)
+      end
+    end
+  end
+
+  test "the window is 30 local days including today" do
+    with_settings(time_zone: "Eastern Time (US & Canada)") do
+      travel_to(Time.utc(2026, 11, 5, 15)) do
+        first, = create_intake_entry
+        before, = create_intake_entry(email: "before@example.com")
+        # Oct 7 00:00 in New York is the first moment of the window.
+        first.update_columns(created_at: Time.utc(2026, 10, 7, 4))
+        before.update_columns(created_at: Time.utc(2026, 10, 7, 3, 59))
+
+        assert_equal({ Date.new(2026, 10, 7) => 1 }, @registration.entries.counts_by_day)
+      end
+    end
+  end
 end
