@@ -72,6 +72,42 @@ class FormsPersonMergeTest < ActiveSupport::TestCase
     end
   end
 
+  test "the completion badge of a response that moves over isn't granted twice" do
+    build_person_fields_world
+    badge = create_world_badge("Meal Choices Done")
+    form = create_world_form(completion_badge: badge)
+    add_choice(form, "Sandwich", [ "Slim 1", "Slim 4" ])
+    respond(form, :a1, as: :a1, answers: { "sandwich" => "Slim 1" }, submit: false)
+    respond(form, :a2, as: :a2, answers: { "sandwich" => "Slim 4" })
+    assert BadgeAssignment.exists?(badge: badge, person: person(:a2))
+
+    merge(keep: person(:a1), drop: person(:a2))
+
+    assert FormResponse.find_by!(form: form, subject: person(:a1)).complete?
+    assert_equal 1, BadgeAssignment.where(badge: badge, person: person(:a1)).count
+  end
+
+  test "a response that moves over is checked once the profile has moved too" do
+    skip "profile values aren't merged here" unless GatherPack::PersonMerge.covers?(:person_field_values, :person_id)
+
+    with_settings(feature_person_fields: "true") do
+      build_person_fields_world
+      form = create_world_form
+      shirt = create_world_field("Shirt Size", read: "family", write: "family")
+      add_profile_question(form, shirt, :update_profile)
+      form.update!(reconfirm_on_profile_change: true)
+      respond(form, :a1, as: :a1, answers: {}, submit: false)
+      respond(form, :a2, as: :a2, answers: { "shirt_size" => "M" })
+
+      merge(keep: person(:a1), drop: person(:a2))
+
+      assert_equal "M", Person.find(person(:a1).id).field_value(shirt)
+      response = FormResponse.find_by!(form: form, subject: person(:a1))
+      assert response.complete?
+      assert_nil response.reconfirmation_reason
+    end
+  end
+
   test "the preview names the forms both people answered" do
     build_person_fields_world
     form = create_world_form

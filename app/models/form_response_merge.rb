@@ -25,9 +25,11 @@ module FormResponseMerge
       winner.update_columns(active_submission_id: nil)
     end
     # The status was worked out for the other person's profile (the merge
-    # moves profile values without the forms resync), so it, the completion
-    # badge and the completed/incomplete hooks follow the kept person now.
-    FormResponse.find(kept["id"]).sync_status!
+    # moves profile values without the forms resync). Sync it once the merge
+    # has committed: until then badges and profile values are still moving,
+    # and a badge granted now would clash with the one about to move over.
+    kept_id = kept["id"]
+    ActiveRecord.after_all_transactions_commit { FormResponse.find_by(id: kept_id)&.sync_status! }
   end
 
   # check for form_responses.subject_id: names the forms both people have
