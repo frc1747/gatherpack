@@ -65,7 +65,7 @@ class FormAudienceChecklistRulesControllerTest < ActionDispatch::IntegrationTest
 
       post checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "form_complete", label: "Medical", counts: "1", start_mode: "checklist",
         config: { form_ids: [ @form.id ], ever: "0" } }, confirmed: "1" }
-      assert_redirected_to checklist_path(@checklist)
+      assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
       item = @checklist.checklist_items.sole
       assert_equal({ "form_ids" => [ @form.id ], "ever" => false }, item.config)
       assert_equal "Completes Medical Release", item.kind_class.describe(item)
