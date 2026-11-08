@@ -197,7 +197,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     assert_select "[data-site-brand] a[href=?]", root_path, text: /Northwind Community/
     assert_select "[data-site-brand] form[role=search][action=?] input[name=q]", search_path
     assert_select "header.navbar.d-md-none"
-    assert_select "title", text: /Northwind Community/
+    assert_includes response.body, "<title>Northwind Community</title>"
   end
 
   test "a blank site title falls back to the product name" do
@@ -207,6 +207,16 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
 
     assert_select "[data-site-brand] a", text: /GatherPack/
     assert_select "header.navbar .navbar-brand", text: /GatherPack/
+    assert_includes response.body, "<title>GatherPack</title>"
+  end
+
+  test "with the flag off, a blank site title renders as it does today" do
+    Settings[:feature_my_gatherpack] = "false"
+    Settings[:title] = ""
+    sign_in @member
+    get root_path
+
+    assert_includes response.body, "<title>  | </title>"
   end
 
   test "the feature's name is never rendered" do
@@ -239,6 +249,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     assert_select "header.navbar.d-md-none", count: 0
     assert_select ".sidebar a", text: /Dashboard/
     assert_select ".sidebar h6", text: "People"
+    assert_includes response.body, "<title> Northwind Community | </title>"
     assert_not_includes GatherPack::ViewOverrides.active_paths(nil), Rails.root.join("app/view_overrides/my_gatherpack").to_s
   end
 
