@@ -45,8 +45,8 @@ module GatherPack
       end
 
       # Attributes from every registration, merged in registration order.
-      # Nested hashes (data, aria) merge; `class` is dropped so the sidebar
-      # keeps its own.
+      # Nested hashes (data, aria) merge; `class` is dropped because the wrapper
+      # has no box of its own.
       def attributes_for(view)
         @root_attributes.values.each_with_object({}) do |registration, merged|
           attributes = view.instance_exec(view, &registration.block) || {}

@@ -36,7 +36,7 @@
     <div class="container-fluid">
       <div class="row">
         <% if (current_user.present? rescue false) %>
-          <%= render partial: "layouts/sidebar" %>
+          <%= sidebar_with_root_attributes { render partial: "layouts/sidebar" } %>
         <% end %>
 
         <div class="<%= "col-md-9 ms-sm-auto col-lg-10" if (current_user.present? rescue false) %> px-md-4">
