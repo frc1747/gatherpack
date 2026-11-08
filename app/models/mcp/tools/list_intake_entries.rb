@@ -1,5 +1,5 @@
 # A registration's sign-ups, as Intake::RegistrationsController#show shows them (lines 17-21,
-# the view's two tables): counts by day for the last 30 days, and the people still to
+# the view's two tables): counts by day in the site's time zone for the last 30 days, and the people still to
 # confirm their email (unverified, no person yet), newest first, with the network prefix
 # the page shows. Found and authorized as get_registration is. No email, ever: the page
 # shows none, and the entry holds the address encrypted. Kiosk sign-ups, who have a person
@@ -39,8 +39,8 @@ class Mcp::Tools::ListIntakeEntries < Mcp::Tool
     ctx.authorize!(registration, :show?)
 
     entries = registration.entries
-    started = entries.where(created_at: 30.days.ago..).group("DATE(created_at)").count
-    confirmed = entries.verified.where(created_at: 30.days.ago..).group("DATE(created_at)").count
+    started = entries.counts_by_day
+    confirmed = entries.verified.counts_by_day
     waiting = registration.unverified_entries.where(person_id: nil).order(created_at: :desc, id: :asc)
 
     {

@@ -10,7 +10,7 @@ class Mcp::Tools::IntakeEntryToolsTest < ActionDispatch::IntegrationTest
   include IntakeWorld
 
   setup do
-    # Midday UTC, so entries made an hour or two ago fall on today's date (days group by UTC date).
+    # Midday UTC, so entries made an hour or two ago fall on today's date (days group by the site's local date, UTC unless a test sets a zone).
     travel_to Time.utc(2026, 11, 4, 12)
     host! "localhost"
     build_intake_world
@@ -43,6 +43,20 @@ class Mcp::Tools::IntakeEntryToolsTest < ActionDispatch::IntegrationTest
     assert_equal "203.0.113.*", result.value["items"].last["network"]
     assert_equal [ { "day" => Date.current.iso8601, "started" => 2, "email_confirmed" => 0 } ], result.value["by_day"]
     assert_no_match(/example\.com|@/, result.value.to_json)
+  end
+
+  test "list_intake_entries counts by the site's local day, as the page does" do
+    # 9pm on Nov 4 in New York, already Nov 5 in UTC.
+    @sam.update_columns(created_at: Time.utc(2026, 11, 5, 2))
+
+    with_settings(time_zone: "Eastern Time (US & Canada)") do
+      result = tool("list_intake_entries", :leader, registration_id: @registration.neat_id)
+      assert_equal [ { "day" => "2026-11-04", "started" => 2, "email_confirmed" => 0 } ], result.value["by_day"]
+
+      sign_in @leader.user
+      with_intake { get intake_registration_path(@registration) }
+      assert_match "<td>November 04, 2026</td><td>2</td>", response.body
+    end
   end
 
   test "list_intake_entries leaves out confirmed sign-ups and kiosk ones with a person, as the page does" do
