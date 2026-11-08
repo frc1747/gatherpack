@@ -181,7 +181,10 @@ class SignupsSummaryDashboardTest < ActionDispatch::IntegrationTest
 
   private
 
+  # Signs in afresh, so a test that travels past the idle timeout isn't
+  # signed out.
   def get_dashboard(name, signups: true, commitments: true)
+    sign_out :user
     sign_in person(name).user
     with_settings(feature_signups: signups.to_s, feature_commitments: commitments.to_s) do
       get root_path
