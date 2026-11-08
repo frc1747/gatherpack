@@ -1,0 +1,2 @@
+class SignupSlotPolicy < SignupSheetPartPolicy
+end
