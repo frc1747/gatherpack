@@ -16,7 +16,7 @@
       <div class="card mg-list">
         <%= render partial: "my_gatherpack/todo_row", collection: owed, as: :item, locals: { first: false } %>
         <% if GatherPack::Features.enabled?(:signups) %>
-          <div class="mg-row"><%= link_to "See open shifts", signup_sheets_path, class: "btn btn-outline-secondary w-100" %></div>
+          <div class="p-3 border-top"><%= link_to "See open shifts", signup_sheets_path, class: "btn btn-outline-secondary w-100" %></div>
         <% end %>
       </div>
     </section>
