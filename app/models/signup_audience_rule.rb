@@ -1,5 +1,7 @@
 # One rule in a sheet's audience: include or exclude a team (and every team
 # below it), a badge's holders, or one person. See SignupSheet#audience.
+# A person or badge include rule only opens the sheet to people within the
+# reach of whoever added it (#people_in_reach), unless an admin added it.
 class SignupAudienceRule < ApplicationRecord
   has_neat_id :suar
   include CanBeHooked
@@ -9,6 +11,7 @@ class SignupAudienceRule < ApplicationRecord
   belongs_to :team, optional: true
   belongs_to :badge, optional: true
   belongs_to :person, optional: true
+  belongs_to :created_by, class_name: "Person", optional: true
 
   enum :effect, { include: 0, exclude: 1 }, prefix: :effect, validate: true
   enum :target_type, { team: 0, badge: 1, person: 2 }, prefix: :target, validate: true
@@ -47,6 +50,18 @@ class SignupAudienceRule < ApplicationRecord
     when "badge" then Person.where(id: BadgeAssignment.where(badge_id: badge_id).select(:person_id))
     when "person" then Person.where(id: person_id)
     end
+  end
+
+  # The people this rule opens the sheet to (or, for an exclude rule, keeps
+  # out). Team rules are kept to the sheet's teams when they're added; a
+  # person or badge include rule covers only people in its creator's reach
+  # (SignupSheet#people_in_reach_of), unless an admin added it. A rule with
+  # no creator (added before creators were kept, or whose creator was
+  # deleted) covers only the sheet's team and the teams below it.
+  def people_in_reach
+    return people if effect_exclude? || target_team? || created_by&.admin?
+
+    people.where(id: signup_sheet.people_in_reach_of(created_by).select(:id))
   end
 
   private

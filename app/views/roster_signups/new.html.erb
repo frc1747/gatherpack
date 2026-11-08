@@ -1,6 +1,6 @@
 <% breadcrumb @signup_sheet %>
 <% audience = @signup_sheet.audience.order(:last_name, :first_name).map { |person| [ person.display_name, person.id ] } %>
-<% failures = @signup.person ? @signup.signup_position.eligibility_failures(@signup.person, @signup.event) : [] %>
+<% failures = @signup.person ? @signup.signup_position.eligibility_failures(@signup.person, @signup.event, viewer: current_user.person) : [] %>
 <% slots = @signup_sheet.signup_slots.includes(:event, :signup_position).sort_by { |slot| [ slot.event.start_time, slot.signup_position.position ] } %>
 
 <div class="card">

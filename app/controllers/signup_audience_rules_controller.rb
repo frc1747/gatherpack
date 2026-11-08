@@ -5,12 +5,15 @@ class SignupAudienceRulesController < InternalController
 
   # POST /signup_sheets/1/signup_audience_rules
   def create
-    @rule = authorize @signup_sheet.signup_audience_rules.build(rule_params)
+    @rule = authorize @signup_sheet.signup_audience_rules.build(rule_params.merge(created_by: current_user.person))
     if @rule.target_badge? && !GatherPack::Features.enabled?(:badges)
       return redirect_to edit_path, alert: "Badges are turned off.", status: :see_other
     end
     if @rule.target_team? && @rule.team_id && !admin? && !team_choice_ids.include?(@rule.team_id)
       return redirect_to edit_path, alert: "Pick #{@signup_sheet.team.name} or a team below it.", status: :see_other
+    end
+    if out_of_reach?
+      return redirect_to edit_path, alert: "Pick #{@rule.target_badge? ? "a badge" : "someone"} in your teams or the sheet's.", status: :see_other
     end
 
     if @rule.save
@@ -34,6 +37,21 @@ class SignupAudienceRulesController < InternalController
 
     def edit_path
       edit_signup_sheet_path(@signup_sheet, anchor: "audience")
+    end
+
+    # Organizers can only include people and badges in their reach
+    # (SignupSheet#reach_team_ids); a badge with no team is fine, as the
+    # rule leaves out its holders outside reach. Excluding is never limited.
+    def out_of_reach?
+      return false if admin? || @rule.effect_exclude?
+
+      if @rule.target_person? && @rule.person_id
+        !@signup_sheet.people_in_reach_of(current_user.person).exists?(id: @rule.person_id)
+      elsif @rule.target_badge? && @rule.badge_id
+        !@signup_sheet.badges_in_reach_of(current_user.person).exists?(id: @rule.badge_id)
+      else
+        false
+      end
     end
 
     def team_choice_ids
