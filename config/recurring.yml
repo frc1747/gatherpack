@@ -1,3 +1,5 @@
+<%# Tasks from config/recurring.d/*.yml come first, so a task named here wins over one of the same name there. %>
+<%= GatherPack::RecurringSchedule.yaml %>
 # periodic_cleanup:
 #   class: CleanSoftDeletedRecordsJob
 #   queue: background
