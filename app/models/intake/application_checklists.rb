@@ -25,10 +25,10 @@ class Intake::ApplicationChecklists
     @statuses[checklist.id][application.person_id]
   end
 
-  # "4 of 6 done": the counting items that apply to them.
+  # "4 of 6 complete": the counting items that apply to them.
   def self.counts_text(status)
     counting = status.items.select { |entry| entry.item.counts? && !entry.exempt? }
-    "#{counting.count(&:met?)} of #{counting.size} done"
+    "#{counting.count(&:met?)} of #{counting.size} complete"
   end
 
   # Labels of the counting items still not done for the person, as they see

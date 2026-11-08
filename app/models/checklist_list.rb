@@ -18,7 +18,7 @@ class ChecklistList < ApplicationRecord
 
   # Snapshots everyone the checklist covers, as its organizers see them.
   def self.record!(checklist, by:, note: nil)
-    statuses = Checklists.status_for(checklist, checklist.people_covered.ids, viewer: by)
+    statuses = Checklists.status_for(checklist, checklist.reported_person_ids, viewer: by)
     people = Person.where(id: statuses.keys).index_by(&:id)
     rows = statuses.values.sort_by { |status| people[status.person_id].display_name.to_s }.map do |status|
       {
@@ -29,7 +29,6 @@ class ChecklistList < ApplicationRecord
     end
     configuration = {
       "title" => checklist.title, "team" => checklist.team.name, "window" => checklist.window.to_s,
-      "cutoff_on" => checklist.cutoff_on&.iso8601,
       "items" => checklist.checklist_items.order(:position).map do |item|
         { "id" => item.id, "parent_id" => item.parent_id, "label" => item.label, "kind" => item.kind, "describe" => item.describe, "counts" => item.counts }
       end
@@ -71,7 +70,7 @@ class ChecklistList < ApplicationRecord
       elsif statuses.include?("pending") then "pending"
       else "met"
       end
-      row.merge("overall" => overall, "overall_text" => checklist.word_for(overall))
+      row.merge("overall" => overall, "overall_text" => Checklists.word_for(overall))
     end
   end
 end

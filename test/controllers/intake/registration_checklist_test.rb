@@ -113,7 +113,7 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "##{ActionView::RecordIdentifier.dom_id(@application, :intake_checklist)}" do
-      assert_select "summary", text: /1 of 2 done/
+      assert_select "summary", text: /1 of 2 complete/
       assert_select "summary", text: /waiting for Team agreement/
     end
   end
@@ -173,7 +173,7 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     assert done_application.reload.approved?
     assert @application.reload.pending?
     assert_equal "Approved 1.", flash[:notice]
-    assert_equal "Skipped: Riley Rivera (checklist not done).", flash[:alert]
+    assert_equal "Skipped: Riley Rivera (checklist not complete).", flash[:alert]
     assert_includes done.teams, @everyone
   end
 
@@ -231,7 +231,7 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     bodies = with_checklists { queued_email_bodies { refresh } }
 
     assert_equal 1, bodies.size
-    assert_match "Everything for joining Juniors is done", bodies.first
+    assert_match "Everything for joining Juniors is complete", bodies.first
   end
 
   test "the approval email lists what's still to do" do
@@ -373,7 +373,7 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
       assert lines.any? { |line| line.include?("Safety training") && line.include?("to do: a leader") }
       assert lines.none? { |line| line.include?("Login") && line.include?("to do") }
       age = lines.find { |line| line.include?("Ages 14 to 18") }
-      assert_match "Not yet", age
+      assert_match "Not Started", age
       assert_no_match "to do", age
     end
   end

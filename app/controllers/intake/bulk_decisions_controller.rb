@@ -78,7 +78,7 @@ class Intake::BulkDecisionsController < InternalController
   end
 
   def gate_reason(application)
-    Intake::ApprovalGate.new(application).reason&.then { "checklist not done" }
+    Intake::ApprovalGate.new(application).reason&.then { "checklist not complete" }
   end
 
   # A required pick can't be made from the list; it's made row by row.

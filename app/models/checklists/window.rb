@@ -11,7 +11,8 @@ module Checklists
       ends_on = record.ends_on
       if fallback
         starts_on ||= fallback.starts_on unless Window.own_start?(record)
-        ends_on ||= fallback.ends_on
+        # The fallback is the checklist's window: its end caps the item's.
+        ends_on = [ ends_on, fallback.ends_on ].compact.min
       end
       new(starts_on: starts_on, ends_on: ends_on, as_of: as_of)
     end
