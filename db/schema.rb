@@ -88,6 +88,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.uuid "team_id"
     t.string "title"
     t.datetime "updated_at", null: false
+    t.datetime "archived_at"
     t.index ["team_id"], name: "index_announcements_on_team_id"
   end
 
@@ -436,6 +437,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.uuid "time_clock_period_id"
     t.datetime "updated_at", null: false
     t.string "time_kind", default: "timed", null: false
+    t.datetime "archived_at"
     t.index ["event_type_id"], name: "index_events_on_event_type_id"
     t.index ["team_id"], name: "index_events_on_team_id"
     t.index ["time_clock_period_id"], name: "index_events_on_time_clock_period_id"
@@ -623,6 +625,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.string "event"
     t.string "name"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "housekeeping_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.string "list_key", null: false
+    t.string "view", default: "current", null: false
+    t.jsonb "older"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id", "list_key"], name: "index_housekeeping_preferences_on_person_id_and_list_key", unique: true
+  end
+
+  create_table "housekeeping_purges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "key", null: false
+    t.date "cutoff_on", null: false
+    t.integer "count", default: 0, null: false
+    t.uuid "person_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_housekeeping_purges_on_person_id"
   end
 
   create_table "intake_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1550,6 +1572,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   add_foreign_key "forms", "events", on_delete: :nullify
   add_foreign_key "forms", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "forms", "teams"
+  add_foreign_key "housekeeping_preferences", "people", on_delete: :cascade
+  add_foreign_key "housekeeping_purges", "people", on_delete: :nullify
   add_foreign_key "intake_entries", "intake_registrations", column: "registration_id", on_delete: :cascade
   add_foreign_key "intake_entries", "people", on_delete: :nullify
   add_foreign_key "intake_household_members", "intake_entries", column: "entry_id", on_delete: :cascade
