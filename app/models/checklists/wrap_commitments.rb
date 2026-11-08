@@ -26,16 +26,31 @@ module Checklists
     end
 
     def down
-      wrapped = ChecklistItem.where(wrapped: true)
-      checklist_ids = wrapped.distinct.pluck(:checklist_id)
-      Checklist.transaction do
-        wrapped.update_all(commitment_id: nil)
-        ChecklistItem.where(checklist_id: checklist_ids).where.not(commitment_id: nil).update_all(commitment_id: nil)
-        Checklist.where(id: checklist_ids).find_each(&:destroy!)
-      end
+      checklist_ids = ChecklistItem.where(wrapped: true).distinct.pluck(:checklist_id)
+      Checklist.transaction { delete_checklists(checklist_ids) }
     end
 
     private
+
+    # Plain deletes, not destroy: undoing the whole release runs this after
+    # later migrations have dropped the columns that other features' destroy
+    # guards read (sign-up position rules' and form audience rules'
+    # checklist_id), so a callback would fail on a missing column. A row
+    # elsewhere that still points at one of these checklists is refused by
+    # its foreign key, as the guard would have refused it.
+    def delete_checklists(ids)
+      items = ChecklistItem.where(checklist_id: ids)
+      ChecklistResult.where(checklist_id: ids).delete_all
+      ChecklistRefresh.where(checklist_id: ids).delete_all
+      ChecklistExcuse.where(item_id: items.select(:id)).delete_all
+      ChecklistRule.where(checklist_id: ids).delete_all
+      ChecklistGrant.where(checklist_id: ids).delete_all
+      ChecklistOrganizer.where(checklist_id: ids).delete_all
+      ChecklistList.where(checklist_id: ids).delete_all
+      items.update_all(parent_id: nil, commitment_id: nil)
+      items.delete_all
+      Checklist.where(id: ids).delete_all
+    end
 
     def wrap(commitment)
       Checklist.transaction do
