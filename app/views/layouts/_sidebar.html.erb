@@ -1,4 +1,4 @@
-<div class="sidebar border border-right col-md-3 col-lg-2 p-0 no-print">
+<div class="sidebar border border-right col-md-3 col-lg-2 p-0 no-print"<%= sidebar_root_attributes %>>
   <div class="offcanvas-md offcanvas-end" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
     <div class="offcanvas-header">
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
@@ -53,7 +53,7 @@
           <%= nav_link "Audit Log", audit_logs_path, "file-circle-check" %>
         <% end %>
       </div>
-
+<%= render "layouts/sidebar_slots" %>
       <footer class="col-12 footer-ad">
         <a href="https://gatherpack.com" target="_blank">powered by <%= image_tag "logo.svg", alt: "GatherPack" %> GatherPack</a>
       </footer>
