@@ -86,7 +86,7 @@
   /* Pinned just above the tab bar (its 44px tap target and 1px border) and the safe-area inset. */
   body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-footer {
     position: sticky;
-    bottom: calc(45px + env(safe-area-inset-bottom));
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
     z-index: 1;
     display: flex;
     flex-wrap: wrap;
