@@ -24,9 +24,7 @@
           </form>
         </div>
 
-        <button class="navbar-toggler text-white-50" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
-          <%= i "bars" %>
-        </button>
+        <%# Below md the tab bar's More button opens the sidebar. %>
       </div>
     <% end %>
 
@@ -42,3 +40,6 @@
     </div>
   </div>
 </header>
+<% if !kiosk_page? && (current_user.present? rescue false) %>
+  <%= render "layouts/phone_tabs" %>
+<% end %>
