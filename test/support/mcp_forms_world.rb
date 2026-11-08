@@ -17,7 +17,9 @@ module McpFormsWorld
   end
 
   def build_mcp_forms_world
-    @parent_of.update!(guardianship: :minor)
+    # Guardianship can't be widened on a type that already has links, which the
+    # MCP world's has by now; this stands in for a type made with it from the start.
+    @parent_of.update_columns(guardianship: RelationshipType.guardianships.fetch(:minor))
     @people[:coordinator] = create_world_person("Coordinator", @beta)
     @coordinator_badge = create_world_badge("Form Coordinator")
     BadgeAssignment.create!(badge: @coordinator_badge, person: person(:coordinator))

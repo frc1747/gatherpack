@@ -5,6 +5,11 @@ require_relative "../support/mcp_forms_world"
 # Answers are stored by key and stay active when a question is edited, so each
 # edit here, made as the form's manager, reads an old answer through a new
 # definition. A minor's contact answer must stay out, and an adult's stays in.
+#
+# This build keeps an answered question's type and link and never reuses a key,
+# on the page and in the model (see the first test). So those edits are made here
+# behind the validations, as data from before the rule or a script can have them:
+# the tool has to hold for those rows too.
 class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include McpWorld
@@ -43,8 +48,28 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
   end
 
   def edit_question(key, form: @form, **attributes)
-    patch form_question_path(form, form.form_questions.find_by!(key: key)), params: { form_question: attributes }
+    question = form.form_questions.find_by!(key: key)
+    return edit_answered_question(question, form, attributes) if question.answered?
+
+    patch form_question_path(form, question), params: { form_question: attributes }
     assert_response :see_other
+  end
+
+  # The audit history and the change to the form's content still happen. valid?
+  # runs the callback that clears what no longer applies, as a save from the page does.
+  def edit_answered_question(question, form, attributes)
+    question.assign_attributes(attributes)
+    question.valid?
+    question.save!(validate: false)
+    form.reload.publish_changes!(reconfirm: false)
+  end
+
+  def replace_with_plain_question(form, key, label)
+    delete form_question_path(form, form.form_questions.find_by!(key: key))
+    assert_response :see_other
+
+    form.form_questions.build(kind: :input, key: key, label: label, data_type: :string, position: form.form_questions.maximum(:position).to_i + 1).save!(validate: false)
+    form.reload.publish_changes!(reconfirm: false)
   end
 
   def signed_in_as(name)
@@ -95,8 +120,11 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
   end
 
   # The edit changed the question, the minor's response still holds the value and
-  # stays in effect, and only that answer is affected.
-  def assert_left_out_for_the_minor_only(key)
+  # stays in effect, and only that answer is affected. An answer recorded under a
+  # different profile field than the question's now is hidden from everyone in this
+  # build (FormSubmission#answer), so an adult keeps it only if it wasn't: pass
+  # adult_keeps: false for those.
+  def assert_left_out_for_the_minor_only(key, adult_keeps: true)
     question = question(key)
     value = ANSWERS.fetch(key)
     response = @form.response_for(person(:ward))
@@ -107,7 +135,32 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     assert_not_includes ward.keys, question.neat_id
     assert_not_includes ward.values, value
     assert_includes ward.values, "kept"
-    assert_equal value, answers_for("AlphaMember World")[question.neat_id].to_s
+    assert_equal(adult_keeps ? value : "", answers_for("AlphaMember World")[question.neat_id].to_s)
+  end
+
+  test "this build keeps an answered question's type, link and key, on the page and in the model" do
+    linked = question("linked_phone")
+    patch form_question_path(@form, linked), params: { form_question: { person_field_id: "", label: "Renamed" } }
+    assert_response :see_other
+    assert_equal "Renamed", linked.reload.label
+    assert_not_nil linked.person_field_id
+
+    typed = question("own_phone")
+    patch form_question_path(@form, typed), params: { form_question: { data_type: "string" } }
+    assert typed.reload.type_phone?
+
+    assert_not linked.update(person_field_id: nil)
+    assert_not typed.update(data_type: :string)
+
+    delete form_question_path(@form, typed)
+    assert_not Form.find(@form.id).form_questions.build(kind: :input, key: "own_phone", label: "Own phone", data_type: :string).valid?
+
+    post form_questions_path(@form), params: { form_question: { kind: "input", label: "Own phone", data_type: "string" } }
+    assert_response :redirect
+    assert_nil @form.form_questions.find_by(key: "own_phone")
+    added = @form.form_questions.find_by!(key: "own_phone_2")
+    assert_not_includes answers_for("Ward World").values, ANSWERS.fetch("own_phone")
+    assert_nil answers_for("AlphaMember World")[added.neat_id]
   end
 
   %w[ linked_email linked_phone linked_address linked_birthday ].each do |key|
@@ -115,7 +168,7 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
       edit_question(key, person_field_id: "")
 
       assert_nil question(key).person_field_id
-      assert_left_out_for_the_minor_only(key)
+      assert_left_out_for_the_minor_only(key, adult_keeps: false)
     end
   end
 
@@ -130,14 +183,11 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     edit_question("linked_phone", person_field_id: @custom_text.id, profile_mode: "prefill")
 
     assert_equal @custom_text, question("linked_phone").person_field
-    assert_left_out_for_the_minor_only("linked_phone")
+    assert_left_out_for_the_minor_only("linked_phone", adult_keeps: false)
   end
 
   test "removing a typed phone question and adding a text one with the same key keeps it out for a minor" do
-    delete form_question_path(@form, question("own_phone"))
-    assert_response :see_other
-    post form_questions_path(@form), params: { form_question: { kind: "input", label: "Own phone", data_type: "string" } }
-    assert_response :redirect
+    replace_with_plain_question(@form, "own_phone", "Own phone")
 
     assert question("own_phone").type_string?
     assert_left_out_for_the_minor_only("own_phone")
@@ -166,7 +216,11 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
   test "resubmitting after unlinking built-in phone keeps it out for a minor" do
     edit_question("linked_phone", person_field_id: "")
 
-    assert_carried_forward("linked_phone")
+    # Recorded under the field it's no longer linked to, so this build doesn't carry it.
+    assert_nil resubmit(:ward).answers["linked_phone"]
+    ward = answers_for("Ward World")
+    assert_not_includes ward.values, ANSWERS.fetch("linked_phone")
+    assert_includes ward.values, "kept"
   end
 
   test "resubmitting after linking a typed phone question to a custom text field keeps it out for a minor" do
@@ -176,8 +230,7 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
   end
 
   test "resubmitting after removing a typed phone question and adding a text one with the same key keeps it out for a minor" do
-    delete form_question_path(@form, question("own_phone"))
-    post form_questions_path(@form), params: { form_question: { kind: "input", label: "Own phone", data_type: "string" } }
+    replace_with_plain_question(@form, "own_phone", "Own phone")
 
     assert_carried_forward("own_phone")
   end
@@ -190,11 +243,11 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     assert_not_includes answers_for("Ward World").values, "not a phone"
   end
 
-  test "an adult's resubmitted answer stays after the same edit" do
+  test "an adult's answer isn't carried past the same edit, and stays once entered again" do
     edit_question("linked_phone", person_field_id: "")
-    resubmit(:alpha_member)
+    resubmit(:alpha_member, answers: { "pick" => "kept", "linked_phone" => "555-0199" })
 
-    assert_equal "555-0101", answers_for("AlphaMember World")[question("linked_phone").neat_id]
+    assert_equal "555-0199", answers_for("AlphaMember World")[question("linked_phone").neat_id]
   end
 
   test "one response's earlier submissions don't affect another's" do
@@ -289,10 +342,7 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     form = unsubmitted_form
     signed_in_as(:guardian) { save_answers(form, :ward, { own_phone: "555-0102", pick: "kept" }) }
 
-    delete form_question_path(form, form.form_questions.find_by!(key: "own_phone"))
-    assert_response :see_other
-    post form_questions_path(form), params: { form_question: { kind: "input", label: "Own phone", data_type: "string" } }
-    assert_response :redirect
+    replace_with_plain_question(form, "own_phone", "Own phone")
 
     signed_in_as(:guardian) { post submit_form_response_path(form, person(:ward)) }
 
@@ -434,7 +484,7 @@ class McpFormAnswersQuestionEditsTest < ActionDispatch::IntegrationTest
     edit_question("linked_address", person_field_id: "")
     PersonField.system_field("address").update!(archived_at: Time.current)
 
-    assert_left_out_for_the_minor_only("linked_address")
+    assert_left_out_for_the_minor_only("linked_address", adult_keeps: false)
   end
 
   test "a submission without a snapshot is judged as the question is now" do
