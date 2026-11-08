@@ -89,15 +89,18 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     assert_no_selector "##{dom_id(checkins.first)}"
   end
 
-  test "with the flag off an action does not morph" do
+  test "with the flag off check-out only updates the list frame" do
     set_flag :feature_smooth_pages, false
     checkins = check_in_many_people
     open_event watch_only: true
+    assert_no_selector "##{dom_id(checkins.first)} a[data-turbo-frame]"
 
     check_out checkins.first
 
-    assert_render "replace"
     assert_no_selector "##{dom_id(checkins.first)}"
+    wait_for_script "window.__frameRenders > 0"
+    assert_operator page.evaluate_script("window.__frameRenders"), :>=, 1
+    assert_empty page.evaluate_script("window.__renders")
   end
 
   test "hovering Checkout requests nothing" do
@@ -285,7 +288,9 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     ActionView::RecordIdentifier.dom_id(record)
   end
 
-  def check_in_many_people(count = 18)
+  # With the fixture's check-in, 20 here leaves the list at four rows of six
+  # before and after one check-out, so the page can still reach the old position.
+  def check_in_many_people(count = 20)
     Array.new(count) do |index|
       person = Person.create!(first_name: "Guest", last_name: "Number#{index}", display_name: "Guest Number#{index}", gender: "F", shirt_size: "M")
       Checkin.create!(event: @event, person: person, created_by: @user.person)
@@ -303,16 +308,22 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
   def watch_renders
     page.execute_script(<<~JS)
       window.__renders = []
+      window.__frameRenders = 0
       document.addEventListener("turbo:render", event => window.__renders.push(event.detail.renderMethod))
+      document.addEventListener("turbo:frame-render", () => window.__frameRenders++)
     JS
   end
 
   def assert_render(method)
     script = "window.__renders[window.__renders.length - 1]"
-    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 15
-    sleep 0.05 until page.evaluate_script(script) == method || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+    wait_for_script "#{script} === #{method.to_json}"
 
     assert_equal method, page.evaluate_script(script)
+  end
+
+  def wait_for_script(condition)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 15
+    sleep 0.05 until page.evaluate_script(condition) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
   end
 
   # Font Awesome swaps any stray <i> on its next mutation pass.

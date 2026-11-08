@@ -42,11 +42,20 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
   end
 
   test "check-out leaves the list frame so it can return to the page" do
-    Checkin.create!(event: @event, person: people(:two), created_by: @user.person)
+    set_flag :feature_smooth_pages, true
 
     get event_path(@event)
 
     assert_select "turbo-frame#results a[data-turbo-method=delete][data-turbo-frame=_top]", text: "Checkout", minimum: 1
+  end
+
+  test "with the flag off check-out stays in the list frame" do
+    set_flag :feature_smooth_pages, false
+
+    get event_path(@event)
+
+    assert_select "turbo-frame#results a[data-turbo-method=delete]", text: "Checkout", minimum: 1
+    assert_select "turbo-frame#results a[data-turbo-method=delete][data-turbo-frame]", false
   end
 
   test "a page that has not opted in does not morph" do
