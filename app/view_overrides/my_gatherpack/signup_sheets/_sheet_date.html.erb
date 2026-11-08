@@ -1,0 +1,33 @@
+<%# The original, plus a places-left line above each position for phones (see _phone_signups.scss). %>
+<% slots = @slots_by_event.fetch(event.id, []) %>
+<div class="card mb-3" id="<%= dom_id event %>">
+  <div class="card-header">
+    <h2 class="h5 mb-0">
+      <%= event.name %>, <%= signup_event_when(event, format: "%a %b %-d, %-l:%M %p") %><%= ", #{event.location}" if event.location.present? %>
+    </h2>
+  </div>
+  <% if slots.any? %>
+    <div class="card-body p-0">
+      <% slots.each do |slot| %>
+        <% position = slot.signup_position %>
+        <% used = slot.signups.select { |signup| signup.active? || signup.fulfilled? }.sum(&:usage) %>
+        <% cap = slot.capacity_value %>
+        <div class="mg-slot">
+          <div class="mg-places-left d-md-none">
+            <%= position.name %>:
+            <% if cap.nil? %>
+              no limit
+            <% elsif position.items? %>
+              <%= [ cap - used, 0 ].max %> <%= position.unit_label %> left
+            <% else %>
+              <%= pluralize([ cap - used, 0 ].max, "place") %> left
+            <% end %>
+          </div>
+          <%= render partial: "sheet_slot", object: slot, as: :slot, locals: { event: event } %>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="card-body">Nothing needed for this date yet.</div>
+  <% end %>
+</div>

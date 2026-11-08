@@ -45,16 +45,88 @@ class MyGatherpackSignupsSystemTest < ApplicationSystemTestCase
 
     visit signup_sheet_path(sheet)
 
-    assert_selector ".mg-places-left", text: "2 places left"
+    assert_selector ".mg-places-left", text: "Cashier: 2 places left"
     assert_no_sideways_scroll
-    assert page.evaluate_script("document.querySelector('.mg-signup-button').getBoundingClientRect().height >= 44")
+    assert_full_width_sign_up_button
 
     click_link "Sign up"
     click_button "Sign up"
 
     assert_text "Your places"
     assert Signup.find_by!(person: person(:worker), signup_slot: slot_for(position)).active?
-    assert_selector ".mg-places-left", text: "1 place left"
+    assert_selector ".mg-places-left", text: "Cashier: 1 place left"
+    assert_no_sideways_scroll
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "the Sign up button is full width after a direct load and after a Turbo visit" do
+    sheet = create_world_sheet
+    sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    sign_in person(:worker).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheets_path
+    click_link sheet.title
+    assert_selector ".mg-places-left"
+    assert_full_width_sign_up_button
+
+    visit signup_sheet_path(sheet)
+    assert_full_width_sign_up_button
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "at 390 px Change, Cancel and the form buttons are at least 44 px tall" do
+    sheet = create_world_sheet
+    sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    sign_in person(:worker).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheet_path(sheet)
+    click_link "Sign up"
+    assert_buttons_tall "form .card-footer .btn"
+    click_button "Sign up"
+
+    assert_text "Your places"
+    assert_buttons_tall "#my_signups .btn"
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "at 390 px a guardian picks a child under who is taking the place" do
+    sheet = create_world_sheet(others_relationship_type_ids: [ @parent_of.id ])
+    position = sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    sign_in person(:parent).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheet_path(sheet)
+    click_link "Sign up"
+    find("input[name='signup[person_id]'][value='#{person(:student).id}']").click
+    click_button "Sign up"
+
+    assert_text "Places you signed others up for"
+    signup = Signup.find_by!(signup_slot: slot_for(position))
+    assert_equal [ person(:student), person(:parent) ], [ signup.person, signup.signed_up_by ]
+    assert_no_sideways_scroll
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "at 390 px a member on an anyone sheet picks who it is for from the name picker" do
+    sheet = create_world_sheet(on_behalf_of_mode: :anyone)
+    position = sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    sign_in person(:student).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheet_path(sheet)
+    click_link "Sign up"
+    find("#on_behalf_of_picker input[role=combobox]").fill_in(with: "Two")
+    find("[role=option]", text: "StudentTwo World").click
+    click_button "Sign up"
+
+    assert_text "Your places"
+    assert_equal person(:student2), Signup.find_by!(signup_slot: slot_for(position)).on_behalf_of
     assert_no_sideways_scroll
   ensure
     page.driver.browser.manage.window.resize_to(1400, 1400)
@@ -111,6 +183,18 @@ class MyGatherpackSignupsSystemTest < ApplicationSystemTestCase
   end
 
   private
+
+  def assert_full_width_sign_up_button
+    box = page.evaluate_script("(b => { const r = b.getBoundingClientRect(); const row = b.closest('.mg-slot').getBoundingClientRect(); return { w: r.width, h: r.height, row: row.width, display: getComputedStyle(b).display, font: getComputedStyle(b).fontSize } })(document.querySelector('.mg-slot .btn-primary'))")
+    assert_operator box["h"], :>=, 44
+    assert_operator box["w"], :>=, box["row"] - 40
+    assert_equal "block", box["display"]
+    assert_equal "16px", box["font"]
+  end
+
+  def assert_buttons_tall(selector)
+    assert page.evaluate_script("[...document.querySelectorAll('#{selector}')].every(b => b.getBoundingClientRect().height >= 44)")
+  end
 
   def assert_no_sideways_scroll
     assert page.evaluate_script("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
