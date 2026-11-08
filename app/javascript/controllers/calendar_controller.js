@@ -16,19 +16,16 @@ export default class extends Controller {
 
   connect() {
     const calendarEl = document.getElementById("calendar")
+    const width = calendarEl.getBoundingClientRect().width
     const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: this.get_initial_view(calendarEl.getBoundingClientRect().width),
+      initialView: this.get_initial_view(width),
       editable: false,
       fixedWeekCount: false,
       weekNumbers: true,
       dayMaxEventRows: true,
       timeZone: this.timezoneValue,
 
-      headerToolbar: {
-        left: "prev,next today",
-        center: "title",
-        right: "listMonth,dayGridMonth,timeGridWeek"
-      },
+      ...this.get_toolbars(width),
 
       buttonText: {
         today: "Today",
@@ -90,6 +87,24 @@ export default class extends Controller {
   get_initial_view(width) {
     let default_value = width >= 570 ? "dayGridMonth" : "listMonth"
     return this.defaultViewValue || default_value
+  }
+
+  // On a narrow screen the view buttons move below the title so nothing is cut off.
+  get_toolbars(width) {
+    if (width >= 570) {
+      return {
+        headerToolbar: {
+          left: "prev,next today",
+          center: "title",
+          right: "listMonth,dayGridMonth,timeGridWeek"
+        }
+      }
+    }
+
+    return {
+      headerToolbar: { left: "prev,next today", center: "", right: "title" },
+      footerToolbar: { center: "listMonth,dayGridMonth,timeGridWeek" }
+    }
   }
 
   get_view_settings() {

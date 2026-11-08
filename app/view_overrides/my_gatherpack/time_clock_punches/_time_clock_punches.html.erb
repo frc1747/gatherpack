@@ -1,0 +1,58 @@
+<%# Below md, a total and one row per punch; the table is kept for md and up. %>
+<% complete_punches = @q.result(distinct: true).where.not(end_time: nil) %>
+<div class="mg-hours-total d-md-none">
+  <span class="mg-hours-total-label">Total hours</span>
+  <span class="mg-hours-total-value"><%= number_with_precision(complete_punches.sum(&:hours), precision: 2, strip_insignificant_zeros: true) %></span>
+</div>
+
+<div class="d-md-none mg-punch-list">
+  <% if @time_clock_punches.present? %>
+    <% @time_clock_punches.each do |time_clock_punch| %>
+      <%= render "time_clock_punches/punch_row", time_clock_punch: time_clock_punch %>
+    <% end %>
+  <% else %>
+    <div class="card"><div class="card-body">
+      <% if @time_clock_period.nil? %>
+        <h3>No time clock punches found.</h3>
+      <% else %>
+        <h3>No time clock punches found in the <%= @time_clock_period.name %> period.</h3>
+      <% end %>
+    </div></div>
+  <% end %>
+</div>
+
+<div class="d-none d-md-block">
+  <div class="card">
+    <div class="card-body">
+      <% if @time_clock_punches.present? %>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col"><h3>Person</h3></th>
+                <th scope="col"><h3>Start/End Time</h3></th>
+                <th scope="col"><h3>Hours</h3></th>
+                <th scope="col"><h3>Period</h3></th>
+                <% @time_clock_punches.each do |time_clock_punch| %>
+                  <% if policy(time_clock_punch).edit? %>
+                    <th scope="col"><h3>Actions</h3></th>
+                    <% break %>
+                  <% end %>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% @time_clock_punches.each do |time_clock_punch| %>
+                <%= render time_clock_punch %>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% elsif @time_clock_period.nil? %>
+        <div><h3>No time clock punches found.</h3></div>
+      <% else %>
+        <div><h3>No time clock punches found in the <%= @time_clock_period.name %> period.</h3></div>
+      <% end %>
+    </div>
+  </div>
+</div>

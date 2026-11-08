@@ -1,0 +1,89 @@
+/* My Hours on a phone: a total, then one row per punch. Colors are Bootstrap variables, so this follows light, dark and any skin. */
+.mg-page-title {
+  margin: 0 0 0.75rem;
+}
+
+.mg-filter-toggle {
+  min-height: 44px;
+}
+
+.mg-hours-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-success-bg-subtle);
+  color: var(--bs-success-text-emphasis);
+}
+
+.mg-hours-total-label {
+  font-weight: 500;
+}
+
+.mg-hours-total-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mg-punch {
+  margin-bottom: 0.5rem;
+}
+
+.mg-punch-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.625rem 1rem;
+  list-style: none;
+}
+
+.mg-punch-summary::-webkit-details-marker {
+  display: none;
+}
+
+summary.mg-punch-summary {
+  cursor: pointer;
+}
+
+.mg-punch-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.mg-punch-time {
+  font-weight: 500;
+}
+
+.mg-punch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.mg-punch-hours {
+  flex: none;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.mg-punch-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1rem 0.75rem;
+}
+
+.mg-punch-actions .btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
