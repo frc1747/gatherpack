@@ -1,0 +1,9 @@
+<%# The other person's phone and email, for a type set to show contact details.
+    Shown whatever the fields' read levels are, and only on the child's page. %>
+<% if relationship.shows_contact_details_on?(@person) %>
+  <div class="small mt-1">
+    <% PersonField.contact_details.each do |field| %>
+      <div id="<%= dom_id relationship, field.key %>"><%= field.name %>: <%= person_field_display(field, relationship.parent.field_value(field)) %></div>
+    <% end %>
+  </div>
+<% end %>
