@@ -74,7 +74,7 @@ class FamilyPageTest < ActionDispatch::IntegrationTest
     get family_path
 
     assert_response :success
-    assert_select "h1", text: "Family"
+    assert_select "h1", text: "Your family"
   end
 
   test "a former guardian sees nothing" do

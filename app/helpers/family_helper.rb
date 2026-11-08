@@ -25,6 +25,10 @@ module FamilyHelper
     end
   end
 
+  def family_team_name(ward)
+    ward.teams.order(:name).first&.name
+  end
+
   def family_card_heading(card)
     return "All caught up" if card.needs_you.zero?
 
