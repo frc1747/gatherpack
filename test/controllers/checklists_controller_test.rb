@@ -383,6 +383,15 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the Add item menu escapes the card that holds it and stays readable" do
+    with_feature do
+      sign_in person(:admin).user
+      get edit_checklist_path(@checklist)
+      assert_select "#items .dropdown-toggle[data-bs-popper-config=?]", '{"strategy":"fixed"}'
+      assert_select "#items ul.dropdown-menu.dropdown-menu-dark"
+    end
+  end
+
   test "the Edit page holds the whole setup, in order, and the checklist page only results" do
     with_feature do
       sign_in person(:admin).user
