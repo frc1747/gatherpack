@@ -250,6 +250,13 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
     assert_match(/\.signin-column \.logoline\s*\{\s*display: none/, Rails.root.join("app/assets/builds/skin.css").read)
   end
 
+  test "every place the skin shows the logo sits on the logo tile" do
+    css = Rails.root.join("app/assets/builds/skin.css").read
+    [ ".navbar-brand img", "[data-site-brand] img", ".signin-logo" ].each do |selector|
+      assert_match(/#{Regexp.escape(selector)}[^{]*\{[^}]*background-color:\s*var\(--gp-logo-tile\)/, css, selector)
+    end
+  end
+
   # -- Color mode -------------------------------------------------------------
 
   test "saving a mode" do

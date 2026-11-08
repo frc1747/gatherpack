@@ -23,7 +23,9 @@ header.navbar {
   }
 }
 
-.navbar-brand img {
+// The My GatherPack sidebar brand has no class of its own, only the data hook.
+.navbar-brand img,
+[data-site-brand] img {
   background-color: var(--gp-logo-tile);
   border-radius: var(--gp-radius-sm);
   padding: 2px;
