@@ -54,3 +54,11 @@ feature/housekeeping
 feature/intake-checklist
 feature/mcp-checklists-intake
 feature/hook-catalog-models
+feature/view-overrides
+feature/sidebar-slots
+feature/nav-item-visible
+feature/turbo-frame-links
+feature/local-assets
+feature/modern-skin
+feature/smooth-pages
+feature/my-gatherpack
