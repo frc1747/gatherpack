@@ -1,2 +1,6 @@
 # Replaced templates and the Git blob of each original at its last review.
 # Maintained by bin/fork-override-check --accept. Format: <blob> <override path>
+6773bd251d1500e5833a28706704ab29ecea2963 app/view_overrides/modern_skin/devise/sessions/new.html.erb
+c0b011ce461e9e59d4c39a8c94ba34fc91c8090d app/view_overrides/modern_skin/layouts/devise.html.erb
+8eac7fc8ec8f325b3aa078602b5c89eb4d0211ba app/view_overrides/my_gatherpack/layouts/_navbar.html.erb
+80878d90d46c5c1f9442c269a4c0cc2df020f3b0 app/view_overrides/my_gatherpack/layouts/_sidebar.html.erb
