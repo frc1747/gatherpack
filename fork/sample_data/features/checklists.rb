@@ -212,7 +212,7 @@ Hbr::SampleData.feature "feature/checklists" do |s|
 
   Checklists::Refresher.new(checklist.reload, silent: true).call
   counts = checklist.checklist_results.where(item_id: nil).group(:status).count
-  s.report "Trip Eligibility: #{counts.map { |status, count| "#{count} #{checklist.word_for(status).downcase}" }.join(", ")}"
+  s.report "Trip Eligibility: #{counts.map { |status, count| "#{count} #{Checklists.word_for(status).downcase}" }.join(", ")}"
   s.expect("Chloe is eligible") { checklist.checklist_results.find_by(person: s.person("Chloe"), item_id: nil)&.met? }
 
   attendance.call(s)
