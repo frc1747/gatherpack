@@ -707,3 +707,34 @@ feature/my-gatherpack:
     A short menu of what each person uses, with management tools set apart
     and your site's name at the top.
   audience: Everyone
+
+feature/installable-app:
+  title: Add GatherPack to your phone's home screen
+  emoji: "📱"
+  description: >-
+    People can install GatherPack on their phone so it opens like an app,
+    with your site's name and icon.
+  audience: Everyone
+
+feature/my-gatherpack-forms:
+  title: Forms that are due show on your home page
+  emoji: "🧭"
+  description: >-
+    Forms you need to fill out or sign, and forms waiting on you as a
+    leader, appear in your to-do list.
+  audience: Everyone
+
+feature/my-gatherpack-signups:
+  title: Your sign-ups show on your home page
+  emoji: "🧭"
+  description: >-
+    The shifts you've signed up for appear under Coming up.
+  audience: Everyone
+
+feature/my-gatherpack-checklists:
+  title: Checklists show on your home page
+  emoji: "🧭"
+  description: >-
+    Checklist items you can finish appear in your to-do list, with your
+    progress on each checklist.
+  audience: Everyone
