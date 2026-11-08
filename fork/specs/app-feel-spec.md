@@ -276,7 +276,7 @@ The mockup's settings page says "A few days before the deadline" and "A reminder
 
 ### 8.6 Settings page
 
-`GET /notifications`, signed-in people, reached from the sidebar and from the profile.
+`GET /notifications`, signed-in people, reached from the sidebar.
 
 - Top card: "Notify me on this phone", with "Email reminders keep coming either way." A toggle per device.
 - Second card, "Tell me about": one toggle per topic, with its hint, for the person.
