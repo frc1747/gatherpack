@@ -1,6 +1,8 @@
 # Spec: App feel
 
-Status: rev. 2, 2026-11-04. Not built. Pitch: [`09-app-feel.md`](../pitches/09-app-feel.md). Code facts checked against integration `762f902c` and `turbo-rails` 2.0.23. Decisions are in §11; open questions are in §12.
+Status: rev. 3, 2026-11-08. Being built. Pitch: [`09-app-feel.md`](../pitches/09-app-feel.md). Code facts checked against integration `45405a02` and `turbo-rails` 2.0.23. Decisions are in §11.
+
+Rev. 3: Phase 0 no longer blocks the build; the opt-out count is redone at build time; sidebar additions use the slots seam.
 
 Rev. 2: automatic reminders for forms coming due and for what people still owe are in scope (§8.8, decision 10).
 
@@ -22,7 +24,7 @@ Make GatherPack feel like an app, on the Hotwire stack it already has: no jarrin
 ## 2. What the code shows
 
 - **Turbo 8 is present but its refresh features are unused.** `turbo-rails` 2.0.23 includes morphing and scroll preservation, and no layout sets them.
-- **49 Turbo opt-outs in 34 view files.** 30 are the same pattern, `"data-turbo": "false"` on a link in a list row (`_person`, `_hook`, `_token` and others). **This may be the main cause.**
+- **Turbo opt-outs.** 49 in 34 upstream view files when this was written; fork features have added more, 85 on integration `45405a02`. Most are the same pattern, `"data-turbo": "false"` on a link in a list row (`_person`, `_hook`, `_token` and others). **This may be the main cause.**
   - Index pages render rows inside `turbo_frame_tag "results"`. A plain link in a frame would load inside the frame and show "Content missing".
   - Opt-outs were added to stop that (commit `8e730ad3`, "fixed content missing"). The result is a full page reload each time someone clicks a name in a list.
   - `data-turbo-frame="_top"` is the intended fix: it leaves the frame and keeps Turbo.
@@ -39,16 +41,18 @@ Make GatherPack feel like an app, on the Hotwire stack it already has: no jarrin
 
 The glitch hasn't been reproduced yet. Timed desktop page visits took about 190–380 ms with almost no layout shift, except the dashboard (a 0.07 shift and a second draw). Saving forms and phones weren't tested.
 
-Record real use on a real phone and a desktop, against the staging copy: clicking through lists, saving forms, the dashboard, the calendar, time clock. List exactly what flickers, in the words of the person who noticed it. This list is the acceptance test for §5, and it sets the order. Time the 30 list links before and after §5.1.
+Record real use on a real phone and a desktop, against the staging copy: clicking through lists, saving forms, the dashboard, the calendar, time clock. List exactly what flickers, in the words of the person who noticed it. This list is the acceptance test for §5, and it sets the order. Time the list links before and after §5.1.
+
+**This doesn't block the build.** Frame links are a bug fix regardless. The recordings happen on the staging copy once frame links are there, and they decide which pages join the morph list (§5.2).
 
 ## 4. Branches and flags
 
 | Branch | Based on | Contents | Flag | Upstream |
 |---|---|---|---|---|
 | `feature/turbo-frame-links` | `upstream/main` | §5.1 | None; a bug fix | Strong candidate |
-| `feature/smooth-pages` | `upstream/main` | §5.2–5.5 | `feature_smooth_pages`, off | Candidate |
+| `feature/smooth-pages` | `upstream/main` + `feature/sidebar-slots` | §5.2–5.5 | `feature_smooth_pages`, off | Candidate |
 | `feature/local-assets` | `upstream/main` | §6 | None; pages look the same | Candidate |
-| `feature/installable-app` | `upstream/main` | §7 | `feature_installable_app`, off | Candidate |
+| `feature/installable-app` | `upstream/main` + `feature/sidebar-slots` | §7 | `feature_installable_app`, off | Candidate |
 | `feature/phone-notifications` | `feature/installable-app` | §8 core, announcements | `feature_phone_notifications`, off | Candidate |
 | `feature/phone-notifications-forms` | core + `feature/forms` | Form reminders | Same flag | With forms |
 | `feature/phone-notifications-signups` | core + `feature/signups` | Shift reminders | Same flag | With sign-ups |
@@ -64,7 +68,6 @@ Each ships separately. **`feature/turbo-frame-links` goes first:** it's the smal
 |---|---|---|
 | 30 list partials and index pages | turbo-frame-links | `"data-turbo": "false"` becomes `data: { turbo_frame: "_top" }` |
 | `app/views/layouts/application.html.erb` | smooth-pages, installable-app | One line each, for a partial in the head |
-| `app/views/layouts/_sidebar.html.erb` | smooth-pages | Permanent id (§5.3) |
 | `app/views/welcome/dashboard.html.erb`, calendar pages | smooth-pages | No-preview, calendar permanence, placeholders |
 | `app/views/layouts/{application,devise,kiosk}.html.erb` | local-assets | Font and Popper lines |
 | `app/helpers/font_awesome_helper.rb`, `config/importmap.rb` | local-assets | Local Font Awesome |
@@ -132,7 +135,7 @@ Saves that move to another page (edit to show) stay as they are.
 <% nav_id = "sidebar-#{Digest::SHA256.hexdigest([ current_user.id, true_user.id, admin?, nav_fingerprint ].join("/"))[0, 12]}" %>
 ```
 
-Turbo keeps the element only when the new page has the same `id`. If the contents would differ, the digest differs and the sidebar is replaced normally. `nav_fingerprint` is the labels of the visible items.
+The `id` and `data-turbo-permanent` are registered as root attributes in the sidebar slots seam (`feature/sidebar-slots`), so they apply to the original sidebar and to My GatherPack's replacement alike. Turbo keeps the element only when the new page has the same `id`. If the contents would differ, the digest differs and the sidebar is replaced normally. `nav_fingerprint` is the labels of the visible items.
 
 A small Stimulus controller updates the `active` class after each visit, using the same rules as `active_status` in `nav_helper.rb`. The special cases there (`/events` highlights Calendar) are sent to the browser as data, so they aren't written twice. It also keeps the sidebar's scroll position, the most visible gain.
 
@@ -200,7 +203,7 @@ Opening full screen removes the browser's Back button and address bar, and on iP
 
 ### 7.4 Install help
 
-A small "Add to Home Screen" entry in the sidebar, shown only in a browser (not already installed) on a phone. On Android, it calls the saved `beforeinstallprompt`. On iPhone, it shows the steps: "In Safari, tap Share, then Add to Home Screen." There's no popup or banner on page load.
+A small "Add to Home Screen" entry in the sidebar (a sidebar slot), shown only in a browser (not already installed) on a phone. On Android, it calls the saved `beforeinstallprompt`. On iPhone, it shows the steps: "In Safari, tap Share, then Add to Home Screen." There's no popup or banner on page load.
 
 ## 8. Phone notifications (`feature/phone-notifications`)
 
@@ -362,9 +365,6 @@ Neither of these exists today, by email or otherwise. They send **email first**,
 8. **Push keys live in a Gateway, not server config.** Same place admins set up email, with no deploy or restart. This changes the pitch's first idea.
 9. **Push goes on top of email.** People choose topics. Permission is asked only after someone turns it on.
 10. **Automatic reminders are in scope, and opt-in per form and per commitment.** Decided 2026-11-04. They're email first, on their own branches, and nothing sends until a leader sets them. Existing open forms start off. Phone notifications themselves still reach only people who opt in.
-
-## 12. Open questions
-
-1. **Announcements default.** Default: off once someone opts in, as in the mockup, since a whole-team announcement can reach many people.
-2. **Do minors get phone notifications on the same terms?** They opt in themselves, as adults do, and payloads carry no personal details. Default: yes.
-3. **Which phones to test on.** Needs at least one real iPhone (iOS 16.4 or later, installed) and one Android phone.
+11. **Announcements default to off once someone opts in,** since a whole-team announcement can reach many people.
+12. **Minors opt in to phone notifications themselves, the same as adults.** Payloads carry no personal details.
+13. **Device testing** needs at least one real iPhone (iOS 16.4 or later, installed) and one Android phone.
