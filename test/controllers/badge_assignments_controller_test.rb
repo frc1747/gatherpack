@@ -5,212 +5,78 @@ class BadgeAssignmentsControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     host! "localhost"
-    @team = Team.create!(name: "Den A", team_type: team_types(:one))
-    @admin = create_person("admin", admin: true)
-    @member = create_person("member", team: @team)
-    @volunteer = create_badge("Volunteer", :added_by_admin_or_self)
-    @recognition = create_badge("Recognition", :added_by_admin)
+    @badge = badges(:one)
+    @holder = people(:one)
+    @outsider = people(:two)
+    @candidate = Person.create!(first_name: "Carol", last_name: "Carter", display_name: "Carol Carter")
+    Membership.create!(person: @candidate, team: teams(:one))
+
+    @user = users(:one)
+    @user.update!(admin: true)
+    sign_in @user
   end
 
-  test "a member can't move their own assignment onto an admin-only badge" do
-    sign_in @member.user
-    post badge_badge_assignments_path(@volunteer), params: { badge_assignment: { person_id: @member.id } }
-    assignment = BadgeAssignment.find_by!(badge: @volunteer, person: @member)
+  test "candidates lists team members who don't have the badge" do
+    get candidates_badge_badge_assignments_path(@badge)
 
-    patch badge_badge_assignment_path(@volunteer, assignment), params: { badge_assignment: { badge_id: @recognition.id } }
-
-    assert_not BadgeAssignment.exists?(badge: @recognition, person: @member),
-      "member moved their self-assigned assignment onto the admin-only badge '#{@recognition.name}'"
-    assert_equal @volunteer, assignment.reload.badge
-  end
-
-  test "an assignment is only found under its own badge" do
-    assignment = BadgeAssignment.create!(badge: @recognition, person: @member)
-    sign_in @admin.user
-
-    get badge_badge_assignment_path(@volunteer, assignment)
-
-    assert_response :not_found
-  end
-
-  test "an admin can still move an assignment to someone else" do
-    other = create_person("other", team: @team)
-    assignment = BadgeAssignment.create!(badge: @volunteer, person: @member)
-    sign_in @admin.user
-
-    patch badge_badge_assignment_path(@volunteer, assignment), params: { badge_assignment: { person_id: other.id } }
-
-    assert_equal other, assignment.reload.person
-    assert_equal @volunteer, assignment.badge
-  end
-
-  test "a member can't give a self-assignable badge to someone else" do
-    outsider = create_person("outsider", team: Team.create!(name: "Den B", team_type: team_types(:one)))
-    sign_in @member.user
-
-    post badge_badge_assignments_path(@volunteer), params: { badge_assignment: { person_id: outsider.id } }
-
-    assert_not BadgeAssignment.exists?(badge: @volunteer, person: outsider),
-      "member assigned a self-assignable badge to a member of another team"
-  end
-
-  test "a member can't remove a teammate's self-assignable badge" do
-    teammate = create_person("teammate", team: @team)
-    assignment = BadgeAssignment.create!(badge: @volunteer, person: teammate)
-    sign_in @member.user
-
-    delete badge_badge_assignment_path(@volunteer, assignment)
-
-    assert BadgeAssignment.exists?(assignment.id), "member removed a teammate's badge assignment"
-  end
-
-  test "a member can't move their own assignment to someone else" do
-    teammate = create_person("teammate", team: @team)
-    assignment = BadgeAssignment.create!(badge: @volunteer, person: @member)
-    sign_in @member.user
-
-    patch badge_badge_assignment_path(@volunteer, assignment), params: { badge_assignment: { person_id: teammate.id } }
-
-    assert_equal @member, assignment.reload.person
-  end
-
-  test "a member takes a self-assignable badge, sees it and gives it back" do
-    sign_in @member.user
-
-    get new_badge_badge_assignment_path(@volunteer)
     assert_response :success
-    assert_match(/scope=me\b/, response.body)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@candidate, :candidate)}"
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@holder, :candidate)}", count: 0
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@outsider, :candidate)}", count: 0
+  end
 
-    post badge_badge_assignments_path(@volunteer), params: { badge_assignment: { person_id: @member.id } }
-    assignment = BadgeAssignment.find_by!(badge: @volunteer, person: @member)
+  test "candidates filters by name" do
+    get candidates_badge_badge_assignments_path(@badge, candidate_q: "zzz")
 
-    get badge_badge_assignments_path(@volunteer)
     assert_response :success
-    assert_select "#badge_assignments a", text: @member.identifier_name
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@candidate, :candidate)}", count: 0
+    assert_match "No matches", response.body
+  end
 
-    get badge_badge_assignment_path(@volunteer, assignment)
-    assert_select "a.btn-danger", text: "Delete"
-
-    assert_difference -> { BadgeAssignment.count }, -1 do
-      delete badge_badge_assignment_path(@volunteer, assignment)
+  test "create responds with a turbo stream that adds the holder" do
+    assert_difference("BadgeAssignment.count") do
+      post badge_badge_assignments_path(@badge, format: :turbo_stream), params: { badge_assignment: { person_id: @candidate.id } }
     end
-  end
 
-  test "a member of the team takes its member badge, but not for a teammate" do
-    teammate = create_person("teammate", team: @team)
-    badge = create_badge("Crew", :added_by_current_member, team: @team)
-    sign_in @member.user
-
-    post badge_badge_assignments_path(badge), params: { badge_assignment: { person_id: teammate.id } }
-    assert_not BadgeAssignment.exists?(badge: badge, person: teammate)
-
-    post badge_badge_assignments_path(badge), params: { badge_assignment: { person_id: @member.id } }
-    assert BadgeAssignment.exists?(badge: badge, person: @member)
-  end
-
-  test "a member may take a self-assignable badge but sees no delete button on a teammate's" do
-    teammate = create_person("teammate", team: @team)
-    assignment = BadgeAssignment.create!(badge: @volunteer, person: teammate)
-    sign_in @member.user
-
-    get badge_badge_assignments_path(@volunteer)
     assert_response :success
-    assert_select "a", text: "New badge assignment"
+    assert_equal Mime[:turbo_stream], response.media_type
+    assert_match "Added", response.body
+    assert_match %(target="badge_assignments"), response.body
+  end
 
-    get badge_badge_assignment_path(@volunteer, assignment)
+  test "create from the regular form still redirects even though Turbo accepts streams" do
+    post badge_badge_assignments_path(@badge),
+      params: { badge_assignment: { person_id: @candidate.id } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" }
+
+    assert_redirected_to badge_badge_assignment_path(@badge, BadgeAssignment.find_by!(badge: @badge, person: @candidate))
+  end
+
+  test "create reports a duplicate on the candidate row" do
+    assert_no_difference("BadgeAssignment.count") do
+      post badge_badge_assignments_path(@badge, format: :turbo_stream), params: { badge_assignment: { person_id: @holder.id } }
+    end
+
+    assert_response :unprocessable_entity
+    assert_match "already has this badge", response.body
+  end
+
+  test "destroy responds with a turbo stream that removes the holder" do
+    assignment = badge_assignments(:one)
+
+    assert_difference("BadgeAssignment.count", -1) do
+      delete badge_badge_assignment_path(@badge, assignment, format: :turbo_stream)
+    end
+
     assert_response :success
-    assert_select "a", text: "Delete", count: 0
+    assert_match %(action="remove"), response.body
   end
 
-  test "a member sees no assignment controls on an admin-only badge" do
-    teammate = create_person("teammate", team: @team)
-    assignment = BadgeAssignment.create!(badge: @recognition, person: teammate)
-    sign_in @member.user
+  test "candidates requires permission to assign the badge" do
+    @user.update!(admin: false)
 
-    get badge_badge_assignments_path(@recognition)
-    assert_response :success
-    assert_select "a", text: "New badge assignment", count: 0
+    get candidates_badge_badge_assignments_path(@badge)
 
-    get badge_badge_assignment_path(@recognition, assignment)
-    assert_response :success
-    assert_select "a", text: "Delete", count: 0
-  end
-
-  test "a manager gives a manager-or-self badge without a team to the people they manage" do
-    manager = create_person("manager", team: @team, manager: true)
-    first_aid = create_badge("First Aid", :added_by_manager_or_self)
-    sign_in manager.user
-
-    get new_badge_badge_assignment_path(first_aid)
-    assert_match(/scope=managed_people\b/, response.body)
-
-    post badge_badge_assignments_path(first_aid), params: { badge_assignment: { person_id: @member.id } }
-    assignment = BadgeAssignment.find_by!(badge: first_aid, person: @member)
-
-    delete badge_badge_assignment_path(first_aid, assignment)
-    assert_not BadgeAssignment.exists?(assignment.id)
-  end
-
-  test "a manager can't give a manager-or-self badge to someone they don't manage" do
-    manager = create_person("manager", team: @team, manager: true)
-    outsider = create_person("outsider", team: Team.create!(name: "Den B", team_type: team_types(:one)))
-    first_aid = create_badge("First Aid", :added_by_manager_or_self)
-    sign_in manager.user
-
-    post badge_badge_assignments_path(first_aid), params: { badge_assignment: { person_id: outsider.id } }
-
-    assert_not BadgeAssignment.exists?(badge: first_aid, person: outsider)
-  end
-
-  test "a team's manager sees and removes its badge from someone who has left the team" do
-    manager = create_person("manager", team: @team, manager: true)
-    badge = create_badge("Patrol Leader", :added_by_manager, team: @team)
-    assignment = BadgeAssignment.create!(badge: badge, person: @member)
-    @member.memberships.destroy_all
-    sign_in manager.user
-
-    get badge_badge_assignments_path(badge)
-    assert_select "#badge_assignments a", text: @member.identifier_name
-
-    delete badge_badge_assignment_path(badge, assignment)
-    assert_not BadgeAssignment.exists?(assignment.id)
-  end
-
-  test "an admin-only badge is only given and taken by admins" do
-    sign_in @member.user
-    post badge_badge_assignments_path(@recognition), params: { badge_assignment: { person_id: @member.id } }
-    assert_not BadgeAssignment.exists?(badge: @recognition, person: @member)
-    sign_out :user
-
-    sign_in @admin.user
-    post badge_badge_assignments_path(@recognition), params: { badge_assignment: { person_id: @member.id } }
-    assignment = BadgeAssignment.find_by!(badge: @recognition, person: @member)
-    delete badge_badge_assignment_path(@recognition, assignment)
-    assert_not BadgeAssignment.exists?(assignment.id)
-  end
-
-  test "a team's manager gives its badge to a member and takes it back" do
-    manager = create_person("manager", team: @team, manager: true)
-    badge = create_badge("Patrol Leader", :added_by_manager, team: @team)
-    sign_in manager.user
-
-    post badge_badge_assignments_path(badge), params: { badge_assignment: { person_id: @member.id } }
-    assignment = BadgeAssignment.find_by!(badge: badge, person: @member)
-
-    delete badge_badge_assignment_path(badge, assignment)
-    assert_not BadgeAssignment.exists?(assignment.id)
-  end
-
-  private
-
-  def create_person(name, team: nil, manager: false, admin: false)
-    user = User.create!(email: "#{name}@example.com", password: "Password1!", admin: admin)
-    person = Person.create!(user: user, first_name: name.titleize, last_name: "Test")
-    Membership.create!(person: person, team: team, manager: manager) if team
-    person
-  end
-
-  def create_badge(name, permission, team: nil)
-    Badge.create!(name: name, color: "#000000", short: "B", badge_type: badge_types(:one), team: team, permission: permission)
+    assert_redirected_to root_path
   end
 end

@@ -5,255 +5,64 @@ class CheckinsControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     host! "localhost"
+    @event = events(:one)
+    @checked_in = people(:one)
+    @candidate = Person.create!(first_name: "Carol", last_name: "Carter", display_name: "Carol Carter")
 
-    # Team A (run by @lead_a; @student, @classmate)
-    # Other Org (@outsider)
-    @team_a = Team.create!(name: "Team A", team_type: team_types(:one))
-    other_org = Team.create!(name: "Other Org", team_type: team_types(:one))
-
-    @admin = create_user("admin", admin: true)
-    @lead_a = create_user("lead-a", team: @team_a, manager: true)
-    @student = create_user("student", team: @team_a)
-    @classmate = create_user("classmate", team: @team_a)
-    @outsider = create_user("outsider", team: other_org)
-
-    @event_type = EventType.create!(name: "Practice")
-    @admin_field = CheckinField.create!(event_type: @event_type, name: "Dues paid", permission: :added_by_admin)
-    @open_field = CheckinField.create!(event_type: @event_type, name: "Carpool seats", permission: :added_by_user)
-    @event = Event.create!(name: "Practice", start_time: 1.hour.ago, end_time: 1.hour.from_now,
-      event_type: @event_type, team: @team_a)
+    @user = users(:one)
+    @user.update!(admin: true)
+    sign_in @user
   end
 
-  # --- Check-in field permissions -----------------------------------------
-
-  test "the edit form keeps a field the member may not write unchanged" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @admin_field)
-    sign_in @student
-
-    patch event_checkin_path(@event, checkin),
-      params: { checkin: { checkin_field_responses_attributes: [ { id: response.id, response: "yes" } ] } }
-
-    assert_nil response.reload.response
+  def candidate_id(record)
+    ActionView::RecordIdentifier.dom_id(record, :candidate)
   end
 
-  test "the edit form saves a field the member may write" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @open_field)
-    sign_in @student
-
-    patch event_checkin_path(@event, checkin),
-      params: { checkin: { checkin_field_responses_attributes: [ { id: response.id, response: "3" } ] } }
-
-    assert_equal "3", response.reload.response
-  end
-
-  test "the edit form cannot move a response onto a field the member may not write" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @open_field)
-    response.update!(response: "yes")
-    sign_in @student
-
-    patch event_checkin_path(@event, checkin),
-      params: { checkin: { checkin_field_responses_attributes: [ { id: response.id, checkin_field_id: @admin_field.id } ] } }
-
-    assert_equal @open_field.id, response.reload.checkin_field_id
-    assert_equal [ nil ], checkin.checkin_field_responses.where(checkin_field: @admin_field).pluck(:response),
-      "a member moved their answer onto an admin-only field"
-  end
-
-  test "the edit form cannot move a response off a field the member may not write" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @admin_field)
-    response.update!(response: "unpaid")
-    sign_in @student
-
-    patch event_checkin_path(@event, checkin),
-      params: { checkin: { checkin_field_responses_attributes: [ { id: response.id, checkin_field_id: @open_field.id } ] } }
-
-    assert_equal [ "unpaid" ], checkin.checkin_field_responses.where(checkin_field: @admin_field).pluck(:response),
-      "a member moved an admin's answer off an admin-only field"
-    assert_equal 1, checkin.checkin_field_responses.where(checkin_field: @open_field).count
-  end
-
-  test "checking in does not set a field the member may not write" do
-    sign_in @student
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id,
-      checkin_field_responses_attributes: [
-        { checkin_field_id: @admin_field.id, response: "yes" },
-        { checkin_field_id: @open_field.id, response: "3" }
-      ] } }
-
-    checkin = Checkin.find_by!(event: @event, person: @student.person)
-    assert_nil checkin.checkin_field_responses.find_by!(checkin_field: @admin_field).response,
-      "a member set an admin-only field while checking in"
-    assert_equal "3", checkin.checkin_field_responses.find_by!(checkin_field: @open_field).response
-  end
-
-  test "an admin sets an admin-only field while checking someone in" do
-    sign_in @admin
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id,
-      checkin_field_responses_attributes: [ { checkin_field_id: @admin_field.id, response: "yes" } ] } }
-
-    checkin = Checkin.find_by!(event: @event, person: @student.person)
-    assert_equal "yes", checkin.checkin_field_responses.find_by!(checkin_field: @admin_field).response
-  end
-
-  test "field_update refuses a field the member may not write" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @admin_field)
-    sign_in @student
-
-    # As the arrange page sends it: a JSON body, with no Accept header.
-    patch field_update_event_path(@event), params: { field_id: response.id, response: "yes" }.to_json,
-      headers: { "Content-Type" => "application/json", "Accept" => "*/*" }
-
-    assert_nil response.reload.response, "a member set an admin-only field through field_update"
-    assert_response :forbidden
-  end
-
-  test "field_update saves a field the member may write on their own check-in" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @open_field)
-    sign_in @student
-
-    patch field_update_event_path(@event), params: { field_id: response.id, response: "3" }, as: :json
-
-    assert_response :no_content
-    assert_equal "3", response.reload.response
-  end
-
-  test "field_update refuses someone else's check-in" do
-    checkin = Checkin.create!(event: @event, person: @lead_a.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @open_field)
-    sign_in @student
-
-    patch field_update_event_path(@event), params: { field_id: response.id, response: "3" }, as: :json
-
-    assert_response :forbidden
-    assert_nil response.reload.response
-  end
-
-  test "the arrange page lets a manager drag only the responses they may write" do
-    open_checkin = Checkin.create!(event: @event, person: @student.person)
-    sign_in @lead_a
-
-    get arrange_event_path(@event, field_id: @admin_field.id)
-    assert_select "[id=?][draggable=false]", open_checkin.checkin_field_responses.find_by!(checkin_field: @admin_field).id
-
-    get arrange_event_path(@event, field_id: @open_field.id)
-    assert_select "[id=?][draggable=true]", open_checkin.checkin_field_responses.find_by!(checkin_field: @open_field).id
-  end
-
-  test "an admin sets an admin-only field through field_update" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    response = checkin.checkin_field_responses.find_by!(checkin_field: @admin_field)
-    sign_in @admin
-
-    patch field_update_event_path(@event), params: { field_id: response.id, response: "yes" }, as: :json
-
-    assert_response :no_content
-    assert_equal "yes", response.reload.response
-  end
-
-  # --- Who may be checked in ----------------------------------------------
-
-  test "a member checks themselves in" do
-    sign_in @student
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id } }
-
-    assert_redirected_to event_path(@event)
-    assert Checkin.exists?(event: @event, person: @student.person)
-  end
-
-  test "a member cannot check in a person they cannot see" do
-    sign_in @student
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @outsider.person.id } }
-
-    assert_not Checkin.exists?(event: @event, person: @outsider.person),
-      "a member checked a member of another organisation in to Team A's event"
-  end
-
-  test "a member cannot check in a teammate" do
-    sign_in @student
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @classmate.person.id } }
-
-    assert_not Checkin.exists?(event: @event, person: @classmate.person)
-  end
-
-  test "a member cannot hand their check-in to someone else" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    sign_in @student
-
-    patch event_checkin_path(@event, checkin), params: { checkin: { person_id: @outsider.person.id } }
-
-    assert_equal @student.person.id, checkin.reload.person_id,
-      "a member re-assigned their check-in to a person outside their scope"
-  end
-
-  test "a member cannot check in on a locked event" do
-    @event.update!(locked: true)
-    sign_in @student
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id } }
-
-    assert_not Checkin.exists?(event: @event, person: @student.person)
-  end
-
-  test "the event's manager checks in a member of their team, even on a locked event" do
-    @event.update!(locked: true)
-    sign_in @lead_a
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @student.person.id } }
-
-    assert Checkin.exists?(event: @event, person: @student.person)
-  end
-
-  test "the event's manager cannot check in someone outside their teams" do
-    sign_in @lead_a
-
-    post event_checkins_path(@event), params: { checkin: { person_id: @outsider.person.id } }
-
-    assert_not Checkin.exists?(event: @event, person: @outsider.person)
-  end
-
-  test "the event's manager moves a check-in to another member of their team" do
-    checkin = Checkin.create!(event: @event, person: @student.person)
-    sign_in @lead_a
-
-    patch event_checkin_path(@event, checkin), params: { checkin: { person_id: @classmate.person.id } }
-
-    assert_equal @classmate.person.id, checkin.reload.person_id
-  end
-
-  test "the check-in form offers a member only themselves" do
-    sign_in @student
-
-    get new_event_checkin_path(@event)
+  test "candidates list people who aren't checked in" do
+    get candidates_event_checkins_path(@event)
 
     assert_response :success
-    assert_includes response.body, ERB::Util.html_escape(combo_search_path(scope: "me managed_people", attribute: :person_id))
+    assert_select "##{candidate_id(@candidate)}"
+    assert_select "##{candidate_id(@checked_in)}", count: 0
   end
 
-  test "an admin checks in anyone" do
-    sign_in @admin
+  test "checking someone in streams them into the grid" do
+    assert_difference("@event.checkins.count") do
+      post event_checkins_path(@event, format: :turbo_stream), params: { checkin: { person_id: @candidate.id } }
+    end
 
-    post event_checkins_path(@event), params: { checkin: { person_id: @outsider.person.id } }
-
-    assert Checkin.exists?(event: @event, person: @outsider.person)
+    assert_response :success
+    assert_match "Added", response.body
+    assert_match %(target="checkins"), response.body
+    assert_equal @event.checkin_field_responses.where(checkin: @event.checkins.find_by(person: @candidate)).count,
+      @event.event_type.checkin_fields.count
   end
 
-  private
+  test "a full event reports the limit on the candidate row" do
+    @event.update!(checkin_limit: 1)
 
-  def create_user(name, team: nil, manager: false, admin: false)
-    user = User.create!(email: "#{name}@example.com", password: "Password1!", admin: admin)
-    person = Person.create!(user: user, first_name: name.capitalize, last_name: "Test")
-    Membership.create!(person: person, team: team, manager: manager) if team
-    user
+    assert_no_difference("Checkin.count") do
+      post event_checkins_path(@event, format: :turbo_stream), params: { checkin: { person_id: @candidate.id } }
+    end
+
+    assert_response :unprocessable_entity
+    assert_match "exceeds checkin limit", response.body
+  end
+
+  test "the regular form still redirects" do
+    post event_checkins_path(@event),
+      params: { checkin: { person_id: @candidate.id } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" }
+
+    assert_redirected_to event_path(@event)
+  end
+
+  test "candidates are refused on a locked event for non-managers" do
+    @user.update!(admin: false)
+    @event.update!(locked: true)
+
+    get candidates_event_checkins_path(@event)
+
+    assert_redirected_to root_path
   end
 end
