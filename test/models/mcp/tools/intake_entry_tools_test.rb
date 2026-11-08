@@ -10,6 +10,8 @@ class Mcp::Tools::IntakeEntryToolsTest < ActionDispatch::IntegrationTest
   include IntakeWorld
 
   setup do
+    # Midday UTC, so entries made an hour or two ago fall on today's date (days group by UTC date).
+    travel_to Time.utc(2026, 11, 4, 12)
     host! "localhost"
     build_intake_world
     @outsider = create_intake_person("Olive", "Outsider")
