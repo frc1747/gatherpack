@@ -38,7 +38,7 @@
             <td><%= time_ago_in_words app.updated_at %> ago</td>
             <td>
               <%= link_to "Edit", edit_oauth_application_path(app), class: "btn btn-sm btn-warning", data: { turbo_frame: "_top" } %>
-              <%= link_to "Delete", app, class: "btn btn-sm btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } %>
+              <%= link_to "Delete", app, class: "btn btn-sm btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?", turbo_frame: "_top" } %>
             </td>
           </tr>
         <% end %>
