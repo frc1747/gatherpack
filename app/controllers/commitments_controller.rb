@@ -116,6 +116,6 @@ class CommitmentsController < InternalController
 
     def commitment_params
       params.require(:commitment).permit(:team_id, :title, :description, :owing_team_id, :owing_badge_id, :exempt_badge_id, :base_amount,
-        :group_relationship_type_id, :additional_amount, :unit, :counts_when, :starts_on, :ends_on)
+        :group_relationship_type_id, :additional_amount, :unit, :counts_when, :starts_on, :ends_on, :monthly_reminder)
     end
 end

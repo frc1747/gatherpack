@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_120400) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_09_120100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -244,6 +244,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_120400) do
     t.uuid "exempt_badge_id"
     t.uuid "group_relationship_type_id"
     t.integer "additional_amount", default: 0, null: false
+    t.boolean "monthly_reminder", default: false, null: false
+    t.date "monthly_reminded_on"
     t.index ["created_by_id"], name: "index_commitments_on_created_by_id"
     t.index ["exempt_badge_id"], name: "index_commitments_on_exempt_badge_id"
     t.index ["group_relationship_type_id"], name: "index_commitments_on_group_relationship_type_id"

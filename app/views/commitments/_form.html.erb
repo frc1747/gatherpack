@@ -59,4 +59,9 @@
   <%= f.input :counts_when, as: :radio_buttons, label: "Met when",
         collection: [ [ "Confirmed credit reaches the amount", "confirmed" ], [ "Confirmed and planned credit together reach it", "planned" ] ],
         item_wrapper_tag: :div, item_label_html: { class: "form-check-label" } %>
+
+  <% if GatherPack::Features.enabled?(:commitment_monthly_reminders) %>
+    <%= f.input :monthly_reminder, as: :boolean, label: "Remind people who still owe, once a month.",
+          hint: "One email on the 1st of each month to people who haven't met it, while it's running." %>
+  <% end %>
 </div>

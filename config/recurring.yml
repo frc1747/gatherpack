@@ -11,3 +11,7 @@ generate_notifications_job:
   class: GenerateNotificationsJob
   queue: default
   schedule: every 5 minutes
+commitment_monthly_reminder_job:
+  class: CommitmentMonthlyReminderJob
+  queue: default
+  schedule: every hour

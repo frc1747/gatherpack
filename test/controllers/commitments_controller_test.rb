@@ -157,6 +157,25 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the monthly reminder box shows and saves only while its flag is on" do
+    sign_in person(:admin).user
+    with_settings(feature_commitments: "true") do
+      get edit_commitment_path(@commitment)
+      assert_select "input[name='commitment[monthly_reminder]']", 0
+    end
+
+    with_settings(feature_commitments: "true", feature_commitment_monthly_reminders: "true") do
+      get edit_commitment_path(@commitment)
+      assert_select "input[type=checkbox][name='commitment[monthly_reminder]']"
+      assert_match "Remind people who still owe, once a month.", response.body
+
+      patch commitment_path(@commitment), params: { commitment: { monthly_reminder: "1" } }
+      assert @commitment.reload.monthly_reminder
+      patch commitment_path(@commitment), params: { commitment: { monthly_reminder: "0" } }
+      assert_not @commitment.reload.monthly_reminder
+    end
+  end
+
   test "message people with open commitments, one email each" do
     with_feature do
       sign_in person(:admin).user
