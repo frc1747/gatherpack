@@ -235,7 +235,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     sign_in @member
     get root_path
 
-    assert_select ".sidebar#permanent-sidebar[data-probe=yes]"
+    assert_select "#permanent-sidebar[data-probe=yes] > .sidebar"
     assert_match "early slot", response.body
   end
 
