@@ -1,16 +1,16 @@
 <% breadcrumb :time_clock_punches %>
 <% content_for :head, stylesheet_link_tag("my_gatherpack_hours") %>
 
-<button class="btn btn-secondary w-100 mb-3 d-md-none mg-filter-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#punch-filters" aria-expanded="false" aria-controls="punch-filters">
+<button class="btn btn-secondary w-100 mb-3 d-md-none mg-filter-toggle" type="button" data-bs-toggle="collapse" data-bs-target=".punch-filters" aria-expanded="false">
   <i class="fa-solid fa-filter"></i> Filter
 </button>
 
 <%= search_form_for @q, data: {"controller": "turbo_search", "turbo-frame": "results"} do |f| %>
-<div class="card collapse d-md-block" id="punch-filters">
+<div class="card">
   <div class="card-header">
     <h1>Time Clock</h1>
   </div>
-  <div class="card-body">
+  <div class="card-body collapse d-md-block punch-filters">
     <div class="row">
       <div class="col-md">
         <% if params['q']&.has_key?('person_id_eq') %>
@@ -36,16 +36,16 @@
     <% if policy(TimeClockPunch).flagged? %>
       <%= link_to "Flag Review", flagged_time_clock_punches_path, class: "btn btn-warning" %>
     <% end %>
-    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
-    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+    <span class="collapse d-md-inline-block punch-filters">
+      <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+      <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+    </span>
     <% if manager? %>
       <%= link_to "Time Clock Kiosk", time_kiosk_path, class: "btn btn-warning", data: { turbo: false } %>
     <% end %>
   </div>
 </div>
 <% end %>
-
-<h1 class="d-md-none mg-page-title">Time Clock</h1>
 
 <%= turbo_frame_tag "results" do %>
   <div class="dropdown">
@@ -61,7 +61,7 @@
 
   <div class="row">
     <div class="col">
-      <%= render "time_clock_punches" %>
+      <%= render "my_hours" %>
     </div>
   </div>
   <%= paginate @time_clock_punches %>

@@ -1,8 +1,4 @@
 /* My Hours on a phone: a total, then one row per punch. Colors are Bootstrap variables, so this follows light, dark and any skin. */
-.mg-page-title {
-  margin: 0 0 0.75rem;
-}
-
 .mg-filter-toggle {
   min-height: 44px;
 }
@@ -86,4 +82,12 @@ summary.mg-punch-summary {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+@media (max-width: 767.98px) {
+  body:has(.mg-filter-toggle) .card-footer .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
 }

@@ -2,12 +2,10 @@
 <% can_destroy = policy(time_clock_punch).destroy? %>
 <% summary = capture do %>
   <span class="mg-punch-main">
-    <span class="mg-punch-time"><%= time_clock_punch.start_time.strftime("%a %b %-d, %-I:%M%p") %> &ndash; <%= time_clock_punch.end_time ? time_clock_punch.end_time.strftime("%-I:%M%p") : "Still Clocked In" %></span>
+    <span class="mg-punch-time"><%= my_gatherpack_punch_times(time_clock_punch) %></span>
     <span class="mg-punch-meta">
-      <span class="badge text-bg-primary"><%= time_clock_punch.person.identifier_name %></span>
-      <% unless time_clock_punch.time_clock_period.nil? %>
-        <span class="badge text-bg-secondary"><%= time_clock_punch.time_clock_period.name %></span>
-      <% end %>
+      <%= as_badge time_clock_punch.person, link: true %>
+      <%= as_badge time_clock_punch.time_clock_period, link: true unless time_clock_punch.time_clock_period.nil? %>
     </span>
   </span>
   <span class="mg-punch-hours"><%= time_clock_punch.complete? ? time_clock_punch.hours : "-" %></span>

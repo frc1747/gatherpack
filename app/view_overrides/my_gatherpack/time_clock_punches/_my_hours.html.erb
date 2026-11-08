@@ -1,0 +1,22 @@
+<%# Below md, a total and one row per punch; the original table is kept for md and up. %>
+<% if @time_clock_punches.present? %>
+  <% total = my_gatherpack_hours_total(@q) %>
+  <% if total %>
+    <div class="mg-hours-total d-md-none">
+      <span class="mg-hours-total-label"><%= total.label %></span>
+      <span class="mg-hours-total-value"><%= number_with_precision(total.hours, precision: 2, strip_insignificant_zeros: true) %></span>
+    </div>
+  <% end %>
+
+  <div class="d-md-none mg-punch-list">
+    <% @time_clock_punches.each do |time_clock_punch| %>
+      <%= render "time_clock_punches/punch_row", time_clock_punch: time_clock_punch %>
+    <% end %>
+  </div>
+
+  <div class="d-none d-md-block">
+    <%= render "time_clock_punches/time_clock_punches" %>
+  </div>
+<% else %>
+  <%= render "time_clock_punches/time_clock_punches" %>
+<% end %>

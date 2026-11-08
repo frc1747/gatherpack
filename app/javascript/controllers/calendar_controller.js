@@ -1,6 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 import FullCalendar from "fullcalendar"
 
+// The one-row toolbar needs about 510 px, a little more for a long title.
+const TOOLBAR_MIN_WIDTH = 520
+
 // Connects to data-controller="calendar"
 export default class extends Controller {
   static values = {
@@ -91,7 +94,7 @@ export default class extends Controller {
 
   // On a narrow screen the view buttons move below the title so nothing is cut off.
   get_toolbars(width) {
-    if (width >= 570) {
+    if (width >= TOOLBAR_MIN_WIDTH) {
       return {
         headerToolbar: {
           left: "prev,next today",
