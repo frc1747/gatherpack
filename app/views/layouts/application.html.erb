@@ -23,7 +23,7 @@
     <%= stylesheet_link_tag "fonts" %>
     <link rel="preload" href="<%= asset_path("fira-sans-latin-400.woff2") %>" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="<%= asset_path("bubblegum-sans-latin-400.woff2") %>" as="font" type="font/woff2" crossorigin>
-    <%= javascript_include_tag "popper.min" %>
+    <%= javascript_include_tag "popper.min", nonce: true %>
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
     <%= render "layouts/theme_styles" %>
     <%= javascript_importmap_tags %>
@@ -47,6 +47,7 @@
           <% if flash.any? %>
             <div class="my-3">
               <% flash.each do |type, value| %>
+                <% next if type == "client_secret" %>
                 <div class="alert <%= flash_to_class(type) %> alert-dismissible fade show" role="alert">
                   <i class="bi flex-shrink-0 me-2 fa-solid <%= flash_to_icon(type) %>"></i>
                   <%= value %>

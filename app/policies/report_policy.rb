@@ -12,4 +12,8 @@ class ReportPolicy < AdminPolicy
   def update?
     user&.architect?
   end
+
+  def destroy?
+    user&.architect?
+  end
 end

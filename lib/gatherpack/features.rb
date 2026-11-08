@@ -24,6 +24,10 @@ module GatherPack
         Settings.register_feature(feature) if feature.toggleable?
       end
 
+      def unregister(key)
+        @plugins.delete(key)
+      end
+
       def reset_built_ins!
         @built_ins = []
       end
@@ -48,6 +52,10 @@ module GatherPack
             items = features.sort_by(&:nav_position).flat_map(&:nav_items)
             [ name, items ]
           end
+      end
+
+      def profile_tabs
+        all.select(&:enabled?).flat_map(&:profile_tabs)
       end
 
       def setup_sections

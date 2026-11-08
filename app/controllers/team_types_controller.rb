@@ -24,7 +24,7 @@ class TeamTypesController < InternalController
 
   # POST /team_types
   def create
-    @team_type = TeamType.new(team_type_params)
+    @team_type = authorize TeamType.new(team_type_params)
 
     if @team_type.save
       redirect_to @team_type, notice: "Team type was successfully created."

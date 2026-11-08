@@ -13,7 +13,6 @@ class Settings
       @setting_key = setting_key
       @setting_type = setting_type || :text
       @name = name
-      @value = store.transaction { store.fetch(setting_key, default_value) }
       @default_value = default_value
       @group = group || "Site Settings"
       @description = description || ""
@@ -24,25 +23,74 @@ class Settings
     end
 
     def value=(val)
+      val = encryptor.encrypt(val.to_s) if secret? && val.present?
+
       store = Settings.instance.store
       store.transaction do
         store[@setting_key] = val
       end
-      @value = val
     end
 
     def value
+      stored = Settings.instance.stored_values.fetch(setting_key, default_value)
+
       case setting_type
       when :boolean
-        @value == "true"
+        stored == "true"
+      when :secret
+        decrypted_value(stored)
       else
-        @value
+        stored
       end
+    end
+
+    # Secret settings are stored encrypted, with the Active Record encryption
+    # keys, and the settings page never shows them.
+    def secret?
+      setting_type == :secret
     end
 
     def in_group?(group)
       group == @group
     end
+
+    private
+      # Settings are registered before the encryption keys are configured, so
+      # secrets are only decrypted when read.
+      def decrypted_value(stored)
+        return stored if stored.blank?
+
+        if encryptor.encrypted?(stored)
+          decrypt(stored)
+        else
+          # Saved before secret settings were encrypted: encrypt it now.
+          self.value = stored
+          stored
+        end
+      rescue ActiveRecord::Encryption::Errors::Decryption
+        Rails.logger.error("The #{@setting_key} setting can't be decrypted (were the encryption keys or SECRET_KEY_BASE changed?). Set it again on the settings page.")
+        nil
+      end
+
+      # The bare encryptor only tries the current keys. A secret saved with
+      # previous keys (e.g. derived ones, before explicit keys were set) is
+      # read with those and saved again with the current ones.
+      def decrypt(value)
+        encryptor.decrypt(value)
+      rescue ActiveRecord::Encryption::Errors::Decryption => error
+        ActiveRecord::Encryption.config.previous_schemes.each do |scheme|
+          plain = encryptor.decrypt(value, key_provider: scheme.key_provider)
+          self.value = plain
+          return plain
+        rescue ActiveRecord::Encryption::Errors::Decryption
+          next
+        end
+        raise error
+      end
+
+      def encryptor
+        ActiveRecord::Encryption.encryptor
+      end
   end
 
   class << self
@@ -73,6 +121,29 @@ class Settings
     def register_feature(feature)
       instance.send(:add_feature_setting, feature)
     end
+
+    # Adds a setting from outside this file, with the same arguments as the
+    # built-in ones, so a feature or plugin can own its settings.
+    def register(setting_key, *args)
+      instance.send(:add_setting, setting_key, *args)
+    end
+  end
+
+  # The saved values, reloaded whenever the file changes, so a value saved by
+  # another process (another Puma worker or the job runner) applies without a
+  # restart. A file changed less than a second before it was loaded is read
+  # again, since a second save in the same clock tick may not move its mtime.
+  def stored_values
+    path = store.path
+    mtime = File.exist?(path) ? File.mtime(path) : nil
+    loaded_path, loaded_mtime, loaded_at, values = @loaded
+
+    return values if mtime && path == loaded_path && mtime == loaded_mtime && loaded_at - mtime > 1
+
+    loaded_at = Time.now
+    values = store.transaction(true) { store.roots.to_h { |key| [ key, store[key] ] } }
+    @loaded = [ path, mtime, loaded_at, values ]
+    values
   end
 
   private
@@ -93,7 +164,9 @@ class Settings
   end
 
   def initialize
-    @store = PStore.new("storage/settings.pstore")
+    # Thread safe, so Puma threads reading at the same time wait for each other
+    # instead of raising PStore::Error ("nested transaction").
+    @store = PStore.new("storage/settings.pstore", true)
 
     @settings = {}
     add_setting(:title, :string, "Site Name", "GatherPack", nil, "The name of the site")
@@ -107,17 +180,25 @@ class Settings
     add_setting(:oauth_signup, :boolean, "Enable Creating OAuth Accounts", "true", "OAuth", "Enable people to sign themselves up with third party services")
 
     add_setting(:discord_oauth_client_id, :string, "Discord OAuth Client ID", "", "OAuth - Discord", "Client ID for Sign In via Discord")
-    add_setting(:discord_oauth_client_secret, :string, "Discord OAuth Client Secret", "", "OAuth - Discord", "Client ID for Sign In via Discord")
+    add_setting(:discord_oauth_client_secret, :secret, "Discord OAuth Client Secret", "", "OAuth - Discord", "Client ID for Sign In via Discord")
 
     add_setting(:github_oauth_client_id, :string, "Github OAuth Client ID", "", "OAuth - Github", "Client ID for Sign In via Github")
-    add_setting(:github_oauth_client_secret, :string, "Github OAuth Client Secret", "", "OAuth - Github", "Client ID for Sign In via Github")
+    add_setting(:github_oauth_client_secret, :secret, "Github OAuth Client Secret", "", "OAuth - Github", "Client ID for Sign In via Github")
 
     add_setting(:google_oauth_client_id, :string, "Google OAuth Client ID", "", "OAuth - Google", "Client ID for Sign In via Google")
-    add_setting(:google_oauth_client_secret, :string, "Google OAuth Client Secret", "", "OAuth - Google", "Client ID for Sign In via Google")
+    add_setting(:google_oauth_client_secret, :secret, "Google OAuth Client Secret", "", "OAuth - Google", "Client ID for Sign In via Google")
 
     add_setting(:time_clock_max_hours, :integer, "Time Clock Max Shift Hours", "12", "Time Clock", "Shifts longer than this many hours are flagged for review")
+    add_setting(:time_kiosk_allow_unassigned, :boolean, "Kiosk: Allow Unassigned Punches", "true", "Time Clock", "Offer \"Start Unassigned\" at the kiosk for time that isn't part of a period. Turn off to require a period: if only one period applies, scanning a card clocks the person in to it right away.")
+    add_setting(:time_kiosk_return_seconds, :integer, "Kiosk: Return to Welcome After (seconds)", "0", "Time Clock", "After a scan, go back to the Welcome screen after this many seconds. 0 keeps the person's screen up until the next scan.")
+    add_setting(:time_kiosk_users_team, :team_select, "Kiosk: Who Can Open the Kiosk", "", "Time Clock", "Only admins and direct members of this team can open the time kiosk. Leave blank to let anyone signed in open it.")
+    add_setting(:time_clock_hand_punches_managers_only, :boolean, "Only admins and managers enter punches by hand", "false", "Time Clock", "Members clock in and out at the kiosk, and can't create, edit or delete punches on the Time Clock pages")
 
     add_setting(:shirt_sizes, :string, "Shirt Sizes", "Youth S, Youth M, Youth L, S, M, L, XL, XXL, 3XL, 4XL", "People", "Comma-separated list of valid shirt sizes")
     add_setting(:gender_options, :string, "Gender Options", "M, F, X", "People", "Comma-separated list of valid gender options")
+    add_setting(:guardianship_age_limit, :integer, "Guardianship Age Limit", "", "People", "Guardianship from a 'minor' relationship type ends when the child reaches this age. Leave blank for no limit")
+    add_setting(:forms_creator_badge, :string, "Form Creator Badge", "", "Forms", "Name of a badge only admins assign. Holders can create event forms for teams they belong to, and manage and see responses to the forms they created, nothing more. Leave blank for none")
+    add_setting(:forms_creator_highest_team, :string, "Highest Team for Form Creators", "", "Forms", "Name of the highest team form creators can use. They can own forms for, and ask, teams they belong to at or below it. Leave blank to allow only the teams they're directly in and the teams below those")
+    add_setting(:guardianship_ends_without_birthday, :boolean, "End Guardianship Without a Birthday", "false", "People", "When an age limit is set, also end 'minor' guardianship for people with no birthday on file. Only applies when an age limit is set")
   end
 end

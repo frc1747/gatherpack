@@ -39,7 +39,7 @@
             <div class="card mb-3" id="<%= dom_id announcement %>">
               <div class="card-header">
                 <h3>
-                  <%= link_to i(@team.team_type.icon), @team, class: "badge rounded-pill", style: "background-color:#{@team.color};color:#{contrasting_color(@team.color)}", "data-turbo": "false", title: "Posted in #{@team.name}" %>
+                  <%= link_to i(@team.team_type.icon), @team, class: "badge rounded-pill", style: "background-color:#{safe_color(@team.color)};color:#{contrasting_color(@team.color)}", "data-turbo": "false", title: "Posted in #{@team.name}" %>
                   <%= announcement.title %>
                 </h3>
               </div>
@@ -99,7 +99,7 @@
     </div>
 
     <% if GatherPack::Features.enabled?(:events) %>
-      <% upcoming_events = @team.events.where("start_time >= ?", Time.current).order(start_time: :asc).limit(3) %>
+      <% upcoming_events = @team.events.upcoming.order(start_time: :asc).limit(3) %>
       <% if upcoming_events.any? %>
         <div class="card mb-3">
           <div class="card-header">
@@ -112,7 +112,7 @@
                   <%= link_to event.name, event %>
                 </div>
                 <div>
-                  <small class="text-muted"><%= nice_datetime event.start_time %></small>
+                  <small class="text-muted"><%= event_time_summary(event) %></small>
                 </div>
               </div>
             <% end %>

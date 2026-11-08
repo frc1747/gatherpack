@@ -2,5 +2,10 @@
 <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
 <div class="form-inputs">
-  <%= f.input :person_id, as: :searching_combobox, scope: @badge.team ? "team_people:#{@badge.team.id}" : "managed_people" %>
+  <% scope = @badge.team ? "team_people:#{@badge.team.id}" : "managed_people" %>
+  <% unless policy(@badge).update? %>
+    <%# Without managing the badge, members give it only to themselves, and managers also to the people they manage where its kind allows. %>
+    <% scope = @badge.added_by_manager_or_self? && manager? ? "managed_people me" : "me" %>
+  <% end %>
+  <%= f.input :person_id, as: :searching_combobox, scope: scope %>
 </div>

@@ -27,7 +27,7 @@ module FontAwesomeHelper
   end
 
   def font_awesome_tag
-    tag.script src: asset_path("fontawesome/all.min.js"), data: { mutateApproach: "sync" }
+    tag.script src: asset_path("fontawesome/all.min.js"), data: { mutateApproach: "sync" }, nonce: content_security_policy_nonce
   end
 
   def icon_text(icon, text, family: nil)

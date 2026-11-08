@@ -1,0 +1,7 @@
+<p class="mb-1">Guardians can:</p>
+<ul class="mb-1">
+  <% RelationshipType.guardian_grants.each do |grant| %>
+    <li><%= grant %></li>
+  <% end %>
+</ul>
+<p class="mb-0">Don't use guardianship just to link people. For an emergency contact, use a type with no guardianship.</p>

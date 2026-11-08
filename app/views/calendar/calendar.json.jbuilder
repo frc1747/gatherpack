@@ -1,10 +1,11 @@
 json.array! @events do |event|
   colors = event_calendar_colors(event)
+  times = event_calendar_times(event)
   json.id event.id
-  json.title event.name
-  json.allDay false
-  json.start event.start_time
-  json.end event.end_time
+  json.title times[:title]
+  json.allDay times[:allDay]
+  json.start times[:start]
+  json.end times[:end]
   json.url event_url(event)
   json.backgroundColor colors[:background]
   json.textColor colors[:text]
