@@ -30,7 +30,11 @@
             <div class="badge-container">
               <% @teams.each do |team| %>
                 <div class="<%= "manager" if @person.managed_teams.include? team %>">
-                <%= link_to as_badge(team), team, class: "undecorated" %>
+                <% if @linkable_team_ids.include?(team.id) %>
+                  <%= link_to as_badge(team), team, class: "undecorated" %>
+                <% else %>
+                  <%= as_badge(team) %>
+                <% end %>
                 </div>
               <% end %>
             </div>
