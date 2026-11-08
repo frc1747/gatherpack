@@ -60,6 +60,12 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     assert_no_selector FORM
 
     assert_saved
+
+    # Signing is still possible on a phone, and finishes.
+    fill_in "typed_name_#{@consent.key}", with: "A1 World"
+    click_button "Sign"
+    assert_no_selector "#sign_#{@consent.key}"
+    assert_equal 1, @form.response_for(person(:a1)).reload.active_submission.standing_signatures.count
   end
 
   test "the Save bar is opaque and stays above the tab bar, after a full load and a Turbo visit" do
@@ -83,6 +89,11 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
 
     assert_button "Discard this draft"
     assert_operator evaluate_script("document.querySelector(\"form[action$='/discard'] .btn\").getBoundingClientRect().height"), :>=, 44
+
+    # The response page posts to the same route, and keeps its own small button.
+    visit form_response_path(@form, person(:a1))
+    assert_button "Discard draft"
+    assert_operator evaluate_script("document.querySelector(\"form[action$='/discard'] .btn\").getBoundingClientRect().height"), :<, 44
   end
 
   test "with the flag off the original form still saves, with no phone styling" do
@@ -125,8 +136,9 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     @lunch = add_choice(@form, "Lunch", %w[ Pasta Salad ])
     @extras = @form.form_questions.create!(kind: :input, label: "Extras", data_type: :multi_select, choices: %w[ Water Snack Coat ])
     @pledge = @form.form_questions.create!(kind: :input, label: "Pledge", data_type: :boolean, body: "Tick if you agree to bring your own water")
+    @intent = @form.form_questions.create!(kind: :intent, label: "Are you coming?")
     @ack = @form.form_questions.create!(kind: :acknowledgment, label: "I have read the rules", required: true)
-    add_signature(@form, "Consent")
+    @consent = add_signature(@form, "Consent", signer: "subject")
   end
 
   def fill_in_form(skip_name: false, skip_ack: false)
@@ -139,6 +151,7 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     select "Salad", from: "form_question_#{@lunch.key}"
     check "Snack"
     check "Coat"
+    choose "Yes"
     check "form_question_#{@pledge.key}"
     check "form_question_#{@ack.key}" unless skip_ack
   end
@@ -173,6 +186,7 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     assert_equal "pat@example.com", answers[@email.key]
     assert_equal "Salad", answers[@lunch.key]
     assert_equal %w[ Coat Snack ], Array(answers[@extras.key]).sort
+    assert_equal "Yes", answers[@intent.key]
     assert_equal true, answers[@pledge.key]
     assert_equal true, answers[@ack.key]
   end

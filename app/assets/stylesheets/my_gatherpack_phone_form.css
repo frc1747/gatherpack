@@ -105,8 +105,8 @@
     white-space: nowrap;
   }
 
-  /* Discard sits under the form, outside it. */
-  body:has(.phone-tabs) form[action$='/discard'] .btn {
+  /* Discard sits under the form, outside it. The response page posts to the same route, so it needs the fill-out form on the page. */
+  body:has(.phone-tabs):has(:is(form[id^='new_form_response'], form[id^='edit_form_response'])) form[action$='/discard'] .btn {
     min-height: 48px;
     padding-left: 1rem;
     padding-right: 1rem;
