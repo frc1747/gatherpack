@@ -18,7 +18,8 @@ class SignupsPersonMergeTest < ActiveSupport::TestCase
   end
 
   test "warns when both people hold a sign-up in one slot, and only then" do
-    sheet = create_world_sheet(events: [ @event, create_world_event("Away Day", Time.zone.parse("2026-10-31 10:00")) ])
+    away_day = create_world_event("Away Day", Time.zone.parse("2026-10-31 10:00"))
+    sheet = create_world_sheet(events: [ @event, away_day ])
     cashier = sheet.signup_positions.create!(name: "Cashier", capacity: 4)
     create_world_signup(cashier, :worker)
     check = GatherPack::PersonMerge.entries.find { |e| e.table == "signups" && e.column == "person_id" }.check
@@ -28,7 +29,7 @@ class SignupsPersonMergeTest < ActiveSupport::TestCase
     create_world_signup(cashier, :student)
     assert_match(/1 slot would hold both/, check.call(person(:worker).id, person(:student).id))
 
-    create_world_signup(cashier, :student2, event: sheet.events.last)
+    create_world_signup(cashier, :student2, event: away_day)
     assert_match(/1 slot/, check.call(person(:worker).id, person(:student).id))
     assert_nil check.call(person(:worker).id, person(:student2).id)
   end
