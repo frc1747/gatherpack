@@ -1,12 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Android offers its own install prompt, saved here until someone asks for it.
-let installPrompt = null
-window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault()
-  installPrompt = event
-})
-window.addEventListener("appinstalled", () => { installPrompt = null })
+// Android offers its own install prompt; the registration script saves it on
+// window.installPrompt when the feature is on.
 
 const IPHONE_STEPS = "In Safari, tap Share, then Add to Home Screen."
 const OTHER_STEPS = "In your browser's menu, choose Add to Home screen."
@@ -22,9 +17,9 @@ export default class extends Controller {
   }
 
   async install() {
-    if (installPrompt) {
-      const prompt = installPrompt
-      installPrompt = null
+    const prompt = window.installPrompt
+    if (prompt) {
+      window.installPrompt = null
       prompt.prompt()
       await prompt.userChoice
     } else {

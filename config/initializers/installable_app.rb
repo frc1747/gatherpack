@@ -19,6 +19,8 @@ Rails.application.config.to_prepare do
     "Shown under the icon when someone adds this site to their home screen (12 characters or fewer). Leave blank to use the site name.")
   settings.send(:add_setting, :pwa_description, :string, "App description", "Get together with GatherPack", "App",
     "Shown when someone installs the app")
+  settings.send(:add_setting, :pwa_icon_maskable, :boolean, "My icon has room around its edges for phones that crop it", "false", "App",
+    "Turn on if the app icon keeps its picture away from the edges, so phones can crop it to a circle or rounded square")
 
   GatherPack::SidebarSlots.register(:install_help, partial: "pwa/install_help", position: 900,
     visible: ->(_view) { GatherPack::Features.enabled?(:installable_app) })

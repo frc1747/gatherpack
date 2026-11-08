@@ -1,21 +1,23 @@
 <% theme = Theme.instance %>
 <% installable = GatherPack::Features.enabled?(:installable_app) %>
+<% purpose = installable && Settings[:pwa_icon_maskable] ? %(,
+      "purpose": "any maskable") : "" %>
 {
 <% if installable %>
   "id": "/",
 <% end %>
-  "name": "<%= Settings[:title] %>",
+  "name": <%= raw json_escape(Settings[:title].to_s.to_json) %>,
   "short_name": <%= raw json_escape((installable ? (Settings[:pwa_short_name].presence || Settings[:title]).to_s.first(12) : "").to_json) %>,
   "icons": [
     {
       "src": "<%= theme.pwa_icon_192 ? url_for(theme.pwa_icon_192) : "/android-chrome-192x192.png" %>",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png"<%= raw purpose %>
     },
     {
       "src": "<%= theme.pwa_icon_512 ? url_for(theme.pwa_icon_512) : "/android-chrome-512x512.png" %>",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png"<%= raw purpose %>
     }
   ],
   "theme_color": "<%= theme.pwa_theme_color.presence || "#ffffff" %>",
@@ -23,5 +25,5 @@
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
-  "description": <%= raw json_escape((Settings[:pwa_description].presence || "Get together with GatherPack").to_json) %>
+  "description": <%= raw json_escape((installable ? Settings[:pwa_description].presence || "Get together with GatherPack" : "Get together with GatherPack").to_json) %>
 }

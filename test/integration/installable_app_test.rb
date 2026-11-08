@@ -34,6 +34,10 @@ class InstallableAppTest < ActionDispatch::IntegrationTest
     response.body
   end
 
+  def manifest_icons_purposes
+    JSON.parse(response.body)["icons"].map { |icon| icon["purpose"] }
+  end
+
   test "flag defaults to off" do
     assert_equal false, GatherPack::Features.all.find { |f| f.key == :installable_app }.default_enabled
   end
@@ -111,12 +115,50 @@ class InstallableAppTest < ActionDispatch::IntegrationTest
 
   test "manifest is unchanged with the flag off" do
     with_flag(false) do
-      with_short_name("Northwind") { get "/manifest.json" }
+      with_short_name("Northwind") do
+        with_setting(:pwa_description, "Changed") do
+          with_setting(:pwa_icon_maskable, "true") { get "/manifest.json" }
+        end
+      end
     end
     manifest = JSON.parse(response.body)
 
     assert_equal "", manifest["short_name"]
     assert_nil manifest["id"]
+    assert_equal "Get together with GatherPack", manifest["description"]
+    assert manifest["icons"].none? { |icon| icon.key?("purpose") }
+  end
+
+  test "icons are maskable only when the admin says so" do
+    with_flag(true) do
+      get "/manifest.json"
+      assert manifest_icons_purposes.compact.empty?
+
+      with_setting(:pwa_icon_maskable, "true") { get "/manifest.json" }
+      assert_equal [ "any maskable" ], manifest_icons_purposes.uniq
+    end
+  end
+
+  test "the name and description keep quotes and ampersands" do
+    with_flag(true) do
+      with_setting(:title, "Kim's Crew & Co") do
+        with_setting(:pwa_description, "Tom & Jerry") { get "/manifest.json" }
+      end
+    end
+    manifest = JSON.parse(response.body)
+
+    assert_equal "Kim's Crew & Co", manifest["name"]
+    assert_equal "Tom & Jerry", manifest["description"]
+  end
+
+  test "the install prompt is only captured when the feature is on" do
+    sign_in users(:one)
+
+    with_flag(true) { get root_path }
+    assert_includes response.body, "beforeinstallprompt"
+
+    with_flag(false) { get root_path }
+    assert_not_includes response.body, "beforeinstallprompt"
   end
 
   test "signed-in pages register the worker only with the flag on" do
