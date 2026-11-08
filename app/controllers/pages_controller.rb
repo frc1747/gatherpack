@@ -1,4 +1,4 @@
-class PagesController < ApplicationController
+class PagesController < InternalController
   before_action :set_page, only: %i[ show edit update destroy ]
 
   # GET /pages
@@ -54,9 +54,16 @@ class PagesController < ApplicationController
     end
 
     # Only allow a list of trusted parameters through.
+    #
+    # A dynamic page's content is ERB that runs on the server, so only
+    # architects can turn it on or change the content of a page that has it.
     def page_params
-      fields = [ :title, :content, :viewer, :editor, :team_id ]
-      fields << :dynamic if current_user&.architect?
+      fields = [ :title, :viewer, :editor, :team_id ]
+      if current_user&.architect?
+        fields += [ :content, :dynamic ]
+      elsif !@page&.dynamic
+        fields << :content
+      end
       params.require(:page).permit(*fields)
     end
 end
