@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -338,12 +338,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_101200) do
     t.integer "starts_within_amount"
     t.string "starts_within_unit"
     t.date "ends_on"
-    t.date "cutoff_on"
     t.integer "status", default: 0, null: false
     t.string "read_level", default: "family", null: false
-    t.string "met_word"
-    t.string "pending_word"
-    t.string "not_met_word"
     t.datetime "next_refresh_at"
     t.datetime "computed_at"
     t.uuid "created_by_id"
