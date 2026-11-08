@@ -3,7 +3,7 @@
 # with a year replaced by the one with the year shifted when one exists. The form lets a person
 # change those before confirming; this takes them as proposed, and says which year-named
 # references it couldn't replace (kept), so the draft can be fixed on the page. Excuses,
-# attestations, results and recorded lists aren't copied (Checklists::Copier).
+# attestations, results and snapshots aren't copied (Checklists::Copier).
 #
 # Mirrors: load_checklist (policy_scope(Checklist), authorize copy?: the checklist's organizers,
 # an archived checklist too), then Checklists::Copier#call with the viewer's person as the

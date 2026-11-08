@@ -1,4 +1,4 @@
-# Records "this is done" on a confirmed (attested) item, as the item's "I confirm" does
+# Records "this is complete" on a confirmed (attested) item, as the item's "I confirm" does
 # (ChecklistAttestationsController#create).
 #
 # Mirrors: the checklist is found as the checklists page finds it (policy_scope(Checklist)), the
@@ -14,7 +14,7 @@ class Mcp::Tools::AttestItem < Mcp::Tool
   include Mcp::ChecklistRecords
 
   tool_name "attest_item"
-  description "Confirm a confirmed item is done for a person, as the item's I confirm does. Who may confirm is the item's setting: " \
+  description "Confirm a confirmed item is complete for a person, as the item's I confirm does. Who may confirm is the item's setting: " \
     "the person, a guardian, or a manager; anyone else is \"Not allowed\". A checklist you can't see, or an item that isn't a confirmed item, " \
     "or a person it doesn't cover, is \"Not found\". Returns what was confirmed."
   scope :write

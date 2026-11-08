@@ -2,7 +2,7 @@
 # Checklists::Report.new(checklist, viewer, as_of:)): a row per person the viewer may see, the
 # overall and each item's result at the level the viewer may see, with a count item's numbers in
 # measures. The checklist must be one the viewer can see (policy_scope(Checklist)), otherwise
-# "Not found". Rows are ordered as the report does (not done first, then by what's left, then
+# "Not found". Rows are ordered as the report does (not complete first, then by what's left, then
 # name), at most `limit`; the viewer's own and their wards' rows come first as "Your family" when
 # they see others too. as_of (a date) recomputes as of then and stores nothing, and the page offers
 # it only to those who may change the checklist (ChecklistPolicy#update?: its organizers, not once

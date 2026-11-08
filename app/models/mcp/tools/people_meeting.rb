@@ -3,7 +3,7 @@
 # test, but limited to the rows the viewer may see (Checklists::Report#statuses), so it tells
 # them nothing the report page wouldn't. The checklist must be one the viewer can see, otherwise
 # "Not found". A row whose overall the viewer can't see isn't matched by a specific status. not_done
-# is the report's "isn't Done" (Almost, Not yet and Not counted together), which also keeps a row
+# is the report's "isn't Complete" (In Progress, Not Started and Not counted together), which also keeps a row
 # whose overall the viewer can't see, as the page's filter does; those rows have blank text. Needs the checklists feature.
 class Mcp::Tools::PeopleMeeting < Mcp::Tool
   include Mcp::ChecklistRecords
@@ -11,8 +11,8 @@ class Mcp::Tools::PeopleMeeting < Mcp::Tool
   STATUSES = (Mcp::ChecklistRecords::STATUSES + %w[not_done]).freeze
 
   tool_name "people_meeting"
-  description "People on a checklist whose overall status is met (Done), pending (Almost), not_met (Not yet), exempt (Not counted), " \
-    "or not_done (anything but Done), among the rows its report shows you. A checklist you can't see is \"Not found\"."
+  description "People on a checklist whose overall status is met (Complete), pending (In Progress), not_met (Not Started), exempt (Not counted), " \
+    "or not_done (anything but Complete), among the rows its report shows you. A checklist you can't see is \"Not found\"."
   scope :read
   feature :checklists
   input_schema(

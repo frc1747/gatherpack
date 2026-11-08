@@ -13,7 +13,7 @@ class Mcp::Tools::ChecklistStatus < Mcp::Tool
   include Mcp::ChecklistRecords
 
   tool_name "checklist_status"
-  description "A person's results on checklists, as you may see them: Done, Almost, Not yet or Not counted overall and per item, " \
+  description "A person's results on checklists, as you may see them: Complete, In Progress, Not Started or Not counted overall and per item, " \
     "with what to do next. With checklist_id, that checklist; without, every checklist that covers the person. " \
     "person_id defaults to you. A person or checklist you can't see is \"Not found\"."
   scope :read

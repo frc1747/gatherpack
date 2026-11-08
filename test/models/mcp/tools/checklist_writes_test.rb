@@ -285,7 +285,7 @@ class Mcp::Tools::ChecklistWritesTest < ActionDispatch::IntegrationTest
     assert_refused("Not allowed", ChecklistAttestation) { call_tool("attest_item", user: user(:admin), **attest_arguments(person(:alpha_member))) }
   end
 
-  # Recorded lists and copies
+  # Snapshots and copies
 
   test "record_list agrees with the page for every viewer and keeps the note out of the log" do
     allowed = VIEWERS.select do |viewer|
