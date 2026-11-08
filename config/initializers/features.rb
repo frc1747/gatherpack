@@ -156,6 +156,20 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :signups,
+      label: "Sign-up Sheets",
+      description: "Let members sign up to work or bring things at events",
+      default_enabled: false,
+      nav_section: "Time",
+      nav_position: 15,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Sign-ups", path: :signup_sheets_path, icon: "clipboard-list")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :time_tracking,
       label: "Time Tracking",
       description: "Time clock punch-in/out and shift period management",
@@ -164,6 +178,20 @@ Rails.application.config.to_prepare do
       nav_position: 20,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Time Clock", path: :time_clock_punches_path, icon: "business-time")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
+      key: :commitments,
+      label: "Commitments",
+      description: "Track what people owe (shifts, events, hours) and credit it from their activity",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 25,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Commitments", path: :commitments_path, icon: "list-check")
       ]
     )
   )
