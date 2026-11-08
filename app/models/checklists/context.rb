@@ -1,6 +1,6 @@
 module Checklists
   # What an evaluation runs against: the checklist, the as-of moment (now, or
-  # the end of the cutoff day once it has passed) and the checklist's window.
+  # the end of the checklist's last day once it has passed) and the checklist's window.
   # Kinds are pure functions of data up to as_of, their item and its window.
   class Context
     attr_reader :checklist, :as_of, :evaluator
@@ -12,8 +12,8 @@ module Checklists
     end
 
     def self.as_of_for(checklist, time)
-      cutoff = checklist.cutoff_on&.in_time_zone&.end_of_day
-      cutoff && cutoff < time ? cutoff : time
+      last_moment = checklist.ends_on&.in_time_zone&.end_of_day
+      last_moment && last_moment < time ? last_moment : time
     end
 
     def window

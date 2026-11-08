@@ -249,6 +249,35 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the report says counting runs until the checklist's end, then that it stopped" do
+    sign_in person(:admin).user
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
+      travel_to(Time.zone.parse("2026-12-01 10:00")) do
+        get checklist_path(@checklist)
+        assert_match "Counting until December 01, 2026; these are today's numbers.", response.body
+      end
+      travel_to(Time.zone.parse("2026-12-02 10:00")) do
+        get checklist_path(@checklist)
+        assert_match "As of December 01, 2026, when counting stopped.", response.body
+      end
+
+      @checklist.update!(ends_on: nil)
+      get checklist_path(@checklist)
+      assert_no_match "Counting until", response.body
+      assert_no_match "when counting stopped", response.body
+    end
+  end
+
+  test "the checklist form has one end date, and says it freezes results" do
+    sign_in person(:admin).user
+    with_feature do
+      get edit_checklist_path(@checklist)
+      assert_match "Counting stops and results freeze after this day. Leave blank to keep counting.", response.body
+      assert_no_match "Count up to", response.body
+    end
+  end
+
   test "the Edit page holds the whole setup, in order, and the checklist page only results" do
     with_feature do
       sign_in person(:admin).user

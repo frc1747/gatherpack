@@ -230,7 +230,7 @@ class Checklist < ApplicationRecord
 
   def refresh_everyone
     return unless Checklists.enabled? && !archived?
-    return unless (saved_changes.keys & %w[team_id starts_on starts_within_amount starts_within_unit ends_on cutoff_on status]).any?
+    return unless (saved_changes.keys & %w[team_id starts_on starts_within_amount starts_within_unit ends_on status]).any?
 
     Checklists.mark(self, :all)
   end

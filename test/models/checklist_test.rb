@@ -370,8 +370,8 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_not_includes Checklists::Population.new(@checklist, rules: [ rule ]).person_ids, person(:outsider).id
   end
 
-  test "a cutoff or as-of date ignores badges, teams and logins added after it" do
-    @checklist.update!(cutoff_on: Date.new(2026, 10, 1))
+  test "Until or an as-of date ignores badges, teams and logins added after it" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
     badge = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
     team = add_item(@checklist, :team_member, "Crew", { team_ids: [ @crew.id ] })
     login = add_item(@checklist, :has_login, "Login")
@@ -383,7 +383,7 @@ class ChecklistTest < ActiveSupport::TestCase
     travel_to(Time.zone.parse("2026-10-10")) do
       assert_equal "not_met", evaluate(@checklist, :member, badge).status
       assert_equal "not_met", evaluate(@checklist, :member, team).status
-      assert_equal "not_met", evaluate(@checklist, :member, login).status, "the login was made after the cutoff"
+      assert_equal "not_met", evaluate(@checklist, :member, login).status, "the login was made after Until"
     end
   end
 

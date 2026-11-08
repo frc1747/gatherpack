@@ -142,7 +142,7 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
 
   test "the clock refreshes a checklist when its time has come" do
     with_feature do
-      @checklist.update!(cutoff_on: Date.new(2026, 12, 1))
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
       travel_to(Time.zone.parse("2026-11-20 10:00")) { refresh(@checklist) }
       ChecklistRefresh.delete_all
       assert_equal Time.zone.parse("2026-12-02 00:00:00"), @checklist.reload.next_refresh_at
@@ -158,9 +158,9 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
-  test "after the cutoff nothing is scheduled, so the clock leaves it alone" do
+  test "after Until nothing is scheduled, so the clock leaves it alone" do
     with_feature do
-      @checklist.update!(cutoff_on: Date.new(2026, 10, 1), starts_within_amount: 30, starts_within_unit: "days")
+      @checklist.update!(ends_on: Date.new(2026, 10, 1), starts_within_amount: 30, starts_within_unit: "days")
       ChecklistExcuse.create!(item: @safety_item, person: person(:member), reason: "Later", expires_on: Date.new(2026, 12, 1), created_by: person(:club_manager))
 
       travel_to(Time.zone.parse("2026-09-30 10:00")) do
@@ -180,20 +180,54 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
-  test "before the cutoff nothing is scheduled past it" do
-    @checklist.update!(cutoff_on: Date.new(2026, 10, 1))
+  test "before Until nothing is scheduled past it" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
     travel_to(Time.zone.parse("2026-09-20 10:00")) do
       assert_equal Time.zone.parse("2026-10-02 00:00"), Checklists::Evaluator.new(@checklist.reload).next_change_at
     end
   end
 
-  test "a cutoff freezes results at the end of that day" do
-    @checklist.update!(cutoff_on: Date.new(2026, 10, 1))
+  test "Until freezes results at the end of that day" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
     travel_to(Time.zone.parse("2026-10-05")) { give_badge(:member, @safety) }
     @safety_item.update!(config: @safety_item.config.merge("within_dates" => true))
 
     travel_to(Time.zone.parse("2026-10-10")) do
-      assert_equal "not_met", evaluate(@checklist, :member, @safety_item).status, "given after the cutoff"
+      assert_equal "not_met", evaluate(@checklist, :member, @safety_item).status, "given after Until"
+    end
+  end
+
+  test "a badge gained after Until doesn't change the result, and a corrected older record does" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    travel_to(Time.zone.parse("2026-10-05")) do
+      assignment = give_badge(:member, @safety)
+      assert_equal "not_met", evaluate(@checklist, :member, @safety_item).status, "gained after Until"
+
+      assignment.update!(created_at: Time.zone.parse("2026-09-20 12:00"))
+      assert_equal "met", evaluate(@checklist, :member, @safety_item).status, "corrected to before Until"
+    end
+  end
+
+  test "with no Until, results stay live" do
+    @checklist.update!(ends_on: nil)
+    travel_to(Time.zone.parse("2030-01-05")) do
+      give_badge(:member, @safety)
+      assert_equal "met", evaluate(@checklist, :member, @safety_item).status
+      assert_equal Time.current, Checklists::Context.new(@checklist).as_of
+    end
+  end
+
+  test "an item's own Until doesn't freeze anything, and the checklist's caps it" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    late = add_item(@checklist, :badge, "Late", { badge_ids: [ @safety.id ] }, ends_on: Date.new(2026, 12, 1))
+    window = Checklists::Context.new(@checklist).window_for(late)
+    assert_equal Date.new(2026, 10, 1), window.ends_on
+
+    @checklist.update!(ends_on: Date.new(2027, 6, 30))
+    early = add_item(@checklist, :badge, "Early", { badge_ids: [ @safety.id ] }, ends_on: Date.new(2026, 10, 1))
+    travel_to(Time.zone.parse("2026-10-05")) do
+      assert_equal Date.new(2026, 10, 1), Checklists::Context.new(@checklist.reload).window_for(early).ends_on
+      assert_equal Time.current, Checklists::Context.new(@checklist).as_of, "only the checklist's Until freezes"
     end
   end
 

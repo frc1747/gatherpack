@@ -22,12 +22,12 @@
   </div>
   <div class="card-body">
     <%= md(@checklist.description) if @checklist.description.present? %>
-    <% if @checklist.cutoff_on %>
+    <% if @checklist.ends_on %>
       <p class="mb-1">
-        <% if @checklist.cutoff_on >= Date.current %>
-          Counting up to <%= l(@checklist.cutoff_on, format: :long) %>; these are today's numbers.
+        <% if @checklist.ends_on >= Date.current %>
+          Counting until <%= l(@checklist.ends_on, format: :long) %>; these are today's numbers.
         <% else %>
-          As of <%= l(@checklist.cutoff_on, format: :long) %>, when counting stopped.
+          As of <%= l(@checklist.ends_on, format: :long) %>, when counting stopped.
         <% end %>
       </p>
     <% end %>

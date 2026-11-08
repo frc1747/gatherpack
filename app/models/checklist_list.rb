@@ -29,7 +29,6 @@ class ChecklistList < ApplicationRecord
     end
     configuration = {
       "title" => checklist.title, "team" => checklist.team.name, "window" => checklist.window.to_s,
-      "cutoff_on" => checklist.cutoff_on&.iso8601,
       "items" => checklist.checklist_items.order(:position).map do |item|
         { "id" => item.id, "parent_id" => item.parent_id, "label" => item.label, "kind" => item.kind, "describe" => item.describe, "counts" => item.counts }
       end

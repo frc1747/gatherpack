@@ -6,7 +6,7 @@ class ChecklistCopyTest < ActiveSupport::TestCase
 
   setup do
     build_checklists_world
-    @checklist = create_world_checklist("Trip 2026", cutoff_on: Date.new(2027, 5, 1))
+    @checklist = create_world_checklist("Trip 2026", ends_on: Date.new(2027, 5, 1))
     @safety_next = create_world_badge("Safety 2027")
     @item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, due_on: Date.new(2026, 12, 1))
     @group = add_item(@checklist, :any_of, "Either")
@@ -24,7 +24,7 @@ class ChecklistCopyTest < ActiveSupport::TestCase
     changes = Checklists::Copier.new(@checklist, shift_months: 12).date_changes.to_h { |change| [ change.key, [ change.old, change.proposed ] ] }
 
     assert_equal [ Date.new(2026, 9, 1), Date.new(2027, 9, 1) ], changes["checklist.starts_on"]
-    assert_equal [ Date.new(2027, 5, 1), Date.new(2028, 5, 1) ], changes["checklist.cutoff_on"]
+    assert_equal [ Date.new(2027, 5, 1), Date.new(2028, 5, 1) ], changes["checklist.ends_on"]
     assert_equal [ Date.new(2026, 12, 1), Date.new(2027, 12, 1) ], changes["#{@item.id}.due_on"]
     assert_equal [ Date.new(2026, 10, 1), Date.new(2027, 10, 1) ], changes["#{@child.id}.config.on"]
     assert_not changes.keys.any? { |key| key.start_with?(@relative.id) }
