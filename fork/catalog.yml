@@ -667,7 +667,7 @@ feature/nav-item-visible:
     Groundwork for a shorter menu. Nothing looks different yet.
   audience: Architects
 
-feature/turbo-frame-links:
+feature/turbo-frame-links-fit:
   title: Clicking a name in a list no longer reloads the whole page
   emoji: "⚡"
   description: >-
@@ -675,7 +675,7 @@ feature/turbo-frame-links:
     less flicker.
   audience: Everyone
 
-feature/local-assets:
+feature/local-assets-fit:
   title: Fonts and icons load from GatherPack itself
   emoji: "⚡"
   description: >-
