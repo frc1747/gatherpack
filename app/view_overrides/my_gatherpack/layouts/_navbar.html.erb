@@ -7,7 +7,7 @@
       <% else %>
         <%= image_tag "logo.svg" %>
       <% end %>
-      &nbsp; <%= site_title %>
+      <span class="text-truncate ms-2"><%= site_title %></span>
     </a>
 
       <% if !kiosk_page? && (current_user.present? rescue false) %>

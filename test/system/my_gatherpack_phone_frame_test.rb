@@ -18,6 +18,8 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
   end
 
   teardown do
+    # The browser is shared with other system tests.
+    page.driver.browser.manage.window.resize_to(1400, 1400)
     restore_my_gatherpack
     Capybara.app_host = @saved_app_host
     Capybara.always_include_port = @saved_include_port
@@ -45,6 +47,7 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
     visit root_path
 
     assert_operator page.evaluate_script("document.querySelector('header.navbar').getBoundingClientRect().height"), :<=, 72
+    assert page.evaluate_script("(t => t.scrollWidth > t.clientWidth && getComputedStyle(t).textOverflow === 'ellipsis')(document.querySelector('header.navbar .navbar-brand .text-truncate'))")
   end
 
   test "header and sidebar targets are at least 44 px" do
@@ -54,7 +57,15 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
     find(".phone-tab", text: "More").click
     assert_selector "#sidebarMenu.show"
     sleep 0.5
-    assert page.evaluate_script("[...document.querySelectorAll('#sidebarMenu .nav-item > a, #sidebarMenu summary')].filter(t => t.offsetParent).every(t => t.getBoundingClientRect().height >= 44)")
+    assert page.evaluate_script("[...document.querySelectorAll('#sidebarMenu .nav-item > a, #sidebarMenu summary, #sidebarMenu .btn-close')].filter(t => t.offsetParent).every(t => t.getBoundingClientRect().height >= 44)")
+  end
+
+  test "the side insets are kept at md and up" do
+    page.driver.browser.manage.window.resize_to(1400, 900)
+    visit root_path
+
+    assert_equal "0px", page.evaluate_script("getComputedStyle(document.body).paddingLeft")
+    assert page.evaluate_script("[...document.styleSheets].some(s => { try { return [...s.cssRules].some(r => r.cssText.includes('safe-area-inset-left')) } catch (e) { return false } })")
   end
 
   test "More opens the sidebar" do
