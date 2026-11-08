@@ -132,9 +132,9 @@ class ChecklistCountTest < ActiveSupport::TestCase
     assert_equal @club.descendant_people.count, Commitment.find(item.commitment_id).owing_people.count, "with checklists off, its own columns"
   end
 
-  test "a cutoff shortens the period" do
+  test "Until shortens the period" do
     travel_to Time.zone.parse("2026-11-15 12:00")
-    @checklist.update!(cutoff_on: Date.new(2026, 10, 15))
+    @checklist.update!(ends_on: Date.new(2026, 10, 15))
     item = add_count_item(@checklist)
     item.commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
     check_in(:member, create_world_event("Before", "2026-10-11 10:00"))

@@ -8,8 +8,9 @@ module Checklists
     # rules, and the period is the item's dates, so Commitment#progress
     # answers exactly as it does for any commitment.
     #
-    # Done: the progress is met. Almost: counting confirmed credit only, and
-    # confirmed plus planned would reach the amount. Not yet: otherwise.
+    # Complete: the progress is met. In Progress: counting confirmed credit
+    # only, and confirmed plus planned would reach the amount. Not Started:
+    # otherwise.
     class Count < ItemKind
       # The models whose changes can change a count (Checklists::CountWatched).
       WATCHED = %w[Checkin Event Relationship CommitmentSource CommitmentAdjustment Commitment].freeze
@@ -30,7 +31,7 @@ module Checklists
               options: -> { [ [ "Nobody, everyone owes on their own", "" ] ] + RelationshipType.order(:parent_label).map { |type| [ type.identifier_name, type.id ] } }),
             ItemKind::Setting.new(key: :additional_amount, type: :number, label: "Each other group member adds",
               hint: "A group owes the amount plus this for each member after the first"),
-            ItemKind::Setting.new(key: :counts_when, type: :choice, label: "Done when", options: COUNTS_WHEN)
+            ItemKind::Setting.new(key: :counts_when, type: :choice, label: "Complete when", options: COUNTS_WHEN)
           ]
         end
 
@@ -85,7 +86,7 @@ module Checklists
           item.errors.add(:base, "Say what is counted, such as shifts") if config["unit"].blank?
           item.errors.add(:base, "Each other group member adds can't be negative") if config["additional_amount"].to_i.negative?
           if config["counts_when"].present? && COUNTS_WHEN.none? { |_, value| value == config["counts_when"] }
-            item.errors.add(:base, "Choose when it's done")
+            item.errors.add(:base, "Choose when it's complete")
           end
           if config["group_relationship_type_id"].present? && !RelationshipType.exists?(id: config["group_relationship_type_id"])
             item.errors.add(:base, "That relationship type no longer exists")
@@ -130,14 +131,12 @@ module Checklists
 
         # The item's dates as the commitment's period, in the site's time
         # zone: from the start of its first day to the end of its last (up to
-        # as_of when it has no end), never past the checklist's cutoff.
+        # as_of when it has no end), never past the checklist's Until.
         def period_for(item, as_of: nil)
           context = Context.new(item.checklist, as_of: as_of)
           window = context.window_for(item)
           from = window.start_time || Time.zone.at(0)
           to = window.ends_on ? window.ends_on.in_time_zone.end_of_day : context.as_of
-          cutoff = item.checklist.cutoff_on&.in_time_zone&.end_of_day
-          to = [ to, cutoff ].min if cutoff
           from..[ to, from ].max
         end
 
@@ -218,7 +217,7 @@ module Checklists
         end
 
         # Recomputes the stored period of the checklist's count items'
-        # commitments, so relative dates and cutoffs show on the commitment
+        # commitments, so relative dates and the checklist's Until show on the commitment
         # too. Writes only the two dates, without callbacks.
         def sync_periods(checklist)
           checklist.checklist_items.where(kind: CountItem::COUNT).where.not(commitment_id: nil).includes(:commitment).find_each do |item|
