@@ -239,9 +239,10 @@ class ChecklistCountTest < ActiveSupport::TestCase
   end
 
   test "a pooled count is seen by a parent in the group; an unpooled one only once set to family" do
-    @parent_of.update!(guardianship: :minor)
+    guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin, guardianship: :minor)
+    Relationship.create!(parent: person(:organizer), child: person(:kid), relationship_type: guardian_of, created_by: person(:admin))
     person(:kid).update!(birthday: Date.new(2014, 3, 1))
-    pooled = add_count_item(@checklist, "Pooled", { group_relationship_type_id: @parent_of.id })
+    pooled = add_count_item(@checklist, "Pooled", { group_relationship_type_id: guardian_of.id })
     alone = add_count_item(@checklist, "Alone")
     parent = person(:organizer)
     visibility = Checklists::Visibility.new(@checklist.reload, parent).prepare([ person(:kid).id, person(:member).id ])
