@@ -131,14 +131,12 @@ module Checklists
 
         # The item's dates as the commitment's period, in the site's time
         # zone: from the start of its first day to the end of its last (up to
-        # as_of when it has no end), never past the checklist's cutoff.
+        # as_of when it has no end), never past the checklist's Until.
         def period_for(item, as_of: nil)
           context = Context.new(item.checklist, as_of: as_of)
           window = context.window_for(item)
           from = window.start_time || Time.zone.at(0)
           to = window.ends_on ? window.ends_on.in_time_zone.end_of_day : context.as_of
-          cutoff = item.checklist.cutoff_on&.in_time_zone&.end_of_day
-          to = [ to, cutoff ].min if cutoff
           from..[ to, from ].max
         end
 
@@ -219,7 +217,7 @@ module Checklists
         end
 
         # Recomputes the stored period of the checklist's count items'
-        # commitments, so relative dates and cutoffs show on the commitment
+        # commitments, so relative dates and the checklist's Until show on the commitment
         # too. Writes only the two dates, without callbacks.
         def sync_periods(checklist)
           checklist.checklist_items.where(kind: CountItem::COUNT).where.not(commitment_id: nil).includes(:commitment).find_each do |item|

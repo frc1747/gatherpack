@@ -6,7 +6,7 @@ module Checklists
   #   owing_people        the checklist's population narrowed by the item's rules
   #   organizer?          the checklist's organizer check
   #   organizer_candidate?
-  #   period_times        the item's resolved dates, ended at the checklist's cutoff
+  #   period_times        the item's resolved dates, ended at the checklist's Until
   #   team_and_below_ids  the checklist's team and below
   #
   # A commitment with no item, or any commitment while checklists are off,
