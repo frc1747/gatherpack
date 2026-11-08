@@ -110,7 +110,7 @@ A menu never grants anything. Every destination still checks its own policy, and
 
 ### 5.2a The site's title
 
-The page names the site, never the product. At the top of the sidebar on desktop: the site's logo and `Settings[:title]` ("Harrison Boiler Robotics"), as in the pitch's mockup. On phones the same title is the one-line header (§8.1). The browser tab reads `Settings[:title]` alone on Home.
+The page names the site, never the product. At the top of the sidebar on desktop: the site's logo and `Settings[:title]` ("Harrison Boiler Robotics"), as in the pitch's mockup, with the search box under it so search stays on every page. There's no top bar at `md` and up, so the title doesn't appear twice. On phones the same title is the one-line header (§8.1). The browser tab reads `Settings[:title]` alone on Home.
 
 "My GatherPack" is the name of this feature in settings and docs. It appears nowhere on these screens. If `Settings[:title]` is blank, fall back to "GatherPack".
 
