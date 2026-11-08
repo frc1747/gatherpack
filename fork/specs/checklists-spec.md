@@ -8,7 +8,7 @@ Supersedes [BL-003](../backlog/BL-003-attendance-eligibility-badge.md) (a badge 
 
 ## 1. Goal
 
-Organizers say what a person must have, do or be, and GatherPack answers for every person in words: **done**, **almost** (planned, not yet done), **not yet**, or **not counted**, with why and how to fix it. Some items are conditions (holds a badge, form signed, field is Yes). Some are counts (three shifts, one outreach event, pooled by family). Both sit in one list and give one answer. The answer shows in a report, on the profile, on a person's own to-do page, in hooks, and as a test other features can use ("only people who finish this").
+Organizers say what a person must have, do or be, and GatherPack answers for every person in words: **Complete**, **In Progress**, **Not Started**, or **Not counted**, with why and how to fix it. Some items are conditions (holds a badge, form signed, field is Yes). Some are counts (three shifts, one outreach event, pooled by family). Both sit in one list and give one answer. The answer shows in a report, on the profile, on a person's own to-do page, in hooks, and as a test other features can use ("only people who finish this").
 
 The test is whether an organizer can rebuild today's Eligibility Report (about 700 lines of admin-written ERB) with screens only, and whether next year's copy takes minutes. §14 does this on paper.
 
@@ -85,7 +85,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | Item | One line on the checklist. Two families: **condition items** (badge, form, field, attendance, login, team, age, attested, another checklist, any-of) and **count items** (do N of something, with credit sources and optional pooling). |
 | Count item | The former commitment: an amount in a unit, credit sources with ratio and cap, planned vs confirmed, optional family pooling, adjustments (§6.2). |
 | Result | The stored answer for one person and one item: status, summary, detail, numbers. One more row per person for the checklist's overall. |
-| Status | `met`, `pending`, `not_met`, `exempt`. Default words: Done, Almost, Not yet, Not counted (HBR sets Eligible, Pending, Not eligible). Labels such as "Rookie" or "Excused" ride on `exempt`. |
+| Status | `met`, `pending`, `not_met`, `exempt`. Fixed words, not configurable: Complete, In Progress, Not Started, Not counted. Labels such as "Rookie" or "Excused" ride on `exempt`. |
 | Overall | Any counting item `not_met` → not met; else any `pending` → pending; else met. `exempt` is ignored. |
 | Excuse | A manager's or admin's reasoned exception for one person on an item or one meeting (§7). |
 | Adjustment | Credit given or taken on a count item, with a reason (§7). |
@@ -103,7 +103,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | What counts (credit sources) | | `CommitmentSource`, `Commitments::SourceKind`, `Commitments.register_source` |
 | Give or take credit | | `CommitmentAdjustment` |
 | Who it covers | `ChecklistRule` | `Commitment#owing_*` columns (legacy, ignored when linked) |
-| Done / Almost / Not yet | status `met` / `pending` / `not_met` | |
+| Complete / In Progress / Not Started | status `met` / `pending` / `not_met` | |
 | Excuse | `ChecklistExcuse` | |
 | Checklists feature / switch | `feature_checklists` | `feature_commitments` (treated as on, §11.3) |
 | Checklist organizers setting | `checklists_organizers` | `commitments_organizers` (read through, §11.3) |
