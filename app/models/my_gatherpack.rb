@@ -9,11 +9,17 @@ module MyGatherpack
     end
   end
 
+  DUE_SOON_DAYS = 3
+
   # One row in a home page list. +at+ orders the list; +ward+ is the first name
   # of the person it's for, when that isn't the viewer.
   Item = Struct.new(:title, :detail, :at, :path, :action, :icon, :ward, keyword_init: true) do
     def past_due?
       at.present? && at.past?
+    end
+
+    def due_soon?
+      at.present? && at.to_date <= DUE_SOON_DAYS.days.from_now.to_date
     end
   end
 

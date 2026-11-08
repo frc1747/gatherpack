@@ -1,22 +1,28 @@
 <% breadcrumb :root %>
 <% content_for :head, stylesheet_link_tag("my_gatherpack_home") %>
 
-<div class="mg-home">
+<div class="mg-home mg-tap-rows">
   <header class="mg-home-header">
     <div>
       <h1 class="mg-greeting"><%= my_gatherpack_greeting %></h1>
-      <p class="mg-date"><%= Date.current.strftime("%A, %B %-d") %></p>
+      <p class="mg-date d-none d-md-block"><%= Date.current.strftime("%A, %B %-d") %></p>
     </div>
-    <% if (status = my_gatherpack_clocked_in_status) %>
-      <div class="mg-status"><span class="mg-status-dot"></span><%= status %></div>
-    <% end %>
+    <div class="mg-home-tools">
+      <% if (status = my_gatherpack_clocked_in_status) %>
+        <div class="mg-status"><span class="mg-status-dot"></span><span><%= status %></span></div>
+      <% end %>
+      <form class="mg-search d-none d-md-block" role="search" action="<%= search_path %>">
+        <%= i "magnifying-glass" %>
+        <input class="form-control" type="search" name="q" placeholder="Search" aria-label="Search" autocomplete="off">
+      </form>
+    </div>
   </header>
 
   <%= my_gatherpack_widget_slot(:top) %>
 
   <div class="row">
     <div class="col-12 col-lg-8">
-      <%= render "my_gatherpack/column", column: :todo, title: "To do" %>
+      <%= render "my_gatherpack/column", column: :todo, title: "To do", count: true %>
       <%= render "my_gatherpack/column", column: :coming_up, title: "Coming up" %>
       <%= my_gatherpack_widget_slot(:left) %>
     </div>

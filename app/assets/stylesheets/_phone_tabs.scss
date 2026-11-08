@@ -29,10 +29,98 @@
   text-decoration: none;
   opacity: 0.75;
 
+  i, svg {
+    font-size: 1.375rem;
+  }
+
   &.active {
+    color: var(--bs-primary-text-emphasis);
     opacity: 1;
     font-weight: 600;
   }
+}
+
+.mg-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary-text-emphasis);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+// The sidebar's roomy links. The person sits at the foot, under the menu.
+body:has(.phone-tabs) .sidebar {
+  @include media-breakpoint-up(md) {
+    .offcanvas-body {
+      min-height: 100vh;
+    }
+  }
+
+  .mg-site-link {
+    font-size: 1.0625rem;
+    line-height: 1.25;
+  }
+
+  .nav div.nav-item a {
+    gap: 0.75rem !important; // beats the .gap-1 utility this rule extends
+    margin: 0.125rem 0.75rem;
+    padding: 0.5rem 0.75rem !important; // beats the .py-1 utility this rule extends
+    border-radius: var(--bs-border-radius-lg);
+    font-size: 1rem;
+
+    &.active {
+      background-color: var(--bs-primary-bg-subtle);
+      color: var(--bs-primary-text-emphasis);
+      font-weight: 600;
+    }
+  }
+
+  .nav h6,
+  summary {
+    padding-inline: 1.5rem !important; // beats the .px-3 utility this rule extends
+    margin-top: 1rem !important;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .mg-sidebar-foot {
+    margin-top: auto;
+    padding-top: 1rem;
+  }
+
+  .mg-sidebar-person {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.5rem 0.75rem 0;
+    padding: 0.75rem;
+    border-top: 1px solid var(--bs-border-color);
+    color: inherit;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .footer-ad {
+    margin-top: 0 !important;
+  }
+}
+
+// The home pages have no trail to show.
+body:has(.mg-home) .breadcrumb-container {
+  display: none;
+}
+
+// Search moves to the top right of the home page.
+body:has(.mg-home-tools .mg-search) [data-site-search] {
+  display: none;
 }
 
 // viewport-fit=cover drops the browser's side margins, so a notched phone in

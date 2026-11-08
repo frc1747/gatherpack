@@ -12,20 +12,20 @@
     </div>
     <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto">
       <div class="d-none d-md-block px-3 pt-3 pt-lg-0 pb-2" data-site-brand>
-        <a class="d-flex align-items-center gap-2 mb-3 fw-semibold link-body-emphasis text-decoration-none" href="<%= root_path %>">
+        <a class="d-flex align-items-center gap-2 mb-3 fw-semibold mg-site-link link-body-emphasis text-decoration-none" href="<%= root_path %>">
           <% if Theme.instance.logo.attached? %>
-            <%= image_tag Theme.instance.logo, alt: "", height: 32, class: "w-auto flex-shrink-0" %>
+            <%= image_tag Theme.instance.logo, alt: "", height: 44, class: "w-auto flex-shrink-0" %>
           <% else %>
-            <%= image_tag "logo.svg", alt: "", height: 32, class: "w-auto flex-shrink-0" %>
+            <%= image_tag "logo.svg", alt: "", height: 44, class: "w-auto flex-shrink-0" %>
           <% end %>
           <span><%= site_title %></span>
         </a>
-        <form role="search" action="<%= search_path %>">
+        <form role="search" action="<%= search_path %>" data-site-search>
           <input class="form-control form-control-sm" type="search" name="q" placeholder="Search" aria-label="Search" autocomplete="off">
         </form>
       </div>
 
-      <div class="nav flex-column me-auto">
+      <div class="nav flex-column">
         <% if current_user != true_user %>
           <div class="nav-item d-flex align-items-center px-3 impersonator">
             <%= image_tag(get_avatar_url_64(true_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
@@ -35,17 +35,17 @@
             impersonating
           </div>
         <% end %>
-        <div class="nav-item d-flex align-items-center px-3 <%= "impersonator" if current_user != true_user %>">
-          <%= image_tag(get_avatar_url_64(current_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
-          <%= link_to current_user.person.identifier_name, current_user.person %>
-        </div>
         <% if current_user != true_user %>
+          <div class="nav-item d-flex align-items-center px-3 impersonator">
+            <%= image_tag(get_avatar_url_64(current_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+            <%= link_to current_user.person.identifier_name, current_user.person %>
+          </div>
           <div class="nav-item d-flex align-items-center px-3 pt-1 impersonator">
             <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: {turbo: false}, class: "btn btn-danger btn-sm w-100" %>
           </div>
-        <% end %>
 
-        <hr class="my-2">
+          <hr class="my-2">
+        <% end %>
 
         <div data-menu-group="top">
           <% my_gatherpack_menu.top.each do |item| %>
@@ -104,7 +104,13 @@
 
         <%= nav_link "Sign Out", destroy_user_session_path, "person-through-window", method: "delete" %>
       </div>
+      <div class="mg-sidebar-foot">
 <%= render "layouts/sidebar_slots" %>
+        <%= link_to current_user.person, class: "mg-sidebar-person" do %>
+          <%= my_gatherpack_avatar(current_user.person) %>
+          <span class="text-truncate"><%= current_user.person.identifier_name %></span>
+        <% end %>
+      </div>
       <footer class="col-12 footer-ad">
         <a href="https://gatherpack.com" target="_blank">powered by <%= image_tag "logo.svg", alt: "GatherPack" %> GatherPack</a>
         <%# The helper comes from another feature, when it's in this build. %>

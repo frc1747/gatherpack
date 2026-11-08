@@ -2,7 +2,7 @@
 <% rows = my_gatherpack_rows(column) %>
 <% if rows.any? %>
   <section class="mg-section" data-home-column="<%= column %>">
-    <% if title %><h2 class="mg-heading"><%= title %></h2><% end %>
+    <% if title %><h2 class="mg-heading"><%= title %><% if local_assigns[:count] %><span class="d-md-none"> · <%= rows.size %></span><% end %></h2><% end %>
     <div class="card mg-list">
       <% rows.each_with_index do |(section, item), index| %>
         <%= render section.partial, item: item, first: index.zero? %>
