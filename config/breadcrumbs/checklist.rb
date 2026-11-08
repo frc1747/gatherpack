@@ -7,9 +7,14 @@ crumb :checklist do |checklist|
   parent :checklists
 end
 
+crumb :checklist_setup do |checklist|
+  link "Edit", edit_checklist_path(checklist, anchor: "items")
+  parent :checklist, checklist
+end
+
 crumb :checklist_item do |item|
   link item.new_record? ? "New item" : item.label
-  parent :checklist, item.checklist
+  parent :checklist_setup, item.checklist
 end
 
 crumb :checklist_list do |list|

@@ -32,7 +32,7 @@ class ChecklistGrantAccessTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { ChecklistGrant.count } do
         post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @guarded.id ] } }
       end
-      assert_redirected_to checklist_path(@checklist, anchor: "setup")
+      assert_redirected_to edit_checklist_path(@checklist, anchor: "access")
       assert_equal "You can't grant access to Guarded; ask someone who can.", flash[:alert]
 
       assert_no_difference -> { ChecklistGrant.count } do
@@ -160,13 +160,13 @@ class ChecklistGrantAccessTest < ActionDispatch::IntegrationTest
   test "the Add item menu lists only kinds the person may set up" do
     with_organizers do
       sign_in person(:organizer).user
-      get checklist_path(@checklist)
+      get edit_checklist_path(@checklist)
       assert_response :success
       assert_select ".dropdown-menu a[href*='kind=has_login']"
       assert_select ".dropdown-menu a[href*='kind=private']", 0
 
       sign_in person(:admin).user
-      get checklist_path(@checklist)
+      get edit_checklist_path(@checklist)
       assert_select ".dropdown-menu a[href*='kind=private']"
     end
   end
