@@ -20,4 +20,4 @@
     <%= f.select :starts_within_unit, [ %w[days days], %w[months months] ], {}, class: "form-select form-select-sm w-auto" %>
   </div>
 </fieldset>
-<%= f.input :ends_on, as: :date, html5: true, label: "Until", hint: allow_inherit ? "Blank: the checklist's end" : "Blank: up to now" %>
+<%= f.input :ends_on, as: :date, html5: true, label: "Until", hint: allow_inherit ? "Blank: the checklist's end" : "Counting stops and results freeze after this day. Leave blank to keep counting." %>

@@ -140,7 +140,7 @@ class ChecklistKindAccessTest < ActionDispatch::IntegrationTest
 
     assert_equal "not_met", member.call(person(:admin)).status
     assert_equal "met", member.call(person(:club_manager)).status
-    assert_equal "Done", member.call(person(:club_manager)).text
+    assert_equal "Complete", member.call(person(:club_manager)).text
   end
 
   test "a checklist whose only counting item is capped shows no overall to that viewer" do
