@@ -158,6 +158,8 @@ The workflows should cover:
 1. Tag releases on `hbr/integration` as `v<upstream-version>-hbr.<n>` (for example `v1.8.0-hbr.3`), so it's always obvious which upstream version a release is based on.
 2. Generate release notes listing the upstream base commit and every feature branch and head commit included. `HBR-CHANGELOG.md` on the tagged commit has all of these (see "The HBR changelog"); its "What's new" section is the starting point for the notes. Cut the release with `bin/fork-rebuild --release v<upstream-version>-hbr.<n>`, push it, let CI pass, then tag the rebuild's last commit, the changelog commit, with exactly that name, so the file in the release names itself and its own image. The script refuses a tag that already exists on another build or doesn't come after the latest release.
 3. Deploy only from tags. Rollback means redeploying the previous tag.
+
+The private release flow used for `hbr.24` to `hbr.33` (local `sec/release-*` branches, unpushed tags, a locally built image) ended with `hbr.34`. Security work now ships like any other feature: `feature/security-series` is in the manifest, and every release is a public tag and ghcr image.
 4. Before tagging, confirm migrations run cleanly from the previous release's database state, not just from empty.
 
 ## Contributing Upstream
