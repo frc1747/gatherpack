@@ -1,0 +1,47 @@
+<%# The attendance item's own form section: which periods' meetings count, and its rules as a table. %>
+<% kind = Checklists::Kinds::Attendance %>
+<% periods = kind.team_periods(checklist).order(start_time: :desc) %>
+<% rules = Array(item.config["rules"]) %>
+<% window = Checklists::Window.for(item, Time.current, fallback: Checklists::Window.for(checklist, Time.current)) %>
+<% months = (1..12).map { |month| [ Date::ABBR_MONTHNAMES[month], month ] } %>
+
+<div class="mb-3">
+  <%= label_tag "attendance_period_ids", "Time clock periods", class: "form-label" %>
+  <%= hidden_field_tag "#{field_name}[period_ids][]", "", id: nil %>
+  <%= select_tag "#{field_name}[period_ids][]", options_for_select(periods.map { |period| [ period.identifier_name, period.id ] }, item.config["period_ids"]),
+    multiple: true, id: "attendance_period_ids", class: "form-select", size: [ [ periods.size, 2 ].max, 6 ].min %>
+  <div class="form-text">None picked: every period of this checklist's teams that overlaps the item's dates. Pick some to count only their meetings (any of them).</div>
+</div>
+
+<div class="mb-3" data-controller="attendance-rules" data-attendance-rules-from-value="<%= (window.starts_on || Date.current).iso8601 %>">
+  <p class="form-label mb-1">Rules</p>
+  <p class="form-text mt-0">Each rule needs its share of meeting hours. Blank dates mean the item's own. A rule is judged on its own unless it's counted together with another, by name: then their meetings are judged as one.</p>
+  <datalist id="attendance-rule-names">
+    <% rules.each do |rule| %><option value="<%= rule["name"] %>"></option><% end %>
+  </datalist>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle" id="attendance-rules">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">From</th>
+          <th scope="col">Until</th>
+          <th scope="col">Share (%)</th>
+          <th scope="col">Every week</th>
+          <th scope="col">Counted together with</th>
+          <th scope="col">Judge after (meetings)</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody data-attendance-rules-target="rows">
+        <% (rules + [ {} ]).each_with_index do |rule, index| %>
+          <%= render "checklist_items/attendance_rule", rule: rule, prefix: "#{field_name}[rules][#{index}]", months: months %>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <template data-attendance-rules-target="template">
+    <%= render "checklist_items/attendance_rule", rule: {}, prefix: "#{field_name}[rules][__INDEX__]", months: months %>
+  </template>
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-action="attendance-rules#add">Add a rule</button>
+</div>
