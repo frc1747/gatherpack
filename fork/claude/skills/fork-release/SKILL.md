@@ -25,4 +25,4 @@ Authority: `fork/STRATEGY.md` "Releases and Deployment" and "The HBR changelog".
 
 ## After
 
-Record the release in `FORK.md` (shipped release per feature) and push it to `hbr/platform` directly. If the compose file, entrypoint or seeds changed, rerun the "Try it in a container" steps from `fork/sample_data/README.md` in a scratch dir against the new image before pointing anyone at them.
+Record the release in `FORK.md` in the same session: `hbr.<n>` in the Shipped column of every manifest row still showing `—`. Private releases (local `sec/release-hbr.<n>` branches and unpushed tags) are recorded too; only their branches, tags and images stay private. Push it to `hbr/platform` directly. If the compose file, entrypoint or seeds changed, rerun the "Try it in a container" steps from `fork/sample_data/README.md` in a scratch dir against the new image before pointing anyone at them.
