@@ -6,7 +6,10 @@ module Checklists
   # rule it covers everyone in its team and below. Everyone covered is within
   # the checklist's team and below, except applicants, who are within the
   # team they applied to. Computed when needed, so people who join later are
-  # covered.
+  # covered, until the checklist has ended: from then on it covers the people
+  # it has stored results for, so someone who leaves stays and someone who
+  # joins doesn't appear. With nothing stored there's no list to keep, so the
+  # rules decide.
   class Population
     attr_reader :checklist
 
@@ -20,21 +23,7 @@ module Checklists
     end
 
     def person_ids
-      @person_ids ||= begin
-        reach = Checklists.team_subtree_ids(checklist.team_id)
-        members = Membership.where(team_id: reach).distinct.pluck(:person_id)
-        includes, excludes = rules.partition(&:effect_include?)
-
-        included = if includes.empty?
-          members
-        else
-          # Applicants count only through teams within the checklist's reach.
-          applicants = includes.select { |rule| rule.target_applicants? && reach.include?(rule.team_id) }
-            .flat_map { |rule| Population.rule_person_ids(rule) }
-          (includes.reject(&:target_applicants?).flat_map { |rule| Population.rule_person_ids(rule) } & members) + applicants
-        end
-        (included.uniq - excludes.flat_map { |rule| Population.rule_person_ids(rule) }).sort
-      end
+      @person_ids ||= kept_person_ids.presence || person_ids_from_rules
     end
 
     # Of these people, the ones an item applies to: everyone, narrowed by the
@@ -64,6 +53,30 @@ module Checklists
         MembershipApplication.pending.where(team_id: Checklists.team_subtree_ids(rule.team_id)).distinct.pluck(:person_id)
       else []
       end
+    end
+
+    private
+
+    def kept_person_ids
+      return unless checklist.ended?
+
+      ChecklistResult.where(checklist_id: checklist.id, item_id: nil).pluck(:person_id).sort
+    end
+
+    def person_ids_from_rules
+      reach = Checklists.team_subtree_ids(checklist.team_id)
+      members = Membership.where(team_id: reach).distinct.pluck(:person_id)
+      includes, excludes = rules.partition(&:effect_include?)
+
+      included = if includes.empty?
+        members
+      else
+        # Applicants count only through teams within the checklist's reach.
+        applicants = includes.select { |rule| rule.target_applicants? && reach.include?(rule.team_id) }
+          .flat_map { |rule| Population.rule_person_ids(rule) }
+        (includes.reject(&:target_applicants?).flat_map { |rule| Population.rule_person_ids(rule) } & members) + applicants
+      end
+      (included.uniq - excludes.flat_map { |rule| Population.rule_person_ids(rule) }).sort
     end
   end
 end

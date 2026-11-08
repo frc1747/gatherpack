@@ -14,9 +14,9 @@ module Checklists
   class Evaluator
     attr_reader :checklist, :context
 
-    def initialize(checklist, as_of: nil, items: nil, rules: nil)
+    def initialize(checklist, as_of: nil, items: nil, rules: nil, pinned: false)
       @checklist = checklist
-      @context = Context.new(checklist, as_of: as_of, evaluator: self)
+      @context = Context.new(checklist, as_of: as_of, evaluator: self, pinned: pinned)
       @items = items
       @rules = rules
     end
@@ -111,7 +111,7 @@ module Checklists
         to_evaluate.each do |id|
           result = evaluated[id] || Result.not_met("Not checked")
           result.detail ||= instance.explain(result)
-          result.label ||= "Missed" if item.due_on && item.due_on < context.as_of.to_date && !result.met? && !result.exempt?
+          result.label ||= "Missed" if item.due_on && context.past_due?(item.due_on) && !result.met? && !result.exempt?
           results[id] = result
         end
       end

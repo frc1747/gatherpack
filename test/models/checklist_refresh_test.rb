@@ -208,6 +208,131 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
+  test "a stored result freezes at the end of Until in the site's time zone" do
+    @checklist.update!(ends_on: Date.new(2026, 12, 1))
+    add_rule(@checklist, :include, :team, team_id: @members.id)
+
+    with_settings(feature_checklists: "true", time_zone: "America/New_York") do
+      # 8pm on Dec 1 in New York, already Dec 2 in UTC.
+      travel_to(Time.utc(2026, 12, 2, 1, 0)) do
+        give_badge(:member, @safety)
+        refresh(@checklist)
+        row = ChecklistResult.find_by!(checklist: @checklist, person: person(:member), item_id: @safety_item.id)
+        assert_equal "met", row.status, "still the last day in the site's zone"
+        assert_equal Time.utc(2026, 12, 2, 5, 0), @checklist.reload.next_refresh_at
+      end
+      assert_equal "UTC", Time.zone.name, "the zone goes back afterwards"
+    end
+  end
+
+  test "a due date on or before Until shows Missed once the last day has gone" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    on_until = add_item(@checklist, :badge, "On Until", { badge_ids: [ @safety.id ] }, due_on: Date.new(2026, 10, 1))
+    before = add_item(@checklist, :badge, "Before", { badge_ids: [ @safety.id ] }, due_on: Date.new(2026, 9, 30))
+    after = add_item(@checklist, :badge, "After", { badge_ids: [ @safety.id ] }, due_on: Date.new(2026, 11, 1))
+
+    travel_to(Time.zone.parse("2026-10-01 10:00")) do
+      assert_nil evaluate(@checklist, :member, on_until).label, "the due day isn't over"
+    end
+    travel_to(Time.zone.parse("2026-10-10 10:00")) do
+      assert_equal "Missed", evaluate(@checklist, :member, on_until).label
+      assert_equal "Missed", evaluate(@checklist, :member, before).label
+      assert_nil evaluate(@checklist, :member, after).label, "due after Until: capped"
+    end
+  end
+
+  test "an item requiring another checklist doesn't change after Until" do
+    other = create_world_checklist("Other")
+    required = add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    item = add_item(@checklist, :checklist, "Other", { checklist_id: other.id })
+
+    travel_to(Time.zone.parse("2026-10-20")) do
+      assignment = give_badge(:member, @safety)
+      refresh(other)
+      assert_equal "met", ChecklistResult.find_by!(checklist: other, person: person(:member), item_id: required.id).status
+      assert_equal "not_met", evaluate(@checklist, :member, item).status, "finished the other one after Until"
+
+      assignment.update!(created_at: Time.zone.parse("2026-09-20 12:00"))
+      assert_equal "met", evaluate(@checklist, :member, item).status, "a corrected older record still counts"
+    end
+  end
+
+  test "a frozen checklist reads through a chain of checklists as of its own moment" do
+    last = create_world_checklist("Last")
+    add_item(last, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    middle = create_world_checklist("Middle")
+    add_item(middle, :checklist, "Last", { checklist_id: last.id })
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    item = add_item(@checklist, :checklist, "Middle", { checklist_id: middle.id })
+
+    travel_to(Time.zone.parse("2026-10-20")) do
+      give_badge(:member, @safety)
+      refresh(last)
+      refresh(middle)
+      assert_equal "not_met", evaluate(@checklist, :member, item).status
+    end
+  end
+
+  test "before Until an item requiring another checklist reads its stored results" do
+    other = create_world_checklist("Other")
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    item = add_item(@checklist, :checklist, "Other", { checklist_id: other.id })
+    travel_to(Time.zone.parse("2026-09-20")) do
+      give_badge(:member, @safety)
+      refresh(other)
+      assert_equal "met", evaluate(@checklist, :member, item).status
+    end
+  end
+
+  test "after Until a refresh keeps the people it had and adds nobody" do
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 10, 1))
+      travel_to(Time.zone.parse("2026-09-20")) { refresh(@checklist) }
+      before = ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id)
+      assert_includes before, person(:member).id
+      assert_not_includes before, person(:outsider).id
+
+      travel_to(Time.zone.parse("2026-10-05")) do
+        Membership.where(person: person(:member)).destroy_all
+        Membership.create!(person: person(:outsider), team: @members)
+        assignment = give_badge(:member2, @safety)
+        assignment.update!(created_at: Time.zone.parse("2026-09-25"))
+        refresh(@checklist)
+
+        assert_equal before.sort, ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id).sort
+        assert_equal before.sort, Checklists.people_covered_by(@checklist).ids.sort
+        assert_not ChecklistResult.exists?(checklist: @checklist, person: person(:outsider))
+        assert_equal "met", ChecklistResult.find_by!(checklist: @checklist, person: person(:member2), item_id: @safety_item.id).status, "still updated"
+      end
+    end
+  end
+
+  test "after Until a deleted person's rows go" do
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 10, 1))
+      gone = create_world_person("Gone", @members)
+      travel_to(Time.zone.parse("2026-09-20")) { refresh(@checklist) }
+      assert ChecklistResult.exists?(checklist: @checklist, person_id: gone.id)
+
+      travel_to(Time.zone.parse("2026-10-05")) do
+        gone_id = gone.id
+        gone.destroy!
+        refresh(@checklist)
+        assert_not ChecklistResult.exists?(checklist: @checklist, person_id: gone_id)
+        assert_not_includes Checklists.people_covered_by(@checklist).ids, gone_id
+      end
+    end
+  end
+
+  test "a checklist first computed after Until takes its people from its rules" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    travel_to(Time.zone.parse("2026-10-05")) do
+      assert_includes Checklists.people_covered_by(@checklist).ids, person(:member).id
+    end
+  end
+
   test "with no Until, results stay live" do
     @checklist.update!(ends_on: nil)
     travel_to(Time.zone.parse("2030-01-05")) do

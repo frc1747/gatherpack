@@ -269,6 +269,25 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "after Until the report keeps someone who left and leaves out someone who joined" do
+    sign_in person(:admin).user
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
+      travel_to(Time.zone.parse("2026-11-20")) { refresh(@checklist) }
+
+      travel_to(Time.zone.parse("2026-12-05")) do
+        Membership.where(person: person(:member)).destroy_all
+        Membership.create!(person: person(:outsider), team: @members)
+        refresh(@checklist)
+
+        get checklist_path(@checklist)
+        assert_response :success
+        assert_match person(:member).display_name, response.body
+        assert_no_match person(:outsider).display_name, response.body
+      end
+    end
+  end
+
   test "the checklist form has one end date, and says it freezes results" do
     sign_in person(:admin).user
     with_feature do

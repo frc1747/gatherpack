@@ -22,6 +22,13 @@ module Checklists
     def call(person_ids = nil)
       return [] if checklist.archived?
 
+      # A checklist's dates are days in the site's time zone; jobs run in UTC.
+      Time.use_zone(Settings[:time_zone].presence || "UTC") { refresh(person_ids) }
+    end
+
+    private
+
+    def refresh(person_ids)
       evaluator = Evaluator.new(checklist)
       covered = evaluator.covered_ids
       ids = person_ids.nil? ? covered : (Array(person_ids) & covered)
@@ -41,8 +48,6 @@ module Checklists
       mark_dependents(changes)
       changes
     end
-
-    private
 
     def write(computed, now)
       existing = ChecklistResult.where(checklist_id: checklist.id, person_id: computed.keys)

@@ -124,6 +124,11 @@ class Checklist < ApplicationRecord
     Checklists::Window.for(self, Checklists::Context.as_of_for(self, Time.current))
   end
 
+  # Its last day (in the site's time zone) has gone.
+  def ended?
+    ends_on.present? && Checklists::Context.last_moment(self).past?
+  end
+
   # Checklists with an item requiring this one.
   def dependents
     Checklist.where(id: ChecklistItem.where(kind: "checklist").where("config ->> 'checklist_id' = ?", id.to_s).select(:checklist_id))

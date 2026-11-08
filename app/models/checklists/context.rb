@@ -5,15 +5,40 @@ module Checklists
   class Context
     attr_reader :checklist, :as_of, :evaluator
 
-    def initialize(checklist, as_of: nil, evaluator: nil)
+    # pinned: a frozen checklist is reading this one as of its own moment.
+    def initialize(checklist, as_of: nil, evaluator: nil, pinned: false)
       @checklist = checklist
       @as_of = Context.as_of_for(checklist, as_of || Time.current)
       @evaluator = evaluator
+      @pinned = pinned
     end
 
     def self.as_of_for(checklist, time)
-      last_moment = checklist.ends_on&.in_time_zone&.end_of_day
-      last_moment && last_moment < time ? last_moment : time
+      last = last_moment(checklist)
+      last && last < time ? last : time
+    end
+
+    def self.last_moment(checklist)
+      checklist.ends_on&.in_time_zone&.end_of_day
+    end
+
+    # The checklist's last day is over at this as-of moment.
+    def ended?
+      last = Context.last_moment(checklist)
+      last.present? && as_of >= last
+    end
+
+    # Other checklists must be read as of this moment too, not as they
+    # stand today.
+    def pinned?
+      @pinned || ended?
+    end
+
+    # A due date has passed once its day is over, and the last day is over
+    # once the checklist has ended, even though as_of is still on that day.
+    def past_due?(due_on)
+      today = as_of.to_date
+      due_on < today || (ended? && due_on == today)
     end
 
     def window
