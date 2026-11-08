@@ -1,3 +1,13 @@
+<% if ModernSkin.active?(controller) %>
+  <%= stylesheet_link_tag "skin", "data-turbo-track": "reload" %>
+  <%= javascript_tag nonce: true do %>
+    (function () {
+      var saved = <%= raw json_escape(color_mode_for_page.to_json) %>;
+      var mode = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-bs-theme", mode);
+    })();
+  <% end %>
+<% end %>
 <% theme = Theme.instance %>
 <% if theme.persisted? %>
   <% if theme.css_variables.present? %>

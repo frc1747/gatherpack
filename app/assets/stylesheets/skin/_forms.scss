@@ -1,0 +1,86 @@
+input.form-control, select.form-control, textarea.form-control, .form-select, .hw-combobox {
+  background-color: var(--gp-surface);
+  border: 1px solid var(--gp-input-border);
+  border-radius: var(--gp-radius-sm);
+  color: var(--gp-text);
+  padding: .6rem .75rem;
+
+  &:focus {
+    background-color: var(--gp-surface);
+    border-color: var(--gp-brand);
+    box-shadow: 0 0 0 3px rgba(var(--gp-brand-rgb), .18);
+    color: var(--gp-text);
+  }
+}
+
+input.form-control[type=color] {
+  height: calc(1.5em + 1.2rem + 2px);
+  padding: .25rem;
+}
+
+.form-control, .form-select {
+  &:focus {
+    box-shadow: 0 0 0 3px rgba(var(--gp-brand-rgb), .18);
+  }
+}
+
+.form-control:disabled, .hw-combobox:disabled, .form-select:disabled,
+select.form-control:disabled, textarea.form-control:disabled {
+  border-color: var(--gp-border);
+  color: var(--gp-muted);
+}
+
+.input-group-text, .fancy-color-container, .icon-select-wrapper, input.datetime {
+  border-color: var(--gp-input-border);
+}
+
+.fancy-color-picker-col {
+  border-right-color: var(--gp-input-border);
+}
+
+.icon-select-list {
+  border-top-color: var(--gp-input-border);
+}
+
+.form-check-input {
+  background-color: var(--gp-surface);
+  border-color: var(--gp-input-border);
+
+  &:focus {
+    box-shadow: 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+  }
+
+  &:checked {
+    background-color: var(--gp-brand);
+    border-color: var(--gp-brand);
+  }
+
+  // !important: the application forces focused checks to --pair-b-bg, which
+  // would hide the checkmark.
+  &:checked:focus {
+    background-color: var(--gp-brand) !important;
+  }
+
+  &[type=checkbox]:indeterminate {
+    background-color: var(--gp-brand);
+    border-color: var(--gp-brand);
+  }
+}
+
+.form-range {
+  &:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 1px var(--gp-page), 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+  }
+
+  &:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 1px var(--gp-page), 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+  }
+
+  &::-webkit-slider-thumb {
+    background-color: var(--gp-brand);
+  }
+
+  &::-moz-range-thumb {
+    background-color: var(--gp-brand);
+  }
+}

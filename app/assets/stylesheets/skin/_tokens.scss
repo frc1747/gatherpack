@@ -1,0 +1,168 @@
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/inter-latin-wght-normal.woff2") format("woff2");
+}
+
+@mixin light-tokens {
+  --gp-brand: #1f8a3b;
+  --gp-brand-rgb: 31, 138, 59;
+  --gp-brand-hover: #18702f;
+  --gp-brand-hover-rgb: 24, 112, 47;
+  --gp-brand-soft: #e8f5ec;
+  --gp-on-brand: #fff;
+
+  --gp-page: #f5f6f7;
+  --gp-page-rgb: 245, 246, 247;
+  --gp-surface: #fff;
+  --gp-surface-rgb: 255, 255, 255;
+  --gp-raised: #f0f2f4;
+  --gp-raised-rgb: 240, 242, 244;
+  --gp-subtle: #f7f8f9;
+
+  --gp-border: #e3e6e9;
+  --gp-input-border: #cfd4d9;
+  --gp-text: #1c2024;
+  --gp-text-rgb: 28, 32, 36;
+  --gp-text-soft: #3a4047;
+  --gp-muted: #60676e;
+  --gp-muted-rgb: 96, 103, 110;
+
+  --gp-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  --gp-shadow-raised: 0 8px 24px rgba(16, 24, 40, .08);
+  --gp-logo-tile: transparent;
+  --gp-icon-invert: 0;
+}
+
+@mixin dark-tokens {
+  --gp-brand: #2ea043;
+  --gp-brand-rgb: 46, 160, 67;
+  --gp-brand-hover: #3fb950;
+  --gp-brand-hover-rgb: 63, 185, 80;
+  --gp-brand-soft: #16301f;
+  --gp-on-brand: #0f1216;
+
+  --gp-page: #0f1216;
+  --gp-page-rgb: 15, 18, 22;
+  --gp-surface: #1a1e24;
+  --gp-surface-rgb: 26, 30, 36;
+  --gp-raised: #232830;
+  --gp-raised-rgb: 35, 40, 48;
+  --gp-subtle: #232830;
+
+  --gp-border: #2d333b;
+  --gp-input-border: #3a414a;
+  --gp-text: #e6e9ed;
+  --gp-text-rgb: 230, 233, 237;
+  --gp-text-soft: #c5ccd3;
+  --gp-muted: #9aa4af;
+  --gp-muted-rgb: 154, 164, 175;
+
+  --gp-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  --gp-shadow-raised: 0 8px 24px rgba(0, 0, 0, .5);
+  --gp-logo-tile: #f2f4f6;
+  --gp-icon-invert: 1;
+}
+
+// Everything Bootstrap, FullCalendar, the combobox and the application
+// stylesheet read, written once in terms of the tokens.
+@mixin token-map {
+  --gp-radius: 10px;
+  --gp-radius-sm: 8px;
+  --gp-font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --bs-primary: var(--gp-brand);
+  --bs-primary-rgb: var(--gp-brand-rgb);
+  --bs-success: var(--gp-brand);
+  --bs-success-rgb: var(--gp-brand-rgb);
+  --bs-secondary-rgb: var(--gp-muted-rgb);
+  --bs-link-color: var(--gp-brand);
+  --bs-link-color-rgb: var(--gp-brand-rgb);
+  --bs-link-hover-color: var(--gp-brand-hover);
+  --bs-link-hover-color-rgb: var(--gp-brand-hover-rgb);
+  --bs-focus-ring-color: rgba(var(--gp-brand-rgb), .25);
+
+  --bs-body-font-family: var(--gp-font);
+  --bs-body-bg: var(--gp-page);
+  --bs-body-bg-rgb: var(--gp-page-rgb);
+  --bs-body-color: var(--gp-text);
+  --bs-body-color-rgb: var(--gp-text-rgb);
+  --bs-emphasis-color: var(--gp-text);
+  --bs-emphasis-color-rgb: var(--gp-text-rgb);
+  --bs-heading-color: var(--gp-text);
+  --bs-secondary-color: var(--gp-muted);
+  --bs-secondary-color-rgb: var(--gp-muted-rgb);
+  --bs-tertiary-color: var(--gp-muted);
+  --bs-tertiary-color-rgb: var(--gp-muted-rgb);
+  --bs-secondary-bg: var(--gp-raised);
+  --bs-secondary-bg-rgb: var(--gp-raised-rgb);
+  --bs-tertiary-bg: var(--gp-subtle);
+  --bs-tertiary-bg-rgb: var(--gp-raised-rgb);
+  --bs-border-color: var(--gp-border);
+  --bs-border-color-translucent: var(--gp-border);
+  --bs-form-valid-border-color: var(--gp-input-border);
+  --bs-light-rgb: var(--gp-raised-rgb);
+  --bs-card-bg: var(--gp-surface);
+  --bs-card-color: var(--gp-text);
+
+  --card-bg: var(--gp-surface);
+  --card-fg: var(--gp-text);
+  --pair-a-bg: var(--gp-surface);
+  --pair-a-fg: var(--gp-text);
+  --pair-b-bg: var(--gp-raised);
+  --pair-b-fg: var(--gp-text);
+  --pair-c-bg: var(--gp-surface);
+  --pair-c-fg: var(--gp-text);
+  --app-input-disabled-bg: var(--gp-raised);
+  --app-code-active-line-bg: var(--gp-brand-soft);
+  --app-code-selection-bg: rgba(var(--gp-brand-rgb), .2);
+  --app-code-focused-selection-bg: rgba(var(--gp-brand-rgb), .3);
+
+  --fc-border-color: var(--gp-border);
+  --fc-page-bg-color: var(--gp-surface);
+  --fc-neutral-bg-color: var(--gp-subtle);
+  --fc-list-event-hover-bg-color: var(--gp-raised);
+  --fc-button-text-color: var(--gp-text);
+  --fc-button-bg-color: var(--gp-surface);
+  --fc-button-border-color: var(--gp-border);
+  --fc-button-hover-bg-color: var(--gp-raised);
+  --fc-button-hover-border-color: var(--gp-border);
+  --fc-button-active-bg-color: var(--gp-brand-soft);
+  --fc-button-active-border-color: var(--gp-brand);
+
+  --hw-active-bg-color: var(--gp-raised);
+  --hw-border-color: var(--gp-input-border);
+  --hw-component-bg-color: var(--gp-surface);
+  --hw-group-color: var(--gp-muted);
+  --hw-group-bg-color: var(--gp-surface);
+  --hw-invalid-color: var(--bs-danger);
+  --hw-dialog-label-color: var(--gp-text);
+  --hw-focus-color: var(--gp-brand);
+  --hw-option-bg-color: var(--gp-surface);
+}
+
+:root {
+  @include light-tokens;
+  color-scheme: light;
+}
+
+:root[data-bs-theme=dark] {
+  @include dark-tokens;
+  color-scheme: dark;
+}
+
+// Both selectors, so the map beats Bootstrap's own [data-bs-theme=dark] block
+// and the application's :root by source order, and stored :root variables
+// from the theme page can't undo the dark palette.
+:root, :root[data-bs-theme=dark] {
+  @include token-map;
+}
+
+@media print {
+  :root, :root[data-bs-theme=dark] {
+    @include light-tokens;
+    color-scheme: light;
+  }
+}
