@@ -11,7 +11,7 @@ module SmoothPagesTestSettings
       @settings_dir = Dir.mktmpdir("smooth-pages-settings")
       @original_store = Settings.instance.store
       @original_values = {}
-      Settings.instance.store = PStore.new(File.join(@settings_dir, "settings.pstore"))
+      Settings.instance.store = PStore.new(File.join(@settings_dir, "settings.pstore"), true)
       @original_pages = %i[@refresh_pages @no_preview_pages].to_h do |name|
         [ name, GatherPack::SmoothPages.instance_variable_get(name).dup ]
       end
