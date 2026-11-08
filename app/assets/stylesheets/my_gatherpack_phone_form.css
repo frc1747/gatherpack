@@ -1,48 +1,49 @@
 /* Filling out a form on a phone: one column, large controls, and a Save bar that stays above the tab bar. */
 @media (max-width: 767.98px) {
-  .phone-form {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) {
     max-width: 100%;
   }
 
-  .phone-form .card {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card {
     border-left: 0;
     border-right: 0;
     border-radius: 0;
   }
 
-  .phone-form .card-header h1 {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-header h1 {
     font-size: 1.5rem;
     overflow-wrap: anywhere;
   }
 
-  .phone-form .card-body {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-body {
     padding: 1rem;
     overflow-wrap: anywhere;
   }
 
   /* 16px keeps iOS from zooming in on focus. */
-  .phone-form .form-control,
-  .phone-form .form-select {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-control,
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-select {
     min-height: 48px;
     font-size: 1rem;
   }
 
-  .phone-form textarea.form-control {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) textarea.form-control {
     min-height: 6rem;
   }
 
-  .phone-form .form-label,
-  .phone-form label {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-label,
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) label {
     font-size: 1rem;
   }
 
   /* Reboot floats a fieldset's legend full width. A flex row after it would be squeezed beside the float, not placed under it. */
-  .phone-form legend {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) legend {
     float: none;
   }
 
-  .phone-form .form-check {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-check {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
     min-height: 44px;
@@ -50,7 +51,7 @@
     padding-left: 0;
   }
 
-  .phone-form .form-check .form-check-input {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-check .form-check-input {
     float: none;
     flex-shrink: 0;
     margin: 0;
@@ -58,25 +59,32 @@
     height: 1.5rem;
   }
 
+  /* A boolean's hint and error live inside .form-check: they get their own line under the label. */
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-check .form-text,
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-check .invalid-feedback {
+    flex: 0 0 100%;
+  }
+
   /* The box sits beside its label, which takes what's left instead of the full row. */
-  .phone-form .form-check .form-check-label {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-check .form-check-label {
     flex: 1 1 0;
     width: auto;
     min-width: 0;
   }
 
-  .phone-form .form-check-inline {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-check-inline {
     display: flex;
     margin-right: 0;
   }
 
-  .phone-form .form-acknowledgment .form-check-input {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .form-acknowledgment .form-check-input {
     width: 1.5rem;
     height: 1.5rem;
   }
 
+  /* The footer's own rules (.card-footer) must lose, so the bar is opaque after a full load as well as a Turbo visit. */
   /* Pinned just above the tab bar (its 44px tap target and 1px border) and the safe-area inset. */
-  .phone-form-actions {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-footer {
     position: sticky;
     bottom: calc(45px + env(safe-area-inset-bottom));
     z-index: 1;
@@ -88,7 +96,7 @@
     background-color: var(--bs-body-bg);
   }
 
-  .phone-form-actions .btn {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-footer .btn {
     flex: 1 1 0;
     min-height: 48px;
     display: flex;
@@ -97,8 +105,16 @@
     white-space: nowrap;
   }
 
+  /* Discard sits under the form, outside it. */
+  body:has(.phone-tabs) form[action$='/discard'] .btn {
+    min-height: 48px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: 1rem;
+  }
+
   /* Submit is the main action, so it gets the most room. */
-  .phone-form-actions .btn-primary {
+  body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-footer .btn-primary {
     flex-grow: 2;
   }
 }

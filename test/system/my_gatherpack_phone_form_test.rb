@@ -7,6 +7,10 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
   include MyGatherpackTestHelper
   include FormsWorld
 
+  # The form is found by its Rails ids, as the stylesheet does.
+  FORM = ":is(form[id^='new_form_response'], form[id^='edit_form_response'])".freeze
+  BAR = "#{FORM} .card-footer".freeze
+
   # config.hosts allows localhost in test, but not Capybara's 127.0.0.1.
   setup do
     @saved_app_host = Capybara.app_host
@@ -32,42 +36,53 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     sign_in person(:a1).user
     visit edit_form_response_path(@form, person(:a1))
 
-    assert_selector "form.phone-form"
+    assert_selector FORM
     assert_no_sideways_scroll
-    within(".phone-form-actions") { assert_button "Submit" }
+    within(BAR) { assert_button "Submit" }
+    assert_text "Section heading"
+    assert_text "Read this first"
     assert_text "Signed after submitting"
+    # A yes/no question with a description keeps its label readable.
+    assert_operator evaluate_script("document.querySelector('label[for=form_question_#{@pledge.key}]').getBoundingClientRect().width"), :>, 100
 
-    # Submitting with the required answer blank shows the message and keeps the other answers.
-    fill_in_form(skip_name: true)
+    # An unticked acknowledgment shows its message, and the other answers stay put.
+    fill_in_form(skip_ack: true)
     click_button "Submit"
     assert_text "Please check the answers marked below."
-    assert_selector ".invalid-feedback, .is-invalid"
+    assert_selector ".invalid-feedback", text: /\S/
     assert_equal "Likes pasta", find("#form_question_#{@notes.key}").value
     assert_no_sideways_scroll
 
-    fill_in "form_question_#{@name.key}", with: "Pat Smith"
+    check "form_question_#{@ack.key}"
     click_button "Submit"
-    assert_no_selector "form.phone-form"
+    # Saving finished: the page moved on to the response.
+    assert_current_path form_response_path(@form, person(:a1))
+    assert_no_selector FORM
 
     assert_saved
   end
 
-  test "the Save bar stays above the tab bar and the controls are large" do
+  test "the Save bar is opaque and stays above the tab bar, after a full load and a Turbo visit" do
+    sign_in person(:a1).user
+
+    # A full load, then a Turbo visit from the Forms page.
+    visit edit_form_response_path(@form, person(:a1))
+    assert_bar_pinned
+    visit forms_path
+    click_link "Trip Details"
+    assert_selector FORM
+    assert_bar_pinned
+  end
+
+  test "Discard is a large control" do
     sign_in person(:a1).user
     visit edit_form_response_path(@form, person(:a1))
+    fill_in "form_question_#{@name.key}", with: "Pat Smith"
+    click_button "Save for later"
+    visit edit_form_response_path(@form, person(:a1))
 
-    bar = evaluate_script("document.querySelector('.phone-form-actions').getBoundingClientRect()")
-    tabs = evaluate_script("document.querySelector('.phone-tabs').getBoundingClientRect().top")
-    # Sticky: pinned just above the tab bar on load, not at the end of the long form.
-    assert_operator bar["bottom"], :<=, tabs + 0.5
-    assert_operator bar["bottom"], :>=, tabs - 4
-    assert page.evaluate_script("[...document.querySelectorAll('.phone-form .form-control, .phone-form .form-select, .phone-form-actions .btn')].every(e => e.getBoundingClientRect().height >= 44)")
-    assert page.evaluate_script("[...document.querySelectorAll('.phone-form-actions .btn')].every(b => b.getBoundingClientRect().height >= 44)")
-
-    page.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-    bar = evaluate_script("document.querySelector('.phone-form-actions').getBoundingClientRect()")
-    assert_operator bar["bottom"], :<=, tabs + 0.5
-    assert_operator bar["bottom"], :>=, tabs - 4
+    assert_button "Discard this draft"
+    assert_operator evaluate_script("document.querySelector(\"form[action$='/discard'] .btn\").getBoundingClientRect().height"), :>=, 44
   end
 
   test "with the flag off the original form still saves, with no phone styling" do
@@ -75,11 +90,13 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     sign_in person(:a1).user
     visit edit_form_response_path(@form, person(:a1))
 
-    assert_no_selector "form.phone-form"
-    assert_no_selector ".phone-form-actions"
+    assert_selector FORM
+    assert_no_selector ".phone-tabs"
+    assert_operator evaluate_script("document.querySelector('.card-footer').getBoundingClientRect().height"), :<, 60
+    assert_equal "static", evaluate_script("getComputedStyle(document.querySelector('.card-footer')).position")
     fill_in_form
     click_button "Submit"
-    assert_no_selector "form#edit_form_response, form.edit_form_response"
+    assert_current_path form_response_path(@form, person(:a1))
 
     assert_saved
   end
@@ -97,6 +114,8 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
 
   def build_form
     @form = create_world_form("Trip Details")
+    @form.form_questions.create!(kind: :heading, label: "Section heading")
+    @form.form_questions.create!(kind: :statement, body: "Read this first")
     @name = @form.form_questions.create!(kind: :input, label: "Full name", data_type: :string, required: true)
     @notes = @form.form_questions.create!(kind: :input, label: "Notes", data_type: :text)
     @count = @form.form_questions.create!(kind: :input, label: "Guests", data_type: :integer)
@@ -105,12 +124,12 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     @email = @form.form_questions.create!(kind: :input, label: "Email", data_type: :email)
     @lunch = add_choice(@form, "Lunch", %w[ Pasta Salad ])
     @extras = @form.form_questions.create!(kind: :input, label: "Extras", data_type: :multi_select, choices: %w[ Water Snack Coat ])
-    @pledge = @form.form_questions.create!(kind: :input, label: "Pledge", data_type: :boolean)
+    @pledge = @form.form_questions.create!(kind: :input, label: "Pledge", data_type: :boolean, body: "Tick if you agree to bring your own water")
     @ack = @form.form_questions.create!(kind: :acknowledgment, label: "I have read the rules", required: true)
     add_signature(@form, "Consent")
   end
 
-  def fill_in_form(skip_name: false)
+  def fill_in_form(skip_name: false, skip_ack: false)
     fill_in "form_question_#{@name.key}", with: "Pat Smith" unless skip_name
     fill_in "form_question_#{@notes.key}", with: "Likes pasta"
     fill_in "form_question_#{@count.key}", with: "3"
@@ -121,7 +140,7 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     check "Snack"
     check "Coat"
     check "form_question_#{@pledge.key}"
-    check "form_question_#{@ack.key}"
+    check "form_question_#{@ack.key}" unless skip_ack
   end
 
   # The off-canvas menu waits off-screen to the right, so it's left out: what
@@ -131,6 +150,17 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     assert_empty wide, "wider than the screen"
     execute_script("window.scrollTo(100, window.scrollY)")
     assert_equal 0, evaluate_script("window.scrollX"), "page scrolls sideways"
+  end
+
+  def assert_bar_pinned
+    bar = evaluate_script("document.querySelector(\"#{BAR}\").getBoundingClientRect().toJSON()")
+    tabs = evaluate_script("document.querySelector('.phone-tabs').getBoundingClientRect().top")
+    # Sticky: just above the tab bar on load, not at the end of the long form, and not see-through.
+    assert_operator bar["bottom"], :<=, tabs + 0.5
+    assert_operator bar["bottom"], :>=, tabs - 4
+    assert_equal 1.0, evaluate_script("(c => c.match(/rgba/) ? parseFloat(c.split(',')[3]) : 1)(getComputedStyle(document.querySelector(\"#{BAR}\")).backgroundColor)")
+    assert evaluate_script("[...document.querySelectorAll(\"#{FORM} .form-control, #{FORM} .form-select, #{BAR} .btn\")].every(e => e.getBoundingClientRect().height >= 44)")
+    assert_equal 12, evaluate_script("parseFloat(getComputedStyle(document.querySelector(\"#{BAR}\")).paddingTop)")
   end
 
   def assert_saved
