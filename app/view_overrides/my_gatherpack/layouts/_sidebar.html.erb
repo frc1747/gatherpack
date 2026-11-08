@@ -1,0 +1,117 @@
+<div class="sidebar border border-right col-md-3 col-lg-2 p-0 no-print"<%= sidebar_root_attributes %>>
+  <% if current_user != true_user %>
+    <%# Below md the sidebar is an off-canvas menu, so say it here too. %>
+    <div class="alert alert-danger d-md-none d-flex align-items-center justify-content-between rounded-0 mb-0 impersonation-banner" role="alert">
+      <span><%= true_user.person.identifier_name %> is impersonating <%= current_user.person.identifier_name %></span>
+      <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: {turbo: false}, class: "btn btn-danger btn-sm" %>
+    </div>
+  <% end %>
+  <div class="offcanvas-md offcanvas-end" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
+    <div class="offcanvas-header">
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto">
+      <div class="d-none d-md-block px-3 pt-3 pt-lg-0 pb-2" data-site-brand>
+        <a class="d-flex align-items-center gap-2 mb-3 fw-semibold link-body-emphasis text-decoration-none" href="<%= root_path %>">
+          <% if Theme.instance.logo.attached? %>
+            <%= image_tag Theme.instance.logo, alt: "", height: 32 %>
+          <% else %>
+            <%= image_tag "logo.svg", alt: "", height: 32 %>
+          <% end %>
+          <span><%= site_title %></span>
+        </a>
+        <form role="search" action="<%= search_path %>">
+          <input class="form-control form-control-sm" type="search" name="q" placeholder="Search" aria-label="Search" autocomplete="off">
+        </form>
+      </div>
+
+      <div class="nav flex-column me-auto">
+        <% if current_user != true_user %>
+          <div class="nav-item d-flex align-items-center px-3 impersonator">
+            <%= image_tag(get_avatar_url_64(true_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+            <%= link_to true_user.person.identifier_name, true_user.person %>
+          </div>
+          <div class="nav-item px-3 text-center w-100 impersonator-label">
+            impersonating
+          </div>
+        <% end %>
+        <div class="nav-item d-flex align-items-center px-3 <%= "impersonator" if current_user != true_user %>">
+          <%= image_tag(get_avatar_url_64(current_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+          <%= link_to current_user.person.identifier_name, current_user.person %>
+        </div>
+        <% if current_user != true_user %>
+          <div class="nav-item d-flex align-items-center px-3 pt-1 impersonator">
+            <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: {turbo: false}, class: "btn btn-danger btn-sm w-100" %>
+          </div>
+        <% end %>
+
+        <hr class="my-2">
+
+        <div data-menu-group="top">
+          <% my_gatherpack_menu.top.each do |item| %>
+            <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+          <% end %>
+        </div>
+
+        <% if my_gatherpack_menu.family.any? %>
+          <div data-menu-group="family">
+            <% my_gatherpack_menu.family.each do |item| %>
+              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+            <% end %>
+          </div>
+        <% end %>
+
+        <% if my_gatherpack_menu.more.any? %>
+          <details data-menu-group="more">
+            <summary class="px-3 mt-2 mb-1 text-secondary text-uppercase small fw-medium">More</summary>
+            <% my_gatherpack_menu.more.each do |item| %>
+              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+            <% end %>
+          </details>
+        <% end %>
+
+        <% if my_gatherpack_menu.manage.any? %>
+          <div data-menu-group="manage">
+            <%= nav_heading "Manage" %>
+            <% my_gatherpack_menu.manage.each do |item| %>
+              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+            <% end %>
+          </div>
+        <% end %>
+
+        <% if admin? %>
+          <hr class="my-2">
+
+          <div data-menu-group="admin">
+            <%= nav_heading "Automation" %>
+
+            <%= nav_link "Variables", variables_path, "database" %>
+            <%= nav_link "Reports", reports_path, "file-code" %>
+            <%= nav_link "Hooks", hooks_path, "timeline" %>
+
+            <%= nav_heading "Admin" %>
+
+            <%= nav_link "Setup", setup_path, "cogs" %>
+            <%= nav_link "Audit Log", audit_logs_path, "file-circle-check" %>
+            <%# The route comes from another feature, and only while it's on. %>
+            <% if GatherPack::Features.enabled?(:mcp) && respond_to?(:mcp_calls_path) %>
+              <%= nav_link "MCP Calls", mcp_calls_path, "robot" %>
+            <% end %>
+          </div>
+        <% end %>
+
+        <hr class="my-2">
+
+        <%= nav_link "Sign Out", destroy_user_session_path, "person-through-window", method: "delete" %>
+      </div>
+<%= render "layouts/sidebar_slots" %>
+      <footer class="col-12 footer-ad">
+        <a href="https://gatherpack.com" target="_blank">powered by <%= image_tag "logo.svg", alt: "GatherPack" %> GatherPack</a>
+        <%# The helper comes from another feature, when it's in this build. %>
+        <% if respond_to?(:gatherpack_version) && gatherpack_version %>
+          <div class="app-version" title="<%= gatherpack_revision %>"><%= gatherpack_version %></div>
+        <% end %>
+      </footer>
+    </div>
+  </div>
+</div>
