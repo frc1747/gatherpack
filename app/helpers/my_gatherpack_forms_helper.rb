@@ -19,7 +19,7 @@ module MyGatherpackFormsHelper
       detail: ward ? "#{due} · You're their guardian" : due,
       at: entry.form.closes_at,
       path: form_entry_path(entry),
-      action: "Fill out",
+      action: entry.needs_viewer_signature? ? "Sign" : "Fill out",
       icon: "file-signature",
       ward: ward && (ward.first_name.presence || ward.identifier_name)
     )

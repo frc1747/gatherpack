@@ -64,15 +64,37 @@ class MyGatherpackFormsTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: /3 things to do/
   end
 
-  test "a form the person can't act on or has finished is left out" do
-    form = create_world_form("Meal Choices")
-    add_choice(form, "Meal", %w[ Beef Veg ])
-    respond(form, :a1, as: :a1, answers: {}, submit: false)
+  test "a finished form and one only a guardian fills in are left out, and so is one outside the audience" do
+    done = create_world_form("Finished")
+    add_choice(done, "Meal", %w[ Beef Veg ])
+    respond(done, :a1, as: :a1, answers: {})
+    create_world_form("Parents Only", respond: "guardians")
+    create_world_form("Open To A1")
+
+    sign_in person(:a1).user
+    get root_path
+    assert_equal [ "Open To A1" ], css_select(".mg-row-title").map { |title| title.text.squish }
+    assert_select "h1", text: /1 thing to do/
+
     sign_in person(:outsider).user
+    get root_path
+    assert_select ".mg-row", count: 0
+    assert_select "h1", text: /all caught up/
+  end
+
+  test "a row waiting only on the viewer's signature says Sign" do
+    form = create_world_form("Consent Form", closes_at: 2.days.from_now)
+    add_signature(form, signer: "guardian")
+    respond(form, :a1, as: :a1, answers: {})
+    sign_in person(:parent_a1).user
 
     get root_path
 
-    assert_select ".mg-row", text: /Meal Choices/, count: 0
+    assert_select ".mg-row", text: /Consent Form/ do
+      assert_select "a.btn", text: "Sign"
+      assert_select "a.btn", text: "Fill out", count: 0
+      assert_select "a[href=?]", form_response_path(form, person(:a1))
+    end
   end
 
   test "a leader's waiting forms show with Open and the Forms page's link" do
@@ -106,10 +128,10 @@ class MyGatherpackFormsTest < ActionDispatch::IntegrationTest
   end
 
   test "a Forms creator gets Manage without managing a team; others don't" do
-    badge = create_world_badge("Student Leader")
+    badge = create_world_badge("Form Creator")
     BadgeAssignment.create!(badge: badge, person: person(:a1))
 
-    with_settings(forms_creator_badge: "Student Leader") do
+    with_settings(forms_creator_badge: "Form Creator") do
       assert MyGatherpack::Menu.new(person(:a1).user).manages_anything?
       assert_not MyGatherpack::Menu.new(person(:a2).user).manages_anything?
       assert_equal [ "Forms" ], MyGatherpack::Menu.new(person(:a1).user).manage.map(&:label)
