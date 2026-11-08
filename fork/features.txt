@@ -63,6 +63,7 @@ feature/modern-skin
 feature/smooth-pages
 feature/my-gatherpack
 feature/installable-app
+feature/phone-notifications
 feature/my-gatherpack-forms
 feature/my-gatherpack-signups
 feature/my-gatherpack-checklists
