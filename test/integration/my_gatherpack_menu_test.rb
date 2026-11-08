@@ -229,6 +229,13 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the sidebar logo keeps its proportions" do
+    sign_in @member
+    get root_path
+
+    assert_select "[data-site-brand] img.w-auto[height='32']"
+  end
+
   test "sidebar slots and root attributes still render" do
     ActionController::Base.prepend_view_path(Rails.root.join("test/fixtures/views"))
     GatherPack::SidebarSlots.register(:early, partial: "sidebar_slots_test/early")
