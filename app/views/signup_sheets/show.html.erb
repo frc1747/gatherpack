@@ -1,0 +1,44 @@
+<% breadcrumb @signup_sheet %>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h1><%= @signup_sheet.title %></h1>
+    <% unless @signup_sheet.open? %>
+      <span class="badge text-bg-secondary"><%= @signup_sheet.status.humanize %></span>
+    <% end %>
+    <%= @signup_sheet.team.name %>
+  </div>
+  <div class="card-body">
+    <% if @signup_sheet.draft? %>
+      <div class="alert alert-info">This sheet is a draft. Members can't see it yet.</div>
+    <% elsif @signup_sheet.closed? %>
+      <div class="alert alert-info">Sign-ups are closed.</div>
+    <% elsif @signup_sheet.archived? %>
+      <div class="alert alert-info">This sheet is archived.</div>
+    <% end %>
+    <%= md @signup_sheet.description if @signup_sheet.description.present? %>
+    <% if @signup_sheet.contact.present? %>
+      <p><strong>Contact:</strong> <%= @signup_sheet.contact %></p>
+    <% end %>
+  </div>
+  <% if policy(@signup_sheet).update? %>
+    <div class="card-footer">
+      <%= link_to "Set up", edit_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= link_to "Roster", roster_signup_sheet_path(@signup_sheet), class: "btn btn-info" if policy(@signup_sheet).roster? %>
+      <%= link_to policy(@signup_sheet).destroy? ? "Delete" : "Archive", @signup_sheet, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } unless @signup_sheet.archived? %>
+    </div>
+  <% end %>
+</div>
+
+<%= render "member_signups", signups: @my_signups if @my_signups.any? %>
+
+<%# Panels other features add (Signups.extensions). %>
+<% Signups.extensions.sheet_panels.each do |panel| %>
+  <%= render panel.partial, signup_sheet: @signup_sheet, viewer: @viewer %>
+<% end %>
+
+<% if @events.any? %>
+  <%= render partial: "sheet_date", collection: @events, as: :event %>
+<% else %>
+  <p>No dates yet.</p>
+<% end %>
