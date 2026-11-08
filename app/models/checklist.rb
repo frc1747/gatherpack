@@ -120,10 +120,6 @@ class Checklist < ApplicationRecord
     self.class.organizer_team_ids(person).include?(team_id)
   end
 
-  def word_for(status)
-    { "met" => met_word, "pending" => pending_word, "not_met" => not_met_word }[status.to_s].presence || Checklists.word_for(status)
-  end
-
   def window
     Checklists::Window.for(self, Checklists::Context.as_of_for(self, Time.current))
   end
@@ -140,7 +136,7 @@ class Checklist < ApplicationRecord
 
   # People whose stored overall is accepted. Strict by default (spec
   # §10.3): :met takes met and exempt overalls; pass [:met, :pending] to take
-  # people who are almost done too. Only people the checklist covers have an
+  # people who are in progress too. Only people the checklist covers have an
   # overall, so people it doesn't cover never meet it. A relation, so it
   # combines with other scopes.
   def people_meeting(accept: :met)

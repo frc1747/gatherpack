@@ -214,7 +214,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       patch checklist_checklist_item_path(@checklist, @safety_item), params: { checklist_item: { label: "Safety", config: { badge_ids: [ @viewer_badge.id ] } } }
 
       assert_response :unprocessable_entity
-      assert_match "would go from Done to Not yet: Member World", response.body
+      assert_match "would go from Complete to Not Started: Member World", response.body
       assert_equal [ @safety.id ], @safety_item.reload.config["badge_ids"]
 
       patch checklist_checklist_item_path(@checklist, @safety_item), params: { confirmed: "1", checklist_item: { label: "Safety", config: { badge_ids: [ @viewer_badge.id ] } } }
@@ -231,7 +231,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       end
       assert_response :success
       assert_match "Holds Report Viewer", response.body
-      assert_match "Not yet", response.body
+      assert_match "Not Started", response.body
     end
   end
 
@@ -551,7 +551,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       sign_in person(:admin).user
       post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
       assert_response :unprocessable_entity
-      assert_match "would go from Done to not covered: Member World", response.body
+      assert_match "would go from Complete to not covered: Member World", response.body
       assert_not @checklist.checklist_rules.exists?(person: person(:member))
 
       post checklist_checklist_rules_path(@checklist), params: { confirmed: "1", checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
@@ -581,7 +581,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       sign_in person(:admin).user
       delete checklist_checklist_item_path(@checklist, @safety_item)
       assert_response :unprocessable_entity
-      assert_match "would go from Not yet to Done", response.body
+      assert_match "would go from Not Started to Complete", response.body
       assert ChecklistItem.exists?(@safety_item.id)
 
       delete checklist_checklist_item_path(@checklist, @safety_item), params: { confirmed: "1" }

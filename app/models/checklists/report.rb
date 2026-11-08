@@ -78,7 +78,7 @@ module Checklists
 
     private
 
-    # Not done first, then by the number of unmet items, then name.
+    # Not complete first, then by the number of unmet items, then name.
     def sorted(list)
       order = { "not_met" => 0, "pending" => 1, "met" => 2, "exempt" => 3 }
       list.sort_by do |status|

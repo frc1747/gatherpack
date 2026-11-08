@@ -172,7 +172,7 @@ module Checklists
       # counting items they may see, so neither gives the answer away.
       #
       # Answer true (or :full) to show the result as usual, :status to show
-      # only its status (Done, Not yet, a label such as "Excused") with no
+      # only its status (Complete, Not Started, a label such as "Excused") with no
       # summary, detail, measures or fix, or false to hide it.
       def visible_to?(_item, _viewer, _person)
         true

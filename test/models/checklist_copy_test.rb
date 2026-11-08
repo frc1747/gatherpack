@@ -119,7 +119,7 @@ class ChecklistCopyTest < ActiveSupport::TestCase
     impact = Checklists::Impact.new(@checklist, items: [ @checklist.checklist_items.new(id: SecureRandom.uuid, kind: "has_login", label: "Login") ])
 
     sentence = impact.sentences.join
-    assert_match "would go from Not yet to Done", sentence
+    assert_match "would go from Not Started to Complete", sentence
     assert_match "MemberTwo World", sentence
   end
 end

@@ -25,11 +25,6 @@
     <div class="col-md-6">
       <%= render "checklists/dates_fields", f: f, record: checklist, allow_inherit: false %>
       <%= f.input :cutoff_on, as: :date, html5: true, label: "Count up to", hint: "Optional. After this day, results stay as they were then" %>
-      <div class="row">
-        <div class="col"><%= f.input :met_word, label: "Word for done", placeholder: "Done" %></div>
-        <div class="col"><%= f.input :pending_word, label: "Word for almost", placeholder: "Almost" %></div>
-        <div class="col"><%= f.input :not_met_word, label: "Word for not yet", placeholder: "Not yet" %></div>
-      </div>
     </div>
   </div>
 

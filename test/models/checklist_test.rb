@@ -27,13 +27,19 @@ class ChecklistTest < ActiveSupport::TestCase
     assert login
   end
 
-  test "the checklist's words are for the overall; items keep the defaults" do
-    @checklist.update!(met_word: "Eligible", not_met_word: "Not eligible")
+  test "a status reads the same on the overall and on items" do
     item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
     status = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id]
 
-    assert_equal "Not eligible", status.overall.text
-    assert_equal "Not yet", status.item(item.id).text
+    assert_equal "Not Started", status.overall.text
+    assert_equal "Not Started", status.item(item.id).text
+  end
+
+  test "statuses have three fixed words, and exempt stays not counted" do
+    assert_equal "Complete", Checklists.word_for(:met)
+    assert_equal "In Progress", Checklists.word_for(:pending)
+    assert_equal "Not Started", Checklists.word_for(:not_met)
+    assert_equal "Not counted", Checklists.word_for(:exempt)
   end
 
   test "a checklist with no items is done for everyone it covers" do
@@ -50,7 +56,7 @@ class ChecklistTest < ActiveSupport::TestCase
     give_badge(:member, @viewer_badge)
     result = evaluate(@checklist, :member, group)
     assert_equal "met", result.status
-    assert_equal "Inner done", result.summary
+    assert_equal "Inner complete", result.summary
     assert_equal "met", evaluate(@checklist, :member, deep).status, "children are stored too"
     assert_equal "met", evaluate(@checklist, :member).status
   end
