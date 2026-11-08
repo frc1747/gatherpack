@@ -18,6 +18,11 @@ module ChecklistsFeature
     @checklist = policy_scope(Checklist).find(params[:checklist_id])
   end
 
+  # A section of the Edit page, where a checklist's parts are set up.
+  def checklist_section_path(section)
+    edit_checklist_path(@checklist, anchor: section)
+  end
+
   # Changes to an active checklist show their impact first, unless confirmed.
   def needs_confirmation?
     @checklist.active? && params[:confirmed].blank?
@@ -40,9 +45,10 @@ module ChecklistsFeature
   end
 
   # Shows what the change would do, with a button that repeats the request
-  # confirmed. fields are the request's params to send again.
-  def render_impact(impact, url:, method:, fields: {})
+  # confirmed. fields are the request's params to send again; cancel is
+  # where Cancel goes back to.
+  def render_impact(impact, url:, method:, cancel:, fields: {})
     render "checklists/confirm", status: :unprocessable_entity,
-      locals: { impact: impact, url: url, method: method, fields: fields }
+      locals: { impact: impact, url: url, method: method, cancel: cancel, fields: fields }
   end
 end
