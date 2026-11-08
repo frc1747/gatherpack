@@ -72,7 +72,18 @@ module MyGatherpackHelper
     count = my_gatherpack_rows(:todo).size
     status = count.zero? ? "You're all caught up." : "You have #{pluralize(count, "thing")} to do."
     name = current_user.person.first_name
-    name.present? ? "Hi #{name}. #{status}" : status
+    return status if name.blank?
+
+    # A phone says only the name: the To do heading carries the count.
+    safe_join([ "Hi #{name}", tag.span(". #{status}", class: "d-none d-md-inline") ])
+  end
+
+  # The person's photo, or their initials when they haven't added one.
+  def my_gatherpack_avatar(person, css: nil)
+    return image_tag(get_avatar_url_64(person.avatar), alt: "", class: [ "mg-avatar", css ]) if person.avatar.attached?
+
+    initials = [ person.first_name, person.last_name ].compact_blank.map(&:first).join.upcase
+    tag.span(initials, class: [ "mg-avatar", css ], "aria-hidden": true)
   end
 
   def my_gatherpack_clocked_in_status
@@ -81,7 +92,7 @@ module MyGatherpackHelper
     since = current_user.person.time_clock_punches.still_clocked_in.maximum(:start_time)
     return unless since
 
-    "Clocked in since #{since.strftime(since.to_date == Date.current ? "%-I:%M %p" : "%b %-d, %-I:%M %p")}"
+    safe_join([ "Clocked in", tag.span(" since #{since.strftime(since.to_date == Date.current ? "%-I:%M %p" : "%b %-d, %-I:%M %p")}", class: "d-none d-md-inline") ])
   end
 
   def my_gatherpack_event_items

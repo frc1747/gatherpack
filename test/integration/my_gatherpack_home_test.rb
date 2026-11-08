@@ -122,6 +122,32 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_select ".mg-status", false
   end
 
+  test "the person sits at the foot of the sidebar, shown by initials without a photo" do
+    get root_path
+
+    assert_select ".mg-sidebar-foot .mg-sidebar-person[href=?]", person_path(@member.person)
+    assert_select ".mg-sidebar-foot span.mg-avatar", text: @member.person.first_name.first.upcase + @member.person.last_name.first.upcase
+  end
+
+  test "home has search at the top and hides the sidebar's" do
+    get root_path
+
+    assert_select ".mg-home-tools form[role=search][action=?] input[name=q]", search_path
+  end
+
+  test "a to-do row is marked when it's due soon, and carries one link with its label" do
+    item = MyGatherpack::Item.new(title: "Soon", detail: "Due Friday", at: 2.days.from_now, path: "/x", action: "Fill out", icon: "file")
+    later = MyGatherpack::Item.new(title: "Later", detail: "Due next month", at: 30.days.from_now, path: "/y", action: "Open", icon: "file")
+    assert item.due_soon?
+    assert_not later.due_soon?
+
+    html = ApplicationController.render(partial: "my_gatherpack/todo_row", locals: { item: item, first: true })
+    fragment = Nokogiri::HTML.fragment(html)
+    assert fragment.at_css(".mg-row-icon-soon")
+    assert_equal "Fill out", fragment.at_css("a.mg-row-action .mg-row-action-label").text
+    assert fragment.at_css("a.mg-row-action .mg-row-chevron")
+  end
+
   test "widget slots still render in their placements" do
     get root_path
 

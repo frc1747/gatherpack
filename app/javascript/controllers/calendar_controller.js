@@ -1,6 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 import FullCalendar from "fullcalendar"
 
+// The one-row toolbar needs about 510 px, a little more for a long title.
+const TOOLBAR_MIN_WIDTH = 520
+
 // Connects to data-controller="calendar"
 export default class extends Controller {
   static values = {
@@ -16,19 +19,16 @@ export default class extends Controller {
 
   connect() {
     const calendarEl = document.getElementById("calendar")
+    const width = calendarEl.getBoundingClientRect().width
     const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: this.get_initial_view(calendarEl.getBoundingClientRect().width),
+      initialView: this.get_initial_view(width),
       editable: false,
       fixedWeekCount: false,
       weekNumbers: true,
       dayMaxEventRows: true,
       timeZone: this.timezoneValue,
 
-      headerToolbar: {
-        left: "prev,next today",
-        center: "title",
-        right: "listMonth,dayGridMonth,timeGridWeek"
-      },
+      ...this.get_toolbars(width),
 
       buttonText: {
         today: "Today",
@@ -90,6 +90,24 @@ export default class extends Controller {
   get_initial_view(width) {
     let default_value = width >= 570 ? "dayGridMonth" : "listMonth"
     return this.defaultViewValue || default_value
+  }
+
+  // On a narrow screen the view buttons move below the title so nothing is cut off.
+  get_toolbars(width) {
+    if (width >= TOOLBAR_MIN_WIDTH) {
+      return {
+        headerToolbar: {
+          left: "prev,next today",
+          center: "title",
+          right: "listMonth,dayGridMonth,timeGridWeek"
+        }
+      }
+    }
+
+    return {
+      headerToolbar: { left: "prev,next today", center: "", right: "title" },
+      footerToolbar: { center: "listMonth,dayGridMonth,timeGridWeek" }
+    }
   }
 
   get_view_settings() {
