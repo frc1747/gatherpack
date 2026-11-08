@@ -16,9 +16,41 @@ class FormAutoReminderJobTest < ActiveSupport::TestCase
     @sandwich = add_choice(@form, "Sandwich", [ "Slim 1", "Slim 4" ], required: true)
   end
 
-  test "new forms start at three days and the column defaults to none" do
-    assert_equal 3, Form.new.auto_reminder_days
+  test "new forms start at three days while the flag is on, and at none while it's off" do
+    with_reminders { assert_equal 3, Form.new.auto_reminder_days }
+    assert_equal 0, Form.new.auto_reminder_days
     assert_equal 0, Form.columns_hash["auto_reminder_days"].default.to_i
+  end
+
+  test "turning the flag on sends nothing for a form made while it was off" do
+    @form.update!(auto_reminder_days: 0)
+    form = create_world_form("Made Off", closes_at: 2.days.from_now)
+    assert_equal 0, form.auto_reminder_days
+    assert_no_enqueued_jobs only: SendEmailJob do
+      run_job
+    end
+    assert_equal 0, form.form_reminders.count
+  end
+
+  test "a copy gets its own reminder once its deadline is set" do
+    run_job
+    copy = @form.reload.duplicate!(title: "Copy")
+    assert copy.auto_reminded_at
+    copy.update!(closes_at: 2.days.from_now, status: :open)
+    assert_nil copy.reload.auto_reminded_at
+    assert copy.auto_reminder_at
+  end
+
+  test "a deadline cleared and set again re-arms it" do
+    run_job
+    @form.reload.update!(closes_at: nil)
+    @form.update!(closes_at: 2.days.from_now)
+    assert_nil @form.reload.auto_reminded_at
+  end
+
+  test "a draft shows when its reminder would go out" do
+    draft = create_world_form("Draft", status: :draft, closes_at: 5.days.from_now, auto_reminder_days: 3)
+    assert_in_delta (5.days.from_now - 3.days).to_f, draft.auto_reminder_at.to_f, 5
   end
 
   test "sends once inside the window, recorded as automatic" do

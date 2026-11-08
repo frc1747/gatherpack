@@ -7,8 +7,12 @@
 <% if GatherPack::Features.enabled?(:forms_auto_reminders) && form.closes_at %>
   <div class="row">
     <div class="col-md-6">
-      <%= f.input :auto_reminder_days, as: :integer, label: "Remind people who haven't answered this many days before the deadline",
-            hint: "Emails them once. 0 for no reminder.", input_html: { min: 0, max: 60 } %>
+      <%= f.label :auto_reminder_days, class: "form-label" do %>
+        Remind people who haven't answered
+        <%= f.number_field :auto_reminder_days, min: 0, max: 60, class: "form-control d-inline-block w-auto mx-1" %>
+        days before the deadline.
+      <% end %>
+      <div class="form-text">Emails them once. 0 for no reminder.</div>
     </div>
   </div>
 <% end %>

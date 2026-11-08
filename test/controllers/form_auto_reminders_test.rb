@@ -20,6 +20,7 @@ class FormAutoRemindersTest < ActionDispatch::IntegrationTest
       as(:admin) do
         get edit_form_path(@form, tab: "responses")
         assert_select "input[name='form[auto_reminder_days]'][value='3']"
+        assert_match(/Remind people who haven't answered/, response.body)
       end
     end
   end
@@ -62,6 +63,16 @@ class FormAutoRemindersTest < ActionDispatch::IntegrationTest
         @form.update!(auto_reminder_days: 0)
         get form_path(@form)
         assert_no_match(/automatic reminder/, response.body)
+      end
+    end
+  end
+
+  test "a draft says a reminder is set" do
+    @form.update!(status: :draft)
+    with_feature do
+      as(:admin) do
+        get form_path(@form)
+        assert_match(/An automatic reminder goes out .* to people who haven't answered/, response.body)
       end
     end
   end

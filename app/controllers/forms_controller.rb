@@ -252,12 +252,12 @@ class FormsController < InternalController
     def form_params
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
         :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id, :totals_visibility, :leader_todo ]
-      permitted << :auto_reminder_days if GatherPack::Features.enabled?(:forms_auto_reminders)
       # A completion badge marks people's status, so only admins set it.
       # Neither badge setting changes while Badges are turned off.
       badges = GatherPack::Features.enabled?(:badges)
       permitted << :completion_badge_id if current_user.admin? && badges
       permitted.delete(:audience_badge_id) unless badges
+      permitted << :auto_reminder_days if GatherPack::Features.enabled?(:forms_auto_reminders)
       permitted << :key if @form.nil? || @form.new_record?
       # Who is asked and who may answer decide who gets a completion badge
       # (FormPolicy#change_audience?).
