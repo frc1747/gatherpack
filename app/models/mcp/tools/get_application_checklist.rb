@@ -1,5 +1,5 @@
 # An application's checklist as managers see it beside the application
-# (app/views/intake/membership_applications/_details and _checklist): "4 of 6 done", what it
+# (app/views/intake/membership_applications/_details and _checklist): "4 of 6 complete", what it
 # is waiting for, each item with its status, summary and who has to do it, and whether
 # approval waits. Shown to people who decide the application (policy update?, as the
 # partial's `decides`), so the applicant gets "Not allowed" and anyone who can't see the
@@ -24,7 +24,7 @@ class Mcp::Tools::GetApplicationChecklist < Mcp::Tool
   }.freeze
 
   tool_name "get_application_checklist"
-  description "An application's checklist, as managers see it beside the application: how many items are done, what it is waiting for, " \
+  description "An application's checklist, as managers see it beside the application: how many items are complete, what it is waiting for, " \
     "each item with who has to act, and whether approval waits for it. checklist is null when there is nothing to show."
   scope :read
   feature :intake
@@ -38,7 +38,7 @@ class Mcp::Tools::GetApplicationChecklist < Mcp::Tool
       application: Mcp::MembershipApplicationRecords::SCHEMA,
       checklist: { type: %w[object null], properties: { id: { type: "string" }, title: { type: "string" } }, required: %w[id title] },
       overall: { anyOf: [ { type: "object", properties: { status: { type: "string" }, text: { type: "string" } }, required: %w[status text] }, { type: "null" } ] },
-      counts: { type: %w[string null], description: "\"4 of 6 done\"" },
+      counts: { type: %w[string null], description: "\"4 of 6 complete\"" },
       waiting_for: { type: "array", items: { type: "string" } },
       approval_waits: { type: "boolean" },
       items: { type: "array", items: ITEM_SCHEMA }

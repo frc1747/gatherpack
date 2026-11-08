@@ -1,7 +1,7 @@
 # What approving and denying share while registration (feature :intake) is on, the rules
 # Intake::ApplicationDecisions and Intake::ApplicationGating add to the applications page and
 # Intake::BulkDecisionsController applies to its rows: nobody decides their own application
-# or a relative's, a checklist the registration waits for must be done, and an approval
+# or a relative's, a checklist the registration waits for must be complete, and an approval
 # can add people to teams and badges, which the call's records should list.
 module Mcp::IntakeDecisions
   OWN_MESSAGE = "You can't decide your own application or a relative's.".freeze

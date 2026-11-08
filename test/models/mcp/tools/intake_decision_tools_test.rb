@@ -169,7 +169,7 @@ class Mcp::Tools::IntakeDecisionToolsTest < ActionDispatch::IntegrationTest
     assert_equal "denied", decide(:leader, @application, "denied").value["status"]
   end
 
-  test "an approval goes ahead once the checklist is done" do
+  test "an approval goes ahead once the checklist is complete" do
     gate_approval
     attest(@applicant)
     Checklists::Refresher.new(checklist.reload).call
@@ -237,7 +237,7 @@ class Mcp::Tools::IntakeDecisionToolsTest < ActionDispatch::IntegrationTest
     result = bulk(:leader, [ @application, done_application ], "approved")
 
     assert_equal [ done_application.neat_id ], result.value["changed"].map { |row| row["id"] }
-    assert_equal [ { "id" => @application.neat_id, "reason" => "Checklist not done" } ], result.value["skipped"]
+    assert_equal [ { "id" => @application.neat_id, "reason" => "Checklist not complete" } ], result.value["skipped"]
     assert done_application.reload.approved?
     assert @application.reload.pending?
     assert_includes done.teams, @everyone
@@ -321,7 +321,7 @@ class Mcp::Tools::IntakeDecisionToolsTest < ActionDispatch::IntegrationTest
 
     result = tool("get_application_checklist", :leader, membership_application_id: @application.neat_id)
 
-    assert_equal "1 of 2 done", result.value["counts"]
+    assert_equal "1 of 2 complete", result.value["counts"]
     assert_equal({ "id" => checklist.neat_id, "title" => "Joining" }, result.value["checklist"])
     assert_equal [ "Team agreement" ], result.value["waiting_for"]
     assert result.value["approval_waits"]
@@ -338,13 +338,13 @@ class Mcp::Tools::IntakeDecisionToolsTest < ActionDispatch::IntegrationTest
     sign_in @leader.user
     with_checklists { get applications_team_path(@juniors) }
     sign_out @leader.user
-    assert_select "summary", text: /1 of 1 done|0 of 1 done/
+    assert_select "summary", text: /1 of 1 complete|0 of 1 complete/
 
-    assert_equal "0 of 1 done", tool("get_application_checklist", :leader, membership_application_id: @application.neat_id).value["counts"]
-    assert_select "summary", text: /0 of 1 done/
+    assert_equal "0 of 1 complete", tool("get_application_checklist", :leader, membership_application_id: @application.neat_id).value["counts"]
+    assert_select "summary", text: /0 of 1 complete/
   end
 
-  test "get_application_checklist says approval no longer waits once it's done" do
+  test "get_application_checklist says approval no longer waits once it's complete" do
     gate_approval
     attest(@applicant)
     Checklists::Refresher.new(checklist.reload).call

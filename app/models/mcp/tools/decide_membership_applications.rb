@@ -4,7 +4,7 @@
 # is decided on its own as decide_membership_application would, and the ones that can't be
 # are skipped with why, the others still going ahead. The page skips, by its words:
 # an application the person can't decide ("not yours to decide": policy update?), their own
-# or a relative's, an approval whose checklist isn't done, and one with a required pick-one team,
+# or a relative's, an approval whose checklist isn't complete, and one with a required pick-one team,
 # which is made one at a time (decide_membership_application with pick_team_id). Deny keeps
 # one reason for all, for any application, as the page does. Others the page leaves out
 # silently (not pending, not on this team); here a decided one is skipped as already decided and
@@ -53,7 +53,7 @@ class Mcp::Tools::DecideMembershipApplications < Mcp::Tool
     raise Mcp::InvalidArgument, "Yours or a relative's" if own_or_relative?(application)
 
     if decision == "approved"
-      raise Mcp::InvalidArgument, "Checklist not done" if gate_reason(application)
+      raise Mcp::InvalidArgument, "Checklist not complete" if gate_reason(application)
       raise Mcp::InvalidArgument, "Choose a team" if pick_required?(application)
     end
     # What approve! or deny! would raise, asked first as the single tool does, so a dry run lists the same rows.
