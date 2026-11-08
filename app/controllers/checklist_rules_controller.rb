@@ -13,7 +13,7 @@ class ChecklistRulesController < InternalController
     end
 
     if rule.save
-      redirect_to setup_path(rule), notice: "Rule added.", status: :see_other
+      redirect_to setup_path(rule), notice: saved_notice("Rule added."), status: :see_other
     else
       redirect_to setup_path(rule), alert: rule.errors.full_messages.to_sentence, status: :see_other
     end
@@ -28,10 +28,14 @@ class ChecklistRulesController < InternalController
     end
 
     rule.destroy!
-    redirect_to setup_path(rule), notice: "Rule removed.", status: :see_other
+    redirect_to setup_path(rule), notice: saved_notice("Rule removed."), status: :see_other
   end
 
   private
+
+  def saved_notice(text)
+    @checklist.results_frozen? ? "#{text} It applies when you Recompute." : text
+  end
 
   # The impact of adding or removing the rule, evaluated in memory.
   def rule_impact(rule, change)

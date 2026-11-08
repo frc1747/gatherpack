@@ -196,7 +196,7 @@ module ChecklistsTestKinds
     end
   end
 
-  # A kind like hours: everyone who may see the item sees Done or Not yet,
+  # A kind like hours: everyone who may see the item sees Complete or Not Started,
   # but only the person and admins see the numbers.
   class StatusOnly < Checklists::ItemKind
     def self.visible_to?(_item, viewer, person)
