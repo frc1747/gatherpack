@@ -7,62 +7,70 @@
 }
 
 @mixin light-tokens {
-  --gp-brand: #1f883a;
-  --gp-brand-rgb: 31, 136, 58;
-  --gp-brand-hover: #18702f;
-  --gp-brand-hover-rgb: 24, 112, 47;
-  --gp-brand-soft: #e8f5ec;
+  // GatherPack's own greige ($greige-* in application.bootstrap.scss), with the
+  // page lightened so text and links on it reach 4.5:1.
+  --gp-brand: #6d6753;
+  --gp-brand-rgb: 109, 103, 83;
+  --gp-brand-hover: #57523f;
+  --gp-brand-hover-rgb: 87, 82, 63;
+  --gp-brand-soft: #ece7d7;
   --gp-on-brand: #fff;
+  --gp-success: #146c43;
+  --gp-success-rgb: 20, 108, 67;
+  --gp-success-soft: #dcebe0;
 
-  --gp-page: #f5f6f7;
-  --gp-page-rgb: 245, 246, 247;
-  --gp-surface: #fff;
-  --gp-surface-rgb: 255, 255, 255;
-  --gp-raised: #f0f2f4;
-  --gp-raised-rgb: 240, 242, 244;
-  --gp-subtle: #f7f8f9;
+  --gp-page: #ebe6d8;
+  --gp-page-rgb: 235, 230, 216;
+  --gp-surface: #fffdf6;
+  --gp-surface-rgb: 255, 253, 246;
+  --gp-raised: #f3efe3;
+  --gp-raised-rgb: 243, 239, 227;
+  --gp-subtle: #f6f3e9;
 
-  --gp-border: #e3e6e9;
-  --gp-input-border: #cfd4d9;
-  --gp-text: #1c2024;
-  --gp-text-rgb: 28, 32, 36;
-  --gp-text-soft: #3a4047;
-  --gp-muted: #60676e;
-  --gp-muted-rgb: 96, 103, 110;
+  --gp-border: #ddd7c2;
+  --gp-input-border: #958e76;
+  --gp-text: #2b2716;
+  --gp-text-rgb: 43, 39, 22;
+  --gp-text-soft: #403a22;
+  --gp-muted: #635d49;
+  --gp-muted-rgb: 99, 93, 73;
 
-  --gp-shadow: 0 1px 2px rgba(16, 24, 40, .04);
-  --gp-shadow-raised: 0 8px 24px rgba(16, 24, 40, .08);
+  --gp-shadow: 0 1px 2px rgba(64, 58, 34, .06);
+  --gp-shadow-raised: 0 8px 24px rgba(64, 58, 34, .12);
   --gp-logo-tile: transparent;
   --gp-icon-invert: 0;
 }
 
 @mixin dark-tokens {
-  --gp-brand: #2ea043;
-  --gp-brand-rgb: 46, 160, 67;
-  --gp-brand-hover: #3fb950;
-  --gp-brand-hover-rgb: 63, 185, 80;
-  --gp-brand-soft: #16301f;
-  --gp-on-brand: #0f1216;
+  --gp-brand: #c2baa1;
+  --gp-brand-rgb: 194, 186, 161;
+  --gp-brand-hover: #d6cfb8;
+  --gp-brand-hover-rgb: 214, 207, 184;
+  --gp-brand-soft: #3a3528;
+  --gp-on-brand: #1f1c12;
+  --gp-success: #4cc38a;
+  --gp-success-rgb: 76, 195, 138;
+  --gp-success-soft: #17382a;
 
-  --gp-page: #0f1216;
-  --gp-page-rgb: 15, 18, 22;
-  --gp-surface: #1a1e24;
-  --gp-surface-rgb: 26, 30, 36;
-  --gp-raised: #232830;
-  --gp-raised-rgb: 35, 40, 48;
-  --gp-subtle: #232830;
+  --gp-page: #1c1a12;
+  --gp-page-rgb: 28, 26, 18;
+  --gp-surface: #27241a;
+  --gp-surface-rgb: 39, 36, 26;
+  --gp-raised: #322e22;
+  --gp-raised-rgb: 50, 46, 34;
+  --gp-subtle: #322e22;
 
-  --gp-border: #2d333b;
-  --gp-input-border: #3a414a;
-  --gp-text: #e6e9ed;
-  --gp-text-rgb: 230, 233, 237;
-  --gp-text-soft: #c5ccd3;
-  --gp-muted: #9aa4af;
-  --gp-muted-rgb: 154, 164, 175;
+  --gp-border: #454032;
+  --gp-input-border: #7f7963;
+  --gp-text: #f3efe3;
+  --gp-text-rgb: 243, 239, 227;
+  --gp-text-soft: #ddd7c2;
+  --gp-muted: #b5ae97;
+  --gp-muted-rgb: 181, 174, 151;
 
   --gp-shadow: 0 1px 2px rgba(0, 0, 0, .4);
   --gp-shadow-raised: 0 8px 24px rgba(0, 0, 0, .5);
-  --gp-logo-tile: #f2f4f6;
+  --gp-logo-tile: #f3efe3;
   --gp-icon-invert: 1;
 }
 
@@ -75,8 +83,12 @@
 
   --bs-primary: var(--gp-brand);
   --bs-primary-rgb: var(--gp-brand-rgb);
-  --bs-success: var(--gp-brand);
-  --bs-success-rgb: var(--gp-brand-rgb);
+  --bs-primary-bg-subtle: var(--gp-brand-soft);
+  --bs-primary-text-emphasis: var(--gp-brand-hover);
+  --bs-success: var(--gp-success);
+  --bs-success-rgb: var(--gp-success-rgb);
+  --bs-success-bg-subtle: var(--gp-success-soft);
+  --bs-success-text-emphasis: var(--gp-success);
   --bs-secondary-rgb: var(--gp-muted-rgb);
   --bs-link-color: var(--gp-brand);
   --bs-link-color-rgb: var(--gp-brand-rgb);
