@@ -1,0 +1,9 @@
+<% if GatherPack::Features.enabled?(:installable_app) %>
+  <%= javascript_tag nonce: true do %>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("<%= pwa_service_worker_path %>").catch(function () {})
+      })
+    }
+  <% end %>
+<% end %>

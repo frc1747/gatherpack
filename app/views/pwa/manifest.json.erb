@@ -1,7 +1,11 @@
 <% theme = Theme.instance %>
+<% installable = GatherPack::Features.enabled?(:installable_app) %>
 {
+<% if installable %>
+  "id": "/",
+<% end %>
   "name": "<%= Settings[:title] %>",
-  "short_name": "",
+  "short_name": <%= raw json_escape((installable ? (Settings[:pwa_short_name].presence || Settings[:title]).to_s.first(12) : "").to_json) %>,
   "icons": [
     {
       "src": "<%= theme.pwa_icon_192 ? url_for(theme.pwa_icon_192) : "/android-chrome-192x192.png" %>",
@@ -19,5 +23,5 @@
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
-  "description": "Get together with GatherPack"
+  "description": <%= raw json_escape((Settings[:pwa_description].presence || "Get together with GatherPack").to_json) %>
 }
