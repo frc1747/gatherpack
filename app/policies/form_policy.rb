@@ -53,6 +53,16 @@ class FormPolicy < ApplicationPolicy
     user.admin
   end
 
+  # Who a form asks and who may answer for them decide who gets its
+  # completion badge, so once it has one only admins change them.
+  def change_audience?
+    manage? && !audience_locked?
+  end
+
+  def audience_locked?
+    !user.admin && record.completion_badge_id_in_database.present?
+  end
+
   # Admins, managers of the form's team or a team above it, and the form's
   # creator while they hold the creator badge.
   def manage?
