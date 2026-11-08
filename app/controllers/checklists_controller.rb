@@ -104,7 +104,7 @@ class ChecklistsController < InternalController
 
   # POST /checklists/1/refresh: recompute everyone now, silently.
   def refresh
-    Checklists::Refresher.new(@checklist, silent: true).call
+    Checklists::Refresher.new(@checklist, silent: true, recompute: true).call
     redirect_to @checklist, notice: "Results recomputed.", status: :see_other
   end
 
@@ -122,7 +122,7 @@ class ChecklistsController < InternalController
 
   def needs_confirmation?
     super &&
-      (@checklist.changed & %w[team_id starts_on starts_within_amount starts_within_unit ends_on cutoff_on]).any?
+      (@checklist.changed & %w[team_id starts_on starts_within_amount starts_within_unit ends_on]).any?
   end
 
   def parse_date(value)
@@ -133,7 +133,7 @@ class ChecklistsController < InternalController
 
   def checklist_params
     permitted = params.require(:checklist).permit(:title, :description, :team_id, :starts_on, :starts_within_amount,
-      :starts_within_unit, :ends_on, :cutoff_on, :status, :read_level, :met_word, :pending_word, :not_met_word, :start_mode)
+      :starts_within_unit, :ends_on, :status, :read_level, :start_mode)
     mode = permitted.delete(:start_mode)
     if mode == "within"
       permitted[:starts_on] = nil
