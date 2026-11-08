@@ -12,7 +12,7 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :audit_logs, only: %i[index show destroy] do
+  resources :audit_logs, only: %i[index show] do
     post "revert", to: "audit_logs#revert", on: :member
   end
 
@@ -23,7 +23,9 @@ Rails.application.routes.draw do
   resources :variables
 
   resources :teams do
-    resources :memberships
+    resources :memberships do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show update]
     member do
       get :badges if GatherPack::Features.enabled?(:badges)
@@ -35,9 +37,55 @@ Rails.application.routes.draw do
 
   resources :team_types
   resources :relationship_types
+  resources :person_fields do
+    collection do
+      get :preview
+      post :apply_recommended
+    end
+    member do
+      patch :move
+      patch :archive
+      patch :restore
+    end
+  end
+  resources :person_field_groups do
+    member { patch :move }
+  end
+  resources :forms do
+    collection { get :print_list }
+    member do
+      post :open
+      post :close
+      post :archive
+      post :duplicate
+      get :reminder
+      post :remind
+      get :results
+      get :tally
+      get :preview
+      get :audience
+    end
+    resources :questions, controller: "form_questions", except: %i[index show] do
+      member { patch :move }
+    end
+    resources :responses, controller: "form_responses", param: :subject_id, only: %i[show edit update] do
+      member do
+        post :submit
+        post :discard
+        post :withdraw
+        post :sign
+      end
+      resources :submissions, controller: "form_submissions", only: %i[show]
+    end
+    resources :audience_rules, controller: "form_audience_rules", only: %i[create destroy]
+    resources :badge_grants, controller: "form_badge_grants", only: %i[create destroy]
+  end
+  get "people/:person_id/forms", to: "person_forms#show", as: :person_forms
 
   resources :people do
-    resources :memberships, only: %i[index new create destroy]
+    resources :memberships, only: %i[index new create destroy] do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show create destroy]
     resources :relationships, only: %i[new create destroy] do
       member do
@@ -63,7 +111,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:badges)
     resources :badges do
-      resources :badge_assignments
+      resources :badge_assignments do
+        get "candidates", on: :collection
+      end
     end
     resources :badge_types
   end
@@ -74,7 +124,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:events)
     resources :events do
-      resources :checkins, except: %i[index]
+      resources :checkins, except: %i[index] do
+        get "candidates", on: :collection
+      end
       member do
         get "arrange"
         get "print"
@@ -89,6 +141,32 @@ Rails.application.routes.draw do
     end
     resources :checkin_fields
     resources :event_types
+  end
+
+  # Drawn even while Sign-up Sheets are turned off; the controllers send
+  # people away then (SignupsFeature).
+  resources :signup_sheets do
+    member { get :roster }
+    resources :signup_positions, except: %i[index show] do
+      resources :signup_position_rules, only: %i[create update destroy]
+    end
+    resources :signup_sheet_organizers, only: %i[create destroy]
+    resources :signup_audience_rules, only: %i[create destroy]
+    resources :signup_sheet_events, only: %i[new create edit update destroy] do
+      collection { post :create_dates }
+    end
+    resources :signup_slots, only: %i[index update] do
+      collection { patch :update_all }
+    end
+    resources :signups, only: %i[new create edit update destroy]
+    resources :roster_signups, only: %i[new create edit update destroy] do
+      member do
+        patch :mark
+        patch :move
+      end
+      collection { patch :mark_all_brought }
+    end
+    resources :signup_messages, only: %i[new create]
   end
 
   if GatherPack::Features.enabled?(:time_tracking)
@@ -110,6 +188,15 @@ Rails.application.routes.draw do
     end
   end
 
+  # Always drawn; the controllers check the feature (default off).
+  resources :commitments do
+    post :message, on: :member
+    resources :commitment_sources, only: %i[new create edit update destroy]
+    resources :commitment_adjustments, only: %i[new create destroy]
+    resources :commitment_organizers, only: %i[create destroy]
+  end
+  get "people/:person_id/commitments", to: "person_commitments#show", as: :person_commitments
+
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
     resources :ledger_transfers, only: %i[new create]
@@ -122,6 +209,7 @@ Rails.application.routes.draw do
           post "split"
           post "unsplit"
         end
+        resources :receipts, only: %i[show], controller: "ledger_entry_receipts"
       end
     end
   end
@@ -133,7 +221,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:mailboxes)
     resources :mailboxes do
-      resources :mailbox_messages, except: %i[index]
+      resources :mailbox_messages, except: %i[index] do
+        resources :attachments, only: %i[show], controller: "mailbox_message_attachments"
+      end
     end
   end
 
@@ -152,7 +242,20 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :oauth_applications
+    resources :oauth_applications do
+      post :regenerate_secret, on: :member
+    end
+    resources :authorized_applications, only: %i[index destroy]
+
+    # MCP server (feature_mcp); its controllers answer 404 while the feature is off.
+    scope format: false do
+      post "mcp", to: "mcp#create", as: :mcp
+      match "mcp", to: "mcp#method_not_allowed", via: %i[get delete]
+      get "mcp/calls", to: "mcp/calls#index", as: :mcp_calls
+      get ".well-known/oauth-protected-resource", to: "mcp/metadata#protected_resource"
+      get ".well-known/oauth-protected-resource/mcp", to: "mcp/metadata#protected_resource"
+      get ".well-known/oauth-authorization-server", to: "mcp/metadata#authorization_server"
+    end
   end
 
   if GatherPack::Features.enabled?(:qa)

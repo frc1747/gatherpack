@@ -37,7 +37,21 @@ class Api::V1::UserInfoControllerTest < ActionDispatch::IntegrationTest
 
     json = response.parsed_body
     assert_equal @user.email, json["email"]
-    assert_equal true, json["email_verified"]
+    assert_equal false, json["email_verified"]
+  end
+
+  test "does not claim an address the member typed in is verified" do
+    @user.update!(email: "head-coach@example.com")
+    token = Doorkeeper::AccessToken.create!(resource_owner_id: @user.id, application_id: @oauth_app.id,
+                                            scopes: "user_read user_email", expires_in: 2.hours)
+
+    get "/api/v1/userinfo", headers: { Authorization: "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    json = response.parsed_body
+    assert_equal "head-coach@example.com", json["email"]
+    assert_not_equal true, json["email_verified"],
+      "userinfo asserts email_verified: true for an address nobody verified (member self-set head-coach@example.com)"
   end
 
   test "should not include email when token lacks user_email scope" do
@@ -58,6 +72,31 @@ class Api::V1::UserInfoControllerTest < ActionDispatch::IntegrationTest
       assert_equal @user.person.display_name, json["preferred_username"]
       assert json["profile"].present?
     end
+  end
+
+  test "a user_read-only token does not reveal the member's roles" do
+    architect = User.create!(email: "oauth-architect@example.com", password: "Password1!", admin: true, architect: true)
+    Person.create!(user: architect, first_name: "Test", last_name: "Architect")
+    token = Doorkeeper::AccessToken.create!(resource_owner_id: architect.id, application_id: @oauth_app.id,
+                                            scopes: "user_read", expires_in: 2.hours)
+
+    get "/api/v1/userinfo", headers: { Authorization: "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    assert_nil response.parsed_body["roles"],
+      "a user_read-only token got roles=#{response.parsed_body['roles'].inspect} (not covered by any consented scope)"
+  end
+
+  test "a roles_read token reveals the member's roles" do
+    architect = User.create!(email: "oauth-architect@example.com", password: "Password1!", admin: true, architect: true)
+    Person.create!(user: architect, first_name: "Test", last_name: "Architect")
+    token = Doorkeeper::AccessToken.create!(resource_owner_id: architect.id, application_id: @oauth_app.id,
+                                            scopes: "user_read roles_read", expires_in: 2.hours)
+
+    get "/api/v1/userinfo", headers: { Authorization: "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    assert_equal %w[admin architect], response.parsed_body["roles"]
   end
 
   test "should return 401 without token" do

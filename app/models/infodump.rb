@@ -28,7 +28,7 @@ class Infodump
   end
 
   def generate
-    md = Redcarpet::Markdown.new(Redcarpet::Render::HTML, autolink: true, no_intra_emphasis: true, fenced_code_blocks: true, lax_spacing: true)
+    helpers = ApplicationController.helpers
     @deliverable = false
     @announcements = []
     @person.all_teams.each do |team|
@@ -43,17 +43,17 @@ class Infodump
     @announcements.sort_by! { |a| [ a.team&.name, a.start_time.to_date, a.end_time.to_date ]  }
 
     @content = ""
-    @content << "<h1>#{Date.today.strftime("%B %d")} Updates for #{@person.display_name}</h1>"
+    @content << "<h1>#{Date.today.strftime("%B %d")} Updates for #{ERB::Util.h(@person.display_name)}</h1>"
     team = nil
     @announcements.each do |announcement|
       if announcement
         @deliverable = true
         if announcement.team != team
           team = announcement.team
-          @content << "<h2>#{team ? team.name : Settings[:title]}</h2>"
+          @content << "<h2>#{ERB::Util.h(team ? team.name : Settings[:title])}</h2>"
         end
 
-        @content << "<h3>#{announcement.title}</h3><div>#{md.render(announcement.content)}</div>"
+        @content << "<h3>#{ERB::Util.h(announcement.title)}</h3><div>#{helpers.md(announcement.content)}</div>"
       end
     end
   end

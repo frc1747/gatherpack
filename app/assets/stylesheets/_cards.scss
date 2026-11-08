@@ -29,3 +29,8 @@
   overflow-y: auto;
   height: 100%;
 }
+.card .list-group {
+  --bs-list-group-bg: var(--card-bg);
+  --bs-list-group-color: var(--card-fg);
+  --bs-list-group-border-color: color-mix(in srgb, var(--card-fg), transparent 85%);
+}

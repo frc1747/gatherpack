@@ -43,7 +43,7 @@
         <div class="card-header d-flex justify-content-between align-items-center">
           <div>
             <% if question.team %>
-              <%= link_to i(question.team.team_type.icon), team_path(question.team), class: "badge rounded-pill", style: "background-color:#{question.team.color};color:#{contrasting_color(question.team.color)}", data: { turbo_frame: "_top", turbo_prefetch: false }, title: question.team.name %>&nbsp;
+              <%= link_to i(question.team.team_type.icon), team_path(question.team), class: "badge rounded-pill", style: "background-color:#{safe_color(question.team.color)};color:#{contrasting_color(question.team.color)}", data: { turbo_frame: "_top", turbo_prefetch: false }, title: question.team.name %>&nbsp;
             <% end %>
             <%= link_to question.title, question, data: { turbo_frame: "_top" } %>
             <% if question.closed? %>

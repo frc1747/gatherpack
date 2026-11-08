@@ -1,0 +1,5 @@
+<span data-controller="clipboard">
+  <%= tag.tt value, class: "user-select-all", data: { clipboard_target: "source", client_secret: local_assigns[:client_secret] } %>
+  <button type="button" class="btn btn-sm btn-secondary ms-2" aria-label="Copy <%= label %>" data-action="clipboard#copy">Copy</button>
+  <small class="ms-2" role="status" data-clipboard-target="status"></small>
+</span>

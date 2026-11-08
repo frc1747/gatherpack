@@ -39,13 +39,32 @@ class Gateway::ResendSendingGatewayTest < ActiveSupport::TestCase
     end
   end
 
-  test "handle_webhook skips verification when secret is blank" do
+  test "handle_webhook refuses every event when secret is blank" do
     gateway = Gateway::ResendSendingGateway.new(secret: nil)
     headers = { "HTTP_SVIX_ID" => nil, "HTTP_SVIX_TIMESTAMP" => nil, "HTTP_SVIX_SIGNATURE" => nil }
+    log = StringIO.new
+    original_logger = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(log)
 
-    assert_nothing_raised do
-      gateway.handle_webhook(@payload, headers)
+    begin
+      assert_equal false, gateway.handle_webhook(@payload, headers)
+    ensure
+      Rails.logger = original_logger
     end
+
+    assert_includes log.string, "refused a Resend event: this gateway has no webhook signing secret"
+  end
+
+  test "verify_webhook accepts a valid signature and refuses a bad one" do
+    assert @gateway.verify_webhook(@payload, svix_headers_for(@payload, @secret))
+    assert_not @gateway.verify_webhook(@payload, svix_headers_for(@payload, "whsec_#{Base64.strict_encode64("a-completely-different-secret")}"))
+    assert_not @gateway.verify_webhook(@payload, {})
+  end
+
+  test "verify_webhook refuses everything when secret is blank" do
+    gateway = Gateway::ResendSendingGateway.new(secret: nil)
+
+    assert_not gateway.verify_webhook(@payload, svix_headers_for(@payload, @secret))
   end
 
   test "send_message calls Resend::Emails.send with a single positional hash" do

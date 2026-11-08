@@ -8,7 +8,7 @@
         <% if !event.team %>
           <span class="badge rounded-pill bg-info"><%= i("star", family: "solid") %></span>
         <% else %>
-          <%= link_to i(event.team.team_type.icon), team_path(event.team), class: "badge rounded-pill", style: "background-color:#{event.team.color};color:#{contrasting_color(event.team.color)}", data: { turbo_frame: "_top", turbo_prefetch: false } %></span>
+          <%= link_to i(event.team.team_type.icon), team_path(event.team), class: "badge rounded-pill", style: "background-color:#{safe_color(event.team.color)};color:#{contrasting_color(event.team.color)}", data: { turbo_frame: "_top", turbo_prefetch: false } %></span>
         <% end %>
       </div>
     </div>

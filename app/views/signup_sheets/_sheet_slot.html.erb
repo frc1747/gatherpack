@@ -1,0 +1,38 @@
+<% position = slot.signup_position %>
+<% counted = slot.signups.select { |signup| signup.active? || signup.fulfilled? } %>
+<% used = counted.sum(&:usage) %>
+<% cap = slot.capacity_value %>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 px-3 py-2 border-bottom" id="<%= dom_id slot %>">
+  <div>
+    <strong><%= position.name %></strong>
+    <span class="text-body-secondary">
+      <% if position.items? %>
+        <%= cap ? "#{used} of #{cap} #{position.unit_label}" : "#{used} #{position.unit_label}, no limit" %>
+      <% else %>
+        <%= cap ? "#{used} of #{cap} filled" : "#{used} signed up, no limit" %>
+      <% end %>
+    </span>
+    <% if position.description.present? %>
+      <div class="small"><%= position.description %></div>
+    <% end %>
+    <% if @names_visible && counted.any? %>
+      <ul class="list-unstyled small mb-0">
+        <% counted.each do |signup| %>
+          <li><%= signup.person.identifier_name %> <%= render "sheet_signup_details", signup: signup %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+  <div class="text-end">
+    <% if @signup_sheet.open? && @takers.any? %>
+      <% if cap && used >= cap %>
+        <span class="text-body-secondary">Full</span>
+      <% elsif @takers.any? { |taker| position.eligible?(taker, event) } %>
+        <%= link_to "Sign up", new_signup_sheet_signup_path(@signup_sheet, slot_id: slot.id), class: "btn btn-sm btn-primary" %>
+      <% else %>
+        <% taker = @takers.find { |someone| someone.id == @viewer.id } || @takers.first %>
+        <span class="text-body-secondary"><%= position.eligibility_failures(taker, event).to_sentence %></span>
+      <% end %>
+    <% end %>
+  </div>
+</div>
