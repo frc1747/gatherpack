@@ -49,8 +49,10 @@ module ChecklistsWorld
     @people.fetch(name)
   end
 
+  # Until defaults to far in the future: once it has passed a checklist
+  # freezes, and these tests give badges and teams at the real time.
   def create_world_checklist(title = "Trip", team: @club, **attributes)
-    Checklist.create!({ title: title, team: team, status: :active, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2027, 6, 30),
+    Checklist.create!({ title: title, team: team, status: :active, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2099, 12, 31),
       created_by: person(:admin) }.merge(attributes))
   end
 

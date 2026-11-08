@@ -30,7 +30,7 @@ class ChecklistStatusCapTest < ActionDispatch::IntegrationTest
     managed = entry.call(person(:club_manager))
     assert_equal :status, managed.access
     assert_equal "not_met", managed.status
-    assert_equal "Not yet", managed.text
+    assert_equal "Not Started", managed.text
     assert_nil managed.summary
     assert_nil managed.detail
     assert_nil managed.measures
@@ -76,7 +76,7 @@ class ChecklistStatusCapTest < ActionDispatch::IntegrationTest
       sign_in person(:club_manager).user
       get checklist_path(@checklist)
       assert_response :success
-      assert_match "Not yet", response.body
+      assert_match "Not Started", response.body
       assert_no_match "12 of 20 hours", response.body
       assert_no_match "&quot;hours&quot;", response.body
 

@@ -9,7 +9,7 @@ module Checklists
       items.flat_map { |item| [ item ] + item.all_children }
     end
 
-    # Unmet first, then almost, then done (the explanation order, §10.5).
+    # Not started first, then in progress, then complete (the explanation order, §10.5).
     def explained
       order = { "not_met" => 0, "pending" => 1, "met" => 2, "exempt" => 3 }
       items.sort_by.with_index { |item, index| [ order.fetch(item.status, 4), index ] }

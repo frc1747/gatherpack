@@ -1,5 +1,5 @@
 # Refreshes checklists whose answers can change with no data change (a
-# window edge, a cutoff, a due date, an excuse ending, a kind's own clock)
+# window edge, the checklist's end, a due date, an excuse ending, a kind's own clock)
 # once that moment has come, and picks up marks whose refresh job was lost.
 # One checklist failing is logged and doesn't stop the others.
 class ChecklistClockJob < ApplicationJob
