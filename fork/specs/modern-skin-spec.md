@@ -131,17 +131,18 @@ The partial renders after the application stylesheet, so the skin wins on equal 
 
 ### 6.3 Tokens
 
-Start from `notes/reskin-proof/skin-proof.css` and `skin-proof-dark.css`, which are local to the workspace. All colors become `--gp-*` tokens, and Bootstrap, FullCalendar and app variables read from them.
+Start from `notes/reskin-proof/skin-proof.css` and `skin-proof-dark.css`, which are local to the workspace, for layout. The defaults are GatherPack's own greige, made readable. A team's colors come only from site configuration, never from these tokens. All colors become `--gp-*` tokens, and Bootstrap, FullCalendar and app variables read from them.
 
 | Token | Light | Dark | Used for |
 |---|---|---|---|
-| `--gp-brand` | `#1f883a` (white text reaches 4.5:1) | Lightened until it passes on `--gp-surface` | Actions, links, focus |
+| `--gp-brand` | `#6d6753`, GatherPack's `$greige-dark` (white text reaches 4.5:1) | Lightened greige that passes on `--gp-surface` | Actions, links, focus |
 | `--gp-brand-rgb` | matching triplet | matching triplet | `--bs-primary-rgb`, `--bs-link-color-rgb` |
 | `--gp-brand-hover`, `--gp-brand-soft` | derived | derived | Hover, tints |
 | `--gp-on-brand` | `#fff` | chosen for contrast | Text on brand color |
-| `--gp-page` | `#f5f6f7` | from `skin-proof-dark.css` | Page background |
-| `--gp-surface` | `#ffffff` | from `skin-proof-dark.css` | Cards, navbar, sidebar |
-| `--gp-border`, `--gp-text`, `--gp-muted` | from the proof | from the proof | Lines and text |
+| `--gp-success`, `--gp-success-rgb`, `--gp-success-soft` | Green that reaches 4.5:1 | Lightened green | Status only (Clocked in, Signed up), so a neutral brand doesn't lose the meaning |
+| `--gp-page` | `#ebe6d8`, the product's greige page lightened so links on it reach 4.5:1 | Warm dark greige | Page background |
+| `--gp-surface` | `#fffdf6`, the product's `$greige-lightest` | Warm dark greige, one step up | Cards, navbar, sidebar |
+| `--gp-border`, `--gp-text`, `--gp-muted` | Greige tones (`$greige-light`, `$greige-darkest`) that reach 4.5:1 for text | Greige tones that reach 4.5:1 for text | Lines and text |
 | `--gp-radius` | `10px` | same | Corners |
 | `--gp-font` | Inter, then system fonts | same | All text except code |
 
