@@ -283,6 +283,57 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an organizer who removes themselves goes where they can still go" do
+    with_settings(feature_checklists: "true", checklists_organizers: "Checklist Organizer > Club") do
+      covered = create_world_checklist("Crew trip")
+      add_rule(covered, :include, :team, team_id: @crew.id)
+      add_item(covered, :has_login, "Login")
+      refresh(covered)
+      [ @checklist, covered ].each { |checklist| checklist.checklist_organizers.create!(person: person(:organizer)) }
+      sign_in person(:organizer).user
+
+      delete checklist_checklist_organizer_path(covered, covered.checklist_organizers.find_by!(person: person(:organizer)))
+      assert_redirected_to checklist_path(covered), "they still see their own result"
+      follow_redirect!
+      assert_response :success
+
+      delete checklist_checklist_organizer_path(@checklist, @checklist.checklist_organizers.find_by!(person: person(:organizer)))
+      assert_redirected_to checklists_path, "nothing left there for them"
+      follow_redirect!
+      assert_response :success
+    end
+  end
+
+  test "Cancel on a change's impact goes back to where the change was made" do
+    with_feature do
+      sign_in person(:admin).user
+      post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
+      assert_response :unprocessable_entity
+      assert_select "a[href=?]", edit_checklist_path(@checklist, anchor: "covers"), text: "Cancel"
+
+      post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { item_id: @safety_item.id, effect: "include", target_type: "person", person_id: person(:member2).id } }
+      assert_response :unprocessable_entity
+      assert_select "a[href=?]", edit_checklist_checklist_item_path(@checklist, @safety_item), text: "Cancel"
+
+      delete checklist_checklist_item_path(@checklist, @safety_item)
+      assert_response :unprocessable_entity
+      assert_select "a[href=?]", edit_checklist_path(@checklist, anchor: "items"), text: "Cancel"
+    end
+  end
+
+  test "an item's page leads back to the Edit page, and setup problems link there" do
+    with_feature do
+      sign_in person(:admin).user
+      get edit_checklist_checklist_item_path(@checklist, @safety_item)
+      assert_select ".breadcrumb a[href=?]", edit_checklist_path(@checklist, anchor: "items"), text: "Edit"
+
+      @checklist.checklist_rules.first.update_column(:team_id, nil)
+      get checklist_path(@checklist)
+      assert_match "Setup problems", response.body
+      assert_select ".alert a[href=?]", edit_checklist_path(@checklist), text: "Fix them on the Edit page"
+    end
+  end
+
   test "recorded lists sit with the results, for organizers" do
     with_feature do
       sign_in person(:admin).user

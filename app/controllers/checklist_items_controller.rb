@@ -62,7 +62,8 @@ class ChecklistItemsController < InternalController
   # DELETE /checklists/1/items/1
   def destroy
     if needs_confirmation? && (impact = Checklists::Impact.new(@checklist, items: tree_without(@item), viewer: current_user.person)).any?
-      return render_impact(impact, url: checklist_checklist_item_path(@checklist, @item), method: :delete)
+      return render_impact(impact, url: checklist_checklist_item_path(@checklist, @item), method: :delete,
+        cancel: checklist_section_path("items"))
     end
 
     @item.destroy!

@@ -43,7 +43,8 @@
     <% if @organizer && (problems = @checklist.problems).any? %>
       <div class="alert alert-warning mb-2">
         <p class="fw-semibold mb-1">Setup problems</p>
-        <ul class="mb-0"><% problems.each do |problem| %><li><%= problem %></li><% end %></ul>
+        <ul class="mb-2"><% problems.each do |problem| %><li><%= problem %></li><% end %></ul>
+        <%= link_to "Fix them on the Edit page", edit_checklist_path(@checklist), class: "alert-link" %>
       </div>
     <% end %>
     <% if @organizer %>

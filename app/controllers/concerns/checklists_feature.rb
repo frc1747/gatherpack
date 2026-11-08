@@ -45,9 +45,10 @@ module ChecklistsFeature
   end
 
   # Shows what the change would do, with a button that repeats the request
-  # confirmed. fields are the request's params to send again.
-  def render_impact(impact, url:, method:, fields: {})
+  # confirmed. fields are the request's params to send again; cancel is
+  # where Cancel goes back to.
+  def render_impact(impact, url:, method:, cancel:, fields: {})
     render "checklists/confirm", status: :unprocessable_entity,
-      locals: { impact: impact, url: url, method: method, fields: fields }
+      locals: { impact: impact, url: url, method: method, cancel: cancel, fields: fields }
   end
 end
