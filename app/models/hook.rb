@@ -11,7 +11,7 @@ class Hook < ApplicationRecord
 
     targets << "token - activate"
 
-    targets.sort
+    (targets + GatherPack::HookCatalog.entries).uniq.sort
   end
 
   def self.ransackable_attributes(auth_object = nil)

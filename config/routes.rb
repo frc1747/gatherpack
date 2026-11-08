@@ -91,6 +91,32 @@ Rails.application.routes.draw do
     resources :event_types
   end
 
+  # Drawn even while Sign-up Sheets are turned off; the controllers send
+  # people away then (SignupsFeature).
+  resources :signup_sheets do
+    member { get :roster }
+    resources :signup_positions, except: %i[index show] do
+      resources :signup_position_rules, only: %i[create update destroy]
+    end
+    resources :signup_sheet_organizers, only: %i[create destroy]
+    resources :signup_audience_rules, only: %i[create destroy]
+    resources :signup_sheet_events, only: %i[new create edit update destroy] do
+      collection { post :create_dates }
+    end
+    resources :signup_slots, only: %i[index update] do
+      collection { patch :update_all }
+    end
+    resources :signups, only: %i[new create edit update destroy]
+    resources :roster_signups, only: %i[new create edit update destroy] do
+      member do
+        patch :mark
+        patch :move
+      end
+      collection { patch :mark_all_brought }
+    end
+    resources :signup_messages, only: %i[new create]
+  end
+
   if GatherPack::Features.enabled?(:time_tracking)
     get "time_kiosk", to: "time_kiosk#index"
     post "time_kiosk", to: "time_kiosk#index"
@@ -109,6 +135,15 @@ Rails.application.routes.draw do
       end
     end
   end
+
+  # Always drawn; the controllers check the feature (default off).
+  resources :commitments do
+    post :message, on: :member
+    resources :commitment_sources, only: %i[new create edit update destroy]
+    resources :commitment_adjustments, only: %i[new create destroy]
+    resources :commitment_organizers, only: %i[create destroy]
+  end
+  get "people/:person_id/commitments", to: "person_commitments#show", as: :person_commitments
 
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]

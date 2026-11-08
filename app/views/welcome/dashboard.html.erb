@@ -50,6 +50,8 @@
     </div>
   </div>
   <div class="col-12 col-lg-6">
+    <%= render "signups_summaries/summary" %>
+
     <% if GatherPack::Features.enabled?(:events) %>
       <div class="card">
         <div class="card-header">
