@@ -44,7 +44,7 @@
       <%= f.input :exempt_label, label: "Word for people it doesn't apply to", placeholder: "Doesn't apply" %>
 
       <%= f.button :submit, "Save", class: "btn btn-primary" %>
-      <%= link_to "Cancel", checklist_path(checklist), class: "btn btn-link" %>
+      <%= link_to "Cancel", edit_checklist_path(checklist, anchor: "items"), class: "btn btn-link" %>
     <% end %>
 
     <% if item.persisted? %>
