@@ -93,7 +93,7 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     set_flag :feature_smooth_pages, false
     checkins = check_in_many_people
     open_event watch_only: true
-    assert_no_selector "##{dom_id(checkins.first)} a[data-turbo-frame]"
+    assert_no_selector "##{dom_id(checkins.first)} a[data-turbo-frame]", text: "Checkout"
 
     check_out checkins.first
 
@@ -288,9 +288,10 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     ActionView::RecordIdentifier.dom_id(record)
   end
 
-  # With the fixture's check-in, 20 here leaves the list at four rows of six
-  # before and after one check-out, so the page can still reach the old position.
-  def check_in_many_people(count = 20)
+  # With the fixture's check-in, 22 here keeps the same number of rows after one
+  # check-out at three, four or six cards a row, so the page can still reach the
+  # old position.
+  def check_in_many_people(count = 22)
     Array.new(count) do |index|
       person = Person.create!(first_name: "Guest", last_name: "Number#{index}", display_name: "Guest Number#{index}", gender: "F", shirt_size: "M")
       Checkin.create!(event: @event, person: person, created_by: @user.person)
@@ -338,6 +339,8 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
   def center_on_checkout(checkin)
     link = find("##{dom_id(checkin)} a", text: "Checkout")
     link.execute_script("document.documentElement.style.scrollBehavior = 'auto'; this.scrollIntoView({ block: 'center' })")
+    # The browser can adjust the position on the next frame, so read it after.
+    page.evaluate_async_script("requestAnimationFrame(() => requestAnimationFrame(arguments[0]))")
     scroll_y
   end
 
