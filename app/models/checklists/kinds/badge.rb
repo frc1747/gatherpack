@@ -39,7 +39,7 @@ module Checklists
 
       def evaluate(person_ids)
         badges = self.class.referenced_records(item, "badge_ids").index_by(&:id)
-        # Only badges given by the as-of moment (a cutoff, or the "as of" date).
+        # Only badges given by the as-of moment (the checklist's end, or the "as of" date).
         assignments = ::BadgeAssignment.where(person_id: person_ids, badge_id: badges.keys, created_at: ..window.end_time)
         assignments = assignments.where(created_at: window.start_time..window.end_time) if config["within_dates"]
         held = assignments.pluck(:person_id, :badge_id).group_by(&:first)

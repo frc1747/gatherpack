@@ -8,11 +8,14 @@ module Checklists
     attr_reader :checklist, :viewer
 
     # as_of computes live as of that date, storing nothing (organizers' "as
-    # of" picker).
-    def initialize(checklist, viewer, as_of: nil)
+    # of" picker), except where the checklist's frozen results are that
+    # answer. pinned passes on that a frozen checklist is the one reading
+    # (Context#pinned?).
+    def initialize(checklist, viewer, as_of: nil, pinned: false)
       @checklist = checklist
       @viewer = viewer
       @as_of = as_of
+      @pinned = pinned
     end
 
     # { person_id => Status } for the people the viewer may see.
@@ -60,20 +63,21 @@ module Checklists
     # live Result-backed stand-ins, for the covered people among ids.
     def rows_for(ids)
       return {} if ids.empty?
-      return live_rows(ids, Evaluator.new(checklist, as_of: @as_of.in_time_zone.end_of_day).call(ids)) if @as_of
+      return live_rows(ids, Evaluator.new(checklist, as_of: @as_of.in_time_zone.end_of_day, pinned: @pinned).call(ids)) if @as_of && !checklist.reads_stored_as_of?(@as_of)
 
       stored = ChecklistResult.where(checklist_id: checklist.id, person_id: ids).to_a.group_by(&:person_id)
       missing = ids - stored.select { |_, rows| rows.any? { |row| row.item_id.nil? } }.keys
       # People it doesn't cover never get rows; don't recompute for them.
-      missing &= Population.new(checklist).person_ids if missing.any? && !checklist.archived?
-      if missing.any? && !checklist.archived?
+      recomputable = !checklist.archived? && !checklist.results_frozen?
+      missing &= Population.new(checklist).person_ids if missing.any? && recomputable
+      if missing.any? && recomputable
         Refresher.new(checklist, silent: true).call(missing)
         ChecklistResult.where(checklist_id: checklist.id, person_id: missing).to_a.group_by(&:person_id).each { |id, rows| stored[id] = rows }
       end
 
       by_person = stored.transform_values { |rows| rows.index_by(&:item_id) }
       too_old = by_person.select { |_, rows| rows[nil] && rows[nil].computed_at < max_age.ago }.keys
-      refresh_live(too_old, by_person) if too_old.any? && !checklist.archived?
+      refresh_live(too_old, by_person) if too_old.any? && recomputable
       by_person.select { |_, rows| rows.key?(nil) }
     end
 

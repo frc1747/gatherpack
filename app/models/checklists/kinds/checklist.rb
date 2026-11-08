@@ -1,6 +1,7 @@
 module Checklists
   module Kinds
-    # Finishes another checklist: its overall, read from its stored results.
+    # Finishes another checklist: its overall, read from its stored results,
+    # or computed as of this checklist's moment once this one has frozen.
     # People it doesn't cover are exempt.
     class Checklist < ItemKind
       class << self
@@ -49,7 +50,7 @@ module Checklists
         other = self.class.referenced_records(item, "checklist_id").first
         return person_ids.index_with { Result.not_met("Checklist missing") } unless other
 
-        reader = Checklists::Reader.new(other, nil)
+        reader = context.pinned? ? Checklists::Reader.new(other, nil, as_of: context.as_of, pinned: true) : Checklists::Reader.new(other, nil)
         rows = reader.rows(person_ids)
         counting = reader.items.select(&:counts?).map(&:id)
 

@@ -51,6 +51,11 @@ module Checklists
       GatherPack::Features.enabled?(:checklists)
     end
 
+    # A checklist's dates are days in the site's time zone, jobs included.
+    def time_zone
+      Time.find_zone!(Settings[:time_zone].presence || "UTC")
+    end
+
     def register_item_kind(kind, klass)
       unlisted = klass.settings.select { |setting| setting.list? && %i[boolean relative_date].include?(setting.type) }
       raise ArgumentError, "#{klass.name}: a #{unlisted.first.type} setting can't be a list" if unlisted.any?
@@ -116,7 +121,7 @@ module Checklists
     # per checklist, 30 seconds out, so a burst of changes is one run.
     # person_ids :all marks the whole checklist.
     def mark(checklists, person_ids)
-      checklists = Array(checklists)
+      checklists = Array(checklists).reject(&:results_frozen?)
       return if checklists.empty?
 
       now = Time.current

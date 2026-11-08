@@ -36,6 +36,7 @@ class Checklist < ApplicationRecord
   validate :starts_within_has_unit
 
   before_validation :clear_unused_start
+  before_save :start_over_when_until_moves
   after_create :add_creator_as_organizer
   after_commit :refresh_everyone, on: :update
 
@@ -122,6 +123,34 @@ class Checklist < ApplicationRecord
 
   def window
     Checklists::Window.for(self, Checklists::Context.as_of_for(self, Time.current))
+  end
+
+  # Its last day (in the site's time zone) has gone.
+  def ended?
+    ends_on.present? && Checklists::Context.last_moment(self).past?
+  end
+
+  # Ended, and its end-of-day answers are stored: from here only Recompute
+  # changes them. Changing Until clears computed_at, so this starts over.
+  def results_frozen?
+    return false if ends_on_changed?
+    return false unless ended? && computed_at && computed_at > Checklists::Context.last_moment(self)
+
+    checklist_results.exists?
+  end
+
+  # On a frozen checklist an "as of" date on or after Until is the frozen
+  # results themselves.
+  def reads_stored_as_of?(date)
+    results_frozen? && date.to_date >= ends_on
+  end
+
+  # Who the report is about: who it covers, or once its results are frozen,
+  # who they're stored for, so someone who has left stays on it.
+  def reported_person_ids
+    return Checklists::Population.new(self).person_ids unless results_frozen?
+
+    checklist_results.where(item_id: nil).pluck(:person_id)
   end
 
   # Checklists with an item requiring this one.
@@ -224,13 +253,17 @@ class Checklist < ApplicationRecord
     self.starts_within_unit = nil if starts_within_amount.blank?
   end
 
+  def start_over_when_until_moves
+    self.computed_at = nil if ends_on_changed?
+  end
+
   def add_creator_as_organizer
     checklist_organizers.create!(person: created_by) if created_by
   end
 
   def refresh_everyone
     return unless Checklists.enabled? && !archived?
-    return unless (saved_changes.keys & %w[team_id starts_on starts_within_amount starts_within_unit ends_on cutoff_on status]).any?
+    return unless (saved_changes.keys & %w[team_id starts_on starts_within_amount starts_within_unit ends_on status]).any?
 
     Checklists.mark(self, :all)
   end
