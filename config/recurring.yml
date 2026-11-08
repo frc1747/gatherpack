@@ -13,7 +13,3 @@ generate_notifications_job:
   class: GenerateNotificationsJob
   queue: default
   schedule: every 5 minutes
-housekeeping_nightly_job:
-  class: HousekeepingNightlyJob
-  queue: default
-  schedule: at 3:30am every day
