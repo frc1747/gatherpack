@@ -133,6 +133,17 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
     assert_select ".skin-preview-note", false
   end
 
+  test "the preview note goes away once the flag is on for everyone" do
+    sign_in @admin
+    post skin_preview_path
+
+    with_skin do
+      get root_path
+      assert_skin_loaded
+      assert_select ".skin-preview-note", false
+    end
+  end
+
   test "someone who isn't an admin can't start a preview" do
     sign_in @member
     post skin_preview_path
@@ -308,7 +319,7 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
       sign_in @member
       get root_path
       assert_includes response.body, 'var saved = "dark"'
-      assert_select "[data-controller=color-mode][data-color-mode-saved-value=dark]"
+      assert_select "meta[name=gp-color-mode][content=dark]"
     end
   end
 
@@ -316,6 +327,7 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
     with_skin do
       get new_user_session_path
       assert_includes response.body, "var saved = null"
+      assert_select "meta[name=gp-color-mode][content=auto]"
     end
   end
 
@@ -343,6 +355,7 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
       get time_kiosk_path
       assert_response :success
       assert_includes response.body, 'var saved = "light"'
+      assert_select "meta[name=gp-color-mode][content=light]"
     end
   end
 
@@ -417,5 +430,6 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
     assert_no_match %r{<link[^>]*/skin-?[^>]*\.css}, response.body
     assert_no_match "data-bs-theme", response.body
     assert_no_match "prefers-color-scheme", response.body
+    assert_no_match "gp-color-mode", response.body
   end
 end

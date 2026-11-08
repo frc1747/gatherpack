@@ -37,7 +37,6 @@ header.navbar {
 .sidebar {
   --bs-offcanvas-bg: var(--gp-surface);
   --bs-offcanvas-color: var(--gp-text);
-  border-color: var(--gp-border) !important; // beats Bootstrap's .border
 }
 
 .sidebar, .sidebar .offcanvas-md, .sidebar .offcanvas-body {

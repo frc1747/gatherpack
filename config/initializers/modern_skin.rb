@@ -19,7 +19,7 @@ Rails.application.config.to_prepare do
     :skin_preview_note,
     partial: "layouts/skin_preview_note",
     position: 80,
-    visible: ->(view) { ModernSkin.previewing?(view.controller) }
+    visible: ->(view) { ModernSkin.previewing?(view.controller) && !GatherPack::Features.enabled?(:modern_skin) }
   )
 
   GatherPack::SidebarSlots.register(

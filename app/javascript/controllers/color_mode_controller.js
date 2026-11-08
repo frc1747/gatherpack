@@ -1,27 +1,44 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The Light/Dark/Auto buttons. An empty saved value means Auto, which follows
-// the device.
+// Each page's <meta name="gp-color-mode"> says light, dark or auto. Turbo
+// replaces that meta on every visit, but only runs a head script whose text
+// is new, so the mode has to be applied from the meta on each render. Pages
+// without the skin have no meta and are left alone.
+const deviceDark = window.matchMedia("(prefers-color-scheme: dark)")
+
+function pageMode() {
+  return document.querySelector("meta[name=gp-color-mode]")
+}
+
+function applyPageMode() {
+  const meta = pageMode()
+  if (!meta) return
+
+  const mode = meta.content === "auto" ? (deviceDark.matches ? "dark" : "light") : meta.content
+  document.documentElement.setAttribute("data-bs-theme", mode)
+}
+
+// This module can finish importing after the first turbo:load has fired.
+applyPageMode()
+document.addEventListener("turbo:load", applyPageMode)
+document.addEventListener("turbo:render", applyPageMode)
+deviceDark.addEventListener("change", applyPageMode)
+
+// The Light/Dark/Auto buttons.
 export default class extends Controller {
   static targets = ["button"]
-  static values = { url: String, saved: String }
+  static values = { url: String }
 
   connect() {
-    this.media = window.matchMedia("(prefers-color-scheme: dark)")
-    this.followDevice = () => this.apply()
-    this.media.addEventListener("change", this.followDevice)
     this.highlight()
-  }
-
-  disconnect() {
-    this.media.removeEventListener("change", this.followDevice)
   }
 
   choose({ params: { mode } }) {
-    this.savedValue = mode === "auto" ? "" : mode
-    this.apply()
+    // Written to the meta so this page's Turbo snapshot keeps the new choice.
+    pageMode().content = mode
+    applyPageMode()
     this.highlight()
-    // Older cached pages carry the previous choice in their head script.
+    // Older cached pages still carry the previous choice.
     window.Turbo?.cache.clear()
     fetch(this.urlValue, {
       method: "PATCH",
@@ -33,13 +50,8 @@ export default class extends Controller {
     })
   }
 
-  apply() {
-    const mode = this.savedValue || (this.media.matches ? "dark" : "light")
-    document.documentElement.setAttribute("data-bs-theme", mode)
-  }
-
   highlight() {
-    const current = this.savedValue || "auto"
+    const current = pageMode().content
     this.buttonTargets.forEach((button) => {
       const pressed = button.dataset.colorModeModeParam === current
       button.classList.toggle("active", pressed)
