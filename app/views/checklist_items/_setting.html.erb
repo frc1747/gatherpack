@@ -1,0 +1,91 @@
+<% value = item.config[setting.key.to_s] %>
+<% name = "checklist_item[config][#{setting.key}]" %>
+<% field_id = "checklist_item_config_#{setting.key}" %>
+<%# A setting type a connector brings has its own partial,
+    checklist_items/settings/_<type>, with locals f, item, checklist, setting,
+    value, name (the param name) and field_id. %>
+<% custom = "checklist_items/settings/#{setting.type}" %>
+<div class="mb-3">
+  <% if lookup_context.exists?(custom, [], true) %>
+    <%= render custom, f: f, item: item, checklist: checklist, setting: setting, value: value, name: name, field_id: field_id %>
+  <% elsif setting.list? && %i[number date text].include?(setting.type) %>
+    <%# One field per value, and an empty one to add another. %>
+    <fieldset>
+      <legend class="form-label fs-6"><%= setting.label %></legend>
+      <% (Array(value) + [ nil ]).each_with_index do |one, index| %>
+        <% input_id = "#{field_id}_#{index}" %>
+        <% label = "#{setting.label} #{index + 1}" %>
+        <% case setting.type %>
+        <% when :number %>
+          <%= number_field_tag "#{name}[]", one, id: input_id, autocomplete: "off", class: "form-control mb-1", style: "max-width: 10em", "aria-label": label %>
+        <% when :date %>
+          <%= date_field_tag "#{name}[]", one, id: input_id, autocomplete: "off", class: "form-control mb-1", style: "max-width: 14em", "aria-label": label %>
+        <% else %>
+          <%= text_field_tag "#{name}[]", one, id: input_id, autocomplete: "off", class: "form-control mb-1", "aria-label": label %>
+        <% end %>
+      <% end %>
+    </fieldset>
+  <% else %>
+  <% case setting.type %>
+  <% when :badges %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= select_tag "#{name}[]", options_for_select(Badge.order(:name).pluck(:name, :id), value), multiple: true, id: field_id, class: "form-select", size: 6 %>
+  <% when :teams %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= select_tag "#{name}[]", options_for_select(Team.order(:name).pluck(:name, :id), value), multiple: true, id: field_id, class: "form-select", size: 6 %>
+  <% when :checklist %>
+    <%# A saved checklist the author can't see stays chosen, without its title. %>
+    <% options = policy_scope(Checklist).where.not(id: checklist.id).order(:title).pluck(:title, :id) %>
+    <% options += (Array(value).compact_blank - options.map(&:last)).map { |id| [ "(a checklist you can't see)", id ] } %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <% if setting.list? %>
+      <%= select_tag "#{name}[]", options_for_select(options, value), multiple: true, id: field_id, class: "form-select" %>
+    <% else %>
+      <%= select_tag name, options_for_select(options, value), include_blank: true, id: field_id, class: "form-select" %>
+    <% end %>
+  <% when :number %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= number_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control", style: "max-width: 10em" %>
+  <% when :date %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= date_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control", style: "max-width: 14em" %>
+  <% when :relative_date %>
+    <% picked = Checklists::RelativeDate.from_config(value) %>
+    <fieldset>
+      <legend class="form-label fs-6"><%= setting.label %></legend>
+      <div class="form-check">
+        <%= radio_button_tag "#{name}[mode]", "", picked.nil?, id: "#{field_id}_none", class: "form-check-input" %>
+        <%= label_tag "#{field_id}_none", "Any time", class: "form-check-label" %>
+      </div>
+      <div class="form-check d-flex gap-2 align-items-center">
+        <%= radio_button_tag "#{name}[mode]", "date", picked && !picked.relative?, id: "#{field_id}_date", class: "form-check-input" %>
+        <%= label_tag "#{field_id}_date", "On or after", class: "form-check-label" %>
+        <%= date_field_tag "#{name}[date]", picked&.date, id: "#{field_id}_date_value", autocomplete: "off", class: "form-control form-control-sm w-auto", "aria-label": "#{setting.label}: date" %>
+      </div>
+      <div class="form-check d-flex gap-2 align-items-center mt-1">
+        <%= radio_button_tag "#{name}[mode]", "within", picked&.relative?, id: "#{field_id}_within", class: "form-check-input" %>
+        <%= label_tag "#{field_id}_within", "Within the last", class: "form-check-label" %>
+        <%= number_field_tag "#{name}[amount]", picked&.amount, min: 1, id: "#{field_id}_amount", autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em", "aria-label": "#{setting.label}: how many" %>
+        <%= select_tag "#{name}[unit]", options_for_select(Checklists::RelativeDate::UNITS.map { |unit| [ unit, unit ] }, picked&.unit), id: "#{field_id}_unit", class: "form-select form-select-sm w-auto", "aria-label": "#{setting.label}: days or months" %>
+      </div>
+    </fieldset>
+  <% when :boolean %>
+    <div class="form-check">
+      <%= hidden_field_tag name, "0", id: nil %>
+      <%= check_box_tag name, "1", value, id: field_id, class: "form-check-input" %>
+      <%= label_tag field_id, setting.label, class: "form-check-label" %>
+    </div>
+  <% when :choice %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <% if setting.list? %>
+      <%= select_tag "#{name}[]", options_for_select(setting.options, value), multiple: true, id: field_id, class: "form-select" %>
+    <% else %>
+      <%= select_tag name, options_for_select(setting.options, value), id: field_id, class: "form-select" %>
+    <% end %>
+  <% else %>
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= text_field_tag name, value, id: field_id, autocomplete: "off", class: "form-control" %>
+  <% end %>
+  <% end %>
+  <% if setting.hint.present? %><div class="form-text"><%= setting.hint %></div><% end %>
+</div>
