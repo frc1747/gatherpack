@@ -762,3 +762,12 @@ feature/quiet-root-signin:
     Opening GatherPack while signed out goes straight to the sign-in page,
     without a message saying you must be logged in.
   audience: Everyone
+
+feature/phone-notifications:
+  title: Phone notifications
+  emoji: "🔔"
+  description: >-
+    People can choose to get announcements as notifications on their
+    phone, on top of email. Each person picks their own devices and
+    topics.
+  audience: Everyone
