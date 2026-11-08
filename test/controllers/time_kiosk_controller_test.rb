@@ -5,238 +5,331 @@ class TimeKioskControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     host! "localhost"
+    TimeKioskController::TEST_STORE.clear
+
     @team = Team.create!(name: "Robotics", team_type: team_types(:one))
-    @period = TimeClockPeriod.create!(name: "Build Season", team: @team, start_time: 1.week.ago, end_time: 1.week.from_now)
-    @member_user, @member = create_person("member", team: @team)
-    _, @teammate = create_person("teammate", team: @team)
-    Token.create!(value: "8675309", tokenable: @teammate)
-    @admin_user, = create_person("admin", admin: true)
+    @other_team = Team.create!(name: "Drama", team_type: team_types(:one))
+    @period = create_period("Build Season", @team)
+    @other_period = create_period("Rehearsals", @other_team)
+
+    @member = create_person("member@example.com")
+    Membership.create!(person: @member, team: @team)
+    @member_token = Token.create!(value: "100000001", tokenable: @member)
+
+    @manager = create_person("manager@example.com")
+    Membership.create!(person: @manager, team: @team, manager: true)
+
+    kiosk_user = create_person("kiosk@example.com").user
+    kiosk_user.update!(kiosk: true)
+    sign_in kiosk_user
   end
 
-  test "a card scanned in the 5700 reader format finds its holder" do
-    sign_in @admin_user
+  test "a scan shows the profile with buttons that carry a person reference" do
+    Membership.create!(person: @member, team: @other_team, manager: true)
+    create_period("Workshops", @other_team)
+    TimeClockPunch.create!(person: @member, time_clock_period: @period, start_time: Time.current, created_by: "kiosk")
 
-    post time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: "5700" + 8675309.to_s(16) } }
+    kiosk tool: "find_token", token_value: @member_token.value
 
     assert_response :success
-    assert_select "h2", "Found Person"
-    assert_select "h3", @teammate.identifier_name
-  end
+    assert_select "h3", text: @member.identifier_name
+    hrefs = css_select("a[data-turbo-method=post]").map { |a| a["href"] }
+    tools = hrefs.map { |href| kiosk_params(href)["tool"] }
+    assert_equal %w[ punch_in punch_out punch_out_all punch_out_period ], tools.uniq.sort
+    hrefs.each do |href|
+      assert_includes href, "person_ref"
+      assert_not_includes href, "person_id"
+    end
 
-  # --- who may run the kiosk ----------------------------------------------
+    clock_in = kiosk_params(css_select("a[data-turbo-method=post]").find { |a| kiosk_params(a["href"])["tool"] == "punch_in" && a.text.include?("Rehearsals") }["href"])
+    ref = clock_in["person_ref"]
+    assert_equal @member, Person.find_signed(ref, purpose: :time_kiosk)
+    travel 6.minutes do
+      assert_nil Person.find_signed(ref, purpose: :time_kiosk)
+    end
 
-  test "a member's own session cannot scan a teammate's card and clock them in" do
-    sign_in @member_user
-
-    post time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: "8675309" } }
-    button = kiosk_buttons.find { |b| b["tool"] == "punch_in" && b["time_clock_period_id"].present? }
-    post time_kiosk_path, params: { time_kiosk: button } if button
-
-    assert_not @teammate.time_clock_punches.exists?,
-      "a member's own account scanned a teammate's card and clocked them in"
-  end
-
-  test "a member's own session cannot clock someone in by their person id" do
-    sign_in @member_user
-
-    post time_kiosk_path, params: { time_kiosk: { tool: "punch_in", person_id: @teammate.id, time_clock_period_id: @period.id } }
-
-    assert_not @teammate.time_clock_punches.exists?,
-      "a member's own account clocked a teammate in by posting their person id"
-  end
-
-  test "an account that isn't a kiosk account is told so" do
-    sign_in @member_user
-
-    get time_kiosk_path
-
-    assert_response :forbidden
-    assert_select ".alert", /This account can't run the time kiosk; an admin can make it a kiosk account/
-    assert_select "form#new_time_kiosk", count: 0
-  end
-
-  test "an admin can run the kiosk" do
-    sign_in @admin_user
-
-    scan "8675309"
-    post time_kiosk_path, params: { time_kiosk: button("punch_in") }
-
-    assert @teammate.time_clock_punches.where(time_clock_period: @period, end_time: nil).exists?
-  end
-
-  # --- what a kiosk account can do ----------------------------------------
-
-  test "a kiosk account clocks the scanned person in and out" do
-    sign_in kiosk_user
-
-    scan "8675309"
-    assert_select "h3", @teammate.identifier_name
-    post time_kiosk_path, params: { time_kiosk: button("punch_in") }
-
-    punch = @teammate.time_clock_punches.sole
-    assert_equal @period, punch.time_clock_period
-    assert_nil punch.end_time
-
-    scan "8675309"
-    post time_kiosk_path, params: { time_kiosk: button("punch_out") }
-
-    assert_not_nil punch.reload.end_time
-  end
-
-  test "the clock-in buttons carry a signed reference, not a person id" do
-    sign_in kiosk_user
-
-    scan "8675309"
-
-    assert kiosk_buttons.any?
-    kiosk_buttons.each do |b|
-      assert_nil b["person_id"]
-      assert b["person_ref"].present?
+    assert_difference -> { @member.time_clock_punches.where(time_clock_period: @other_period).count } do
+      kiosk tool: "punch_in", person_ref: ref, time_clock_period_id: clock_in["time_clock_period_id"]
     end
   end
 
-  test "a punch with no reference, only a person id, is refused" do
-    sign_in kiosk_user
+  test "punch_in clocks in the scanned person" do
+    assert_difference -> { @member.time_clock_punches.count } do
+      kiosk tool: "punch_in", person_ref: ref_for(@member), time_clock_period_id: @period.id
+    end
 
-    post time_kiosk_path, params: { time_kiosk: { tool: "punch_in", person_id: @teammate.id, time_clock_period_id: @period.id } }
-
-    assert_not @teammate.time_clock_punches.exists?
-    assert_select ".alert", /scan your card again/
+    punch = @member.time_clock_punches.last
+    assert_equal @period, punch.time_clock_period
+    assert_nil punch.end_time
   end
 
-  test "a forged reference is refused" do
-    sign_in kiosk_user
+  test "punch_in creates nothing without a valid reference" do
+    expired_ref = ref_for(@member)
+    travel 6.minutes do
+      assert_no_punch_created { kiosk tool: "punch_in", person_ref: expired_ref, time_clock_period_id: @period.id }
+    end
 
-    scan "8675309"
-    punch_in = button("punch_in")
-    ref = punch_in["person_ref"]
-    forged = punch_in.merge("person_ref" => Rails.application.message_verifier(:other).generate(@member.id))
-    post time_kiosk_path, params: { time_kiosk: forged }
-    tampered = punch_in.merge("person_ref" => ref.chop + (ref.end_with?("a") ? "b" : "a"))
-    post time_kiosk_path, params: { time_kiosk: tampered }
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: "forged", time_clock_period_id: @period.id }
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: "#{ref_for(@member)}x", time_clock_period_id: @period.id }
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: @member.signed_id(purpose: :other), time_clock_period_id: @period.id }
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: @member.signed_id, time_clock_period_id: @period.id }
+    assert_no_punch_created { kiosk tool: "punch_in", person_id: @member.id, time_clock_period_id: @period.id }
 
-    assert_not @member.time_clock_punches.exists?
-    assert_not @teammate.time_clock_punches.exists?
+    assert_response :success
+    assert_select ".alert", text: /Please scan your card again/
   end
 
-  test "a reference stops working after a few minutes" do
-    sign_in kiosk_user
+  test "punch_in creates nothing over GET" do
+    assert_no_punch_created do
+      get time_kiosk_path, params: { time_kiosk: { tool: "punch_in", person_ref: ref_for(@member), person_id: @member.id, time_clock_period_id: @period.id } }
+    end
 
-    scan "8675309"
-    punch_in = button("punch_in")
-    travel 10.minutes
-    post time_kiosk_path, params: { time_kiosk: punch_in }
-
-    assert_not @teammate.time_clock_punches.exists?
-    assert_select ".alert", /scan your card again/
+    assert_response :success
+    assert_select "h2", text: "Welcome to the Time Kiosk"
   end
 
-  test "a kiosk account can't clock the scanned person out of someone else's punch" do
-    other_punch = TimeClockPunch.create!(person: @member, start_time: 1.hour.ago, time_clock_period: @period, created_by: "kiosk")
-    sign_in kiosk_user
+  test "punch_in creates nothing for a period the person can't use" do
+    past_period = create_period("Last Season", @team, start_time: 1.month.ago.to_date, end_time: 3.weeks.ago.to_date)
 
-    scan "8675309"
-    post time_kiosk_path, params: { time_kiosk: { tool: "punch_out", person_ref: button("punch_in")["person_ref"], time_clock_punch_id: other_punch.id } }
-
-    assert_nil other_punch.reload.end_time
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: ref_for(@member), person_id: @member.id, time_clock_period_id: @other_period.id }
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: ref_for(@member), person_id: @member.id, time_clock_period_id: past_period.id }
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: ref_for(@member), person_id: @member.id, time_clock_period_id: nil }
   end
 
-  test "a kiosk account can't clock the scanned person into a period they weren't offered" do
-    other_team = Team.create!(name: "Drama", team_type: team_types(:one))
-    other_period = TimeClockPeriod.create!(name: "Rehearsals", team: other_team, start_time: 1.week.ago, end_time: 1.week.from_now)
-    sign_in kiosk_user
+  test "punch_in creates nothing when the person already has an open punch in the period" do
+    TimeClockPunch.create!(person: @member, time_clock_period: @period, start_time: @period.start_time.beginning_of_day, created_by: "kiosk")
 
-    scan "8675309"
-    post time_kiosk_path, params: { time_kiosk: button("punch_in").merge("time_clock_period_id" => other_period.id) }
-
-    assert_not @teammate.time_clock_punches.exists?
+    assert_no_punch_created { kiosk tool: "punch_in", person_ref: ref_for(@member), person_id: @member.id, time_clock_period_id: @period.id }
   end
 
-  test "a scanned manager clocks out everyone in their period" do
-    @period.update!(permission: :added_by_manager)
-    _, manager = create_person("manager", team: @team, manager: true)
-    Token.create!(value: "4242", tokenable: manager)
-    punch = TimeClockPunch.create!(person: @teammate, start_time: 1.hour.ago, time_clock_period: @period, created_by: "kiosk")
-    sign_in kiosk_user
+  test "punch_out clocks out the scanned person's open punch" do
+    punch = open_punch(@member)
 
-    scan "4242"
-    post time_kiosk_path, params: { time_kiosk: button("punch_out_period") }
+    kiosk tool: "punch_out", person_ref: ref_for(@member), time_clock_punch_id: punch.id
 
     assert_not_nil punch.reload.end_time
   end
 
-  test "a scanned member who manages nothing can't clock out a period" do
-    @period.update!(permission: :added_by_manager)
-    punch = TimeClockPunch.create!(person: @member, start_time: 1.hour.ago, time_clock_period: @period, created_by: "kiosk")
-    sign_in kiosk_user
+  test "punch_out refuses a punch belonging to someone else" do
+    punch = open_punch(@manager)
 
-    scan "8675309"
-    ref = button("punch_in")["person_ref"]
-    post time_kiosk_path, params: { time_kiosk: { tool: "punch_out_period", person_ref: ref, time_clock_period_id: @period.id } }
-    post time_kiosk_path, params: { time_kiosk: { tool: "punch_out_all", person_ref: ref } }
+    kiosk tool: "punch_out", person_ref: ref_for(@member), time_clock_punch_id: punch.id
 
     assert_nil punch.reload.end_time
   end
 
-  test "the kiosk renders only its own pages" do
-    sign_in kiosk_user
+  test "punch_out refuses a closed punch" do
+    end_time = 1.hour.ago.change(usec: 0)
+    punch = TimeClockPunch.create!(person: @member, time_clock_period: @period, start_time: 2.hours.ago, end_time: end_time, created_by: "kiosk")
 
-    [ "layouts/sidebar", "kiosk", "found_person", "found_hook" ].each do |tool|
-      get time_kiosk_path, params: { time_kiosk: { tool: tool } }
-      assert_response :success, tool
-      assert_select "h2", "Welcome to the Time Kiosk"
+    kiosk tool: "punch_out", person_ref: ref_for(@member), time_clock_punch_id: punch.id
+
+    assert_equal end_time, punch.reload.end_time
+  end
+
+  test "punch_out refuses a GET" do
+    punch = open_punch(@member)
+
+    get time_kiosk_path, params: { time_kiosk: { tool: "punch_out", person_ref: ref_for(@member), time_clock_punch_id: punch.id } }
+
+    assert_response :success
+    assert_nil punch.reload.end_time
+  end
+
+  test "punch_out_period clocks out the period for a manager" do
+    punch = open_punch(@member)
+
+    kiosk tool: "punch_out_period", person_ref: ref_for(@manager), time_clock_period_id: @period.id
+
+    assert_not_nil punch.reload.end_time
+  end
+
+  test "punch_out_period clocks out an added by admin period for its team's manager, and punch_out_all agrees" do
+    @period.update_column(:permission, TimeClockPeriod.permissions[:added_by_admin])
+    punch = open_punch(@member)
+
+    kiosk tool: "punch_out_period", person_ref: ref_for(@manager), time_clock_period_id: @period.id
+
+    assert_not_nil punch.reload.end_time
+    assert_not_includes response.body, "You can&#39;t clock out this period."
+
+    again = open_punch(@member)
+    kiosk tool: "punch_out_all", person_ref: ref_for(@manager)
+
+    assert_not_nil again.reload.end_time
+  end
+
+  test "punch_out_period clocks out a sub-team's period for a parent team's manager" do
+    kid = Team.create!(name: "Pit Crew", team_type: team_types(:one), parent: @team)
+    period = create_period("Pit Season", kid)
+    Membership.create!(person: @member, team: kid)
+    punch = TimeClockPunch.create!(person: @member, time_clock_period: period, start_time: Time.current, created_by: "kiosk")
+
+    kiosk tool: "punch_out_period", person_ref: ref_for(@manager), time_clock_period_id: period.id
+
+    assert_not_nil punch.reload.end_time
+  end
+
+  test "punch_out_period tells another team's manager and a non-manager it refused" do
+    punch = open_punch(@member)
+    other_manager = create_person("other-manager@example.com")
+    Membership.create!(person: other_manager, team: @other_team, manager: true)
+
+    [ other_manager, create_person("plain@example.com") ].each do |person|
+      kiosk tool: "punch_out_period", person_ref: ref_for(person), time_clock_period_id: @period.id
+
+      assert_nil punch.reload.end_time
+      assert_includes response.body, "You can&#39;t clock out this period."
     end
   end
 
-  test "a card held by a hook shows the card as not found" do
-    hook = Hook.create!(name: "Door", event: "tokens - create", code: "nil")
-    Token.create!(value: "1234", tokenable: hook)
-    sign_in kiosk_user
+  test "the refusal shows on the turbo stream a kiosk tap gets" do
+    post time_kiosk_path, params: { time_kiosk: { tool: "punch_out_period", person_ref: ref_for(@member), time_clock_period_id: @period.id } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html" }
 
-    scan "1234"
-
-    assert_select ".card-body", /Token not found/
+    assert_equal "text/vnd.turbo-stream.html", response.media_type
+    assert_includes response.body, "You can&#39;t clock out this period."
   end
 
-  test "following a punch button with a GET doesn't punch" do
-    sign_in kiosk_user
+  test "punch_out_all closes only the periods the manager's teams hold, and tells someone with none" do
+    mine = open_punch(@member)
+    Membership.create!(person: @member, team: @other_team)
+    other = TimeClockPunch.create!(person: @member, time_clock_period: @other_period, start_time: Time.current, created_by: "kiosk")
 
-    scan "8675309"
-    get time_kiosk_path, params: { time_kiosk: button("punch_in") }
+    kiosk tool: "punch_out_all", person_ref: ref_for(@manager)
+    assert_not_nil mine.reload.end_time
+    assert_nil other.reload.end_time
+    assert_not_includes response.body, "You can&#39;t clock out these periods."
+
+    [ @member, create_manager_without_login ].each do |person|
+      kiosk tool: "punch_out_all", person_ref: ref_for(person)
+      assert_nil other.reload.end_time
+      assert_includes response.body, "You can&#39;t clock out these periods."
+    end
+  end
+
+  test "a manager with no login isn't offered buttons that can't work" do
+    no_login = create_manager_without_login
+    Token.create!(value: "100000002", tokenable: no_login)
+
+    kiosk tool: "find_token", token_value: "100000002"
 
     assert_response :success
-    assert_not @teammate.time_clock_punches.exists?
+    assert_not_includes response.body, "managerModal"
+  end
+
+  test "punch_out_period refuses a non-manager, a bare person_id and a manager with no login" do
+    punch = open_punch(@member)
+    no_login = create_manager_without_login
+
+    kiosk tool: "punch_out_period", person_ref: ref_for(@member), time_clock_period_id: @period.id
+    assert_response :success
+    kiosk tool: "punch_out_period", person_id: @manager.id, time_clock_period_id: @period.id
+    assert_response :success
+    kiosk tool: "punch_out_period", person_ref: ref_for(no_login), time_clock_period_id: @period.id
+    assert_response :success
+
+    assert_nil punch.reload.end_time
+  end
+
+  test "punch_out_all clocks out every managed period for a manager" do
+    punch = open_punch(@member)
+
+    kiosk tool: "punch_out_all", person_ref: ref_for(@manager)
+
+    assert_not_nil punch.reload.end_time
+  end
+
+  test "punch_out_all refuses a non-manager, a bare person_id and a manager with no login" do
+    punch = open_punch(@member)
+    no_login = create_manager_without_login
+
+    kiosk tool: "punch_out_all", person_ref: ref_for(@member)
+    assert_response :success
+    kiosk tool: "punch_out_all", person_id: @manager.id
+    assert_response :success
+    kiosk tool: "punch_out_all", person_ref: ref_for(no_login)
+    assert_response :success
+
+    assert_nil punch.reload.end_time
+  end
+
+  test "an unknown tool renders Welcome" do
+    [ "found_hook", "time_kiosk/period_select_form", "../layouts/kiosk", "found_person" ].each do |tool|
+      kiosk tool: tool
+
+      assert_response :success
+      assert_select "h2", text: "Welcome to the Time Kiosk"
+      assert_select ".card-body", text: /Please scan your token to begin/
+    end
+  end
+
+  test "a Hook's token shows the bad card banner" do
+    token = Token.create!(value: "200000002", tokenable: hooks(:one))
+
+    kiosk tool: "find_token", token_value: token.value
+
+    assert_response :success
+    assert_select "h2", text: "Welcome to the Time Kiosk"
+    assert_select ".alert-warning", text: /Card not recognized/
+  end
+
+  test "the 61st lookup in a minute from the same user is refused" do
+    60.times do
+      kiosk tool: "find_token", token_value: @member_token.value
+      assert_select "h3", text: @member.identifier_name
+    end
+
+    kiosk tool: "find_token", token_value: @member_token.value
+
+    assert_response :success
+    assert_select "h3", text: @member.identifier_name, count: 0
+    assert_select ".alert", text: /Too many scans/
+  end
+
+  test "punch tools still work after 60 lookups in a minute" do
+    60.times { kiosk tool: "find_token", token_value: @member_token.value }
+
+    assert_difference -> { @member.time_clock_punches.count } do
+      kiosk tool: "punch_in", person_ref: ref_for(@member), time_clock_period_id: @period.id
+    end
+    assert_select ".alert", text: /Too many scans/, count: 0
   end
 
   private
 
-  def kiosk_user
-    user, = create_person("kiosk")
-    user.update!(kiosk: true)
-    user
+  def kiosk(**params)
+    post time_kiosk_path, params: { time_kiosk: params }
   end
 
-  def scan(value)
-    post time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: value } }
-    assert_response :success
+  def kiosk_params(href)
+    Rack::Utils.parse_nested_query(URI(href).query)["time_kiosk"]
   end
 
-  # The time_kiosk params of each POST button on the page.
-  def kiosk_buttons
-    css_select("a[data-turbo-method=post]").map do |a|
-      Rack::Utils.parse_nested_query(URI(a["href"]).query)["time_kiosk"]
-    end
+  def ref_for(person)
+    person.signed_id(purpose: :time_kiosk, expires_in: 5.minutes)
   end
 
-  def button(tool)
-    kiosk_buttons.find { |b| b["tool"] == tool && (tool != "punch_in" || b["time_clock_period_id"].present?) } ||
-      flunk("no #{tool} button on the page")
+  def assert_no_punch_created(&block)
+    assert_no_difference -> { TimeClockPunch.count }, &block
   end
 
-  def create_person(name, team: nil, manager: false, admin: false)
-    user = User.create!(email: "#{name}@example.com", password: "Password1!", admin: admin)
-    person = Person.create!(user: user, first_name: name.capitalize, last_name: "Test")
-    Membership.create!(person: person, team: team, manager: manager) if team
-    [ user, person ]
+  def open_punch(person)
+    TimeClockPunch.create!(person: person, time_clock_period: @period, start_time: 1.hour.ago, created_by: "kiosk")
+  end
+
+  def create_period(name, team, start_time: 1.day.ago.to_date, end_time: 1.day.from_now.to_date)
+    TimeClockPeriod.create!(name: name, team: team, start_time: start_time, end_time: end_time, permission: :added_by_user)
+  end
+
+  def create_person(email)
+    user = User.create!(email: email, password: "Password1!")
+    Person.create!(user: user, first_name: "Test", last_name: email.split("@").first.capitalize)
+  end
+
+  def create_manager_without_login
+    person = Person.create!(first_name: "No", last_name: "Login")
+    Membership.create!(person: person, team: @team, manager: true)
+    person
   end
 end
