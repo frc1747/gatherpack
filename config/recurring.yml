@@ -13,15 +13,3 @@ generate_notifications_job:
   class: GenerateNotificationsJob
   queue: default
   schedule: every 5 minutes
-intake_entry_expiry:
-  class: Intake::EntryExpiryJob
-  queue: default
-  schedule: every hour
-intake_registration_dates:
-  class: Intake::RegistrationDatesJob
-  queue: default
-  schedule: every hour
-intake_digest:
-  class: Intake::DigestJob
-  queue: default
-  schedule: every day at 7am
