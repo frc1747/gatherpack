@@ -5,9 +5,16 @@ class GatherPack::ViewOverridesTest < ActionDispatch::IntegrationTest
 
   setup do
     host! "localhost"
+    @registered = GatherPack::ViewOverrides.all
     GatherPack::ViewOverrides.reset!
   end
-  teardown { GatherPack::ViewOverrides.reset! }
+
+  teardown do
+    GatherPack::ViewOverrides.reset!
+    @registered.each do |o|
+      GatherPack::ViewOverrides.register(o.key, path: o.path, position: o.position, active: o.active)
+    end
+  end
 
   test "an override replaces a template only while active" do
     on = false
@@ -30,8 +37,8 @@ class GatherPack::ViewOverridesTest < ActionDispatch::IntegrationTest
   end
 
   test "two overrides resolve by position, higher first" do
-    GatherPack::ViewOverrides.register(:high, path: FIXTURES.join("high"), position: 20)
     GatherPack::ViewOverrides.register(:low, path: FIXTURES.join("low"), position: 10)
+    GatherPack::ViewOverrides.register(:high, path: FIXTURES.join("high"), position: 20)
 
     get new_user_session_path
     assert_match "high override sign in", response.body
