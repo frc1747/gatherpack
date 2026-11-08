@@ -1,6 +1,6 @@
 # Spec: Checklists
 
-Status: rev. 3, 2026-11-06. Not built. Code facts checked against integration `49609326`. Decisions are in §15. Companion: `membership-intake-spec.md` (what it needs from this is §13).
+Status: rev. 3, 2026-11-06. Built (2026-11-07) as `feature/checklists` and its kind and integration branches (`-attendance`, `-count`, `-person-fields`, `-forms`, `-signups`, `-kiosk`, `feature/mcp-checklists`); `FORK.md` has each branch's state. Code facts checked against integration `49609326`. Decisions are in §15. Companion: `membership-intake-spec.md` (what it needs from this is §13).
 
 Rev. 3: one feature. "Requirements" and "Commitments" become **Checklists**; a commitment is a **count item** inside a checklist, on its existing tables (§6.2, §11). Rev. 2 kept: no seasons, every date is configuration (including "within the last N"), form expiry honoured.
 

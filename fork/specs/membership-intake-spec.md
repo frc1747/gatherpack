@@ -1,6 +1,6 @@
 # Spec: Membership Intake (joining and rejoining a team)
 
-Status: draft rev. 2, 2026-11-06. Nothing is built. Code facts were checked at integration `49609326`. Decisions in §13 are defaults the product owner can overturn; there are no open questions.
+Status: draft rev. 2, 2026-11-06. Built (2026-11-07): phases 1–5 (`feature/intake`, `feature/intake-turnstile`, `feature/intake-checklist`, `feature/mcp-intake`, `feature/forms-expiry`, `feature/mcp-forms-expiry`) and `feature/person-merge`; phase 6 is not. `FORK.md` has each branch's state. Code facts were checked at integration `49609326`. Decisions in §13 are defaults the product owner can overturn; there are no open questions.
 
 Rev. 2 (also adds an optional form expiry, §7.5): no seasons. The product owner's rule is that time is a date or a date range on a record or a check, never a model. Removed: `Season`, `feature/seasons`, `season_enrollments`, `renews_each_season`, the rollover job, "ways to join" and renewal as its own flow. A registration is now a link with dates, the teams people may apply to, and a checklist. "Signed recently enough" is decided by the item that uses the form (§7).
 
