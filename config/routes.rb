@@ -150,27 +150,6 @@ Rails.application.routes.draw do
     end
   end
 
-  # Always drawn; the controllers check the feature (default off).
-  resources :checklists do
-    member do
-      get :copy, action: :copy_form
-      post :copy
-      post :preview
-      post :refresh
-      post :restore
-    end
-    resources :checklist_items, path: "items", except: %i[index show] do
-      post :preview, on: :collection
-    end
-    resources :checklist_rules, path: "rules", only: %i[create destroy]
-    resources :checklist_grants, path: "grants", only: %i[create destroy]
-    resources :checklist_organizers, path: "organizers", only: %i[create destroy]
-    resources :checklist_excuses, path: "excuses", only: %i[new create destroy]
-    resources :checklist_attestations, path: "attestations", only: %i[create destroy]
-    resources :checklist_lists, path: "lists", only: %i[show create]
-  end
-  get "people/:person_id/checklists", to: "person_checklists#show", as: :person_checklists
-
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
     resources :ledger_transfers, only: %i[new create]
@@ -232,10 +211,17 @@ Rails.application.routes.draw do
     end
   end
 
-  # Handle plugin routes - was suggested, don't know that we actually need this or if plugins can just manage this themselves
-  # GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
-  #   instance_exec(&feature.routes_proc)
-  # end
+  # Feature routes. A feature can register a routes_proc on its Feature, or
+  # drop a file in config/routes/ (config/routes/<name>.rb holds the usual
+  # routing DSL, without the outer `Rails.application.routes.draw`). Only the
+  # app's own routes directories are searched, not those of engines.
+  GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
+    instance_exec(&feature.routes_proc)
+  end
+
+  Rails.application.paths["config/routes"].paths.flat_map { |path| Dir[File.join(path, "*.rb")] }.map { |file| File.basename(file, ".rb") }.uniq.sort.each do |name|
+    draw name
+  end
 
   if Settings[:local_signup]
     devise_for :users, controllers: { omniauth_callbacks: "omniauth", registrations: "users/registrations" }
