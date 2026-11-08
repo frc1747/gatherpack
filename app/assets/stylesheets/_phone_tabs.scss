@@ -1,0 +1,98 @@
+// The My GatherPack phone frame: a fixed bottom tab bar below md. The nav is
+// only rendered while that feature is on, so :has() keeps these rules to it.
+.phone-tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: $zindex-fixed;
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  background-color: var(--pair-b-bg);
+  border-top: 1px solid var(--pair-c-bg);
+}
+
+.phone-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.375rem 0.25rem;
+  border: 0;
+  background: none;
+  font-size: 0.75rem;
+  color: var(--pair-b-fg);
+  text-decoration: none;
+  opacity: 0.75;
+
+  &.active {
+    opacity: 1;
+    font-weight: 600;
+  }
+}
+
+// viewport-fit=cover drops the browser's side margins, so a notched phone in
+// landscape (which gets the md layout) keeps them here.
+body:has(.phone-tabs) {
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
+
+@include media-breakpoint-down(md) {
+  // Room for the bar, which is about 3.5rem tall plus the inset.
+  body:has(.phone-tabs) {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+
+    .breadcrumb-container {
+      display: none;
+    }
+
+    // One line: the title gives way before the search button wraps.
+    .navbar > .container-fluid {
+      flex-wrap: nowrap;
+    }
+
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .navbar .navbar-toggler,
+    .navbar .dropdown-menu .btn {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    .navbar .dropdown-menu .form-control {
+      min-height: 44px;
+    }
+
+    // The sidebar is the phone's way to everything the tabs don't reach.
+    .sidebar .offcanvas-header .btn-close {
+      box-sizing: content-box;
+      width: 1.5rem;
+      height: 1.5rem;
+      padding: 0.625rem;
+    }
+
+    .sidebar .impersonation-banner .btn {
+      min-height: 44px;
+    }
+
+    .sidebar .offcanvas-body .nav-item > a,
+    .sidebar .offcanvas-body summary {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+    }
+  }
+}

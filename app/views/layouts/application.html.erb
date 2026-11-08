@@ -2,7 +2,8 @@
 <html>
   <head>
     <title><%= browser_title %></title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%# viewport-fit=cover lets the phone tab bar use the bottom safe-area inset. %>
+    <meta name="viewport" content="width=device-width,initial-scale=1<%= ",viewport-fit=cover" if MyGatherpack.enabled? %>">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
