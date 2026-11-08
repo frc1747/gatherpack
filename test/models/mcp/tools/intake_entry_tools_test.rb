@@ -47,15 +47,16 @@ class Mcp::Tools::IntakeEntryToolsTest < ActionDispatch::IntegrationTest
 
   test "list_intake_entries counts by the site's local day, as the page does" do
     # 9pm on Nov 4 in New York, already Nov 5 in UTC.
-    @sam.update_columns(created_at: Time.utc(2026, 11, 5, 2))
+    @sam.update_columns(created_at: Time.utc(2026, 11, 5, 2), verified_at: Time.utc(2026, 11, 5, 2))
+    travel_to Time.utc(2026, 11, 5, 3)
 
     with_settings(time_zone: "Eastern Time (US & Canada)") do
       result = tool("list_intake_entries", :leader, registration_id: @registration.neat_id)
-      assert_equal [ { "day" => "2026-11-04", "started" => 2, "email_confirmed" => 0 } ], result.value["by_day"]
+      assert_equal [ { "day" => "2026-11-04", "started" => 2, "email_confirmed" => 1 } ], result.value["by_day"]
 
       sign_in @leader.user
       with_intake { get intake_registration_path(@registration) }
-      assert_match "<td>November 04, 2026</td><td>2</td>", response.body
+      assert_match "<td>November 04, 2026</td><td>2</td><td>1</td>", response.body
     end
   end
 
