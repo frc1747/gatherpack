@@ -12,15 +12,6 @@ Rails.application.routes.draw do
     end
   end
 
-  # Phone notifications
-  resource :notifications, only: %i[show update], controller: "notification_settings"
-  resource :push_subscription, only: %i[create destroy] do
-    post "sync"
-  end
-  resources :gateways, only: [] do
-    resource :push_keys, only: %i[edit update]
-  end
-
   resources :audit_logs, only: %i[index show destroy] do
     post "revert", to: "audit_logs#revert", on: :member
   end
@@ -198,6 +189,15 @@ Rails.application.routes.draw do
   get "search/combo" => "search#combo", :as => :combo_search
 
   mount MissionControl::Jobs::Engine, at: "/jobs"
+
+  # Phone notifications
+  resource :notifications, only: %i[show update], controller: "notification_settings"
+  resource :push_subscription, only: %i[create destroy] do
+    post "sync"
+  end
+  resources :gateways, only: [] do
+    resource :push_keys, only: %i[edit update]
+  end
 
   get "up" => "rails/health#show", :as => :rails_health_check
   get "service-worker" => "rails/pwa#service_worker", :as => :pwa_service_worker

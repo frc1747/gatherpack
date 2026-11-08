@@ -39,6 +39,28 @@ class Gateway::WebPushGatewayTest < ActiveSupport::TestCase
     assert_equal 0, PushSubscription.count
   end
 
+  test "deleting the gateway removes the subscriptions, which can no longer receive anything" do
+    gateway = create_push_gateway
+    create_subscription(users(:one))
+
+    gateway.destroy!
+
+    assert_equal 0, PushSubscription.count
+  end
+
+  test "deleting or rekeying a spare gateway leaves the devices alone" do
+    in_use = create_push_gateway
+    spare = Gateway::WebPushGateway.create!(name: "Spare", contact: "admin@example.com").tap(&:finish_setup)
+    spare, in_use = in_use, spare unless in_use == Gateway[:push_sending]
+    create_subscription(users(:one))
+
+    spare.replace_keys
+    assert_equal 1, PushSubscription.count
+
+    spare.destroy!
+    assert_equal 1, PushSubscription.count
+  end
+
   test "keeps an https contact as it is" do
     gateway = create_push_gateway
     gateway.update!(contact: "https://example.com/contact")

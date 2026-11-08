@@ -270,7 +270,7 @@ class PhoneNotificationsTest < ActionDispatch::IntegrationTest
   test "the permission prompt is only reachable from the toggle" do
     controllers = Rails.root.glob("app/javascript/controllers/push_*_controller.js").map(&:read)
 
-    assert_equal 2, controllers.size
+    assert_equal 3, controllers.size
     assert_empty controllers.flat_map { |source| source.lines.grep(/requestPermission/) }.reject { |line| line.include?("await Notification.requestPermission()") }
     assert_equal 1, controllers.join.scan("requestPermission").size
     assert_match(/async turnOn\(registration\) \{\n\s+const permission = await Notification\.requestPermission\(\)/, controllers.join)
@@ -322,6 +322,25 @@ class PhoneNotificationsTest < ActionDispatch::IntegrationTest
     @user.update_columns(architect: true)
     patch gateway_push_keys_path(@gateway)
     assert_not_equal public_key, @gateway.reload.public_key
+  end
+
+  test "replacing keys is closed while the flag is off, so opt-ins survive a brief off" do
+    @user.update_columns(architect: true)
+    public_key = @gateway.public_key
+    row = create_subscription(@user)
+    set_push_flag(false)
+
+    get edit_gateway_push_keys_path(@gateway)
+    assert_redirected_to root_path
+
+    patch gateway_push_keys_path(@gateway)
+    assert_redirected_to root_path
+    assert_equal public_key, @gateway.reload.public_key
+    assert PushSubscription.exists?(row.id)
+
+    get gateway_path(@gateway)
+    assert_response :success
+    assert_select "a", text: "Replace keys", count: 0
   end
 
   # Service worker

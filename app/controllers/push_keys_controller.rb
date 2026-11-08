@@ -1,4 +1,6 @@
 class PushKeysController < InternalController
+  include PhoneNotificationsAccess
+
   before_action :set_gateway
 
   # GET /gateways/1/push_keys/edit

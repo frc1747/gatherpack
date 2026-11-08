@@ -44,6 +44,16 @@ class AnnouncementPushConnectorTest < ActiveSupport::TestCase
     end
   end
 
+  [ true, false ].each do |flag|
+    test "an error from the emails still raises with the flag #{flag ? "on" : "off"}" do
+      set_push_flag(flag)
+
+      replacing(SendEmailJob, :perform_later, ->(*) { raise "queue is down" }) do
+        assert_raises(RuntimeError) { run_router }
+      end
+    end
+  end
+
   test "email still goes out when push fails" do
     replacing(GatherPack::PushChannel, :deliver, ->(*, **) { raise "push is down" }) do
       assert_enqueued_jobs(Person.joins(:user).count, only: SendEmailJob) do

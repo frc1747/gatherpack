@@ -8,6 +8,8 @@ class Gateway::WebPushGateway < Gateway
 
   validates :contact, presence: true
 
+  before_destroy :forget_devices
+
   NOTIFICATION_LIFETIME = 2.days
 
   def fields
@@ -19,6 +21,8 @@ class Gateway::WebPushGateway < Gateway
   end
 
   def routes
+    return [] unless GatherPack::PushChannel.available?
+
     [ { name: "Replace keys", path: Rails.application.routes.url_helpers.edit_gateway_push_keys_path(self) } ]
   end
 
@@ -36,7 +40,7 @@ class Gateway::WebPushGateway < Gateway
   def replace_keys
     transaction do
       generate_keys
-      PushSubscription.delete_all
+      forget_devices
     end
   end
 
@@ -54,6 +58,12 @@ class Gateway::WebPushGateway < Gateway
   end
 
   private
+    # A browser's subscription only works with the keys it was made with. A
+    # spare gateway that isn't the one in use has no devices to lose.
+    def forget_devices
+      PushSubscription.delete_all if self == Gateway[:push_sending]
+    end
+
     def generate_keys
       keys = WebPush.generate_key
       update!(public_key: keys.public_key, private_key: keys.private_key)
