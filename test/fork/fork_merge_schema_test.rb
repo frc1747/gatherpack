@@ -52,8 +52,23 @@ class ForkMergeSchemaTest < Minitest::Test
     assert_match(/^<{7} ours$/, merged)
   end
 
+  def test_keeps_columns_two_branches_added_to_the_same_table
+    base = schema("2026_10_01_000000", tables: %w[events], keys: [])
+    ours = base.sub(%(    t.string "name"\n), %(    t.string "name"\n    t.string "time_kind", default: "timed", null: false\n))
+    theirs = base.sub(%(    t.string "name"\n), %(    t.string "name"\n    t.datetime "archived_at"\n))
+
+    merged, status = merge(base, ours, theirs)
+
+    assert_equal 0, status
+    assert_includes merged, %(    t.string "name"\n    t.string "time_kind", default: "timed", null: false\n    t.datetime "archived_at"\n  end\n)
+  end
+
+  def test_leaves_a_column_both_branches_changed_in_conflict
+    assert_nil ForkMergeSchema.resolve_hunk(%(    t.string "a"\n), %(    t.text "a"\n), %(    t.integer "a"\n))
+  end
+
   def test_leaves_part_of_a_block_in_conflict
-    assert_nil ForkMergeSchema.resolve_hunk("    t.string \"x\"\n", "", "    t.string \"y\"\n")
+    assert_nil ForkMergeSchema.resolve_hunk("  end\n\n  create_table \"b\" do |t|\n", "", "    t.string \"y\"\n  end\n")
   end
 
   def test_a_side_identical_to_the_other_is_kept_once
