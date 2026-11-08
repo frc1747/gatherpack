@@ -16,7 +16,7 @@ module MyGatherpackChecklistsHelper
   # the button. A ward's row names the ward.
   def my_gatherpack_checklist_items
     my_gatherpack_checklist_results.flat_map do |subject, checklist, status|
-      ward = subject.id == current_user.person.id ? nil : subject.first_name
+      ward = my_gatherpack_ward_name(subject)
       status.explained.filter_map do |entry|
         next unless entry.full? && UNFINISHED.include?(entry.status)
 
@@ -35,8 +35,8 @@ module MyGatherpackChecklistsHelper
       open_items = status.explained.select { |entry| entry.full? && UNFINISHED.include?(entry.status) }
       next if open_items.empty?
 
-      counted = status.items.select { |entry| entry.full? && !entry.exempt? }
-      SeasonEntry.new(checklist: checklist, subject: subject, ward: subject.id == current_user.person.id ? nil : subject.first_name,
+      counted = status.items.select { |entry| entry.full? && entry.item.counts? && !entry.exempt? }
+      SeasonEntry.new(checklist: checklist, subject: subject, ward: my_gatherpack_ward_name(subject),
         done: counted.count(&:met?), total: counted.size, open_items: open_items)
     end
   end
@@ -51,12 +51,21 @@ module MyGatherpackChecklistsHelper
 
   private
 
-  # [[subject, checklist, status], ...] for the viewer and their wards, once a request.
+  # What a ward is called on a row: nil for the viewer themselves, otherwise
+  # a name that is never blank, since the row's wording depends on it.
+  def my_gatherpack_ward_name(subject)
+    subject.first_name.presence || subject.identifier_name unless subject.id == current_user.person.id
+  end
+
+  # [[subject, checklist, status], ...] for the viewer and their wards, once a
+  # request. An ended checklist is left out: its results are frozen, so
+  # nothing the viewer does can finish an item on it.
   def my_gatherpack_checklist_results
     @my_gatherpack_checklist_results ||= begin
       viewer = current_user.person
       [ viewer, *viewer.wards ].flat_map do |subject|
-        Checklists.checklist_for(subject, viewer: viewer).map { |checklist, status| [ subject, checklist, status ] }
+        Checklists.checklist_for(subject, viewer: viewer).reject { |checklist, _| checklist.ended? }
+          .map { |checklist, status| [ subject, checklist, status ] }
       end
     end
   end
@@ -67,6 +76,8 @@ module MyGatherpackChecklistsHelper
   def my_gatherpack_checklist_fix(checklist, entry, subject, ward:)
     fix = entry.fix
     return if fix.blank? || !checklist_fix_allowed?(fix["requires"])
+    # A pointer to what only a leader can finish is no to-do for anyone else.
+    return if fix["by"] == "leader" && fix["requires"].blank? && fix["action"] != "attest" && !checklist.organizer?(current_user.person)
 
     if fix["action"] == "attest"
       item = (fix["item_id"] && checklist.checklist_items.find_by(id: fix["item_id"])) || entry.item

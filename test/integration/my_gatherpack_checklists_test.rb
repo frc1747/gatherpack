@@ -192,6 +192,74 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an ended checklist is no to-do and not in your season" do
+    ended = create_world_checklist("Last season", ends_on: 1.week.ago.to_date)
+    add_rule(ended, :include, :person, person_id: person(:member).id)
+    add_item(ended, :plain, "Old form")
+    refresh(ended)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_select "h1", text: "Hi Member. You're all caught up."
+      assert_select "[data-home-section=checklists-season]", false
+    end
+  end
+
+  test "a ward with no first name still gets a label, a ward link and guardian wording" do
+    person(:kid).update_columns(first_name: nil)
+    add_item(@checklist, :attested, "Permission", { statement: "Permission given", attested_by: "guardian" })
+    add_rule(@checklist, :include, :person, person_id: person(:parent).id)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:parent).user
+      get root_path
+
+      label = "for #{person(:kid).identifier_name}"
+      assert_select "[data-home-column=todo] .mg-row-ward", text: label
+      assert_select "[data-home-column=todo] a.btn", text: "Confirm for #{person(:kid).identifier_name}"
+      assert_select "[data-home-section=checklists-season] a[href=?]", person_checklists_path(person(:kid))
+    end
+  end
+
+  test "a pointer to what only a leader can finish is a row for an organizer, not for the member" do
+    prereq = create_world_checklist("Prereq")
+    add_rule(prereq, :include, :person, person_id: person(:member).id)
+    add_item(prereq, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_item(@checklist, :checklist, "Prereq done", { checklist_id: prereq.id })
+    refresh(prereq)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_select "h1", text: "Hi Member. You're all caught up."
+
+      sign_in person(:admin).user
+      add_rule(prereq, :include, :person, person_id: person(:admin).id)
+      add_rule(@checklist, :include, :person, person_id: person(:admin).id) unless @checklist.checklist_rules.exists?(person_id: person(:admin).id)
+      refresh(prereq)
+      refresh(@checklist)
+      get root_path
+      assert_select "[data-home-column=todo] .mg-row"
+    end
+  end
+
+  test "the progress bar leaves out items that don't count" do
+    add_item(@checklist, :has_login, "Login")
+    add_item(@checklist, :plain, "Shown only", {}, counts: false)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 100%']"
+    end
+  end
+
   test "an organizer gets Manage with Checklists in it; a plain member doesn't" do
     with_settings(feature_my_gatherpack: "true", feature_checklists: "true", checklists_organizers: "Checklist Organizer > Club") do
       sign_in person(:organizer).user
