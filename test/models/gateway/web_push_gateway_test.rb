@@ -48,17 +48,20 @@ class Gateway::WebPushGatewayTest < ActiveSupport::TestCase
     assert_equal 0, PushSubscription.count
   end
 
-  test "deleting or rekeying a spare gateway leaves the devices alone" do
-    in_use = create_push_gateway
-    spare = Gateway::WebPushGateway.create!(name: "Spare", contact: "admin@example.com").tap(&:finish_setup)
-    spare, in_use = in_use, spare unless in_use == Gateway[:push_sending]
-    create_subscription(users(:one))
+  test "a second gateway can't be created" do
+    create_push_gateway
 
-    spare.replace_keys
-    assert_equal 1, PushSubscription.count
+    second = Gateway::WebPushGateway.new(name: "Spare", contact: "admin@example.com")
 
-    spare.destroy!
-    assert_equal 1, PushSubscription.count
+    assert_not second.save
+    assert_includes second.errors[:base], Gateway::WebPushGateway::ONLY_ONE_MESSAGE
+    assert_equal 1, Gateway::WebPushGateway.count
+  end
+
+  test "the one gateway can still be edited" do
+    gateway = create_push_gateway
+
+    assert gateway.update(contact: "other@example.com")
   end
 
   test "keeps an https contact as it is" do

@@ -299,6 +299,16 @@ class PhoneNotificationsTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{edit_gateway_push_keys_path(gateway)}']", text: "Replace keys"
   end
 
+  test "the gateway form says why a second gateway wasn't created" do
+    @user.update_columns(architect: true)
+
+    post gateways_path, params: { type: "Gateway::WebPushGateway", gateway: { name: "Spare", contact: "admin@example.com" } }
+
+    assert_response :unprocessable_entity
+    assert_match "already has a gateway", response.body
+    assert_equal 1, Gateway::WebPushGateway.count
+  end
+
   # Replacing keys
 
   test "the replace keys page warns above its save button, for architects only" do

@@ -6,11 +6,13 @@ class Gateway::WebPushGateway < Gateway
   store_accessor (method_defined?(:secret_field?) ? :secrets : :configuration), :private_key
   store_accessor :configuration, :contact, :public_key
 
+  ONLY_ONE_MESSAGE = "Phone notifications already has a gateway. Edit that one instead."
+  NOTIFICATION_LIFETIME = 2.days
+
   validates :contact, presence: true
+  validate :only_one_gateway, on: :create
 
   before_destroy :forget_devices
-
-  NOTIFICATION_LIFETIME = 2.days
 
   def fields
     [ :contact ]
@@ -58,10 +60,14 @@ class Gateway::WebPushGateway < Gateway
   end
 
   private
-    # A browser's subscription only works with the keys it was made with. A
-    # spare gateway that isn't the one in use has no devices to lose.
+    # Subscriptions are tied to one key pair, so there can only be one gateway.
+    def only_one_gateway
+      errors.add(:base, ONLY_ONE_MESSAGE) if self.class.exists?
+    end
+
+    # A browser's subscription only works with the keys it was made with.
     def forget_devices
-      PushSubscription.delete_all if self == Gateway[:push_sending]
+      PushSubscription.delete_all
     end
 
     def generate_keys

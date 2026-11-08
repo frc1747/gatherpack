@@ -18,6 +18,11 @@ Rails.application.config.to_prepare do
   # Loads the gateway so it's in the registry (test and lazy-loading environments).
   Gateway::WebPushGateway
 
+  # The gateway form doesn't show validation errors, so say why it came back.
+  GatewaysController.before_action(only: :create, if: -> { params[:type] == "Gateway::WebPushGateway" && Gateway::WebPushGateway.exists? }) do
+    flash.now[:warning] = Gateway::WebPushGateway::ONLY_ONE_MESSAGE
+  end
+
   User.include(PushNotifiable)
   AnnouncementNotificationRouter.prepend(AnnouncementPushConnector)
 
