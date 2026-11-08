@@ -244,6 +244,38 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     assert_equal @commitments.size, wrapper.up.size
   end
 
+  # A full rollback undoes this after later migrations dropped columns that
+  # other features' destroy guards read, so undoing must not run them.
+  test "undoing removes the wrappers and all that is theirs without running destroy callbacks" do
+    wrapper = Checklists::WrapCommitments.new
+    checklists = wrapper.up
+    item = checklists.first.checklist_items.first
+    ChecklistExcuse.new(item: item, person: person(:member), reason: "Away", created_by: person(:admin)).save!(validate: false)
+    ChecklistGrant.new(checklist: checklists.first, team: @club, created_by: person(:admin)).save!(validate: false)
+    assert ChecklistResult.where(checklist_id: checklists.map(&:id)).exists?
+
+    guard = ->(_checklist) { raise "a destroy callback ran" }
+    Checklist.set_callback(:destroy, :before, guard)
+    ChecklistItem.set_callback(:destroy, :before, guard)
+    begin
+      assert_no_difference -> { Commitment.count } do
+        wrapper.down
+      end
+    ensure
+      Checklist.skip_callback(:destroy, :before, guard)
+      ChecklistItem.skip_callback(:destroy, :before, guard)
+    end
+
+    ids = checklists.map(&:id)
+    assert_empty Checklist.where(id: ids)
+    assert_empty ChecklistItem.where(checklist_id: ids)
+    assert_empty ChecklistResult.where(checklist_id: ids)
+    assert_empty ChecklistOrganizer.where(checklist_id: ids)
+    assert_empty ChecklistRule.where(checklist_id: ids)
+    assert_empty ChecklistGrant.where(checklist_id: ids)
+    assert_empty ChecklistExcuse.where(item_id: item.id)
+  end
+
   private
 
   def people
