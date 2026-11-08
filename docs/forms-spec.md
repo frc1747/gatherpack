@@ -521,7 +521,7 @@ entries (they work from the results page). Shown:
 ### 6.2 The fill page
 
 `/forms/:id/responses/:subject_id/edit`. The subject is explicit in the URL
-and the header ("Meal Choices for **Avery Ash**, filled in by you as her
+and the header ("Meal Choices for **Jordan Rivera**, filled in by you as her
 guardian"), so a parent with two children can't confuse them.
 
 - Questions the viewer can't read are omitted; read-only ones show values.
