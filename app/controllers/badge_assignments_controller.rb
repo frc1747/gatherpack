@@ -9,13 +9,13 @@ class BadgeAssignmentsController < InternalController
     authorize @badge, policy_class: BadgeAssignmentPolicy
     @q = policy_scope(@badge.badge_assignments).ransack(params[:q])
     @badge_assignments = @q.result(distinct: true).includes(:person).order("people.last_name ASC, people.first_name ASC").page(params[:page])
-    @can_assign = policy(BadgeAssignment.new(badge: @badge)).create?
+    @can_assign = policy(BadgeAssignment.new(badge: @badge)).new?
     load_badge_candidates if @can_assign
   end
 
   # GET /badge_assignments/candidates
   def candidates
-    authorize BadgeAssignment.new(badge: @badge), :create?
+    authorize BadgeAssignment.new(badge: @badge), :new?
     load_badge_candidates
   end
 
