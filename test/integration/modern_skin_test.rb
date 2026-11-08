@@ -90,8 +90,8 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
 
     assert print_block, "expected an @media print block"
     assert_includes print_block, ":root[data-bs-theme=dark]"
-    assert_includes print_block, "--gp-page: #f5f6f7"
-    assert_includes print_block, "--gp-text: #1c2024"
+    assert_includes print_block, "--gp-page: #ebe6d8"
+    assert_includes print_block, "--gp-text: #2b2716"
     assert_includes print_block, "color-scheme: light"
   end
 
