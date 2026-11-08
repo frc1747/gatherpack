@@ -30,7 +30,7 @@ module PeopleHelper
   def person_as_badge(person, **opts)
     content = i("user") + " " + person.identifier_name
     if opts[:link]
-      link_to person, class: "undecorated", data: { turbo_frame: "_top" } do
+      link_to person, class: "undecorated", data: { turbo_frame: "_top", turbo_prefetch: false } do
         tag.span content, class: "badge text-bg-primary"
       end
     else
