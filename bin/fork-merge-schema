@@ -10,8 +10,10 @@
 #   branches' migrations.
 # - Both branches added whole statements at the same place and the common
 #   base had nothing there: tables or foreign keys of two independent
-#   features that sort next to each other. Both sets are kept, sorted the
-#   way the schema dumper sorts them.
+#   features that sort next to each other, or columns two features added to
+#   the same table. Both sets are kept: tables and foreign keys sorted the
+#   way the schema dumper sorts them, columns ours first (the dumper lists
+#   them in database order, and the earlier branch's migrations ran first).
 #
 # Any other conflict is left in place, marked, and reported, so the rebuild
 # still stops on real schema conflicts (see fork/STRATEGY.md). The
@@ -20,6 +22,7 @@ module ForkMergeSchema
   VERSION_LINE = /\A\s*ActiveRecord::Schema\[[\d.]+\]\.define\(version: ([\d_]+)\) do\n\z/
   HUNK = /^<{7} ours\n(.*?)^\|{7} base\n(.*?)^={7}\n(.*?)^>{7} theirs\n/m
   ONE_LINE = /\A  (add_foreign_key|add_check_constraint|create_enum|create_function|create_trigger) .*\n\z/
+  COLUMN_LINE = /\A    t\.(\w+) "([^"]+)".*\n\z/
 
   module_function
 
@@ -37,11 +40,22 @@ module ForkMergeSchema
     end
     return unless base.strip.empty?
 
+    if (ours_columns = columns(ours)) && (theirs_columns = columns(theirs))
+      return (ours_columns + theirs_columns).uniq.sort_by.with_index { |line, index| [ line.match(COLUMN_LINE)[1] == "index" ? 1 : 0, index ] }.join
+    end
+
     ours_statements = statements(ours)
     theirs_statements = statements(theirs)
     return unless ours_statements && theirs_statements
 
     join((ours_statements + theirs_statements).uniq.sort_by { |statement| sort_key(statement) }, ours, theirs)
+  end
+
+  # The hunk's lines when every one is a single column or index line of a
+  # table body, else nil.
+  def columns(hunk)
+    lines = hunk.lines
+    lines if lines.any? && lines.all? { |line| line.match?(COLUMN_LINE) }
   end
 
   # Splits a hunk into whole top-level statements: create_table blocks (to
