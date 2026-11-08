@@ -3,23 +3,98 @@
 #
 #   bin/fork-merge-schema <current> <base> <other>
 #
-# Merges like git normally would, then resolves one kind of conflict: two
-# branches that both added migrations disagree on the schema version line.
-# The newer version wins, since the merged schema contains both branches'
-# migrations. Any other conflict is left in place, marked, and reported, so
-# the rebuild still stops on real schema conflicts (see fork/STRATEGY.md).
-current, base, other = ARGV
-abort "usage: #{$PROGRAM_NAME} <current> <base> <other>" unless current && base && other
+# Merges like git normally would, then resolves two kinds of conflict:
+#
+# - Both branches added migrations, so they disagree on the schema version
+#   line. The newer version wins, since the merged schema contains both
+#   branches' migrations.
+# - Both branches added whole statements at the same place and the common
+#   base had nothing there: tables or foreign keys of two independent
+#   features that sort next to each other. Both sets are kept, sorted the
+#   way the schema dumper sorts them.
+#
+# Any other conflict is left in place, marked, and reported, so the rebuild
+# still stops on real schema conflicts (see fork/STRATEGY.md). The
+# integration CI's db:migrate from an empty database checks the result.
+module ForkMergeSchema
+  VERSION_LINE = /\A\s*ActiveRecord::Schema\[[\d.]+\]\.define\(version: ([\d_]+)\) do\n\z/
+  HUNK = /^<{7} ours\n(.*?)^\|{7} base\n(.*?)^={7}\n(.*?)^>{7} theirs\n/m
+  ONE_LINE = /\A  (add_foreign_key|add_check_constraint|create_enum|create_function|create_trigger) .*\n\z/
 
-system("git", "merge-file", "--quiet", "-L", "ours", "-L", "base", "-L", "theirs", current, base, other)
+  module_function
 
-VERSION_LINE = /ActiveRecord::Schema\[[\d.]+\]\.define\(version: ([\d_]+)\) do\n/
-VERSION_CONFLICT = /^<{7} ours\n(#{VERSION_LINE})={7}\n(#{VERSION_LINE})>{7} theirs\n/
+  # The merged text with every resolvable conflict hunk resolved.
+  def resolve(text)
+    text.gsub(HUNK) do
+      ours, base, theirs = Regexp.last_match.captures
+      resolve_hunk(ours, base, theirs) || Regexp.last_match[0]
+    end
+  end
 
-text = File.read(current).gsub(VERSION_CONFLICT) do
-  ours, ours_version, theirs, theirs_version = Regexp.last_match.captures
-  ours_version.delete("_").to_i >= theirs_version.delete("_").to_i ? ours : theirs
+  def resolve_hunk(ours, base, theirs)
+    if (ours_version = ours[VERSION_LINE, 1]) && (theirs_version = theirs[VERSION_LINE, 1])
+      return ours_version.delete("_").to_i >= theirs_version.delete("_").to_i ? ours : theirs
+    end
+    return unless base.strip.empty?
+
+    ours_statements = statements(ours)
+    theirs_statements = statements(theirs)
+    return unless ours_statements && theirs_statements
+
+    join((ours_statements + theirs_statements).uniq.sort_by { |statement| sort_key(statement) }, ours, theirs)
+  end
+
+  # Splits a hunk into whole top-level statements: create_table blocks (to
+  # their closing `  end`) and one-line statements. nil when the hunk holds
+  # anything else, such as part of a block.
+  def statements(hunk)
+    lines = hunk.lines
+    result = []
+    until lines.empty?
+      line = lines.shift
+      next if line.strip.empty?
+
+      if line.start_with?("  create_table ")
+        block = [ line ]
+        block << lines.shift until lines.empty? || block.last == "  end\n"
+        return unless block.last == "  end\n"
+
+        result << block.join
+      elsif line.match?(ONE_LINE)
+        result << line
+      else
+        return
+      end
+    end
+    result.empty? ? nil : result
+  end
+
+  def sort_key(statement)
+    kind = statement.start_with?("  create_table ") ? 0 : 1
+    [ kind, statement.lines.first.scan(/"([^"]*)"/).flatten, statement ]
+  end
+
+  # Tables are separated by a blank line, one-line statements are not. A
+  # leading or trailing blank line is kept when either side's hunk has one.
+  def join(statements, ours, theirs)
+    text = +""
+    text << "\n" if [ ours, theirs ].any? { |side| side.start_with?("\n") }
+    statements.each_with_index do |statement, index|
+      previous = statements[index - 1] if index.positive?
+      text << "\n" if previous && (previous.start_with?("  create_table ") || statement.start_with?("  create_table "))
+      text << statement
+    end
+    text << "\n" if [ ours, theirs ].any? { |side| side.end_with?("\n\n") }
+    text
+  end
 end
-File.write(current, text)
 
-exit(text.match?(/^<{7} |^>{7} /) ? 1 : 0)
+if $PROGRAM_NAME == __FILE__
+  current, base, other = ARGV
+  abort "usage: #{$PROGRAM_NAME} <current> <base> <other>" unless current && base && other
+
+  system("git", "merge-file", "--quiet", "--diff3", "-L", "ours", "-L", "base", "-L", "theirs", current, base, other)
+  text = ForkMergeSchema.resolve(File.read(current))
+  File.write(current, text)
+  exit(text.match?(/^<{7} |^>{7} /) ? 1 : 0)
+end
