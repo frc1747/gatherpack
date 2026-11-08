@@ -1,0 +1,644 @@
+# Feature catalog: the plain-language entries bin/fork-changelog puts in
+# HBR-CHANGELOG.md on hbr/integration. One entry per feature branch, keyed by
+# branch name. Write for team mentors, not developers: what people see and
+# who uses it.
+#
+#   title:       short name for what the feature does
+#   emoji:       one emoji shown beside the title
+#   description: one to three sentences about what people see
+#   audience:    who uses it
+#   settings:    runtime settings that control it (leave out if none)
+#     - name:    the label on the Settings page
+#       key:     the Settings key (or environment variable)
+#       default: the value it ships with
+#
+# Status, shipped release, dependencies and migrations come from FORK.md and
+# git, so don't repeat them here.
+
+feature/search-and-add:
+  title: Add people from a search
+  emoji: "🔎"
+  description: >-
+    Badge holders, team members, a person's teams and event check-ins each get
+    a search panel beside the list. Type a name and press Add; the list updates
+    in place, and only people or teams that can still be added are shown.
+  audience: Team managers and admins
+
+feature/people-ransack-auth-object:
+  title: People searches know who is searching
+  emoji: "🧭"
+  description: >-
+    Every search over people (the directory, person search, team members,
+    birthdays on the calendar) now knows who is asking. Nothing changes on
+    screen; it lets Custom person fields keep hidden details out of search
+    results.
+  audience: Everyone (behind the scenes)
+
+feature/person-fields:
+  title: Custom person fields
+  emoji: "🗂️"
+  description: >-
+    Admins add their own profile fields, such as medical notes or an emergency
+    contact, and choose who can see and change each one: the person, their
+    guardians, their team's leaders, or holders of a badge. Built-in details
+    like phone, address and birthday follow the same rules, even with the
+    setting off.
+  audience: Admins set fields up; everyone who views profiles
+  settings:
+    - name: Custom Person Fields
+      key: feature_person_fields
+      default: "off"
+
+feature/forms:
+  title: Forms
+  emoji: "📝"
+  description: >-
+    Leaders ask a group of people for information by a deadline: meal choices,
+    permission slips, or who is coming to an event. People find their forms on
+    the dashboard and their profile, guardians can answer and sign for their
+    students, and leaders see who still owes an answer and print lists of the
+    answers.
+  audience: Members and families answer; leaders and form creators ask
+  settings:
+    - name: Forms
+      key: feature_forms
+      default: "off"
+    - name: Form Creator Badge
+      key: forms_creator_badge
+      default: blank (no form creators)
+    - name: Highest Team for Form Creators
+      key: forms_creator_highest_team
+      default: blank (only their own teams and the teams below)
+
+feature/app-version:
+  title: Version in the sidebar
+  emoji: "🏷️"
+  description: >-
+    The sidebar shows which release is running, under "powered by GatherPack".
+    Point at it to see the exact build. Use it when reporting a problem.
+  audience: Everyone signed in
+  settings:
+    - name: Release number, set when the image is built
+      key: GATHERPACK_VERSION
+      default: blank (nothing shown)
+
+feature/widgets:
+  title: Dashboard widgets
+  emoji: "🧱"
+  description: >-
+    Admins add titled sections to the dashboard, such as a kickoff countdown,
+    shop hours for the week, or who is clocked in right now. Each widget can be
+    shown to everyone or only to some people, and can refresh itself.
+  audience: Admins write them; everyone sees the ones meant for them
+  settings:
+    - name: Dashboard Widgets
+      key: feature_widgets
+      default: "off"
+
+feature/signup-link-guard:
+  title: Forgot Password works with sign-up off
+  emoji: "🔑"
+  description: >-
+    With local sign-up turned off, the Forgot Password page used to crash. It
+    now opens normally and hides the sign-up link, like the sign-in page does.
+  audience: Anyone who signs in with an email and password
+  settings:
+    - name: Enable Creating Local Accounts, an existing setting
+      key: local_signup
+      default: "on"
+
+feature/kiosk-scanned-person:
+  title: Kiosk acts only for the card just scanned
+  emoji: "🪪"
+  description: >-
+    The time kiosk's buttons work only for the person whose card was just
+    scanned, and only for a few minutes. No one can clock someone else in or
+    out from a link or by changing the page, and rapid card guessing is
+    blocked.
+  audience: People clocking in at the kiosk
+
+feature/kiosk-auto-clock-in:
+  title: Kiosk quick clock-in
+  emoji: "⏱️"
+  description: >-
+    Admins can have a scan clock the person in right away when only one time
+    period applies to them, send the kiosk back to the welcome screen after a
+    few seconds, and choose a team whose members may open the kiosk. When a
+    scan can clock people in, the button reads Clock In. An unrecognized card
+    shows "Card not recognized" on the welcome screen. With the default
+    settings the kiosk otherwise works as before.
+  audience: People clocking in at the kiosk; admins set it up
+  settings:
+    - name: "Kiosk: Allow Unassigned Punches"
+      key: time_kiosk_allow_unassigned
+      default: "on"
+    - name: "Kiosk: Return to Welcome After (seconds)"
+      key: time_kiosk_return_seconds
+      default: 0 (stays on the person's screen)
+    - name: "Kiosk: Who Can Open the Kiosk"
+      key: time_kiosk_users_team
+      default: blank (anyone signed in)
+
+feature/extension-registries:
+  title: Features can add their own settings and hook events
+  emoji: "🧩"
+  description: >-
+    Infrastructure, nothing to see on its own. It lets a feature register its
+    own settings and Hook events from its own code, so features no longer edit
+    the shared lists and conflict with each other. Sign-up sheets use it.
+  audience: Developers; no one will notice a change
+
+feature/signups:
+  title: Sign-up sheets
+  emoji: "📋"
+  description: >-
+    Sheets where people sign up to work or bring things at events, such as
+    greeters, a first aid table, or the pizza for a lunch. A position asks for
+    people (a number of places) or items (a quantity, like 6 pizzas), and can
+    ask one question. Rules say who may take it: a badge, an age range, or
+    being on any of a list of teams. Each place is one sign-up for one person,
+    so two people working together are two sign-ups, and a sign-up can be made
+    on behalf of another person. Organizers hold a badge you choose, run their
+    own sheets without managing a team, and mark who showed up or brought
+    their items. An admin turns it on in Settings.
+  audience: Everyone signs up; organizers run the sheets; admins choose the organizer badge
+  settings:
+    - name: Sign-up Sheets
+      key: feature_signups
+      default: "off"
+    - name: Sign-up Sheet Organizers
+      key: signups_organizers
+      default: blank (only admins and team managers run sheets)
+
+feature/commitments:
+  title: Commitments
+  emoji: "✅"
+  description: >-
+    Track what people owe over a season, such as two volunteer shifts each,
+    and credit it from what they do, such as checking in at events of a
+    chosen type. A commitment can be owed by families together, with more
+    owed for each extra child, and holders of a badge can be exempt. Each
+    person sees what they owe and how to earn it; organizers see everyone's
+    progress, add credit by hand with a reason, and message those who still
+    owe.
+  audience: Members and families see their progress; organizers and admins set commitments up
+  settings:
+    - name: Commitments
+      key: feature_commitments
+      default: "off"
+    - name: Commitment Organizers
+      key: commitments_organizers
+      default: blank (only admins and team managers run commitments)
+
+feature/signup-credit:
+  title: Sign-ups count toward commitments
+  emoji: "🤝"
+  description: >-
+    A sign-up sheet, or one position on it, can count toward a commitment:
+    signing up shows as planned, and showing up or bringing the items counts
+    it. A sign-up made on behalf of someone credits that person, so a parent
+    working a place for their child credits the family. The sign up dialog
+    shows how much each person still owes. It has no setting of its own and
+    works while Sign-up Sheets and Commitments are both on.
+  audience: Everyone who signs up; organizers choose which sheets count
+
+feature/profile-tabs:
+  title: Features can add tabs to a profile
+  emoji: "🗂️"
+  description: >-
+    Infrastructure, nothing to see on its own. It lets a feature add a tab to
+    a person's profile from its own code, shown only to the people it says,
+    instead of editing the profile page. The Commitments tab uses it.
+  audience: Developers; no one will notice a change
+
+feature/commitments-profile-tab:
+  title: Commitments tab on the profile
+  emoji: "📋"
+  description: >-
+    A Commitments tab on a person's profile shows what they owe and how to
+    earn it. People see their own; a parent sees it on a child's profile when
+    the commitment is shared by the family. The tab appears only when there is
+    something to show. It has no setting of its own and works while
+    Commitments is on.
+  audience: Members and their parents
+
+feature/signups-widget:
+  title: My sign-ups and commitments on the dashboard
+  emoji: "🗓️"
+  description: >-
+    A dashboard card that shows each person their upcoming sign-ups (their
+    own and those made for their family) and what they still owe on their
+    commitments, with links to the sheets and details. It hides itself for
+    anyone with nothing to show.
+  audience: Everyone signed in
+
+feature/test-hosts:
+  title: Tests run against the right hosts again
+  emoji: "🧪"
+  description: >-
+    Fixes tests that upstream's latest update broke, so the build's checks
+    pass. Nothing changes for anyone using GatherPack.
+  audience: Developers (tests only)
+
+feature/ransack-associations-default:
+  title: Automation and setup lists open again
+  emoji: "🔎"
+  description: >-
+    Fixes the Hooks, Variables, Reports, Event Types, Team Types and
+    Mailboxes lists, which showed an error after upstream's latest update.
+  audience: Admins
+
+feature/pagination-labels:
+  title: Page links read normally again
+  emoji: "📄"
+  description: >-
+    The First, Previous, Next and Last links under long lists showed raw
+    codes such as "&laquo; First" after upstream's latest update. They read
+    as arrows and words again.
+  audience: Everyone
+
+feature/oauth-admin-fixes:
+  title: Set up OAuth apps without surprises
+  emoji: "🔑"
+  description: >-
+    Admins reach OAuth Applications from the setup page, copy a client ID or
+    secret with one click, and edit an application without losing its scopes.
+    The consent page names the account being used, with a way to switch.
+  audience: Admins who connect other apps, and members who approve them
+
+feature/mcp:
+  title: Ask an AI client about GatherPack
+  emoji: "🤖"
+  description: >-
+    Members can connect an AI client, such as Claude, to their own account and
+    ask it about people, teams, badges, events, check-ins, hours, ledgers and
+    pages, or have it add people, fix punches, clock everyone out and post
+    announcements. It sees and does only what that member may, and every call is listed for
+    admins under MCP Calls. Changes stay off until an admin allows them.
+  audience: Members who use an AI client, and the admins who set it up
+  settings:
+    - name: "MCP: allowed badge"
+      key: mcp_allowed_badge
+      default: blank (every member)
+    - name: "MCP: allow changes"
+      key: mcp_write_enabled
+      default: "false"
+    - name: "MCP: read dynamic pages"
+      key: mcp_dynamic_pages_enabled
+      default: "false"
+
+feature/mcp-person-fields:
+  title: AI clients respect custom person fields
+  emoji: "🗂️"
+  description: >-
+    A connected AI client can read and change the custom person fields a member
+    may read and change, and the field privacy rules apply to contact details on
+    a profile too.
+  audience: Members who use an AI client
+
+feature/mcp-forms:
+  title: Ask an AI client about forms
+  emoji: "📝"
+  description: >-
+    A connected AI client can list forms and say who has and hasn't submitted,
+    and read the answers the member may see.
+  audience: Members who use an AI client
+
+feature/mcp-signups:
+  title: Ask an AI client about sign-ups
+  emoji: "📋"
+  description: >-
+    A connected AI client can show sheets, open places and who signed up. When
+    an admin allows changes, it can place and cancel sign-ups under the same
+    rules, and with the same emails, as the sign-up pages.
+  audience: Members who use an AI client
+
+feature/mcp-commitments:
+  title: Ask an AI client about commitments
+  emoji: "🤝"
+  description: >-
+    A connected AI client can list commitments and show progress for the people
+    the member may see.
+  audience: Members who use an AI client
+
+feature/settings-read-through:
+  title: Saved settings apply everywhere at once
+  emoji: "⚙️"
+  description: >-
+    A setting saved on the Settings page used to reach only one server process
+    until a restart, so some pages kept the old value. Every process now picks
+    up the change on its next request.
+  audience: Admins who change settings
+
+feature/seeds-membership-order:
+  title: A new install starts on its first try
+  emoji: "🌱"
+  description: >-
+    On a brand-new database, the first start no longer fails while loading
+    the starter records, so the app and its background worker come up on the
+    first try.
+  audience: Whoever installs or rebuilds GatherPack
+
+feature/period-hours-date-bounds:
+  title: Period hours include the last day's meetings
+  emoji: "⏱️"
+  description: >-
+    A time period's meeting hours now count meetings on its first and last
+    days, including evening meetings, so attendance percentages near the
+    period's ends are right.
+  audience: Mentors and team managers
+
+feature/blocked-delete-message:
+  title: A delete that can't happen says why
+  emoji: "🛑"
+  description: >-
+    Deleting something other records still depend on, such as an event with
+    check-ins, now goes back with a message saying it can't be deleted yet,
+    instead of an error page.
+  audience: Admins and team managers
+
+feature/kiosk-period-less-punches:
+  title: The kiosk works for hours with no period
+  emoji: "🪪"
+  description: >-
+    Someone who entered hours by hand without picking a time period could no
+    longer use the kiosk: scanning their card showed an error. The kiosk now
+    lists those hours as "No period".
+  audience: Members and mentors at the kiosk
+
+feature/alert-flash-style:
+  title: Error messages stand out
+  emoji: "🚨"
+  description: >-
+    Messages that say something went wrong now show in a red box with a
+    warning sign, instead of as plain text that was easy to miss.
+  audience: Everyone
+
+feature/event-destroy-checkins:
+  title: Delete an event that has check-ins
+  emoji: "🗑️"
+  description: >-
+    Deleting an event now removes its check-ins with it, and the Delete
+    button says how many check-ins will go, instead of failing until every
+    attendee is checked out by hand.
+  audience: Admins and team managers
+
+feature/event-type-checkin-fields:
+  title: Delete an event type that has check-in questions
+  emoji: "🗂️"
+  description: >-
+    An event type with no events can now be deleted even if it has check-in
+    questions; they go with it. If any of those questions still has answers,
+    the delete is refused with a message saying why.
+  audience: Admins
+
+feature/refused-delete-audit:
+  title: The audit log only records deletes that happened
+  emoji: "📜"
+  description: >-
+    When something can't be deleted because other records still use it, the
+    audit log no longer says it was deleted.
+  audience: Admins
+
+feature/event-time-display:
+  title: All-day events and "Time TBA"
+  emoji: "📅"
+  description: >-
+    An event can be all day, or on a known date with the time to be
+    announced. Event pages, team pages and the calendar show it that way
+    instead of a made-up time.
+  audience: Event organizers and everyone reading the calendar
+
+feature/person-team-ids:
+  title: Team lists that add up
+  emoji: "🧮"
+  description: >-
+    Fixes a behind-the-scenes mix-up in how a person's teams are listed, so
+    checks like "is this person on that team?" give the right answer.
+  audience: Admins
+
+feature/profile-all-teams:
+  title: See all of someone's teams
+  emoji: "🪪"
+  description: >-
+    A member's profile now lists every team they're on. Teams you can't open
+    show without a link.
+  audience: Everyone
+
+feature/event-type-change-answers:
+  title: Changing an event's type keeps answers
+  emoji: "↩️"
+  description: >-
+    Changing an event's type adds the new type's check-in questions right
+    away. Answers to the old type's questions are kept out of sight, so
+    switching back brings them back.
+  audience: Managers
+
+feature/forms-expiry:
+  title: Form answers that expire
+  emoji: "⏳"
+  description: >-
+    A form can say its answers stop counting on a set date for everyone, or a
+    number of months after each person signed. Expired answers show as needing
+    to be confirmed again, and people see "Good until" beside the ones still
+    current.
+  audience: Form creators set it; members and families re-confirm
+
+feature/person-merge:
+  title: Merge duplicate people
+  emoji: "🧬"
+  description: >-
+    Admins combine two records of the same person into one. A preview shows
+    what moves across (teams, badges, check-ins, hours, family links, cards and
+    more) and what is left out, and fills in details the kept record is
+    missing.
+  audience: Admins
+  settings:
+    - name: Merge people
+      key: feature_person_merge
+      default: "off"
+
+feature/team-subtree-queries:
+  title: Faster team and people lists
+  emoji: "🌳"
+  description: >-
+    Looking up everyone on a team and the teams beneath it now takes a single
+    step instead of one per team, so lists of people stay quick as the
+    organization grows. Nothing changes on screen.
+  audience: Everyone (behind the scenes)
+
+feature/recurring-routes-seams:
+  title: Features can add their own pages and scheduled jobs
+  emoji: "🔌"
+  description: >-
+    A feature can now keep its page addresses and its scheduled jobs in files
+    of its own instead of changing shared ones. Nothing changes on screen.
+  audience: Admins (behind the scenes)
+
+feature/mcp-forms-expiry:
+  title: Ask an AI client when form answers expire
+  emoji: "⏳"
+  description: >-
+    When a connected AI client opens a form, it also sees when the form's
+    answers expire.
+  audience: Members who use an AI client
+
+feature/security-series:
+  title: Security hardening
+  emoji: "🔒"
+  description: >-
+    Sign-in is stricter and limits repeated attempts, sessions time out, and
+    kiosk accounts can do only what the kiosk needs. Permission checks are
+    stricter across the site, so people see and change only what they should.
+    Gateway secrets are stored encrypted. Admins can make hand-entered time
+    clock punches an admin and manager task.
+  audience: Everyone benefits; admins notice the stricter limits
+  settings:
+    - name: Only admins and managers enter punches by hand
+      key: time_clock_hand_punches_managers_only
+      default: "off"
+
+feature/intake:
+  title: Registration
+  emoji: "📥"
+  description: >-
+    People join teams through a registration link or a kiosk without anyone
+    typing in their records. They confirm their email, a guardian can confirm
+    for a young person, and a family can add its members. Managers see who is
+    waiting, link a sign-up to someone already on file, and approve or deny
+    with a reason. Approval can add people to teams and give badges, and
+    sign-ups that never finish are cleared out.
+  audience: Anyone joining signs up; managers review; admins set it up
+  settings:
+    - name: Registration
+      key: feature_intake
+      default: "off"
+    - name: "Registration Kiosk: Kiosk Accounts Team"
+      key: intake_kiosk_users_team
+      default: blank (the time kiosk's team, or any manager of the team)
+    - name: Days to Keep Unfinished Sign-ups
+      key: intake_entry_days
+      default: "7"
+    - name: Hours a Confirmation Link Works
+      key: intake_link_hours
+      default: "48"
+    - name: Sign-ups per Hour from One Address
+      key: intake_rate_ip_per_hour
+      default: "5"
+
+feature/intake-turnstile:
+  title: Bot check on the sign-up form
+  emoji: "🤖"
+  description: >-
+    Adds a Cloudflare Turnstile check to the public registration form, so
+    automated sign-ups are turned away. It stays off until an admin enters
+    both keys.
+  audience: Admins
+  settings:
+    - name: Turnstile Site Key
+      key: intake_turnstile_site_key
+      default: blank (no bot check)
+    - name: Turnstile Secret
+      key: intake_turnstile_secret
+      default: blank (no bot check)
+
+feature/checklists:
+  title: Checklists
+  emoji: "✅"
+  description: >-
+    A checklist lists what people must have, do or be, such as a login, a
+    badge, a team, an age or a parent's confirmation, and shows each person
+    where they stand and what is left to do. Leaders run checklists for their
+    teams, excuse an item with a reason, give credit by hand and keep a record
+    of who met it. People see their own on a Checklists tab of their profile,
+    and guardians see their students'. Items can also ask for a share of the
+    meeting hours in a time clock period (with absences excused for a reason),
+    or that a profile field be filled in, have a certain answer or have been
+    updated since a date.
+  audience: People see their own; leaders and organizers run them; admins turn it on
+  settings:
+    - name: Checklists
+      key: feature_checklists
+      default: "off"
+    - name: Checklist Organizers
+      key: checklists_organizers
+      default: blank (only admins and team managers run checklists)
+    - name: Checklist Results Max Age (hours)
+      key: checklists_max_age_hours
+      default: "24"
+    - name: Archive Checklists Ended Before
+      key: checklists_archive_after
+      default: blank (never)
+    - name: Clear Results of Archived Checklists Ended Before
+      key: checklists_prune_results_after
+      default: blank (never)
+
+feature/checklists-connectors:
+  title: Checklists with counts, forms, sign-ups and the kiosk
+  emoji: "🔗"
+  description: >-
+    Checklist items can count shifts, check-ins or other credit, for a person
+    or pooled across a family, and show how close they are; existing
+    commitments appear as checklists and keep their rules. Items can ask that
+    a form be complete and signed, and a form can ask exactly the people a
+    checklist covers. A sign-up position can require a checklist, and the
+    sheet shows each person what is left. After a scan, the time kiosk lists
+    the items a leader marked to show there.
+  audience: Leaders who build checklists, forms and sign-up sheets; everyone sees their progress
+
+feature/housekeeping:
+  title: Housekeeping
+  emoji: "🧹"
+  description: >-
+    From the list pages for events, announcements, checklists and applications,
+    leaders find old records by how long ago they ended, then archive them,
+    restore them or copy them forward. Checklists that depend on each other
+    are handled together. Admins can also clear medical and emergency answers
+    for people who have had no activity for a while.
+  audience: Leaders tidy their lists; admins clear old personal data
+  settings:
+    - name: Housekeeping
+      key: feature_housekeeping
+      default: "off"
+    - name: Medical and Emergency Fields
+      key: housekeeping_purge_fields
+      default: blank (nothing can be cleared)
+
+feature/kiosk-scan-panels:
+  title: Extra panels on the time kiosk card
+  emoji: "🧩"
+  description: >-
+    A feature can add a box to the card the time kiosk shows after a scan.
+    Nothing changes on screen until a feature adds a panel.
+  audience: Everyone at the kiosk (behind the scenes)
+
+feature/intake-checklist:
+  title: Checklists for registrations
+  emoji: "🧾"
+  description: >-
+    A registration can point to a checklist. People joining see what is left,
+    managers see each applicant's progress when they decide, and a
+    registration can hold approval until the checklist is done. Returning
+    members show up on the same list.
+  audience: People joining; managers who approve
+
+feature/mcp-checklists-intake:
+  title: Ask an AI client about checklists and registrations
+  emoji: "✅"
+  description: >-
+    A connected AI client can list checklists, show where each person stands,
+    and say who meets them, and list registrations and who has started or is
+    waiting to finish. When an admin allows changes, it can give credit,
+    excuse or confirm an item, copy a checklist, record a list, open or close
+    a registration, copy one, clear old entries and decide applications,
+    under the same rules as the pages.
+  audience: Members who use an AI client
+
+feature/hook-catalog-models:
+  title: Hooks can run on every kind of record
+  emoji: "🪝"
+  description: >-
+    The Hooks page offers events for every kind of record that can trigger a
+    hook, including time clock punches, membership applications and mailbox
+    messages, which it couldn't before.
+  audience: Architects
