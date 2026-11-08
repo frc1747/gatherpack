@@ -642,3 +642,68 @@ feature/hook-catalog-models:
     hook, including time clock punches, membership applications and mailbox
     messages, which it couldn't before.
   audience: Architects
+
+feature/view-overrides:
+  title: Replacement screens can be switched on one feature at a time
+  emoji: "🧩"
+  description: >-
+    Groundwork for new screens: a feature can replace a page while it's
+    turned on, and the original comes back when it's off. Nothing looks
+    different yet.
+  audience: Architects
+
+feature/sidebar-slots:
+  title: Features can add to the sidebar without changing it
+  emoji: "🧩"
+  description: >-
+    Groundwork that lets new features add a control to the sidebar.
+    Nothing looks different yet.
+  audience: Architects
+
+feature/nav-item-visible:
+  title: Menu items can be shown only to the people who use them
+  emoji: "🧩"
+  description: >-
+    Groundwork for a shorter menu. Nothing looks different yet.
+  audience: Architects
+
+feature/turbo-frame-links:
+  title: Clicking a name in a list no longer reloads the whole page
+  emoji: "⚡"
+  description: >-
+    Lists of people, teams, events and most other things open faster, with
+    less flicker.
+  audience: Everyone
+
+feature/local-assets:
+  title: Fonts and icons load from GatherPack itself
+  emoji: "⚡"
+  description: >-
+    Pages look the same, but they no longer wait on outside services for
+    fonts and icons.
+  audience: Everyone
+
+feature/modern-skin:
+  title: A modern look with dark mode
+  emoji: "🎨"
+  description: >-
+    A cleaner look for the whole site, a focused sign-in page with your
+    logo, and Light, Dark or Auto for each person. An admin can preview it
+    alone before turning it on.
+  audience: Everyone
+
+feature/smooth-pages:
+  title: Pages stay put when you do something
+  emoji: "⚡"
+  description: >-
+    The menu stays still between pages, and checking someone out of an
+    event keeps your place in the list.
+  audience: Everyone
+
+feature/my-gatherpack:
+  title: A menu built around what you use
+  emoji: "🧭"
+  description: >-
+    A short menu of what each person uses, with management tools set apart
+    and your site's name at the top.
+  audience: Everyone
