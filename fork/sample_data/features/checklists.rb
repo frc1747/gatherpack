@@ -13,10 +13,129 @@
 # - Logistics Crew members (Ben leads it) see everyone's overall and the
 #   safety item through a team grant.
 #
-# "In Progress" needs a count item (feature/checklists-count), so it's left to
+# "In Progress" needs a count item (feature/checklists-connectors), so it's left to
 # that layer. Carol (Youth Program) holds the Checklist Organizer badge named in
 # the setting and runs the checklist.
 Hbr::SampleData.people "Nina Hart"
+
+
+# Adds an Attendance item to "Trip Eligibility" (below) with
+# six Youth Meetings in a "Youth Program Meetings" time clock period on the
+# Youth Program (the item counts periods of the checklist's team and below,
+# so the base season period on the top team isn't used), five days apart,
+# the last one two days ago (the season starts at least 28 days back). Two rules
+# counted together: "Autumn" (20% of meeting hours, from the season's start
+# until 15 days ago) and "Winter" (40%, since then).
+#
+# - Chloe came to every meeting: done.
+# - Grace came to three and is excused from one she missed (by the admin,
+#   with a reason): done, with "Excused from ..." in the detail.
+# - Kate came to one and left early: Below minimum.
+# - Sam punched in only outside meeting time: Not yet (extra hours don't
+#   count on this item).
+# - Olive, Wes and the rest have no punches at meetings.
+#
+# Punches carry the note "Sample attendance" and are replaced on each run, so
+# reloading moves them with the meetings.
+attendance = lambda do |s|
+  checklist = Checklist.find_by(title: "Trip Eligibility")
+  next s.note("no Trip Eligibility checklist (the checklists data didn't load)") unless checklist
+
+  admin = s.login(:admin)
+  youth = s.team(:youth)
+  season_start, season_end = s.clock.season
+  period = s.upsert!(TimeClockPeriod, { name: "Youth Program Meetings" },
+    team: youth, start_time: season_start, end_time: season_end, permission: "added_by_admin")
+  meeting_type = EventType.find_or_create_by!(name: "Meeting")
+
+  meetings = (1..6).map do |number|
+    starts = s.clock.days_ago(32 - (5 * number), hour: 18)
+    s.upsert!(Event, { name: "Youth Meeting #{number}" },
+      event_type: meeting_type, team: youth, time_clock_period: period, location: "Community Hall",
+      start_time: starts, end_time: starts + 2.hours)
+  end
+
+  TimeClockPunch.where(note: "Sample attendance").delete_all
+  punch = lambda do |first, start_time, end_time|
+    TimeClockPunch.create!(person: s.person(first), time_clock_period: period, start_time: start_time, end_time: end_time,
+      note: "Sample attendance", created_by: admin)
+  end
+  meetings.each { |meeting| punch.call("Chloe", meeting.start_time, meeting.end_time) }
+  [ 0, 2, 4 ].each { |index| punch.call("Grace", meetings[index].start_time, meetings[index].end_time) }
+  punch.call("Kate", meetings[1].start_time, meetings[1].start_time + 45.minutes)
+  punch.call("Sam", meetings[3].start_time - 4.hours, meetings[3].start_time - 1.hour)
+
+  item = ChecklistItem.find_or_initialize_by(checklist: checklist, label: "Attendance")
+  item.assign_attributes(kind: "attendance", position: 6)
+  item.config_params = {
+    leeway_minutes: "1", period_ids: [ period.id ],
+    rules: [
+      { name: "Autumn", starts: { mode: "date", date: season_start.iso8601 }, ends_on: s.clock.date(-15).iso8601, share: "20", with: "Winter" },
+      { name: "Winter", starts: { mode: "date", date: s.clock.date(-14).iso8601 }, share: "40" }
+    ]
+  }
+  item.save! if item.new_record? || item.changed?
+
+  unless ChecklistExcuse.where(item: item, person: s.person("Grace")).where.not(event_id: nil).exists?
+    ChecklistExcuse.create!(item: item, person: s.person("Grace"), event: meetings[5], reason: "Family trip, told us ahead",
+      created_by: admin)
+  end
+
+  Checklists::Refresher.new(checklist.reload, silent: true).call
+  status = ->(first) { checklist.checklist_results.find_by(person: s.person(first), item: item)&.status }
+  s.report "Trip Eligibility attendance: #{%w[Chloe Grace Kate Sam].map { |first| "#{first} #{status.call(first)}" }.join(", ")}"
+  s.expect("Chloe meets attendance") { status.call("Chloe") == "met" }
+  s.expect("Kate is below the minimum") { status.call("Kate") == "not_met" }
+end
+
+# Profile-field items for "Trip Eligibility" (feature/checklists, with the fields person-fields creates).
+#
+# Two profile-field items on the core's "Trip Eligibility" checklist, using
+# the Photo Release and Emergency Contact fields person-fields creates:
+#
+# - "Photo release" (is yes): Chloe and Grace are done, Kate's release is
+#   set to no, everyone else is blank and so Not yet.
+# - "Emergency contact" (is filled in, changed since the season began):
+#   Chloe's is current, Grace's was last changed before the season started
+#   (Not yet, "Not changed since ..."), the rest are blank.
+person_fields = lambda do |s|
+  s.enable_feature :checklists
+  s.enable_feature :person_fields
+  checklist = Checklist.find_by!(title: "Trip Eligibility")
+  season_start, = s.clock.season
+  photo = PersonField.find_by!(key: "photo_release")
+  contact = PersonField.find_by!(key: "emergency_contact")
+
+  item = lambda do |label, position, config|
+    record = ChecklistItem.find_or_initialize_by(checklist: checklist, label: label)
+    record.assign_attributes(kind: "person_field", position: position)
+    record.config_params = config
+    record.save! if record.new_record? || record.changed?
+    record
+  end
+  item.call("Photo release", 6, { field_id: photo.id, operator: "yes" })
+  item.call("Emergency contact", 7, { field_id: contact.id, operator: "filled_in", changed_since: { mode: "date", date: season_start.iso8601 } })
+
+  # Fills a blank field; a value another feature's sample data already set
+  # (person-fields gives Grace a contact) is kept. A given date is applied
+  # either way, so "changed since" sees the field as last changed then.
+  fill = lambda do |first, field, value, changed_at = nil|
+    person = s.person(first)
+    person.set_field_value(field, value) unless PersonFieldValue.exists?(person: person, person_field: field)
+    PersonFieldValue.where(person: person, person_field: field).update_all(updated_at: changed_at) if changed_at
+  end
+  fill.call("Chloe", photo, true)
+  fill.call("Grace", photo, true)
+  fill.call("Kate", photo, false)
+  fill.call("Chloe", contact, "Dana Reyes, 555-0142", s.clock.days_ago(5))
+  fill.call("Grace", contact, "Paula Miller, 555-0187", season_start - 30)
+
+  Checklists::Refresher.new(checklist.reload, silent: true).call
+  results = ->(label, first) { checklist.checklist_results.find_by(item: checklist.checklist_items.find_by!(label: label), person: s.person(first)) }
+  s.expect("Chloe's photo release is met") { results.call("Photo release", "Chloe")&.met? }
+  s.expect("Kate's photo release is not met") { results.call("Photo release", "Kate")&.not_met? }
+  s.expect("Grace's emergency contact is out of date") { results.call("Emergency contact", "Grace")&.not_met? }
+end
 
 Hbr::SampleData.feature "feature/checklists" do |s|
   s.enable_feature :checklists
@@ -95,4 +214,7 @@ Hbr::SampleData.feature "feature/checklists" do |s|
   counts = checklist.checklist_results.where(item_id: nil).group(:status).count
   s.report "Trip Eligibility: #{counts.map { |status, count| "#{count} #{checklist.word_for(status).downcase}" }.join(", ")}"
   s.expect("Chloe is eligible") { checklist.checklist_results.find_by(person: s.person("Chloe"), item_id: nil)&.met? }
+
+  attendance.call(s)
+  person_fields.call(s)
 end

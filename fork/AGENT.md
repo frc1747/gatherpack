@@ -13,8 +13,8 @@ The always-loaded digest of [`fork/STRATEGY.md`](STRATEGY.md) for Claude Code se
 ## Rules
 
 1. Never commit to `main` or `hbr/integration`. Never branch a feature from `hbr/integration` or `hbr/platform`.
-2. One feature per branch. A change serving two features is a third branch.
-3. Resolve conflicts on feature branches, never during the integration merge.
+2. One feature per branch. A change serving two features is a third branch. Deliberate exception: `feature/checklists-connectors` and `feature/mcp-checklists-intake` group thin connector code, so we don't carry a branch per connector.
+3. Resolve conflicts on feature branches, never during the integration merge. Don't merge a core branch into every dependent after each change to it: fix dependents once at sync and test the combined build.
 4. `--force-with-lease`, never `--force`. Never rebase or push a branch behind an open upstream PR unless maintainers ask.
 5. Keep `FORK.md` current in the same session as any feature status change.
 6. Add, don't edit: prefer new files, seams (Settings.register, HookCatalog, registries), concerns and initializers over editing upstream files. Any upstream file you edit goes in `FORK.md` "Upstream files touched".

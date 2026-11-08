@@ -27,6 +27,8 @@ This document defines how the HBR fork of GatherPack is structured, synced, and 
 
 Releases are tags on `hbr/integration`, not a branch. Production deploys only from tags.
 
+One feature per branch has one deliberate exception: `feature/checklists-connectors` and `feature/mcp-checklists-intake` each group thin connector code (checklists with counts, forms, sign-ups and the kiosk; the checklist and intake MCP tools), so we don't carry a branch per connector.
+
 ### Why feature branches start from upstream, not from our integration branch
 
 A feature branched from `hbr/integration` silently picks up every other fork feature, which makes it impossible to submit upstream cleanly and impossible to drop later. Branching from `upstream/main` keeps each feature independently reviewable, testable, and removable.
@@ -182,8 +184,8 @@ If a feature ran in production before upstream merged it, our migration is alrea
 
 1. Never commit to `main` or `hbr/integration`.
 2. Never branch a feature from `hbr/integration` or `hbr/platform`.
-3. One feature per branch. If a change serves two features, it's a third branch.
-4. Resolve conflicts on feature branches, never during the integration merge.
+3. One feature per branch. If a change serves two features, it's a third branch. The one exception is `feature/checklists-connectors` and `feature/mcp-checklists-intake`, which group thin connector code.
+4. Resolve conflicts on feature branches, never during the integration merge. Don't merge a core branch into every dependent after each change to it: fix dependents once at sync and test the combined build.
 5. Use `--force-with-lease`, never plain `--force`. Never rebase or force-push a branch behind an open upstream PR unless maintainers ask for it.
 6. Keep `FORK.md` current in the same work session as any feature status change.
 7. Before modifying any existing upstream file, check whether a seam, hook, new file, or engine could achieve the same result. If you still need to edit it, record the file in `FORK.md`.

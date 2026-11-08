@@ -10,7 +10,7 @@
 # approve Leo and Rosa together from Junior Crew's applications page.
 # Hana signs in and confirms the agreement for Milo from /join/<slug>/me.
 # Form items with a date (signed long ago, due again) come with
-# feature/checklists-forms.
+# feature/checklists-connectors.
 Hbr::SampleData.people([])
 
 Hbr::SampleData.feature "feature/intake-checklist" do |s|

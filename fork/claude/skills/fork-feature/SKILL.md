@@ -20,6 +20,7 @@ Existing branch: `git worktree add ../feature-<name> feature/<name>`. Never base
 ## Design
 
 - A spec for anything non-trivial goes in `fork/specs/` on hbr/platform. Every spec has a **Hooks** section: which new models `include CanBeHooked`, what `GatherPack::HookCatalog.register_targets/register_events` entries are added, and named domain events, with brief reasons for omissions. Add hooks where they match existing intent, not for everything, and check for catalog drift (models that `include CanBeHooked` but are missing from `Hook.catalog`).
+- One feature per branch. The one deliberate exception is `feature/checklists-connectors` and `feature/mcp-checklists-intake`, which group thin connector code so we don't carry a branch per connector.
 - Generic layers, HBR as configuration: no team-specific words in code. A new use case should be a row in the spec's use-case table, then config or an additive change.
 - Add, don't edit: new files, `config/initializers/<feature>.rb` with `to_prepare` registrations, `Klass.include(Module)` patches. Every upstream file still edited goes in `FORK.md` "Upstream files touched".
 - Behavior changes get a flag via `GatherPack::Features.register(... default_enabled: false)`; controllers gate with a `before_action`.
@@ -40,7 +41,7 @@ RAILS_ENV=development bin/rails db:schema:load:primary db:migrate:primary
 git diff --stat db/schema.rb    # check the create_table list before committing
 ```
 
-Dependent branches take a schema fix by merge, not rebase.
+Dependent branches take a schema fix by merge, not rebase. Don't merge a core branch into every dependent after each core change: fix dependents once at sync and test the combined build.
 
 ## Tests
 
