@@ -1,7 +1,9 @@
 require "test_helper"
+require "support/modern_skin_test_settings"
 
 class ModernSkinTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
+  include ModernSkinTestSettings
 
   NONCE_GENERATOR = "action_dispatch.content_security_policy_nonce_generator"
   NONCE_DIRECTIVES = "action_dispatch.content_security_policy_nonce_directives"
@@ -30,7 +32,7 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
   end
 
   test "with the flag off the kiosk layout is untouched" do
-    sign_in @member
+    sign_in @admin
     get time_kiosk_path
     assert_response :success
     assert_no_skin
@@ -349,9 +351,9 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
   end
 
   test "the kiosk is always light" do
-    @member.update_columns(color_mode: "dark")
+    @admin.update_columns(color_mode: "dark")
     with_skin do
-      sign_in @member
+      sign_in @admin
       get time_kiosk_path
       assert_response :success
       assert_includes response.body, 'var saved = "light"'
@@ -408,17 +410,6 @@ class ModernSkinTest < ActionDispatch::IntegrationTest
 
   def with_skin(&block)
     with_setting(:feature_modern_skin, "true", &block)
-  end
-
-  # Changes the per-process cached value only, so parallel workers never write
-  # the shared settings file.
-  def with_setting(key, value)
-    setting = Settings.get(key)
-    original = setting.instance_variable_get(:@value)
-    setting.instance_variable_set(:@value, value)
-    yield
-  ensure
-    setting.instance_variable_set(:@value, original)
   end
 
   def assert_skin_loaded

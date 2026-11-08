@@ -1,7 +1,9 @@
 require "application_system_test_case"
+require "support/modern_skin_test_settings"
 
 class ModernSkinColorModeTest < ApplicationSystemTestCase
   include Devise::Test::IntegrationHelpers
+  include ModernSkinTestSettings
 
   setup do
     # config.hosts allows localhost, not Capybara's default 127.0.0.1.
@@ -12,16 +14,14 @@ class ModernSkinColorModeTest < ApplicationSystemTestCase
     @user = User.create!(email: "member@example.com", password: "Password1!")
     Person.create!(user: @user, first_name: "Jo", last_name: "Example")
 
-    @setting = Settings.get(:feature_modern_skin)
-    @original = @setting.instance_variable_get(:@value)
-    @setting.instance_variable_set(:@value, "true")
+    @restore_setting = override_setting(:feature_modern_skin, "true")
 
     page.driver.browser.execute_cdp("Emulation.setEmulatedMedia",
       features: [ { name: "prefers-color-scheme", value: "light" } ])
   end
 
   teardown do
-    @setting.instance_variable_set(:@value, @original)
+    @restore_setting.call
     Capybara.app_host = nil
     Capybara.always_include_port = @always_include_port
   end
@@ -41,7 +41,7 @@ class ModernSkinColorModeTest < ApplicationSystemTestCase
   end
 
   test "going back to the kiosk from a dark page is light" do
-    @user.update_columns(color_mode: "dark")
+    @user.update_columns(color_mode: "dark", admin: true)
     sign_in @user
 
     visit time_kiosk_path
