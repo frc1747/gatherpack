@@ -738,3 +738,27 @@ feature/my-gatherpack-checklists:
     Checklist items you can finish appear in your to-do list, with your
     progress on each checklist.
   audience: Everyone
+
+feature/my-gatherpack-family:
+  title: One page for your children
+  emoji: "👪"
+  description: >-
+    Guardians see each child's forms, sign-ups, checklists and team events
+    in one place.
+  audience: Everyone
+
+feature/forms-auto-reminders:
+  title: Automatic reminders before a form is due
+  emoji: "⏰"
+  description: >-
+    A leader can have a form email people who haven't answered, a set
+    number of days before its deadline.
+  audience: Mentors
+
+feature/quiet-root-signin:
+  title: No error when you open the site
+  emoji: "🔑"
+  description: >-
+    Opening GatherPack while signed out goes straight to the sign-in page,
+    without a message saying you must be logged in.
+  audience: Everyone
