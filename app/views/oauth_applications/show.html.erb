@@ -1,4 +1,5 @@
 <% breadcrumb @oauth_application %>
+<% turbo_exempts_page_from_cache if flash[:client_secret] %>
 
 <div class="card">
   <div class="card-header">
@@ -10,13 +11,12 @@
       <dd class="col-sm-9"><%= @oauth_application.name %></dd>
 
       <dt class="col-sm-3">Client ID</dt>
-      <dd class="col-sm-9"><tt><%= @oauth_application.uid %></tt></dd>
+      <dd class="col-sm-9"><%= render "copyable_value", value: @oauth_application.uid, label: "Client ID" %></dd>
 
       <dt class="col-sm-3">Client Secret</dt>
       <% if flash[:client_secret] %>
-        <dd class="col-sm-9">
-          <tt data-client-secret><%= flash[:client_secret] %></tt>
-          <button class="btn btn-sm btn-secondary ms-2" data-controller="clipboard" data-action="clipboard#copy" data-clipboard-text-value="<%= flash[:client_secret] %>">Copy</button>
+        <dd class="col-sm-9" data-controller="reload-on-restore" data-action="pageshow@window->reload-on-restore#reload">
+          <%= render "copyable_value", value: flash[:client_secret], label: "Client Secret", client_secret: true %>
           <div class="text-warning mt-1"><small>This secret will not be shown again. Copy it now.</small></div>
         </dd>
       <% else %>
