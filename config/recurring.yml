@@ -21,3 +21,7 @@ purge_unattached_blobs:
   command: "ActiveStorage::Blob.unattached.where(created_at: ..1.day.ago).find_each(&:purge_later)"
   queue: default
   schedule: every day at 4am
+form_expiry_job:
+  class: FormExpiryJob
+  queue: default
+  schedule: every hour
