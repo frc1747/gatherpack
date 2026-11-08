@@ -23,10 +23,13 @@ class CalendarController < ApplicationController
           @end_time_year = Date.parse(end_time).year
 
           ransacked_people = policy_scope(Person).ransack(
-            display_name_i_cont: params[:q][:name_i_cont]
+            { display_name_i_cont: params[:q][:name_i_cont] },
+            auth_object: current_user
           ).result(distinct: true)
           ransacked_people = ransacked_people.where(id: Team.find(params[:q][:team_id_eq]).all_people.select(:id)) if params[:q][:team_id_eq].present?
           ransacked_people = ransacked_people.where(id: params[:person_id]) if params[:person_id]
+          birthday_field = PersonField.system.find_by(system_source: "birthday")
+          ransacked_people = ransacked_people.where(id: birthday_field.readable_subjects_for(current_user.person).select(:id)) if birthday_field
           @birthdays = ransacked_people.where("DATE_PART('doy', birthday) >= ? AND DATE_PART('doy', birthday) <= ? AND DATE_PART('year', birthday) <= ?", @start_time_doy >= @end_time_doy ? 0 : @start_time_doy, @end_time_doy, @start_time_year)
             .or(ransacked_people.where("DATE_PART('doy', birthday) >= ? AND DATE_PART('doy', birthday) <= ? AND DATE_PART('year', birthday) <= ?", @start_time_doy >= @end_time_doy ? @start_time_doy : 367, 366, @start_time_year))
         end
