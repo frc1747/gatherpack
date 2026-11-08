@@ -28,8 +28,13 @@ module FormResponseMerge
     # moves profile values without the forms resync). Sync it once the merge
     # has committed: until then badges and profile values are still moving,
     # and a badge granted now would clash with the one about to move over.
+    # The merge is done by then, so a failing hook is logged, not raised.
     kept_id = kept["id"]
-    ActiveRecord.after_all_transactions_commit { FormResponse.find_by(id: kept_id)&.sync_status! }
+    ActiveRecord.after_all_transactions_commit do
+      FormResponse.find_by(id: kept_id)&.sync_status!
+    rescue StandardError => e
+      Rails.logger.error("Forms couldn't re-check a merged response #{kept_id}: #{e.class}: #{e.message}")
+    end
   end
 
   # check for form_responses.subject_id: names the forms both people have

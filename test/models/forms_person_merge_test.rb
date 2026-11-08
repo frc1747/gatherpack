@@ -72,6 +72,25 @@ class FormsPersonMergeTest < ActiveSupport::TestCase
     end
   end
 
+  test "a hook that fails while the merged response is re-checked doesn't fail the merge" do
+    with_settings(feature_person_fields: "true") do
+      build_person_fields_world
+      form = create_world_form
+      shirt = create_world_field("Shirt Size", read: "family", write: "family")
+      add_profile_question(form, shirt, :update_profile)
+      form.update!(reconfirm_on_profile_change: true)
+      person(:a1).set_field_value(shirt, "L")
+      respond(form, :a1, as: :a1, answers: { "shirt_size" => "L" }, submit: false)
+      respond(form, :a2, as: :a2, answers: { "shirt_size" => "M" })
+      Hook.create!(name: "Fails", event: "form_responses - incomplete", code: "raise 'hook failed'")
+
+      merge(keep: person(:a1), drop: person(:a2))
+
+      assert_not Person.exists?(person(:a2).id)
+      assert FormResponse.find_by!(form: form, subject: person(:a1)).needs_reconfirmation?
+    end
+  end
+
   test "the completion badge of a response that moves over isn't granted twice" do
     build_person_fields_world
     badge = create_world_badge("Meal Choices Done")
