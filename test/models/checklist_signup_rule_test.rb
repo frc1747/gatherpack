@@ -72,15 +72,15 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     @position.signup_position_rules.create!(kind: :age, min_age: 18)
     @position.reload
 
-    assert @position.eligible?(person(:worker), @event)
+    assert @position.eligible?(person(:worker), @event, viewer: person(:worker))
 
     BadgeAssignment.create!(badge: @organizer_badge, person: person(:student))
-    assert_equal [ "Needs Trip: Complete", "Must be 18 or older on Oct 24" ], @position.reload.eligibility_failures(person(:student), @event)
+    assert_equal [ "Needs Trip: Complete", "Must be 18 or older on Oct 24" ], @position.reload.eligibility_failures(person(:student), @event, viewer: person(:student))
 
     BadgeAssignment.where(badge: [ @organizer_badge, @license_badge ], person: person(:worker)).destroy_all
     Checklists::Refresher.new(@checklist.reload, silent: true).call
     assert_equal [ "Needs Trip: Complete", "Needs the Alcohol License or Sheet Organizer badge" ],
-      @position.reload.eligibility_failures(person(:worker), @event)
+      @position.reload.eligibility_failures(person(:worker), @event, viewer: person(:worker))
   end
 
   test "a rule follows the checklist's refresh" do
