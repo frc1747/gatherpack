@@ -483,6 +483,21 @@ feature/mcp-forms-expiry:
     answers expire.
   audience: Members who use an AI client
 
+feature/security-series:
+  title: Security hardening
+  emoji: "🔒"
+  description: >-
+    Sign-in is stricter and limits repeated attempts, sessions time out, and
+    kiosk accounts can do only what the kiosk needs. Permission checks are
+    stricter across the site, so people see and change only what they should.
+    Gateway secrets are stored encrypted. Admins can make hand-entered time
+    clock punches an admin and manager task.
+  audience: Everyone benefits; admins notice the stricter limits
+  settings:
+    - name: Only admins and managers enter punches by hand
+      key: time_clock_hand_punches_managers_only
+      default: "off"
+
 feature/intake:
   title: Registration
   emoji: "📥"
@@ -536,7 +551,10 @@ feature/checklists:
     where they stand and what is left to do. Leaders run checklists for their
     teams, excuse an item with a reason, give credit by hand and keep a record
     of who met it. People see their own on a Checklists tab of their profile,
-    and guardians see their students'.
+    and guardians see their students'. Items can also ask for a share of the
+    meeting hours in a time clock period (with absences excused for a reason),
+    or that a profile field be filled in, have a certain answer or have been
+    updated since a date.
   audience: People see their own; leaders and organizers run them; admins turn it on
   settings:
     - name: Checklists
@@ -555,51 +573,18 @@ feature/checklists:
       key: checklists_prune_results_after
       default: blank (never)
 
-feature/checklists-attendance:
-  title: Checklist items for attendance
-  emoji: "🕒"
+feature/checklists-connectors:
+  title: Checklists with counts, forms, sign-ups and the kiosk
+  emoji: "🔗"
   description: >-
-    A checklist item can ask for a share of the meeting hours in a time clock
-    period, with a different share for different stretches of it. A missed
-    meeting can be excused with a reason.
-  audience: Leaders who build checklists
-
-feature/checklists-count:
-  title: Checklist items that count
-  emoji: "🔢"
-  description: >-
-    A checklist item can count shifts, check-ins or other credit, for a person
-    or pooled across a family, and shows how close they are. Existing
-    commitments appear as checklists and keep their rules, and turning on
-    Checklists turns on Commitments with it.
-  audience: Leaders who build checklists; everyone sees their progress
-
-feature/checklists-person-fields:
-  title: Checklist items for profile fields
-  emoji: "🗂️"
-  description: >-
-    A checklist item can ask that a profile field be filled in, have a certain
-    answer, or have been updated since a date. The checklist says who may
-    update the field, such as the person or a guardian.
-  audience: Leaders who build checklists
-
-feature/checklists-forms:
-  title: Checklist items for forms
-  emoji: "📝"
-  description: >-
-    A checklist item can ask that a form be complete and signed. A form can
-    also ask exactly the people a checklist covers. Where form answers expire,
-    the item shows how long the answer is good for.
-  audience: Leaders who build checklists and forms
-
-feature/checklists-signups:
-  title: Checklists on sign-up sheets
-  emoji: "📋"
-  description: >-
-    A sign-up position can require a checklist to be done. The sheet shows
-    each person whether they qualify, and what is left, only to people who may
-    see it, and refuses a sign-up for someone who doesn't qualify.
-  audience: Everyone signs up; organizers set the rule
+    Checklist items can count shifts, check-ins or other credit, for a person
+    or pooled across a family, and show how close they are; existing
+    commitments appear as checklists and keep their rules. Items can ask that
+    a form be complete and signed, and a form can ask exactly the people a
+    checklist covers. A sign-up position can require a checklist, and the
+    sheet shows each person what is left. After a scan, the time kiosk lists
+    the items a leader marked to show there.
+  audience: Leaders who build checklists, forms and sign-up sheets; everyone sees their progress
 
 feature/housekeeping:
   title: Housekeeping
@@ -627,15 +612,6 @@ feature/kiosk-scan-panels:
     Nothing changes on screen until a feature adds a panel.
   audience: Everyone at the kiosk (behind the scenes)
 
-feature/checklists-kiosk:
-  title: What's left, at the time kiosk
-  emoji: "🪧"
-  description: >-
-    After someone scans their card, the kiosk lists the checklist items they
-    still need to do, for the items a leader marked to show there. Nothing
-    shows once everything is done.
-  audience: Everyone at the kiosk; leaders choose which items show
-
 feature/intake-checklist:
   title: Checklists for registrations
   emoji: "🧾"
@@ -646,25 +622,16 @@ feature/intake-checklist:
     members show up on the same list.
   audience: People joining; managers who approve
 
-feature/mcp-checklists:
-  title: Ask an AI client about checklists
+feature/mcp-checklists-intake:
+  title: Ask an AI client about checklists and registrations
   emoji: "✅"
   description: >-
     A connected AI client can list checklists, show where each person stands,
-    and say who meets them. When an admin allows changes, it can give credit,
-    excuse an item, confirm one, copy a checklist and record a list, under the
-    same rules as the checklist pages.
-  audience: Members who use an AI client
-
-feature/mcp-intake:
-  title: Ask an AI client about registrations
-  emoji: "📝"
-  description: >-
-    A connected AI client can list registrations and who has started or is
-    waiting to finish, and show an application's checklist. When an admin
-    allows changes, it can open or close a registration, copy one, clear old
-    entries and decide applications, under the same rules as the registration
-    pages.
+    and say who meets them, and list registrations and who has started or is
+    waiting to finish. When an admin allows changes, it can give credit,
+    excuse or confirm an item, copy a checklist, record a list, open or close
+    a registration, copy one, clear old entries and decide applications,
+    under the same rules as the pages.
   audience: Members who use an AI client
 
 feature/hook-catalog-models:
