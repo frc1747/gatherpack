@@ -161,13 +161,52 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   end
 
   test "a shortcut can't write a script link or styles into the page" do
-    shortcut = Shortcut.new(name: "Sneaky", icon: "book", color: "red; background: url(x)", target: "javascript:alert(1)", team: teams(:one))
-    shortcut.save!(validate: false)
+    create_unvalidated_shortcut("Sneaky", "javascript:alert(1)", color: "red; background: url(x)")
 
     get root_path
 
-    assert_select "a[href='#']", text: /Sneaky/
+    assert_equal "#", shortcut_href("Sneaky")
     assert_no_match "url(x)", response.body
+  end
+
+  test "a shortcut target a browser would run or send elsewhere goes nowhere" do
+    targets = [ "JaVaScRiPt:alert(1)", " javascript:alert(1)", "java\tscript:alert(1)", "data:text/html,hi", "vbscript:x",
+                "//evil.example", "/\\evil.example", "\\\\evil.example", "\\/evil.example", "/\t/evil.example" ]
+    targets.each_with_index { |target, index| create_unvalidated_shortcut("Blocked#{index}", target) }
+
+    get root_path
+
+    targets.each_index { |index| assert_equal "#", shortcut_href("Blocked#{index}"), targets[index].inspect }
+  end
+
+  test "shortcut targets that work today keep working" do
+    targets = [ "mailto:team@example.com", "tel:+15551234567", "people", "/a b", "/handbook", "https://example.com/x", "http://example.com" ]
+    targets.each_with_index { |target, index| create_unvalidated_shortcut("Kept#{index}", target) }
+
+    get root_path
+
+    targets.each_with_index { |target, index| assert_equal target, shortcut_href("Kept#{index}") }
+  end
+
+  test "the greeting leaves out a name the person doesn't have" do
+    [ nil, "", "  " ].each do |blank|
+      @member.person.update_columns(first_name: blank)
+
+      get root_path
+      assert_select "h1", text: "You're all caught up."
+
+      register_todos item("One"), item("Two")
+      get root_path
+      assert_select "h1", text: "You have 2 things to do."
+      MyGatherpack.sections.delete(:test_todos)
+    end
+  end
+
+  test "a to-do section without items is refused, since the heading couldn't count it" do
+    error = assert_raises(ArgumentError) { MyGatherpack.register_section(:no_items, partial: "x", column: :todo) }
+
+    assert_match "needs items", error.message
+    assert_not MyGatherpack.sections.key?(:no_items)
   end
 
   test "a registered section appears and one that renders nothing doesn't" do
@@ -199,7 +238,7 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     MyGatherpack.register_section(:late, partial: "x", column: :side, position: 30)
     MyGatherpack.register_section(:first_tie, partial: "x", column: :side, position: 10)
     MyGatherpack.register_section(:second_tie, partial: "x", column: :side, position: 10)
-    MyGatherpack.register_section(:other_column, partial: "x", column: :todo, position: 1)
+    MyGatherpack.register_section(:other_column, partial: "x", column: :todo, position: 1, items: -> { [] })
 
     assert_equal %i[first_tie second_tie late], MyGatherpack.sections_for(:side).map(&:key)
   end
@@ -238,6 +277,15 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
 
   def row_titles(column)
     css_select("[data-home-column=#{column}] .mg-row-title").map { |title| title.text.strip }
+  end
+
+  # Shortcut targets are free text on this branch; a stricter validation elsewhere shouldn't change what's tested.
+  def create_unvalidated_shortcut(name, target, color: "#336699")
+    Shortcut.new(name: name, icon: "book", color: color, target: target, team: teams(:one)).save!(validate: false)
+  end
+
+  def shortcut_href(name)
+    css_select("a.btn-tool").find { |link| link.text.strip == name }["href"]
   end
 
   def create_event(name, start_time, team: teams(:one))

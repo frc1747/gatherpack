@@ -29,8 +29,11 @@ module MyGatherpack
     # Features add to the home page from their own initializer, so this core
     # needs no code of theirs. +enabled+ is called with no arguments on each
     # request; +items+ runs in the view context and returns things with an +at+.
+    # A :todo section must have +items+, because the heading counts them.
     # Registering the same key again replaces it, so reloading code is safe.
     def register_section(key, partial:, column:, position: 100, enabled: nil, items: nil)
+      raise ArgumentError, "a :todo section needs items, so the heading can count them" if column == :todo && items.nil?
+
       @sections[key] = Section.new(key: key, partial: partial, column: column, position: position, enabled: enabled, items: items)
     end
 

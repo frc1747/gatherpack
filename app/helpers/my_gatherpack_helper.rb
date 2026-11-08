@@ -1,5 +1,6 @@
 module MyGatherpackHelper
   MY_GATHERPACK_ROW_LIMITS = { coming_up: 5 }.freeze
+  MY_GATHERPACK_SHORTCUT_SCHEMES = %w[http https mailto tel].freeze
 
   def my_gatherpack_menu
     @my_gatherpack_menu ||= MyGatherpack::Menu.new(current_user)
@@ -47,8 +48,9 @@ module MyGatherpackHelper
 
   def my_gatherpack_greeting
     count = my_gatherpack_rows(:todo).size
+    status = count.zero? ? "You're all caught up." : "You have #{pluralize(count, "thing")} to do."
     name = current_user.person.first_name
-    count.zero? ? "Hi #{name}. You're all caught up." : "Hi #{name}. You have #{pluralize(count, "thing")} to do."
+    name.present? ? "Hi #{name}. #{status}" : status
   end
 
   def my_gatherpack_clocked_in_status
@@ -74,13 +76,18 @@ module MyGatherpackHelper
   end
 
   # A shortcut's target and color are free text, and this page writes them into
-  # an href and a style attribute.
+  # an href and a style attribute. Targets keep working unless a browser would
+  # run them or send them to another host: relative paths are fine, and a
+  # scheme has to be one of these.
   def my_gatherpack_shortcut_target(shortcut)
     target = shortcut.target.to_s
-    # Browsers drop tabs and newlines inside URLs, so "/\t/host" means "//host".
-    return "#" if target.match?(/[[:space:][:cntrl:]]/) || target.start_with?("//", "/\\")
+    # Browsers drop tabs and newlines inside URLs, so "/\t/host" means "//host",
+    # ignore leading spaces, and read a backslash as a slash.
+    url = target.sub(/\A +/, "")
+    return "#" if target.match?(/[[:cntrl:]]/) || url.match?(%r{\A[/\\]{2}})
 
-    target.match?(%r{\A(/|https?://[^/])}i) ? target : "#"
+    scheme = url[/\A([a-z][a-z0-9+.-]*):/i, 1]
+    scheme.nil? || MY_GATHERPACK_SHORTCUT_SCHEMES.include?(scheme.downcase) ? target : "#"
   end
 
   def my_gatherpack_shortcut_style(shortcut)
