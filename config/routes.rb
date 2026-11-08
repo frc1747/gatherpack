@@ -193,10 +193,17 @@ Rails.application.routes.draw do
     end
   end
 
-  # Handle plugin routes - was suggested, don't know that we actually need this or if plugins can just manage this themselves
-  # GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
-  #   instance_exec(&feature.routes_proc)
-  # end
+  # Feature routes. A feature can register a routes_proc on its Feature, or
+  # drop a file in config/routes/ (config/routes/<name>.rb holds the usual
+  # routing DSL, without the outer `Rails.application.routes.draw`). Only the
+  # app's own routes directories are searched, not those of engines.
+  GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
+    instance_exec(&feature.routes_proc)
+  end
+
+  Rails.application.paths["config/routes"].paths.flat_map { |path| Dir[File.join(path, "*.rb")] }.map { |file| File.basename(file, ".rb") }.uniq.sort.each do |name|
+    draw name
+  end
 
   if Settings[:local_signup]
     devise_for :users, controllers: { omniauth_callbacks: "omniauth", registrations: "users/registrations" }
