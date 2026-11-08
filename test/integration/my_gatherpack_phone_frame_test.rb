@@ -5,11 +5,23 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include MyGatherpackTestHelper
 
+  # Stands in for Person#wards, which another branch defines. Prepended once,
+  # so the real method (when there is one) is never replaced or removed.
+  module WardsStub
+    mattr_accessor :wards
+
+    def wards
+      WardsStub.wards || (defined?(super) ? super : [])
+    end
+  end
+  Person.prepend(WardsStub)
+
   setup do
     host! "localhost"
     @plugins = GatherPack::Features.instance_variable_get(:@plugins)
     @original_plugins = @plugins.dup
     @original_view_paths = ApplicationController.view_paths
+    @original_table = MyGatherpack::Menu.table.deep_dup
     turn_on_my_gatherpack
     Settings[:feature_time_tracking] = "true"
     @member = create_login("Morgan")
@@ -18,6 +30,8 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
   teardown do
     restore_my_gatherpack
     ApplicationController.view_paths = @original_view_paths
+    MyGatherpack::Menu.table = @original_table
+    WardsStub.wards = nil
     @plugins.replace(@original_plugins)
   end
 
@@ -36,6 +50,21 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
 
     assert_equal [ "Home", "Hours", "More" ], tab_labels
     assert_select "nav.phone-tabs a.phone-tab.active", text: "Home"
+  end
+
+  test "the viewport covers the notch while the flag is on" do
+    sign_in @member
+    get root_path
+
+    assert_select "meta[name=viewport][content*='viewport-fit=cover']"
+  end
+
+  test "a manager's Hours tab is marked active on the time clock" do
+    Membership.create!(person: @member.person, team: teams(:one), manager: true)
+    sign_in @member
+    get time_clock_punches_path
+
+    assert_select "nav.phone-tabs a.phone-tab.active[aria-current=page]", text: "Hours"
   end
 
   test "Hours drops out with time tracking off" do
@@ -58,43 +87,40 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
   ensure
     NavHelper.remove_method(:forms_path)
     NavHelper.remove_method(:signup_sheets_path)
-    MyGatherpack::Menu.table.delete(:forms_path)
-    MyGatherpack::Menu.table.delete(:signup_sheets_path)
   end
 
   test "a guardian gets Family first in place of Hours, once the family route exists" do
     register_item "Family", :family_path
     NavHelper.define_method(:family_path) { "/calendar" }
     MyGatherpack::Menu.table[:family_path] = { family: 10 }
-    Person.define_method(:wards) { [ self ] }
+    WardsStub.wards = [ @member ]
     sign_in @member
     get root_path
 
     assert_equal [ "Family", "Home", "More" ], tab_labels
   ensure
     NavHelper.remove_method(:family_path)
-    Person.remove_method(:wards)
-    MyGatherpack::Menu.table.delete(:family_path)
   end
 
   test "a guardian sees no Family tab while the route is missing" do
-    Person.define_method(:wards) { [ self ] }
+    WardsStub.wards = [ @member ]
     sign_in @member
     get root_path
 
     assert_equal [ "Home", "Hours", "More" ], tab_labels
   ensure
-    Person.remove_method(:wards)
   end
 
   test "the bar is not on the kiosk or with the flag off" do
-    get new_user_session_path
+    sign_in @member
+    get time_kiosk_path
+    assert_response :success
     assert_select "nav.phone-tabs", count: 0
 
     Settings[:feature_my_gatherpack] = "false"
-    sign_in @member
     get root_path
     assert_select "nav.phone-tabs", count: 0
+    assert_select "meta[name=viewport][content*=viewport-fit]", count: 0
   end
 
   private

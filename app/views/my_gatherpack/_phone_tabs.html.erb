@@ -1,7 +1,9 @@
 <%# Fixed to the bottom of the screen below md. More opens the off-canvas sidebar. %>
 <nav class="phone-tabs d-md-none no-print" aria-label="Main">
   <% my_gatherpack_phone_tabs.each do |tab| %>
-    <%= link_to tab.path, class: "phone-tab #{active_status(tab.path)}", aria: { current: (active_status(tab.path) ? "page" : nil) } do %>
+    <%# A manager's Hours link carries a query string that request.path never has. %>
+    <% active = active_status(tab.path.split("?").first) %>
+    <%= link_to tab.path, class: "phone-tab #{active}", aria: { current: (active ? "page" : nil) } do %>
       <%= i tab.icon %>
       <span><%= tab.label %></span>
     <% end %>

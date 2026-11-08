@@ -44,7 +44,15 @@
       display: none;
     }
 
+    // One line: the title gives way before the search button wraps.
+    .navbar > .container-fluid {
+      flex-wrap: nowrap;
+    }
+
     .navbar-brand {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -55,6 +63,18 @@
     .navbar .dropdown-menu .btn {
       min-height: 44px;
       min-width: 44px;
+    }
+
+    .navbar .dropdown-menu .form-control {
+      min-height: 44px;
+    }
+
+    // The sidebar is the phone's way to everything the tabs don't reach.
+    .sidebar .offcanvas-body .nav-item > a,
+    .sidebar .offcanvas-body summary {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
     }
   }
 }

@@ -40,6 +40,23 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
     assert_operator page.evaluate_script("parseFloat(getComputedStyle(document.body).paddingBottom)"), :>=, 56
   end
 
+  test "a long site title keeps the header to one line" do
+    Settings[:title] = "The Northwind Community Association of Harrison County"
+    visit root_path
+
+    assert_operator page.evaluate_script("document.querySelector('header.navbar').getBoundingClientRect().height"), :<=, 72
+  end
+
+  test "header and sidebar targets are at least 44 px" do
+    visit root_path
+    assert page.evaluate_script("[...document.querySelectorAll('header.navbar .navbar-brand, header.navbar .navbar-toggler')].every(t => t.getBoundingClientRect().height >= 44)")
+
+    find(".phone-tab", text: "More").click
+    assert_selector "#sidebarMenu.show"
+    sleep 0.5
+    assert page.evaluate_script("[...document.querySelectorAll('#sidebarMenu .nav-item > a, #sidebarMenu summary')].filter(t => t.offsetParent).every(t => t.getBoundingClientRect().height >= 44)")
+  end
+
   test "More opens the sidebar" do
     visit root_path
     find(".phone-tab", text: "More").click
