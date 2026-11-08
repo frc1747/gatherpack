@@ -1,6 +1,7 @@
-# Assets are served from the app (Propshaft digests their names), so they can be
-# cached for a year. Rails sends no Cache-Control for files in public/ unless an
-# environment sets one; development and test set their own and are left alone.
-Rails.application.config.public_file_server.headers = {
-  "Cache-Control" => "public, max-age=#{1.year.to_i}, immutable"
-}.freeze if Rails.application.config.public_file_server.headers.blank?
+require "gatherpack/immutable_assets"
+
+# Assets are served from the app, and Rails sends no Cache-Control for them in
+# production unless told to. Development and test keep their own settings.
+if Rails.env.production?
+  Rails.application.config.middleware.insert_before 0, GatherPack::ImmutableAssets
+end

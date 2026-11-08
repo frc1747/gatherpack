@@ -42,18 +42,35 @@ class LocalAssetsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "public files get a far-future immutable Cache-Control unless the environment sets one" do
-    config = Rails.application.config.public_file_server
-    original = config.headers
-    config.headers = {}
-    load Rails.root.join("config/initializers/local_assets.rb")
-    assert_equal "public, max-age=#{1.year.to_i}, immutable", config.headers["Cache-Control"]
+  test "assets get a far-future immutable Cache-Control, public files do not" do
+    app = ->(env) { [ env["PATH_INFO"] == "/assets/missing.css" ? 404 : 200, {}, [ "" ] ] }
+    middleware = GatherPack::ImmutableAssets.new(app)
+    call = ->(path) { middleware.call(Rack::MockRequest.env_for(path))[1]["Cache-Control"] }
 
-    config.headers = { "Cache-Control" => "public, max-age=60" }
-    load Rails.root.join("config/initializers/local_assets.rb")
-    assert_equal "public, max-age=60", config.headers["Cache-Control"]
+    assert_equal "public, max-age=#{1.year.to_i}, immutable", call.("/assets/fonts-1a2b3c4d.css")
+    assert_nil call.("/robots.txt")
+    assert_nil call.("/404.html")
+    assert_nil call.("/assets/missing.css")
+  end
+
+  test "the middleware is added first in production only" do
+    inserted = []
+    stack = Object.new
+    stack.define_singleton_method(:insert_before) { |*args| inserted << args }
+    initializer = Rails.root.join("config/initializers/local_assets.rb")
+
+    config = Struct.new(:middleware).new(stack)
+    Rails.application.define_singleton_method(:config) { config }
+
+    load initializer
+    assert_empty inserted
+
+    Rails.env.define_singleton_method(:production?) { true }
+    load initializer
+    assert_equal [ [ 0, GatherPack::ImmutableAssets ] ], inserted
   ensure
-    config.headers = original
+    Rails.application.singleton_class.remove_method(:config)
+    Rails.env.singleton_class.remove_method(:production?)
   end
 
   test "font stylesheet declares each family with swap" do
