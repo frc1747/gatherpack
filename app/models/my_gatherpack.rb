@@ -1,6 +1,46 @@
 # A member-first set of screens, on while the feature_my_gatherpack flag is.
 module MyGatherpack
-  def self.enabled?
-    GatherPack::Features.enabled?(:my_gatherpack)
+  # A part of the home page. With +items+, its partial renders once per item, as
+  # a row merged by date with the other sections in that column. Without, the
+  # partial renders once, and rendering nothing leaves the section out.
+  Section = Struct.new(:key, :partial, :column, :position, :enabled, :items, keyword_init: true) do
+    def enabled?
+      enabled.nil? || enabled.call
+    end
+  end
+
+  # One row in a home page list. +at+ orders the list; +ward+ is the first name
+  # of the person it's for, when that isn't the viewer.
+  Item = Struct.new(:title, :detail, :at, :path, :action, :icon, :ward, keyword_init: true) do
+    def past_due?
+      at.present? && at.past?
+    end
+  end
+
+  @sections = {}
+
+  class << self
+    attr_reader :sections
+
+    def enabled?
+      GatherPack::Features.enabled?(:my_gatherpack)
+    end
+
+    # Features add to the home page from their own initializer, so this core
+    # needs no code of theirs. +enabled+ is called with no arguments on each
+    # request; +items+ runs in the view context and returns things with an +at+.
+    # Registering the same key again replaces it, so reloading code is safe.
+    def register_section(key, partial:, column:, position: 100, enabled: nil, items: nil)
+      @sections[key] = Section.new(key: key, partial: partial, column: column, position: position, enabled: enabled, items: items)
+    end
+
+    # The enabled sections in a column, in position order, then registration order.
+    def sections_for(column)
+      @sections.values
+        .select { |section| section.column == column && section.enabled? }
+        .each_with_index
+        .sort_by { |section, index| [ section.position, index ] }
+        .map(&:first)
+    end
   end
 end
