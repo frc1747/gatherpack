@@ -70,7 +70,7 @@ module Checklists
             ItemKind::Setting.new(key: :values, type: :text, label: "Values", hint: "For \"is any of\" and \"is none of\": one or more, separated by commas"),
             ItemKind::Setting.new(key: :date, type: :relative_date, label: "Date", hint: "For the date tests. \"Within the last\" counts back from today"),
             ItemKind::Setting.new(key: :number, type: :number, label: "Number", hint: "For the number tests"),
-            ItemKind::Setting.new(key: :blank, type: :choice, label: "If it's blank", options: [ [ "Not Started", "not_met" ], [ "Counts as met", "met" ] ]),
+            ItemKind::Setting.new(key: :blank, type: :choice, label: "If it's blank", options: [ [ "Not Started", "not_met" ], [ "Counts as Complete", "met" ] ]),
             ItemKind::Setting.new(key: :changed_since, type: :relative_date, label: "Last changed", hint: "Optional. A value not updated since then doesn't count")
           ]
         end
