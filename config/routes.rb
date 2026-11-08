@@ -132,27 +132,6 @@ Rails.application.routes.draw do
     end
   end
 
-  # Always drawn; the controllers check the feature (default off).
-  resources :checklists do
-    member do
-      get :copy, action: :copy_form
-      post :copy
-      post :preview
-      post :refresh
-      post :restore
-    end
-    resources :checklist_items, path: "items", except: %i[index show] do
-      post :preview, on: :collection
-    end
-    resources :checklist_rules, path: "rules", only: %i[create destroy]
-    resources :checklist_grants, path: "grants", only: %i[create destroy]
-    resources :checklist_organizers, path: "organizers", only: %i[create destroy]
-    resources :checklist_excuses, path: "excuses", only: %i[new create destroy]
-    resources :checklist_attestations, path: "attestations", only: %i[create destroy]
-    resources :checklist_lists, path: "lists", only: %i[show create]
-  end
-  get "people/:person_id/checklists", to: "person_checklists#show", as: :person_checklists
-
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
     resources :ledger_transfers, only: %i[new create]
@@ -224,10 +203,17 @@ Rails.application.routes.draw do
     end
   end
 
-  # Handle plugin routes - was suggested, don't know that we actually need this or if plugins can just manage this themselves
-  # GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
-  #   instance_exec(&feature.routes_proc)
-  # end
+  # Feature routes. A feature can register a routes_proc on its Feature, or
+  # drop a file in config/routes/ (config/routes/<name>.rb holds the usual
+  # routing DSL, without the outer `Rails.application.routes.draw`). Only the
+  # app's own routes directories are searched, not those of engines.
+  GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
+    instance_exec(&feature.routes_proc)
+  end
+
+  Rails.application.paths["config/routes"].paths.flat_map { |path| Dir[File.join(path, "*.rb")] }.map { |file| File.basename(file, ".rb") }.uniq.sort.each do |name|
+    draw name
+  end
 
   if Settings[:local_signup]
     devise_for :users, controllers: { omniauth_callbacks: "omniauth", registrations: "users/registrations" }
@@ -246,54 +232,6 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", :as => :rails_health_check
   get "service-worker" => "rails/pwa#service_worker", :as => :pwa_service_worker
   get "manifest" => "rails/pwa#manifest", :as => :pwa_manifest
-
-  # Membership intake (feature :intake): public registration pages under
-  # /join, staff screens under /registrations. Fixed paths before :slug.
-  scope "/join", module: :intake, as: :intake do
-    get "verify" => "verifications#show", :as => :verification
-    post "verify" => "verifications#create"
-    get "guardian" => "guardian_confirmations#show", :as => :guardian_confirmation
-    post "guardian" => "guardian_confirmations#create"
-    get "email" => "email_changes#show", :as => :email_change
-    post "email" => "email_changes#create"
-    get ":slug" => "join#show", :as => :join
-    post ":slug" => "join#create"
-    get ":slug/me" => "me#show", :as => :me
-    patch ":slug/me/people/:person_id" => "me#update_person", :as => :me_person
-    post ":slug/me/guardians" => "me#add_guardian", :as => :me_guardians
-    post ":slug/me/members" => "me#add_member", :as => :me_members
-    post ":slug/me/email" => "me#change_email", :as => :me_email
-    delete ":slug/me/applications/:id" => "me#withdraw", :as => :me_application
-    get ":slug/kiosk" => "kiosk#show", :as => :kiosk
-    post ":slug/kiosk" => "kiosk#create"
-  end
-  scope module: :intake, as: :intake do
-    resources :spam_people, only: %i[show destroy], path: "registration-spam"
-    resources :registrations do
-      member do
-        get :copy
-        get :waiting
-        patch :close
-        delete :entries, action: :destroy_entries
-      end
-      resources :entries, only: [] do
-        post :resend, on: :member
-      end
-      resources :matches, only: [] do
-        member do
-          post :link
-          post :keep_separate
-        end
-      end
-      resources :guardians, only: %i[create update] do
-        post :resend, on: :member
-      end
-    end
-    resources :teams, only: [] do
-      resources :registrations, only: %i[index new]
-      post "applications/bulk" => "bulk_decisions#create", :as => :bulk_decisions
-    end
-  end
 
   root "welcome#index"
 end
