@@ -26,7 +26,7 @@ class ChecklistItemsController < InternalController
     end
 
     if @item.save
-      redirect_to @checklist, notice: "#{@item.label} added.", status: :see_other
+      redirect_to checklist_section_path("items"), notice: "#{@item.label} added.", status: :see_other
     else
       render :new, status: :unprocessable_entity
     end
@@ -53,7 +53,7 @@ class ChecklistItemsController < InternalController
     end
 
     if @item.save
-      redirect_to @checklist, notice: "#{@item.label} saved.", status: :see_other
+      redirect_to checklist_section_path("items"), notice: "#{@item.label} saved.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
     end
@@ -66,7 +66,7 @@ class ChecklistItemsController < InternalController
     end
 
     @item.destroy!
-    redirect_to @checklist, notice: "#{@item.label} removed.", status: :see_other
+    redirect_to checklist_section_path("items"), notice: "#{@item.label} removed.", status: :see_other
   end
 
   # POST /checklists/1/items/preview: who the draft item passes.

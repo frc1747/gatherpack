@@ -18,6 +18,11 @@ module ChecklistsFeature
     @checklist = policy_scope(Checklist).find(params[:checklist_id])
   end
 
+  # A section of the Edit page, where a checklist's parts are set up.
+  def checklist_section_path(section)
+    edit_checklist_path(@checklist, anchor: section)
+  end
+
   # Changes to an active checklist show their impact first, unless confirmed.
   def needs_confirmation?
     @checklist.active? && params[:confirmed].blank?

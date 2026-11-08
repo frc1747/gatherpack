@@ -33,7 +33,7 @@ class ChecklistsController < InternalController
     @checklist = authorize Checklist.new(checklist_params.merge(created_by: current_user.person))
 
     if @checklist.save
-      redirect_to @checklist, notice: "Checklist made. Add its items next."
+      redirect_to edit_checklist_path(@checklist, anchor: "items"), notice: "Checklist made. Add its items next."
     else
       render :new, status: :unprocessable_entity
     end
@@ -59,7 +59,7 @@ class ChecklistsController < InternalController
     if @checklist.destroy
       redirect_to checklists_url, notice: "Checklist deleted.", status: :see_other
     else
-      redirect_to @checklist, alert: @checklist.errors.full_messages.to_sentence, status: :see_other
+      redirect_to edit_checklist_path(@checklist), alert: @checklist.errors.full_messages.to_sentence, status: :see_other
     end
   end
 

@@ -50,7 +50,7 @@ class ChecklistRulesController < InternalController
   end
 
   def setup_path(rule)
-    rule.item ? edit_checklist_checklist_item_path(@checklist, rule.item) : checklist_path(@checklist, anchor: "setup")
+    rule.item ? edit_checklist_checklist_item_path(@checklist, rule.item) : checklist_section_path("covers")
   end
 
   def rule_params

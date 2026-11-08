@@ -59,4 +59,16 @@
 </div>
 
 <%= render "report", report: @report, checklist: @checklist, organizer: @organizer %>
-<%= render "setup", checklist: @checklist if @organizer %>
+<% lists = policy(@checklist).copy? ? @checklist.checklist_lists.order(recorded_at: :desc).to_a : [] %>
+<% if lists.any? %>
+  <div class="card mt-3 no-print" id="lists">
+    <div class="card-header"><h2 class="h5 mb-0">Recorded lists</h2></div>
+    <div class="card-body">
+      <ul class="list-unstyled mb-0">
+        <% lists.each do |list| %>
+          <li><%= link_to l(list.recorded_at, format: :long), checklist_checklist_list_path(@checklist, list) %><%= " — #{list.note}" if list.note.present? %></li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% end %>
