@@ -33,7 +33,7 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   def create_checklist(title, team, status: :active)
-    Checklist.create!(title: title, team: team, status: status, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2027, 6, 30),
+    Checklist.create!(title: title, team: team, status: status, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2099, 12, 31),
       created_by: person(:admin))
   end
 
