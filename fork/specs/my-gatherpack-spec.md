@@ -215,7 +215,7 @@ Each is one override, built in the order Phase 0 sets. Each must keep the origin
 |---|---|---|
 | Filling out a form | `forms/_form` and related | One column, large controls, a sticky Save at the bottom |
 | Claiming a shift | `signup_sheets/show` | Dates as sections, positions as rows with places left and a Sign up button; table above `md` only |
-| My hours | `time_clock_punches/index` | Season total at the top, then punches as rows; edit actions behind a row tap for those allowed |
+| My hours | `time_clock_punches/index` | One person's total for the selected Time Clock Period, or the period running today, at the top; then punches as rows; edit actions behind a row tap for those allowed |
 | Calendar | `calendar/index` | Opens on List view, with a toolbar that fits 390 px |
 
 Where a small upstream edit does the job better than an override (for instance, the calendar toolbar config), prefer the edit and record it.
