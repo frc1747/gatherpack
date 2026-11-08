@@ -1,0 +1,118 @@
+<% breadcrumb :edit_form_response, @response %>
+<% access = FormAccess.new(current_user.person, @subject, @form) %>
+<% submitted = @errors.any? ? (params.dig(:form_response, :answers)&.to_unsafe_h || {}) : {} %>
+<% based_on = @submission.based_on || @response.active_submission %>
+<% response_policy = policy(@response) %>
+<% writable_count = @form.answerable_questions.count { |question| access.question_writable?(question) } %>
+
+<%= simple_form_for @response, url: form_response_path(@form, @subject), method: :patch do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1><%= @form.title %></h1>
+      <div class="text-muted">
+        For <strong><%= @subject.identifier_name %></strong>, filled in by you <%= form_respondent_role(access) unless access.viewer.id == @subject.id %> · <%= form_due(@form) %>
+      </div>
+    </div>
+    <div class="card-body">
+      <% if @response.needs_reconfirmation? && based_on&.active? %>
+        <div class="alert alert-warning">
+          <% if @response.reconfirmation_reason == :form %>
+            This form changed after it was signed. Please review the answers and submit them again.
+          <% else %>
+            Profile details this form recorded have changed since it was signed (<%= @response.profile_changes.map(&:label).to_sentence %>). Please review and submit again.
+          <% end %>
+          <%= "It will need signing again." if @form.signature_questions.any? %>
+        </div>
+      <% end %>
+      <% if @submission.pending? %>
+        <div class="alert alert-warning">
+          Submitted, and waiting for <%= @submission.waiting_for.to_sentence %>.
+          Changing an answer returns it to a draft until it's submitted again<%= ", and any signatures already given are removed" if @submission.standing_signatures.any? %>.
+        </div>
+      <% elsif based_on&.active? %>
+        <div class="alert alert-info">
+          You're updating the answers submitted <%= nice_datetime(based_on.submitted_at) if based_on.submitted_at %>.
+          They stay in effect until you submit this update.
+          <% if @submission.persisted? %>Your changes so far are saved as a draft.<% else %>Cancel leaves them exactly as they are.<% end %>
+        </div>
+      <% end %>
+      <% unless @form.open? %>
+        <div class="alert alert-secondary">This form is <%= @form.status %>. You can still enter a response as a leader.</div>
+      <% end %>
+
+      <% if @form.description.present? %>
+        <div class="mb-4"><%= form_markdown(@form.description) %></div>
+      <% end %>
+
+      <%= f.error_notification message: "Please check the answers marked below." if @errors.any? %>
+
+      <% read_only = @form.answerable_questions.select { |question| access.question_readable?(question) && !access.question_writable?(question) } %>
+      <% if read_only.any? %>
+        <div class="alert alert-light border">
+          <% if writable_count.zero? %>
+            <%= i "circle-info" %> This form is for <%= form_writer_phrase(read_only.first.effective_write_permission) %> to fill in<%= " and sign" if @form.signature_questions.any? %>. You can read it here; they'll see it on their dashboard.
+          <% else %>
+            <%= i "circle-info" %> Greyed-out items are for someone else to fill in.
+          <% end %>
+        </div>
+      <% end %>
+
+      <% @form.form_questions.includes(:person_field).each do |question| %>
+        <% if question.heading? %>
+          <h2 class="h4 mt-4"><%= question.label %></h2>
+          <% if question.body.present? %><div class="mb-3"><%= form_markdown(question.body) %></div><% end %>
+        <% elsif question.statement? %>
+          <div class="mb-3"><%= form_markdown(question.body) %></div>
+        <% elsif question.signature? %>
+          <div class="card mb-3 border-secondary-subtle" id="<%= dom_id question %>">
+            <div class="card-body">
+              <div class="fw-semibold"><%= i "signature" %> <%= question.label %></div>
+              <% if question.body.present? %><div class="mt-2"><%= form_markdown(question.body) %></div><% end %>
+              <div class="form-text">Signed after submitting, by <%= question.signer_description %>.</div>
+            </div>
+          </div>
+        <% elsif question.acknowledgment? && access.question_readable?(question) %>
+          <% value = submitted.key?(question.key) ? submitted[question.key] : @submission.answer(question) %>
+          <div id="<%= dom_id question %>">
+            <%= form_acknowledgment(question, value, writable: access.question_writable?(question), error: @errors[question.key]) %>
+          </div>
+        <% elsif question.answerable? && access.question_readable?(question) %>
+          <% value = submitted.key?(question.key) ? submitted[question.key] : @submission.answer(question) %>
+          <div id="<%= dom_id question %>">
+            <% if access.question_writable?(question) %>
+              <%= form_question_input(f, question, value, error: @errors[question.key]) %>
+            <% else %>
+              <div class="mb-3">
+                <div class="form-label"><%= question.label %><%= " *" if question.required? %></div>
+                <div class="form-control-plaintext"><%= form_answer_display(question, @submission.answer(question)) %></div>
+                <div class="form-text">Filled in by <%= form_writer_phrase(question.effective_write_permission) %>.</div>
+              </div>
+            <% end %>
+            <% if question.update_profile? %>
+              <div class="form-text mt-n2 mb-3"><%= i "id-card" %> Saved to <%= access.viewer.id == @subject.id ? "your" : "#{@subject.first_name}'s" %> profile (<%= question.person_field.name %>) once this is submitted.</div>
+            <% elsif question.prefill? %>
+              <div class="form-text mt-n2 mb-3">Starts from the profile. Changing it here doesn't change the profile.</div>
+            <% end %>
+            <% if based_on && based_on.answers[question.key] != @submission.answers[question.key] && @errors.empty? %>
+              <div class="form-text mt-n2 mb-3 text-warning-emphasis">Was: <%= form_answer_display(question, based_on.answer(question)) %></div>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+    <div class="card-footer">
+      <%= link_to @submission.persisted? ? "Back" : "Cancel", @response.persisted? ? form_response_path(@form, @subject) : forms_path, class: "btn btn-warning" %>
+      <% if writable_count.positive? || @form.answerable_questions.empty? %>
+        <%= f.button :submit, "Save for later", name: "save", class: "btn btn-secondary" %>
+        <%= f.button :submit, "Submit", name: "submit", class: "btn btn-primary" %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<% if @response.persisted? && @submission.persisted? && response_policy.discard? %>
+  <div class="mt-2 text-end">
+    <%= button_to based_on&.active? ? "Discard this update" : "Discard this draft", discard_form_response_path(@form, @subject), class: "btn btn-sm btn-danger", form_class: "d-inline",
+          data: { turbo_confirm: based_on&.active? ? "Discard this unsubmitted update? The submitted answers stay as they are." : "Discard this unsubmitted draft?" } %>
+  </div>
+<% end %>

@@ -10,5 +10,6 @@
 # code_verifier.
 Rails.application.config.filter_parameters += [
   :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc, :code_verifier,
-  :address, :birthday, :dietary_restrictions, :phone_number, :person_field_values
+  :address, :birthday, :dietary_restrictions, :phone_number, :person_field_values,
+  :answers, :typed_name
 ]
