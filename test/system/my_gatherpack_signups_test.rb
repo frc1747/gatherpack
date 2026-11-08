@@ -36,4 +36,83 @@ class MyGatherpackSignupsSystemTest < ApplicationSystemTestCase
 
     assert_current_path signup_sheet_path(sheet)
   end
+
+  test "at 390 px a shift is claimed from the sheet through to saved data" do
+    sheet = create_world_sheet
+    position = sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    sign_in person(:worker).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheet_path(sheet)
+
+    assert_selector ".mg-places-left", text: "2 places left"
+    assert_no_sideways_scroll
+    assert page.evaluate_script("document.querySelector('.mg-signup-button').getBoundingClientRect().height >= 44")
+
+    click_link "Sign up"
+    click_button "Sign up"
+
+    assert_text "Your places"
+    assert Signup.find_by!(person: person(:worker), signup_slot: slot_for(position)).active?
+    assert_selector ".mg-places-left", text: "1 place left"
+    assert_no_sideways_scroll
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "at 390 px with the flag off the same shift can still be claimed" do
+    sheet = create_world_sheet
+    position = sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    Settings[:feature_my_gatherpack] = "false"
+    sign_in person(:worker).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheet_path(sheet)
+
+    assert_no_selector ".mg-places-left"
+    click_link "Sign up"
+    click_button "Sign up"
+
+    assert_text "Your places"
+    assert Signup.exists?(person: person(:worker), signup_slot: slot_for(position))
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "at 390 px a parent can sign up on behalf of a child" do
+    sheet = create_world_sheet(others_relationship_type_ids: [ @parent_of.id ], on_behalf_of_mode: :related_people)
+    position = sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    Membership.create!(person: person(:parent), team: @students)
+    sign_in person(:parent).user
+    page.driver.browser.manage.window.resize_to(390, 844)
+
+    visit signup_sheet_path(sheet)
+    click_link "Sign up"
+    find("input[name='signup[on_behalf_of_id]'][value='#{person(:student).id}']").click
+    click_button "Sign up"
+
+    assert_text "Your places"
+    assert Signup.exists?(person: person(:parent), on_behalf_of: person(:student), signup_slot: slot_for(position))
+    assert_no_sideways_scroll
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
+
+  test "at desktop width the sheet keeps the longer count" do
+    sheet = create_world_sheet
+    sheet.signup_positions.create!(name: "Cashier", capacity: 2)
+    sign_in person(:worker).user
+    page.driver.browser.manage.window.resize_to(1400, 900)
+
+    visit signup_sheet_path(sheet)
+
+    assert_text "0 of 2 filled"
+    assert_no_selector ".mg-places-left"
+  end
+
+  private
+
+  def assert_no_sideways_scroll
+    assert page.evaluate_script("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+  end
 end
