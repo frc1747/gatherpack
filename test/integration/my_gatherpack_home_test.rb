@@ -10,8 +10,8 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   setup do
     host! "localhost"
     @original_sections = MyGatherpack.sections.dup
-    @original_view_paths = ApplicationController.view_paths
-    ApplicationController.prepend_view_path(Rails.root.join("test/fixtures/views"))
+    @original_view_paths = ActionController::Base.view_paths
+    ActionController::Base.prepend_view_path(Rails.root.join("test/fixtures/views"))
     @saved_feature_values = FEATURE_SETTINGS.to_h { |key| [ key, Settings.get(key).instance_variable_get(:@value) ] }
     turn_on_my_gatherpack
     @member = create_login("Morgan")
@@ -22,7 +22,7 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   teardown do
     restore_my_gatherpack
     @saved_feature_values.each { |key, value| Settings.get(key).instance_variable_set(:@value, value) }
-    ApplicationController.view_paths = @original_view_paths
+    ActionController::Base.view_paths = @original_view_paths
     MyGatherpack.sections.replace(@original_sections)
   end
 

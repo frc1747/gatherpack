@@ -18,7 +18,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     @original_checks = MyGatherpack::Menu.manager_checks.dup
     @original_slots = GatherPack::SidebarSlots.instance_variable_get(:@slots).dup
     @original_root_attributes = GatherPack::SidebarSlots.instance_variable_get(:@root_attributes).dup
-    @original_view_paths = ApplicationController.view_paths
+    @original_view_paths = ActionController::Base.view_paths
     STUBBED_PATHS.each { |name| NavHelper.define_method(name) { "/calendar" } }
     turn_on_my_gatherpack
     @member = create_login("Morgan")
@@ -27,7 +27,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
   teardown do
     restore_my_gatherpack
     STUBBED_PATHS.each { |name| NavHelper.remove_method(name) }
-    ApplicationController.view_paths = @original_view_paths
+    ActionController::Base.view_paths = @original_view_paths
     @plugins.replace(@original_plugins)
     MyGatherpack::Menu.manager_checks.replace(@original_checks)
     GatherPack::SidebarSlots.instance_variable_set(:@slots, @original_slots)
@@ -168,8 +168,9 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
   end
 
   test "the My Hours filter keeps only that person's punches" do
-    mine = TimeClockPunch.create!(person: @member.person, start_time: 2.hours.ago, created_by: @member)
-    TimeClockPunch.create!(person: create_login("Quinn").person, start_time: 1.hour.ago, created_by: @member)
+    mine = TimeClockPunch.create!(person: @member.person, start_time: 2.hours.ago, created_by: @member.person)
+    quinn = create_login("Quinn").person
+    TimeClockPunch.create!(person: quinn, start_time: 1.hour.ago, created_by: quinn)
 
     assert_equal [ mine ], TimeClockPunch.ransack(person_id_eq: @member.person.id).result.to_a
   end
@@ -228,8 +229,15 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the sidebar logo keeps its proportions" do
+    sign_in @member
+    get root_path
+
+    assert_select "[data-site-brand] img.w-auto[height='32']"
+  end
+
   test "sidebar slots and root attributes still render" do
-    ApplicationController.prepend_view_path(Rails.root.join("test/fixtures/views"))
+    ActionController::Base.prepend_view_path(Rails.root.join("test/fixtures/views"))
     GatherPack::SidebarSlots.register(:early, partial: "sidebar_slots_test/early")
     GatherPack::SidebarSlots.root_attributes(:probe) { { id: "permanent-sidebar", data: { probe: "yes" } } }
     sign_in @member
@@ -250,7 +258,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     assert_select ".sidebar a", text: /Dashboard/
     assert_select ".sidebar h6", text: "People"
     assert_includes response.body, "<title> Northwind Community | </title>"
-    assert_not_includes GatherPack::ViewOverrides.active_paths(nil), Rails.root.join("app/view_overrides/my_gatherpack").to_s
+    assert_not_includes GatherPack::ViewOverrides.active_paths(controller), Rails.root.join("app/view_overrides/my_gatherpack").to_s
   end
 
   private

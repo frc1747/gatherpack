@@ -20,7 +20,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     host! "localhost"
     @plugins = GatherPack::Features.instance_variable_get(:@plugins)
     @original_plugins = @plugins.dup
-    @original_view_paths = ApplicationController.view_paths
+    @original_view_paths = ActionController::Base.view_paths
     @original_table = MyGatherpack::Menu.table.deep_dup
     turn_on_my_gatherpack
     Settings[:feature_time_tracking] = "true"
@@ -29,7 +29,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
 
   teardown do
     restore_my_gatherpack
-    ApplicationController.view_paths = @original_view_paths
+    ActionController::Base.view_paths = @original_view_paths
     MyGatherpack::Menu.table = @original_table
     WardsStub.wards = nil
     @plugins.replace(@original_plugins)
@@ -112,7 +112,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
   end
 
   test "the bar is not on the kiosk or with the flag off" do
-    sign_in @member
+    sign_in create_login("Kiosk", admin: true)
     get time_kiosk_path
     assert_response :success
     assert_select "nav.phone-tabs", count: 0
