@@ -273,7 +273,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     sign_in person(:admin).user
     with_feature do
       @checklist.update!(ends_on: Date.new(2026, 12, 1))
-      travel_to(Time.zone.parse("2026-11-20")) { refresh(@checklist) }
+      travel_to(Time.zone.parse("2026-12-02 00:10")) { refresh(@checklist) }
 
       travel_to(Time.zone.parse("2026-12-05")) do
         Membership.where(person: person(:member)).destroy_all
@@ -284,6 +284,31 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
         assert_response :success
         assert_match person(:member).display_name, response.body
         assert_no_match person(:outsider).display_name, response.body
+      end
+    end
+  end
+
+  test "the page says an ended checklist is frozen, and Recompute applies corrections" do
+    sign_in person(:admin).user
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
+      travel_to(Time.zone.parse("2026-12-01 10:00")) do
+        get checklist_path(@checklist)
+        assert_no_match "Results are frozen", response.body
+      end
+
+      travel_to(Time.zone.parse("2026-12-02 00:10")) { refresh(@checklist) }
+      travel_to(Time.zone.parse("2026-12-05")) do
+        BadgeAssignment.where(person: person(:member)).destroy_all
+        Membership.where(person: person(:member2)).destroy_all
+        get checklist_path(@checklist)
+        assert_match "Results are frozen. Recompute to apply corrections.", response.body
+        assert_select "form[action=?]", refresh_checklist_path(@checklist)
+
+        post refresh_checklist_path(@checklist)
+        assert_redirected_to @checklist
+        assert_equal "not_met", ChecklistResult.find_by!(checklist: @checklist, person: person(:member), item_id: nil).status
+        assert_not ChecklistResult.exists?(checklist: @checklist, person: person(:member2)), "a leaver goes on Recompute"
       end
     end
   end

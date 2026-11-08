@@ -9,21 +9,26 @@ module Checklists
   # a silent: true run (a backfill), and nothing fires for a draft. A failing
   # hook or subscriber is logged and skipped. When a checklist's overall
   # changes, checklists that require it are marked for those people.
+  #
+  # Once a checklist has ended and its end-of-day answers are stored, only
+  # recompute: true (the Recompute button) changes them. The first refresh
+  # after the end always covers everyone, whoever it was asked about.
   class Refresher
     attr_reader :checklist
 
-    def initialize(checklist, silent: false)
+    def initialize(checklist, silent: false, recompute: false)
       @checklist = checklist
       @silent = silent
+      @recompute = recompute
     end
 
     # Refreshes these people (everyone covered when nil) and returns the
     # changed result rows.
     def call(person_ids = nil)
-      return [] if checklist.archived?
+      return [] if checklist.archived? || (checklist.results_frozen? && !@recompute)
 
       # A checklist's dates are days in the site's time zone; jobs run in UTC.
-      Time.use_zone(Settings[:time_zone].presence || "UTC") { refresh(person_ids) }
+      Time.use_zone(Checklists.time_zone) { refresh(checklist.ended? ? nil : person_ids) }
     end
 
     private

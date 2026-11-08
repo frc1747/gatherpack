@@ -104,7 +104,7 @@ class ChecklistsController < InternalController
 
   # POST /checklists/1/refresh: recompute everyone now, silently.
   def refresh
-    Checklists::Refresher.new(@checklist, silent: true).call
+    Checklists::Refresher.new(@checklist, silent: true, recompute: true).call
     redirect_to @checklist, notice: "Results recomputed.", status: :see_other
   end
 

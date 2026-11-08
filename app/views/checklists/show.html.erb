@@ -28,6 +28,7 @@
           Counting until <%= l(@checklist.ends_on, format: :long) %>; these are today's numbers.
         <% else %>
           As of <%= l(@checklist.ends_on, format: :long) %>, when counting stopped.
+          <% unless @checklist.archived? %>Results are frozen. Recompute to apply corrections.<% end %>
         <% end %>
       </p>
     <% end %>

@@ -19,7 +19,7 @@ module Checklists
     end
 
     def self.last_moment(checklist)
-      checklist.ends_on&.in_time_zone&.end_of_day
+      checklist.ends_on&.in_time_zone(Checklists.time_zone)&.end_of_day
     end
 
     # The checklist's last day is over at this as-of moment.

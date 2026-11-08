@@ -18,7 +18,7 @@ class ChecklistList < ApplicationRecord
 
   # Snapshots everyone the checklist covers, as its organizers see them.
   def self.record!(checklist, by:, note: nil)
-    statuses = Checklists.status_for(checklist, checklist.people_covered.ids, viewer: by)
+    statuses = Checklists.status_for(checklist, checklist.reported_person_ids, viewer: by)
     people = Person.where(id: statuses.keys).index_by(&:id)
     rows = statuses.values.sort_by { |status| people[status.person_id].display_name.to_s }.map do |status|
       {

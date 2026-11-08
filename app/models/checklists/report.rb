@@ -13,10 +13,7 @@ module Checklists
     end
 
     def statuses
-      @statuses ||= begin
-        ids = Population.new(checklist).person_ids
-        Reader.new(checklist, viewer, as_of: as_of).status_for(ids)
-      end
+      @statuses ||= Reader.new(checklist, viewer, as_of: as_of).status_for(checklist.reported_person_ids)
     end
 
     def people

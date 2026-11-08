@@ -286,25 +286,97 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
-  test "after Until a refresh keeps the people it had and adds nobody" do
+  test "after Until with results stored, nothing automatic moves them and no hook fires" do
     with_feature do
-      @checklist.update!(ends_on: Date.new(2026, 10, 1))
-      travel_to(Time.zone.parse("2026-09-20")) { refresh(@checklist) }
-      before = ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id)
-      assert_includes before, person(:member).id
-      assert_not_includes before, person(:outsider).id
+      runs = Thread.current[:checklist_hook_runs] = []
+      Hook.create!(name: "Watch", event: Checklists::STATUS_CHANGED_EVENT, code: "Thread.current[:checklist_hook_runs] << model.id")
+      team_item = add_item(@checklist, :team_member, "On the team", { team_ids: [ @members.id ] })
+      freeze_results do
+        give_badge(:member, @safety)
+        Membership.where(person: person(:member)).update_all(created_at: Time.current)
+      end
+      before = stored_rows(@checklist)
+      assert_equal "met", ChecklistResult.find_by!(checklist: @checklist, person: person(:member), item_id: team_item.id).status
+      clear_enqueued_jobs
 
       travel_to(Time.zone.parse("2026-10-05")) do
         Membership.where(person: person(:member)).destroy_all
-        Membership.create!(person: person(:outsider), team: @members)
-        assignment = give_badge(:member2, @safety)
-        assignment.update!(created_at: Time.zone.parse("2026-09-25"))
-        refresh(@checklist)
+        BadgeAssignment.where(person: person(:member)).destroy_all
+        add_rule(@checklist, :exclude, :person, person_id: person(:member2).id)
+        Checklists.mark(@checklist.reload, [ person(:member).id ])
+        Checklists.mark(@checklist, :all)
+        assert_empty ChecklistRefresh.where(checklist: @checklist), "invalidations are ignored"
+        assert_no_enqueued_jobs only: ChecklistRefreshJob
 
-        assert_equal before.sort, ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id).sort
-        assert_equal before.sort, Checklists.people_covered_by(@checklist).ids.sort
-        assert_not ChecklistResult.exists?(checklist: @checklist, person: person(:outsider))
-        assert_equal "met", ChecklistResult.find_by!(checklist: @checklist, person: person(:member2), item_id: @safety_item.id).status, "still updated"
+        ChecklistRefresh.create!(checklist: @checklist, created_at: 1.hour.ago)
+        ChecklistRefreshJob.perform_now(@checklist.id)
+        @checklist.update_columns(next_refresh_at: 1.minute.ago)
+        ChecklistClockJob.perform_now
+        ChecklistNightlyJob.perform_now
+        refresh(@checklist)
+      end
+      travel_to(Time.zone.parse("2026-10-20")) do
+        read = Checklists.status_for(@checklist.reload, [ person(:member) ], viewer: person(:admin))
+        assert_equal "met", read[person(:member).id].overall.status, "reads show the stored answer, however old"
+      end
+
+      assert_equal before, stored_rows(@checklist)
+      assert_empty runs
+    end
+  ensure
+    Thread.current[:checklist_hook_runs] = nil
+  end
+
+  test "a frozen checklist isn't marked when a checklist it requires changes" do
+    with_feature do
+      other = create_world_checklist("Other")
+      add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+      add_item(@checklist, :checklist, "Other", { checklist_id: other.id })
+      freeze_results { refresh(other) }
+
+      travel_to(Time.zone.parse("2026-10-05")) do
+        give_badge(:member, @safety)
+        refresh(other)
+        assert_not ChecklistRefresh.exists?(checklist: @checklist)
+      end
+    end
+  end
+
+  test "Recompute applies a corrected older record, ignores a badge dated after Until, and drops a leaver" do
+    with_feature do
+      freeze_results
+      travel_to(Time.zone.parse("2026-10-05")) do
+        give_badge(:member, @safety)
+        give_badge(:member2, @safety).update!(created_at: Time.zone.parse("2026-09-25"))
+        Membership.where(person: person(:rookie)).destroy_all
+
+        Checklists::Refresher.new(@checklist.reload, silent: true, recompute: true).call
+
+        status = ->(name) { ChecklistResult.find_by!(checklist: @checklist, person: person(name), item_id: @safety_item.id).status }
+        assert_equal "not_met", status[:member], "dated after Until"
+        assert_equal "met", status[:member2], "corrected to before Until"
+        assert_not ChecklistResult.exists?(checklist: @checklist, person: person(:rookie)), "left the team"
+        assert @checklist.reload.results_frozen?, "still frozen afterwards"
+      end
+    end
+  end
+
+  test "moving Until starts over, whether or not the new date has passed" do
+    with_feature do
+      freeze_results
+      travel_to(Time.zone.parse("2026-10-20")) do
+        give_badge(:member, @safety).update!(created_at: Time.zone.parse("2026-10-05"))
+        @checklist.reload.update!(ends_on: Date.new(2026, 10, 10))
+        assert_not @checklist.results_frozen?
+        assert ChecklistRefresh.exists?(checklist: @checklist), "the change marks it"
+
+        refresh(@checklist)
+        assert_equal "met", ChecklistResult.find_by!(checklist: @checklist, person: person(:member), item_id: @safety_item.id).status
+        assert @checklist.reload.results_frozen?
+
+        @checklist.update!(ends_on: Date.new(2026, 12, 1))
+        assert_not @checklist.ended?
+        assert_not @checklist.results_frozen?
       end
     end
   end
@@ -326,11 +398,53 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
-  test "a checklist first computed after Until takes its people from its rules" do
-    @checklist.update!(ends_on: Date.new(2026, 10, 1))
-    travel_to(Time.zone.parse("2026-10-05")) do
-      assert_includes Checklists.people_covered_by(@checklist).ids, person(:member).id
+  test "setting or moving Until to a date already gone doesn't count older results as frozen" do
+    with_feature do
+      @checklist.update!(ends_on: nil)
+      travel_to(Time.zone.parse("2026-10-20")) do
+        refresh(@checklist)
+        ChecklistRefresh.delete_all
+
+        @checklist.reload.update!(ends_on: Date.new(2026, 10, 10))
+        assert_not @checklist.results_frozen?, "those were live results, not end-of-day ones"
+        assert ChecklistRefresh.exists?(checklist: @checklist)
+
+        refresh(@checklist)
+        assert @checklist.reload.results_frozen?
+        ChecklistRefresh.delete_all
+
+        @checklist.update!(ends_on: Date.new(2026, 10, 5))
+        assert_not @checklist.results_frozen?, "moved earlier"
+        assert ChecklistRefresh.exists?(checklist: @checklist)
+      end
     end
+  end
+
+  test "the first refresh of an ended checklist with no rows covers everyone" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    everyone = Checklists.people_covered_by(@checklist).ids
+    assert_operator everyone.size, :>, 1
+
+    travel_to(Time.zone.parse("2026-10-05")) do
+      Checklists::Refresher.new(@checklist.reload).call([ person(:member).id ])
+      assert_equal everyone.sort, ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id).sort
+    end
+  end
+
+  test "reading one person of an ended checklist with no rows stores everyone" do
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    everyone = Checklists.people_covered_by(@checklist).ids
+
+    travel_to(Time.zone.parse("2026-10-05")) do
+      Checklists.status_for(@checklist.reload, [ person(:member) ], viewer: person(:admin))
+      assert_equal everyone.sort, ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id).sort
+    end
+  end
+
+  test "an ended checklist whose results were pruned isn't frozen" do
+    freeze_results
+    ChecklistResult.where(checklist: @checklist).delete_all
+    travel_to(Time.zone.parse("2026-10-05")) { assert_not @checklist.reload.results_frozen? }
   end
 
   test "with no Until, results stay live" do
@@ -504,6 +618,20 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
   end
 
   private
+
+  # Until Oct 1: whatever the block does happens before it, and the one
+  # refresh after it stores the end-of-day answers.
+  def freeze_results
+    @checklist.update!(ends_on: Date.new(2026, 10, 1))
+    travel_to(Time.zone.parse("2026-09-20")) { yield if block_given? }
+    travel_to(Time.zone.parse("2026-10-02 00:05")) { refresh(@checklist) }
+    assert @checklist.reload.results_frozen?
+    ChecklistRefresh.delete_all
+  end
+
+  def stored_rows(checklist)
+    ChecklistResult.where(checklist: checklist).order(:id).pluck(:id, :person_id, :item_id, :status, :label, :summary, :stale, :computed_at)
+  end
 
   # Queries run by the block, with the query cache off so earlier calls
   # don't hide any.

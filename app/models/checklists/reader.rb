@@ -67,15 +67,16 @@ module Checklists
       stored = ChecklistResult.where(checklist_id: checklist.id, person_id: ids).to_a.group_by(&:person_id)
       missing = ids - stored.select { |_, rows| rows.any? { |row| row.item_id.nil? } }.keys
       # People it doesn't cover never get rows; don't recompute for them.
-      missing &= Population.new(checklist).person_ids if missing.any? && !checklist.archived?
-      if missing.any? && !checklist.archived?
+      recomputable = !checklist.archived? && !checklist.results_frozen?
+      missing &= Population.new(checklist).person_ids if missing.any? && recomputable
+      if missing.any? && recomputable
         Refresher.new(checklist, silent: true).call(missing)
         ChecklistResult.where(checklist_id: checklist.id, person_id: missing).to_a.group_by(&:person_id).each { |id, rows| stored[id] = rows }
       end
 
       by_person = stored.transform_values { |rows| rows.index_by(&:item_id) }
       too_old = by_person.select { |_, rows| rows[nil] && rows[nil].computed_at < max_age.ago }.keys
-      refresh_live(too_old, by_person) if too_old.any? && !checklist.archived?
+      refresh_live(too_old, by_person) if too_old.any? && recomputable
       by_person.select { |_, rows| rows.key?(nil) }
     end
 

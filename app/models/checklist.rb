@@ -36,6 +36,7 @@ class Checklist < ApplicationRecord
   validate :starts_within_has_unit
 
   before_validation :clear_unused_start
+  before_save :start_over_when_until_moves
   after_create :add_creator_as_organizer
   after_commit :refresh_everyone, on: :update
 
@@ -127,6 +128,22 @@ class Checklist < ApplicationRecord
   # Its last day (in the site's time zone) has gone.
   def ended?
     ends_on.present? && Checklists::Context.last_moment(self).past?
+  end
+
+  # Ended, and its end-of-day answers are stored: from here only Recompute
+  # changes them. Changing Until clears computed_at, so this starts over.
+  def results_frozen?
+    return false unless ended? && computed_at && computed_at > Checklists::Context.last_moment(self)
+
+    checklist_results.exists?
+  end
+
+  # Who the report is about: who it covers, or once its results are frozen,
+  # who they're stored for, so someone who has left stays on it.
+  def reported_person_ids
+    return Checklists::Population.new(self).person_ids unless results_frozen?
+
+    checklist_results.where(item_id: nil).pluck(:person_id)
   end
 
   # Checklists with an item requiring this one.
@@ -227,6 +244,10 @@ class Checklist < ApplicationRecord
   def clear_unused_start
     self.starts_on = nil if starts_within_amount.present?
     self.starts_within_unit = nil if starts_within_amount.blank?
+  end
+
+  def start_over_when_until_moves
+    self.computed_at = nil if ends_on_changed?
   end
 
   def add_creator_as_organizer
