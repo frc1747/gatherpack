@@ -15,10 +15,14 @@ module SmoothPagesTestSettings
       @original_pages = %i[@refresh_pages @no_preview_pages].to_h do |name|
         [ name, GatherPack::SmoothPages.instance_variable_get(name).dup ]
       end
+      @original_fingerprints = GatherPack::SidebarSlots.instance_variable_get(:@fingerprints).dup
+      @original_plugins = GatherPack::Features.instance_variable_get(:@plugins).dup
     end
 
     teardown do
       @original_pages.each { |name, pages| GatherPack::SmoothPages.instance_variable_set(name, pages) }
+      GatherPack::SidebarSlots.instance_variable_set(:@fingerprints, @original_fingerprints)
+      GatherPack::Features.instance_variable_set(:@plugins, @original_plugins)
       @original_values.each { |key, value| Settings[key] = value }
       Settings.instance.store = @original_store
       FileUtils.remove_entry(@settings_dir)

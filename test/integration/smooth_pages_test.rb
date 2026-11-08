@@ -19,8 +19,6 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
 
   test "with the flag off the page has none of it" do
     set_flag :feature_smooth_pages, false
-    GatherPack::SmoothPages.refresh_on("events#show")
-
     get event_path(@event)
 
     assert_response :success
@@ -37,18 +35,22 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
 
   test "an opted-in page asks for morph and kept scroll" do
     set_flag :feature_smooth_pages, true
-    GatherPack::SmoothPages.refresh_on("events#show")
-
     get event_path(@event)
 
     assert_select "meta[name=turbo-refresh-method][content=morph]", 1
     assert_select "meta[name=turbo-refresh-scroll][content=preserve]", 1
   end
 
+  test "check-out leaves the list frame so it can return to the page" do
+    Checkin.create!(event: @event, person: people(:two), created_by: @user.person)
+
+    get event_path(@event)
+
+    assert_select "turbo-frame#results a[data-turbo-method=delete][data-turbo-frame=_top]", text: "Checkout", minimum: 1
+  end
+
   test "a page that has not opted in does not morph" do
     set_flag :feature_smooth_pages, true
-
-    GatherPack::SmoothPages.refresh_on("events#show")
 
     get edit_event_path(@event)
 
@@ -59,7 +61,7 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
   test "pages that fill in later skip the preview" do
     set_flag :feature_smooth_pages, true
 
-    [ root_path, calendar_index_path, time_clock_punches_path ].each do |path|
+    [ root_path, calendar_index_path, time_clock_punches_path, team_path(teams(:one)) ].each do |path|
       get path
       assert_response :success
       assert_select "meta[name=turbo-cache-control][content=no-preview]", 1, "expected no-preview on #{path}"
@@ -106,6 +108,36 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
     get root_path
     first_id = sidebar_id
     @user.person.update_columns(display_name: "Someone Else", first_name: "Someone", last_name: "Else")
+    get root_path
+
+    assert_not_equal first_id, sidebar_id
+  end
+
+  test "the sidebar id follows who can see each item" do
+    set_flag :feature_smooth_pages, true
+    item = GatherPack::Feature::NavItem.new(label: "Only Some", path: "/only-some", icon: "star")
+    visible = true
+    item.define_singleton_method(:visible?) { |_user| visible }
+    GatherPack::Features.register(
+      GatherPack::Feature.new(key: :smooth_test_item, label: "Test", toggleable: false, nav_section: "People", nav_items: [ item ])
+    )
+
+    get root_path
+    first_id = sidebar_id
+    visible = false
+    get root_path
+
+    assert_not_equal first_id, sidebar_id
+  end
+
+  test "the sidebar id follows registered fingerprints" do
+    set_flag :feature_smooth_pages, true
+    value = "before"
+    GatherPack::SidebarSlots.fingerprint(:smooth_test) { value }
+
+    get root_path
+    first_id = sidebar_id
+    value = "after"
     get root_path
 
     assert_not_equal first_id, sidebar_id

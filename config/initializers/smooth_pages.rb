@@ -10,13 +10,15 @@ Rails.application.config.to_prepare do
     )
   )
 
-  # Morph applies only when an action redirects to the page's own URL. Add a page
-  # with SmoothPages.refresh_on("controller#action") once it has been checked.
+  # Morph applies only when an action redirects to the page's own URL at the top
+  # level, so check a page's actions before adding it here.
+  GatherPack::SmoothPages.refresh_on("events#show")
 
   GatherPack::SmoothPages.no_preview_on(
     "welcome#index",
     "calendar#index",
     "people#calendar",
+    "teams#show",
     "time_clock_punches#index",
     "time_clock_periods#index",
     "time_clock_periods#show",

@@ -46,9 +46,15 @@ module SmoothPagesHelper
   end
 
   def smooth_nav_fingerprint
-    nav_labels = GatherPack::Features.nav_sections.flat_map { |section, items| [ section, *items.map(&:label) ] }
+    nav_labels = GatherPack::Features.nav_sections.flat_map do |section, items|
+      [ section, *items.select { |item| smooth_nav_item_visible?(item) }.map(&:label) ]
+    end
     people = [ current_user.person, true_user.person ].flat_map { |person| [ person.identifier_name, person.avatar.attachment&.blob_id ] }
 
-    [ *nav_labels, *sidebar_slots.map(&:key), *people ].join("/")
+    [ *nav_labels, *sidebar_slots.map(&:key), *GatherPack::SidebarSlots.fingerprints_for(self), *people ].join("/")
+  end
+
+  def smooth_nav_item_visible?(item)
+    item.respond_to?(:visible?) ? item.visible?(current_user) : true
   end
 end

@@ -19,7 +19,6 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     @user.update_columns(admin: true)
     @event = events(:one)
     set_flag :feature_smooth_pages, true
-    GatherPack::SmoothPages.refresh_on("events#show")
     sign_in @user
   end
 
@@ -34,13 +33,14 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     checkins = check_in_many_people
     open_event
 
-    scroll_to 400
+    place = center_on_checkout(checkins.first)
+    assert_operator place, :>, 0
     mark_icons
     check_out checkins.first
 
     assert_render "morph"
     assert_no_selector "##{dom_id(checkins.first)}"
-    assert_in_delta 400, scroll_y, 100
+    assert_in_delta place, scroll_y, 1
     assert_text "Checkins (#{@event.checkins.count})"
   end
 
@@ -100,16 +100,22 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     assert_no_selector "##{dom_id(checkins.first)}"
   end
 
-  test "a check-out that stays in the list still works" do
+  test "hovering Checkout requests nothing" do
     checkins = check_in_many_people
     open_event
-    mark_sidebar
+    center_on_checkout(checkins.first)
+    watch_prefetches
 
-    check_out checkins.first, frame: nil
+    find("##{dom_id(checkins.first)} a", text: "Checkout").hover
+    sleep 0.4
 
-    assert_no_selector "##{dom_id(checkins.first)}"
-    assert sidebar_marked?
-    assert_equal 1, page.all(".sidebar", visible: :all).size
+    assert_equal 0, page.evaluate_script("window.__prefetches")
+    assert Checkin.exists?(checkins.first.id)
+
+    # Shows the watch above can see a prefetch.
+    find(".sidebar a", text: "Teams").hover
+    sleep 0.4
+    assert_equal 1, page.evaluate_script("window.__prefetches")
   end
 
   test "calendars still draw" do
@@ -314,22 +320,26 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     sleep 0.5
   end
 
-  def scroll_to(y)
-    page.execute_script("document.documentElement.style.scrollBehavior = 'auto'; window.scrollTo(0, #{y})")
-    assert_in_delta y, scroll_y, 1
-  end
-
   def scroll_y
     page.evaluate_script("window.scrollY")
   end
 
-  # The Checkout link sits in the "results" frame, so a real click only updates
-  # the frame. Sending it to the top level gives the redirect back to this URL
-  # that morph needs.
-  def check_out(checkin, frame: "_top")
-    link = find("##{dom_id(checkin)} a", text: "Checkout", visible: :all)
-    link.execute_script("this.setAttribute('data-turbo-frame', arguments[0])", frame) if frame
-    accept_confirm { link.execute_script("this.click()") }
+  def center_on_checkout(checkin)
+    link = find("##{dom_id(checkin)} a", text: "Checkout")
+    link.execute_script("document.documentElement.style.scrollBehavior = 'auto'; this.scrollIntoView({ block: 'center' })")
+    scroll_y
+  end
+
+  def check_out(checkin)
+    link = find("##{dom_id(checkin)} a", text: "Checkout")
+    accept_confirm { link.click }
+  end
+
+  def watch_prefetches
+    page.execute_script(<<~JS)
+      window.__prefetches = 0
+      document.addEventListener("turbo:before-prefetch", () => window.__prefetches++)
+    JS
   end
 
   def mark_icons
