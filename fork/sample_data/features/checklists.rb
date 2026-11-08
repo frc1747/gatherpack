@@ -13,7 +13,7 @@
 # - Logistics Crew members (Ben leads it) see everyone's overall and the
 #   safety item through a team grant.
 #
-# "Almost" needs a count item (feature/checklists-count), so it's left to
+# "In Progress" needs a count item (feature/checklists-count), so it's left to
 # that layer. Carol (Youth Program) holds the Checklist Organizer badge named in
 # the setting and runs the checklist.
 Hbr::SampleData.people "Nina Hart"
@@ -54,7 +54,7 @@ Hbr::SampleData.feature "feature/checklists" do |s|
 
   checklist = s.upsert!(Checklist, { title: "Trip Eligibility" },
     team: youth, status: :active, starts_on: season_start, ends_on: ends_on, read_level: "family",
-    met_word: "Eligible", pending_word: "Pending", not_met_word: "Not eligible", created_by: admin,
+    created_by: admin,
     description: "Everything someone needs before the spring trip.")
   ChecklistOrganizer.find_or_create_by!(checklist: checklist, person: s.person("Carol"))
   rule = ->(attrs) { ChecklistRule.find_or_create_by!({ checklist: checklist }.merge(attrs)) }

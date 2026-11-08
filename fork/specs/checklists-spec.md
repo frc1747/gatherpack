@@ -30,14 +30,14 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | A manager excuses a missed meeting or waives an item for one person (rare) | Fits | Excuses, managers and admins only (§7) |
 | Give or take credit on a count by hand | Fits | Adjustments (§7) |
 | Joining checklist for a new member, including applicants not yet on a team | Fits | Applicants population, dated `form_complete`, `has_login` (§13) |
-| "Missing safety training, with guardian contacts" | Fits | Filter "Not yet", optional contacts column (§14.4) |
+| "Missing safety training, with guardian contacts" | Fits | Filter "Not Started", optional contacts column (§14.4) |
 | Position or form open only to people who finish a checklist | Additive | Predicate (§10.3); small change in each of those branches |
 | Dues or ledger balance not negative | Additive, later | `ledger_balance` kind |
 | Hours worked in a window | Additive, later | `hours` kind |
 | "Has a guardian on file with an email" | Additive, later | `has_guardian` kind |
 | Recently active (check-in or punch in the last N days) | Additive, later | `recent_activity` kind |
 | "Can still reach the minimum" projection | Additive, later | Option on `attendance` |
-| Record the list as decided for a trip | Fits | "Record this list" (§9.4) |
+| Keep the list as decided for a trip | Fits | "Take Snapshot" (§9.4) |
 | Any-of across different data ("badge OR form") | Fits | `any_of` group (§5.3) |
 | Arbitrary formulas over several attributes | Non-goal | Add a kind instead (§3) |
 | Live "who is clocked in" page | Non-goal | Stays a Page; it isn't a status |
@@ -114,7 +114,7 @@ Users never see the word "commitment"; a count item is "Count" (Decision 24).
 
 ### 5.1 Checklist and population
 
-A checklist has: `team` (the reach, and who may run it), `title`, `description`, `starts_on`/`ends_on` (a window; each end is a date or relative, §9.1), optional `cutoff_on` (§9.2), `status` (`draft`, `active`, `archived`), overall words, `read_level` (an `AudienceLevels` level, default `family`: the person, their guardians and their leaders), `created_by`.
+A checklist has: `team` (the reach, and who may run it), `title`, `description`, `starts_on`/`ends_on` (a window; each end is a date or relative, §9.1), `status` (`draft`, `active`, `archived`), `read_level` (an `AudienceLevels` level, default `family`: the person, their guardians and their leaders), `created_by`.
 
 **Population rules** reuse `FormAudienceRule`'s shape: include or exclude a team (with or without managers), a badge's holders, or one person. One new target type, **applicants**: people with a pending `MembershipApplication` (`schema.rb:595`) to a team. Computed whenever needed, so people who join later are covered. The population must be within the checklist's team and below, except applicants, who are within the team they applied to. Rules live in `checklist_rules` (checklist-level when `item_id` is null).
 
@@ -147,7 +147,7 @@ A kind is a class registered with `Checklists.register_item_kind(:badge, Checkli
 ```
 self.label / self.settings          # editor fields (badges, teams, field, form, number, date, choice, rules table)
 self.problems(config)               # deleted badge, missing field... shown to organizers
-evaluate(people, context)           # BATCH: { person_id => Result }; context: window, as_of, cutoff, checklist
+evaluate(people, context)           # BATCH: { person_id => Result }; context: window, as_of, checklist
 explain(result)                     # the plain-words sentence (stored as detail)
 self.invalidations                  # which records, when changed, make which people stale (§8.2)
 self.next_change_at(config, ctx)    # next moment the answer can change with no data change
@@ -158,16 +158,16 @@ Evaluation reads data directly, without the viewer's permissions; **visibility i
 
 ### 6.1 Kinds
 
-| Kind | Family | Branch | Settings | Done / almost / not yet | Missing data |
+| Kind | Family | Branch | Settings | Complete / In Progress / Not Started | Missing data |
 |---|---|---|---|---|---|
-| `count` | Count | `-count` | Unit, amount, additional per group member, what counts (sources), pooling relationship, counts when (§6.2) | Done: `Progress#met?`. Almost: confirmed + planned reaches the amount (when counting confirmed only). Not yet: otherwise. | Doesn't owe → exempt |
+| `count` | Count | `-count` | Unit, amount, additional per group member, what counts (sources), pooling relationship, counts when (§6.2) | Complete: `Progress#met?`. In Progress: confirmed + planned reaches the amount (when counting confirmed only). Not Started: otherwise. | Doesn't owe → exempt |
 | `attendance` | Condition | `-attendance` | Rules table, extra hours count, leeway, judge after N meetings (per rule), optional periods (§6.3) | All rule groups pass | No meetings yet → exempt "No meetings yet" |
-| `badge` | Condition | core | Badges, any of; optional "assigned on or after" | Holds any (assigned in the dates, if asked) | Deleted badge → problem shown, not yet |
+| `badge` | Condition | core | Badges, any of; optional "assigned on or after" | Holds any (assigned in the dates, if asked) | Deleted badge → problem shown, Not Started |
 | `team_member` | Condition | core | Teams, any of (and below); optional "joined on or after" | In any | |
-| `has_login` | Condition | core | | A `User` with an email | No user → not yet |
-| `age` | Condition | core | Min and/or max; on a chosen date (default the window's end) | In range | No birthday → not yet "No birthday on file"; shows pass/fail, never the date |
-| `person_field` | Condition | `-person-fields` | A field; operator by type (is any of, is not, on or after, at least, is filled in); "blank counts as"; optional "last changed on or after" | Per operator | Blank → by "blank counts as" (default not yet) |
-| `form_complete` | Condition | `-forms` | Forms (all of); signed in a date window (§6.4), or "ever" | Reads the response status (§6.4) | Outside the form's audience → not yet, with a problem listed (§6.4) |
+| `has_login` | Condition | core | | A `User` with an email | No user → Not Started |
+| `age` | Condition | core | Min and/or max; on a chosen date (default the window's end) | In range | No birthday → Not Started "No birthday on file"; shows pass/fail, never the date |
+| `person_field` | Condition | `-person-fields` | A field; operator by type (is any of, is not, on or after, at least, is filled in); "blank counts as"; optional "last changed on or after" | Per operator | Blank → by "blank counts as" (default Not Started) |
+| `form_complete` | Condition | `-forms` | Forms (all of); signed in a date window (§6.4), or "ever" | Reads the response status (§6.4) | Outside the form's audience → Not Started, with a problem listed (§6.4) |
 | `attested` | Condition | core | A statement; who attests (the person, a guardian or the person, a manager); optional "on or after" | Attested in the dates | |
 | `checklist` | Condition | core | Another checklist | Its overall | Not covered → exempt |
 | `any_of` | Condition | core | Child items | §5.3 | |
@@ -181,11 +181,11 @@ Later (§1.2): `ledger_balance`, `hours`, `has_guardian`, `recent_activity`. Che
 A count item is the existing Commitments engine behind a new form. Nothing in how credit is counted changes:
 
 - **What counts.** Credit sources in order (`CommitmentSource`): check-ins at an event type, sign-ups to a sheet or position, and any kind a connector registers with `Commitments.register_source`. Each has a ratio ("3 count as 1") and an optional cap per person. Events must be held by the checklist's team or below, within the item's dates.
-- **Planned vs confirmed.** A check-in at an event not yet started, or a sign-up not yet fulfilled, is planned. "Counts when" picks what completes the item: confirmed only (planned shows as Almost) or planned too.
+- **Planned vs confirmed.** A check-in at an event not yet started, or a sign-up not yet fulfilled, is planned. "Counts when" picks what completes the item: confirmed only (planned shows as In Progress) or planned too.
 - **Dedupe.** One worker at one event counts once, across sources; a record made on someone's behalf wins; two people working for the same person count twice (`progress.rb` dedupe winners). Unchanged.
 - **Pooling.** With a relationship type chosen, people related through it owe together: the amount for the first member plus an additional amount for each other. Credit of relatives outside the covered people (a parent working a shift) counts for the group; a half-sibling chain joins groups; two people who don't owe never link (`commitment.rb:205-230`). Without one, each person owes alone. "Couples = 2 shifts" is two sign-ups.
 - **Who owes.** The checklist's population, narrowed by the item's rules (§5.2). Owing replaces the commitment's own owing team, owing badge and exempt badge; for a linked commitment `owing_people` reads the item (§11.2).
-- **Dates.** The item's dates are the commitment's period. Relative dates (§9.1) are resolved into the commitment's `starts_on`/`ends_on` at each refresh. A cutoff on the checklist shortens the period to the cutoff.
+- **Dates.** The item's dates are the commitment's period. Relative dates (§9.1) are resolved into the commitment's `starts_on`/`ends_on` at each refresh.
 - **Result.** Summary "2 of 3 shifts"; detail with the breakdown per source and the group's members; measures `confirmed`, `planned`, `owed`, `remaining`. The pooled family is one number shown to each member.
 - **Sign-up hint.** In the sign-up dialog: "2 shifts left on Concessions (Eligibility)" — one line per item this place counts toward, shown only to viewers who may see that item for the person (§10.1).
 - **How to earn.** The item's page lists each source's `how_to_earn` line and upcoming events, as the commitment page does now.
@@ -194,7 +194,7 @@ A count item is the existing Commitments engine behind a new form. Nothing in ho
 
 Takes the report's logic unchanged, made batch and testable:
 
-- **Meetings** are events linked to a time clock period that start within the rule's dates and have ended (`end_time < now`, or `<=` the cutoff). The kind queries events itself with day bounds in `Time.zone`, so BL-002's date bug doesn't touch it. By default every period overlapping the item's dates is used; the item may name periods to narrow it.
+- **Meetings** are events linked to a time clock period that start within the rule's dates and have ended (`end_time < now`, or `<=` the end of Until). The kind queries events itself with day bounds in `Time.zone`, so BL-002's date bug doesn't touch it. By default every period overlapping the item's dates is used; the item may name periods to narrow it.
 - **Credit** is only punched time overlapping a meeting (merged intervals); leaving early costs, staying late adds nothing. `extra_hours_count` lets extra time make up missed time within the same group, never above 100%.
 - **Rules** are rows: name, dates (the screen offers "every May–Aug" shortcuts that fill in dates), share of meeting hours, `weekly` (every week passes separately), and carry-over: each rule is **judged on its own** or **counted together with** named others (a pool). Nothing is built in: the screen says which it is ("Judged on its own" / "Counted together with: Summer").
 - **Measures:** `meetings` attended of held, `credited` hours, `percent`, `extra` (owner-only).
@@ -205,13 +205,13 @@ Takes the report's logic unchanged, made batch and testable:
 
 `form_complete` reads the response's status, not `activated_at` alone:
 
-- **Done:** `complete?` and the active submission's `activated_at` is in the item's date window ("on or after <date>" or "within the last N days/months", default the window's start).
-- **Almost:** a newer draft or pending submission is open, or a signer is awaited ("Waiting for <guardian>'s signature").
-- **Not yet, needs a guardian:** the form has a guardian signature (`FormAccess.signer_roles`) and the person has no guardian at all (`Person#guardians` empty). Detail "Needs a guardian linked", fix: add a guardian (the person's relationships page, for a viewer who may edit them). Nothing is in motion, so this is Not yet, not Almost. No separate `has_guardian` kind is needed for this; the later one in §1.2 stays for checks outside forms.
-- **Not yet, not asked:** the person is outside the form's audience. Detail "This form isn't asking them; add them to its audience", fix: the form's audience screen for a viewer who may edit it. The cleaner fix is the form audience target `checklist` (§10.3), "everyone this checklist covers". It is never `exempt`, because exempt would pass silently; it is also listed in problems (§6.5).
-- **Not yet:** no response; `needs_reconfirmation` (including the expired reason from intake §7.5); or signed before the window.
+- **Complete:** `complete?` and the active submission's `activated_at` is in the item's date window ("on or after <date>" or "within the last N days/months", default the window's start).
+- **In Progress:** a newer draft or pending submission is open, or a signer is awaited ("Waiting for <guardian>'s signature").
+- **Not Started, needs a guardian:** the form has a guardian signature (`FormAccess.signer_roles`) and the person has no guardian at all (`Person#guardians` empty). Detail "Needs a guardian linked", fix: add a guardian (the person's relationships page, for a viewer who may edit them). Nothing is in motion, so this is Not Started, not In Progress. No separate `has_guardian` kind is needed for this; the later one in §1.2 stays for checks outside forms.
+- **Not Started, not asked:** the person is outside the form's audience. Detail "This form isn't asking them; add them to its audience", fix: the form's audience screen for a viewer who may edit it. The cleaner fix is the form audience target `checklist` (§10.3), "everyone this checklist covers". It is never `exempt`, because exempt would pass silently; it is also listed in problems (§6.5).
+- **Not Started:** no response; `needs_reconfirmation` (including the expired reason from intake §7.5); or signed before the window.
 - **Detail:** "Good until <date>" when `FormResponse#expires_at` is set; "Expired <date>" when expiry is why it isn't done, with the form as the fix.
-- **Cache:** listens to `form_responses - incomplete` and the other form status events; `next_change_at` is the earliest upcoming `expires_at`, so an expired item never stays Done.
+- **Cache:** listens to `form_responses - incomplete` and the other form status events; `next_change_at` is the earliest upcoming `expires_at`, so an expired item never stays Complete.
 
 **Signing again needs no forms change.** `FormResponsesController#update` calls `start_submission!` (`form_responses_controller.rb:28`), which starts a new draft from the active answers and gets a new `activated_at` on submit. A form can be answered only while open (`form_access.rb:72`). If the form page doesn't offer a new version on an already complete response, that is the one forms change, made in `feature/forms` and agreed with intake.
 
@@ -251,12 +251,12 @@ For comparison, BL-003's "override badge the job respects" becomes the excuse ta
 
 Results are stored in `checklist_results` and read from there (150 people × 10 items = 1,500 rows). Reasons: predicates need an answer for many people as SQL (`Person.where(id: ChecklistResult.where(checklist: c, item_id: nil, status: :met).select(:person_id))`); a dashboard card per user can't run attendance for the roster; hooks need "what it was before".
 
-Stored results are a **cache**: any row can be deleted and recomputed; nothing in them isn't derivable from data, excuses, attestations, adjustments and configuration. The one exception, "Record this list", is its own table (§9.4). A count item's `Progress` is still computed, never stored on the commitment; the result row is a copy for reading.
+Stored results are a **cache**: any row can be deleted and recomputed; nothing in them isn't derivable from data, excuses, attestations, adjustments and configuration. The one exception, "Take Snapshot", is its own table (§9.4). A count item's `Progress` is still computed, never stored on the commitment; the result row is a copy for reading.
 
 ### 8.2 Keeping them right
 
 1. **By change.** Each kind lists `invalidations`: `[Model, ->(record) { person ids or :all }]`. Core installs one `after_commit` concern on those models from a `to_prepare` initializer (as `Checkin.include(Signups::CheckinFulfilment)` does). A `Checkin`, `BadgeAssignment`, `Membership`, `TimeClockPunch`, `FormResponse`, `PersonFieldValue` change marks that person's rows; an `Event`, `TimeClockPeriod`, `Relationship` of a pooling type, a `CommitmentAdjustment` or a configuration change marks the whole checklist. Count items use their sources' `watches` (check-ins; `signup_changed.gatherpack`). `form_complete` also listens to `form_responses - incomplete` and the other form status events. Marking writes a unique row in `checklist_refreshes` and enqueues one job per checklist 30 seconds out, so a burst of punches is one recomputation. No work inside the user's save.
-2. **By the clock.** Some answers change with no data change: a meeting ends, an event starts (planned becomes confirmed), a window, cutoff or relative edge passes, a form expires. Kinds return `next_change_at`; the checklist stores the earliest as `next_refresh_at`. A recurring job in `config/recurring.yml` refreshes checklists whose time has come. Absences are covered: a person who skipped writes no punch, but the meeting's end refreshes the whole checklist.
+2. **By the clock.** Some answers change with no data change: a meeting ends, an event starts (planned becomes confirmed), a window or relative edge passes, a form expires. Kinds return `next_change_at`; the checklist stores the earliest as `next_refresh_at`. A recurring job in `config/recurring.yml` refreshes checklists whose time has come. Absences are covered: a person who skipped writes no punch, but the meeting's end refreshes the whole checklist.
 3. **Nightly full recomputation** per active checklist, which repairs anything missed.
 
 **Reads.** `Checklist#status_for(person)` and the SQL scope read stored rows. If a person's rows are missing or older than `checklists_max_age_hours` (default 24), the read computes that one person, stores it, and returns it.
@@ -273,19 +273,19 @@ Change detection happens in the refresh job, comparing old and new status; the j
 
 ### 9.1 Dates, windows, as-of, relative dates
 
-Every evaluation takes a **window** and an **as-of moment**. The window is the item's dates or the checklist's. The as-of moment is now, or the cutoff when set and passed. Kinds are pure functions of (data up to as-of, config, window): re-running changes nothing, which makes refreshing safe and a late-corrected punch correct.
+Every evaluation takes a **window** and an **as-of moment**. The window is the item's dates or the checklist's. The as-of moment is now, or the end of the checklist's Until once it has passed. Kinds are pure functions of (data up to as-of, config, window): re-running changes nothing, which makes refreshing safe and a late-corrected punch correct.
 
 **Relative dates.** Every date field on an item, and the checklist's window, is a two-choice radio with the field inline: **on or after** [date], or **within the last** [N] [days | months]. A relative choice resolves against the as-of moment, so a standing checklist ("the last 12 months") needs no yearly edits. The clock refresh handles the moving edge. A range (attendance rule dates, the window) offers the same radio for its start; its end is "until <date>" or "now".
 
 The report's period buttons become an **"as of" date picker** for organizers: it computes live and shows without storing (one full evaluation each, so organizers only).
 
-### 9.2 Cutoff, so eligibility doesn't swing
+### 9.2 Until freezes results
 
-`cutoff_on`: results are computed on data up to the end of that day (count items stop counting at the cutoff by shortening their period). Before the date, results are live and the report shows "Counting up to <date>" with today's numbers. After it, results stay as of the cutoff; a correction to older data still changes them. For a trip decided on a date, copy the checklist (§9.3), keep shared items through nesting, set a cutoff.
+A checklist has one end date, **Until** (`ends_on`). Nothing after that day counts. Before and on the day, results are live and the report shows "Counting until <date>" with today's numbers. Once the day has passed in the site's time zone, the checklist stores its end-of-day answers once and stops recomputing on its own: people leaving, badges removed and rule changes don't move them, and no status-changed hooks fire. The page says "Results are frozen.", and organizers also see "Recompute to apply corrections." **Recompute** is the only way to change them: it counts nothing after Until and uses today's people and rules. Moving Until later un-freezes the checklist. Blank Until stays live. An item's own dates work inside the checklist's Until. For a trip decided on a date, copy the checklist (§9.3), keep shared items through nesting, set Until to that date.
 
 ### 9.3 Copy to next year
 
-"Copy checklist" duplicates population, items (count items get new commitment rows with the same settings and sources), grants and organizers, and clears excuses, adjustments, attestations, results and recorded lists. A second step shows **proposed changes for a person to confirm**, never applied silently:
+"Copy checklist" duplicates population, items (count items get new commitment rows with the same settings and sources), grants and organizers, and clears excuses, adjustments, attestations, results and snapshots. A second step shows **proposed changes for a person to confirm**, never applied silently:
 
 - **Dates.** The window, every item's dates and every attendance rule's dates shift by an amount the organizer picks (default one year), shown old → new and editable. Relative dates stay as they are.
 - **Replacements.** Any badge, team, form, event type, sheet or field whose name contains a year or date (`2027 FIRST Registered`, `Class of 2030`) is matched to a name with the shifted year, as a table "Old → New" with a pick for each unmatched one, which can be left as is.
@@ -294,9 +294,9 @@ The copy starts as `draft` and shows the preview (§9.6) before it's opened.
 
 ### 9.4 Changes while running, and record
 
-Editing an active checklist is allowed. Each save is audited, shows a banner "Changed <date> by <role>: <what>", and shows an **impact preview before saving**: "3 people would go from Done to Not yet, 1 from Almost to Done" with names. Rules take effect for the whole window; no per-date versioning, because attendance rules already differ by date inside the kind and a policy that changes mid-way is a conversation, not a data model.
+Editing an active checklist is allowed. Each save is audited, shows a banner "Changed <date> by <role>: <what>", and shows an **impact preview before saving**: "3 people would go from Complete to Not Started, 1 from In Progress to Complete" with names. Rules take effect for the whole window; no per-date versioning, because attendance rules already differ by date inside the kind and a policy that changes mid-way is a conversation, not a data model.
 
-**Record this list** (first release) snapshots names, statuses and the configuration into `checklist_lists`, read-only, for a decision such as a trip roster. Results keep changing; the list doesn't.
+**Take Snapshot** (first release) snapshots names, statuses and the configuration into `checklist_lists`, read-only, for a decision such as a trip roster. Results keep changing; the list doesn't.
 
 ### 9.5 Early denominators
 
@@ -311,7 +311,7 @@ While editing an item or the population, a side panel "Who this passes" evaluate
 Two optional settings, both dates:
 
 - **Archive checklists ended before** a date (or N days after the end): the nightly job moves active ones to `archived` (read-only, off menus and dashboards, still openable). One another checklist requires is skipped and flagged.
-- **Prune results** of archived checklists older than a date, keeping recorded lists and audit rows. Results are a cache, so pruning loses nothing recomputable.
+- **Prune results** of archived checklists older than a date, keeping snapshots and audit rows. Results are a cache, so pruning loses nothing recomputable.
 
 "Archive forms older than X" is the same idea and belongs to forms, with the same date field.
 
@@ -355,7 +355,7 @@ Checklists.people_covered_by(checklist)              # everyone it covers
 
 Strict by default (`met` or `exempt`); a caller may accept `pending` where signing up is the way to finish. Callers:
 
-- **Sign-up position rule** `checklist` (a fourth kind: "is done", or "is done or almost"). Needs an enum value and a column in `signup_position_rules`, in a connector branch editing the signups feature.
+- **Sign-up position rule** `checklist` (a fourth kind: "is Complete", or "is Complete or In Progress"). Needs an enum value and a column in `signup_position_rules`, in a connector branch editing the signups feature.
   - What a rule shows follows §10.1 per viewer: the person, and anyone who may see their result, get the real answer. Organizers and people signing someone up who can't see the result get no per-person badge and, on a refusal, a fixed reason naming only the checklist. A refused sign-up still tells them the person doesn't meet it; that is accepted, since the gate can't work without refusing.
 - **Form audience rule** target `checklist`: asked of people who finish it, don't, or everyone it covers (how applicants, on no team yet, get the joining forms; intake §10.6). Connector in `feature_forms`.
 - **Checklists page, profile tab, dashboard card** (§10.4).
@@ -373,8 +373,8 @@ One checklist for one person and their wards is `status_for(checklist, [person, 
 
 ### 10.4 Surfaces (one set)
 
-- **Report page** `/checklists/:id`: one row per visible person; columns overall plus each visible item; click-to-sort headers; per-column tick filters ("Showing people with any of the ticked values"; columns combine); min/max filters on measures; name filter; the **overall column filter includes "isn't Done"** (Almost, Not yet and Not counted together), which is "who hasn't come back"; shared print styles; a "Your family" section above "Everyone" when the viewer sees more for their own and their wards' rows. Same behavior as the Page, no ERB. A count item shows `confirmed of owed`; its drill-down is the old commitment page (sources, breakdown, how to earn).
-- **Edit page** `/checklists/:id/edit` holds all setup, in order: basics (own Save), Items, Who it covers (with the "Who this passes" preview), Who else can see everyone's results, Organizers, then Delete (only for those allowed). Adding a checklist, and every setup add/remove/cancel, returns to the matching Edit section; a single item's rules return to that item's edit page. The report page holds no setup: results, then "Recorded lists" (organizers, once one exists), with Edit, Record, Recompute and Copy as buttons.
+- **Report page** `/checklists/:id`: one row per visible person; columns overall plus each visible item; click-to-sort headers; per-column tick filters ("Showing people with any of the ticked values"; columns combine); min/max filters on measures; name filter; the **overall column filter includes "isn't Complete"** (In Progress, Not Started and Not counted together), which is "who hasn't come back"; shared print styles; a "Your family" section above "Everyone" when the viewer sees more for their own and their wards' rows. Same behavior as the Page, no ERB. A count item shows `confirmed of owed`; its drill-down is the old commitment page (sources, breakdown, how to earn).
+- **Edit page** `/checklists/:id/edit` holds all setup, in order: basics (own Save), Items, Who it covers (with the "Who this passes" preview), Who else can see everyone's results, Organizers, then Delete (only for those allowed). Adding a checklist, and every setup add/remove/cancel, returns to the matching Edit section; a single item's rules return to that item's edit page. The report page holds no setup: results, then "Snapshots" (organizers, once one exists), with Edit, Take Snapshot, Recompute and Copy as buttons.
 - **Profile tab** "Checklists": the person's checklists as plain lists with fix links; hidden when none cover or are visible to the viewer. Replaces the Commitments tab.
 - **Dashboard card** "My sign-ups and checklists" (the current card, relabelled): upcoming sign-ups and each checklist with unfinished items the viewer can fix, as a progress line.
 - **My GatherPack** to-do and its progress section read the same API.
@@ -384,11 +384,11 @@ One checklist for one person and their wards is `status_for(checklist, [person, 
 
 ### 10.5 Explaining a person's status
 
-> **Not eligible.** Attendance: 22% of Build hours so far; needs 40% each week (week of Jan 12: 1 h of 3 h). Consent form: not signed. [Sign it]
-> **Pending.** Outreach: 1 event signed up, 0 done. [See events]
-> **Done.** Login, FIRST registered, Academic eligibility, Concessions (family: 3 of 3 shifts).
+> **Not Started.** Attendance: 22% of Build hours so far; needs 40% each week (week of Jan 12: 1 h of 3 h). Consent form: not signed. [Sign it]
+> **In Progress.** Outreach: 1 event signed up, 0 done. [See events]
+> **Complete.** Login, FIRST registered, Academic eligibility, Concessions (family: 3 of 3 shifts).
 
-Unmet items first, then almost, then done. A fix link is the kind's best next action: a form to fill or sign again (the guardian's link if the viewer is the guardian), a sign-up sheet or event list for a count item, an "I confirm" button (attestation), or "Ask a mentor" for something only a manager can do.
+Not Started items first, then In Progress, then Complete. A fix link is the kind's best next action: a form to fill or sign again (the guardian's link if the viewer is the guardian), a sign-up sheet or event list for a count item, an "I confirm" button (attestation), or "Ask a mentor" for something only a manager can do.
 
 ## 11. Moving Commitments in
 
@@ -473,7 +473,7 @@ New tables (neat prefixes `chkl_`, `chli_`, …):
 
 | Table | Columns |
 |---|---|
-| `checklists` | `team_id`, `title`, `description`, `starts_on`, `starts_within` (N, unit; null = fixed), `ends_on`, `cutoff_on`, `status`, `read_level`, `met_word`, `pending_word`, `not_met_word`, `next_refresh_at`, `computed_at`, `created_by_id` |
+| `checklists` | `team_id`, `title`, `description`, `starts_on`, `starts_within` (N, unit; null = fixed), `ends_on`, `status`, `read_level`, `next_refresh_at`, `computed_at`, `created_by_id` |
 | `checklist_organizers` | `checklist_id`, `person_id` |
 | `checklist_items` | `checklist_id`, `kind`, `config` jsonb, `commitment_id` (count items; unique), `label`, `position`, `counts`, `starts_on`, `ends_on`, relative equivalents, `due_on`, `read_level`, `exempt_label`, `parent_id` |
 | `checklist_rules` | `checklist_id`, `item_id` (null = checklist), `effect`, `target_type` (team, badge, person, applicants), `team_id`, `badge_id`, `person_id`, `include_managers` |
@@ -532,9 +532,9 @@ The intake spec has no seasons, season enrollments or form renewal switches: mem
 | Kiosk "my checklist" | `Checklists.checklist_for(person)`: ordered items `{label, status, summary, fix: {label, path | attest_key}}` from stored results | A kiosk shows only items with a fix it can do |
 | Completion → become a member | Notification `checklist_status_changed.gatherpack` and hook `checklist_results - status changed` on the overall row | Intake owns the reaction. The checklist only reports. |
 | One checklist for a person and their wards; a team's applicants (about 200 rows) | `Checklists.status_for(checklist, people, viewer:)` (§10.3), stored results, constant queries | Items carry `acts_for`, `fix` and `excuse {by, at, reason?}` |
-| Guardian-signed form with no guardian linked | `form_complete` says "Needs a guardian linked" with a fix to add one; "Waiting for <guardian>'s signature" is Almost (§6.4) | Not yet, not Almost, when none is linked |
-| Applicants asked the joining forms | Form audience target `checklist` (§10.3); a person outside a form's audience is Not yet and a problem is listed, never exempt | |
-| "Who hasn't come back" | The report's overall filter "isn't Done" (§10.4) | |
+| Guardian-signed form with no guardian linked | `form_complete` says "Needs a guardian linked" with a fix to add one; "Waiting for <guardian>'s signature" is In Progress (§6.4) | Not Started, not In Progress, when none is linked |
+| Applicants asked the joining forms | Form audience target `checklist` (§10.3); a person outside a form's audience is Not Started and a problem is listed, never exempt | |
+| "Who hasn't come back" | The report's overall filter "isn't Complete" (§10.4) | |
 | Next year's checklist | Copy checklist (§9.3) | |
 
 Not provided: payments as an item, and any step that writes data. There is no season in the engine or its tables.
@@ -545,7 +545,7 @@ All data in the screens, no code.
 
 ### 14.1 The checklist
 
-**2026-27 Eligibility.** Team "Team 1747" (top), window 2026-05-01 to 2027-04-30; no cutoff. Words: Eligible / Pending / Not eligible. `read_level`: family. **Population:** include team "Team 1747 - Students" with and below, **members only**.
+**2026-27 Eligibility.** Team "Team 1747" (top), window 2026-05-01 to 2027-04-30. Until 2027-04-30. `read_level`: family. **Population:** include team "Team 1747 - Students" with and below, **members only**.
 
 ### 14.2 Items (one per report column)
 
@@ -616,7 +616,7 @@ The Page's cells carry `data-filter` and `data-value` (`badge_cell`, Page line 3
 7. **No separate check-in condition kind.** Counting activity is a count item.
 8. **Excuses** are reasoned, audited, no self- or relative approval, by managers and admins only. **Adjustments** stay distinct (count only, group-wide, organizers) (§7).
 9. **One visibility model:** per item "who sees it", defaults in §10.1 reproduce the settled Commitments rule; omission is server-side; two levels; `owner_only` measures; grants only by admin-assigned badge or team. `commitments_guardians_see_progress` is superseded by the per-item choice.
-10. **Missing data is "not yet" by default,** with the reason shown; "blank counts as" only where blank is a value. "Nothing to judge yet" is `exempt` with a label, or `pending` under a minimum.
+10. **Missing data is Not Started by default,** with the reason shown; "blank counts as" only where blank is a value. "Nothing to judge yet" is `exempt` with a label, or `pending` under a minimum.
 11. **No season, year or period concept.** A checklist's dates are its window; an item's default to it. Copying shifts dates and proposes replacements for a person to confirm.
 12. **Every date is configuration,** as "on or after <date>" or "within the last N days/months".
 13. **Carry-over is part of building an attendance rule:** judged on its own or counted together with named others; no engine default.
@@ -624,20 +624,20 @@ The Page's cells carry `data-filter` and `data-value` (`badge_cell`, Page line 3
 15. **`form_complete` reads the response status** (`complete?`, `needs_reconfirmation`, `expires_at`) and applies the item's date window on top.
 16. **Predicates are strict by default;** a caller may accept `pending`.
 17. **Edits while running are allowed** with a preview and an audit, not versioned per date.
-18. **"Record this list" ships in the first release.**
+18. **"Take Snapshot" ships in the first release.**
 19. **Existing commitments are wrapped as one-item checklists on their existing tables;** code and table names stay, users see "checklist". Commitment titles are frozen while the Page needs them.
 20. **Date housekeeping is configuration:** archive checklists ended before a date, prune old results.
 21. **Flag off by default; connectors per feature;** upstream files touched are routes, recurring jobs, schema, and two rule enums in connector branches.
 22. **Generalist code.** Overall words, labels and exempt labels are data; no "student", "travel" or "concession" in code or kind names; no month assumed.
 23. **No timing in this spec.** Order is by dependency (§17).
 24. **The word "commitment" is dropped from everything users see;** a count item is "Count". Code and table names stay (§11.3).
-25. **No automatic email on Done → Not yet.** The hook and the notification (§8.3) exist for anyone who wants one.
+25. **No automatic email on Complete → Not Started.** The hook and the notification (§8.3) exist for anyone who wants one.
 26. **"Judge after N meetings" is a per-rule setting,** default 0.
-27. **A form item for someone outside the form's audience is Not yet, with a problem listed,** never exempt. The fix is the form audience target `checklist`.
+27. **A form item for someone outside the form's audience is Not Started, with a problem listed,** never exempt. The fix is the form audience target `checklist`.
 28. **A guardian-signed form says "Needs a guardian linked" when the person has none,** separate from "waiting for the guardian's signature". No extra kind.
 29. **Closed or draft forms, and forms closing inside the window, are problems** shown to organizers.
 30. **Results are read through `status_for` (batch, viewer-filtered) and `checklist_for`;** excuses expose who and when, reasons to managers and admins.
-31. **The report's overall filter includes "isn't Done".**
+31. **The report's overall filter includes "isn't Complete".**
 
 ## 16. Open questions
 
