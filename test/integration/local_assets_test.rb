@@ -28,10 +28,32 @@ class LocalAssetsTest < ActionDispatch::IntegrationTest
     get stylesheet_path("fonts")
     assert_response :success
     urls = response.body.scan(/url\("([^"]+\.woff2)"\)/).flatten
-    assert_equal 11, urls.size
+    assert_equal 69, urls.size
     assert urls.all? { |url| url.start_with?("/assets/") && url.match?(/-[0-9a-f]{8,}\.woff2\z/) }
     get urls.first
     assert_response :success
+  end
+
+  test "every font face has a unicode range so pages fetch only the scripts they use" do
+    css = Rails.root.join("vendor/assets/stylesheets/fonts.css").read
+    assert_equal css.scan("@font-face").size, css.scan("unicode-range: U+").size
+    %w[latin latin-ext cyrillic greek vietnamese].each do |subset|
+      assert Rails.root.join("vendor/assets/fonts/fira-sans-#{subset}-400.woff2").exist?
+    end
+  end
+
+  test "public files get a far-future immutable Cache-Control unless the environment sets one" do
+    config = Rails.application.config.public_file_server
+    original = config.headers
+    config.headers = {}
+    load Rails.root.join("config/initializers/local_assets.rb")
+    assert_equal "public, max-age=#{1.year.to_i}, immutable", config.headers["Cache-Control"]
+
+    config.headers = { "Cache-Control" => "public, max-age=60" }
+    load Rails.root.join("config/initializers/local_assets.rb")
+    assert_equal "public, max-age=60", config.headers["Cache-Control"]
+  ensure
+    config.headers = original
   end
 
   test "font stylesheet declares each family with swap" do

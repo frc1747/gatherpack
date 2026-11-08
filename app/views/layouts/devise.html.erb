@@ -21,8 +21,8 @@
       <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <% end %>
     <%= stylesheet_link_tag "fonts" %>
-    <link rel="preload" href="<%= asset_path("fira-sans-400.woff2") %>" as="font" type="font/woff2" crossorigin>
-    <link rel="preload" href="<%= asset_path("bubblegum-sans-400.woff2") %>" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="<%= asset_path("fira-sans-latin-400.woff2") %>" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="<%= asset_path("bubblegum-sans-latin-400.woff2") %>" as="font" type="font/woff2" crossorigin>
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
     <%= render "layouts/theme_styles" %>
     <%= javascript_importmap_tags %>
