@@ -9,6 +9,7 @@ module GatherPack
     # Module-level storage — loaded once via require_relative, not Zeitwerk-managed
     @slots = {}
     @root_attributes = {}
+    @fingerprints = {}
 
     class << self
       # Registering the same key again replaces it, so reloading code is safe.
@@ -19,6 +20,18 @@ module GatherPack
       def root_attributes(key, &block)
         raise ArgumentError, "root_attributes needs a block" unless block
         @root_attributes[key] = RootAttributes.new(key: key, block: block)
+      end
+
+      # What a feature contributes to the sidebar's content that slots don't
+      # capture, such as who can see each menu item. Anything keeping the sidebar
+      # between pages compares these to know when it has changed.
+      def fingerprint(key, &block)
+        raise ArgumentError, "fingerprint needs a block" unless block
+        @fingerprints[key] = block
+      end
+
+      def fingerprints_for(view)
+        @fingerprints.values.map { |block| view.instance_exec(view, &block) }
       end
 
       # Slots whose `visible` lambda (run in the view context) allows them,
@@ -44,6 +57,7 @@ module GatherPack
       def reset!
         @slots = {}
         @root_attributes = {}
+        @fingerprints = {}
       end
     end
   end

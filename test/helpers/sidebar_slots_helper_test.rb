@@ -6,6 +6,7 @@ class SidebarSlotsHelperTest < ActionView::TestCase
   setup do
     @saved_slots = GatherPack::SidebarSlots.instance_variable_get(:@slots).dup
     @saved_root_attributes = GatherPack::SidebarSlots.instance_variable_get(:@root_attributes).dup
+    @saved_fingerprints = GatherPack::SidebarSlots.instance_variable_get(:@fingerprints).dup
     GatherPack::SidebarSlots.reset!
     @user = users(:one)
     @user.person ||= people(:one)
@@ -24,6 +25,7 @@ class SidebarSlotsHelperTest < ActionView::TestCase
   teardown do
     GatherPack::SidebarSlots.instance_variable_set(:@slots, @saved_slots)
     GatherPack::SidebarSlots.instance_variable_set(:@root_attributes, @saved_root_attributes)
+    GatherPack::SidebarSlots.instance_variable_set(:@fingerprints, @saved_fingerprints)
   end
 
   def render_sidebar
@@ -100,5 +102,13 @@ class SidebarSlotsHelperTest < ActionView::TestCase
     GatherPack::SidebarSlots.root_attributes(:who) { |view| { data: { admin: view.admin? } } }
 
     assert_equal "true", Nokogiri::HTML5.fragment(render_sidebar).at_css("div.sidebar")["data-admin"]
+  end
+
+  test "fingerprints run in the view context and re-registering replaces one" do
+    GatherPack::SidebarSlots.fingerprint(:first) { admin? }
+    GatherPack::SidebarSlots.fingerprint(:second) { "old" }
+    GatherPack::SidebarSlots.fingerprint(:second) { "new" }
+
+    assert_equal [ true, "new" ], GatherPack::SidebarSlots.fingerprints_for(view)
   end
 end
