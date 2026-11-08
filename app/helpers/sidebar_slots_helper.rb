@@ -3,11 +3,13 @@ module SidebarSlotsHelper
     GatherPack::SidebarSlots.slots_for(self)
   end
 
-  # Extra attributes for the sidebar's root element, with a leading space, or
-  # nothing at all when none are registered.
-  def sidebar_root_attributes
+  # Puts the registered attributes on an element around the sidebar. It has no
+  # box of its own, so the sidebar stays a column of the page's row. With nothing
+  # registered the sidebar renders on its own, with no wrapper.
+  def sidebar_with_root_attributes(&block)
     attributes = GatherPack::SidebarSlots.attributes_for(self)
-    return if attributes.empty?
-    " #{tag.attributes(attributes)}".html_safe
+    return capture(&block) if attributes.empty?
+
+    tag.div(**attributes, style: "display: contents", &block)
   end
 end

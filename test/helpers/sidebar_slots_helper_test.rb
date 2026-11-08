@@ -28,6 +28,10 @@ class SidebarSlotsHelperTest < ActionView::TestCase
     GatherPack::SidebarSlots.instance_variable_set(:@fingerprints, @saved_fingerprints)
   end
 
+  def wrapped_sidebar
+    Nokogiri::HTML5.fragment(view.sidebar_with_root_attributes { view.render(partial: "layouts/sidebar") })
+  end
+
   def render_sidebar
     render(partial: "layouts/sidebar")
   end
@@ -89,19 +93,23 @@ class SidebarSlotsHelperTest < ActionView::TestCase
     GatherPack::SidebarSlots.root_attributes(:ids) { |_view| { id: "sidebar-abc", data: { turbo_permanent: true } } }
     GatherPack::SidebarSlots.root_attributes(:more) { |_view| { data: { controller: "sidebar" }, class: "ignored" } }
 
-    html = render_sidebar
-    root = Nokogiri::HTML5.fragment(html).at_css("div.sidebar")
+    root = wrapped_sidebar.at_css("div[style='display: contents']")
 
     assert_equal "sidebar-abc", root["id"]
     assert_equal "true", root["data-turbo-permanent"]
     assert_equal "sidebar", root["data-controller"]
-    assert_equal "sidebar border border-right col-md-3 col-lg-2 p-0 no-print", root["class"]
+    assert_nil root["class"]
+    assert root.at_css("> div.sidebar"), "expected the sidebar inside the wrapper"
+  end
+
+  test "with no root attributes the sidebar has no wrapper" do
+    assert_nil wrapped_sidebar.at_css("div[style='display: contents']")
   end
 
   test "root attributes run in the view context" do
     GatherPack::SidebarSlots.root_attributes(:who) { |view| { data: { admin: view.admin? } } }
 
-    assert_equal "true", Nokogiri::HTML5.fragment(render_sidebar).at_css("div.sidebar")["data-admin"]
+    assert_equal "true", wrapped_sidebar.at_css("div[style='display: contents']")["data-admin"]
   end
 
   test "fingerprints run in the view context and re-registering replaces one" do
