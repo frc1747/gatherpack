@@ -6,7 +6,7 @@
     <% if @item.kind_class %>
       <%= render "form", checklist: @checklist, item: @item, impact: @impact %>
     <% else %>
-      <p>That kind of item isn't available. <%= link_to "Back to the checklist", @checklist %></p>
+      <p>That kind of item isn't available. <%= link_to "Back to the checklist", edit_checklist_path(@checklist, anchor: "items") %></p>
     <% end %>
   </div>
 </div>

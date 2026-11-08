@@ -45,7 +45,7 @@
       <%= f.input :show_on_kiosk, label: "List it at the kiosk while it isn't done", hint: "Shown to the person after they scan in, as one short line." unless item.parent_id.present? %>
 
       <%= f.button :submit, "Save", class: "btn btn-primary" %>
-      <%= link_to "Cancel", checklist_path(checklist), class: "btn btn-link" %>
+      <%= link_to "Cancel", edit_checklist_path(checklist, anchor: "items"), class: "btn btn-link" %>
     <% end %>
 
     <% if item.persisted? %>
