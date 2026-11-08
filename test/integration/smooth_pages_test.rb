@@ -24,8 +24,8 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "meta[name=turbo-refresh-method]", false
     assert_select "meta[name=turbo-refresh-scroll]", false
-    assert_select ".sidebar[data-turbo-permanent]", false
-    assert_select ".sidebar[data-controller]", false
+    assert_select "[data-turbo-permanent]", false
+    assert_select "[data-controller~='smooth-sidebar']", false
     assert_select ".sidebar[id]", false
     assert_select "link[href*=smooth_pages]", false
 
@@ -85,7 +85,7 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
 
     get root_path
 
-    assert_select ".sidebar[data-turbo-permanent][data-controller='smooth-icons smooth-sidebar']", 1
+    assert_select "[data-turbo-permanent][data-controller='smooth-icons smooth-sidebar'] > .sidebar", 1
     assert_match(/\Asidebar-\h{12}\z/, sidebar_id)
   end
 
@@ -178,6 +178,6 @@ class SmoothPagesTest < ActionDispatch::IntegrationTest
   private
 
   def sidebar_id
-    css_select(".sidebar").first["id"]
+    css_select("[data-turbo-permanent]").first["id"]
   end
 end

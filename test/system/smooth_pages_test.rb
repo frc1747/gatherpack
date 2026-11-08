@@ -384,7 +384,7 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
   end
 
   def sidebar_id
-    page.evaluate_script("document.querySelector('.sidebar').id")
+    page.evaluate_script("document.querySelector('.sidebar').parentElement.id")
   end
 
   def sidebar_scroll_top
