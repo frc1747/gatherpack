@@ -12,6 +12,15 @@ Rails.application.routes.draw do
     end
   end
 
+  # Phone notifications
+  resource :notifications, only: %i[show update], controller: "notification_settings"
+  resource :push_subscription, only: %i[create destroy] do
+    post "sync"
+  end
+  resources :gateways, only: [] do
+    resource :push_keys, only: %i[edit update]
+  end
+
   resources :audit_logs, only: %i[index show destroy] do
     post "revert", to: "audit_logs#revert", on: :member
   end
