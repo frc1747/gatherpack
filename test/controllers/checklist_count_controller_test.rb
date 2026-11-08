@@ -101,7 +101,7 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
       post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "count", label: "Setup help", counts: "1", start_mode: "checklist",
         config: { base_amount: "3", unit: "shifts", group_relationship_type_id: @parent_of.id, additional_amount: "1", counts_when: "planned" } } }
       item = @checklist.checklist_items.find_by!(label: "Setup help")
-      assert_redirected_to checklist_path(@checklist)
+      assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
       assert_equal [ "Setup help", 3, @parent_of.id, 1 ], [ item.commitment.title, item.commitment.base_amount, item.commitment.group_relationship_type_id, item.commitment.additional_amount ]
 
       get edit_checklist_checklist_item_path(@checklist, item)
