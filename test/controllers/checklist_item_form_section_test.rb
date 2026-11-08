@@ -84,7 +84,7 @@ class ChecklistItemFormSectionTest < ActionDispatch::IntegrationTest
       post preview_checklist_checklist_items_path(@checklist), params: { checklist_item: { kind: "rows", label: "Rules", config: { rows: { "0" => { name: "Summer", share: "10" } } } } }
 
       assert_response :success
-      assert_match "Done", response.body
+      assert_match "Complete", response.body
     end
   end
 end
