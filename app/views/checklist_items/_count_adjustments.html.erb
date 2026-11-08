@@ -1,0 +1,28 @@
+<%# Credit given or taken on a count item's commitment, with the reasons, for its organizers. %>
+<% adjustments = commitment.commitment_adjustments.includes(:person, :created_by).order(:created_at).to_a %>
+<div class="card mb-3" id="adjustments">
+  <div class="card-header">
+    <h3 class="h5 mb-0">Credit given or taken</h3>
+  </div>
+  <div class="card-body">
+    <% if adjustments.any? %>
+      <ul class="list-group mb-3">
+        <% adjustments.each do |adjustment| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2" id="<%= dom_id adjustment %>">
+            <span>
+              <%= adjustment.person&.display_name %>: <%= format("%+d", adjustment.credits) %> <%= commitment.unit %>
+              <span class="small text-body-secondary">· <%= adjustment.reason %><%= " · by #{adjustment.created_by.display_name}" if adjustment.created_by %></span>
+            </span>
+            <% if policy(adjustment).destroy? %>
+              <%= button_to "Remove", commitment_commitment_adjustment_path(commitment, adjustment), method: :delete,
+                    class: "btn btn-sm btn-outline-danger", form_class: "d-inline", data: { turbo_confirm: "Remove this credit?" } %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-body-secondary">No credit given or taken yet.</p>
+    <% end %>
+    <%= link_to "Give or take credit", new_commitment_commitment_adjustment_path(commitment), class: "btn btn-secondary" %>
+  </div>
+</div>
