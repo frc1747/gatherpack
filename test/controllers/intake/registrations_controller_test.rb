@@ -76,6 +76,21 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     assert_not Intake::Entry.exists?(drop.id)
   end
 
+  test "the entries screen counts sign-ups by local day" do
+    with_settings(time_zone: "Eastern Time (US & Canada)") do
+      travel_to(Time.utc(2026, 11, 5, 15)) do
+        entry, = create_intake_entry
+        entry.update_columns(created_at: Time.utc(2026, 11, 6, 2))
+        sign_in @leader.user
+
+        with_intake { get intake_registration_path(@registration) }
+
+        assert_match "<td>November 05, 2026</td>", response.body
+        assert_no_match "<td>November 06, 2026</td>", response.body
+      end
+    end
+  end
+
   test "close now ends the registration" do
     sign_in @leader.user
     with_intake { patch close_intake_registration_path(@registration) }

@@ -18,8 +18,8 @@ class Intake::RegistrationsController < InternalController
   # GET /registrations/:id
   def show
     entries = @registration.entries
-    @entries_by_day = entries.where(created_at: 30.days.ago..).group("DATE(created_at)").order("DATE(created_at) DESC").count
-    @verified_by_day = entries.verified.where(created_at: 30.days.ago..).group("DATE(created_at)").count
+    @entries_by_day = entries.counts_by_day
+    @verified_by_day = entries.verified.counts_by_day
     @unverified_entries = @registration.unverified_entries.where(person_id: nil).order(created_at: :desc)
     @application_counts = @registration.membership_applications.group(:status).count
   end
