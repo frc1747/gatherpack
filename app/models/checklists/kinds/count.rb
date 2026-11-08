@@ -8,8 +8,9 @@ module Checklists
     # rules, and the period is the item's dates, so Commitment#progress
     # answers exactly as it does for any commitment.
     #
-    # Done: the progress is met. Almost: counting confirmed credit only, and
-    # confirmed plus planned would reach the amount. Not yet: otherwise.
+    # Complete: the progress is met. In Progress: counting confirmed credit
+    # only, and confirmed plus planned would reach the amount. Not Started:
+    # otherwise.
     class Count < ItemKind
       # The models whose changes can change a count (Checklists::CountWatched).
       WATCHED = %w[Checkin Event Relationship CommitmentSource CommitmentAdjustment Commitment].freeze
@@ -30,7 +31,7 @@ module Checklists
               options: -> { [ [ "Nobody, everyone owes on their own", "" ] ] + RelationshipType.order(:parent_label).map { |type| [ type.identifier_name, type.id ] } }),
             ItemKind::Setting.new(key: :additional_amount, type: :number, label: "Each other group member adds",
               hint: "A group owes the amount plus this for each member after the first"),
-            ItemKind::Setting.new(key: :counts_when, type: :choice, label: "Done when", options: COUNTS_WHEN)
+            ItemKind::Setting.new(key: :counts_when, type: :choice, label: "Complete when", options: COUNTS_WHEN)
           ]
         end
 
@@ -85,7 +86,7 @@ module Checklists
           item.errors.add(:base, "Say what is counted, such as shifts") if config["unit"].blank?
           item.errors.add(:base, "Each other group member adds can't be negative") if config["additional_amount"].to_i.negative?
           if config["counts_when"].present? && COUNTS_WHEN.none? { |_, value| value == config["counts_when"] }
-            item.errors.add(:base, "Choose when it's done")
+            item.errors.add(:base, "Choose when it's complete")
           end
           if config["group_relationship_type_id"].present? && !RelationshipType.exists?(id: config["group_relationship_type_id"])
             item.errors.add(:base, "That relationship type no longer exists")
