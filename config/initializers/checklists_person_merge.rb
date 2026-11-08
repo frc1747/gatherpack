@@ -23,7 +23,7 @@ Rails.application.config.to_prepare do
   merge.register :checklist_attestations, :attested_by_id, label: "Checklist items marked done"
   merge.register :checklist_excuses, :person_id, label: "Checklist excuses"
   merge.register :checklist_excuses, :created_by_id, label: "Checklist excuses given"
-  merge.register :checklist_lists, :recorded_by_id, label: "Checklist lists recorded"
+  merge.register :checklist_lists, :recorded_by_id, label: "Checklist snapshots taken"
   merge.register :checklist_results, :person_id, unique_by: %i[checklist_id item_id], label: "Checklist results"
   merge.register :checklist_refreshes, :person_id, unique_by: :checklist_id, label: "Checklist refreshes"
 end

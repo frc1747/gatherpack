@@ -1,6 +1,6 @@
 # Checklists: what a person must have, do or be, answered for everyone a
-# checklist covers as done (met), almost (pending), not yet (not_met) or not
-# counted (exempt).
+# checklist covers as complete (met), in progress (pending), not started
+# (not_met) or not counted (exempt).
 #
 # Item kinds are the extension point. A kind is a Checklists::ItemKind
 # subclass, registered from an initializer so a branch can add one without
@@ -23,8 +23,8 @@
 module Checklists
   STATUSES = %w[met pending not_met exempt].freeze
 
-  # The words people see when a checklist doesn't set its own.
-  DEFAULT_WORDS = { "met" => "Done", "pending" => "Almost", "not_met" => "Not yet", "exempt" => "Not counted" }.freeze
+  # The words people see.
+  WORDS = { "met" => "Complete", "pending" => "In Progress", "not_met" => "Not Started", "exempt" => "Not counted" }.freeze
 
   # Who may see an item or a checklist's overall, relative to the person it's
   # about (Checklists::Visibility). group is for pooled kinds; a kind that
@@ -51,6 +51,11 @@ module Checklists
       GatherPack::Features.enabled?(:checklists)
     end
 
+    # A checklist's dates are days in the site's time zone, jobs included.
+    def time_zone
+      Time.find_zone!(Settings[:time_zone].presence || "UTC")
+    end
+
     def register_item_kind(kind, klass)
       unlisted = klass.settings.select { |setting| setting.list? && %i[boolean relative_date].include?(setting.type) }
       raise ArgumentError, "#{klass.name}: a #{unlisted.first.type} setting can't be a list" if unlisted.any?
@@ -74,7 +79,7 @@ module Checklists
     end
 
     def word_for(status)
-      DEFAULT_WORDS.fetch(status.to_s)
+      WORDS.fetch(status.to_s)
     end
 
     def status_for(checklist, people, viewer:)
@@ -98,7 +103,7 @@ module Checklists
 
     # Whether the person finishes the checklist. accept: :met counts a met or
     # exempt overall (an item that doesn't apply to them already counts as
-    # done inside it); pass [:met, :pending] where signing up is the way to
+    # complete inside it); pass [:met, :pending] where signing up is the way to
     # finish. Someone the checklist doesn't cover never meets it.
     def meets?(checklist, person, accept: :met)
       people_meeting(checklist, accept: accept).exists?(id: person.id)
@@ -116,7 +121,7 @@ module Checklists
     # per checklist, 30 seconds out, so a burst of changes is one run.
     # person_ids :all marks the whole checklist.
     def mark(checklists, person_ids)
-      checklists = Array(checklists)
+      checklists = Array(checklists).reject(&:results_frozen?)
       return if checklists.empty?
 
       now = Time.current

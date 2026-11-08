@@ -24,8 +24,9 @@ module ChecklistsFeature
   end
 
   # Changes to an active checklist show their impact first, unless confirmed.
+  # A frozen checklist has none to show: nothing moves until Recompute.
   def needs_confirmation?
-    @checklist.active? && params[:confirmed].blank?
+    @checklist.active? && !@checklist.results_frozen? && params[:confirmed].blank?
   end
 
   # The checklist's items with their rules and children loaded, for drafting
