@@ -14,7 +14,7 @@ module Checklists
     #
     # A form's expiry (Forms::Expiry, when that feature is present) shows as
     # "Good until <date>" or "Expired <date>". Everything is judged as of the
-    # as-of moment, so results stay put once a cutoff has passed (§9.2).
+    # as-of moment, so results stay put once Until has passed (§9.2).
     class FormComplete < ItemKind
       STATUS_ORDER = %w[not_met pending met].freeze
 
@@ -94,8 +94,8 @@ module Checklists
         end
 
         # The earliest coming expiry among the forms' complete responses, and
-        # midnight for a "within the last N" window. Nothing once the cutoff
-        # has passed.
+        # midnight for a "within the last N" window. Nothing once Until has
+        # passed.
         def next_change_at(item, context)
           return if frozen?(context)
 
@@ -105,10 +105,9 @@ module Checklists
           times.min
         end
 
-        # Past the cutoff the answer no longer moves with the clock.
+        # Past Until the answer no longer moves with the clock.
         def frozen?(context)
-          cutoff = context.checklist.cutoff_on&.in_time_zone&.end_of_day
-          cutoff.present? && context.as_of >= cutoff
+          context.ended?
         end
 
         def forms_enabled?
@@ -154,10 +153,10 @@ module Checklists
 
       private
 
-      # Judged as of the as-of moment (now, or the end of the cutoff day once
+      # Judged as of the as-of moment (now, or the end of the Until day once
       # it has passed): the version that counted then, its expiry then, and
       # only versions started by then. A later signing or expiry doesn't
-      # change a result frozen at the cutoff.
+      # change a result frozen at Until.
       def form_result(form, person, response, asked, guardians)
         signed = signed_by_end(response)
         signed_at = signed&.activated_at
@@ -224,7 +223,7 @@ module Checklists
       # changed and asked for it, or (for the current version) the profile
       # changed. Expiry is judged separately, at the as-of moment.
       #
-      # After the cutoff a form change counts only if it was published by
+      # After Until a form change counts only if it was published by
       # the as-of moment, read from the form's history. A profile change
       # can't be dated, so it still counts: wrongly showing Not Started is
       # the safer mistake than wrongly showing Complete.
