@@ -14,9 +14,9 @@
       <div class="d-none d-md-block px-3 pt-3 pt-lg-0 pb-2" data-site-brand>
         <a class="d-flex align-items-center gap-2 mb-3 fw-semibold link-body-emphasis text-decoration-none" href="<%= root_path %>">
           <% if Theme.instance.logo.attached? %>
-            <%= image_tag Theme.instance.logo, alt: "", height: 32 %>
+            <%= image_tag Theme.instance.logo, alt: "", height: 32, class: "w-auto flex-shrink-0" %>
           <% else %>
-            <%= image_tag "logo.svg", alt: "", height: 32 %>
+            <%= image_tag "logo.svg", alt: "", height: 32, class: "w-auto flex-shrink-0" %>
           <% end %>
           <span><%= site_title %></span>
         </a>
