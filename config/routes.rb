@@ -23,7 +23,9 @@ Rails.application.routes.draw do
   resources :variables
 
   resources :teams do
-    resources :memberships
+    resources :memberships do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show update]
     member do
       get :badges if GatherPack::Features.enabled?(:badges)
@@ -51,7 +53,9 @@ Rails.application.routes.draw do
   end
 
   resources :people do
-    resources :memberships, only: %i[index new create destroy]
+    resources :memberships, only: %i[index new create destroy] do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show create destroy]
     resources :relationships, only: %i[new create destroy] do
       member do
@@ -77,7 +81,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:badges)
     resources :badges do
-      resources :badge_assignments
+      resources :badge_assignments do
+        get "candidates", on: :collection
+      end
     end
     resources :badge_types
   end
@@ -88,7 +94,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:events)
     resources :events do
-      resources :checkins, except: %i[index]
+      resources :checkins, except: %i[index] do
+        get "candidates", on: :collection
+      end
       member do
         get "arrange"
         get "print"
@@ -123,40 +131,6 @@ Rails.application.routes.draw do
       end
     end
   end
-
-  # Always drawn; the controllers check the feature (default off).
-  resources :checklists do
-    member do
-      get :copy, action: :copy_form
-      post :copy
-      post :preview
-      post :refresh
-      post :restore
-    end
-    resources :checklist_items, path: "items", except: %i[index show] do
-      post :preview, on: :collection
-    end
-    resources :checklist_rules, path: "rules", only: %i[create destroy]
-    resources :checklist_grants, path: "grants", only: %i[create destroy]
-    resources :checklist_organizers, path: "organizers", only: %i[create destroy]
-    resources :checklist_excuses, path: "excuses", only: %i[new create destroy]
-    resources :checklist_attestations, path: "attestations", only: %i[create destroy]
-    resources :checklist_lists, path: "lists", only: %i[show create]
-  end
-  get "people/:person_id/checklists", to: "person_checklists#show", as: :person_checklists
-
-  # Always drawn; the controllers check the feature (default off).
-  scope "housekeeping", as: :housekeeping do
-    get "purges/:key", to: "housekeeping_purges#show", as: :purge
-    post "purges/:key", to: "housekeeping_purges#create"
-    get ":type", to: "housekeeping#index", as: :list
-    post ":type/preview", to: "housekeeping#preview", as: :preview
-    post ":type/default", to: "housekeeping#save_default", as: :default
-    post ":type", to: "housekeeping#apply", as: :apply
-  end
-  get "teams/:team_id/move_people", to: "team_moves#new", as: :team_move_people
-  post "teams/:team_id/move_people/preview", to: "team_moves#preview", as: :preview_team_move_people
-  post "teams/:team_id/move_people", to: "team_moves#create"
 
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
@@ -219,10 +193,17 @@ Rails.application.routes.draw do
     end
   end
 
-  # Handle plugin routes - was suggested, don't know that we actually need this or if plugins can just manage this themselves
-  # GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
-  #   instance_exec(&feature.routes_proc)
-  # end
+  # Feature routes. A feature can register a routes_proc on its Feature, or
+  # drop a file in config/routes/ (config/routes/<name>.rb holds the usual
+  # routing DSL, without the outer `Rails.application.routes.draw`). Only the
+  # app's own routes directories are searched, not those of engines.
+  GatherPack::Features.all.select { |f| f.enabled? && f.routes_proc }.each do |feature|
+    instance_exec(&feature.routes_proc)
+  end
+
+  Rails.application.paths["config/routes"].paths.flat_map { |path| Dir[File.join(path, "*.rb")] }.map { |file| File.basename(file, ".rb") }.uniq.sort.each do |name|
+    draw name
+  end
 
   if Settings[:local_signup]
     devise_for :users, controllers: { omniauth_callbacks: "omniauth", registrations: "users/registrations" }
