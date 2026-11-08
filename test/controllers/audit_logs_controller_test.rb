@@ -258,6 +258,31 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
     assert_not_equal token, member.session_token
   end
 
+  test "a deleted record's audit log names who deleted it and shows its last state" do
+    admin, event = deleted_event_world
+    assert_difference -> { AuditLog.where(item_id: event.id, event: "destroy").count }, 1 do
+      delete event_url(event)
+    end
+    log = AuditLog.where(item_id: event.id, event: "destroy").last
+    assert_equal admin.id, log.whodunnit
+
+    get audit_log_url(log)
+
+    assert_response :success
+    assert_select "li", text: /destroy/
+    assert_select "a", text: "Revert"
+  end
+
+  test "reverting a deleted record's audit log restores the record" do
+    _admin, event = deleted_event_world
+    delete event_url(event)
+    log = AuditLog.where(item_id: event.id, event: "destroy").last
+
+    post revert_audit_log_url(log)
+
+    assert_equal "Deleted event", Event.find(event.id).name
+  end
+
   private
 
   def create_user(email, **flags)
@@ -272,5 +297,12 @@ class AuditLogsControllerTest < ActionDispatch::IntegrationTest
 
   def last_version(item, event)
     AuditLog.where(item_type: item.class.base_class.name, item_id: item.id, event: event).order(:created_at).last
+  end
+
+  def deleted_event_world
+    admin = people(:one).user
+    admin.update!(admin: true)
+    sign_in admin
+    [ admin, Event.create!(name: "Deleted event", start_time: 1.day.ago, event_type: event_types(:one), team: teams(:one)) ]
   end
 end
