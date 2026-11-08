@@ -1,3 +1,5 @@
+<%# Tasks from config/recurring.d/*.yml come first, so a task named here wins over one of the same name there. %>
+<%= GatherPack::RecurringSchedule.yaml %>
 # periodic_cleanup:
 #   class: CleanSoftDeletedRecordsJob
 #   queue: background
@@ -11,14 +13,6 @@ generate_notifications_job:
   class: GenerateNotificationsJob
   queue: default
   schedule: every 5 minutes
-checklist_clock_job:
-  class: ChecklistClockJob
-  queue: default
-  schedule: every 5 minutes
-checklist_nightly_job:
-  class: ChecklistNightlyJob
-  queue: default
-  schedule: at 3am every day
 form_schedule_job:
   class: FormScheduleJob
   queue: default
