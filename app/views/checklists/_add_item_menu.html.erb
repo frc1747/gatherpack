@@ -1,12 +1,13 @@
 <div class="dropdown">
-  <button class="btn btn-sm btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+  <%# Fixed positioning: any div holding a badge clips its overflow, which cut this menu off at the card's edge. %>
+  <button class="btn btn-sm btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
     <%= parent ? "Add to group" : "Add item" %>
   </button>
-  <ul class="dropdown-menu">
+  <ul class="dropdown-menu dropdown-menu-dark">
     <% checklist_kind_options(checklist).each do |label, key, description| %>
       <li>
         <%= link_to new_checklist_checklist_item_path(checklist, kind: key, parent_id: parent&.id), class: "dropdown-item" do %>
-          <%= label %><% if description.present? %> <small class="text-body-secondary">— <%= description %></small><% end %>
+          <%= label %><% if description.present? %> <small class="opacity-75">— <%= description %></small><% end %>
         <% end %>
       </li>
     <% end %>
