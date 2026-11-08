@@ -1,6 +1,6 @@
 module Checklists
   # The effect of an unsaved change on everyone's overall, against the
-  # stored results (spec §9.4): "3 people would go from Done to Not yet",
+  # stored results (spec §9.4): "3 people would go from Complete to Not Started",
   # including people the change would stop or start covering.
   # items and rules are the draft tree and population rules, as given to
   # Checklists::Evaluator. With a viewer, people whose result depends on an
@@ -28,8 +28,8 @@ module Checklists
 
     def sentences
       lines = moves.map do |move|
-        from = move.from ? @checklist.word_for(move.from) : "not covered"
-        to = move.to ? @checklist.word_for(move.to) : "not covered"
+        from = move.from ? Checklists.word_for(move.from) : "not covered"
+        to = move.to ? Checklists.word_for(move.to) : "not covered"
         "#{move.names.size} #{"person".pluralize(move.names.size)} would go from #{from} to #{to}: #{move.names.to_sentence}"
       end
       lines << "#{hidden} more #{"person".pluralize(hidden)} would change, through an item you can't see" if hidden.positive?

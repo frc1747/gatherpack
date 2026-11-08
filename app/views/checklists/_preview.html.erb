@@ -4,7 +4,7 @@
   <% Checklists::STATUSES.each do |status| %>
     <% next if preview.counts[status].zero? %>
     <div class="mb-2">
-      <span class="badge <%= checklist_status_class(status) %>"><%= preview.item? ? Checklists.word_for(status) : checklist.word_for(status) %></span>
+      <span class="badge <%= checklist_status_class(status) %>"><%= Checklists.word_for(status) %></span>
       <strong><%= preview.counts[status] %></strong>
       <div class="small text-body-secondary">
         <%= preview.names[status].to_a.join(", ") %><%= ", …" if preview.counts[status] > preview.names[status].to_a.size %>

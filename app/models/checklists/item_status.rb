@@ -9,7 +9,7 @@ module Checklists
     end
 
     # The word to show: the kind's label ("Rookie", "Missed") or the status
-    # word (the checklist's own words for the overall, the defaults for items).
+    # word.
     def text
       label.presence || word
     end

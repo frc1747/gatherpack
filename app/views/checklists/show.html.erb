@@ -13,7 +13,7 @@
       <div class="d-flex gap-2 flex-wrap no-print">
         <% if @organizer %>
           <%= link_to "Edit", edit_checklist_path(@checklist), class: "btn btn-warning" %>
-          <%= button_to "Record this list", checklist_checklist_lists_path(@checklist), class: "btn btn-secondary", form_class: "d-inline" %>
+          <%= button_to "Take Snapshot", checklist_checklist_lists_path(@checklist), class: "btn btn-secondary", form_class: "d-inline" %>
           <%= button_to "Recompute", refresh_checklist_path(@checklist), class: "btn btn-outline-secondary", form_class: "d-inline" %>
         <% end %>
         <%= link_to "Copy", copy_checklist_path(@checklist), class: "btn btn-info" %>
@@ -22,12 +22,13 @@
   </div>
   <div class="card-body">
     <%= md(@checklist.description) if @checklist.description.present? %>
-    <% if @checklist.cutoff_on %>
+    <% if @checklist.ends_on %>
       <p class="mb-1">
-        <% if @checklist.cutoff_on >= Date.current %>
-          Counting up to <%= l(@checklist.cutoff_on, format: :long) %>; these are today's numbers.
+        <% if @checklist.ends_on >= Date.current %>
+          Counting until <%= l(@checklist.ends_on, format: :long) %>; these are today's numbers.
         <% else %>
-          As of <%= l(@checklist.cutoff_on, format: :long) %>, when counting stopped.
+          As of <%= l(@checklist.ends_on, format: :long) %>, when counting stopped.
+          <% unless @checklist.archived? %>Results are frozen.<% if @organizer %> Recompute to apply corrections.<% end %><% end %>
         <% end %>
       </p>
     <% end %>
@@ -54,7 +55,15 @@
         <%= submit_tag "Show", class: "btn btn-sm btn-outline-primary", name: nil %>
         <%= link_to "Today", checklist_path(@checklist), class: "btn btn-sm btn-link" if @as_of %>
       <% end %>
-      <% if @as_of %><p class="small text-body-secondary mt-1 mb-0">Computed as of <%= l(@as_of, format: :long) %>; nothing is saved.</p><% end %>
+      <% if @as_of %>
+        <p class="small text-body-secondary mt-1 mb-0">
+          <% if @checklist.reads_stored_as_of?(@as_of) %>
+            The frozen results, as of <%= l(@checklist.ends_on, format: :long) %>.
+          <% else %>
+            Computed as of <%= l(@as_of, format: :long) %>; nothing is saved.
+          <% end %>
+        </p>
+      <% end %>
     <% end %>
   </div>
 </div>
@@ -63,7 +72,7 @@
 <% lists = policy(@checklist).copy? ? @checklist.checklist_lists.order(recorded_at: :desc).to_a : [] %>
 <% if lists.any? %>
   <div class="card mt-3 no-print" id="lists">
-    <div class="card-header"><h2 class="h5 mb-0">Recorded lists</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0">Snapshots</h2></div>
     <div class="card-body">
       <ul class="list-unstyled mb-0">
         <% lists.each do |list| %>

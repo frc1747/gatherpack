@@ -3,7 +3,7 @@
 <div class="card">
   <div class="card-header">
     <h1><%= @list.configuration["title"] %></h1>
-    <div class="text-body-secondary">Recorded <%= l(@list.recorded_at, format: :long) %> by <%= @list.recorded_by&.display_name || "someone" %>. This list doesn't change.</div>
+    <div class="text-body-secondary">Taken <%= l(@list.recorded_at, format: :long) %> by <%= @list.recorded_by&.display_name || "someone" %>. This list doesn't change.</div>
     <% if @list.note.present? %><div><%= @list.note %></div><% end %>
   </div>
   <div class="card-body table-responsive">

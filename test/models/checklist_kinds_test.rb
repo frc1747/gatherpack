@@ -122,6 +122,7 @@ class ChecklistKindsTest < ActiveSupport::TestCase
   end
 
   test "age: on the window's end, and no birthday is not yet with the reason" do
+    @checklist.update!(ends_on: Date.new(2027, 6, 30))
     item = add_item(@checklist, :age, "Under 14", { max: 13 })
 
     assert_equal "met", evaluate(@checklist, :kid, item).status, "13 on 2027-06-30"
