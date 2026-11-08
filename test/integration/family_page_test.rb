@@ -111,6 +111,55 @@ class FamilyPageTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Menu
+
+  test "a guardian sees Family in the sidebar and as the first phone tab" do
+    sign_in @parent.user
+    get root_path
+
+    assert_select "[data-menu-group=family] a[href=?]", family_path, text: /Family/
+    assert_equal "Family", phone_tab_labels.first
+    assert_not_includes phone_tab_labels, "Hours"
+  end
+
+  test "someone with no wards doesn't see Family" do
+    sign_in person(:member).user
+    get root_path
+
+    assert_select "[data-menu-group=family]", false
+    assert_select "a[href=?]", family_path, false
+    assert_not_includes phone_tab_labels, "Family"
+  end
+
+  test "a former guardian doesn't see Family" do
+    Relationship.where(parent: @parent, child: @kid).destroy_all
+    sign_in @parent.user
+    get root_path
+
+    assert_select "a[href=?]", family_path, false
+  end
+
+  test "with the flag off, the Family item leaves the sidebar as it was" do
+    sign_in @parent.user
+    feature = GatherPack::Features.all.find { |candidate| candidate.key == :my_gatherpack }
+
+    with_settings(feature_my_gatherpack: "false") do
+      get root_path
+      assert_select "a[href=?]", family_path, false
+      with_item = css_select(".sidebar").to_html
+
+      # Registering a feature again would replace its Setting, so empty this one.
+      items = feature.nav_items
+      begin
+        feature.instance_variable_set(:@nav_items, [])
+        get root_path
+        assert_equal css_select(".sidebar").to_html, with_item
+      ensure
+        feature.instance_variable_set(:@nav_items, items)
+      end
+    end
+  end
+
   # Cards
 
   test "one card per ward, in name order, and only their own wards" do
@@ -364,6 +413,10 @@ class FamilyPageTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def phone_tab_labels
+    css_select(".phone-tabs .phone-tab span").map { |label| label.text.strip }
+  end
 
   def ward_card(ward)
     ActionView::RecordIdentifier.dom_id(ward, :family)

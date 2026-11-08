@@ -49,6 +49,27 @@ class FamilyPageSystemTest < ApplicationSystemTestCase
     assert_operator direct.fetch("actionHeight"), :>=, 44
   end
 
+  test "at 390 px a guardian reaches Family from the tab bar and the sidebar" do
+    visit root_path
+
+    assert_equal "Family", first(".phone-tabs .phone-tab span").text
+    within(".phone-tabs") { click_link "Family" }
+    assert_current_path family_path
+    assert_selector "[data-family-status]"
+
+    within(".phone-tabs") { click_button "More" }
+    within("#sidebarMenu") { assert_selector "[data-menu-group=family] a[href='#{family_path}']", text: "Family" }
+  end
+
+  test "at 390 px someone with no wards has no Family tab" do
+    sign_out person(:parent).user
+    sign_in person(:member).user
+    visit root_path
+
+    assert_selector ".phone-tabs"
+    assert_no_selector ".phone-tabs .phone-tab", text: "Family"
+  end
+
   test "at 390 px the page fits and a form opens from its row" do
     visit family_path
 
