@@ -3,12 +3,12 @@ module Checklists
     # Has a complete response to every chosen form, made (activated) within
     # the item's dates, or at any time. Reads the response's status, so a
     # response that needs confirming again, including one past the form's
-    # expiry, isn't done whatever the dates say (spec §6.4):
+    # expiry, isn't complete whatever the dates say (spec §6.4):
     #
-    # - Done: the version that counted at the window's end was made within
+    # - Complete: the version that counted at the window's end was made within
     #   the dates, hadn't expired and needs no confirming again.
-    # - Almost: a newer version is open, or it waits for a signature.
-    # - Not yet: no response, needs confirming again, made before the dates,
+    # - In Progress: a newer version is open, or it waits for a signature.
+    # - Not Started: no response, needs confirming again, made before the dates,
     #   the form isn't asking the person, or it needs a guardian's signature
     #   and the person has no guardian linked.
     #
@@ -54,7 +54,7 @@ module Checklists
         # doesn't ask. The item still evaluates, so nobody passes by accident.
         def problems(item)
           problems = missing_references(item)
-          problems << "Forms are turned off, so this counts as not yet for everyone" unless forms_enabled?
+          problems << "Forms are turned off, so this counts as Not Started for everyone" unless forms_enabled?
           problems << "No form chosen" if Array(item.config["form_ids"]).compact_blank.empty?
           forms = referenced_records(item, "form_ids")
           return problems if forms.empty?
@@ -226,8 +226,8 @@ module Checklists
       #
       # After the cutoff a form change counts only if it was published by
       # the as-of moment, read from the form's history. A profile change
-      # can't be dated, so it still counts: wrongly showing Not yet is the
-      # safer mistake than wrongly showing Done.
+      # can't be dated, so it still counts: wrongly showing Not Started is
+      # the safer mistake than wrongly showing Complete.
       def reconfirm_reason(response, signed)
         form = response.form
         current = signed.id == response.active_submission_id
@@ -327,14 +327,14 @@ module Checklists
         pairs.group_by(&:first).transform_values { |list| list.filter_map { |_, parent_id| people[parent_id] } }
       end
 
-      # All of the forms: the first not done decides, then the first almost.
+      # All of the forms: the first not started decides, then the first in progress.
       def combine(results)
         return results.first.last if results.one?
 
         worst = results.min_by { |_, result| STATUS_ORDER.index(result.status) }.last
         done = results.count { |_, result| result.met? }
         detail = results.map { |form, result| "#{form.title}: #{result.detail}" }.join(". ")
-        Result.new(status: worst.status, summary: "#{done} of #{results.size} forms done", detail: detail, fix: worst.fix)
+        Result.new(status: worst.status, summary: "#{done} of #{results.size} forms complete", detail: detail, fix: worst.fix)
       end
 
       def outside_window(time)

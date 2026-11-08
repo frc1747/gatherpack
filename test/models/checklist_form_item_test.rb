@@ -106,7 +106,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "Confirm it again", result(:member).fix["label"]
 
     @item.update!(config: @item.config.merge("ever" => true))
-    assert_equal "not_met", result(:member).status, "an expired response isn't done whatever the dates say"
+    assert_equal "not_met", result(:member).status, "an expired response isn't complete whatever the dates say"
   end
 
   test "after the cutoff, signing again or expiring later doesn't change the result" do
@@ -178,7 +178,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "Completed October 01, 2026. Good until February 28, 2027", result(:member).detail
   end
 
-  test "an open newer version is almost, and a guardian's signature awaited names the guardian" do
+  test "an open newer version is in progress, and a guardian's signature awaited names the guardian" do
     add_guardian_signature(@form)
     travel_to(Time.zone.local(2026, 5, 1)) do
       respond(@form, :kid, as: :parent)
@@ -224,7 +224,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "leader", result(:member).fix["by"]
   end
 
-  test "a guardian's signature for someone with no guardian linked is not yet, with a fix to add one" do
+  test "a guardian's signature for someone with no guardian linked is not started, with a fix to add one" do
     add_guardian_signature(@form)
     person(:rookie).update!(birthday: Date.new(2013, 1, 1))
     respond(@form, :rookie)
@@ -252,7 +252,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     end
   end
 
-  test "someone the form doesn't ask is not yet, never exempt, and listed as a problem" do
+  test "someone the form doesn't ask is not started, never exempt, and listed as a problem" do
     @form.form_audience_rules.create!(effect: :exclude, target_type: :person, person: person(:member2))
 
     assert_equal "not_met", result(:member2).status
@@ -262,12 +262,12 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_includes @checklist.reload.problems, "Medical: 1 person covered here isn't asked Medical Release; add the checklist to its audience"
   end
 
-  test "with forms turned off the item is not yet for everyone, and says why" do
+  test "with forms turned off the item is not started for everyone, and says why" do
     respond(@form, :member)
     with_settings(feature_forms: "false") do
       assert_equal "not_met", result(:member).status
       assert_equal "Forms are turned off", result(:member).detail
-      assert_includes @checklist.reload.problems, "Medical: Forms are turned off, so this counts as not yet for everyone"
+      assert_includes @checklist.reload.problems, "Medical: Forms are turned off, so this counts as Not Started for everyone"
     end
   end
 
@@ -296,7 +296,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     respond(@form, :member)
 
     assert_equal "not_met", result(:member).status
-    assert_equal "1 of 2 forms done", result(:member).summary
+    assert_equal "1 of 2 forms complete", result(:member).summary
     assert_match "Code of Conduct: No response yet", result(:member).detail
 
     respond(other, :member)
