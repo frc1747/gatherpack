@@ -4,6 +4,8 @@ class SidebarSlotsHelperTest < ActionView::TestCase
   helper NavHelper
 
   setup do
+    @saved_slots = GatherPack::SidebarSlots.instance_variable_get(:@slots).dup
+    @saved_root_attributes = GatherPack::SidebarSlots.instance_variable_get(:@root_attributes).dup
     GatherPack::SidebarSlots.reset!
     @user = users(:one)
     @user.person ||= people(:one)
@@ -20,7 +22,8 @@ class SidebarSlotsHelperTest < ActionView::TestCase
   end
 
   teardown do
-    GatherPack::SidebarSlots.reset!
+    GatherPack::SidebarSlots.instance_variable_set(:@slots, @saved_slots)
+    GatherPack::SidebarSlots.instance_variable_set(:@root_attributes, @saved_root_attributes)
   end
 
   def render_sidebar
