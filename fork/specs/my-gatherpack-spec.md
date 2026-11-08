@@ -72,6 +72,7 @@ Flag: `feature_my_gatherpack`, default off. With it off, all of today's screens 
 |---|---|
 | `lib/gatherpack/feature.rb` | `NavItem` gains `visible` |
 | `app/views/layouts/_sidebar.html.erb` | Applies `visible?` when listing items |
+| `app/views/layouts/application.html.erb` | The `<title>` line calls a helper (§5.2a) |
 | `config/routes.rb` | `/family`, plus any phone-screen routes |
 
 Everything else is a new file or an override. Overrides are listed in the drift lock ([`modern-skin-spec.md`](modern-skin-spec.md) §5.2).
