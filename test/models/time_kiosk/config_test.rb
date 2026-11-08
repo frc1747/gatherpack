@@ -41,6 +41,14 @@ class TimeKiosk::ConfigTest < ActiveSupport::TestCase
     assert_nothing_raised { threads.each(&:join) }
   end
 
+  test "threads reading as the store is first built don't trip over each other" do
+    20.times do
+      TimeKiosk::Config.instance_variable_set(:@store, nil)
+      threads = 8.times.map { Thread.new { 5.times { TimeKiosk::Config.allow_unassigned? } } }
+      assert_nothing_raised { threads.each(&:join) }
+    end
+  end
+
   private
 
   def store

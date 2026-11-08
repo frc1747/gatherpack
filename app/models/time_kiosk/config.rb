@@ -2,6 +2,8 @@
 # Settings caches values per process, so a change saved through one Puma
 # worker wouldn't reach the others until a restart.
 class TimeKiosk::Config
+  STORE_LOCK = Mutex.new
+
   class << self
     def allow_unassigned?
       read(:time_kiosk_allow_unassigned).to_s != "false"
@@ -16,8 +18,11 @@ class TimeKiosk::Config
       Team.find_by(id: id) if id
     end
 
+    # Reads through the store that opened the transaction: another thread
+    # may replace the memoized store in the meantime.
     def read(key)
-      store.transaction(true) { store[key] }
+      current = store
+      current.transaction(true) { current[key] }
     end
 
     private
@@ -25,9 +30,11 @@ class TimeKiosk::Config
     # A thread-safe store of our own: Settings' store isn't, and a second thread
     # entering its transaction raises instead of waiting.
     def store
-      @store = nil unless @store_pid == Process.pid
-      @store_pid = Process.pid
-      @store ||= PStore.new(store_path, true)
+      STORE_LOCK.synchronize do
+        @store = nil unless @store_pid == Process.pid
+        @store_pid = Process.pid
+        @store ||= PStore.new(store_path, true)
+      end
     end
 
     # Tests get an empty file per process, so parallel test workers and a
