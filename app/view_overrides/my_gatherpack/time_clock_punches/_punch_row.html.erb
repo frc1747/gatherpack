@@ -15,7 +15,7 @@
   <details class="card mg-punch" id="<%= dom_id time_clock_punch, :phone %>">
     <summary class="mg-punch-summary"><%= summary %></summary>
     <div class="mg-punch-actions">
-      <%= link_to "Edit", edit_time_clock_punch_path(time_clock_punch), class: "btn btn-warning", 'data-turbo': false if can_edit %>
+      <%= link_to "Edit", edit_time_clock_punch_path(time_clock_punch), class: "btn btn-warning", data: { turbo_frame: "_top" } if can_edit %>
       <%= link_to "Delete", time_clock_punch, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if can_destroy %>
     </div>
   </details>

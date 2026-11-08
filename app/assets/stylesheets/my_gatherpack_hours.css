@@ -64,6 +64,12 @@ summary.mg-punch-summary {
   gap: 0.25rem;
 }
 
+/* A period's name carries its dates; let it wrap inside the card. */
+.mg-punch-meta .badge {
+  white-space: normal;
+  text-align: left;
+}
+
 .mg-punch-hours {
   flex: none;
   font-size: 1.25rem;

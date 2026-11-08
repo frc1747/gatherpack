@@ -36,8 +36,9 @@ module MyGatherpackHoursHelper
     selected = params.dig(:q, :time_clock_period_id_eq).presence
     return periods.where(id: selected).to_a if selected
 
-    now = Time.current
-    periods.where("start_time <= ? AND end_time >= ?", now, now).to_a
+    # The period columns are dates, so compare with the site's date.
+    today = Time.zone.today
+    periods.where("start_time <= ? AND end_time >= ?", today, today).to_a
   end
 
   def my_gatherpack_punch_moment(time, date:)

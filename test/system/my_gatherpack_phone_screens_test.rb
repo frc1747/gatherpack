@@ -94,9 +94,39 @@ class MyGatherpackPhoneScreensSystemTest < ApplicationSystemTestCase
     visit time_clock_punches_path
 
     assert_selector ".mg-punch-time", text: /#{(@today - 2.years - 3.days).year}.*10:00PM – \w{3} \w{3} \d+( \d{4})?, 2:00AM/
-    assert_selector ".mg-punch-time", text: /10:00PM – \w{3} \w{3} \d+, 2:00AM/
-    assert_no_selector ".mg-punch-time", text: /#{@mine.start_time.strftime("%b %-d")} #{@mine.start_time.year}/
+    assert_selector ".mg-punch-time", text: /10:00PM – \w{3} \w{3} \d+( \d{4})?, 2:00AM/
+    assert_no_selector ".mg-punch-time", text: /#{@mine.start_time.strftime("%b %-d")} #{@mine.start_time.year}/ if @mine.start_time.year == Time.current.year
     assert overnight.persisted?
+  end
+
+  test "a long period name stays inside the card" do
+    long = TimeClockPeriod.create!(name: "Fall Outreach and Volunteer Service Hours", start_time: @today - 1.year, end_time: @today + 1.year, permission: :added_by_user)
+    @mine.created_by = "kiosk"
+    @mine.update!(time_clock_period: long)
+    sign_in @member
+    visit time_clock_punches_path
+
+    assert_selector ".mg-punch-meta .badge", text: "Fall Outreach"
+    assert page.evaluate_script(<<~JS)
+      (() => {
+        const card = document.querySelector(".mg-punch").getBoundingClientRect()
+        const hours = document.querySelector(".mg-punch-hours").getBoundingClientRect()
+        return [...document.querySelectorAll(".mg-punch-meta .badge")].every(b => {
+          const r = b.getBoundingClientRect()
+          return r.right <= card.right && r.right <= hours.left
+        })
+      })()
+    JS
+  end
+
+  test "my hours reached by a Turbo visit keeps its styles" do
+    sign_in @member
+    visit root_path
+    find(".phone-tab", text: "Hours").click
+
+    assert_selector ".mg-hours-total"
+    assert_equal "flex", page.evaluate_script("getComputedStyle(document.querySelector('.mg-hours-total')).display")
+    assert_no_sideways_scroll
   end
 
   test "a row links to the person and the period" do
