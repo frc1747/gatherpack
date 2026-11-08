@@ -1,6 +1,8 @@
 # Spec: Theming and a modern skin
 
-Status: rev. 1, 2026-11-04. Not built. Pitch: [`07-theming-and-modern-skin.md`](../pitches/07-theming-and-modern-skin.md). Code facts checked against integration `762f902c`. Decisions are in §12; open questions are in §13.
+Status: rev. 2, 2026-11-08. Being built. Pitch: [`07-theming-and-modern-skin.md`](../pitches/07-theming-and-modern-skin.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+
+Rev. 2: the Content Security Policy from the security series, the two intake layouts, and the sidebar slots seam.
 
 Related specs: [`my-gatherpack-spec.md`](my-gatherpack-spec.md) uses the template overrides from §5. [`app-feel-spec.md`](app-feel-spec.md) is independent of this one.
 
@@ -37,7 +39,7 @@ The work is finished when:
 
 - **Compile-time colors.** `app/assets/stylesheets/application.bootstrap.scss` sets `$primary` to greige and compiles Bootstrap, so `.btn-primary`, `.btn-outline-primary`, `.page-link` and others carry literal color values. Its own `:root` block then sets a few runtime variables (`--bs-primary`, `--bs-body-bg`, `--pair-*`). Setting `--bs-primary` doesn't reach the literal values or `--bs-primary-rgb`.
 - **Theme.** `Theme` is a single row (`Theme.instance`) with `css_variables`, `custom_css`, `pwa_theme_color`, `pwa_background_color`, and attached `logo` and `pwa_icon`. `ThemeController` is admin-only.
-- **Output.** `layouts/_theme_styles` writes the two text fields into `<style>` tags. The application, devise and kiosk layouts render it right after the application stylesheet. **The Doorkeeper layout doesn't render it.**
+- **Output.** `layouts/_theme_styles` writes the two text fields into `<style>` tags. The application, devise, kiosk, intake kiosk and intake public layouts render it right after the application stylesheet. **The Doorkeeper layout doesn't render it.**
 - **Sign-in.** `layouts/devise.html.erb` hard-codes the "Get Together with GatherPack" `.logoline` and always uses `logo.svg`, even with a site logo. `devise/sessions/new` covers `local_auth`, `local_signup`, rememberable, recoverable and the omniauth partial.
 - **Other fixed colors.**
   - `.navtab`, the `table.table th` rule and `.modal-content` in the main stylesheet.
@@ -45,7 +47,7 @@ The work is finished when:
   - `event_calendar_colors` in `application_helper` hard-codes greige calendar text.
   - `.bg-dark` on the navbar, which is a Bootstrap utility with `!important`.
 - **Dark mode.** Bootstrap's dark styles are compiled, but `_themeSwitcher` is never rendered. The app's later `:root` block also beats Bootstrap's `[data-bs-theme=dark]` block, because their specificity is equal.
-- **No Content Security Policy** is active, so inline `<style>` and a small inline script work today.
+- **Content Security Policy** is active in report-only mode (`config/initializers/content_security_policy.rb`). `style-src` allows inline styles; `script-src` is `self` plus a per-response nonce. Any inline script the skin adds carries the nonce, so it keeps working if the policy is enforced later. Fonts and images the skin loads must come from `self`.
 
 ## 3. Design in three layers
 
@@ -60,7 +62,8 @@ Layers 1 and 2 ship first, with fixed light and dark palettes. Layer 3 waits unt
 | Branch | Based on | Contents | Flag | Upstream |
 |---|---|---|---|---|
 | `feature/view-overrides` | `upstream/main` | The override seam (§5). No visible change | None; it does nothing until something registers | Candidate |
-| `feature/modern-skin` | `feature/view-overrides` | Skin stylesheet, sign-in override, color mode, preview | `feature_modern_skin`, off | Offer after review |
+| `feature/sidebar-slots` | `upstream/main` | A registry of partials and root attributes for the sidebar. No visible change | None; it does nothing until something registers | Candidate |
+| `feature/modern-skin` | `feature/view-overrides` + `feature/sidebar-slots` | Skin stylesheet, sign-in override, color mode, preview | `feature_modern_skin`, off | Offer after review |
 | `feature/theme-palette` | `feature/modern-skin` | Theme columns, generator, new theme page | `feature_theme_palette`, off | Candidate |
 
 `feature/theme-palette` sits on the skin branch only because both edit `_theme_styles`. The generator doesn't call the skin, and it works on the old look too, so it can be split out if upstream wants the palette alone.
@@ -71,12 +74,11 @@ Layers 1 and 2 ship first, with fixed light and dark palettes. Layer 3 waits unt
 |---|---|---|
 | `package.json` | modern-skin | A second Sass target in `build:css:compile` |
 | `app/views/layouts/_theme_styles.html.erb` | modern-skin, theme-palette | Skin link, color mode script, palette output |
-| `app/views/layouts/_sidebar.html.erb` | modern-skin | One line that renders the color mode control |
 | `app/views/theme/edit.html.erb` | theme-palette | Renders the new choices when the flag is on |
 | `app/controllers/theme_controller.rb` | theme-palette | Permitted fields |
 | `config/routes.rb` | modern-skin, theme-palette | Color mode, preview and theme preview routes |
 
-All other work goes in new files and `config/initializers/`. Layouts aren't edited, because `_theme_styles` is already in the head of the three layouts that matter.
+All other work goes in new files and `config/initializers/`. Layouts aren't edited, because `_theme_styles` is already in the head of the layouts that matter. The color mode control and the preview note register in the sidebar slots seam (`feature/sidebar-slots`), so this branch doesn't edit `_sidebar`, and they still appear when My GatherPack replaces the sidebar.
 
 ## 5. Template overrides (`feature/view-overrides`)
 
@@ -191,13 +193,13 @@ One reversible migration: `users.color_mode`, a nullable string (`light`, `dark`
 `_theme_styles` adds a small inline script in the head, so the page never flashes the wrong mode:
 
 ```erb
-<script>
+<%= javascript_tag nonce: true do %>
   (function () {
     var saved = <%= raw json_escape(color_mode_for_page.to_json) %>;
     var mode = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     document.documentElement.setAttribute("data-bs-theme", mode);
   })();
-</script>
+<% end %>
 ```
 
 Written only when the skin is active. `color_mode_for_page` returns `"light"` on the kiosk, otherwise the real user's choice (`true_user`, so impersonating doesn't change an admin's mode), or null. `<html>` survives Turbo visits, so the attribute persists between pages. A Stimulus controller follows device changes while the mode is Auto.
@@ -205,12 +207,13 @@ Written only when the skin is active. `color_mode_for_page` returns `"light"` on
 ### 7.3 Rules
 
 - **Signed out:** Auto.
-- **Kiosk:** always light. It's a shared device, and its mode shouldn't change with the time of day.
+- **Kiosk and intake kiosk:** always light. They're shared devices, and their mode shouldn't change with the time of day.
+- **Intake public pages:** Auto, the same as any signed-out page.
 - **Print:** always light (§6.4).
 
 ### 7.4 Control
 
-Three small buttons, Light, Dark and Auto, at the bottom of the sidebar. The partial is `layouts/_color_mode`, rendered by the one-line sidebar edit, and renders nothing when the skin is off. A click applies the mode at once and saves it with `PATCH /color_mode`.
+Three small buttons, Light, Dark and Auto, at the bottom of the sidebar. The partial is `layouts/_color_mode`, registered in the sidebar slots, and renders nothing when the skin is off. A click applies the mode at once and saves it with `PATCH /color_mode`.
 
 `ColorModesController < InternalController` updates only `current_user`, or `true_user` when impersonating. It uses `update_columns`, because this is a display preference and shouldn't fire `users - update` hooks or add audit rows.
 
@@ -321,9 +324,6 @@ The other Devise pages get the new layout without their own overrides. The Doork
 5. **Contrast warnings don't block saving.** The warning sits above Save, with no alert at the top of the page. An admin may have reasons, and the advanced fields can break contrast anyway.
 6. **Old CSS variables aren't migrated.** There's no reliable automatic mapping from free text to choices. Review them when switching a site over.
 7. **Overrides are checked on integration, not in unit tests.** Only integration has the original the override actually replaces.
-
-## 13. Open questions
-
-1. **Stored Pages and widgets in dark mode.** Is a light panel on a dark page acceptable if the audit finds too many to fix? Default: yes.
-2. **"Powered by GatherPack" on the sign-in page.** Default: keep it, smaller and muted.
-3. **Fonts offered on the theme page.** Default: System, Inter and one serif. Each extra font adds a local file.
+8. **Stored Pages and widgets in dark mode.** If the audit finds too many to fix, they show as a light panel on a dark page.
+9. **"Powered by GatherPack" stays on the sign-in page,** smaller and muted.
+10. **Fonts on the theme page:** System, Inter and one serif. Each extra font adds a local file.
