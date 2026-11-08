@@ -4,7 +4,8 @@
 # place Ben works on her behalf. Paula (parent1) sees Kate's family's Youth
 # Family Shifts, but not her Fall Fair Setup place for Kate: she isn't in
 # that sheet's audience, and the card only lists sign-ups on sheets the
-# person may see.
+# person may see. With checklists on (a later layer, or a second load), a
+# commitment wrapped in a checklist is listed as that checklist instead.
 Hbr::SampleData.feature "feature/signups-widget" do |s|
   ella = SignupsSummary.new(s.login(:member).user)
   paula = SignupsSummary.new(s.login(:parent1).user)
@@ -13,7 +14,8 @@ Hbr::SampleData.feature "feature/signups-widget" do |s|
     ella.signups.any? { |signup| signup.event.name == "Spring Workday" && signup.person == s.person("Ben") && signup.on_behalf_of == s.person("Ella") }
   end
   s.expect("Paula sees Kate's family's Youth Family Shifts") do
-    paula.commitments.any? { |item| item.progress.commitment.title == "Youth Family Shifts" }
+    paula.commitments.any? { |item| item.progress.commitment.title == "Youth Family Shifts" } ||
+      paula.checklists.any? { |entry| entry.checklist.title == "Youth Family Shifts" }
   end
   s.expect("Paula doesn't see her place on a sheet outside her audience") do
     paula.signups.none? { |signup| signup.event.name == "Fall Fair Setup" }
