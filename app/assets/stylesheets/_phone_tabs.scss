@@ -84,6 +84,11 @@ body:has(.phone-tabs) {
       padding: 0.625rem;
     }
 
+    // FullCalendar's toolbar buttons.
+    .fc .fc-toolbar .fc-button {
+      min-height: 44px;
+    }
+
     .sidebar .impersonation-banner .btn {
       min-height: 44px;
     }
