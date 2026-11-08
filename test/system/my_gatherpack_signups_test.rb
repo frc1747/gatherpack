@@ -15,6 +15,8 @@ class MyGatherpackSignupsSystemTest < ApplicationSystemTestCase
     Capybara.always_include_port = true
     travel_to Time.zone.parse("2026-10-20 09:00")
     turn_on_my_gatherpack
+    # SignupsWorld set this in a store turn_on_my_gatherpack replaced.
+    Settings[:feature_signups] = "true"
     build_signups_world
   end
 

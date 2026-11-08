@@ -22,9 +22,20 @@ class MyGatherpackSignupsTest < ActionDispatch::IntegrationTest
     host! "localhost"
     travel_to Time.zone.parse("2026-10-20 09:00")
     turn_on_my_gatherpack
+    # SignupsWorld set this in a store turn_on_my_gatherpack replaced.
+    Settings[:feature_signups] = "true"
     build_signups_world
     @sheet = create_world_sheet
     @cashier = @sheet.signup_positions.create!(name: "Cashier", capacity: 5)
+  end
+
+  # Sets a setting in the current store for a block, then puts it back.
+  def with_flag(key, value)
+    previous = Settings[key]
+    Settings[key] = value
+    yield
+  ensure
+    Settings[key] = previous.to_s
   end
 
   teardown do
@@ -41,15 +52,25 @@ class MyGatherpackSignupsTest < ActionDispatch::IntegrationTest
     assert_select "[data-home-column=coming_up] .mg-row-title a[href=?]", signup_sheet_path(@sheet), text: "Cashier"
     assert_select ".mg-row-detail", text: /10:00 AM · Snack Stand/
     assert_select ".mg-row-ward", false
+    assert_select ".badge", text: "Signed up"
   end
 
-  test "hides with the sign-ups flag, the home flag, and with nothing to show" do
+  test "hides with the sign-ups flag, with the home flag, and with nothing to show" do
     create_world_signup(@cashier, :worker)
     sign_in person(:worker).user
 
-    with_settings(feature_signups: "false") do
+    get root_path
+    assert_select "[data-home-column=coming_up] .mg-row-title a", text: "Cashier"
+
+    with_flag(:feature_signups, "false") do
       get root_path
       assert_no_match "Cashier", response.body
+    end
+
+    with_flag(:feature_my_gatherpack, "false") do
+      get root_path
+      assert_select ".mg-home", false
+      assert_select ".signups-summary"
     end
 
     sign_in person(:student2).user
@@ -71,6 +92,43 @@ class MyGatherpackSignupsTest < ActionDispatch::IntegrationTest
     assert_select ".mg-row-detail", text: /StudentTwo World/
     assert_select ".mg-row-detail", text: /Student World/, count: 0
     assert_no_match(/guardian/i, response.body)
+  end
+
+  test "a ward covering for another ward: the row names that ward and the one working" do
+    create_world_signup(@cashier, :student, signed_up_by: person(:parent), on_behalf_of: person(:student2))
+    Membership.create!(person: person(:parent), team: @club)
+    WardsStandIn.wards = [ person(:student), person(:student2) ]
+    sign_in person(:parent).user
+
+    get root_path
+
+    assert_select ".mg-row-ward", count: 1, text: "for StudentTwo"
+    assert_select ".mg-row-detail", text: /Student World · .*on behalf of StudentTwo World/
+  end
+
+  test "a place that counts for the viewer isn't labelled as a ward's" do
+    create_world_signup(@cashier, :student, on_behalf_of: person(:parent))
+    Membership.create!(person: person(:parent), team: @club)
+    WardsStandIn.wards = [ person(:student) ]
+    sign_in person(:parent).user
+
+    get root_path
+
+    assert_select ".mg-row-title a", text: "Cashier"
+    assert_select ".mg-row-ward", false
+    assert_select ".mg-row-detail", text: /Taken for you by Student World/
+  end
+
+  test "a place the viewer made for a ward on the viewer's behalf names the ward, not the viewer" do
+    create_world_signup(@cashier, :student, signed_up_by: person(:parent), on_behalf_of: person(:parent))
+    Membership.create!(person: person(:parent), team: @club)
+    WardsStandIn.wards = [ person(:student) ]
+    sign_in person(:parent).user
+
+    get root_path
+
+    assert_select ".mg-row-ward", false
+    assert_select ".mg-row-detail", text: /Student World · On your behalf/
   end
 
   test "rows match the dashboard card for the same person" do
@@ -102,14 +160,12 @@ class MyGatherpackSignupsTest < ActionDispatch::IntegrationTest
   end
 
   test "an organizer gets Manage with Sign-ups; a member does not" do
-    with_organizer_grants("Sheet Organizer > Club") do
-      assert MyGatherpack::Menu.new(person(:worker).user).manage.any? { |item| item.path == :signup_sheets_path }
-      assert_empty MyGatherpack::Menu.new(person(:student).user).manage
-    end
-    with_organizer_grants("Sheet Organizer > Club") do
-      with_settings(feature_signups: "false") do
-        assert_empty MyGatherpack::Menu.new(person(:worker).user).manage
-      end
+    Settings[:signups_organizers] = "Sheet Organizer > Club"
+
+    assert MyGatherpack::Menu.new(person(:worker).user).manage.any? { |item| item.path == :signup_sheets_path }
+    assert_empty MyGatherpack::Menu.new(person(:student).user).manage
+    with_flag(:feature_signups, "false") do
+      assert_empty MyGatherpack::Menu.new(person(:worker).user).manage
     end
   end
 end
