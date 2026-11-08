@@ -1,0 +1,74 @@
+<% if GatherPack::Features.enabled?(:installable_app) %>
+// Caches digested assets and the offline page, nothing else. Signed-in pages,
+// Turbo Frame requests, JSON and Active Storage files are never stored.
+const VERSION = "<%= GatherPack::ServiceWorker.version %>"
+const ASSETS = `assets-${VERSION}`
+const OFFLINE = `offline-${VERSION}`
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(OFFLINE).then((cache) => cache.add("/offline.html")))
+})
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== ASSETS && key !== OFFLINE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  )
+})
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request
+  const url = new URL(request.url)
+
+  if (request.method !== "GET" || url.origin !== self.location.origin) return
+
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      caches.open(ASSETS).then((cache) =>
+        cache.match(request).then((cached) => cached || fetch(request).then((response) => {
+          if (response.ok) cache.put(request, response.clone())
+          return response
+        }))
+      )
+    )
+  } else if (request.mode === "navigate") {
+    event.respondWith(fetch(request).catch(() => caches.match("/offline.html")))
+  }
+})
+<% if GatherPack::PushChannel.available? %>
+
+// A notification carries only a title and a local path.
+self.addEventListener("push", (event) => {
+  const { title, path } = event.data.json()
+  event.waitUntil(self.registration.showNotification(title, { data: { path } }))
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+
+  const url = new URL(event.notification.data?.path || "/", self.location.origin)
+  const target = url.origin === self.location.origin ? url.href : `${self.location.origin}/`
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((windows) => {
+      const existing = windows[0]
+      if (!existing) return self.clients.openWindow(target)
+      return existing.focus().then((focused) => focused.navigate(target))
+    })
+  )
+})
+<% end %>
+<% else %>
+// The installable app feature is off. Remove everything this worker stored and
+// then remove the worker itself.
+self.addEventListener("install", () => self.skipWaiting())
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.registration.unregister())
+  )
+})
+<% end %>

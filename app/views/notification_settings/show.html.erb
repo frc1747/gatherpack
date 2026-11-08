@@ -1,0 +1,58 @@
+<% breadcrumb :notifications %>
+
+<div class="card mb-3" data-controller="push-notifications"
+     data-push-notifications-url-value="<%= push_subscription_path %>"
+     data-push-notifications-public-key-value="<%= @gateway&.public_key %>">
+  <div class="card-header">
+    <h1>Notifications</h1>
+  </div>
+  <div class="card-body">
+    <% if @gateway %>
+      <div class="form-check form-switch">
+        <input type="checkbox" class="form-check-input" role="switch" id="push_this_device" disabled
+               data-push-notifications-target="toggle" data-action="push-notifications#toggle">
+        <label class="form-check-label" for="push_this_device">Notify me on this phone</label>
+      </div>
+      <p class="text-body-secondary small mb-0">Email reminders keep coming either way.</p>
+      <p class="mt-2 mb-0" hidden data-push-notifications-target="iphone">On an iPhone? Add the app to your Home Screen first. In Safari, tap Share, then Add to Home Screen.</p>
+      <p class="mt-2 mb-0" hidden data-push-notifications-target="blocked">Notifications are blocked for this site. You can turn them on in your browser's settings.</p>
+      <p class="mt-2 mb-0" hidden data-push-notifications-target="unsupported">This browser can't receive notifications.</p>
+      <p class="mt-2 mb-0 text-danger" hidden data-push-notifications-target="problem">That didn't work. Try again.</p>
+    <% else %>
+      <p class="mb-0">Phone notifications aren't set up yet.</p>
+    <% end %>
+  </div>
+</div>
+
+<%= form_with url: notifications_path, method: :patch, class: "card mb-3", data: { controller: "push-topics" } do %>
+  <div class="card-header">
+    <h2>Tell me about</h2>
+  </div>
+  <div class="card-body">
+    <% @topics.each do |topic| %>
+      <div class="form-check form-switch mb-2">
+        <%= check_box_tag "topics[]", topic.key, @enabled_topics.include?(topic.key), id: "topic_#{topic.key}", role: "switch", class: "form-check-input", data: { action: "push-topics#submit" } %>
+        <%= label_tag "topic_#{topic.key}", topic.label, class: "form-check-label" %>
+        <% if topic.hint.present? %>
+          <div class="text-body-secondary small"><%= topic.hint %></div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
+<% if @other_devices.any? %>
+  <div class="card">
+    <div class="card-header">
+      <h2>Your other devices</h2>
+    </div>
+    <ul class="list-group list-group-flush">
+      <% @other_devices.each do |device| %>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span><%= device.device_label.presence || "Unknown device" %></span>
+          <%= button_to "Remove", push_subscription_path(id: device), method: :delete, class: "btn btn-sm btn-outline-danger" %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

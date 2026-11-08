@@ -225,6 +225,15 @@ Rails.application.routes.draw do
 
   mount MissionControl::Jobs::Engine, at: "/jobs"
 
+  # Phone notifications
+  resource :notifications, only: %i[show update], controller: "notification_settings"
+  resource :push_subscription, only: %i[create destroy] do
+    post "sync"
+  end
+  resources :gateways, only: [] do
+    resource :push_keys, only: %i[edit update]
+  end
+
   get "up" => "rails/health#show", :as => :rails_health_check
   get "service-worker" => "rails/pwa#service_worker", :as => :pwa_service_worker
   get "manifest" => "rails/pwa#manifest", :as => :pwa_manifest

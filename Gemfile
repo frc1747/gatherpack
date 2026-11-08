@@ -145,3 +145,6 @@ gem "redcarpet", "~> 3"
 gem "overmind", "~> 2"
 
 gem "herb", "~> 0.11.0"
+
+# Phone notifications (Web Push)
+gem "web-push", "~> 3.1"
