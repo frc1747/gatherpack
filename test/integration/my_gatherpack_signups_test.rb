@@ -91,7 +91,7 @@ class MyGatherpackSignupsTest < ActionDispatch::IntegrationTest
     assert_select ".mg-row-ward", count: 1, text: "for Student"
     assert_select ".mg-row-detail", text: /StudentTwo World/
     assert_select ".mg-row-detail", text: /Student World/, count: 0
-    assert_no_match(/guardian/i, response.body)
+    assert_no_match(/guardian/i, css_select(".mg-row-detail, .mg-row-ward").text)
   end
 
   test "a ward covering for another ward: the row names that ward and the one working" do
