@@ -14,6 +14,12 @@ class TimeClockPeriodPolicy < ApplicationPolicy
     Scope.new(user, TimeClockPeriod).resolve.exists?(record.id)
   end
 
+  # Ending punches at the kiosk doesn't change the period, so its "added by" permission
+  # doesn't apply: an admin, or a manager of its team, whatever the period's permission.
+  def punch_out?
+    user.admin? || manages?(record.team)
+  end
+
   def new?
     person.manager?
   end

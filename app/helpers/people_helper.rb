@@ -30,7 +30,7 @@ module PeopleHelper
   end
 
   def avatar_shown?(avatar)
-    avatar.attached? && avatar.variable? && avatar.blob.persisted?
+    avatar.present? && avatar.attached? && avatar.variable? && avatar.blob.persisted?
   end
 
   def get_joinable_teams(person, current_user)

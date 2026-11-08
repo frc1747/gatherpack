@@ -52,7 +52,8 @@ class SignupEventPanelTest < ActionDispatch::IntegrationTest
 
     get event_path(@event)
 
-    assert_response :success
+    # Another team's event isn't theirs to open, panel and all.
+    assert_response :not_found
     assert_select "#event_signups", count: 0
   end
 

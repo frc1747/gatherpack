@@ -53,6 +53,21 @@ class TimeClockPeriodPolicyTest < ActiveSupport::TestCase
     assert_not TimeClockPeriodPolicy.new(@member_user, period(@robotics, "added_by_team_member")).create?
   end
 
+  test "punch_out? is for admins and managers of the period's team, whatever its permission" do
+    admin_only = TimeClockPeriod.new(team: @robotics, permission: :added_by_admin)
+    sub_team = TimeClockPeriod.new(team: @robotics_jr, permission: :added_by_admin)
+    other_team = TimeClockPeriod.new(team: @drama, permission: :added_by_manager)
+    no_team = TimeClockPeriod.new(team: nil, permission: :added_by_user)
+
+    assert TimeClockPeriodPolicy.new(@manager_user, admin_only).punch_out?
+    assert TimeClockPeriodPolicy.new(@manager_user, sub_team).punch_out?
+    assert_not TimeClockPeriodPolicy.new(@manager_user, other_team).punch_out?
+    assert_not TimeClockPeriodPolicy.new(@manager_user, no_team).punch_out?
+    assert_not TimeClockPeriodPolicy.new(@member_user, admin_only).punch_out?
+    assert TimeClockPeriodPolicy.new(@admin_user, no_team).punch_out?
+    assert TimeClockPeriodPolicy.new(@admin_user, other_team).punch_out?
+  end
+
   private
 
   def period(team, permission = "added_by_manager")

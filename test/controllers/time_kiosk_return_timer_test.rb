@@ -11,7 +11,9 @@ class TimeKioskReturnTimerTest < ActionDispatch::IntegrationTest
     @token = Token.create!(value: "100000001", tokenable: @member)
     @unassigned_token = Token.create!(value: "100000002")
 
-    sign_in create_person("kiosk@example.com").user
+    kiosk_user = create_person("kiosk@example.com").user
+    kiosk_user.update!(kiosk: true)
+    sign_in kiosk_user
   end
 
   test "the profile shows the timer with the configured seconds" do

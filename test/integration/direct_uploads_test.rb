@@ -71,7 +71,7 @@ class DirectUploadsTest < ActionDispatch::IntegrationTest
     end
     fresh = ActiveStorage::Blob.create_and_upload!(io: StringIO.new(BODY), filename: "fresh.pdf")
     ledger_entries(:one).receipts.attach(attached)
-    command = YAML.load_file(Rails.root.join("config/recurring.yml")).dig("purge_unattached_blobs", "command")
+    command = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/recurring.yml")).dig("purge_unattached_blobs", "command")
     assert command, "no recurring task purges unattached blobs"
 
     perform_enqueued_jobs { SolidQueue::RecurringJob.perform_now(command) }

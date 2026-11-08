@@ -28,7 +28,7 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
     call_tool("record_punch", user: user(viewer), **arguments)
   end
 
-  test "an admin records for anyone in any period, and gets the punch back as list_punches shows it" do
+  test "an admin records for anyone, and gets the punch back as list_punches shows it" do
     result = record(:admin, :beta_member, period: @beta_period, ends_at: ENDS, note: "From paper")
 
     punch = result.changed
@@ -56,7 +56,7 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
   end
 
   test "a manager can't record in an added by admin period, or for someone on another team" do
-    assert_refused(/\ANot allowed: Time clock period does not meet/, TimeClockPunch, AuditLog) { record(:alpha_manager, :ward, period: @alpha_period) }
+    assert_refused("Not allowed", TimeClockPunch, AuditLog) { record(:alpha_manager, :ward, period: @alpha_period) }
     assert_refused("Not found", TimeClockPunch, AuditLog) { record(:alpha_manager, :beta_member) }
   end
 
@@ -89,6 +89,16 @@ class Mcp::Tools::RecordPunchTest < ActionDispatch::IntegrationTest
 
     assert page
     assert_equal page, tool
+  end
+
+  test "a period's permission applies to an admin too: added by team member needs a member of its team" do
+    period = period_with(:added_by_team_member, @beta, "Beta Members")
+
+    assert_refused(/\ANot allowed: Time clock period does not meet/, TimeClockPunch, AuditLog) { record(:admin, :beta_member, period: period) }
+    page = page_changes_rows?(TimeClockPunch, as: user(:admin)) do
+      post time_clock_punches_path, params: { time_clock_punch: { person_id: person(:beta_member).id, time_clock_period_id: period.id, start_time: STARTS } }
+    end
+    assert_not page
   end
 
   test "a guardian records nothing" do

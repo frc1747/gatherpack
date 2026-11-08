@@ -9,7 +9,7 @@
       </div>
       <div class="col-6">
         <h3 class="display-3"><%= @person.identifier_name %></h3>
-        <% if @person.manager? %>
+        <% if @person.manager? && @person.user %>
           <div class="toolbox justify-content-around">
             <%= tool_modal_button "triangle-exclamation", "Manager", "btn-info", "managerModal" %>
           </div>
@@ -60,7 +60,7 @@
           <dl>
             <% @time_clocks.each do |period, hours| %>
               <dt class="fs-4">
-                <%= period.name %>
+                <%= period&.name || "No period" %>
               </dt>
               <dd class="fs-3 ms-3">
                 <%= hours.round(2) %>
@@ -91,7 +91,7 @@
               <div class="col">
                 <dl>
                   <dt class="fs-4">
-                    <%= punch.time_clock_period.name %>
+                    <%= punch.time_clock_period&.name || "No period" %>
                   </dt>
                   <dd class="fs-3 ms-3">
                     <%= punch.hours_so_far.round(2) %>
@@ -108,5 +108,6 @@
       </div>
     </div>
 
+    <%= render "time_kiosk/scan_panels", person: @person %>
   </div>
 </div>

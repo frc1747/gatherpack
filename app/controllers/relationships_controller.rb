@@ -11,8 +11,11 @@ class RelationshipsController < InternalController
     @relationship.node_occupant = @person
     @relationship.reify
     # The other side comes from the form by id, so like the person in the
-    # URL it must be someone the user can see.
-    [ @relationship.parent_id, @relationship.child_id ].compact.each { |id| policy_scope(Person).find(id) }
+    # URL it must be someone the user can see, or someone they are already
+    # related to (an adult giving a former guardian access again).
+    [ @relationship.parent_id, @relationship.child_id ].compact.each do |id|
+      policy_scope(Person).find_by(id: id) || related_people.find(id)
+    end
     authorize @relationship
     if @relationship.parent.present? && @relationship.child.present?
       if @relationship.save
@@ -43,6 +46,13 @@ class RelationshipsController < InternalController
   end
 
   private
+  # People on either side of a relationship with the signed-in person.
+  def related_people
+    me = current_user.person
+    Person.where(id: Relationship.where(child_id: me.id).select(:parent_id))
+      .or(Person.where(id: Relationship.where(parent_id: me.id).select(:child_id)))
+  end
+
   def set_person
     @person = policy_scope(Person).find(params[:person_id])
   end

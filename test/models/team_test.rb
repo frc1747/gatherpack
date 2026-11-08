@@ -35,6 +35,8 @@ class TeamTest < ActiveSupport::TestCase
     @den.parent = @patrol
     assert_not @den.valid?
     assert @den.errors.added?(:parent_id, :not_below_itself)
+  end
+
   def legacy_descendant_ids(team)
     team.children.flat_map { |child| [ child.id ] + legacy_descendant_ids(child) }
   end
