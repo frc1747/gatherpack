@@ -71,7 +71,7 @@ class ChecklistAttendanceAccessTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { ChecklistGrant.count } do
         post checklist_checklist_grants_path(@checklist), params: { checklist_grant: { team_id: @crew.id, access: "full", item_ids: [ @item.id ] } }
       end
-      assert_redirected_to checklist_path(@checklist, anchor: "setup")
+      assert_redirected_to edit_checklist_path(@checklist, anchor: "access")
       assert_equal "You can't grant access to Attendance; ask someone who can.", flash[:alert]
       assert_nil seen_by(person(:organizer)).summary
 
