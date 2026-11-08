@@ -129,7 +129,7 @@ The template asks a registry for sections:
 
 ```ruby
 MyGatherpack.register_section(:forms, partial: "my_gatherpack/forms_section", column: :todo, position: 10,
-  items: ->(user) { ... }, # required for :todo, so the heading counts them
+  items: -> { ... }, # runs in the view; required for :todo, so the heading counts them
   enabled: -> { GatherPack::Features.enabled?(:forms) })
 ```
 
