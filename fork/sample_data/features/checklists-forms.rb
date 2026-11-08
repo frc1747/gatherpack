@@ -5,7 +5,8 @@
 #   Kate is almost (waiting for Paula's signature), Olive is not yet (needs
 #   confirming again after a profile change). Nina, an applicant on no team,
 #   isn't asked by that form, so she is not yet and the checklist lists it
-#   as a problem.
+#   as a problem. Chloe has no guardian linked; an admin excused her (paper
+#   consent on file), so she stays eligible for the trip seat sign-ups use.
 # - "Trip medical release" reads Trip Medical Release, signed within the
 #   last 12 months. Its audience is "everyone Trip Eligibility covers", so
 #   Nina is asked too. Chloe has signed it; with forms expiry present it is
@@ -46,6 +47,10 @@ Hbr::SampleData.feature "feature/checklists-forms" do |s|
   consent_item = item.call("Parent consent", 6, { form_ids: [ consent.id ] })
   release_item = item.call("Trip medical release", 7, { form_ids: [ release.id ] }, starts_within_amount: 12, starts_within_unit: "months")
 
+  unless ChecklistExcuse.exists?(item: consent_item, person: chloe)
+    ChecklistExcuse.create!(item: consent_item, person: chloe, reason: "Paper consent on file", created_by: admin)
+  end
+
   Checklists::Refresher.new(checklist.reload, silent: true).call
   status = ->(record, first) { checklist.checklist_results.find_by(item: record, person: s.person(first))&.status }
   s.report "Trip Eligibility: Parent consent and Trip medical release items"
@@ -55,5 +60,6 @@ Hbr::SampleData.feature "feature/checklists-forms" do |s|
     status.call(consent_item, "Nina") == "not_met" && checklist.problems.any? { |problem| problem.include?("aren't asked Parent Consent") || problem.include?("isn't asked Parent Consent") }
   end
   s.expect("Nina is asked Trip Medical Release through the checklist") { release.reload.in_audience?(s.person("Nina")) }
+  s.expect("Chloe is excused from Parent consent") { status.call(consent_item, "Chloe") == "exempt" }
   s.expect("Chloe's medical release is done") { status.call(release_item, "Chloe") == "met" }
 end

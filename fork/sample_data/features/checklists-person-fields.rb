@@ -26,11 +26,12 @@ Hbr::SampleData.feature "feature/checklists-person-fields" do |s|
   item.call("Photo release", 6, { field_id: photo.id, operator: "yes" })
   item.call("Emergency contact", 7, { field_id: contact.id, operator: "filled_in", changed_since: { mode: "date", date: season_start.iso8601 } })
 
+  # Fills a blank field; a value another feature's sample data already set
+  # (person-fields gives Grace a contact) is kept. A given date is applied
+  # either way, so "changed since" sees the field as last changed then.
   fill = lambda do |first, field, value, changed_at = nil|
     person = s.person(first)
-    next if PersonFieldValue.exists?(person: person, person_field: field)
-
-    person.set_field_value(field, value)
+    person.set_field_value(field, value) unless PersonFieldValue.exists?(person: person, person_field: field)
     PersonFieldValue.where(person: person, person_field: field).update_all(updated_at: changed_at) if changed_at
   end
   fill.call("Chloe", photo, true)
