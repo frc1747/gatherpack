@@ -1,0 +1,24 @@
+<% breadcrumb :root %>
+<% content_for :title, "Family" %>
+<% content_for :head, stylesheet_link_tag("my_gatherpack_home") %>
+
+<div class="mg-home" data-family-page>
+  <header class="mg-home-header">
+    <h1 class="mg-greeting">Family</h1>
+  </header>
+
+  <%= render partial: "family/ward_card", collection: family_cards, as: :card %>
+
+  <% owed = family_owed_items %>
+  <% if owed.any? %>
+    <section class="mg-section" data-family-owed>
+      <h2 class="mg-heading">What your family owes</h2>
+      <div class="card mg-list">
+        <%= render partial: "my_gatherpack/todo_row", collection: owed, as: :item, locals: { first: false } %>
+      </div>
+      <% if GatherPack::Features.enabled?(:signups) %>
+        <p class="mt-2 mb-0"><%= link_to "See open shifts", signup_sheets_path %></p>
+      <% end %>
+    </section>
+  <% end %>
+</div>

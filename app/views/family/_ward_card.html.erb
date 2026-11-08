@@ -1,0 +1,48 @@
+<section class="mg-section" id="<%= dom_id card.ward, :family %>" data-family-ward>
+  <div class="card mg-list">
+    <div class="card-header">
+      <h2 class="h5 mb-0"><%= card.name %></h2>
+      <div class="mg-row-detail" data-family-status><%= family_card_heading(card) %></div>
+    </div>
+
+    <% if card.forms.any? %>
+      <div data-family-row="forms">
+        <h3 class="mg-heading px-3 pt-3">Forms</h3>
+        <% card.forms.each do |entry| %>
+          <%= render "my_gatherpack/todo_row", item: family_form_item(entry), first: false %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if card.signups.any? %>
+      <div data-family-row="signups">
+        <h3 class="mg-heading px-3 pt-3">Sign-ups</h3>
+        <% card.signups.each do |signup| %>
+          <%= render "my_gatherpack/signup_row", item: family_signup_item(signup) %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if card.checklists.any? %>
+      <div data-family-row="checklists">
+        <h3 class="mg-heading px-3 pt-3">Checklists</h3>
+        <% card.checklists.each do |checklist, status| %>
+          <%= render "my_gatherpack/todo_row", item: family_checklist_item(card, checklist, status), first: false %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if card.events.any? %>
+      <div data-family-row="events">
+        <h3 class="mg-heading px-3 pt-3">Upcoming events</h3>
+        <% card.events.each do |row| %>
+          <%= render "family/event_row", row: row %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if card.empty? %>
+      <p class="text-body-secondary m-3">Nothing to show yet.</p>
+    <% end %>
+  </div>
+</section>
