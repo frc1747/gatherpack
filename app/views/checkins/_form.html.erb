@@ -5,7 +5,7 @@
   <%= f.input :person_id, as: :searching_combobox, scope: "people", include_blank: false %>
   <%= f.input :notes %>
   <%= f.simple_fields_for :checkin_field_responses do |ff| %>
-    <% if ff.object.permission_check(current_user.person) %>
+    <% if ff.object.permission_check(current_user.person) && ff.object.checkin_field.readable_by?(current_user.person, f.object.person) %>
       <%= ff.hidden_field :checkin_field_id %>
       <%= ff.input :response, label: ff.object.checkin_field.name %>
     <% end %>

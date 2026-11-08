@@ -1,0 +1,16 @@
+<%# "Who this passes": counts by status with the first names each. %>
+<div>
+  <p class="mb-2"><%= preview.sentence %></p>
+  <% Checklists::STATUSES.each do |status| %>
+    <% next if preview.counts[status].zero? %>
+    <div class="mb-2">
+      <span class="badge <%= checklist_status_class(status) %>"><%= Checklists.word_for(status) %></span>
+      <strong><%= preview.counts[status] %></strong>
+      <div class="small text-body-secondary">
+        <%= preview.names[status].to_a.join(", ") %><%= ", …" if preview.counts[status] > preview.names[status].to_a.size %>
+      </div>
+    </div>
+  <% end %>
+  <% if preview.hidden.positive? %><p class="text-body-secondary"><%= pluralize(preview.hidden, "person") %> not shown: you can't see their answer.</p><% end %>
+  <% if preview.total.zero? && preview.hidden.zero? %><p class="text-body-secondary">Nobody is covered yet.</p><% end %>
+</div>
