@@ -121,7 +121,7 @@ Saves that move to another page (edit to show) stay as they are.
 
 | Risk | Handling |
 |---|---|
-| Icons: server `<i>` versus page `<svg>` on every morph, which could make every icon flash | A `turbo:before-morph-element` listener skips an existing `svg.svg-inline--fa` when the incoming element is an `<i>` with the same icon classes. **Test this first.** If it fails, morph doesn't ship |
+| Icons: server `<i>` versus page `<svg>` on every morph, which would remove and redraw every icon | On `turbo:before-render`, only when the render is a morph, pause it, run `FontAwesome.dom.i2svg` on the incoming body, then resume, so the morph compares `<svg>` to `<svg>`. Always resume, even if Font Awesome is missing or fails. A `turbo:before-morph-element` listener can't do this: Turbo never pairs elements with different tags. If this fails on a page, that page stays out of the opt-in list |
 | Calendar emptied by a morph | Put `data-turbo-permanent` on `#calendar` on pages that opt in. Otherwise leave them out of morph |
 | Stale permanent sidebar | See below |
 | Off-canvas left open on phones, with its backdrop gone | Close the off-canvas on `turbo:before-visit` |
@@ -359,7 +359,7 @@ Neither of these exists today, by email or otherwise. They send **email first**,
 2. **Fix frame links in place, as a bug fix with no flag.** It's a 30-line correction to how Turbo Frames should be used, with no change in where a link goes.
 3. **Morph is opt-in per page.** Morph can overwrite unsaved input and disturb scripts. Each page is tested before it's added.
 4. **The sidebar's id carries a digest of its contents.** That makes stale menus impossible, without having to find each thing that changes them.
-5. **Keep Font Awesome's SVG+JS build.** The icon picker depends on it. Handling it in morph is less risky than changing how every icon renders.
+5. **Keep Font Awesome's SVG+JS build.** The icon picker depends on it. Handling it in morph is less risky than changing how every icon renders. The icon check (2026-11-08) showed the skip listener can't work and converting incoming icons first keeps every icon in place.
 6. **No offline pages.** Cached pages could leave student and family information on shared devices, and keep showing things after access changes.
 7. **The service worker caches only digested assets and the offline page,** and the off switch ships in the first version.
 8. **Push keys live in a Gateway, not server config.** Same place admins set up email, with no deploy or restart. This changes the pitch's first idea.
