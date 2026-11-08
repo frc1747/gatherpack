@@ -26,7 +26,7 @@ The test is whether people can do these on their own phones without help:
 
 ### 1.1 Non-goals
 
-- New data or new permissions, except the two guardian additions in §7.3.
+- New data or new permissions, except the guardian addition in §7.3.
 - Replacing management screens. Rarely used admin pages stay desktop-first.
 - Native apps, install and notifications. Those are in [`app-feel-spec.md`](app-feel-spec.md).
 
@@ -58,7 +58,7 @@ Before building, watch three or four members and a guardian do the §1 tasks on 
 | `feature/nav-item-visible` | `upstream/main` | `NavItem` `visible` check. Upstream candidate, no flag needed; no item uses it yet |
 | `feature/my-gatherpack` | `feature/view-overrides` + `feature/nav-item-visible` + `feature/sidebar-slots` | Flag, override folder, section registry, menu, home, family page, phone screens that are upstream-only |
 | `feature/my-gatherpack-forms` | `feature/my-gatherpack` + `feature/forms` | Forms sections and the phone form |
-| `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups and commitments sections and the phone sheet |
+| `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups section and the phone sheet |
 | `feature/my-gatherpack-checklists` | `feature/my-gatherpack` + `feature/checklists` | To-do items, Your season and the family page rows, from checklists |
 | Small `feature/*` branches | `upstream/main` | One per cleanup item (§8), each with its own backlog entry |
 
@@ -245,7 +245,7 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 - **Role matrix for the menu.** Member, guardian, team manager, Forms creator, organizer, admin, and an impersonated member: each sees exactly the expected groups. An unknown item lands in More.
 - **Destinations are still guarded.** A member with no Manage section who requests a manager page gets what they get today.
 - **Home:** each section shows or hides by feature flag; empty state; sort order; the ward label; widget slots still render; nothing shown to one person leaks to another in a shared fixture world.
-- **Family:** no wards redirects; each ward shows only policy-allowed rows; an expired guardianship removes that ward's events and commitments; a ward's event shows title, time and place but no check-ins, and links only if the viewer can already reach it; a ward's team event doesn't appear in the guardian's events list or calendar.
+- **Family:** no wards redirects; each ward shows only policy-allowed rows; an expired guardianship removes that ward's events and checklists; a ward's event shows title, time and place but no check-ins, and links only if the viewer can already reach it; a ward's team event doesn't appear in the guardian's events list or calendar.
 - **Guardian visibility:** the family page shows a ward's checklist item only when that item's "who sees it" allows it; a non-guardian relative and a former guardian see nothing.
 - **Site title:** the sidebar brand, the phone header and the browser tab show `Settings[:title]`; the words "My GatherPack" appear in no rendered page.
 - **Query budget** (§6.3), as a measured check with the demo database, not a unit test.
