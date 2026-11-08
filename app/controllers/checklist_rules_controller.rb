@@ -8,7 +8,7 @@ class ChecklistRulesController < InternalController
     rule = authorize @checklist.checklist_rules.new(rule_params)
 
     if rule.valid? && needs_confirmation? && (impact = rule_impact(rule, :add)).any?
-      return render_impact(impact, url: checklist_checklist_rules_path(@checklist), method: :post,
+      return render_impact(impact, url: checklist_checklist_rules_path(@checklist), method: :post, cancel: setup_path(rule),
         fields: { checklist_rule: rule_params.to_h })
     end
 
@@ -24,7 +24,7 @@ class ChecklistRulesController < InternalController
     rule = authorize @checklist.checklist_rules.find(params[:id])
 
     if needs_confirmation? && (impact = rule_impact(rule, :remove)).any?
-      return render_impact(impact, url: checklist_checklist_rule_path(@checklist, rule), method: :delete)
+      return render_impact(impact, url: checklist_checklist_rule_path(@checklist, rule), method: :delete, cancel: setup_path(rule))
     end
 
     rule.destroy!
@@ -50,7 +50,7 @@ class ChecklistRulesController < InternalController
   end
 
   def setup_path(rule)
-    rule.item ? edit_checklist_checklist_item_path(@checklist, rule.item) : checklist_path(@checklist, anchor: "setup")
+    rule.item ? edit_checklist_checklist_item_path(@checklist, rule.item) : checklist_section_path("covers")
   end
 
   def rule_params
