@@ -135,7 +135,7 @@ Start from `notes/reskin-proof/skin-proof.css` and `skin-proof-dark.css`, which 
 
 | Token | Light | Dark | Used for |
 |---|---|---|---|
-| `--gp-brand` | `#1f8a3b` | Lightened until it passes on `--gp-surface` | Actions, links, focus |
+| `--gp-brand` | `#1f883a` (white text reaches 4.5:1) | Lightened until it passes on `--gp-surface` | Actions, links, focus |
 | `--gp-brand-rgb` | matching triplet | matching triplet | `--bs-primary-rgb`, `--bs-link-color-rgb` |
 | `--gp-brand-hover`, `--gp-brand-soft` | derived | derived | Hover, tints |
 | `--gp-on-brand` | `#fff` | chosen for contrast | Text on brand color |
