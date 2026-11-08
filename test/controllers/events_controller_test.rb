@@ -157,6 +157,49 @@ class EventsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "destroy removes an event with check-ins and their field responses" do
+    sign_in @admin_user
+    event = events(:one)
+    checkin = checkins(:one)
+    response = checkin_field_responses(:one)
+
+    assert_difference -> { Event.count }, -1 do
+      delete event_url(event)
+    end
+
+    assert_redirected_to calendar_index_url
+    assert_not Checkin.exists?(checkin.id)
+    assert_not CheckinFieldResponse.exists?(response.id)
+    assert AuditLog.exists?(item_type: "Checkin", item_id: checkin.id, event: "destroy")
+  end
+
+  test "delete confirm states the number of check-ins" do
+    sign_in @admin_user
+    get event_url(events(:one))
+
+    assert_response :success
+    assert_select "a[data-turbo-confirm=?]", "Delete this event and its 1 check-in?"
+  end
+
+  test "delete confirm pluralizes the number of check-ins" do
+    sign_in @admin_user
+    other = Person.create!(first_name: "Pat", last_name: "Plural")
+    Checkin.create!(event: events(:one), person: other, created_by: users(:one))
+
+    get event_url(events(:one))
+
+    assert_select "a[data-turbo-confirm=?]", "Delete this event and its 2 check-ins?"
+  end
+
+  test "delete confirm stays generic without check-ins" do
+    sign_in @admin_user
+    events(:one).checkins.destroy_all
+
+    get event_url(events(:one))
+
+    assert_select "a[data-turbo-confirm=?]", "Are you sure?"
+  end
+
   private
 
   def create_user(name, team: nil, manager: false, admin: false)
