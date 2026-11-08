@@ -51,6 +51,12 @@ class LocalAssetsTest < ActionDispatch::IntegrationTest
     assert_nil call.("/robots.txt")
     assert_nil call.("/404.html")
     assert_nil call.("/assets/missing.css")
+    assert_nil call.("/assets/fonts.css")
+    assert_nil call.("/assets/../robots.txt")
+    assert_nil call.("/assets/%2e%2e/robots.txt")
+    assert_nil call.("/assets/%2E%2E/robots.txt")
+    assert_nil call.("/assets/./fonts-1a2b3c4d.css")
+    assert_nil call.("/assets/x/../fonts-1a2b3c4d.css")
   end
 
   test "the middleware is added first in production only" do
