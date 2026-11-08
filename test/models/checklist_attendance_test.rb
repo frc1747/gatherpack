@@ -118,20 +118,22 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
   end
 
   test "meetings at the edges of the dates count by the day in the time zone" do
-    Time.use_zone("America/New_York") do
-      inside_end = meeting("2027-04-30", "18:00", "21:00")
-      meeting("2026-04-30", "20:00", "22:00")
-      summer_edge = meeting("2026-08-31", "19:00", "21:00")
-      punch_at(:member, inside_end)
-      punch_at(:member, summer_edge)
-      item = attendance([ { name: "Summer", starts_on: "2026-05-01", ends_on: "2026-08-31", share: "50" },
-        { name: "Spring", starts_on: "2027-01-01", ends_on: "2027-04-30", share: "50" } ])
+    with_settings(time_zone: "America/New_York") do
+      Time.use_zone("America/New_York") do
+        inside_end = meeting("2027-04-30", "18:00", "21:00")
+        meeting("2026-04-30", "20:00", "22:00")
+        summer_edge = meeting("2026-08-31", "19:00", "21:00")
+        punch_at(:member, inside_end)
+        punch_at(:member, summer_edge)
+        item = attendance([ { name: "Summer", starts_on: "2026-05-01", ends_on: "2026-08-31", share: "50" },
+          { name: "Spring", starts_on: "2027-01-01", ends_on: "2027-04-30", share: "50" } ])
 
-      travel_to Time.zone.parse("2027-05-02 12:00") do
-        result = evaluate(@checklist, :member, item)
-        assert_equal 2, result.measures["held"], "the last day's evening meeting counts; the evening before the start doesn't"
-        assert_equal "met", result.status
-        assert_equal "✓ Summer: 100% of 2 h (needs 50%); ✓ Spring: 100% of 3 h (needs 50%)", result.detail
+        travel_to Time.zone.parse("2027-05-02 12:00") do
+          result = evaluate(@checklist, :member, item)
+          assert_equal 2, result.measures["held"], "the last day's evening meeting counts; the evening before the start doesn't"
+          assert_equal "met", result.status
+          assert_equal "✓ Summer: 100% of 2 h (needs 50%); ✓ Spring: 100% of 3 h (needs 50%)", result.detail
+        end
       end
     end
   end
