@@ -15,6 +15,8 @@ Rails.application.config.to_prepare do
     active: ->(_controller) { MyGatherpack.enabled? }
   )
 
+  GatherPack::SidebarSlots.fingerprint(:my_gatherpack) { my_gatherpack_sidebar_fingerprint }
+
   # Where each nav item goes, by path helper. Anything else lands in More.
   MyGatherpack::Menu.table = {
     forms_path: { top: 10 },

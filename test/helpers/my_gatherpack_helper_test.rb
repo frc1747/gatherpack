@@ -46,4 +46,21 @@ class MyGatherpackHelperTest < ActionView::TestCase
     assert_equal view.render(inline: ORIGINAL_TITLE), view.render(inline: HELPER_TITLE)
     assert_includes view.render(inline: HELPER_TITLE), "Events &amp; Things"
   end
+
+  test "the sidebar fingerprint changes with the site title and is registered" do
+    user = create_login("Sam")
+    view.define_singleton_method(:current_user) { user }
+    before = view.my_gatherpack_sidebar_fingerprint
+
+    Settings[:title] = "Another Site"
+
+    assert_not_equal before, view.my_gatherpack_sidebar_fingerprint
+    assert_includes GatherPack::SidebarSlots.instance_variable_get(:@fingerprints).keys, :my_gatherpack
+  end
+
+  test "the sidebar fingerprint is empty with the flag off" do
+    Settings[:feature_my_gatherpack] = "false"
+
+    assert_nil view.my_gatherpack_sidebar_fingerprint
+  end
 end
