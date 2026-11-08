@@ -8,6 +8,9 @@ class RemoveCutoffOnFromChecklists < ActiveRecord::Migration[8.1]
       WHERE cutoff_on IS NOT NULL AND (ends_on IS NULL OR cutoff_on < ends_on)
         AND (starts_on IS NULL OR cutoff_on >= starts_on)
     SQL
+    # What's stored was computed live, not at the end of Until: start over,
+    # so the next run stores real end-of-day answers.
+    execute "UPDATE checklists SET computed_at = NULL, next_refresh_at = NULL WHERE ends_on IS NOT NULL"
     remove_column :checklists, :cutoff_on
   end
 

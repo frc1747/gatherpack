@@ -8,8 +8,9 @@ module Checklists
     attr_reader :checklist, :viewer
 
     # as_of computes live as of that date, storing nothing (organizers' "as
-    # of" picker). pinned passes on that a frozen checklist is the one
-    # reading (Context#pinned?).
+    # of" picker), except where the checklist's frozen results are that
+    # answer. pinned passes on that a frozen checklist is the one reading
+    # (Context#pinned?).
     def initialize(checklist, viewer, as_of: nil, pinned: false)
       @checklist = checklist
       @viewer = viewer
@@ -62,7 +63,7 @@ module Checklists
     # live Result-backed stand-ins, for the covered people among ids.
     def rows_for(ids)
       return {} if ids.empty?
-      return live_rows(ids, Evaluator.new(checklist, as_of: @as_of.in_time_zone.end_of_day, pinned: @pinned).call(ids)) if @as_of
+      return live_rows(ids, Evaluator.new(checklist, as_of: @as_of.in_time_zone.end_of_day, pinned: @pinned).call(ids)) if @as_of && !checklist.reads_stored_as_of?(@as_of)
 
       stored = ChecklistResult.where(checklist_id: checklist.id, person_id: ids).to_a.group_by(&:person_id)
       missing = ids - stored.select { |_, rows| rows.any? { |row| row.item_id.nil? } }.keys

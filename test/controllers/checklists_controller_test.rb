@@ -288,6 +288,66 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "only organizers are told to Recompute a frozen checklist" do
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
+      travel_to(Time.zone.parse("2026-12-02 00:10")) { refresh(@checklist) }
+
+      travel_to(Time.zone.parse("2026-12-05")) do
+        sign_in person(:member).user
+        get checklist_path(@checklist)
+        assert_response :success
+        assert_match "Results are frozen.", response.body
+        assert_no_match "Recompute", response.body
+      end
+    end
+  end
+
+  test "a change to a frozen checklist skips the impact check, and a rule says when it applies" do
+    sign_in person(:admin).user
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
+      travel_to(Time.zone.parse("2026-12-02 00:10")) { refresh(@checklist) }
+
+      travel_to(Time.zone.parse("2026-12-05")) do
+        before = ChecklistResult.where(checklist: @checklist).order(:id).pluck(:id, :status, :computed_at)
+
+        post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
+        assert_redirected_to edit_checklist_path(@checklist, anchor: "covers")
+        assert_equal "Rule added. It applies when you Recompute.", flash[:notice]
+        rule = @checklist.checklist_rules.find_by!(person: person(:member))
+
+        delete checklist_checklist_rule_path(@checklist, rule)
+        assert_equal "Rule removed. It applies when you Recompute.", flash[:notice]
+        assert_not ChecklistRule.exists?(rule.id)
+
+        patch checklist_checklist_item_path(@checklist, @safety_item), params: { checklist_item: { label: "Renamed", config: { badge_ids: [ @viewer_badge.id ] } } }
+        assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
+        assert_equal [ @viewer_badge.id ], @safety_item.reload.config["badge_ids"]
+
+        assert_equal before, ChecklistResult.where(checklist: @checklist).order(:id).pluck(:id, :status, :computed_at)
+      end
+    end
+  end
+
+  test "the as-of picker says when it shows a frozen checklist's stored results" do
+    sign_in person(:admin).user
+    with_feature do
+      @checklist.update!(ends_on: Date.new(2026, 12, 1))
+      travel_to(Time.zone.parse("2026-12-02 00:10")) { refresh(@checklist) }
+
+      travel_to(Time.zone.parse("2026-12-05")) do
+        Membership.where(person: person(:member)).destroy_all
+        get checklist_path(@checklist, as_of: "2026-12-01")
+        assert_match "The frozen results, as of December 01, 2026.", response.body
+        assert_match person(:member).display_name, response.body
+
+        get checklist_path(@checklist, as_of: "2026-11-15")
+        assert_match "Computed as of November 15, 2026; nothing is saved.", response.body
+      end
+    end
+  end
+
   test "the page says an ended checklist is frozen, and Recompute applies corrections" do
     sign_in person(:admin).user
     with_feature do
@@ -302,7 +362,8 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
         BadgeAssignment.where(person: person(:member)).destroy_all
         Membership.where(person: person(:member2)).destroy_all
         get checklist_path(@checklist)
-        assert_match "Results are frozen. Recompute to apply corrections.", response.body
+        assert_match "Results are frozen.", response.body
+        assert_match "Recompute to apply corrections.", response.body
         assert_select "form[action=?]", refresh_checklist_path(@checklist)
 
         post refresh_checklist_path(@checklist)

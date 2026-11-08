@@ -361,6 +361,28 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     end
   end
 
+  test "on a frozen checklist an as-of date on or after Until reads the stored results" do
+    with_feature do
+      freeze_results { give_badge(:member, @safety) }
+      travel_to(Time.zone.parse("2026-10-20")) do
+        BadgeAssignment.where(person: person(:member)).destroy_all
+        Membership.where(person: person(:rookie)).destroy_all
+        ids = @checklist.reload.reported_person_ids
+        read = ->(date) { Checklists::Reader.new(@checklist, person(:admin), as_of: date).status_for(ids) }
+
+        [ Date.new(2026, 10, 1), Date.new(2026, 10, 15) ].each do |date|
+          statuses = read[date]
+          assert_equal "met", statuses[person(:member).id].overall.status, date.to_s
+          assert_includes statuses.keys, person(:rookie).id, "the leaver is on the frozen results"
+        end
+
+        earlier = read[Date.new(2026, 9, 30)]
+        assert_equal "not_met", earlier[person(:member).id].overall.status, "before Until it's still worked out"
+        assert_not_includes earlier.keys, person(:rookie).id
+      end
+    end
+  end
+
   test "moving Until starts over, whether or not the new date has passed" do
     with_feature do
       freeze_results
@@ -438,6 +460,14 @@ class ChecklistRefreshTest < ActiveSupport::TestCase
     travel_to(Time.zone.parse("2026-10-05")) do
       Checklists.status_for(@checklist.reload, [ person(:member) ], viewer: person(:admin))
       assert_equal everyone.sort, ChecklistResult.where(checklist: @checklist, item_id: nil).pluck(:person_id).sort
+    end
+  end
+
+  test "an unsaved change to Until isn't frozen, so it still shows its impact" do
+    freeze_results
+    travel_to(Time.zone.parse("2026-10-20")) do
+      @checklist.reload.ends_on = Date.new(2026, 9, 25)
+      assert_not @checklist.results_frozen?
     end
   end
 

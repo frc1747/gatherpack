@@ -28,7 +28,7 @@
           Counting until <%= l(@checklist.ends_on, format: :long) %>; these are today's numbers.
         <% else %>
           As of <%= l(@checklist.ends_on, format: :long) %>, when counting stopped.
-          <% unless @checklist.archived? %>Results are frozen. Recompute to apply corrections.<% end %>
+          <% unless @checklist.archived? %>Results are frozen.<% if @organizer %> Recompute to apply corrections.<% end %><% end %>
         <% end %>
       </p>
     <% end %>
@@ -55,7 +55,15 @@
         <%= submit_tag "Show", class: "btn btn-sm btn-outline-primary", name: nil %>
         <%= link_to "Today", checklist_path(@checklist), class: "btn btn-sm btn-link" if @as_of %>
       <% end %>
-      <% if @as_of %><p class="small text-body-secondary mt-1 mb-0">Computed as of <%= l(@as_of, format: :long) %>; nothing is saved.</p><% end %>
+      <% if @as_of %>
+        <p class="small text-body-secondary mt-1 mb-0">
+          <% if @checklist.reads_stored_as_of?(@as_of) %>
+            The frozen results, as of <%= l(@checklist.ends_on, format: :long) %>.
+          <% else %>
+            Computed as of <%= l(@as_of, format: :long) %>; nothing is saved.
+          <% end %>
+        </p>
+      <% end %>
     <% end %>
   </div>
 </div>

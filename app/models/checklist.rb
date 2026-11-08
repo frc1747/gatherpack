@@ -133,9 +133,16 @@ class Checklist < ApplicationRecord
   # Ended, and its end-of-day answers are stored: from here only Recompute
   # changes them. Changing Until clears computed_at, so this starts over.
   def results_frozen?
+    return false if ends_on_changed?
     return false unless ended? && computed_at && computed_at > Checklists::Context.last_moment(self)
 
     checklist_results.exists?
+  end
+
+  # On a frozen checklist an "as of" date on or after Until is the frozen
+  # results themselves.
+  def reads_stored_as_of?(date)
+    results_frozen? && date.to_date >= ends_on
   end
 
   # Who the report is about: who it covers, or once its results are frozen,
