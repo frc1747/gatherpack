@@ -214,7 +214,7 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     end
   end
 
-  test "judge after N meetings shows Almost until enough are held" do
+  test "judge after N meetings shows In Progress until enough are held" do
     meetings = (0..2).map { |day| meeting((Date.new(2026, 10, 5) + day.days).iso8601) }
     punch_at(:member, meetings[0])
     item = attendance([ { name: "Fall", share: "60", judge_after: "3" } ])
