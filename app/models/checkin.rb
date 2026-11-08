@@ -5,12 +5,13 @@ class Checkin < ApplicationRecord
   belongs_to :person
   belongs_to :event
   has_many :checkin_field_responses, dependent: :destroy
-  accepts_nested_attributes_for :checkin_field_responses
+  accepts_nested_attributes_for :checkin_field_responses, reject_if: :new_response_on_saved_checkin?
 
   validates :person, presence: true, uniqueness: { scope: :event, message: "has already been checked in" }
   validate :check_limit
 
   before_update :check_attributes
+  before_validation :drop_other_types_new_responses, on: :create
   before_validation :refresh_fields
 
   attr_accessor :created_by
@@ -34,17 +35,41 @@ class Checkin < ApplicationRecord
         response.save unless self.new_record?
       end
     end
-    checkin_field_responses.each do |response|
-      response.delete unless event.event_type.checkin_fields.any? { |f| f.id == response.checkin_field_id }
-    end
+  end
+
+  # Responses for the event type's current fields. Answers for another type's
+  # fields are kept, hidden, so changing the type back restores them.
+  def current_field_responses
+    field_ids = event.event_type.checkin_fields.map(&:id)
+    checkin_field_responses.select { |r| field_ids.include?(r.checkin_field_id) }
   end
 
   private
 
+  # refresh_fields has already added every response a saved check-in needs, so
+  # a form never adds one; an id-less row there is forged.
+  def new_response_on_saved_checkin?(attributes)
+    persisted? && attributes["id"].blank?
+  end
+
+  # Responses for another type's fields are only ever kept from earlier answers.
+  def drop_other_types_new_responses
+    field_ids = event.event_type.checkin_fields.map(&:id)
+    other = checkin_field_responses.reject { |r| field_ids.include?(r.checkin_field_id) }
+    checkin_field_responses.delete(*other) if other.any?
+  end
+
   def check_attributes
-    self.checkin_field_responses.each do |r|
-      if !r.permission_check(self.created_by)
-        r.response = r.response_was
+    field_ids = event.event_type.checkin_fields.map(&:id)
+    checkin_field_responses.each do |r|
+      next unless r.persisted?
+
+      if field_ids.include?(r.checkin_field_id_was)
+        r.restore_attributes([ "checkin_field_id" ])
+        r.response = r.response_was unless r.permission_check(self.created_by)
+      else
+        # Answers for another type's fields are hidden, so they can't be edited.
+        r.restore_attributes
       end
     end
   end
