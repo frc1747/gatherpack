@@ -9,5 +9,6 @@
 # filters the OAuth code itself, but only that exact name, not the PKCE
 # code_verifier.
 Rails.application.config.filter_parameters += [
-  :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc, :code_verifier
+  :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc, :code_verifier,
+  :address, :birthday, :dietary_restrictions, :phone_number, :person_field_values
 ]
