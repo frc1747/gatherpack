@@ -3,14 +3,25 @@ require "application_system_test_case"
 class InstallableAppSystemTest < ApplicationSystemTestCase
   include Devise::Test::IntegrationHelpers
 
+  # The flag is set through Settings against a throwaway store, so the shared
+  # settings file is never written and this works whether or not a build caches
+  # values on the Setting objects.
   setup do
     sign_in users(:one)
-    @setting = Settings.get(:feature_installable_app)
-    @original = @setting.instance_variable_get(:@value)
+    @settings_store = Settings.instance.store
+    @settings_file = Tempfile.new([ "settings", ".pstore" ])
+    Settings.instance.store = PStore.new(@settings_file.path)
+    @original = Settings.get(:feature_installable_app).instance_variable_get(:@value)
   end
 
   teardown do
-    @setting.instance_variable_set(:@value, @original)
+    Settings.get(:feature_installable_app).instance_variable_set(:@value, @original)
+    Settings.instance.store = @settings_store
+    @settings_file.close!
+  end
+
+  def set_flag(on)
+    Settings.set(:feature_installable_app, on.to_s)
   end
 
   # The test server listens on 127.0.0.1, which the app's host list doesn't
@@ -33,17 +44,17 @@ class InstallableAppSystemTest < ApplicationSystemTestCase
   end
 
   test "the worker installs with the flag on and removes itself when it is turned off" do
-    @setting.instance_variable_set(:@value, "true")
+    set_flag(true)
     visit_home
     wait_for_registration(true)
 
-    @setting.instance_variable_set(:@value, "false")
+    set_flag(false)
     page.driver.browser.execute_script("navigator.serviceWorker.getRegistration().then((r) => r.update())")
     wait_for_registration(false)
   end
 
   test "the install entry stays hidden on a desktop browser" do
-    @setting.instance_variable_set(:@value, "true")
+    set_flag(true)
     visit_home
 
     assert_no_text "Add to Home Screen"

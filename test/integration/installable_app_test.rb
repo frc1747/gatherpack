@@ -7,17 +7,31 @@ class InstallableAppTest < ActionDispatch::IntegrationTest
 
   ALLOWED_PATHS = %w[/assets/ /offline.html].freeze
 
-  setup { host! "localhost" }
+  # Settings are set through Settings against a throwaway store, so the shared
+  # settings file is never written and this works whether or not a build caches
+  # values on the Setting objects.
+  setup do
+    host! "localhost"
+    @settings_store = Settings.instance.store
+    @settings_file = Tempfile.new([ "settings", ".pstore" ])
+    Settings.instance.store = PStore.new(@settings_file.path)
+    @settings_originals = {}
+  end
 
-  # Settings keep their value per process, so swap it there rather than in the
-  # shared settings file, and put it back afterwards.
+  teardown do
+    @settings_originals.each { |key, value| Settings.get(key).instance_variable_set(:@value, value) }
+    Settings.instance.store = @settings_store
+    @settings_file.close!
+  end
+
   def with_setting(key, raw)
     setting = Settings.get(key)
-    original = setting.instance_variable_get(:@value)
-    setting.instance_variable_set(:@value, raw)
+    @settings_originals[key] = setting.instance_variable_get(:@value) unless @settings_originals.key?(key)
+    previous = setting.instance_variable_get(:@value)
+    Settings.set(key, raw)
     yield
   ensure
-    setting.instance_variable_set(:@value, original)
+    Settings.set(key, previous)
   end
 
   def with_flag(on, &block)
