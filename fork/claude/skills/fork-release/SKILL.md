@@ -9,6 +9,8 @@ Authority: `fork/STRATEGY.md` "Releases and Deployment" and "The HBR changelog".
 
 ## Cut it
 
+Every release is a public tag and ghcr image. The private flow (`sec/release-*`, unpushed tags, `gatherpack-private` images) ended with `hbr.34`.
+
 1. Sync first if upstream moved (`fork-sync` skill). Every manifest branch has a `fork/catalog.yml` entry and a sample data file, or the rebuild warns and CI fails.
 2. Pick the tag: next `n` after the latest `git tag -l 'v*-hbr.*' --sort=-v:refname | head -1`.
 3. In `~/dev/gatherpack/integration/`: `bin/fork-rebuild --release v<upstream>-hbr.<n>`. The script refuses a tag that exists on another build or doesn't come after the latest release.
@@ -25,4 +27,4 @@ Authority: `fork/STRATEGY.md` "Releases and Deployment" and "The HBR changelog".
 
 ## After
 
-Record the release in `FORK.md` in the same session: `hbr.<n>` in the Shipped column of every manifest row still showing `—`. Private releases (local `sec/release-hbr.<n>` branches and unpushed tags) are recorded too; only their branches, tags and images stay private. Push it to `hbr/platform` directly. If the compose file, entrypoint or seeds changed, rerun the "Try it in a container" steps from `fork/sample_data/README.md` in a scratch dir against the new image before pointing anyone at them.
+Record the release in `FORK.md` in the same session: `hbr.<n>` in the Shipped column of every manifest row still showing `—`. Push it to `hbr/platform` directly. If the compose file, entrypoint or seeds changed, rerun the "Try it in a container" steps from `fork/sample_data/README.md` in a scratch dir against the new image before pointing anyone at them.
