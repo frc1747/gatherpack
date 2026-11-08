@@ -13,7 +13,7 @@
       <div class="d-flex gap-2 flex-wrap no-print">
         <% if @organizer %>
           <%= link_to "Edit", edit_checklist_path(@checklist), class: "btn btn-warning" %>
-          <%= button_to "Record this list", checklist_checklist_lists_path(@checklist), class: "btn btn-secondary", form_class: "d-inline" %>
+          <%= button_to "Take Snapshot", checklist_checklist_lists_path(@checklist), class: "btn btn-secondary", form_class: "d-inline" %>
           <%= button_to "Recompute", refresh_checklist_path(@checklist), class: "btn btn-outline-secondary", form_class: "d-inline" %>
         <% end %>
         <%= link_to "Copy", copy_checklist_path(@checklist), class: "btn btn-info" %>
@@ -63,7 +63,7 @@
 <% lists = policy(@checklist).copy? ? @checklist.checklist_lists.order(recorded_at: :desc).to_a : [] %>
 <% if lists.any? %>
   <div class="card mt-3 no-print" id="lists">
-    <div class="card-header"><h2 class="h5 mb-0">Recorded lists</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0">Snapshots</h2></div>
     <div class="card-body">
       <ul class="list-unstyled mb-0">
         <% lists.each do |list| %>

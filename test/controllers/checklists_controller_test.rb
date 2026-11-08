@@ -339,10 +339,12 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       sign_in person(:admin).user
       get checklist_path(@checklist)
       assert_select "#lists", 0, "nothing recorded yet"
+      assert_select "form[action=?] button", checklist_checklist_lists_path(@checklist), text: "Take Snapshot"
 
       post checklist_checklist_lists_path(@checklist)
       list = @checklist.checklist_lists.last
       get checklist_path(@checklist)
+      assert_select "#lists h2", text: "Snapshots"
       assert_select "#lists a[href=?]", checklist_checklist_list_path(@checklist, list)
 
       sign_in person(:member).user
@@ -426,8 +428,10 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       post checklist_checklist_lists_path(@checklist)
       list = @checklist.checklist_lists.last
       assert_redirected_to checklist_checklist_list_path(@checklist, list)
+      assert_equal "Snapshot taken.", flash[:notice]
       get checklist_checklist_list_path(@checklist, list)
       assert_match "MemberTwo World", response.body
+      assert_match(/Taken .+ by/, response.body)
     end
   end
 

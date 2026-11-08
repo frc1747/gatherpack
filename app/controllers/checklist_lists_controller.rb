@@ -13,6 +13,6 @@ class ChecklistListsController < InternalController
   def create
     authorize @checklist.checklist_lists.new
     list = ChecklistList.record!(@checklist, by: current_user.person, note: params.dig(:checklist_list, :note))
-    redirect_to checklist_checklist_list_path(@checklist, list), notice: "List recorded.", status: :see_other
+    redirect_to checklist_checklist_list_path(@checklist, list), notice: "Snapshot taken.", status: :see_other
   end
 end
