@@ -256,6 +256,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.datetime "updated_at", null: false
     t.uuid "commitment_id"
     t.boolean "wrapped", default: false, null: false
+    t.boolean "show_on_kiosk", default: false, null: false
     t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
     t.index ["commitment_id"], name: "index_checklist_items_on_commitment_id", unique: true
     t.index ["kind"], name: "index_checklist_items_on_kind"
