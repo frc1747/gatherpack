@@ -26,11 +26,11 @@ module Checklists
           if child_results.any? && counted.empty?
             Result.exempt(item.exempt_label.presence || "Doesn't apply")
           elsif passed.any?
-            Result.met("#{passed.map { |child, _| child.label }.to_sentence} done")
+            Result.met("#{passed.map { |child, _| child.label }.to_sentence} complete")
           elsif counted.any? { |_, result| result.pending? }
-            Result.pending("Almost: #{counted.select { |_, result| result.pending? }.map { |child, _| child.label }.to_sentence}")
+            Result.pending("In Progress: #{counted.select { |_, result| result.pending? }.map { |child, _| child.label }.to_sentence}")
           else
-            Result.not_met("None done yet", detail: "Any one of these is enough: #{children.map(&:label).to_sentence}",
+            Result.not_met("None complete yet", detail: "Any one of these is enough: #{children.map(&:label).to_sentence}",
               fix: fix_for(counted))
           end
         end

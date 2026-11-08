@@ -38,7 +38,7 @@ module Checklists
 
     # Every fixed date, shifted. Relative dates ("within the last N") stay.
     def date_changes
-      changes = %w[starts_on ends_on cutoff_on].filter_map do |field|
+      changes = %w[starts_on ends_on].filter_map do |field|
         old = checklist.public_send(field)
         DateChange.new(key: "checklist.#{field}", label: "Checklist #{field.humanize(capitalize: false)}", old: old, proposed: shift(old)) if old
       end
@@ -85,7 +85,7 @@ module Checklists
         copy = checklist.dup
         copy.assign_attributes(title: title.presence || "#{checklist.title} (copy)", status: :draft, created_by: by,
           computed_at: nil, next_refresh_at: nil)
-        %w[starts_on ends_on cutoff_on].each { |field| copy[field] = dates.fetch("checklist.#{field}", copy[field]) }
+        %w[starts_on ends_on].each { |field| copy[field] = dates.fetch("checklist.#{field}", copy[field]) }
         copy.save!
         checklist.checklist_organizers.where.not(person_id: by&.id).find_each do |organizer|
           copy.checklist_organizers.create(person_id: organizer.person_id)

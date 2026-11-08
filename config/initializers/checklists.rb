@@ -42,7 +42,7 @@ Rails.application.config.to_prepare do
   Settings.register(:checklists_archive_after, :string, "Archive Checklists Ended Before", "", "Checklists",
     "A date (YYYY-MM-DD), or a number of days after a checklist's end. Active checklists that ended before it are archived each night. Blank: never")
   Settings.register(:checklists_prune_results_after, :string, "Clear Results of Archived Checklists Ended Before", "", "Checklists",
-    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Stored results of archived checklists that ended before it are cleared each night; recorded lists stay. Blank: never")
+    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Stored results of archived checklists that ended before it are cleared each night; snapshots stay. Blank: never")
 
   GatherPack::HookCatalog.register_targets(*Checklists::HOOK_TARGETS)
   GatherPack::HookCatalog.register_events(Checklists::STATUS_CHANGED_EVENT)
