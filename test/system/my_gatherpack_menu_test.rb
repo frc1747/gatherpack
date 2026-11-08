@@ -21,7 +21,8 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
   end
 
   test "on desktop the sidebar carries the site name, More opens, and search leaves it only on Home" do
-    sign_in create_login("Morgan")
+    login = create_login("Morgan")
+    sign_in login
     visit root_path
 
     assert_selector ".mg-home-tools input[type=search]"
@@ -29,7 +30,7 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
       assert_no_selector "input[type=search]"
     end
 
-    visit calendar_path
+    visit person_path(login.person)
     within ".sidebar" do
       assert_text "Northwind Community"
       assert_selector "input[type=search]"
