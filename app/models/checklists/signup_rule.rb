@@ -1,7 +1,7 @@
 module Checklists
   # The checklist kind of sign-up position rule (spec §10.3): only people
   # who finish the checklist can take the place, or, with accept_pending,
-  # people who are almost done too (where signing up is how they finish).
+  # people who are in progress too (where signing up is how they finish).
   # A met or exempt overall passes; someone the checklist doesn't cover
   # never does. Read from stored results, computing anyone not yet stored
   # (Checklists::Reader), so a rule follows the checklist's refreshes.
@@ -112,13 +112,13 @@ module Checklists
       "You can't see their #{checklist.title} results, so can't sign them up here"
     end
 
-    # "Needs Trip Eligibility: Done", "Needs Trip Eligibility: Done or Almost",
-    # in the checklist's own words.
+    # "Needs Trip Eligibility: Complete" or
+    # "Needs Trip Eligibility: Complete or In Progress".
     def checklist_requirement
       return "Needs a checklist that no longer exists" if checklist.nil?
 
-      words = [ checklist.word_for("met") ]
-      words << checklist.word_for("pending") if accept_pending?
+      words = [ Checklists.word_for("met") ]
+      words << Checklists.word_for("pending") if accept_pending?
       "Needs #{checklist.title}: #{words.join(" or ")}"
     end
 

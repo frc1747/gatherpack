@@ -32,27 +32,20 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     assert_equal "met", overall(:worker).status
     assert_nil rule.check(person(:worker), @event)
     assert_equal "not_met", overall(:student).status
-    assert_equal "Needs Trip: Done", rule.check(person(:student), @event)
-    assert_equal "Needs Trip: Done", rule.description
+    assert_equal "Needs Trip: Complete", rule.check(person(:student), @event)
+    assert_equal "Needs Trip: Complete", rule.description
   end
 
-  test "almost done passes only when the rule accepts it" do
+  test "in progress passes only when the rule accepts it" do
     rule = @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
     overall(:student).update!(status: "pending")
 
-    assert_equal "Needs Trip: Done", rule.check(person(:student), @event)
+    assert_equal "Needs Trip: Complete", rule.check(person(:student), @event)
 
     rule.update!(accept_pending: true)
     assert_nil rule.reload.check(person(:student), @event)
-    assert_equal "Needs Trip: Done or Almost", rule.description
-    assert_equal "Needs Trip: Done or Almost", rule.check(person(:student2), @event), "not yet still fails"
-  end
-
-  test "the reason uses the checklist's own words" do
-    @checklist.update!(met_word: "Eligible", pending_word: "Pending")
-    rule = @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist, accept_pending: true)
-
-    assert_equal "Needs Trip: Eligible or Pending", rule.check(person(:student), @event)
+    assert_equal "Needs Trip: Complete or In Progress", rule.description
+    assert_equal "Needs Trip: Complete or In Progress", rule.check(person(:student2), @event), "not started still fails"
   end
 
   test "an exempt overall passes, and so does an item that doesn't apply" do
@@ -70,7 +63,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     rule = @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist, accept_pending: true)
 
     assert_nil rule.checklist_status(person(:outsider))
-    assert_equal "Needs Trip: Done or Almost", rule.check(person(:outsider), @event)
+    assert_equal "Needs Trip: Complete or In Progress", rule.check(person(:outsider), @event)
   end
 
   test "a person must pass the checklist rule and every other rule, any one badge being enough within a badge rule" do
@@ -82,11 +75,11 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     assert @position.eligible?(person(:worker), @event)
 
     BadgeAssignment.create!(badge: @organizer_badge, person: person(:student))
-    assert_equal [ "Needs Trip: Done", "Must be 18 or older on Oct 24" ], @position.reload.eligibility_failures(person(:student), @event)
+    assert_equal [ "Needs Trip: Complete", "Must be 18 or older on Oct 24" ], @position.reload.eligibility_failures(person(:student), @event)
 
     BadgeAssignment.where(badge: [ @organizer_badge, @license_badge ], person: person(:worker)).destroy_all
     Checklists::Refresher.new(@checklist.reload, silent: true).call
-    assert_equal [ "Needs Trip: Done", "Needs the Alcohol License or Sheet Organizer badge" ],
+    assert_equal [ "Needs Trip: Complete", "Needs the Alcohol License or Sheet Organizer badge" ],
       @position.reload.eligibility_failures(person(:worker), @event)
   end
 
@@ -95,7 +88,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     BadgeAssignment.create!(badge: @license_badge, person: person(:student))
 
     assert overall(:student).stale?, "the badge marks the result for recomputing"
-    assert_equal "Needs Trip: Done", rule.check(person(:student), @event), "until the refresh runs"
+    assert_equal "Needs Trip: Complete", rule.check(person(:student), @event), "until the refresh runs"
 
     Checklists::Refresher.new(@checklist.reload).call
     assert_nil rule.reload.check(person(:student), @event)
@@ -109,7 +102,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
 
     BadgeAssignment.where(badge: @license_badge, person: person(:worker)).delete_all
     overall(:worker).update_columns(computed_at: 2.days.ago)
-    assert_equal "Needs Trip: Done", rule.reload.check(person(:worker), @event)
+    assert_equal "Needs Trip: Complete", rule.reload.check(person(:worker), @event)
   end
 
   test "a sign-up is refused with the reason" do
@@ -117,14 +110,14 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     signup = Signup.new(signup_slot: slot_for(@position), person: person(:student), signed_up_by: person(:student), on_behalf_of: person(:student))
 
     error = assert_raises(ActiveRecord::RecordInvalid) { signup.check_placement!(by: person(:student)) }
-    assert_includes error.record.errors[:base], "Needs Trip: Done"
+    assert_includes error.record.errors[:base], "Needs Trip: Complete"
   end
 
   test "with checklists turned off the rule fails with its reason" do
     rule = @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
 
     with_settings(feature_checklists: "false") do
-      assert_equal "Needs Trip: Done (checklists are turned off)", rule.check(person(:worker), @event)
+      assert_equal "Needs Trip: Complete (checklists are turned off)", rule.check(person(:worker), @event)
     end
   end
 
@@ -150,11 +143,11 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     rule = @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
 
     @checklist.update!(status: :archived)
-    assert_equal "Needs Trip: Done (Trip is archived)", rule.reload.check(person(:worker), @event)
+    assert_equal "Needs Trip: Complete (Trip is archived)", rule.reload.check(person(:worker), @event)
 
     @checklist.update!(status: :draft)
     ChecklistResult.where(checklist: @checklist).delete_all
-    assert_equal "Needs Trip: Done (Trip is a draft)", rule.reload.check(person(:worker), @event)
+    assert_equal "Needs Trip: Complete (Trip is a draft)", rule.reload.check(person(:worker), @event)
     assert_nil rule.checklist_status(person(:worker))
     assert_not ChecklistResult.exists?(checklist: @checklist)
     assert_empty Checklists::SignupSheetNeeds.new(@sheet, person(:student)).entries
