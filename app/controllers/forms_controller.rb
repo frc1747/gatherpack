@@ -239,7 +239,7 @@ class FormsController < InternalController
     def load_reminder
       @team = Team.find_by(id: params[:team_id])
       report = FormReport.new(@form, viewer: current_user.person, team: @team)
-      @pending = report.rows.reject { |row| %w[ complete no_longer_asked ].include?(row.status) }.map(&:person)
+      @pending = FormPending.new(@form, among: report.people).people
       @include_guardians = params.key?(:include_guardians) ? params[:include_guardians] == "1" : @form.form_reminders.exists?
       messages = { message: params[:message], guardian_message: params[:guardian_message] }
       @senders = [ true, false ].index_with { |include| FormReminderSender.new(@form, @pending, include_guardians: include, **messages) }
@@ -252,6 +252,7 @@ class FormsController < InternalController
     def form_params
       permitted = [ :title, :description, :team_id, :audience_badge_id, :respond_permission, :read_permission,
         :opens_at, :closes_at, :allow_updates, :late_entry, :reconfirm_on_profile_change, :event_id, :totals_visibility, :leader_todo ]
+      permitted << :auto_reminder_days if GatherPack::Features.enabled?(:forms_auto_reminders)
       # A completion badge marks people's status, so only admins set it.
       # Neither badge setting changes while Badges are turned off.
       badges = GatherPack::Features.enabled?(:badges)
