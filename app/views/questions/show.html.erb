@@ -5,7 +5,7 @@
     <div>
       <h1 class="h3 mb-0">
         <% if @question.team %>
-          <%= link_to i(@question.team.team_type.icon), team_path(@question.team), class: "badge rounded-pill", style: "background-color:#{@question.team.color};color:#{contrasting_color(@question.team.color)}", "data-turbo": "false", title: @question.team.name %>&nbsp;
+          <%= link_to i(@question.team.team_type.icon), team_path(@question.team), class: "badge rounded-pill", style: "background-color:#{@question.team.color};color:#{contrasting_color(@question.team.color)}", data: { turbo_frame: "_top" }, title: @question.team.name %>&nbsp;
         <% end %>
         <%= @question.title %>
         <% if @question.closed? %>

@@ -39,7 +39,7 @@
             <div class="card mb-3" id="<%= dom_id announcement %>">
               <div class="card-header">
                 <h3>
-                  <%= link_to i(@team.team_type.icon), @team, class: "badge rounded-pill", style: "background-color:#{@team.color};color:#{contrasting_color(@team.color)}", "data-turbo": "false", title: "Posted in #{@team.name}" %>
+                  <%= link_to i(@team.team_type.icon), @team, class: "badge rounded-pill", style: "background-color:#{@team.color};color:#{contrasting_color(@team.color)}", data: { turbo_frame: "_top" }, title: "Posted in #{@team.name}" %>
                   <%= announcement.title %>
                 </h3>
               </div>
