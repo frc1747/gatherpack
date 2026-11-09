@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -552,6 +552,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_120000) do
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
     t.integer "guardianship", default: 0, null: false
+    t.boolean "show_contact_details", default: false, null: false
   end
 
   create_table "relationships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

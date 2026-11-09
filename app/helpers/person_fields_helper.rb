@@ -169,10 +169,17 @@ module PersonFieldsHelper
     end
   end
 
-  def person_field_read_only_note(field)
+  def person_field_read_only_note(field, subject = nil)
     return t("person_fields.access_notes.managed_by_account") if field.system_read_only?
+    return self_write_locked_note(field) if subject && subject == current_user&.person && field.self_write_locked?(subject)
     level = field.write_admin? ? "admins" : person_field_level_label(field.write_permission).downcase_first
     t("person_fields.access_notes.read_only", level: level)
+  end
+
+  # Who can still change a field its subject can't change themselves.
+  def self_write_locked_note(field)
+    who = %i[ guardian leaders ].find { |component| AudienceLevels.reaches?(field.write_permission, component) } || :admins
+    t("person_fields.access_notes.self_locked.#{who}")
   end
 
   def person_field_lock_title(field, subject)

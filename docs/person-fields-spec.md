@@ -369,6 +369,26 @@ and only from the parent side to the child side.
 | `minor: 1` | The parent side is a guardian of the child side, **subject to the age settings below** | Parent of, Legal guardian of |
 | `consented: 2` | The parent side is a guardian of the child side **regardless of age**. Created by the child side, so an adult grants it to someone | Authorized family contact |
 
+The type's form, and its show page when flagged, list what a guardian can do
+from `RelationshipType.guardian_grants`. A feature that gives guardians more
+adds its own line with `RelationshipType.register_guardian_grant` in
+`config.to_prepare`, without editing the views, and can pass `if:` to list it
+only while a condition holds. Changing a type with
+relationships to or from `none` asks for confirmation, naming the count.
+
+Separately from guardianship, a type can set `show_contact_details` (boolean,
+default false). The child's Relationships tab then shows the parent side's phone
+and email to anyone who can see the child, whatever those fields' read levels
+are, unless the field is archived or hidden from profiles. It gives no access to
+that person's profile and nothing new for the parent side. Only types that only
+admins or managers can add may set it (so not `consented` ones), so nobody can
+add a stranger as a new contact to read their details. That doesn't cover
+relationships added while more people could add the type: they start showing
+details too, so turning it on for a type with relationships asks for
+confirmation, naming the count. A manager must manage both people to add a
+relationship, so for now only an admin can add a contact from outside the team
+on such a type.
+
 #### Who can create guardianship relationships
 
 A guardianship relationship grants read (and possibly write) access to someone
@@ -1006,10 +1026,9 @@ section ungroups its fields (`dependent: :nullify`).
 
 - **Relationship Types form**: a **Guardianship** select (*None* / *Guardian
   while the child is a minor* / *Guardian with the child's consent*) with help
-  text: "Guardians can see and edit fields set to family or guardian levels on
-  the child-side person's profile." The `permission` validation error (§3.4)
-  shows inline. The Relationship Types index shows a "Guardian" tag on these
-  types.
+  text listing what guardians can do (§3.4). The `permission` validation error
+  (§3.4) shows inline. The Relationship Types index shows a "Guardian" tag on
+  these types.
 - **Settings → People**: the two age settings (§3.4) with descriptions. The
   second setting's description says "Only applies when an age limit is set";
   it isn't disabled, because the Settings page has no per-setting state.
