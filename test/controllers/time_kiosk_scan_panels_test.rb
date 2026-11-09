@@ -6,7 +6,9 @@ class TimeKioskScanPanelsTest < ActionDispatch::IntegrationTest
   setup do
     host! "localhost"
     TimeKioskController::TEST_STORE.clear
-    kiosk_user = User.create!(email: "front-kiosk@example.com", password: "Password1!", kiosk: true)
+    kiosk_user = User.new(email: "front-kiosk@example.com", password: "Password1!")
+    kiosk_user.kiosk = true if kiosk_user.has_attribute?(:kiosk) # Kiosk accounts come with the security series.
+    kiosk_user.save!
     Person.create!(user: kiosk_user, first_name: "Front", last_name: "Kiosk")
     sign_in kiosk_user
     @original_panels = TimeKiosk::ScanPanels.all
