@@ -85,6 +85,7 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     visit edit_form_response_path(@form, person(:a1))
     fill_in "form_question_#{@name.key}", with: "Pat Smith"
     click_button "Save for later"
+    assert_text "Your answers were saved"
     visit edit_form_response_path(@form, person(:a1))
 
     assert_button "Discard this draft"
