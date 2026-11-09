@@ -146,7 +146,7 @@ Matches the mockups in the pitch.
 | Status | "Clocked in since 4:32 PM", shown only when clocked in | `time_clock_punches.still_clocked_in`, `:time_tracking` enabled |
 | To do | Forms due, checklist items the viewer can fix, waiting on you as a leader | `forms_to_complete`, `leader_todos`, `Checklists.checklist_for` |
 | Coming up | Own sign-ups and events, soonest first, next 5 | `SignupsSummary#signups`, `policy_scope(Event)` |
-| Your season | Each checklist with unfinished items, with a progress bar. A count item shows `confirmed of owed` | `SignupsSummary#checklists` |
+| Your season | Each checklist with all its items, unfinished first, with a progress bar. A count item shows `confirmed of owed`; a finished item shows a full bar and 100%; an excused item says so | `SignupsSummary#checklists` |
 | Latest | Announcements | `@announcements` |
 | Below | Shortcuts, ledgers, as today (no calendar: Coming up links to the full one) | Existing partials and markup |
 
