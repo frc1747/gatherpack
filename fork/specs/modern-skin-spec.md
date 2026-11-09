@@ -220,60 +220,50 @@ Three small buttons, Light, Dark and Auto, at the bottom of the sidebar. The par
 
 ## 8. Generated palette (`feature/theme-palette`)
 
+An admin picks a few base colors, and the app works out every other color in light and dark, keeping text readable. Nobody should need to hand-write color variables to get a working site. The feature applies while the skin is on; with the skin off, the theme page stays as it is today.
+
 ### 8.1 Data
 
-One reversible migration on `themes`:
+One reversible migration on `themes`. All are `#rrggbb` or null, validated by `Theme.include(ThemePalette::Choices)`, so these fields can't inject CSS.
 
-| Column | Type | Default | Meaning |
-|---|---|---|---|
-| `brand_color` | string | null | `#rrggbb`. Null means the skin's default, or today's colors with the skin off |
-| `font_choice` | string | `"system"` | One of an allowlist: `system`, `inter`, `serif` |
-| `corner_style` | string | `"soft"` | `square`, `soft` or `round` |
-
-`Theme.include(ThemePalette::Choices)` in `to_prepare` adds validations (the hex format used by the PWA fields, and inclusion lists). Only validated values reach the output, so these fields can't inject CSS.
-
-### 8.2 Logo in dark mode
-
-The concern adds an optional second attachment, `logo_dark`, which needs no migration. The navbar and sign-in page use it in dark mode when present. Otherwise the logo sits on a small white tile, so a dark logo stays visible.
-
-### 8.3 Generator
-
-`ThemePalette::Generator.new(theme).css` is a plain Ruby object with no database or view access. It uses the `Color` gem already in the bundle and returns the CSS text for both modes:
-
-- `--gp-brand` and its RGB triplet.
-- Hover and active, by shifting lightness.
-- Soft tint, by mixing toward the surface.
-- `--gp-on-brand`: black or white, whichever has the higher contrast.
-- Dark variant: lighten until the color reaches 4.5:1 on the dark surface.
-- `Generator#warnings` returns any pair that still can't reach 4.5:1.
-
-With the skin off, the same output also sets the Bootstrap variables and the literal-valued component variables (`--bs-btn-*`, `--bs-pagination-*` and others), so the fix reaches the old look too. A test compares this list against the compiled CSS (§10).
-
-`_theme_styles` writes the result after the skin link and before admin CSS.
-
-### 8.4 Theme page
-
-When `feature_theme_palette` is on, `theme/edit` renders `theme/_choices` above the existing fields:
-
-| Label | Control | Help text |
+| Column | Label | Null means |
 |---|---|---|
-| Brand color | Color picker with hex field (`.fancy-color-container`) | Used for buttons and links. |
-| Logo | Existing upload | Shown in the header and on the sign-in page. |
-| Logo for dark mode | Upload | Optional. Use this if your logo is hard to see on a dark background. |
-| Font | Radio buttons, each in its own font | |
-| Corners | Radio buttons | |
+| `brand_color` | Brand | The skin's default greige |
+| `background_color` | Page background | The skin's default |
+| `surface_color` | Cards and menus | Worked out from the page background |
+| `text_color` | Text | Whichever reads best on the page background |
 
-The existing fields move into a closed "Advanced" section, with their values kept.
+Font, corner style and a dark-mode logo are not part of this branch.
 
-**Preview.** Beside the choices are two iframes, light and dark, loading `GET /theme/preview?brand_color=...&font_choice=...&corner_style=...`. That admin-only page renders real components with sample text and saves nothing. A Stimulus controller updates the iframe URLs after a short pause. Color math stays in Ruby, so there's no second copy in JavaScript.
+### 8.2 Generator
 
-**Contrast warning.** When `Generator#warnings` isn't empty, a short warning appears just above Save: "This color is hard to read on white. Try a darker shade." It doesn't block saving.
+`ThemePalette::Generator.new(theme).css` is a plain Ruby object with no database or view access. It returns the `--gp-*` tokens for light and dark, and repeats the light set inside `@media print`.
 
-### 8.5 Existing themes
+- **Light** uses the picks directly. Cards, raised areas, borders, input borders, muted text, hover and soft tints derive from them.
+- **Dark** derives from the same hues: a dark page and surface tinted like the page background, light text, and the brand adjusted to work there. There are no separate dark pickers in this version.
+- **Fills and text are separate.** `--gp-brand` is a fill and `--gp-on-brand` is black or white, whichever reads better. `--gp-accent` is the brand shifted until it reaches 4.5:1 on the page and on cards, for links and outlined buttons.
+- **Derived colors are always readable.** Muted text and accents move until they pass 4.5:1, and input borders 3:1. Status colors stay status colors, adjusted if they'd be unreadable on the chosen surfaces.
+- **A color the admin picked is never changed.** `Generator#warnings` names any picked pair that can't reach 4.5:1. Saving is not blocked.
 
-The Advanced fields still write to `<style>` after everything else, but one interaction matters when the skin is on. Old `css_variables` set in `:root` still beat the light tokens, and could undo the look. They don't beat the dark tokens, so those old variables apply in light mode only.
+`_theme_styles` writes the result after the skin link and before the Advanced CSS.
 
-Nothing is cleared automatically. Before turning the skin on for a site, review its stored CSS on a staging copy. If the Advanced field holds values, remove the ones that fight the skin. `custom_css` applies in both modes.
+### 8.3 Theme page
+
+With `feature_theme_palette` on, `theme/edit` shows a **Colors** section first: one color picker with a hex field per base color, and an "Automatic" choice for each that may be empty. "Reset to defaults" clears them all.
+
+**Preview.** Two iframes, light and dark, load `GET /theme/preview` with the picks as parameters. That admin-only page renders real components (buttons, links, a card, a table, a form, the text editor, the code editor, status badges) with sample text and saves nothing. A Stimulus controller refreshes them as colors change.
+
+**Warnings** appear above Save and don't block it.
+
+The PWA pickers are relabeled "Installed app colors", with a note that they only affect the app's status bar and splash screen. CSS Variables and Custom CSS move into a closed Advanced section with their values kept.
+
+### 8.4 Existing themes
+
+Old variables and CSS still apply after the generated palette, so they can undo it. When `css_variables` isn't blank, the Colors section says so and offers **Use these as my starting colors**: it maps `--bs-primary` to Brand, `--bs-body-bg` to Page background, `--bs-card-bg` to Cards and `--bs-body-color` to Text, leaving out a text color that wouldn't be readable, then clears `css_variables`. Custom CSS is never cleared automatically, but a rule that sets a color on the editors gets a warning naming it. Nothing changes until an admin presses a button.
+
+### 8.5 Editors
+
+The code editor (CodeMirror) and the rich text editor (Trix) take their background, text, gutter, toolbar, selection and syntax colors from the tokens, and stay readable in both modes and with any palette.
 
 ## 9. Sign-in page
 
@@ -290,7 +280,7 @@ The other Devise pages get the new layout without their own overrides. The Doork
 - **Rollback:** with the flag off, `application.html`, the devise layout and the kiosk layout have no `skin` link, no color mode script and no `data-bs-theme` attribute.
 - **Sign-in:** one test per branch (`local_auth` off, `local_signup` on, an omniauth provider, a site logo, no logo).
 - **Color mode:** saving works; another user's mode can't be changed; no audit row and no hook fired; impersonation uses the real user; the kiosk is always light.
-- **Generator:** known inputs give expected outputs; each output pair passes contrast or appears in `warnings`; invalid hex is rejected by the model.
+- **Generator:** known inputs give expected outputs; each derived pair passes contrast across a matrix of picks, and each picked pair passes or appears in `warnings`; invalid hex is rejected by the model.
 - **Coverage check:** a test reads the compiled `application.css`, finds each rule using the old literal primary (32 uses, plus 13 RGB triplets), and fails if the skin doesn't redefine that component. This catches a new Bootstrap component after an upstream upgrade.
 - **Visual pass, by script.** Playwright in the installed Chrome, against the demo site with the flag on, takes screenshots in light and dark at 1440 px and 390 px. Screens:
   - Sign-in, password reset and dashboard.
