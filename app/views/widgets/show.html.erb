@@ -1,0 +1,25 @@
+<% breadcrumb @widget %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @widget.identifier_name %></h1>
+  </div>
+  <div class="card-body">
+    <p>
+      <%= widget_placement_label(@widget.placement) %>, order <%= @widget.position %>.
+      Seen by: <%= widget_viewer_label(@widget.viewer) %><%= " (#{@widget.team.name})" if @widget.team %>.
+      <%= "Reloads every #{@widget.refresh_seconds} seconds." if @widget.refresh_seconds.positive? %>
+      <%= "Not shown on the dashboard." unless @widget.enabled %>
+    </p>
+    <p class="text-muted">Preview, as you see it:</p>
+    <div class="row">
+      <div class="<%= @widget.placement == "top" ? "col-12" : "col-12 col-lg-6" %>">
+        <%= render "widgets/card", widget: @widget %>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Edit", edit_widget_path(@widget), class: "btn btn-warning" if policy(@widget).edit? %>
+    <%= link_to "Delete", @widget, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@widget).destroy? %>
+  </div>
+</div>
