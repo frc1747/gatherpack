@@ -29,6 +29,6 @@
       </div>
     <% end %>
 
-    <%= render @time_kiosk.tool %>
+    <%= render @time_kiosk.tool.in?(%w[ found_person not_found ]) ? @time_kiosk.tool : "welcome" %>
   </div>
 </div>
