@@ -38,6 +38,11 @@ select.form-control:disabled, textarea.form-control:disabled {
   border-right-color: var(--gp-input-border);
 }
 
+// The same swatch width as the theme palette's color fields.
+.fancy-color-container > .fancy-color-picker-col {
+  flex: 0 0 3.5rem;
+}
+
 .icon-select-list {
   border-top-color: var(--gp-input-border);
 }
