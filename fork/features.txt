@@ -70,3 +70,4 @@ feature/my-gatherpack-checklists
 feature/my-gatherpack-family
 feature/forms-auto-reminders
 feature/quiet-root-signin
+feature/phone-notifications-connectors

@@ -763,6 +763,14 @@ feature/quiet-root-signin:
     without a message saying you must be logged in.
   audience: Everyone
 
+feature/phone-notifications-connectors:
+  title: Phone notifications for forms, shifts and commitments
+  emoji: "🔔"
+  description: >-
+    Form reminders, shift reminders and changes, and "what I still owe"
+    messages can also reach a phone, for people who turn those topics on.
+  audience: Everyone
+
 feature/phone-notifications:
   title: Phone notifications
   emoji: "🔔"
