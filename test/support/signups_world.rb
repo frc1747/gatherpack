@@ -1,3 +1,5 @@
+require_relative "settings_test_helper"
+
 # The fixture world for sign-up sheet tests:
 #
 #   Org ─ Club ─┬─ Concessions: worker (organizer badge), Concessions manager
@@ -77,15 +79,7 @@ module SignupsWorld
   # Sets Settings values until the returned proc is called, for setups that
   # need them through the whole test (call it in teardown).
   def apply_settings(values)
-    settings = Settings.instance
-    original_store = settings.store
-    settings.store = PStore.new(Rails.root.join("tmp", "test-settings-#{Process.pid}.pstore").to_s)
-    previous = values.keys.to_h { |key| [ key, Settings.get(key).instance_variable_get(:@value) ] }
-    values.each { |key, value| Settings[key] = value }
-    lambda do
-      previous.each { |key, value| Settings[key] = value }
-      settings.store = original_store
-    end
+    SettingsTestHelper.apply(values)
   end
 
   def with_organizer_grants(text, &block)

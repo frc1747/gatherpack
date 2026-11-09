@@ -12,6 +12,9 @@
       owes <%= pluralize(@commitment.base_amount, @commitment.unit.singularize, plural: @commitment.unit) %>.
       <% if @commitment.grouped? %>
         People connected as <%= @commitment.group_relationship_type.identifier_name %> owe together, plus <%= @commitment.additional_amount %> for each member after the first.
+      <% elsif @commitment.group_relationship_type && policy(@commitment).update? %>
+        People connected as <%= @commitment.group_relationship_type.identifier_name %> don't owe together: members can add that relationship themselves.
+        Pick a different relationship, one only admins or managers add, to group them again.
       <% end %>
       <%= @commitment.counts_planned? ? "Planned credit counts toward it." : "Only confirmed credit counts toward it." %>
     </p>

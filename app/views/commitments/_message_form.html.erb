@@ -3,7 +3,7 @@
     <h2 class="h5 mb-0">Message people with open commitments</h2>
   </div>
   <div class="card-body">
-    <p class="small text-body-secondary">Each person who hasn't met this commitment gets their own email, so nobody sees anyone else's address.</p>
+    <p class="small text-body-secondary">Each person who hasn't met this commitment gets their own email, so nobody sees anyone else's address. It goes out as plain text, starting "Hi <em>first name</em>," and "From <%= current_user.person.display_name %>, about <%= @commitment.title %>:".</p>
     <%= form_with url: message_commitment_path(@commitment), method: :post do |f| %>
       <div class="mb-3">
         <%= f.label :subject, class: "form-label" %>
