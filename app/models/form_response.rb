@@ -44,14 +44,15 @@ class FormResponse < ApplicationRecord
   # A new version starts from the active answers (or, after a withdrawal,
   # the withdrawn ones). Questions that update the profile start from the
   # profile, which is their source of truth; questions filled in from the
-  # profile start there only the first time.
+  # profile start there only the first time. An earlier answer recorded
+  # under another profile field isn't carried over (FormSubmission#stored_answer).
   def starting_answers
-    previous = (active_submission || form_submissions.select(&:withdrawn?).max_by(&:number))&.answers || {}
+    previous = active_submission || form_submissions.select(&:withdrawn?).max_by(&:number)
     form.answerable_questions.each_with_object({}) do |question, answers|
-      stored = if question.update_profile? || (question.prefill? && !previous.key?(question.key))
+      stored = if question.update_profile? || (question.prefill? && !previous&.answers&.key?(question.key))
         question.store_answer(subject.field_value(question.person_field))
       else
-        previous[question.key]
+        previous&.stored_answer(question)
       end
       answers[question.key] = stored unless question.blank_answer?(stored)
     end

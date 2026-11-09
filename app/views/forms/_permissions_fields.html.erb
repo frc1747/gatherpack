@@ -1,7 +1,12 @@
 <div class="row">
   <div class="col-md-6">
-    <%= f.input :respond_permission, label: "Who can fill this in for someone", collection: form_level_options, include_blank: false,
-          hint: "Relative to the person the response is about." %>
+    <% if f.object.persisted? && policy(f.object).audience_locked? %>
+      <%= f.input :respond_permission, label: "Who can fill this in for someone", collection: form_level_options, include_blank: false, disabled: true,
+            hint: "Only admins can change it while the form gives a completion badge." %>
+    <% else %>
+      <%= f.input :respond_permission, label: "Who can fill this in for someone", collection: form_level_options, include_blank: false,
+            hint: "Relative to the person the response is about." %>
+    <% end %>
   </div>
   <div class="col-md-6">
     <%= f.input :read_permission, label: "Who can see someone's answers", collection: form_level_options, include_blank: false,

@@ -1,14 +1,15 @@
 # Managers of a form change who it asks, but only among what they manage:
 # teams within their managed teams, badges belonging to those teams, and
 # people they lead. A form's creator (the creator badge) can also ask teams
-# they belong to. Admins can target anything.
+# they belong to. Admins can target anything. Once the form has a completion
+# badge, only admins change its rules (FormPolicy#change_audience?).
 class FormAudienceRulePolicy < ApplicationPolicy
   def create?
-    FormPolicy.new(user, record.form).manage? && targetable?
+    FormPolicy.new(user, record.form).change_audience? && targetable?
   end
 
   def destroy?
-    FormPolicy.new(user, record.form).manage?
+    FormPolicy.new(user, record.form).change_audience?
   end
 
   private
