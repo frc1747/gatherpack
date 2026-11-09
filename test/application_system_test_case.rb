@@ -1,6 +1,11 @@
 require "test_helper"
 
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
+  # A browser fetches these by itself, at any moment. Left to count as requests,
+  # one can use up the sign_in meant for the test's next page visit.
+  Warden.test_mode!
+  Warden.asset_paths << %r{\A/(manifest(\.json)?|service-worker(\.js)?)\z}
+
   if ENV["CAPYBARA_SERVER_PORT"]
     served_by host: "rails-app", port: ENV["CAPYBARA_SERVER_PORT"]
 
