@@ -74,18 +74,16 @@ class FormQuestionsController < InternalController
     end
 
     def question_params
-      permitted = [ :kind, :label, :body, :required, :person_field_id, :profile_mode, :read_permission, :write_permission,
+      permitted = [ :kind, :label, :body, :required, :profile_mode, :read_permission, :write_permission,
         :choices_text, :min, :max, :pattern, :pattern_hint, :signer ]
       permitted += [ :key ] if @question.nil? || @question.new_record?
-      permitted += [ :data_type ] if @question.nil? || @question.new_record? || !answered?
+      # Answers already given follow the question's type and profile field,
+      # so neither changes once there are any.
+      permitted += [ :data_type, :person_field_id ] if @question.nil? || @question.new_record? || !@question.answered?
       attributes = params.require(:form_question).permit(*permitted)
       attributes[:read_permission] = nil if attributes.key?(:read_permission) && attributes[:read_permission].blank?
       attributes[:write_permission] = nil if attributes.key?(:write_permission) && attributes[:write_permission].blank?
       attributes[:person_field_id] = nil if attributes.key?(:person_field_id) && attributes[:person_field_id].blank?
       attributes
-    end
-
-    def answered?
-      FormSubmission.joins(:form_response).where(form_responses: { form_id: @form.id }).where("answers ? :key", key: @question.key).exists?
     end
 end

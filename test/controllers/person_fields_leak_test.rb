@@ -66,7 +66,8 @@ class PersonFieldsLeakTest < ActionDispatch::IntegrationTest
     %w[ phone_number address birthday dietary_restrictions shirt_size gender ].each do |source|
       field = PersonField.find_by!(system_source: source)
       assert field.writable_by?(person(:parent_a1), a1), "guardian can't edit #{source}"
-      assert field.writable_by?(a1, a1), "the person can't edit #{source}"
+      # A1 has a guardian, so their own birthday is for the guardian or a leader to set.
+      assert_equal source != "birthday", field.writable_by?(a1, a1), "the person's own access to #{source}"
       assert field.writable_by?(person(:den_a_leader), a1), "a leader can't edit #{source}"
       assert_not field.writable_by?(person(:a2), a1), "a teammate can edit #{source}"
     end
