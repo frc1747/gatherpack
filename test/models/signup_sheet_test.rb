@@ -70,8 +70,8 @@ class SignupSheetTest < ActiveSupport::TestCase
 
   test "audience rules include and exclude teams, badges and people" do
     @sheet.signup_audience_rules.create!(effect: :include, target_type: :team, team: @students)
-    @sheet.signup_audience_rules.create!(effect: :include, target_type: :person, person: person(:outsider))
-    @sheet.signup_audience_rules.create!(effect: :include, target_type: :badge, badge: @license_badge)
+    @sheet.signup_audience_rules.create!(effect: :include, target_type: :person, person: person(:outsider), created_by: person(:admin))
+    @sheet.signup_audience_rules.create!(effect: :include, target_type: :badge, badge: @license_badge, created_by: person(:admin))
     @sheet.signup_audience_rules.create!(effect: :exclude, target_type: :person, person: person(:student2))
 
     audience = @sheet.reload.audience
@@ -99,7 +99,7 @@ class SignupSheetTest < ActiveSupport::TestCase
 
     @sheet.update!(others_relationship_type_ids: [ @sibling_of.id ])
     assert_equal [ person(:student) ], @sheet.takers_for(person(:sibling)).to_a
-    @sheet.signup_audience_rules.create!(effect: :include, target_type: :person, person: person(:sibling))
+    @sheet.signup_audience_rules.create!(effect: :include, target_type: :person, person: person(:sibling), created_by: person(:admin))
     @sheet.signup_audience_rules.create!(effect: :include, target_type: :team, team: @students)
     assert_includes @sheet.reload.takers_for(person(:student)), person(:sibling), "a type that reads the same both ways works both ways"
   end
