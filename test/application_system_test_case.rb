@@ -12,6 +12,17 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   end
   Warden::Proxy.prepend(PageVisitsTakeTheSignIn)
 
+  # A late response from the previous test can put its session cookie back after
+  # Capybara clears it, and Devise then signs the new user out if that session
+  # looks idle, as it does after a test that travelled in time. A sign_in starts
+  # from a fresh session, as a new browser would.
+  Warden::Manager.on_request({}, :unshift) do |proxy|
+    proxy.raw_session.clear if Warden._on_next_request.any? && !proxy.asset_request?
+  end
+
+  # The browser is shared between tests, and some of them resize it.
+  setup { page.current_window.resize_to(1400, 1400) }
+
   if ENV["CAPYBARA_SERVER_PORT"]
     served_by host: "rails-app", port: ENV["CAPYBARA_SERVER_PORT"]
 
