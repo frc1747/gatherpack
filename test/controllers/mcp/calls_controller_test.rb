@@ -34,7 +34,7 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     get mcp_calls_path
 
     assert_select "tbody tr:first-child summary", "3 records"
-    assert_select "tbody tr:first-child a[href=?]", person_path(person(:ward).id), "Person #{person(:ward).id}"
+    assert_select "tbody tr:first-child a[href=?]", person_path(person(:ward).id), "Person #{person(:ward).display_name}"
     assert_select "tbody tr:first-child a[href=?]", team_path(@alpha.id)
     assert_select "tbody tr:first-child a", 3
     assert_select "tbody tr:first-child a[href=?]", team_membership_path(@alpha.id, membership.id), "Membership #{membership.id}"
@@ -43,6 +43,42 @@ class Mcp::CallsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     get team_membership_path(@alpha.id, membership.id)
     assert_response :success
+  end
+
+  test "a person is named as they are now, not by ID" do
+    ward = person(:ward)
+    McpToolCall.create!(user: user(:admin), tool: "update_person", outcome: "ok", changed_records: [ { type: "Person", id: ward.id } ])
+    sign_in user(:admin)
+    get mcp_calls_path
+    assert_select "tbody tr:first-child a[href=?]", person_path(ward.id), "Person #{ward.display_name}"
+
+    ward.update_columns(display_name: "Renamed Ward")
+    get mcp_calls_path
+    assert_select "tbody tr:first-child a[href=?]", person_path(ward.id), "Person Renamed Ward"
+    assert_not_includes css_select("tbody tr:first-child").text, ward.id
+  end
+
+  test "a person who no longer exists shows as text with a note" do
+    gone = Person.create!(first_name: "Gone", last_name: "Person")
+    gone_id = gone.id
+    gone.destroy!
+    McpToolCall.create!(user: user(:admin), tool: "update_person", outcome: "ok", changed_records: [ { type: "Person", id: gone_id } ])
+    sign_in user(:admin)
+    get mcp_calls_path
+
+    assert_select "tbody tr:first-child a", 0
+    assert_includes css_select("tbody tr:first-child").text, "Person #{gone_id} (no longer exists)"
+  end
+
+  test "names for a whole page come from one query per type" do
+    3.times { McpToolCall.create!(user: user(:admin), tool: "several", outcome: "ok", changed_records: [ { type: "Person", id: person(:ward).id }, { type: "Team", id: @alpha.id } ]) }
+    sign_in user(:admin)
+    queries = []
+    counter = ->(*, payload) { queries << payload[:sql] if payload[:sql].match?(/SELECT "(people|teams)"."id", "(people|teams)"."(display_name|name)" FROM/) }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { get mcp_calls_path }
+
+    assert_equal 2, queries.size, queries.join("\n")
+    assert_select "tbody tr:first-child a[href=?]", team_path(@alpha.id), "Team #{@alpha.name}"
   end
 
   test "a membership that has since been removed shows as text, and a login isn't linked" do

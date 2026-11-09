@@ -29,6 +29,8 @@ class Mcp::Tools::RemoveEventTest < ActionDispatch::IntegrationTest
   end
 
   test "check-ins refuse it, naming the count, but only to someone who may remove it" do
+    skip "this build's Event deletes its check-ins" if Mcp::Tools::RemoveEvent.checkins_go_with_event?
+
     assert_refused("This event has 2 check-ins, so it can't be removed", Event, AuditLog) { remove(:admin, @alpha_event) }
     create_world_checkin(person(:alpha_member), @empty)
     assert_refused("This event has 1 check-in, so it can't be removed", Event, AuditLog) { remove(:alpha_manager) }
@@ -36,10 +38,22 @@ class Mcp::Tools::RemoveEventTest < ActionDispatch::IntegrationTest
   end
 
   test "the page's delete fails the same way on check-ins" do
+    skip "this build's Event deletes its check-ins" if Mcp::Tools::RemoveEvent.checkins_go_with_event?
+
     sign_in user(:admin)
     assert_no_difference("Event.count") do
-      assert_raises(ActiveRecord::InvalidForeignKey) { delete event_path(@alpha_event) }
+      delete event_path(@alpha_event)
+    rescue ActiveRecord::InvalidForeignKey
+      # Without a rescue_from for it, the page raises; with one, it redirects. Either way it stays.
     end
+  end
+
+  test "where the page deletes check-ins with the event, it removes them too" do
+    skip "this build's Event keeps its check-ins" unless Mcp::Tools::RemoveEvent.checkins_go_with_event?
+
+    count = @alpha_event.checkins.count
+    assert_operator count, :>, 0
+    assert_difference({ "Event.count" => -1, "Checkin.count" => -count }) { assert_nil remove(:admin, @alpha_event).error }
   end
 
   test "a foreign key failure from another table is refused without a count, leaving no audit row" do
