@@ -175,9 +175,12 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_no_match "Other team&#39;s news", response.body
   end
 
-  test "the calendar, shortcuts and ledgers stay below" do
+  test "the calendar, shortcuts and any ledgers are still on Home" do
     Shortcut.create!(name: "Handbook", icon: "book", color: "#336699", target: "/handbook", team: teams(:one))
+    get root_path
+    assert_select "h2", text: "Ledgers", count: 0
 
+    LedgerOwnership.create!(ledger: Ledger.create!(name: "Trip fund", team: teams(:one)), owner: @member.person)
     get root_path
 
     assert_select "h2", text: "Calendar"
