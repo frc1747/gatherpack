@@ -258,6 +258,8 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
         assert_match "Counting until December 01, 2026; these are today's numbers.", response.body
       end
       travel_to(Time.zone.parse("2026-12-02 10:00")) do
+        sign_out person(:admin).user
+        sign_in person(:admin).user
         get checklist_path(@checklist)
         assert_match "As of December 01, 2026, when counting stopped.", response.body
       end
@@ -361,6 +363,8 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       travel_to(Time.zone.parse("2026-12-05")) do
         BadgeAssignment.where(person: person(:member)).destroy_all
         Membership.where(person: person(:member2)).destroy_all
+        sign_out person(:admin).user
+        sign_in person(:admin).user
         get checklist_path(@checklist)
         assert_match "Results are frozen.", response.body
         assert_match "Recompute to apply corrections.", response.body
