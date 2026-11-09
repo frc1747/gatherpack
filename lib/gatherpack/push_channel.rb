@@ -7,6 +7,7 @@ module GatherPack
 
     # Push services limit a payload to about 4 KB; a lock screen shows far less.
     TITLE_LIMIT = 120
+    TEST_TITLE = "Your notifications are working."
 
     class << self
       # Delivery needs the service worker, which removes itself when the
@@ -30,15 +31,27 @@ module GatherPack
         user = person.user
         return unless sender && user&.push_topic_enabled?(topic)
 
-        title = title.to_s.squish.truncate(TITLE_LIMIT)
-        user.push_subscriptions.find_each do |subscription|
-          SendPushJob.perform_later(sender, subscription, title, path)
-        end
+        enqueue(sender, user, title.to_s.squish.truncate(TITLE_LIMIT), path)
+      end
+
+      # Goes to all of this login's devices whatever topics it has chosen, so it
+      # shows whether notifications reach them. Returns how many devices it went to.
+      def deliver_test(user, path:)
+        return 0 unless available? && (sender = gateway)
+
+        enqueue(sender, user, TEST_TITLE, path)
       end
 
       # A leading "//" or "/\" is another site as far as a browser is concerned.
       def local_path?(path)
         path.is_a?(String) && path.match?(%r{\A/(?![/\\])[^\s\\]*\z})
+      end
+
+      private
+
+      def enqueue(sender, user, title, path)
+        user.push_subscriptions.find_each { |subscription| SendPushJob.perform_later(sender, subscription, title, path) }
+        user.push_subscriptions.count
       end
     end
   end

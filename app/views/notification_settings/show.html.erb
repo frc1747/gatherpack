@@ -18,6 +18,7 @@
       <p class="mt-2 mb-0" hidden data-push-notifications-target="blocked">Notifications are blocked for this site. You can turn them on in your browser's settings.</p>
       <p class="mt-2 mb-0" hidden data-push-notifications-target="unsupported">This browser can't receive notifications.</p>
       <p class="mt-2 mb-0 text-danger" hidden data-push-notifications-target="problem">That didn't work. Try again.</p>
+      <%= button_to "Send a test notification", test_notifications_path, class: "btn btn-outline-secondary mt-3" %>
     <% else %>
       <p class="mb-0">Phone notifications aren't set up yet.</p>
     <% end %>

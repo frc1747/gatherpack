@@ -225,6 +225,48 @@ class PhoneNotificationsTest < ActionDispatch::IntegrationTest
     assert_equal [], @user.reload.push_preference.enabled_topics
   end
 
+  # Sending a test
+
+  test "a test goes to all my devices, even with every topic off, and to no one else's" do
+    create_subscription(@user)
+    create_subscription(@user, endpoint: "#{ENDPOINT}-tablet")
+    PushPreference.find_or_create_by!(user: @user).update!(enabled_topics: [])
+    theirs = create_subscription(@other, endpoint: "#{ENDPOINT}-theirs")
+
+    assert_enqueued_jobs 2, only: SendPushJob do
+      post test_notifications_path
+    end
+
+    assert_redirected_to notifications_path
+    assert_equal "Test sent to 2 devices. It should arrive within a minute.", flash[:notice]
+    enqueued = enqueued_jobs.select { |job| job["job_class"] == "SendPushJob" }
+    assert_not enqueued.any? { |job| job["arguments"].to_s.include?(theirs.to_global_id.to_s) }
+  end
+
+  test "a test with no devices says to turn notifications on" do
+    assert_no_enqueued_jobs only: SendPushJob do
+      post test_notifications_path
+    end
+
+    assert_redirected_to notifications_path
+    assert_equal "Turn on notifications on a device first.", flash[:alert]
+  end
+
+  test "impersonating can't send a test" do
+    create_subscription(@other)
+    impersonate_other
+
+    assert_no_enqueued_jobs only: SendPushJob do
+      post test_notifications_path
+    end
+  end
+
+  test "the settings page offers a test once there's a gateway" do
+    get notifications_path
+
+    assert_select "form[action='#{test_notifications_path}'] button", text: "Send a test notification"
+  end
+
   test "the settings page says when nothing is set up" do
     @gateway.destroy!
 
@@ -243,6 +285,9 @@ class PhoneNotificationsTest < ActionDispatch::IntegrationTest
 
     subscribe
     assert_response :forbidden
+
+    post test_notifications_path
+    assert_redirected_to root_path
 
     get root_path
     assert_select "[data-controller='push-sync']", false
