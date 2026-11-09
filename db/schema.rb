@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_09_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_09_130100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -601,6 +601,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_09_130000) do
     t.text "guardian_reminder_message"
     t.date "expires_on"
     t.integer "valid_for_months"
+    t.integer "auto_reminder_days", default: 0, null: false
+    t.datetime "auto_reminded_at"
     t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
     t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
     t.index ["created_by_id"], name: "index_forms_on_created_by_id"
