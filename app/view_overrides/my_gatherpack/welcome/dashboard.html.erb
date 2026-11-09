@@ -23,7 +23,7 @@
   <div class="row">
     <div class="col-12 col-lg-8">
       <%= render "my_gatherpack/column", column: :todo, title: "To do", count: true %>
-      <%= render "my_gatherpack/column", column: :coming_up, title: "Coming up" %>
+      <%= render "my_gatherpack/column", column: :coming_up, title: "Coming up", link: my_gatherpack_full_calendar_link %>
       <%= my_gatherpack_widget_slot(:left) %>
     </div>
     <div class="col-12 col-lg-4">
@@ -59,18 +59,4 @@
       <% end %>
     </div>
   </div>
-
-  <% if GatherPack::Features.enabled?(:events) %>
-    <section class="mg-section">
-      <h2 class="mg-heading">Calendar</h2>
-      <div class="card">
-        <div class="card-body">
-          <div data-controller="calendar" data-calendar-default-view-value="listMonth" data-calendar-timezone-value="<%= Settings[:time_zone].presence || "UTC" %>" data-calendar-start-time-value="<%= Date.today.iso8601 %>">
-            <div id="calendar" data-turbo="false">
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  <% end %>
 </div>
