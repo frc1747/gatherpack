@@ -13,11 +13,12 @@ class FormAudienceRule < ApplicationRecord
   belongs_to :person, optional: true
 
   enum :effect, { include: 0, exclude: 1 }, prefix: :effect, validate: true
-  enum :target_type, { team: 0, badge: 1, person: 2 }, prefix: :target, validate: true
+  # checklist: people a checklist covers (Checklists::FormAudienceTarget).
+  enum :target_type, { team: 0, badge: 1, person: 2, checklist: 3 }, prefix: :target, validate: true
 
   validate :target_matches_type
   validate :within_completion_badge_team
-  validates :form_id, uniqueness: { scope: %i[ effect target_type team_id badge_id person_id ], message: "already has this rule" }
+  validates :form_id, uniqueness: { scope: %i[ effect target_type team_id badge_id person_id checklist_id checklist_match ], message: "already has this rule" }
 
   before_validation :clear_other_targets
 

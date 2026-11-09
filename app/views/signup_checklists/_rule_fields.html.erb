@@ -1,0 +1,6 @@
+<%# The checklist rule's settings on the position's rules card. %>
+<% choices = Checklists::SignupPositionRules.choices_for(current_user) %>
+<% choices.unshift(rule.checklist) if rule.checklist && choices.exclude?(rule.checklist) %>
+<%= r.input :checklist_id, label: "Checklist", collection: choices, label_method: :title, value_method: :id,
+      include_blank: "Choose a checklist", hint: "Active checklists whose results you can see for everyone. People it doesn't cover can't take the place." %>
+<%= r.input :accept_pending, label: "In Progress is enough", hint: "For when signing up is how people finish it." %>
