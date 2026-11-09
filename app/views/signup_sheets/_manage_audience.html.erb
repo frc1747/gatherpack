@@ -2,6 +2,8 @@
 <% rules = @signup_sheet.signup_audience_rules.includes(:team, :badge, :person).to_a %>
 <% teams = admin? ? Team.order(:name) : Team.where(id: [ @signup_sheet.team_id ] + @signup_sheet.team.all_descendant_ids).order(:name) %>
 <% effects = [ [ "Include", "include" ], [ "Exclude", "exclude" ] ] %>
+<%# Organizers add people and badges in their reach; admins anyone. %>
+<% reach_people = admin? ? nil : @signup_sheet.people_in_reach_of(current_user.person).order(:last_name, :first_name) %>
 <div class="card mb-3" id="audience">
   <div class="card-header">
     <h3 class="h5 mb-0">Who can sign up</h3>
@@ -46,7 +48,7 @@
             <%= r.input :target_type, as: :hidden %>
             <div class="input-group mb-2">
               <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
-              <%= r.select :badge_id, Badge.order(:name).map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge holders…" }, class: "form-select", required: true %>
+              <%= r.select :badge_id, @signup_sheet.badges_in_reach_of(current_user.person).order(:name).map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge holders…" }, class: "form-select", required: true %>
             </div>
             <%= r.button :submit, "Add badge", class: "btn btn-sm btn-secondary" %>
           <% end %>
@@ -56,7 +58,11 @@
         <%= simple_form_for SignupAudienceRule.new(target_type: :person), url: signup_sheet_signup_audience_rules_path(@signup_sheet) do |r| %>
           <%= r.input :target_type, as: :hidden %>
           <%= r.input :effect, collection: effects, include_blank: false, label: false, wrapper_html: { class: "mb-2" } %>
-          <%= r.input :person_id, as: :searching_combobox, scope: "people", label: false %>
+          <% if reach_people %>
+            <%= r.input :person_id, collection: reach_people.map { |person| [ person.display_name, person.id ] }, prompt: "Person…", label: false %>
+          <% else %>
+            <%= r.input :person_id, as: :searching_combobox, scope: "people", label: false %>
+          <% end %>
           <%= r.button :submit, "Add person", class: "btn btn-sm btn-secondary" %>
         <% end %>
       </div>

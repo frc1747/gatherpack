@@ -31,13 +31,24 @@ class SignupPosition < ApplicationRecord
   end
 
   # Why this person can't take this position at this event, one reason per
-  # failing rule. Empty when they can.
-  def eligibility_failures(person, event)
-    signup_position_rules.filter_map { |rule| rule.check(person, event) }
+  # failing rule, as the viewer may see them (SignupPositionRule#check_for).
+  # The viewer is also who places or signs up the person. Empty when they
+  # can. A page checking many people passes one Signups::AgeCheck for the
+  # sheet and viewer.
+  def eligibility_failures(person, event, viewer:, age_check: nil)
+    age_check ||= Signups::AgeCheck.new(signup_sheet, viewer)
+    signup_position_rules.filter_map { |rule| rule.check_for(person, event, viewer, age_check: age_check) }
   end
 
-  def eligible?(person, event)
-    eligibility_failures(person, event).empty?
+  def eligible?(person, event, viewer:, age_check: nil)
+    eligibility_failures(person, event, viewer: viewer, age_check: age_check).empty?
+  end
+
+  # The rules not checked for this person because the viewer may not see
+  # their result ("Age not checked" on the roster).
+  def unchecked_rules(person, viewer:, age_check: nil)
+    age_check ||= Signups::AgeCheck.new(signup_sheet, viewer)
+    signup_position_rules.select { |rule| rule.unchecked_for?(person, viewer, age_check: age_check) }
   end
 
   def add_slots_for!(event_ids)

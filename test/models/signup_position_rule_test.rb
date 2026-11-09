@@ -66,6 +66,61 @@ class SignupPositionRuleTest < ActiveSupport::TestCase
     assert_equal "Must be 18 or older (no birthday on file)", rule.check(person(:student2), @event)
   end
 
+  test "who may see an age result: the person, an admin, or someone who manages them" do
+    assert SignupPositionRule.age_visible_to?(person(:student), person(:student))
+    assert SignupPositionRule.age_visible_to?(person(:admin), person(:student))
+    Membership.create!(person: person(:concessions_manager), team: @students, manager: true)
+    assert SignupPositionRule.age_visible_to?(person(:concessions_manager), person(:student))
+
+    assert_not SignupPositionRule.age_visible_to?(person(:worker), person(:student)), "an organizer by badge"
+    assert_not SignupPositionRule.age_visible_to?(person(:parent), person(:student)), "a parent"
+    assert_not SignupPositionRule.age_visible_to?(nil, person(:student))
+  end
+
+  test "an age rule isn't checked for an organizer who may not see the result, and is hidden from others" do
+    with_organizer_grants("Sheet Organizer > Club") do
+      @sheet.signup_sheet_organizers.create!(person: person(:worker))
+      rule = @position.signup_position_rules.create!(kind: :age, min_age: 16)
+
+      [ person(:student), person(:student2), person(:sibling) ].each do |someone|
+        assert_nil rule.check_for(someone, @event, person(:worker))
+        assert rule.unchecked_for?(someone, person(:worker))
+      end
+      assert_equal SignupPositionRule::AGE_HIDDEN_REASON, rule.check_for(person(:student), @event, person(:parent))
+      assert_equal SignupPositionRule::AGE_HIDDEN_REASON, rule.check_for(person(:student2), @event, person(:parent))
+      assert_not rule.unchecked_for?(person(:student), person(:parent))
+
+      assert_equal "Must be 16 or older on Oct 24", rule.check_for(person(:student), @event, person(:student))
+      assert_equal "Must be 16 or older on Oct 24", rule.check_for(person(:student), @event, person(:admin))
+      assert_not rule.unchecked_for?(person(:student), person(:admin))
+    end
+  end
+
+  test "an age check works out each person once for one viewer" do
+    with_organizer_grants("Sheet Organizer > Club") do
+      @sheet.signup_sheet_organizers.create!(person: person(:worker))
+      friend_of = RelationshipType.create!(parent_label: "Friend of", child_label: "Friend of", permission: :added_by_participant)
+      Relationship.create!(parent: person(:worker), child: person(:student2), relationship_type: friend_of, created_by: person(:worker))
+      Relationship.create!(parent: person(:worker), child: person(:sibling), relationship_type: @sibling_of, created_by: person(:admin))
+      check = Signups::AgeCheck.new(@sheet, person(:worker))
+
+      assert_equal %i[ shown unchecked family hidden ], [ person(:worker), person(:student), person(:student2), person(:sibling) ].map { |someone| check.mode_for(someone) }
+      assert_equal :hidden, Signups::AgeCheck.new(@sheet, person(:parent)).mode_for(person(:student))
+      assert_equal :shown, Signups::AgeCheck.new(@sheet, person(:admin)).mode_for(person(:student))
+
+      @sheet.signup_sheet_organizers.where(person: person(:worker)).delete_all
+      assert_equal :unchecked, check.mode_for(person(:student)), "kept for the page"
+      assert_equal :hidden, Signups::AgeCheck.new(@sheet, person(:worker)).mode_for(person(:student))
+    end
+  end
+
+  test "other rules are checked for everyone" do
+    rule = @position.signup_position_rules.create!(kind: :badge, badge_ids: [ @license_badge.id ])
+
+    assert_equal "Needs the Alcohol License badge", rule.check_for(person(:student), @event, person(:parent))
+    assert_not rule.unchecked_for?(person(:student), person(:parent))
+  end
+
   test "age rule needs a limit" do
     rule = @position.signup_position_rules.build(kind: :age)
     assert_not rule.valid?
@@ -116,7 +171,7 @@ class SignupPositionRuleTest < ActiveSupport::TestCase
     @position.signup_position_rules.create!(kind: :badge, badge_ids: [ @license_badge.id ])
     @position.signup_position_rules.create!(kind: :age, min_age: 21)
 
-    assert_equal [ "Needs the Alcohol License badge", "Must be 21 or older on Oct 24" ], @position.eligibility_failures(person(:student), @event)
-    assert @position.eligible?(person(:worker), @event)
+    assert_equal [ "Needs the Alcohol License badge", "Must be 21 or older on Oct 24" ], @position.eligibility_failures(person(:student), @event, viewer: person(:student))
+    assert @position.eligible?(person(:worker), @event, viewer: person(:worker))
   end
 end
