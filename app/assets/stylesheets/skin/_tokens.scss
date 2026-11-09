@@ -15,6 +15,10 @@
   --gp-brand-hover-rgb: 87, 82, 63;
   --gp-brand-soft: #ece7d7;
   --gp-on-brand: #fff;
+  --gp-accent: #6d6753;
+  --gp-accent-rgb: 109, 103, 83;
+  --gp-accent-hover: #57523f;
+  --gp-accent-hover-rgb: 87, 82, 63;
   --gp-success: #146c43;
   --gp-success-rgb: 20, 108, 67;
   --gp-success-soft: #dcebe0;
@@ -42,12 +46,18 @@
 }
 
 @mixin dark-tokens {
-  --gp-brand: #c2baa1;
-  --gp-brand-rgb: 194, 186, 161;
-  --gp-brand-hover: #d6cfb8;
-  --gp-brand-hover-rgb: 214, 207, 184;
+  // Fills stay dark enough for white text, which a site's own widgets assume on
+  // --bs-primary. Text on dark surfaces uses the lighter accent.
+  --gp-brand: #7a745f;
+  --gp-brand-rgb: 122, 116, 95;
+  --gp-brand-hover: #6d6753;
+  --gp-brand-hover-rgb: 109, 103, 83;
   --gp-brand-soft: #3a3528;
-  --gp-on-brand: #1f1c12;
+  --gp-on-brand: #fff;
+  --gp-accent: #c2baa1;
+  --gp-accent-rgb: 194, 186, 161;
+  --gp-accent-hover: #d6cfb8;
+  --gp-accent-hover-rgb: 214, 207, 184;
   --gp-success: #4cc38a;
   --gp-success-rgb: 76, 195, 138;
   --gp-success-soft: #17382a;
@@ -84,16 +94,16 @@
   --bs-primary: var(--gp-brand);
   --bs-primary-rgb: var(--gp-brand-rgb);
   --bs-primary-bg-subtle: var(--gp-brand-soft);
-  --bs-primary-text-emphasis: var(--gp-brand-hover);
+  --bs-primary-text-emphasis: var(--gp-accent-hover);
   --bs-success: var(--gp-success);
   --bs-success-rgb: var(--gp-success-rgb);
   --bs-success-bg-subtle: var(--gp-success-soft);
   --bs-success-text-emphasis: var(--gp-success);
   --bs-secondary-rgb: var(--gp-muted-rgb);
-  --bs-link-color: var(--gp-brand);
-  --bs-link-color-rgb: var(--gp-brand-rgb);
-  --bs-link-hover-color: var(--gp-brand-hover);
-  --bs-link-hover-color-rgb: var(--gp-brand-hover-rgb);
+  --bs-link-color: var(--gp-accent);
+  --bs-link-color-rgb: var(--gp-accent-rgb);
+  --bs-link-hover-color: var(--gp-accent-hover);
+  --bs-link-hover-color-rgb: var(--gp-accent-hover-rgb);
   --bs-focus-ring-color: rgba(var(--gp-brand-rgb), .25);
 
   --bs-body-font-family: var(--gp-font);
@@ -151,7 +161,7 @@
   --hw-group-bg-color: var(--gp-surface);
   --hw-invalid-color: var(--bs-danger);
   --hw-dialog-label-color: var(--gp-text);
-  --hw-focus-color: var(--gp-brand);
+  --hw-focus-color: var(--gp-accent);
   --hw-option-bg-color: var(--gp-surface);
 }
 

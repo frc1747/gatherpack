@@ -67,8 +67,8 @@
 }
 
 .btn-outline-primary, .btn-outline-success {
-  --bs-btn-color: var(--gp-brand);
-  --bs-btn-border-color: var(--gp-brand);
+  --bs-btn-color: var(--gp-accent);
+  --bs-btn-border-color: var(--gp-accent);
   --bs-btn-hover-color: var(--gp-on-brand);
   --bs-btn-hover-bg: var(--gp-brand);
   --bs-btn-hover-border-color: var(--gp-brand);
@@ -76,8 +76,8 @@
   --bs-btn-active-color: var(--gp-on-brand);
   --bs-btn-active-bg: var(--gp-brand);
   --bs-btn-active-border-color: var(--gp-brand);
-  --bs-btn-disabled-color: var(--gp-brand);
-  --bs-btn-disabled-border-color: var(--gp-brand);
+  --bs-btn-disabled-color: var(--gp-accent);
+  --bs-btn-disabled-border-color: var(--gp-accent);
 }
 
 .btn-outline-secondary, .btn-outline-dark {
