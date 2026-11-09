@@ -71,3 +71,6 @@ feature/my-gatherpack-family
 feature/forms-auto-reminders
 feature/quiet-root-signin
 feature/phone-notifications-connectors
+feature/search-form-asterisks
+feature/table-responsive
+feature/people-search-phone

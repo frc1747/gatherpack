@@ -37,6 +37,11 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-030](BL-030-refused-delete-audit-row.md) | A refused delete still writes a "destroy" audit entry | upstream bug | low | started | 2026-11-04 |
 | [BL-031](BL-031-event-type-delete-checkin-fields.md) | Deleting an event type that has check-in fields crashes | upstream bug | low | started | 2026-11-04 |
 | [BL-032](BL-032-event-type-change-checkin-fields.md) | Changing an event's type doesn't update its check-ins' fields | upstream bug | low | started | 2026-11-04 |
+| [BL-033](BL-033-search-form-asterisks.md) | Search forms mark every field as required | upstream bug | low | started | 2026-11-08 |
+| [BL-034](BL-034-table-responsive.md) | Three screens have wide tables that widen the page on a phone | upstream improvement | low | started | 2026-11-08 |
+| [BL-035](BL-035-people-search-phone.md) | The People search form fills the phone screen | upstream improvement | medium | started | 2026-11-08 |
+| [BL-036](BL-036-ransack-associations-allowlist.md) | Six admin list pages raise a Ransack allowlist error | upstream bug | medium | new | 2026-11-08 |
+| [BL-037](BL-037-calendar-note-badge-args.md) | The calendar notes page crashes when a note links to a record | upstream bug | medium | new | 2026-11-08 |
 
 ## Fields
 
