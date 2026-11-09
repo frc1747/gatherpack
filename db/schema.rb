@@ -1338,12 +1338,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   add_foreign_key "checkin_fields", "person_fields"
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
-  add_foreign_key "checklist_attestations", "people", on_delete: :cascade
   add_foreign_key "checklist_attestations", "people", column: "attested_by_id", on_delete: :nullify
+  add_foreign_key "checklist_attestations", "people", on_delete: :cascade
   add_foreign_key "checklist_excuses", "checklist_items", column: "item_id"
   add_foreign_key "checklist_excuses", "events", on_delete: :cascade
-  add_foreign_key "checklist_excuses", "people", on_delete: :cascade
   add_foreign_key "checklist_excuses", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "checklist_excuses", "people", on_delete: :cascade
   add_foreign_key "checklist_grants", "badges"
   add_foreign_key "checklist_grants", "checklists"
   add_foreign_key "checklist_grants", "people", column: "created_by_id", on_delete: :nullify
@@ -1366,8 +1366,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   add_foreign_key "checklists", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "checklists", "teams"
   add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
-  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
   add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
   add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
   add_foreign_key "commitment_organizers", "people", on_delete: :cascade
   add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
