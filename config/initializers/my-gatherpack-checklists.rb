@@ -5,7 +5,7 @@ Rails.application.config.to_prepare do
 
   MyGatherpack.register_section(:checklists_todo, partial: "my_gatherpack/todo_row", column: :todo, position: 20,
     enabled: -> { Checklists.enabled? }, items: -> { my_gatherpack_checklist_items })
-  MyGatherpack.register_section(:checklists_season, partial: "my_gatherpack/checklists_season", column: :coming_up, position: 20,
+  MyGatherpack.register_section(:checklists_season, partial: "my_gatherpack/checklists_season", column: :side, position: 20,
     enabled: -> { Checklists.enabled? })
 
   # Someone who organizes checklists without managing a team still gets Manage.
