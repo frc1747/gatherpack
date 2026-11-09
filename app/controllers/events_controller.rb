@@ -10,33 +10,33 @@ class EventsController < InternalController
 
   # GET /events/1
   def show
-    @q = policy_scope(@event.checkins).ransack(params[:q])
+    @q = policy_scope(@event.checkins).ransack(params[:q], auth_object: current_user)
     @checkins = @q.result(distinct: true).page(params[:page])
     @checkin = @event.checkins.build
   end
 
   def arrange
     @event.checkins.each(&:refresh_fields)
-    @field = CheckinField.find(params[:field_id]) rescue nil
+@field = @event.event_type.checkin_fields.find_by(id: params[:field_id])
+# Linked fields show a person's value; there's nothing to arrange.
+@field = nil if @field&.linked?
     @responses = CheckinFieldResponse
       .includes(checkin: :person)
       .joins(:checkin)
       .where(checkin_field: @field, checkins: { event_id: @event.id })
+    @responses = @responses.where(checkins: { person_id: @field.readable_people_for(current_user.person).select(:id) }) if @field
   end
 
   def print
     @event.checkins.each(&:refresh_fields)
-    @field = CheckinField.find(params[:field_id]) rescue nil
-    @possible_values = @event.checkin_field_responses.where(checkin_field: @field).distinct.pluck(:response).compact.sort_by { |v| v || "zzzzz" }
-    @values = params[:values].present? ? @possible_values & params[:values] : @possible_values
-    @values = @possible_values if @values.empty?
+@field = @event.event_type.checkin_fields.find_by(id: params[:field_id])
     @paged = params[:paged] == "true"
     @notes = params[:notes] == "true"
-    @responses = CheckinFieldResponse
-      .includes(checkin: :person)
-      .joins(:checkin)
-      .where(checkin_field: @field, checkins: { event_id: @event.id })
-    @last_updated = @responses.maximum(:updated_at)
+    @groups = @field ? print_groups(@field) : {}
+    @possible_values = @groups.keys.compact.sort
+    @values = params[:values].present? ? @possible_values & params[:values] : @possible_values
+    @values = @possible_values if @values.empty?
+    @last_updated = @event.checkin_field_responses.where(checkin_field: @field).maximum(:updated_at) unless @field&.linked?
   end
 
   # GET /events/new
@@ -61,7 +61,12 @@ class EventsController < InternalController
 
   # PATCH/PUT /events/1
   def update
-    if @event.update(event_params)
+    # Authorize again once the new attributes are in place: set_event only
+    # checked the event's current team, not the one in the form.
+    @event.assign_attributes(event_params)
+    authorize @event
+
+    if @event.save
       redirect_to @event, notice: "Event was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -75,13 +80,31 @@ class EventsController < InternalController
   end
 
   private
+    # Check-ins grouped by their value for the field. People whose value the
+    # viewer can't see are grouped under "—".
+    def print_groups(field)
+      readable = field.readable_people_for(current_user.person).where(id: @event.checkins.select(:person_id)).ids.to_set
+      @event.checkins.includes(:person, :checkin_field_responses).group_by do |checkin|
+        readable.include?(checkin.person_id) ? print_value(field.value_for(checkin)) : "—"
+      end
+    end
+
+    def print_value(value)
+      case value
+      when Array then value.join(", ").presence
+      when Date then value.iso8601
+      when true, false then value ? "Yes" : "No"
+      else value.presence
+      end
+    end
+
     # Use callbacks to share common setup or constraints between actions.
     def set_event
-      @event = authorize Event.find(params[:id])
+      @event = authorize policy_scope(Event).find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.
     def event_params
-      params.require(:event).permit(:name, :description, :start_time, :end_time, :location, :event_type_id, :team_id, :locked, :time_clock_period_id, :checkin_limit)
+      params.require(:event).permit(:name, :description, :start_time, :end_time, :location, :event_type_id, :team_id, :locked, :time_clock_period_id, :checkin_limit, :time_kind, :event_date)
     end
 end

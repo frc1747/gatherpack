@@ -1,6 +1,7 @@
 <%= f.error_notification %>
 <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
+<% if @person.new_record? || policy(@person).update_profile? %>
 <div class="row" data-controller="photo-capture">
   <div class="col-md-4">
     <div class="row mb-2">
@@ -36,38 +37,16 @@
     </div>
 
     <div class="row">
-      <div class="col-3">
-        <%= f.input :gender, as: :select, collection: Settings[:gender_options].split(",").map(&:strip) %>
-      </div>
-      <div class="col-3">
-        <%= f.input :shirt_size, as: :select, collection: Settings[:shirt_sizes].split(",").map(&:strip) %>
-      </div>
-      <div class="col-6">
-
-        <%= f.input :birthday, as: :string, input_html: { type: :date } %>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col-12 col-md-6">
-        <%= f.input :address %>
-      </div>
-      <div class="col-12 col-md-6">
-        <%= f.input :phone_number %>
-      </div>
-      <div class="col-12 col-md-6">
-        <%= f.input :dietary_restrictions %>
-      </div>
       <div class="col-md">
         <%= f.simple_fields_for :user do |ff| %>
-          <%= ff.input :email, disabled: true %>
-
           <% if @person.user.provider %>
             <div class="alert alert-warning">
               This person signs in with <%= @person.user.provider %>
             </div>
-          <% else %>
-            <%= link_to "Change Email/Password", if @person.user.id then edit_person_user_path(@person) else new_person_user_path(@person) end, class: "btn btn-primary" %>
+          <% elsif @person.user.id %>
+            <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" if policy(@person.user).update? %>
+          <% elsif policy(User).create? %>
+            <%= link_to "Create Email/Password", new_person_user_path(@person), class: "btn btn-primary" %>
           <% end %>
         <% end %>
       </div>
@@ -77,3 +56,6 @@
     </div>
   </div>
 </div>
+<% end %>
+
+<%= render "people/field_inputs", f: f, person: @person %>

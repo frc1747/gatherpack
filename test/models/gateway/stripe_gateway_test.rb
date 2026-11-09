@@ -30,11 +30,31 @@ class Gateway::StripeGatewayTest < ActiveSupport::TestCase
     end
   end
 
-  test "handle_webhook skips verification when secret is blank" do
+  test "verify_webhook accepts a valid signature and refuses a bad or missing one" do
+    assert @gateway.verify_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => signature_for(@payload, @gateway.secret) })
+    assert_not @gateway.verify_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => signature_for(@payload, "wrong_secret") })
+    assert_not @gateway.verify_webhook(@payload, {})
+  end
+
+  test "verify_webhook refuses everything when secret is blank" do
     gateway = gateway_stripe_gateways(:without_secret)
 
-    assert_nothing_raised do
-      gateway.handle_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => nil })
-    end
+    assert_not gateway.verify_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => signature_for(@payload, "") })
   end
+
+  test "handle_webhook refuses every event when secret is blank" do
+    gateway = gateway_stripe_gateways(:without_secret)
+    entry = LedgerEntry.create!(ledger: ledgers(:one), amount: 5, finalized: false, created_by: people(:one),
+      metadata: { gateway_id: gateway.id, stripe_checkout_session: { id: "cs_test123" } })
+
+    gateway.handle_webhook(@payload, { "HTTP_STRIPE_SIGNATURE" => nil })
+
+    assert_not entry.reload.failed, "an event was processed without a signature check"
+  end
+
+  private
+    def signature_for(payload, secret)
+      timestamp = Time.now
+      Stripe::Webhook::Signature.generate_header(timestamp, Stripe::Webhook::Signature.compute_signature(timestamp, payload, secret))
+    end
 end

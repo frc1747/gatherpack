@@ -40,6 +40,21 @@ See [docs/self-hosting.md](docs/self-hosting.md) for the full guide, including
 deploying with [Komodo](https://komo.do), TLS and reverse proxy setup, backups,
 and running against an external PostgreSQL server.
 
+### Upgrading: webhooks and stored secrets
+
+Gateway webhooks are now verified, and gateway secrets and OAuth client secrets
+are encrypted. After
+upgrading (details in [docs/self-hosting.md](docs/self-hosting.md)):
+
+- Run `bin/rails gateways:scrub_audit_log`, then rotate every gateway key.
+- Give each Stripe and Resend gateway its webhook signing secret if its page
+  says it isn't ready.
+- Paste each Postmark receiving gateway's new webhook URL, with its
+  credentials, into Postmark.
+- Rotate the OAuth client secrets with Discord, GitHub and Google: copies of
+  `storage/settings.pstore` made before the upgrade hold them in plain text.
+- Keep `SECRET_KEY_BASE` (or the encryption keys) with your database backups.
+
 ## Developer Hints
 
 ### Formatting and Linting 

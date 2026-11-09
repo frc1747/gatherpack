@@ -1,0 +1,65 @@
+<% badges = GatherPack::Features.enabled?(:badges) %>
+<% rules = @signup_sheet.signup_audience_rules.includes(:team, :badge, :person).to_a %>
+<% teams = admin? ? Team.order(:name) : Team.where(id: [ @signup_sheet.team_id ] + @signup_sheet.team.all_descendant_ids).order(:name) %>
+<% effects = [ [ "Include", "include" ], [ "Exclude", "exclude" ] ] %>
+<div class="card mb-3" id="audience">
+  <div class="card-header">
+    <h3 class="h5 mb-0">Who can sign up</h3>
+  </div>
+  <div class="card-body">
+    <p>
+      With no rules, everyone in <%= @signup_sheet.team.name %> and the teams below it can sign up.
+      Include teams, badge holders or people to choose instead, and exclude any to leave them out.
+    </p>
+    <% if rules.any? %>
+      <ul class="list-group mb-3">
+        <% rules.each do |rule| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id rule %>">
+            <span>
+              <%= i(rule.effect_include? ? "plus" : "minus") %> <%= rule.description %>
+              <% if rule.target_badge? && !badges %><span class="badge text-bg-light">Ignored while Badges are turned off</span><% end %>
+            </span>
+            <%= button_to "Remove", signup_sheet_signup_audience_rule_path(@signup_sheet, rule), method: :delete,
+                  class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                  data: { turbo_confirm: "Remove this rule? Anyone already signed up stays signed up." } %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+    <p>Open to <%= pluralize(@signup_sheet.audience.count, "person", plural: "people") %>.</p>
+
+    <div class="row g-3">
+      <div class="col-lg-4">
+        <%= simple_form_for SignupAudienceRule.new(target_type: :team), url: signup_sheet_signup_audience_rules_path(@signup_sheet) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <div class="input-group mb-2">
+            <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+            <%= r.select :team_id, teams.map { |team| [ team.name, team.id ] }, { prompt: "Team…" }, class: "form-select", required: true %>
+          </div>
+          <%= r.input :include_managers, label: "Include its managers", hint: "Untick for members only." %>
+          <%= r.button :submit, "Add team", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+      <% if badges %>
+        <div class="col-lg-4">
+          <%= simple_form_for SignupAudienceRule.new(target_type: :badge), url: signup_sheet_signup_audience_rules_path(@signup_sheet) do |r| %>
+            <%= r.input :target_type, as: :hidden %>
+            <div class="input-group mb-2">
+              <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+              <%= r.select :badge_id, Badge.order(:name).map { |badge| [ badge.name, badge.id ] }, { prompt: "Badge holders…" }, class: "form-select", required: true %>
+            </div>
+            <%= r.button :submit, "Add badge", class: "btn btn-sm btn-secondary" %>
+          <% end %>
+        </div>
+      <% end %>
+      <div class="col-lg-4">
+        <%= simple_form_for SignupAudienceRule.new(target_type: :person), url: signup_sheet_signup_audience_rules_path(@signup_sheet) do |r| %>
+          <%= r.input :target_type, as: :hidden %>
+          <%= r.input :effect, collection: effects, include_blank: false, label: false, wrapper_html: { class: "mb-2" } %>
+          <%= r.input :person_id, as: :searching_combobox, scope: "people", label: false %>
+          <%= r.button :submit, "Add person", class: "btn btn-sm btn-secondary" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

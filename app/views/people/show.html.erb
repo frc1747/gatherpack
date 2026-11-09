@@ -21,13 +21,7 @@
       <div class="col-12 col-sm-6 col-lg-4">
         <%= md @person.bio %>
         <hr>
-        <p><b>Email: </b><%= if @person.user.nil? then "This person doesn't have a user attached." else @person.user.email end %></p>
-        <p><b>Phone: </b><%= @person.phone_number %></p>
-        <p><b>Birthday: </b><%= nice_date(@person.birthday) %></p>
-        <p><b>Address: </b><%= @person.address %></p>
-        <p><b>Dietary Restrictions: </b><%= @person.dietary_restrictions %></p>
-        <p><b>Shirt Size: </b><%= @person.shirt_size %></p>
-        <p><b>Gender: </b><%= @person.gender %></p>
+        <%= render "people/fields", person: @person %>
       </div>
       <div class="col-12 col-sm-6 col-lg-4">
         <% if @teams.any? %>
@@ -36,7 +30,11 @@
             <div class="badge-container">
               <% @teams.each do |team| %>
                 <div class="<%= "manager" if @person.managed_teams.include? team %>">
-                <%= link_to as_badge(team), team, class: "undecorated" %>
+                <% if @linkable_team_ids.include?(team.id) %>
+                  <%= link_to as_badge(team), team, class: "undecorated" %>
+                <% else %>
+                  <%= as_badge(team) %>
+                <% end %>
                 </div>
               <% end %>
             </div>
@@ -98,8 +96,8 @@
     <%= link_to "Impersonate", impersonate_person_path(@person), data: { turbo_method: :post }, class: "btn btn-dark" if @person.user.present? && policy(@person).impersonate? %>
     <%= link_to "Edit Profile", edit_person_path(@person), class: "btn btn-warning" if policy(@person).update? %>
     <% if @person.user&.id %>
-      <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" %>
-    <% else %>
+      <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" if policy(@person.user).update? %>
+    <% elsif policy(User).create? %>
       <%= link_to "Create Email/Password", new_person_user_path(@person), class: "btn btn-primary" %>
     <% end %>
     <%= link_to "Delete", @person, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@person).destroy? %>

@@ -5,6 +5,14 @@
     <h1><%= @relationship_type.identifier_name %></h1>
   </div>
   <div class="card-body">
+    <p><b>Guardianship:</b> <%= RelationshipType::GUARDIANSHIP_LABELS[@relationship_type.guardianship] %></p>
+    <% if @relationship_type.guardianship? %>
+      <div class="form-text mb-3"><%= render "guardian_grants" %></div>
+    <% end %>
+    <% if @relationship_type.show_contact_details? %>
+      <p class="mb-1"><b>Show contact details:</b> Yes</p>
+      <div class="form-text mb-3"><%= RelationshipType::SHOW_CONTACT_DETAILS_HINT %></div>
+    <% end %>
     <div class="table-responsive">
       <table class="table table-striped">
         <thead>

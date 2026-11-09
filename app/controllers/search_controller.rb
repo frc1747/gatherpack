@@ -1,4 +1,4 @@
-class SearchController < ApplicationController
+class SearchController < InternalController
   def index
     scope = params[:scope].presence || "people events teams badges tokens announcements time_clock_periods hooks"
     @results = search(params[:q], scope)
@@ -15,6 +15,11 @@ class SearchController < ApplicationController
   private
 
   def search(q, scope)
+    # Every list below goes through policy_scope, or holds only the user's own
+    # person and the teams and people they manage, so there is no one record
+    # to authorize.
+    skip_authorization
+    skip_policy_scope
     feature_scope_map = {
       "events" => :events,
       "badges" => :badges,
@@ -25,25 +30,31 @@ class SearchController < ApplicationController
     scope = scope.split(" ").map(&:strip).uniq
     scope.reject! { |s| feature_scope_map.key?(s) && !GatherPack::Features.enabled?(feature_scope_map[s]) }
     results = []
-    results += policy_scope(Person).ransack(first_name_or_last_name_or_display_name_i_cont: params[:q]).result(distinct: true) if scope.include?("people")
+    results += policy_scope(Person).ransack({ first_name_or_last_name_or_display_name_i_cont: params[:q] }, auth_object: current_user).result(distinct: true) if scope.include?("people")
     if scope.include?("managed_people")
       results += if current_user.admin?
-        policy_scope(Person).ransack(first_name_or_last_name_or_display_name_i_cont: params[:q]).result(distinct: true)
+        policy_scope(Person).ransack({ first_name_or_last_name_or_display_name_i_cont: params[:q] }, auth_object: current_user).result(distinct: true)
       else
-        current_user.person.all_managed_people.ransack(first_name_or_last_name_or_display_name_i_cont: params[:q]).result(distinct: true)
+        current_user.person.all_managed_people.ransack({ first_name_or_last_name_or_display_name_i_cont: params[:q] }, auth_object: current_user).result(distinct: true)
       end
     end
     team_people_ids = scope.select { |s| s.start_with?("team_people:") }.map { |s| s.split(":").last }
     team_people_ids.each do |team_id|
-      results += policy_scope(Team.find(team_id).all_people).ransack(first_name_or_last_name_or_display_name_i_cont: params[:q]).result(distinct: true)
+      # A team's roster is part of its full page, so list it only to those
+      # who may see that page. Anyone else on the team still finds themself,
+      # e.g. to take one of the team's badges.
+      team = policy_scope(Team).find(team_id)
+      people = policy_scope(team.all_people)
+      people = people.where(id: current_user.person.id) unless policy(team).show_full?
+      results += people.ransack({ first_name_or_last_name_or_display_name_i_cont: params[:q] }, auth_object: current_user).result(distinct: true)
     end
-    results += policy_scope(User).ransack(email_or_person_first_name_or_person_last_name_or_person_display_name_i_cont: params[:q]).result(distinct: true) if scope.include?("users")
-    results += Person.where(id: current_user.person.id).ransack(first_name_or_last_name_or_display_name_i_cont: params[:q]).result(distinct: true) if scope.include?("me")
+    results += policy_scope(User).ransack({ email_or_person_first_name_or_person_last_name_or_person_display_name_i_cont: params[:q] }, auth_object: current_user).result(distinct: true) if scope.include?("users")
+    results += Person.where(id: current_user.person.id).ransack({ first_name_or_last_name_or_display_name_i_cont: params[:q] }, auth_object: current_user).result(distinct: true) if scope.include?("me")
     results += policy_scope(Event).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("events")
     results += policy_scope(Team).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("teams")
     results += current_user.person.all_managed_teams.ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("managed_teams")
     results += policy_scope(Badge).ransack(name_or_description_i_cont: params[:q]).result(distinct: true) if scope.include?("badges")
-    results += policy_scope(Token).ransack(value_i_cont: params[:q]).result(distinct: true) if scope.include?("tokens")
+    results += policy_scope(Token).ransack({ value_i_cont: params[:q] }, auth_object: current_user).result(distinct: true) if scope.include?("tokens")
     results += policy_scope(Announcement).ransack(name_or_content_i_cont: params[:q]).result(distinct: true) if scope.include?("announcements")
     results += policy_scope(TimeClockPeriod).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("time_clock_periods")
     results += policy_scope(Ledger).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("ledgers")

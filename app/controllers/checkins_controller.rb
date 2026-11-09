@@ -1,6 +1,15 @@
 class CheckinsController < InternalController
+  include SearchAndAdd
+
   before_action :set_event, except: [ :field_update, :rename_response ]
   before_action :set_checkin, only: %i[ show edit update destroy ]
+
+  # GET /events/1/checkins/candidates
+  def candidates
+    authorize Checkin.new(event: @event), :create?
+    people = policy_scope(Person).where.not(id: @event.checkins.select(:person_id)).order(:last_name, :first_name)
+    load_candidates(people, :first_name_or_last_name_or_display_name_i_cont)
+  end
 
   # GET /checkins/1
   def show
@@ -22,7 +31,10 @@ class CheckinsController < InternalController
     @checkin = authorize @event.checkins.build(checkin_params)
     @checkin.created_by = current_user.person
 
-    if @checkin.save
+    saved = @checkin.save
+    if inline_request?
+      render :create, status: saved ? :ok : :unprocessable_entity
+    elsif saved
       redirect_to @event, notice: "Checkin was successfully created."
     else
       render :new, status: :unprocessable_entity
@@ -32,7 +44,10 @@ class CheckinsController < InternalController
   # PATCH/PUT /checkins/1
   def update
     @checkin.created_by = current_user.person
-    if @checkin.update(checkin_params)
+    @checkin.assign_attributes(checkin_params)
+    # Moving a check-in to someone else checks that person in.
+    authorize @checkin, :create? if @checkin.person_id_changed?
+    if @checkin.save
       redirect_to [ @event, @checkin ], notice: "Checkin was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -49,9 +64,10 @@ class CheckinsController < InternalController
     @event = policy_scope(Event).find(params[:id])
     @checkin_field_response = CheckinFieldResponse
       .joins(:checkin)
-      .where(checkins: { event_id: @event.id })
+      .where(checkins: { event_id: @event.id }, checkin_field_id: @event.event_type.checkin_fields.select(:id))
       .find(params[:field_id])
-    authorize @checkin_field_response.checkin, :update?
+    @checkin_field_response.checkin.created_by = current_user.person
+    authorize @checkin_field_response, :update?
     if @checkin_field_response.update(response: params[:response])
       respond_to do |res|
         res.json do
@@ -80,6 +96,15 @@ class CheckinsController < InternalController
   end
 
   private
+    # field_update and rename_response are called with fetch, which sends a
+    # JSON body with no Accept header and would follow a redirect and report
+    # success.
+    def pundit_not_authorized
+      return head :forbidden if request.format.json? || request.media_type == "application/json"
+
+      super
+    end
+
     # Use callbacks to share common setup or constraints between actions.
     def set_checkin
       @checkin = authorize policy_scope(@event.checkins).find(params[:id])

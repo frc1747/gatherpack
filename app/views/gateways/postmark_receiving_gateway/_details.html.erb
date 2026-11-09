@@ -1,0 +1,9 @@
+<p>
+  Use the webhook URL above, including its user name and password, as the
+  inbound webhook URL of your Postmark server. Inbound mail without these
+  credentials is refused.
+</p>
+<%= button_to "Regenerate inbound password", gateway_path(gateway), method: :patch,
+      params: { "gateway[regenerate_inbound_password]" => "1" },
+      class: "btn btn-warning",
+      form: { data: { turbo_confirm: "Postmark will be refused until you update its inbound webhook URL. Continue?" } } %>
