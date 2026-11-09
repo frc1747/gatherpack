@@ -10,7 +10,9 @@ class TimeKioskPeriodLessPunchTest < ActionDispatch::IntegrationTest
     @period = TimeClockPeriod.create!(name: "Build Season", start_time: 1.month.ago, end_time: 1.month.from_now, permission: :added_by_user)
 
     # The kiosk runs under a signed-in kiosk account.
-    kiosk_user = User.create!(email: "kiosk@example.com", password: "Password1!", kiosk: true)
+    kiosk_user = User.new(email: "kiosk@example.com", password: "Password1!")
+    kiosk_user.kiosk = true if kiosk_user.has_attribute?(:kiosk) # Kiosk accounts come with the security series.
+    kiosk_user.save!
     Person.create!(user: kiosk_user, first_name: "Front", last_name: "Kiosk")
     sign_in kiosk_user
   end
