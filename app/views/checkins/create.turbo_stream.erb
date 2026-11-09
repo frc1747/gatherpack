@@ -1,0 +1,13 @@
+<% person = @checkin.person %>
+<% if @checkin.persisted? %>
+  <%= turbo_stream.replace dom_id(person, :candidate), partial: "shared/add_candidate", locals: { record: person, state: :added } %>
+  <%= turbo_stream.prepend "checkins", partial: "checkins/grid_checkin", locals: { checkin: @checkin, col_class: "col-6 col-md-4 col-xl-3" } %>
+  <%= turbo_stream.update "checkins_count", @event.checkins.count %>
+<% elsif person %>
+  <%= turbo_stream.replace dom_id(person, :candidate), partial: "shared/add_candidate", locals: {
+        record: person,
+        add_url: event_checkins_path(@event, format: :turbo_stream),
+        add_params: { checkin: { person_id: person.id } },
+        errors: @checkin.errors.full_messages
+      } %>
+<% end %>
