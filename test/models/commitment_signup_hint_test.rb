@@ -1,10 +1,12 @@
 require "test_helper"
 require_relative "../support/signup_credit_world"
+require_relative "../support/checklists_flag_helper"
 
 # The hint next to each on-behalf-of choice in the sign up dialog when a
 # sign-up to the slot counts toward a commitment (spec §4.6, last paragraph).
 class CommitmentSignupHintTest < ActiveSupport::TestCase
   include SignupCreditWorld
+  include ChecklistsFlagHelper
 
   setup do
     travel_to Time.zone.parse("2026-10-05 12:00")
@@ -76,6 +78,70 @@ class CommitmentSignupHintTest < ActiveSupport::TestCase
   test "is registered in the sign-ups hint slot" do
     Commitments::SignupViewer.set(person: person(:member), slot: slot_at(@cashier, @game)) do
       assert_equal "2 shifts left on Shifts", with_feature { Signups.extensions.on_behalf_of_hint(@sheet, person(:member)) }
+    end
+  end
+
+  test "with checklists on, reads a count item's commitment as the item, shown to whoever the item allows" do
+    with_count_item("Crew shifts", "Eligibility") do
+      assert_equal "2 shifts left on Crew shifts (Eligibility)", hint_with_checklists(:member)
+      assert_equal "2 shifts left on Crew shifts (Eligibility)", hint_with_checklists(:member, viewer: :admin)
+      assert_nil hint_with_checklists(:member, viewer: :member2)
+      assert_nil hint_with_checklists(:kid, viewer: :organizer), "a count that isn't pooled stays from relatives"
+    end
+  end
+
+  test "with checklists on, leaves out the checklist's name when it is the item's" do
+    with_count_item("Eligibility", "Eligibility") do
+      assert_equal "2 shifts left on Eligibility", hint_with_checklists(:member)
+    end
+  end
+
+  test "with checklists off, a count item's commitment reads and shows as it always did" do
+    with_count_item("Crew shifts", "Eligibility") do
+      assert_equal "2 shifts left on Crew shifts", hint(:member)
+      assert_nil hint(:member, viewer: :member2)
+
+      @item_commitment.update!(group_relationship_type: @parent_of)
+      assert_equal "2 shifts left on Crew shifts", hint(:kid, viewer: :organizer), "the commitment's own group rule"
+    end
+  end
+
+  private
+
+  def hint_with_checklists(name, **options)
+    with_checklists_on { hint(name, **options) }
+  end
+
+  # Yields with the world's commitment replaced by one that is a checklist's
+  # count item (label, checklist title): a real item where the checklists
+  # feature is present, otherwise a stand-in that answers checklist_item and
+  # lets the viewer see the person's count if it is themselves or an admin.
+  # Sets @item_commitment.
+  def with_count_item(label, checklist_title)
+    @commitment.destroy!
+    if Commitment.reflect_on_association(:checklist_item)
+      checklist = Checklist.create!(title: checklist_title, team: @club, status: :active, starts_on: Date.new(2026, 10, 1),
+        ends_on: Date.new(2026, 10, 31), created_by: person(:admin))
+      checklist.checklist_rules.create!(effect: :include, target_type: :team, team: @members)
+      item = checklist.checklist_items.new(kind: "count", label: label)
+      item.config_params = { base_amount: 2, unit: "shifts" }
+      item.save!
+      @item_commitment = item.commitment
+      @item_commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+      yield
+    else
+      @item_commitment = create_world_commitment(label)
+      @item_commitment.commitment_sources.create!(kind: "signups", subject: @sheet)
+      stand_in = Struct.new(:label, :checklist).new(label, Struct.new(:title).new(checklist_title))
+      commitment_id = @item_commitment.id
+      Commitment.define_method(:checklist_item) { id == commitment_id ? stand_in : nil }
+      Commitments::SignupHint.define_singleton_method(:item_visible?) { |_item, viewer, person| viewer.id == person.id || viewer.admin? }
+      begin
+        yield
+      ensure
+        Commitment.remove_method(:checklist_item)
+        Commitments::SignupHint.singleton_class.remove_method(:item_visible?)
+      end
     end
   end
 end

@@ -1,7 +1,8 @@
 <% slot = signup.signup_slot %>
 <% position = slot.signup_position %>
 <% signup_policy = policy(signup) %>
-<% failures = signup.cancelled? ? [] : position.eligibility_failures(signup.person, slot.event) %>
+<% failures = signup.cancelled? ? [] : position.eligibility_failures(signup.person, slot.event, viewer: current_user.person, age_check: age_check) %>
+<% unchecked = signup.cancelled? ? [] : position.unchecked_rules(signup.person, viewer: current_user.person, age_check: age_check) %>
 <tr id="<%= dom_id signup %>" class="<%= "text-body-secondary" if signup.cancelled? %>">
   <td class="text-nowrap"><%= slot.event.start_time.strftime("%a %b %-d") %><div class="small"><%= slot.event.name %></div></td>
   <td><%= position.name %></td>
@@ -15,6 +16,9 @@
   <td>
     <% if failures.any? %>
       <span class="badge text-bg-warning text-wrap">Doesn't meet: <%= failures.to_sentence %></span>
+    <% end %>
+    <% if unchecked.any? %>
+      <span class="badge text-bg-light text-wrap"><%= SignupPositionRule::AGE_NOT_CHECKED %></span>
     <% end %>
   </td>
   <td class="no-print text-nowrap">
