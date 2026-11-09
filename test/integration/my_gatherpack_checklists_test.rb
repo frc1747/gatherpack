@@ -285,8 +285,9 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
 
-      assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Shown only"
-      assert_select "[data-home-section=checklists-season] .progress-bar", false
+      row = css_select("[data-home-section=checklists-season] .mg-season-item").find { |item| item.text.include?("Shown only") }
+      assert row, "Shown only is listed"
+      assert_empty row.css(".progress-bar")
     end
   end
 
