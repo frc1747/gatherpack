@@ -140,6 +140,7 @@ class OauthAdminTest < ApplicationSystemTestCase
     fill_in "Password", with: "Password1!"
     click_on "Sign in"
 
+    assert_current_path "/oauth/authorize", ignore_query: true
     assert_text "Signed in as #{other.email}"
     assert_equal "/oauth/authorize", URI(current_url).path
   end
@@ -162,6 +163,7 @@ class OauthAdminTest < ApplicationSystemTestCase
     fill_in "Password", with: "Password1!"
     click_on "Sign in"
 
+    assert_current_path "/oauth/authorize", ignore_query: true
     assert_text "Signed in as #{other.email}"
     assert_equal "/oauth/authorize", URI(current_url).path
     assert_includes URI(current_url).query, "state=abc123"
