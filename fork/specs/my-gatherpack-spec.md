@@ -148,7 +148,7 @@ Matches the mockups in the pitch.
 | Coming up | Own sign-ups and events, soonest first, next 5 | `SignupsSummary#signups`, `policy_scope(Event)` |
 | Your season | Each checklist with unfinished items, with a progress bar. A count item shows `confirmed of owed` | `SignupsSummary#checklists` |
 | Latest | Announcements | `@announcements` |
-| Below | Calendar, shortcuts, ledgers, as today | Existing partials and markup |
+| Below | Shortcuts, ledgers, as today (no calendar: Coming up links to the full one) | Existing partials and markup |
 
 Order inside To do: past due, then by nearest due date, then those with no date. Each row has one button with a specific label ("Fill out", "See shifts"). A ward's item names the ward ("for Maya"). Guardian wording appears only on those rows.
 
