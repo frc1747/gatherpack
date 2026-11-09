@@ -1,6 +1,8 @@
 # Spec: My GatherPack
 
-Status: rev. 3, 2026-11-08. Being built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+Status: rev. 4, 2026-11-09. Being built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+
+Rev. 4: `MyGatherpack::Menu.place` lets a connector add menu placements safely (§5.2); shared queues appear on Home as one row (§6.2); Orders is planned as a connector (§4).
 
 Rev. 3: the page says the site's title; checklists replace commitments on Home and Family (`feature/commitments-guardian-view` is dropped, per [`checklists-spec.md`](checklists-spec.md) §10.1); Phase 0 no longer blocks the build; sidebar additions use the slots seam.
 
@@ -60,6 +62,7 @@ Before building, watch three or four members and a guardian do the §1 tasks on 
 | `feature/my-gatherpack-forms` | `feature/my-gatherpack` + `feature/forms` | Forms sections and the phone form |
 | `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups section and the phone sheet |
 | `feature/my-gatherpack-checklists` | `feature/my-gatherpack` + `feature/checklists` | To-do items, Your season and the family page rows, from checklists |
+| `feature/my-gatherpack-orders` | `feature/my-gatherpack` + `feature/orders` | Planned, waits for Orders. To do rows, Your orders and menu placements ([`orders-spec.md`](orders-spec.md) §3.15) |
 | Small `feature/*` branches | `upstream/main` | One per cleanup item (§8), each with its own backlog entry |
 
 A `+` means the second branch is merged in, as a declared dependency. The core branch can't reference forms or sign-ups code, since upstream may not have them. So those sections are connectors, the same pattern as `feature/mcp-forms` and `feature/mcp-signups`.
@@ -104,6 +107,7 @@ Existing registrations keep working. `_sidebar` skips items that aren't visible,
 | Automation, Admin | Admins, unchanged | Variables, Reports, Hooks, Setup, Audit Log, MCP Calls |
 
 - Groups are set in a table in the feature's initializer, keyed by path helper, so no existing feature registration changes. **An item not in the table goes in More**, so a new feature can't vanish.
+- A connector adds its own placements with `MyGatherpack::Menu.place(:some_path, manage: 35)`. Placements are stored apart from the table and merged when read, because connector initializers (`my-gatherpack-*.rb`) sort before `my_gatherpack.rb`, whose assignment of the table would otherwise wipe them. Once this exists, `MyGatherpack::ChecklistsMenuTable` moves to it and is deleted.
 - "My Hours" points to the Time Clock page. For a manager, whose Time Clock lists their teams' punches too, it's `time_clock_punches_path` filtered to their own person.
 - Items appear only if their feature is enabled, as today.
 
@@ -153,6 +157,8 @@ Matches the mockups in the pitch.
 Order inside To do: past due, then by nearest due date, then those with no date. Each row has one button with a specific label ("Fill out", "See shifts"). A ward's item names the ward ("for Maya"). Guardian wording appears only on those rows.
 
 To do counts only what the viewer can act on: `to_do?` already means that for forms, and a checklist item counts only while it's unfinished and has a fix the viewer can use.
+
+Work shared across a queue is one summary row ("12 lines to buy") rather than a row per thing, as leader to-dos roll up by form, so one person's queue doesn't swamp the list and the heading's count. Something active that needs nothing from the viewer isn't a to-do; it belongs in a `:side` section.
 
 ### 6.3 Performance
 
@@ -244,7 +250,7 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 ## 10. Tests
 
 - **`NavItem`:** nil `visible` shows; a false proc hides; an empty section loses its heading.
-- **Role matrix for the menu.** Member, guardian, team manager, Forms creator, organizer, admin, and an impersonated member: each sees exactly the expected groups. An unknown item lands in More.
+- **Role matrix for the menu.** Member, guardian, team manager, Forms creator, organizer, admin, and an impersonated member: each sees exactly the expected groups. An unknown item lands in More. A `Menu.place` entry survives the core's table being assigned after it.
 - **Destinations are still guarded.** A member with no Manage section who requests a manager page gets what they get today.
 - **Home:** each section shows or hides by feature flag; empty state; sort order; the ward label; widget slots still render; nothing shown to one person leaks to another in a shared fixture world.
 - **Family:** no wards redirects; each ward shows only policy-allowed rows; an expired guardianship removes that ward's events and checklists; a ward's event shows title, time and place but no check-ins, and links only if the viewer can already reach it; a ward's team event doesn't appear in the guardian's events list or calendar.

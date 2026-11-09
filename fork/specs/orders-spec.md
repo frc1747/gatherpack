@@ -1,6 +1,8 @@
 # Spec: Order Requests
 
-Status: rev. 2, 2026-10-12. Draft; nothing is built. Decisions in §10 are settled or defaults; §11 lists open questions.
+Status: rev. 4, 2026-11-09. Draft; nothing is built. Decisions in §10 are settled or defaults; §11 lists open questions.
+
+Rev. 4: **Home page** (§3.15). With My GatherPack on, the viewer's next steps go in To do and their active requests in Your orders, through a connector branch. The dashboard card stays for the classic dashboard, and both read one query (decision 7). Home and the card narrow receiving to requesters and watchers (decision 13).
 
 Rev. 3: **funding sources** (§3.13). Every request can say where its money comes from, whether or not that budget is kept in GatherPack, and restricted gifts carry their restriction to the approver. A funding source can point at a GatherPack Budget; requests no longer point at budgets directly (§6). The money line in §3.1 says plainly that it doesn't need the Ledger feature.
 
@@ -289,7 +291,36 @@ Approval steps are keyed by a stable `step_key` in the setting so renaming a ste
 
 Status changes and deliveries take a row lock on the request, so two buyers can't put the same line on two purchases.
 
-Upstream files touched (estimate): `config/routes.rb` (or the plugin routes seam), the dashboard view (one `render` line for the card, as forms' Forms to Complete; decision 7), `db/schema.rb`. Settings, hook events and the feature registration go in `config/initializers/orders.rb` through `feature/extension-registries`, so `app/models/hook.rb` and `lib/settings.rb` aren't edited.
+Upstream files touched (estimate): `config/routes.rb` (or the plugin routes seam), the classic dashboard view (one `render` line for the card, as forms' Forms to Complete; decision 7), `db/schema.rb`. The Home connector (§3.15) touches no upstream file. Settings, hook events and the feature registration go in `config/initializers/orders.rb` through `feature/extension-registries`, so `app/models/hook.rb` and `lib/settings.rb` aren't edited.
+
+### 3.15 Home page and the My Orders card
+
+Everything that says who is waiting on what comes from one query object, `Orders::WaitingOn.new(person)`. The To approve and To buy pages, the My Orders card (decision 7) and the Home connector all use it, so they can't disagree.
+
+The classic dashboard shows the card. With `feature_my_gatherpack` on, that template is replaced, so **`feature/my-gatherpack-orders`** (from `feature/my-gatherpack` and `feature/orders`) puts the same information on Home, as a connector in the same pattern as forms and sign-ups ([`my-gatherpack-spec.md`](my-gatherpack-spec.md) §4, §6.1). The connector has no flag of its own and shows while Orders and My GatherPack are both on.
+
+**To do: holding the next step.** A `:todo` section, counted in the heading. Each row has one button that opens the existing Orders page; nothing is approved or bought from Home. Rows sort by `needed_by`, so a request past its date comes first.
+
+| Who | Row | Button |
+|---|---|---|
+| Approver on the current step, leaving out requests they can't decide (§3.3) | One per request: title, total, team | Review |
+| Final step's approvers, for a line needing re-approval (§3.4) | One per request: title, "Needs re-approval" | Review |
+| Requester with changes requested | One per request: title, the approver's comment, shortened | Update |
+| Buyer within reach | **One summary row**: "12 lines to buy", dated by the earliest `needed_by` | Open To buy |
+| The buyer on a line with a problem | One per request: title, "Problem with a delivery" | Resolve |
+| Requester or watcher, with lines on a purchase still to receive (decision 14) | **One summary row**: "3 items to receive" | Receive |
+
+The buy queue is one row so a buyer's list doesn't swamp To do or the heading's count.
+
+Receiving is narrower here than the permission (decision 13). Team members who can receive under `orders_team_can_see` still do so from To receive, but it isn't a to-do for them. The Home row and the card link to To receive filtered to the viewer's own and watched requests, so the number on the row matches the list it opens.
+
+A draft isn't a to-do: an abandoned one would nag forever. It appears under Your orders.
+
+**Your orders: what's active.** A `:side` section with no `items`, so it isn't counted, and its partial renders nothing when the viewer has no active requests. It lists the viewer's own and watched requests that are draft, submitted, changes requested, approved or ordering, with the status wording lists use ("Ordering: 2 of 3 received"). It shows the five most recently changed, with a link to My requests.
+
+**Menu.** Without a placement, Purchasing items land in More. Orders and To receive stay there. To approve, To buy, Vendors, Funding sources and Reports go in Manage through `MyGatherpack::Menu.place`, and `register_manager_check` opens them for someone with an approver or buyer grant who manages no team. As everywhere in that menu, this changes what is shown, never what is allowed.
+
+**Performance.** Home has a budget ([`my-gatherpack-spec.md`](my-gatherpack-spec.md) §6.3). `WaitingOn` must work out each request's current step in one pass over the requests and their approvals, not with a query per request, and is memoized for the request so the sections share it.
 
 ## 4. Inventory (`feature/inventory`) — outline only
 
@@ -334,6 +365,7 @@ Every new model includes `CanBeHooked`. Register through `GatherPack::HookCatalo
 - `fork/sample_data/features/orders.rb`: Northwind vendors (three preferred, one inactive) and requests in every state: a draft; one waiting on the first step; one over the threshold waiting on the second; one with changes requested; one declined; an approved request from two vendors with one line bought and one waiting; a purchase combining two requests; a backordered line with an expected date; a partly received line; a damaged delivery; a request received in full and closed; an "Other vendor" line; a price change within tolerance and one that triggered re-approval. Funding sources: a general budget with an amount, one with no amount, and a restricted grant with dates, a restriction and a report due; one request split between the grant and the general budget; one over the amount; one reallocated after purchase. One purchase recorded in a ledger against a linked Budget, one "Not in ledger".
 - Model tests: state transitions and refusals; material change clears approvals, a lowered quantity doesn't; tolerance arithmetic; step thresholds; funding spent and committed, with shipping and tax shared out; restricted source needs the tick; line source overrides request source; self and relative approval refused; line can't join two purchases (lock); delivery quantities and statuses; timeline entry written for every change and never editable; ledger entry and split when Ledger is on; nothing ledger-related when it's off.
 - System tests: new request with a pasted link; approve; record purchase; receive.
+- `WaitingOn` and the Home connector (§3.15): each row in the table appears for the right person and not for others; a requester never gets an approval row for their own or a relative's request; 30 lines to buy count as one to-do; a team member who can receive gets no receive row, and the requester's count matches the filtered page; Your orders disappears with nothing active and leaves the heading's count alone; the query count doesn't grow with the number of requests; with `feature_my_gatherpack` off the card shows, and with it on Home does.
 - `fork/catalog.yml` and `FORK.md` entries when the branch joins the manifest.
 
 ## 9. HBR source process (moves to `orders-hbr-rollout.md`)
@@ -363,12 +395,14 @@ Rollout notes to settle then: the preferred supplier list (the sheet's dropdown)
 4. **A buyer may buy what they approved or asked for** (confirmed 2026-10-12). The approval is the control; small organizations often have one person who approves and buys. An approver still can't approve their own request. No setting to separate the two.
 5. **Budgets and funding sources inform, don't block.** Approvers see the numbers and decide.
 6. **Receiving is an acknowledgement unless inventory is in the build** and the line is tracked.
-7. **Dashboard card, native.** "My Orders" (requests waiting on me: to approve, to buy, to receive, and my open requests) renders at the top of the dashboard like Forms to Complete, not as a widget.
+7. **Dashboard card, native, and Home** (revised 2026-11-09). "My Orders" (requests waiting on me: to approve, to buy, to receive, and my open requests) renders at the top of the classic dashboard like Forms to Complete, not as a widget. My GatherPack replaces that template, so with its flag on the same information reaches Home through `feature/my-gatherpack-orders` (§3.15). Both read `Orders::WaitingOn`.
 8. **The timeline is append-only**, written in the same transaction as each change.
 9. **No public requests.** Only signed-in people in `orders_requesters`.
 10. **A Purchasing menu section** (2026-10-12). Orders is its first entry, with To approve, To buy, To receive, Vendors, Funding sources and Reports under it; inventory and later purchasing features join it. Registered with `GatherPack::Features.register_section("Purchasing", …)` from the orders initializer, not under Finance, so it stays when Ledger is turned off.
 11. **Plain table names** (default). `vendors`, `purchases` and `funding_sources`, not `order_vendors` and `order_purchases`. The feature is meant for upstream, which uses plain names, and a vendor list is something the ledger could use later too. The risk is upstream adding its own `vendors` table for something else while we still carry this; check upstream's schema before the first migration and rename then if it's taken.
 12. **Funding sources live in orders** (rev. 3), not as a separate feature, until a second feature needs them. They're labels with an optional limit and orders' own spent figure. If the ledger or another feature wants them, they move to their own branch with orders depending on it.
+13. **A receive to-do is for the requester and watchers** (confirmed 2026-11-09). With `orders_team_can_see` on the whole team may receive, but a to-do for each of them on every delivery would soon be ignored. The permission in §3.8 doesn't change.
+14. **A receive to-do starts when a line is on a purchase** (confirmed 2026-11-09), matching when **Receive** appears (§3.12). It stays until the line is received, even if the box is still on its way. Orders are infrequent enough for that to be fine, and waiting for an expected date wouldn't work because people are unlikely to enter one.
 
 ## 11. Open questions
 
