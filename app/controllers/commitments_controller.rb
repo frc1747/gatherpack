@@ -76,7 +76,7 @@ class CommitmentsController < InternalController
 
   # POST /commitments/1/message
   # Emails everyone who hasn't met the commitment, one message each so no
-  # one sees anyone else's address.
+  # one sees anyone else's address (Commitments::Message).
   def message
     subject = params[:subject].to_s.strip
     body = params[:body].to_s.strip
@@ -84,10 +84,8 @@ class CommitmentsController < InternalController
       return redirect_to @commitment, alert: "Write a subject and a message.", status: :see_other
     end
 
-    open = @commitment.progress.values.uniq.reject(&:met?).flat_map(&:members)
-    emails = User.where(id: open.map(&:user_id).compact).pluck(:email).compact_blank.uniq
-    emails.each { |email| SendEmailJob.perform_later(Gateway[:email_sending], email, subject, body) }
-    redirect_to @commitment, notice: "Message sent to #{helpers.pluralize(emails.size, "person")} with open commitments.", status: :see_other
+    sent = Commitments::Message.new(@commitment, from: current_user.person).deliver(subject: subject, body: body)
+    redirect_to @commitment, notice: "Message sent to #{helpers.pluralize(sent, "person")} with open commitments.", status: :see_other
   end
 
   private
@@ -101,7 +99,11 @@ class CommitmentsController < InternalController
       ids |= [ @commitment.team_id ] if @commitment&.persisted?
       @team_choices = Team.where(id: ids).order(:name).to_a
       @badge_choices = GatherPack::Features.enabled?(:badges) ? Badge.order(:name).to_a : []
-      @relationship_type_choices = RelationshipType.order(:parent_label).to_a
+      # Only trusted types, plus the saved one so a type that isn't (any
+      # more) shows with its error.
+      types = Commitment.trusted_relationship_types
+      types = types.or(RelationshipType.where(id: @commitment.group_relationship_type_id)) if @commitment&.group_relationship_type_id
+      @relationship_type_choices = types.order(:parent_label).to_a
     end
 
     def row_matches?(row)
