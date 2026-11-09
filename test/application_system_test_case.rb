@@ -23,6 +23,20 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   # The browser is shared between tests, and some of them resize it.
   setup { page.current_window.resize_to(1400, 1400) }
 
+  # A service worker outlives the test that installed it, and handles the next
+  # test's asset requests while it updates or removes itself.
+  teardown do
+    if page.current_url.start_with?("http")
+      page.evaluate_async_script(<<~JS)
+        const done = arguments[0]
+        if (!navigator.serviceWorker) return done()
+        navigator.serviceWorker.getRegistrations().then((registrations) => Promise.all(registrations.map((r) => r.unregister()))).finally(done)
+      JS
+    end
+  rescue Selenium::WebDriver::Error::WebDriverError, Capybara::CapybaraError
+    nil # The page is mid-dialog or gone, which the session reset handles.
+  end
+
   if ENV["CAPYBARA_SERVER_PORT"]
     served_by host: "rails-app", port: ENV["CAPYBARA_SERVER_PORT"]
 
