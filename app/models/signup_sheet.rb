@@ -7,6 +7,9 @@ class SignupSheet < ApplicationRecord
   has_paper_trail versions: { class_name: "AuditLog" }
 
   SELF_APPROVAL_REASON = "Another organizer needs to mark your own family's sign-ups".freeze
+  # Relationship types members can't add themselves (see
+  # .trusted_relationship_types).
+  TRUSTED_RELATIONSHIP_PERMISSIONS = %w[ added_by_admin added_by_manager ].freeze
 
   belongs_to :team
   # Used by Add dates (not built yet).
@@ -34,6 +37,7 @@ class SignupSheet < ApplicationRecord
   validates :title, presence: true
   validates :cancel_cutoff_hours, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :reminder_days, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validate :others_relationship_types_trusted, if: :will_save_change_to_others_relationship_type_ids?
 
   normalizes :others_relationship_type_ids, with: ->(ids) { Array(ids).compact_blank.uniq }
 
@@ -130,6 +134,27 @@ class SignupSheet < ApplicationRecord
     self.class.organizer_team_ids(person).include?(team_id)
   end
 
+  # The teams whose members an organizer can open this sheet to by person
+  # or badge: the teams they may create sheets for, and this sheet's team
+  # and the teams below it. Admins reach every team.
+  def reach_team_ids(person)
+    ([ team_id ] + team.all_descendant_ids + self.class.creatable_team_ids(person)).uniq
+  end
+
+  # The members of #reach_team_ids.
+  def people_in_reach_of(person)
+    Person.where(id: Membership.where(team_id: reach_team_ids(person)).select(:person_id))
+  end
+
+  # The badges an organizer can open this sheet to: badges of a team in
+  # reach, and badges with no team (whose holders outside reach the rule
+  # then leaves out, SignupAudienceRule#people_in_reach).
+  def badges_in_reach_of(person)
+    return Badge.all if person&.admin?
+
+    Badge.where(team_id: nil).or(Badge.where(team_id: reach_team_ids(person)))
+  end
+
   # Everyone the sheet is open to: everyone an include rule covers, less
   # everyone an exclude rule covers. With no include rule, the sheet's team
   # and every team below it.
@@ -139,7 +164,7 @@ class SignupSheet < ApplicationRecord
     included = rules.select(&:effect_include?)
     excluded = rules.select(&:effect_exclude?)
 
-    people = included.any? ? combine(included.map(&:people)) : team.descendant_people
+    people = included.any? ? combine(included.map(&:people_in_reach)) : team.descendant_people
     people = people.where.not(id: combine(excluded.map(&:people)).select(:id)) if excluded.any?
     Person.where(id: people.select(:id))
   end
@@ -150,7 +175,8 @@ class SignupSheet < ApplicationRecord
 
   # Who the signer may sign up to take a place: themselves and the people
   # related to them through the sheet's "sign up others" relationship types,
-  # as long as the sheet is open to them. The signer must be on the parent
+  # as long as the sheet is open to them. Only trusted types count
+  # (.trusted_relationship_types), even if another was saved before. The signer must be on the parent
   # side of the relationship ("Parent of" a child they sign up), or either
   # side when the type reads the same both ways ("Sibling of").
   def takers_for(signer)
@@ -181,6 +207,26 @@ class SignupSheet < ApplicationRecord
     return true if organizer.id == person.id
 
     Relationship.where(parent_id: organizer.id, child_id: person.id).or(Relationship.where(parent_id: person.id, child_id: organizer.id)).exists?
+  end
+
+  # The relationship types that may say who someone can act for: those
+  # only admins and managers add. A type members can add themselves
+  # (added_by_participant, added_by_team_member, added_by_user) would let
+  # anyone claim a relationship with someone and act for them, so sign up
+  # others ignores it, and an organizer related through one isn't family
+  # for age rules (SignupPositionRule#unchecked_for?).
+  def self.trusted_relationship_types
+    RelationshipType.where(permission: TRUSTED_RELATIONSHIP_PERMISSIONS)
+  end
+
+  # Whether the two are related through a trusted relationship type.
+  def self.trusted_relative?(someone, person)
+    return false if someone.nil? || person.nil?
+
+    types = trusted_relationship_types.select(:id)
+    Relationship.where(relationship_type_id: types)
+      .where(parent_id: someone.id, child_id: person.id).or(Relationship.where(relationship_type_id: types, parent_id: person.id, child_id: someone.id))
+      .exists?
   end
 
   # Why the organizer can't mark this person's sign-ups, if they can't.
@@ -222,13 +268,19 @@ class SignupSheet < ApplicationRecord
   private
 
   def related_ids(signer)
-    types = RelationshipType.where(id: others_relationship_type_ids).to_a
+    types = self.class.trusted_relationship_types.where(id: others_relationship_type_ids).to_a
     return [] if types.empty?
 
     symmetric = types.select { |type| type.parent_label == type.child_label }.map(&:id)
     ids = Relationship.where(parent_id: signer.id, relationship_type_id: types.map(&:id)).pluck(:child_id)
     ids += Relationship.where(child_id: signer.id, relationship_type_id: symmetric).pluck(:parent_id) if symmetric.any?
     ids.uniq
+  end
+
+  def others_relationship_types_trusted
+    return unless RelationshipType.where(id: others_relationship_type_ids).where.not(permission: TRUSTED_RELATIONSHIP_PERMISSIONS).exists?
+
+    errors.add(:others_relationship_type_ids, "can only use relationships that admins or managers add")
   end
 
   def combine(relations)

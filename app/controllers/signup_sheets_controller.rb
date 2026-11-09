@@ -35,6 +35,7 @@ class SignupSheetsController < InternalController
       .sort_by { |signup| [ signup.event.start_time, signup.signup_position.position ] }
     @takers = @signup_sheet.takers_for(@viewer).to_a
     @names_visible = @signup_sheet.names_visible_to?(@viewer)
+    @age_check = Signups::AgeCheck.new(@signup_sheet, @viewer)
   end
 
   # GET /signup_sheets/1/roster
