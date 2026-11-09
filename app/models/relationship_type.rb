@@ -22,6 +22,7 @@ class RelationshipType < ApplicationRecord
   @guardian_grants = { "see the child's profile and fields set to family or guardian levels, and edit them" => nil }
 
   validate :guardianship_requires_restricted_permission
+  validate :guardianship_not_widened_while_linked
   validate :show_contact_details_requires_restricted_permission
 
   def self.guardian_grants
@@ -48,16 +49,23 @@ class RelationshipType < ApplicationRecord
     !guardianship_none?
   end
 
+  # Existing links were made under the type's current setting, so widening
+  # it would hand them guardianship nobody agreed to.
+  def guardianship_locked?
+    persisted? && relationships.exists?
+  end
+
   # Whether the saved type is a guardianship, ignoring any unsaved change.
   def guardianship_saved?
     guardianship_was != "none"
   end
 
   # The question to ask before the saved type changes to or from a guardianship.
-  # Nil when no relationships would be affected.
+  # Nil when no relationships would be affected. A type with links can't be
+  # widened (guardianship_not_widened_while_linked), so only stopping asks.
   def guardianship_change_confirmation
     count = relationships.count
-    return if count.zero?
+    return if count.zero? || !guardianship_saved?
 
     relationship_count = "#{count} #{"relationship".pluralize(count)}"
     guardians = count == 1 ? "a guardian" : "guardians"
@@ -89,6 +97,15 @@ class RelationshipType < ApplicationRecord
   def guardianship_requires_restricted_permission
     if guardianship_minor? && !(added_by_admin? || added_by_manager?)
       errors.add(:guardianship, "can only be set on types added by admins or managers")
+    end
+  end
+
+  def guardianship_not_widened_while_linked
+    return unless will_save_change_to_guardianship? && guardianship_locked?
+
+    # none < minor < consented: each grants guardianship in more cases.
+    if self.class.guardianships.fetch(guardianship) > self.class.guardianships.fetch(guardianship_in_database)
+      errors.add(:guardianship, "can't grant more while this type already has links. To give guardianship, create a new type and link people to it")
     end
   end
 

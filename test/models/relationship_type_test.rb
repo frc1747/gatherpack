@@ -73,9 +73,9 @@ class RelationshipTypeTest < ActiveSupport::TestCase
     type = relationship_types(:one)
     add_relationship(type)
 
-    assert_equal "This makes the parent side of 2 relationships guardians.", type.guardianship_change_confirmation
+    assert_nil type.guardianship_change_confirmation, "a type with links can't be widened, so it doesn't ask"
 
-    type.update!(guardianship: :minor)
+    type.update_column(:guardianship, RelationshipType.guardianships[:minor])
 
     assert_equal "This stops the parent side of 2 relationships being guardians.", type.guardianship_change_confirmation
   end
@@ -83,9 +83,9 @@ class RelationshipTypeTest < ActiveSupport::TestCase
   test "the confirmation reads correctly for one relationship" do
     type = relationship_types(:one)
 
-    assert_equal "This makes the parent side of 1 relationship a guardian.", type.guardianship_change_confirmation
+    assert_nil type.guardianship_change_confirmation
 
-    type.update!(guardianship: :consented)
+    type.update_column(:guardianship, RelationshipType.guardianships[:consented])
 
     assert_equal "This stops the parent side of 1 relationship being a guardian.", type.guardianship_change_confirmation
   end
@@ -96,7 +96,7 @@ class RelationshipTypeTest < ActiveSupport::TestCase
     type.guardianship = :minor
 
     assert_not type.guardianship_saved?
-    assert_equal "This makes the parent side of 1 relationship a guardian.", type.guardianship_change_confirmation
+    assert_nil type.guardianship_change_confirmation
   end
 
   test "a new type or a type with no relationships has no confirmation" do
@@ -192,7 +192,7 @@ class RelationshipTypeTest < ActiveSupport::TestCase
   test "relationship type changes fire hooks" do
     assert_includes Hook.catalog, "relationship_types - update"
     Hook.create!(name: "Record", event: "relationship_types - update", code: "Thread.current[:hooked_relationship_type] = model.guardianship")
-    type = relationship_types(:one)
+    type = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin)
 
     type.update!(guardianship: :minor)
 

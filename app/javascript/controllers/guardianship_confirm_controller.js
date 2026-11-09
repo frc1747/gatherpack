@@ -14,7 +14,7 @@ export default class extends Controller {
   update() {
     const form = this.element.closest("form")
     const messages = []
-    if ((this.selectTarget.value !== "none") !== this.savedValue) messages.push(this.messageValue)
+    if (this.messageValue && (this.selectTarget.value !== "none") !== this.savedValue) messages.push(this.messageValue)
     if (this.contactDetailsTarget.checked && this.contactDetailsMessageValue) messages.push(this.contactDetailsMessageValue)
 
     if (messages.length > 0) {

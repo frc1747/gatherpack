@@ -52,3 +52,7 @@ en:
         admins: "admins"
       read_only: "Only %{level} can change this."
       managed_by_account: "Changed in account settings."
+      self_locked:
+        guardian: "Your guardian or a leader can change this for you."
+        leaders: "A team leader can change this for you."
+        admins: "An admin can change this for you."
