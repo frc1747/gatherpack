@@ -1,0 +1,62 @@
+<% breadcrumb :root %>
+<% content_for :head, stylesheet_link_tag("my_gatherpack_home") %>
+
+<div class="mg-home mg-tap-rows">
+  <header class="mg-home-header">
+    <div>
+      <h1 class="mg-greeting"><%= my_gatherpack_greeting %></h1>
+      <p class="mg-date d-none d-md-block"><%= Date.current.strftime("%A, %B %-d") %></p>
+    </div>
+    <div class="mg-home-tools">
+      <% if (status = my_gatherpack_clocked_in_status) %>
+        <div class="mg-status"><span class="mg-status-dot"></span><span><%= status %></span></div>
+      <% end %>
+      <form class="mg-search d-none d-md-block" role="search" action="<%= search_path %>">
+        <%= i "magnifying-glass" %>
+        <input class="form-control" type="search" name="q" placeholder="Search" aria-label="Search" autocomplete="off">
+      </form>
+    </div>
+  </header>
+
+  <%= my_gatherpack_widget_slot(:top) %>
+
+  <div class="row">
+    <div class="col-12 col-lg-8">
+      <%= render "my_gatherpack/column", column: :todo, title: "To do", count: true %>
+      <%= render "my_gatherpack/column", column: :coming_up, title: "Coming up", link: my_gatherpack_full_calendar_link %>
+      <%= my_gatherpack_widget_slot(:left) %>
+    </div>
+    <div class="col-12 col-lg-4">
+      <%= render "my_gatherpack/column", column: :side, title: nil %>
+
+      <% if @shortcuts.any? %>
+        <section class="mg-section">
+          <h2 class="mg-heading">Your Shortcuts</h2>
+          <div class="card">
+            <div class="card-body">
+              <div class="toolbox">
+                <% @shortcuts.each do |shortcut| %>
+                  <%= tool_button shortcut.icon, shortcut.name, "btn", my_gatherpack_shortcut_target(shortcut), style: my_gatherpack_shortcut_style(shortcut) %>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </section>
+      <% end %>
+
+      <% if GatherPack::Features.enabled?(:ledger) && current_user.person.ledgers.any? %>
+        <section class="mg-section">
+          <h2 class="mg-heading">Ledgers</h2>
+          <div class="card mg-list">
+            <% current_user.person.ledgers.each do |ledger| %>
+              <div class="mg-row">
+                <div class="mg-row-body"><%= link_to ledger.name, ledger %></div>
+                <div><%= as_currency ledger.balance %></div>
+              </div>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,26 @@
+<% can_edit = policy(time_clock_punch).edit? %>
+<% can_destroy = policy(time_clock_punch).destroy? %>
+<% summary = capture do %>
+  <span class="mg-punch-main">
+    <span class="mg-punch-time"><%= my_gatherpack_punch_times(time_clock_punch) %></span>
+    <span class="mg-punch-meta">
+      <%= as_badge time_clock_punch.person, link: true %>
+      <%= as_badge time_clock_punch.time_clock_period, link: true unless time_clock_punch.time_clock_period.nil? %>
+    </span>
+  </span>
+  <span class="mg-punch-hours"><%= time_clock_punch.complete? ? time_clock_punch.hours : "-" %></span>
+<% end %>
+
+<% if can_edit || can_destroy %>
+  <details class="card mg-punch" id="<%= dom_id time_clock_punch, :phone %>">
+    <summary class="mg-punch-summary"><%= summary %></summary>
+    <div class="mg-punch-actions">
+      <%= link_to "Edit", edit_time_clock_punch_path(time_clock_punch), class: "btn btn-warning", data: { turbo_frame: "_top" } if can_edit %>
+      <%= link_to "Delete", time_clock_punch, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if can_destroy %>
+    </div>
+  </details>
+<% else %>
+  <div class="card mg-punch" id="<%= dom_id time_clock_punch, :phone %>">
+    <div class="mg-punch-summary"><%= summary %></div>
+  </div>
+<% end %>
