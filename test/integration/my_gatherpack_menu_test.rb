@@ -233,7 +233,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     sign_in @member
     get root_path
 
-    assert_select "[data-site-brand] img.w-auto[height='32']"
+    assert_select "[data-site-brand] img.w-auto[height='44']"
   end
 
   test "sidebar slots and root attributes still render" do

@@ -22,12 +22,14 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     @original_plugins = @plugins.dup
     @original_view_paths = ActionController::Base.view_paths
     @original_table = MyGatherpack::Menu.table.deep_dup
+    @saved_time_tracking = Settings.get(:feature_time_tracking).instance_variable_get(:@value)
     turn_on_my_gatherpack
     Settings[:feature_time_tracking] = "true"
     @member = create_login("Morgan")
   end
 
   teardown do
+    Settings.get(:feature_time_tracking).instance_variable_set(:@value, @saved_time_tracking)
     restore_my_gatherpack
     ActionController::Base.view_paths = @original_view_paths
     MyGatherpack::Menu.table = @original_table
