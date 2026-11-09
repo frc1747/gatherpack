@@ -786,6 +786,19 @@ feature/people-search-phone:
     of people comes first.
   audience: Admins
 
+feature/theme-palette:
+  title: Pick your site's colors
+  emoji: "🎨"
+  description: >-
+    Admins pick a brand color and a page background on the theme page, and
+    the rest of the site works out readable colors for light and dark. A
+    preview shows the result before saving.
+  audience: Admins
+  settings:
+    - name: Theme palette
+      key: feature_theme_palette
+      default: "false"
+
 feature/phone-notifications-connectors:
   title: Phone notifications for forms, shifts and commitments
   emoji: "🔔"
