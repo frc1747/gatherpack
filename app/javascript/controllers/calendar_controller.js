@@ -20,13 +20,19 @@ export default class extends Controller {
   connect() {
     const calendarEl = document.getElementById("calendar")
     const width = calendarEl.getBoundingClientRect().width
+    const initialView = this.get_initial_view(width)
     const calendar = new FullCalendar.Calendar(calendarEl, {
-      initialView: this.get_initial_view(width),
+      initialView,
       editable: false,
       fixedWeekCount: false,
       weekNumbers: true,
       dayMaxEventRows: true,
       timeZone: this.timezoneValue,
+
+      // A list is only as tall as its events. Month and Week keep their fixed grid.
+      // FullCalendar reads "auto" from the calendar's options, not a view's.
+      height: this.height_for(initialView),
+      viewDidMount: ({ view }) => calendar.setOption("height", this.height_for(view.type)),
 
       ...this.get_toolbars(width),
 
@@ -90,6 +96,10 @@ export default class extends Controller {
   get_initial_view(width) {
     let default_value = width >= 570 ? "dayGridMonth" : "listMonth"
     return this.defaultViewValue || default_value
+  }
+
+  height_for(view) {
+    return view === "listMonth" ? "auto" : undefined
   }
 
   // On a narrow screen the view buttons move below the title so nothing is cut off.

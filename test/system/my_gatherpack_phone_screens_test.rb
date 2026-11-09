@@ -250,15 +250,6 @@ class MyGatherpackPhoneScreensSystemTest < ApplicationSystemTestCase
     assert_no_sideways_scroll
   end
 
-  test "the dashboard calendar toolbar fits" do
-    sign_in @member
-    visit root_path
-
-    assert_selector ".fc-list"
-    assert_toolbar_fits
-    assert_no_sideways_scroll
-  end
-
   test "the dashboard calendar fits with the flag off" do
     Settings[:feature_my_gatherpack] = "false"
     sign_in @member

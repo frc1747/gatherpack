@@ -66,6 +66,19 @@
   margin-bottom: 1.5rem;
 }
 
+.mg-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mg-heading-link {
+  padding: 0.25rem 0.125rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
 .mg-heading {
   margin: 0 0 0.5rem 0.125rem;
   color: var(--bs-secondary-color);
@@ -184,6 +197,24 @@
 
 .mg-row-chevron {
   display: none;
+}
+
+.mg-season-item + .mg-season-item {
+  margin-top: 0.875rem;
+}
+
+.mg-season-item .progress {
+  height: 0.5rem;
+  margin-top: 0.375rem;
+}
+
+.mg-section .card {
+  margin-bottom: 0;
+}
+
+.mg-home .card.widget + .mg-section,
+.mg-home .card.widget + .card.widget {
+  margin-top: 1.5rem;
 }
 
 /* A phone's to-do row is one tap target: the button's label gives way to a chevron. */

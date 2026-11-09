@@ -36,12 +36,14 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: "Calendar"
   end
 
-  test "with nothing to do the heading says so and empty sections stay out" do
+  test "with nothing to do the heading says so and empty sections stay out, except Coming up" do
     get root_path
 
     assert_response :success
     assert_select "h1", text: "Hi Morgan. You're all caught up."
-    assert_select ".mg-heading", false
+    assert_select ".mg-heading", text: /To do|Latest|Your season/i, count: 0
+    assert_select ".mg-heading", text: /Coming up/i, count: 1
+    assert_select "[data-home-column='coming_up'] .mg-list", false
     assert_select ".mg-status", false
   end
 
@@ -125,7 +127,8 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   test "the person sits at the foot of the sidebar, shown by initials without a photo" do
     get root_path
 
-    assert_select ".mg-sidebar-foot .mg-sidebar-person[href=?]", person_path(@member.person)
+    assert_select ".mg-sidebar-foot .mg-sidebar-person a[href=?]", person_path(@member.person)
+    assert_select ".mg-sidebar-foot .mg-sidebar-person a[href=?][data-turbo-method=delete]", destroy_user_session_path, text: "Sign Out"
     assert_select ".mg-sidebar-foot span.mg-avatar", text: @member.person.first_name.first.upcase + @member.person.last_name.first.upcase
   end
 
@@ -175,12 +178,22 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_no_match "Other team&#39;s news", response.body
   end
 
-  test "the calendar, shortcuts and ledgers stay below" do
-    Shortcut.create!(name: "Handbook", icon: "book", color: "#336699", target: "/handbook", team: teams(:one))
-
+  test "with nothing coming up, Coming up still links to the full calendar" do
     get root_path
 
-    assert_select "h2", text: "Calendar"
+    assert_select "[data-home-column='coming_up'] a[href='#{calendar_index_path}']", text: "Full calendar"
+  end
+
+  test "Coming up links to the full calendar instead of drawing one, beside shortcuts and any ledgers" do
+    Shortcut.create!(name: "Handbook", icon: "book", color: "#336699", target: "/handbook", team: teams(:one))
+    get root_path
+    assert_select "h2", text: "Ledgers", count: 0
+
+    LedgerOwnership.create!(ledger: Ledger.create!(name: "Trip fund", team: teams(:one)), owner: @member.person)
+    get root_path
+
+    assert_select "#calendar", false
+    assert_select "[data-home-column='coming_up'] a[href='#{calendar_index_path}']", text: "Full calendar"
     assert_select "h2", text: "Your Shortcuts"
     assert_select "h2", text: "Ledgers"
     assert_select "a[href='/handbook'][style*='#336699']", text: /Handbook/

@@ -1,5 +1,9 @@
 module MyGatherpackHelper
   MY_GATHERPACK_ROW_LIMITS = { coming_up: 5 }.freeze
+
+  def my_gatherpack_full_calendar_link
+    link_to "Full calendar", calendar_index_path, class: "mg-heading-link" if GatherPack::Features.enabled?(:events)
+  end
   MY_GATHERPACK_SHORTCUT_SCHEMES = %w[http https mailto tel].freeze
 
   def my_gatherpack_menu

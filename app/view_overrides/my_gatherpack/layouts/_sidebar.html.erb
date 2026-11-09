@@ -100,16 +100,16 @@
           </div>
         <% end %>
 
-        <hr class="my-2">
-
-        <%= nav_link "Sign Out", destroy_user_session_path, "person-through-window", method: "delete" %>
       </div>
       <div class="mg-sidebar-foot">
 <%= render "layouts/sidebar_slots" %>
-        <%= link_to current_user.person, class: "mg-sidebar-person" do %>
+        <div class="mg-sidebar-person">
           <%= my_gatherpack_avatar(current_user.person) %>
-          <span class="text-truncate"><%= current_user.person.identifier_name %></span>
-        <% end %>
+          <div class="min-w-0">
+            <%= link_to current_user.person.identifier_name, current_user.person, class: "d-block text-truncate" %>
+            <%= link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "mg-sign-out" %>
+          </div>
+        </div>
       </div>
       <footer class="col-12 footer-ad">
         <a href="https://gatherpack.com" target="_blank">powered by <%= image_tag "logo.svg", alt: "GatherPack" %> GatherPack</a>
