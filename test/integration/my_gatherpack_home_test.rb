@@ -41,7 +41,7 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", text: "Hi Morgan. You're all caught up."
-    assert_select ".mg-heading", false
+    assert_select ".mg-heading", text: /To do|Coming up|Latest|Your season/i, count: 0
     assert_select ".mg-status", false
   end
 
@@ -125,7 +125,8 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   test "the person sits at the foot of the sidebar, shown by initials without a photo" do
     get root_path
 
-    assert_select ".mg-sidebar-foot .mg-sidebar-person[href=?]", person_path(@member.person)
+    assert_select ".mg-sidebar-foot .mg-sidebar-person a[href=?]", person_path(@member.person)
+    assert_select ".mg-sidebar-foot .mg-sidebar-person a[href=?][data-turbo-method=delete]", destroy_user_session_path, text: "Sign Out"
     assert_select ".mg-sidebar-foot span.mg-avatar", text: @member.person.first_name.first.upcase + @member.person.last_name.first.upcase
   end
 
