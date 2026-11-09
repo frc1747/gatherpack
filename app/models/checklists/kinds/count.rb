@@ -344,10 +344,11 @@ module Checklists
           text
         end
         parts << "Adjusted: #{format("%+d", group.adjustment_credits)}" if group.adjustments.any?
-        sentence = parts.any? ? "#{parts.join("; ")}." : "Nothing counts toward it yet."
-        sentence += " Shared by a group of #{group.members.size}." if group.members.size > 1
-        sentence += " #{group.remaining} to go. #{earn.map { |how| how_to_earn_sentence(how) }.join(" ")}" if !group.met? && group.remaining.positive?
-        sentence.strip
+        # One thought per line: the person's page lists them, and anywhere else they read as sentences.
+        lines = parts.any? ? parts.map { |part| "#{part}." } : [ "Nothing counts toward it yet." ]
+        lines << "Shared by a group of #{group.members.size}." if group.members.size > 1
+        lines.push("#{group.remaining} to go.", *earn.map { |how| how_to_earn_sentence(how) }) if !group.met? && group.remaining.positive?
+        lines.join("\n")
       end
 
       def how_to_earn_sentence(how)
