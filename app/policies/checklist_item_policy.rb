@@ -1,0 +1,2 @@
+class ChecklistItemPolicy < ChecklistPartPolicy
+end
