@@ -9,6 +9,11 @@ class ShortcutPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def new?
     person.all_managed_teams.present? || user.admin
   end
@@ -19,5 +24,9 @@ class ShortcutPolicy < ApplicationPolicy
 
   def update?
     person.all_managed_teams.include?(record.team) || user.admin
+  end
+
+  def destroy?
+    update?
   end
 end

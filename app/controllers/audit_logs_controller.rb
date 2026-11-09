@@ -1,24 +1,15 @@
-class AuditLogsController < ApplicationController
+class AuditLogsController < InternalController
   before_action :check_for_admin
-  before_action :set_log, only: %i[ show destroy revert ]
+  before_action :set_log, only: %i[ show revert ]
 
   def index
-    @q = AuditLog.ransack(params[:q])
+    @q = policy_scope(AuditLog).ransack(params[:q], auth_object: current_user)
     @q.sorts = "created_at desc" if @q.sorts.empty?
     @logs = authorize @q.result(distinct: true).order(created_at: :desc).page(params[:page])
   end
 
   def show
     @log_hash = @log.object_changes ? PaperTrail.serializer.load(@log.object_changes) : {}
-  end
-
-  def destroy
-    @log.destroy!
-
-    respond_to do |format|
-      format.html { redirect_to audit_logs_url, notice: "Log was successfully destroyed." }
-      format.json { head :no_content }
-    end
   end
 
   def revert

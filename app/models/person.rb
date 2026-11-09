@@ -19,24 +19,32 @@ class Person < ApplicationRecord
   before_save :check_display_name
   validate :person_field_errors
   after_save :run_person_field_hooks
+  after_destroy :destroy_unshared_login
   accepts_nested_attributes_for :user
   has_one_attached :avatar
+  validates :avatar, attachment: { content_types: AttachmentValidator::IMAGE_TYPES, max_size: 5.megabytes }
   attr_accessor :email
 
-  BASE_RANSACKABLE_ATTRIBUTES = [ "created_at", "display_name", "first_name", "id", "last_name", "updated_at", "user_id" ].freeze
+  ADMIN_RANSACKABLE_ATTRIBUTES = [ "created_at", "user_id" ].freeze
+  BASE_RANSACKABLE_ATTRIBUTES = [ "display_name", "first_name", "id", "last_name", "updated_at" ].freeze
   FIELD_RANSACKABLE_ATTRIBUTES = [ "address", "birthday", "dietary_restrictions", "gender", "phone_number", "shirt_size" ].freeze
 
-  # Built-in details are searchable and sortable only while everyone can see
-  # them, or by admins. Without an auth_object (ransack through an
-  # association), assume a non-admin.
+  # Only admins search people by their login or cards, or by built-in details
+  # not everyone can see; a match on them would tell anyone else what they
+  # hold. Without an auth_object (ransack through an association), assume a
+  # non-admin.
   def self.ransackable_attributes(auth_object = nil)
-    return BASE_RANSACKABLE_ATTRIBUTES + FIELD_RANSACKABLE_ATTRIBUTES if auth_object.respond_to?(:admin?) && auth_object.admin?
+    return (BASE_RANSACKABLE_ATTRIBUTES + ADMIN_RANSACKABLE_ATTRIBUTES + FIELD_RANSACKABLE_ATTRIBUTES).sort if auth_object.respond_to?(:admin?) && auth_object.admin?
 
     BASE_RANSACKABLE_ATTRIBUTES + PersonField.system.active.read_everyone.where(system_source: FIELD_RANSACKABLE_ATTRIBUTES).pluck(:system_source)
   end
 
   def self.ransackable_associations(auth_object = nil)
-    [ "user", "tokens" ]
+    if auth_object.respond_to?(:admin?) && auth_object.admin?
+      [ "user", "tokens" ]
+    else
+      []
+    end
   end
 
   # People with a membership on any of the given teams. Pass Team.subtree_ids(ids)
@@ -351,5 +359,10 @@ class Person < ApplicationRecord
 
   def check_display_name
     self.display_name = first_name + " " + last_name if display_name.blank? && !first_name.blank? && !last_name.blank?
+  end
+
+  # A person's login goes with them, unless another person still uses it.
+  def destroy_unshared_login
+    user.destroy! if user && !Person.where(user_id: user_id).exists?
   end
 end

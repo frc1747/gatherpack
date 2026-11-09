@@ -9,7 +9,7 @@
       </div>
       <div class="col-6">
         <h3 class="display-3"><%= @person.identifier_name %></h3>
-        <% if @person.manager? %>
+        <% if @person.manager? && @person.user %>
           <div class="toolbox justify-content-around">
             <%= tool_modal_button "triangle-exclamation", "Manager", "btn-info", "managerModal" %>
           </div>
@@ -108,5 +108,6 @@
       </div>
     </div>
 
+    <%= render "time_kiosk/scan_panels", person: @person %>
   </div>
 </div>

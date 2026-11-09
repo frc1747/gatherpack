@@ -33,7 +33,12 @@ class LedgersController < InternalController
 
   # PATCH/PUT /ledgers/1
   def update
-    if @ledger.update(ledger_params)
+    # set_ledger checked it as stored; check it as it will be saved too, so
+    # it can't be moved somewhere the user doesn't manage.
+    @ledger.assign_attributes(ledger_params)
+    authorize @ledger
+
+    if @ledger.save
       redirect_to @ledger, notice: "Ledger was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

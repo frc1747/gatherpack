@@ -49,6 +49,13 @@ x-app-environment: &app-environment
   GP_ENVIRONMENT: "${GP_ENVIRONMENT:-}"
   MISSION_CONTROL_JOBS_HTTP_BASIC_AUTH_USER: "${JOBS_DASHBOARD_USER:-gatherpack}"
 
+  # --- Encryption keys (optional) ----------------------------------------------
+  # Keys for stored secrets. Without them they are derived from
+  # SECRET_KEY_BASE; see docs/self-hosting.md.
+  ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: "${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:-}"
+  ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: "${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:-}"
+  ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: "${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:-}"
+
 # Shared configuration for every container that runs the app image.
 x-app: &app
   image: "${GATHERPACK_IMAGE:-ghcr.io/gatherpack/gatherpack}:${GATHERPACK_TAG:-latest}"
