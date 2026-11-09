@@ -44,6 +44,9 @@ class FormExpiryFlowTest < ActionDispatch::IntegrationTest
 
         travel 13.months
         FormExpiryJob.perform_now
+        # A visit a year later is a new sign-in.
+        sign_out :user
+        sign_in person(:a1).user
 
         get form_response_path(@form, person(:a1))
         assert_match "Expired June 15, 2027", response.body
