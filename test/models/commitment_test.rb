@@ -1,7 +1,9 @@
 require "test_helper"
 require_relative "../support/commitments_world"
+require_relative "../support/checklists_flag_helper"
 
 class CommitmentTest < ActiveSupport::TestCase
+  include ChecklistsFlagHelper
   include CommitmentsWorld
 
   setup do
@@ -104,5 +106,16 @@ class CommitmentTest < ActiveSupport::TestCase
     assert_equal "Commitments", Settings.get(:commitments_organizers).group
     assert_includes GatherPack::HookCatalog.targets, "commitment_adjustments"
     assert GatherPack::Features.all.find { |feature| feature.key == :commitments }.default_enabled == false
+  end
+
+  test "the commitments feature follows checklists when they are on, and hides its sidebar item" do
+    feature = GatherPack::Features.all.find { |f| f.key == :commitments }
+    assert_not feature.enabled?
+    assert_equal [ "Commitments" ], feature.nav_items.map(&:label)
+
+    with_checklists_on do
+      assert feature.enabled?
+      assert_empty feature.nav_items
+    end
   end
 end

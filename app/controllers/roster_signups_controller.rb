@@ -40,7 +40,7 @@ class RosterSignupsController < InternalController
 
     # The box only matters when a rule fails; then the no-self rule applies.
     if @override_rules
-      if slot.signup_position.eligible?(person, slot.event)
+      if slot.signup_position.eligible?(person, slot.event, viewer: current_user.person)
         @override_rules = false
       elsif !policy(@signup).override?
         @signup.errors.add(:base, policy(@signup).self_approval_reason || "You can't place someone against a rule")
