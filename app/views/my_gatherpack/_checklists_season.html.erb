@@ -5,16 +5,29 @@
     <h2 class="mg-heading">Your season</h2>
     <div class="card mg-list">
       <% entries.each do |entry| %>
+        <% path = entry.ward ? person_checklists_path(entry.subject) : checklist_path(entry.checklist) %>
         <div class="mg-row d-block" id="<%= dom_id entry.checklist, "season_#{entry.subject.id}" %>">
-          <div class="mg-row-title">
-            <%= link_to entry.checklist.title, entry.ward ? person_checklists_path(entry.subject) : checklist_path(entry.checklist) %>
-            <% if entry.ward %><span class="mg-row-ward">for <%= entry.ward %></span><% end %>
-          </div>
-          <div class="progress my-2" role="progressbar" aria-label="<%= entry.checklist.title %>" aria-valuenow="<%= entry.percent %>" aria-valuemin="0" aria-valuemax="100">
-            <div class="progress-bar" style="width: <%= entry.percent %>%"></div>
-          </div>
+          <% if entries.many? || entry.ward %>
+            <div class="mg-row-title mb-2">
+              <%= link_to entry.checklist.title, path %>
+              <% if entry.ward %><span class="mg-row-ward">for <%= entry.ward %></span><% end %>
+            </div>
+          <% end %>
           <% entry.open_items.each do |item| %>
-            <div class="mg-row-detail"><%= item.item.label %><%= count = my_gatherpack_season_count(item); count ? ": #{count}" : (item.summary.present? ? ": #{item.summary}" : "") %></div>
+            <% percent = my_gatherpack_season_percent(item) %>
+            <div class="mg-season-item">
+              <div class="d-flex justify-content-between gap-2">
+                <%= link_to item.item.label, path, class: "link-body-emphasis text-decoration-none" %>
+                <span class="text-body-secondary flex-shrink-0"><%= my_gatherpack_season_count(item) %></span>
+              </div>
+              <% if percent %>
+                <div class="progress" role="progressbar" aria-label="<%= item.item.label %>" aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar" style="width: <%= percent %>%"></div>
+                </div>
+              <% elsif item.summary.present? %>
+                <div class="mg-row-detail"><%= item.summary %></div>
+              <% end %>
+            </div>
           <% end %>
         </div>
       <% end %>

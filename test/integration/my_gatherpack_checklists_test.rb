@@ -50,7 +50,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
   test "the sections are registered" do
     assert_equal :todo, MyGatherpack.sections[:checklists_todo].column
     assert MyGatherpack.sections[:checklists_todo].items
-    assert_equal :coming_up, MyGatherpack.sections[:checklists_season].column
+    assert_equal :side, MyGatherpack.sections[:checklists_season].column
   end
 
   test "the sections show with the feature flag and hide without it, and with nothing to show" do
@@ -187,8 +187,9 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
 
-      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 50%']"
-      assert_select "[data-home-section=checklists-season] .mg-row-detail", text: "Shifts: 1 of 3"
+      assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Shifts"
+      assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "1 of 3"
+      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 33%']"
     end
   end
 
@@ -247,7 +248,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the progress bar leaves out items that don't count" do
+  test "an item without a count shows no bar" do
     add_item(@checklist, :has_login, "Login")
     add_item(@checklist, :plain, "Shown only", {}, counts: false)
     refresh(@checklist)
@@ -256,7 +257,8 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
 
-      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 100%']"
+      assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Shown only"
+      assert_select "[data-home-section=checklists-season] .progress-bar", false
     end
   end
 

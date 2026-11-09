@@ -23,7 +23,11 @@ module MyGatherpackChecklistsHelper
         action, path = my_gatherpack_checklist_fix(checklist, entry, subject, ward: ward)
         next unless action
 
-        MyGatherpack::Item.new(title: entry.item.label, detail: [ checklist.title, entry.summary, my_gatherpack_checklist_due(checklist, entry) ].compact_blank.join(" · "),
+        # A "Next: ..." fix names a particular shift: that belongs in the detail, not on a button.
+        next_up = action.delete_prefix("Next: ") if action.start_with?("Next: ")
+        action = "Sign up" if next_up
+
+        MyGatherpack::Item.new(title: entry.item.label, detail: [ (checklist.title unless checklist.title == entry.item.label), entry.summary, next_up, my_gatherpack_checklist_due(checklist, entry) ].compact_blank.join(" · "),
           at: entry.item.due_on || entry.item.ends_on || checklist.ends_on, path: path, action: action, icon: "list-check", ward: ward)
       end
     end
@@ -47,6 +51,14 @@ module MyGatherpackChecklistsHelper
     return unless measures["confirmed"] && measures["owed"]
 
     "#{number_with_precision(measures["confirmed"], precision: 2, strip_insignificant_zeros: true)} of #{number_with_precision(measures["owed"], precision: 2, strip_insignificant_zeros: true)}"
+  end
+
+  # How far along a count item is, for its bar; nil for an item without a count.
+  def my_gatherpack_season_percent(entry)
+    measures = entry.measures || {}
+    return unless measures["confirmed"] && measures["owed"].to_f.positive?
+
+    [ (measures["confirmed"].to_f * 100 / measures["owed"].to_f).floor, 100 ].min
   end
 
   private
