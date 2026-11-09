@@ -763,6 +763,29 @@ feature/quiet-root-signin:
     without a message saying you must be logged in.
   audience: Everyone
 
+feature/search-form-asterisks:
+  title: No asterisks on search forms
+  emoji: "🔎"
+  description: >-
+    Search and filter forms no longer mark their fields as required.
+  audience: Everyone
+
+feature/table-responsive:
+  title: Wide tables scroll on phones
+  emoji: "📱"
+  description: >-
+    The audit log, relationship type and theme screens keep wide tables
+    inside their own scroll area instead of widening the page.
+  audience: Admins
+
+feature/people-search-phone:
+  title: Shorter People page on phones
+  emoji: "📱"
+  description: >-
+    On a phone the People search sits behind a Search button, so the list
+    of people comes first.
+  audience: Admins
+
 feature/phone-notifications-connectors:
   title: Phone notifications for forms, shifts and commitments
   emoji: "🔔"
