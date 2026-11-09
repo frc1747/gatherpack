@@ -63,6 +63,9 @@ module FormsHelper
     "withdrawn" => "Withdrawn", "discarded" => "Discarded"
   }.freeze
 
+  # What a spreadsheet takes as the start of a formula (#form_csv_row).
+  CSV_FORMULA_START = /\A[=+\-@\t\r]/
+
   PROFILE_MODE_LABELS = {
     nil => "Form only", "prefill" => "Filled in from profile", "update_profile" => "Updates profile"
   }.freeze
@@ -339,6 +342,16 @@ module FormsHelper
     form.input question.key.to_sym, **options
   end
 
+  # An answer to a question that was filled in from (or updated) a profile
+  # field when it was submitted stays behind that field's read level, even
+  # after the question was unlinked or removed. A field that's gone hides it.
+  def form_snapshot_field_readable?(snapshot, access)
+    return true if snapshot["person_field"].blank?
+
+    field = PersonField.find_by(key: snapshot["person_field"])
+    field.present? && access.field_access.readable?(field)
+  end
+
   # "Jo Parent (guardian), Oct 3"
   def form_signed_summary(submission)
     submission.standing_signatures.sort_by(&:signed_at).map do |signature|
@@ -350,16 +363,23 @@ module FormsHelper
     require "csv"
     questions = report.questions
     CSV.generate do |csv|
-      csv << [ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name)
+      csv << form_csv_row([ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name))
       report.rows.each do |row|
         submission = row.submission
         signatures = submission ? submission.standing_signatures.sort_by(&:signed_at) : []
-        csv << [ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
+        csv << form_csv_row([ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
           signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] +
           questions.map { |question| form_csv_value(report.answer(row, question)) } +
-          fields.map { |field| form_csv_value(report.profile(row, field)) }
+          fields.map { |field| form_csv_value(report.profile(row, field)) })
       end
     end
+  end
+
+  # Spreadsheets run a cell that starts with =, +, -, @, a tab or a carriage
+  # return as a formula, so such cells are written as text: a leading single
+  # quote, as the spreadsheet itself would.
+  def form_csv_row(cells)
+    cells.map { |cell| cell.is_a?(String) && cell.match?(CSV_FORMULA_START) ? "'#{cell}" : cell }
   end
 
   def form_csv_value(value)

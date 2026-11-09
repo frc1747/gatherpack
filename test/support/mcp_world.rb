@@ -1,3 +1,5 @@
+require_relative "settings_test_helper"
+
 # Tests freeze the clock, which gives every call log row in a test the same created_at,
 # so "the latest row" would be arbitrary. Keep rows in the order they were written.
 McpToolCall.before_create do
@@ -189,18 +191,7 @@ module McpWorld
   # Sets Settings values until the returned proc is called, for setups that
   # need them through the whole test (call it in teardown).
   def apply_settings(values)
-    settings = Settings.instance
-    original_store = settings.store
-    path = Rails.root.join("tmp", "test-settings-#{Process.pid}.pstore").to_s
-    # Access checks read the store, so nothing a test wrote may reach the next one.
-    File.delete(path) if File.exist?(path) && original_store.instance_variable_get(:@filename) != path
-    settings.store = PStore.new(path, true)
-    previous = values.keys.to_h { |key| [ key, Settings.get(key).instance_variable_get(:@value) ] }
-    values.each { |key, value| Settings[key] = value }
-    lambda do
-      previous.each { |key, value| Settings[key] = value }
-      settings.store = original_store
-    end
+    SettingsTestHelper.apply(values)
   end
 
   private

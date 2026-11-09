@@ -12,6 +12,8 @@ class RelationshipType < ApplicationRecord
     "consented" => "Guardian with the child's consent"
   }.freeze
 
+  SHOW_CONTACT_DETAILS_HINT = "People who can see the child also see this person's phone and email. It doesn't let them open the person's profile.".freeze
+
   # What a guardian can do, listed wherever guardianship is set. A feature that
   # gives guardians more calls RelationshipType.register_guardian_grant("...")
   # inside config.to_prepare, so its line returns after a code reload; a line
@@ -20,6 +22,8 @@ class RelationshipType < ApplicationRecord
   @guardian_grants = { "see the child's profile and fields set to family or guardian levels, and edit them" => nil }
 
   validate :guardianship_requires_restricted_permission
+  validate :guardianship_not_widened_while_linked
+  validate :show_contact_details_requires_restricted_permission
 
   def self.guardian_grants
     @guardian_grants.select { |_text, condition| condition.nil? || condition.call }.keys
@@ -45,16 +49,23 @@ class RelationshipType < ApplicationRecord
     !guardianship_none?
   end
 
+  # Existing links were made under the type's current setting, so widening
+  # it would hand them guardianship nobody agreed to.
+  def guardianship_locked?
+    persisted? && relationships.exists?
+  end
+
   # Whether the saved type is a guardianship, ignoring any unsaved change.
   def guardianship_saved?
     guardianship_was != "none"
   end
 
   # The question to ask before the saved type changes to or from a guardianship.
-  # Nil when no relationships would be affected.
+  # Nil when no relationships would be affected. A type with links can't be
+  # widened (guardianship_not_widened_while_linked), so only stopping asks.
   def guardianship_change_confirmation
     count = relationships.count
-    return if count.zero?
+    return if count.zero? || !guardianship_saved?
 
     relationship_count = "#{count} #{"relationship".pluralize(count)}"
     guardians = count == 1 ? "a guardian" : "guardians"
@@ -65,6 +76,20 @@ class RelationshipType < ApplicationRecord
     end
   end
 
+  # The question to ask before the saved type starts showing contact details.
+  # The permission check only covers relationships added from now on, so ones
+  # added while more people could add this type start showing details too. Nil
+  # when it already shows them, or when no relationships would be affected.
+  def contact_details_change_confirmation
+    return if show_contact_details_was
+
+    count = relationships.count
+    return if count.zero?
+
+    "This shows the phone and email of the parent side of #{count} #{"relationship".pluralize(count)} to anyone who can see the child. " \
+      "Check them first if members could ever add this type."
+  end
+
   private
 
   # A guardianship type grants access to the child side's data, so members
@@ -72,6 +97,25 @@ class RelationshipType < ApplicationRecord
   def guardianship_requires_restricted_permission
     if guardianship_minor? && !(added_by_admin? || added_by_manager?)
       errors.add(:guardianship, "can only be set on types added by admins or managers")
+    end
+  end
+
+  def guardianship_not_widened_while_linked
+    return unless will_save_change_to_guardianship? && guardianship_locked?
+
+    # none < minor < consented: each grants guardianship in more cases.
+    if self.class.guardianships.fetch(guardianship) > self.class.guardianships.fetch(guardianship_in_database)
+      errors.add(:guardianship, "can't grant more while this type already has links. To give guardianship, create a new type and link people to it")
+    end
+  end
+
+  # Contact details bypass the phone and email read levels, so nobody may add
+  # themselves as someone's child to get them. A consented type is added by its
+  # child side, whatever its permission says. Relationships that already exist
+  # aren't covered; see contact_details_change_confirmation.
+  def show_contact_details_requires_restricted_permission
+    if show_contact_details? && (guardianship_consented? || !(added_by_admin? || added_by_manager?))
+      errors.add(:show_contact_details, "can only be set on types that only admins or managers can add")
     end
   end
 end

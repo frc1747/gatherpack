@@ -73,9 +73,9 @@ class RelationshipTypeTest < ActiveSupport::TestCase
     type = relationship_types(:one)
     add_relationship(type)
 
-    assert_equal "This makes the parent side of 2 relationships guardians.", type.guardianship_change_confirmation
+    assert_nil type.guardianship_change_confirmation, "a type with links can't be widened, so it doesn't ask"
 
-    type.update!(guardianship: :minor)
+    type.update_column(:guardianship, RelationshipType.guardianships[:minor])
 
     assert_equal "This stops the parent side of 2 relationships being guardians.", type.guardianship_change_confirmation
   end
@@ -83,9 +83,9 @@ class RelationshipTypeTest < ActiveSupport::TestCase
   test "the confirmation reads correctly for one relationship" do
     type = relationship_types(:one)
 
-    assert_equal "This makes the parent side of 1 relationship a guardian.", type.guardianship_change_confirmation
+    assert_nil type.guardianship_change_confirmation
 
-    type.update!(guardianship: :consented)
+    type.update_column(:guardianship, RelationshipType.guardianships[:consented])
 
     assert_equal "This stops the parent side of 1 relationship being a guardian.", type.guardianship_change_confirmation
   end
@@ -96,7 +96,7 @@ class RelationshipTypeTest < ActiveSupport::TestCase
     type.guardianship = :minor
 
     assert_not type.guardianship_saved?
-    assert_equal "This makes the parent side of 1 relationship a guardian.", type.guardianship_change_confirmation
+    assert_nil type.guardianship_change_confirmation
   end
 
   test "a new type or a type with no relationships has no confirmation" do
@@ -107,10 +107,92 @@ class RelationshipTypeTest < ActiveSupport::TestCase
     assert_nil type.guardianship_change_confirmation
   end
 
+  test "contact details are off by default" do
+    assert_not RelationshipType.new.show_contact_details?
+    assert RelationshipType.all.none?(&:show_contact_details?)
+  end
+
+  test "showing contact details requires an admin or manager permission" do
+    type = RelationshipType.new(parent_label: "Contact of", child_label: "Has contact", show_contact_details: true)
+
+    %w[added_by_team_member added_by_participant added_by_user].each do |permission|
+      type.permission = permission
+      assert_not type.valid?, "#{permission} should be rejected"
+      assert_includes type.errors[:show_contact_details], "can only be set on types that only admins or managers can add"
+    end
+
+    %w[added_by_admin added_by_manager].each do |permission|
+      type.permission = permission
+      assert type.valid?, "#{permission} should be allowed"
+    end
+  end
+
+  test "a consented type can't show contact details, since its child side adds it" do
+    type = RelationshipType.new(parent_label: "Contact of", child_label: "Has contact", permission: :added_by_admin, guardianship: :consented, show_contact_details: true)
+
+    assert_not type.valid?
+    assert_includes type.errors[:show_contact_details], "can only be set on types that only admins or managers can add"
+  end
+
+  test "showing contact details leaves guardianship alone" do
+    type = RelationshipType.create!(parent_label: "Contact of", child_label: "Has contact", permission: :added_by_manager, show_contact_details: true)
+
+    assert type.guardianship_none?
+    assert_not type.guardianship?
+    assert_not RelationshipType.guardianship_configured?
+  end
+
+  test "turning on contact details asks for confirmation naming the relationship count" do
+    type = relationship_types(:one)
+
+    assert_includes type.contact_details_change_confirmation, "the parent side of 1 relationship to anyone"
+
+    add_relationship(type)
+
+    assert_includes type.contact_details_change_confirmation, "the parent side of 2 relationships to anyone"
+  end
+
+  test "the contact details confirmation follows the saved value, not an unsaved change" do
+    type = relationship_types(:one)
+
+    type.show_contact_details = true
+    assert type.contact_details_change_confirmation
+
+    type.save!
+    assert_nil type.contact_details_change_confirmation
+
+    type.show_contact_details = false
+    assert_nil type.contact_details_change_confirmation
+  end
+
+  test "a new type or a type with no relationships has no contact details confirmation" do
+    assert_nil RelationshipType.new.contact_details_change_confirmation
+
+    type = RelationshipType.create!(parent_label: "Contact of", child_label: "Has contact", permission: :added_by_admin)
+
+    assert_nil type.contact_details_change_confirmation
+  end
+
+  test "the migration is reversible" do
+    require Rails.root.join("db/migrate/20261105120000_add_show_contact_details_to_relationship_types").to_s
+    connection = RelationshipType.connection
+
+    ActiveRecord::Migration.suppress_messages { AddShowContactDetailsToRelationshipTypes.new.migrate(:down) }
+    assert_not connection.column_exists?(:relationship_types, :show_contact_details)
+
+    ActiveRecord::Migration.suppress_messages { AddShowContactDetailsToRelationshipTypes.new.migrate(:up) }
+    column = connection.columns(:relationship_types).find { |candidate| candidate.name == "show_contact_details" }
+    assert_equal :boolean, column.type
+    assert_equal "false", column.default
+    assert_not column.null
+  ensure
+    RelationshipType.reset_column_information
+  end
+
   test "relationship type changes fire hooks" do
     assert_includes Hook.catalog, "relationship_types - update"
     Hook.create!(name: "Record", event: "relationship_types - update", code: "Thread.current[:hooked_relationship_type] = model.guardianship")
-    type = relationship_types(:one)
+    type = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin)
 
     type.update!(guardianship: :minor)
 

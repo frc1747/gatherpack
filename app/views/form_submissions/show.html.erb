@@ -41,6 +41,7 @@
         <% else %>
           <% next if question && !@access.question_readable?(question) %>
           <% next if question.nil? && !@access.subject_leader? %>
+          <% next unless form_snapshot_field_readable?(snapshot, @access) %>
           <div class="mb-3">
             <% if snapshot["kind"] == "acknowledgment" && snapshot["body"].present? %><div class="mb-1"><%= form_markdown(snapshot["body"]) %></div><% end %>
             <div class="fw-semibold"><%= snapshot["label"] %><%= " *" if snapshot["required"] %></div>

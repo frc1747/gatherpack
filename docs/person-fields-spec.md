@@ -376,6 +376,19 @@ adds its own line with `RelationshipType.register_guardian_grant` in
 only while a condition holds. Changing a type with
 relationships to or from `none` asks for confirmation, naming the count.
 
+Separately from guardianship, a type can set `show_contact_details` (boolean,
+default false). The child's Relationships tab then shows the parent side's phone
+and email to anyone who can see the child, whatever those fields' read levels
+are, unless the field is archived or hidden from profiles. It gives no access to
+that person's profile and nothing new for the parent side. Only types that only
+admins or managers can add may set it (so not `consented` ones), so nobody can
+add a stranger as a new contact to read their details. That doesn't cover
+relationships added while more people could add the type: they start showing
+details too, so turning it on for a type with relationships asks for
+confirmation, naming the count. A manager must manage both people to add a
+relationship, so for now only an admin can add a contact from outside the team
+on such a type.
+
 #### Who can create guardianship relationships
 
 A guardianship relationship grants read (and possibly write) access to someone

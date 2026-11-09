@@ -716,6 +716,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
     t.integer "permission", default: 0, null: false
     t.datetime "updated_at", null: false
     t.integer "guardianship", default: 0, null: false
+    t.boolean "show_contact_details", default: false, null: false
   end
 
   create_table "relationships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

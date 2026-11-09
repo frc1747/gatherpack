@@ -20,7 +20,7 @@
       <p>None.</p>
     <% end %>
     <% if admin %>
-      <% grantable = Badge.added_by_admin.where.not(id: grants.map(&:badge_id)).order(:name) %>
+      <% grantable = Badge.added_by_admin.where.not(id: grants.map(&:badge_id)).where.not(id: Form.where.not(completion_badge_id: nil).select(:completion_badge_id)).order(:name) %>
       <% if grantable.any? %>
         <%= simple_form_for FormBadgeGrant.new, url: form_badge_grants_path(@form) do |g| %>
           <div class="input-group">
@@ -30,7 +30,7 @@
           </div>
         <% end %>
       <% else %>
-        <div class="form-text">No badges can grant access. Only badges that admins assign can.</div>
+        <div class="form-text">No badges can grant access. Only badges that admins assign, and that aren't a form's completion badge, can.</div>
       <% end %>
     <% else %>
       <div class="form-text">Only admins can change these.</div>

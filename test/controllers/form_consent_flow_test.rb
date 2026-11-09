@@ -164,6 +164,8 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
   end
 
   test "managers edit who is asked, see the list, and publish changes" do
+    # With a completion badge only admins change who is asked (FormCompletionBadgeTest).
+    @form.update!(completion_badge: nil)
     respond(@form, :b1, as: :b1, answers: { "photo_release" => "Yes", "i_have_read_the_code_of_conduct" => true })
     sign(@form, :b1, as: :b1)
 
