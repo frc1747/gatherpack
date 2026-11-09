@@ -46,10 +46,25 @@ module AudienceLevels
     case component
     when :subject then Person.where(id: viewer.id)
     when :guardian then viewer.wards
-    when :leaders then viewer.all_managed_people
+    when :leaders then led_people(viewer)
     when :teammates then Person.joins(:memberships).where(memberships: { team_id: viewer.teams.select(:id) })
     when :everyone then Person.all
     end
+  end
+
+  # The people the viewer leads: those they manage, except admins and
+  # architects, whom managers never act on. Must agree with
+  # AudienceAccess#leader?.
+  def self.led_people(viewer)
+    people = viewer.all_managed_people
+    return people if viewer.admin?
+
+    privileged = Person.joins(:user).where(users: { admin: true }).or(Person.joins(:user).where(users: { architect: true }))
+    people.where.not(id: privileged.select(:id))
+  end
+
+  def self.privileged?(person)
+    person.admin? || person.architect?
   end
 
   # One Person relation covering every relation given.

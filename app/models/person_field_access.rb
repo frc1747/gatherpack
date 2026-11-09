@@ -17,6 +17,7 @@ class PersonFieldAccess < AudienceAccess
     return nil if viewer.nil? || subject.nil? || !applies?(field)
     return nil if mode == :write && field.system_read_only?
     return :admin if viewer.admin?
+    return nil if mode == :write && viewer.id == subject.id && field.self_write_locked?(subject)
 
     level_component(mode == :read ? field.read_permission : field.write_permission) ||
       badge_grant(field, mode)&.badge
@@ -30,7 +31,8 @@ class PersonFieldAccess < AudienceAccess
 
   def badge_grant(field, mode)
     field.person_field_badge_grants.find do |grant|
-      (mode == :read || grant.write?) && viewer_badge_ids.include?(grant.badge_id) && grant.covers?(subject_team_ids)
+      (mode == :read || grant.write?) && viewer_badge_ids.include?(grant.badge_id) &&
+        grant.covers?(subject_team_ids) && grant.effective?
     end
   end
 end
