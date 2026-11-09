@@ -26,23 +26,52 @@ module ThemePalette
       ThemePalette::FIELDS.any? { |field| self[field].present? }
     end
 
-    # Turns the old CSS variables into picks, then clears them.
+    # Turns the old CSS variables into picks. Anything it can't use as a color
+    # stays in css_variables, and with nothing to change it writes nothing.
     def use_css_variables_as_colors!
-      picks = imported_colors
+      picks, kept = read_css_variables
+      left_out = []
       text = picks.delete(:text_color)
-      picks[:text_color] = text if text && importable_text?(text, picks)
-      update!(picks.merge(css_variables: nil))
+      if text && importable_text?(text, picks)
+        picks[:text_color] = text
+      elsif text
+        left_out << IMPORTED_VARIABLES.key(:text_color)
+      end
+
+      if picks.any? || left_out.any?
+        update!(picks.merge(css_variables: kept.map { |declaration| "#{declaration};" }.join("\n").presence))
+      end
+
+      ImportResult.new(
+        imported: picks.keys.map { |field| IMPORTED_VARIABLES.key(field) },
+        kept: kept.map { |declaration| declaration.split(":", 2).first.strip },
+        left_out:
+      )
     end
 
     private
 
-    def imported_colors
-      css_variables.to_s.each_line.each_with_object({}) do |line, picks|
-        name, value = line.strip.delete_suffix(";").split(":", 2).map(&:strip)
+    def read_css_variables
+      css_declarations.each_with_object([ {}, [] ]) do |declaration, (picks, kept)|
+        name, value = declaration.split(":", 2).map(&:strip)
         field = IMPORTED_VARIABLES[name]
-        color = expand_hex(value.to_s.sub(/\s*!important\z/i, ""))
-        picks[field] = color if field && color
+        color = expand_hex(value.to_s.sub(/\s*!important\z/i, "")) if field
+
+        if color
+          picks[field] = color
+        else
+          kept << declaration
+        end
       end
+    end
+
+    # Semicolons inside parentheses are part of a value, as in a data: URL. The
+    # field's placeholder shows lines with no semicolon, so a line starting a
+    # new variable also ends the one before.
+    def css_declarations
+      css_variables.to_s.gsub(%r{/\*.*?\*/}m, "").split(/;(?![^()]*\))/)
+        .flat_map { |part| part.split(/\n(?=\s*--)/) }
+        .map(&:strip).compact_blank
     end
 
     # `#abc` is a common way to write a variable, and a valid one to import.
@@ -53,8 +82,8 @@ module ThemePalette
     end
 
     def importable_text?(text, picks)
-      candidate = Generator.new(Picks.new(**picks.slice(*ThemePalette::FIELDS), text_color: text))
-      candidate.picked_text_readable?
+      saved = ThemePalette::FIELDS.index_with { |field| self[field] }
+      Generator.new(Picks.new(**saved, **picks, text_color: text)).picked_text_readable?
     end
   end
 end

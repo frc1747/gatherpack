@@ -9,4 +9,5 @@ Rails.application.config.to_prepare do
   )
 
   Theme.include(ThemePalette::Choices)
+  ThemePolicy.include(ThemePalette::ThemePolicyRules)
 end

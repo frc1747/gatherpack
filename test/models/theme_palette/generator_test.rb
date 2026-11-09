@@ -155,6 +155,26 @@ class ThemePaletteGeneratorTest < ActiveSupport::TestCase
     assert_match(/@media screen \{\n:root:not\(\[data-bs-theme=dark\]\) \.card,.*\}.*@media print/m, css)
   end
 
+  test "secondary buttons take the cards' text on their card-colored hover" do
+    gen = generator(**MATRIX["production"])
+    light = gen.palette(:light)
+    ink = light.surface_tokens.fetch("--gp-text")
+    rule = gen.css[/\.btn-outline-secondary,.*?\}/m]
+
+    assert_includes gen.css, ":root:not([data-bs-theme=dark]) .btn-outline-dark"
+    assert_includes rule, "--bs-btn-hover-color: #{ink};"
+    assert_includes rule, "--bs-btn-active-color: #{ink};"
+    assert_operator Color.parse(ink).contrast(light.raised), :>=, 4.5
+  end
+
+  test "code blocks are treated as a surface" do
+    assert_includes generator(**MATRIX["production"]).css, ":root:not([data-bs-theme=dark]) code pre"
+  end
+
+  test "a palette that doesn't split leaves secondary buttons alone" do
+    assert_not_includes generator(brand_color: "#34b233").css, "--bs-btn-hover-color"
+  end
+
   test "a light palette on dark picks marks native controls and icons as dark" do
     tokens = generator(surface_color: "#1a1a2e", background_color: "#101018").palette(:light).tokens
     assert_equal "1", tokens["--gp-icon-invert"]

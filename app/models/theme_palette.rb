@@ -8,6 +8,12 @@ module ThemePalette
     GatherPack::Features.enabled?(:theme_palette) && ModernSkin.active?(controller)
   end
 
+  # The import rewrites the one site-wide theme, so one admin's skin preview
+  # isn't enough: everyone else would lose their variables and gain nothing.
+  def self.on_for_everyone?
+    GatherPack::Features.enabled?(:theme_palette) && GatherPack::Features.enabled?(:modern_skin)
+  end
+
   def self.permitted_fields(controller)
     active?(controller) ? FIELDS : []
   end

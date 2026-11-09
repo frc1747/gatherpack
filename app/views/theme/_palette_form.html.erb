@@ -13,7 +13,11 @@
         <% if theme.css_variables.present? %>
           <div class="alert alert-info">
             Your CSS variables still apply on top of these colors, so they can undo them.
-            <button type="submit" form="theme-palette-import" class="btn btn-sm btn-outline-primary ms-1">Use these as my starting colors</button>
+            <% if ThemePalette.on_for_everyone? %>
+              <button type="submit" form="theme-palette-import" class="btn btn-sm btn-outline-primary ms-1">Use these as my starting colors</button>
+            <% else %>
+              You can use them as starting colors once the new look is on for everyone.
+            <% end %>
           </div>
         <% end %>
 
@@ -126,6 +130,6 @@
   </div>
 <% end %>
 
-<% if theme.css_variables.present? %>
+<% if theme.css_variables.present? && ThemePalette.on_for_everyone? %>
   <%= form_with url: theme_palette_import_path, method: :post, id: "theme-palette-import", data: { turbo: false } do %><% end %>
 <% end %>

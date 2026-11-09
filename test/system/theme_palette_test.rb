@@ -36,6 +36,17 @@ class ThemePaletteSystemTest < ApplicationSystemTestCase
     assert_nil Theme.instance.brand_color
   end
 
+  test "on a split palette, secondary buttons on the page hover with the cards' text" do
+    visit theme_preview_path(mode: "light", background_color: "#505050", surface_color: "#c8c8c8")
+
+    hover = page.evaluate_script(
+      "getComputedStyle(document.querySelector('main > p .btn-outline-secondary')).getPropertyValue('--bs-btn-hover-color').trim()"
+    )
+    ink = ThemePalette::Generator.new(ThemePalette::Picks.new(background_color: "#505050", surface_color: "#c8c8c8"))
+      .palette(:light).surface_tokens.fetch("--gp-text")
+    assert_equal ink, hover
+  end
+
   private
 
   def wait_for_token(mode, token, value)

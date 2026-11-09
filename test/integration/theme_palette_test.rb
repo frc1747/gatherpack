@@ -183,6 +183,47 @@ class ThemePaletteTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the import names what it left in place" do
+    @theme.update!(brand_color: nil, css_variables: "--bs-primary: rgb(1, 2, 3);")
+    with_palette do
+      sign_in @admin
+      post theme_palette_import_path
+
+      assert_redirected_to edit_theme_path
+      assert_equal "No colors were imported. Still in your CSS variables: --bs-primary.", flash[:notice]
+      assert_equal "--bs-primary: rgb(1, 2, 3);", @theme.reload.css_variables
+    end
+  end
+
+  test "an admin only previewing the skin can't import for the whole site" do
+    @theme.update!(brand_color: nil, css_variables: "--bs-primary: #123456;")
+    with_setting(:feature_theme_palette, "true") do
+      sign_in @admin
+      post skin_preview_path
+
+      post theme_palette_import_path
+
+      assert_redirected_to edit_theme_path
+      assert_equal "--bs-primary: #123456;", @theme.reload.css_variables
+      assert_nil @theme.brand_color
+    end
+  end
+
+  test "the import button is hidden while only previewing the skin" do
+    @theme.update!(css_variables: "--bs-primary: #123456;")
+    with_setting(:feature_theme_palette, "true") do
+      sign_in @admin
+      post skin_preview_path
+
+      get edit_theme_path
+
+      assert_select "[data-controller=theme-palette]"
+      assert_select "button[form=theme-palette-import]", false
+      assert_select "form#theme-palette-import", false
+      assert_select ".alert", /once the new look is on for everyone/
+    end
+  end
+
   test "non-admins can't import" do
     @theme.update!(css_variables: "--bs-primary: #123456;")
     with_palette do

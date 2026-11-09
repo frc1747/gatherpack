@@ -35,8 +35,12 @@ module ThemePalette
       ".offcanvas-lg", ".sidebar", "header.navbar", ".table", ".list-group", ".accordion", ".alert",
       ".breadcrumb-container", ".pagination", ".nav-tabs .nav-link.active", ".navtab", ".form-control",
       ".form-select", ".form-check-input", ".input-group-text", ".hw-combobox", ".hw-combobox__dialog",
-      ".hw-combobox__listbox", ".fc", ".cm-editor", "trix-editor", "trix-toolbar"
+      ".hw-combobox__listbox", ".fc", ".cm-editor", "trix-editor", "trix-toolbar", "code pre"
     ].freeze
+
+    # Outside a card these sit on the page, but hover fills them with
+    # --gp-raised, a card color, so hover text has to be the cards' text.
+    RAISED_ON_HOVER = [ ".btn-outline-secondary", ".btn-outline-dark" ].freeze
 
     # What the skin's :root derives from the context tokens. A custom property
     # resolves where it's declared, so a surface has to restate these.
@@ -350,13 +354,19 @@ module ThemePalette
     def surface_block(light)
       return unless light.split?
 
+      light_only = ":root:not([data-bs-theme=dark])"
       mapped = SURFACE_MAP.map { |name, token| "  #{name}: var(--gp-#{token});" }
+      ink = light.surface_tokens.fetch("--gp-text")
       <<~CSS.strip
         @media screen {
-        #{SURFACES.map { |selector| ":root:not([data-bs-theme=dark]) #{selector}" }.join(",\n")} {
+        #{SURFACES.map { |selector| "#{light_only} #{selector}" }.join(",\n")} {
           color: var(--gp-text);
         #{declarations(light.surface_tokens)}
         #{mapped.join("\n")}
+        }
+        #{RAISED_ON_HOVER.map { |selector| "#{light_only} #{selector}" }.join(",\n")} {
+          --bs-btn-hover-color: #{ink};
+          --bs-btn-active-color: #{ink};
         }
         }
       CSS
