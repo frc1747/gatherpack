@@ -19,7 +19,6 @@ feature/commitments-profile-tab
 feature/signups-widget
 feature/test-hosts
 feature/ransack-associations-default
-feature/pagination-labels
 feature/mcp
 feature/mcp-person-fields
 feature/mcp-forms
@@ -38,7 +37,6 @@ feature/event-time-display
 feature/person-team-ids
 feature/profile-all-teams
 feature/event-type-change-answers
-feature/settings-read-through
 feature/forms-expiry
 feature/person-merge
 feature/team-subtree-queries
