@@ -2,9 +2,8 @@
 # season. Which checklists and items show is decided by Checklists.checklist_for,
 # so nothing here re-checks visibility.
 module MyGatherpackChecklistsHelper
-  # One checklist covering the viewer or one of their wards, with the items
-  # still to do.
-  SeasonEntry = Struct.new(:checklist, :subject, :ward, :done, :total, :open_items, keyword_init: true) do
+  # One checklist covering the viewer or one of their wards, with its items.
+  SeasonEntry = Struct.new(:checklist, :subject, :ward, :done, :total, :items, keyword_init: true) do
     def percent
       total.zero? ? 0 : (done * 100.0 / total).floor
     end
@@ -33,15 +32,16 @@ module MyGatherpackChecklistsHelper
     end
   end
 
-  # Each checklist with something unfinished, for Your season.
+  # Each checklist the viewer can see items on, for Your season: everything on
+  # it, unfinished first, so finished work shows too.
   def my_gatherpack_season_entries
     my_gatherpack_checklist_results.filter_map do |subject, checklist, status|
-      open_items = status.explained.select { |entry| entry.full? && UNFINISHED.include?(entry.status) }
-      next if open_items.empty?
+      items = status.explained.select(&:full?)
+      next if items.empty?
 
       counted = status.items.select { |entry| entry.full? && entry.item.counts? && !entry.exempt? }
       SeasonEntry.new(checklist: checklist, subject: subject, ward: my_gatherpack_ward_name(subject),
-        done: counted.count(&:met?), total: counted.size, open_items: open_items)
+        done: counted.count(&:met?), total: counted.size, items: items)
     end
   end
 
@@ -53,8 +53,17 @@ module MyGatherpackChecklistsHelper
     "#{number_with_precision(measures["confirmed"], precision: 2, strip_insignificant_zeros: true)} of #{number_with_precision(measures["owed"], precision: 2, strip_insignificant_zeros: true)}"
   end
 
-  # How far along a count item is, for its bar; nil for an item without a count.
+  # What the right of a row says: the count, or for an item without one, that
+  # it's finished or why it doesn't apply.
+  def my_gatherpack_season_status(entry)
+    my_gatherpack_season_count(entry) || ("100%" if entry.met?) || (entry.text if entry.exempt?)
+  end
+
+  # How far along an item is, for its bar: full once met, and otherwise nil for
+  # an item without a count.
   def my_gatherpack_season_percent(entry)
+    return 100 if entry.met?
+
     measures = entry.measures || {}
     return unless measures["confirmed"] && measures["owed"].to_f.positive?
 

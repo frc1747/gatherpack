@@ -193,6 +193,34 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "your season shows finished items complete, beside what's left" do
+    add_item(@checklist, :shifts, "Shifts")
+    add_item(@checklist, :has_login, "Login")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_equal %w[Shifts Login], css_select("[data-home-section=checklists-season] .mg-season-item a").map { |link| link.text.strip }
+      assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "100%"
+      assert_select "[data-home-section=checklists-season] .progress-bar.bg-success[style*='width: 100%']", 1
+    end
+  end
+
+  test "a checklist with everything finished stays in your season" do
+    add_item(@checklist, :has_login, "Login")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_select "[data-home-column=todo]", false
+      assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Login"
+    end
+  end
+
   test "an ended checklist is no to-do and not in your season" do
     ended = create_world_checklist("Last season", ends_on: 1.week.ago.to_date)
     add_rule(ended, :include, :person, person_id: person(:member).id)
