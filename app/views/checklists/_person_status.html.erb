@@ -5,23 +5,45 @@
     <%= checklist_status_badge(status.overall) if status.overall %>
   </div>
   <ul class="list-group list-group-flush">
+    <% only_item = status.explained.one? %>
     <% status.explained.each do |entry| %>
       <li class="list-group-item">
-        <div class="d-flex justify-content-between align-items-start gap-2">
-          <div>
-            <strong><%= entry.item.label %></strong>
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div class="flex-grow-1 min-w-0">
+            <% unless only_item && entry.item.label == checklist.title %><strong><%= entry.item.label %></strong><% end %>
             <% if entry.full? %>
-              <div class="small"><%= entry.detail.presence || entry.summary %></div>
+              <% detail_lines = entry.detail.to_s.split("\n") %>
+              <% percent = checklist_item_percent(entry) %>
+              <% if percent %>
+                <div><%= entry.summary %></div>
+                <div class="progress mt-1 mb-2" style="height: .5rem" role="progressbar" aria-label="<%= entry.item.label %>" aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar" style="width: <%= percent %>%"></div>
+                </div>
+              <% elsif detail_lines.one? || detail_lines.empty? %>
+                <div class="small"><%= entry.detail.presence || entry.summary %></div>
+              <% else %>
+                <div class="small"><%= entry.summary %></div>
+              <% end %>
+              <% if percent ? detail_lines.any? : detail_lines.many? %>
+                <details class="small text-body-secondary">
+                  <summary>Details</summary>
+                  <ul class="mb-0 mt-1 ps-3">
+                    <% detail_lines.each do |line| %><li><%= line %></li><% end %>
+                  </ul>
+                </details>
+              <% end %>
               <% if entry.excuse && entry.excuse["by"] %><div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %></div><% end %>
               <% Array(entry.children).each do |child| %>
                 <div class="small ms-3"><%= checklist_status_badge(child) %> <%= child.item.label %><%= ": #{child.summary}" if child.full? && child.summary.present? %></div>
               <% end %>
+              <% if (fix = checklist_fix(checklist, entry, status.person_id)).present? %>
+                <div class="mt-2"><%= fix %></div>
+              <% end %>
             <% end %>
           </div>
-          <div class="text-end text-nowrap">
-            <%= checklist_status_badge(entry) %>
-            <div class="mt-1"><%= checklist_fix(checklist, entry, status.person_id) if entry.full? %></div>
-          </div>
+          <% unless only_item && status.overall %>
+            <div class="flex-shrink-0"><%= checklist_status_badge(entry) %></div>
+          <% end %>
         </div>
       </li>
     <% end %>
