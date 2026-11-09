@@ -3,7 +3,7 @@
   <%= f.label field, label, class: "form-label" %>
   <div class="input-group">
     <input type="color" class="form-control form-control-color flex-grow-0" value="<%= generator.effective(field) %>"
-           aria-label="<%= label %> color picker" data-picker data-action="input->theme-palette#pick" <%= "disabled" if automatic %>>
+           aria-label="<%= label %> color picker" data-picker data-action="input->theme-palette#pick">
     <%= f.text_field field, class: class_names("form-control", "is-invalid": theme.errors[field].any?), placeholder: "Automatic",
                      maxlength: 7, autocomplete: "off", spellcheck: false, data: { hex: true, action: "input->theme-palette#type" } %>
     <% if theme.errors[field].any? %>

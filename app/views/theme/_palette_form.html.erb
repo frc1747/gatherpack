@@ -90,10 +90,10 @@
         <p class="text-muted">These only affect the app's status bar and splash screen.</p>
         <div class="row">
           <div class="col-md-6">
-            <%= f.input :pwa_theme_color, label: "Theme Color", input_html: { type: "color", value: theme.pwa_theme_color } %>
+            <%= f.input :pwa_theme_color, as: :fancy_color, label: "Theme Color", input_html: { value: theme.pwa_theme_color } %>
           </div>
           <div class="col-md-6">
-            <%= f.input :pwa_background_color, label: "Background Color", input_html: { type: "color", value: theme.pwa_background_color } %>
+            <%= f.input :pwa_background_color, as: :fancy_color, label: "Background Color", input_html: { value: theme.pwa_background_color } %>
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ export default class extends Controller {
   pick({ target }) {
     const row = this.row(target)
     this.hexInput(row).value = target.value
+    this.automaticBox(row).checked = false
     this.refresh()
   }
 
@@ -19,13 +20,11 @@ export default class extends Controller {
     const value = target.value.trim()
     if (HEX.test(value)) this.picker(row).value = value
     this.automaticBox(row).checked = value === ""
-    this.picker(row).disabled = value === ""
     this.refresh()
   }
 
   toggleAutomatic({ target }) {
     const row = this.row(target)
-    this.picker(row).disabled = target.checked
     this.hexInput(row).value = target.checked ? "" : this.picker(row).value
     this.refresh()
   }
@@ -34,7 +33,6 @@ export default class extends Controller {
     this.colorTargets.forEach((row) => {
       this.hexInput(row).value = ""
       this.automaticBox(row).checked = true
-      this.picker(row).disabled = true
     })
     this.refresh()
   }

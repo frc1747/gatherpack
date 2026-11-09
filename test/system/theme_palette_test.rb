@@ -36,6 +36,32 @@ class ThemePaletteSystemTest < ApplicationSystemTestCase
     assert_nil Theme.instance.brand_color
   end
 
+  test "the swatch works while a color is Automatic, and picking turns Automatic off" do
+    visit edit_theme_path
+
+    assert_no_selector "input[type=color][disabled]"
+    assert_checked_field "brand_color_automatic"
+
+    page.execute_script(<<~JS)
+      const swatch = document.querySelector("[data-field=brand_color] [data-picker]")
+      swatch.value = "#34b233"
+      swatch.dispatchEvent(new Event("input", { bubbles: true }))
+    JS
+
+    assert_field "theme[brand_color]", with: "#34b233"
+    assert_unchecked_field "brand_color_automatic"
+    wait_for_token("light", "--gp-brand", "#34b233")
+  end
+
+  test "installed app colors have a swatch and a hex box that stay in step" do
+    visit edit_theme_path
+
+    assert_selector ".fancy-color-container input[type=color][name='theme[pwa_theme_color]']"
+    find(".fancy-color-container input[type=text][name='theme[pwa_theme_color]']").set("#123456")
+
+    assert_equal "#123456", find(".fancy-color-container input[type=color][name='theme[pwa_theme_color]']").value
+  end
+
   test "on a split palette, secondary buttons on the page hover with the cards' text" do
     visit theme_preview_path(mode: "light", background_color: "#505050", surface_color: "#c8c8c8")
 
