@@ -25,7 +25,7 @@ The work is finished when:
 | An admin wants to try the look alone first | Preview in their own session (§6.5) |
 | A person prefers dark mode, or wants it to follow their device | Light, Dark or Auto, saved on their login (§7) |
 | A site has its own brand color and logo | Theme page choices (§8) |
-| A site has hand-written CSS variables or custom CSS | Both fields stay and apply last, subject to §8.5 |
+| A site has hand-written CSS variables or custom CSS | Both fields stay and apply last, subject to §8.4 |
 | The new look causes a problem | Turn off the flag. Everyone gets today's CSS on their next page |
 
 ### 1.2 Non-goals
@@ -53,7 +53,7 @@ The work is finished when:
 
 1. **Skin stylesheet** (§6): a separate compiled CSS file that redefines color tokens and restyles existing classes. It's linked only when the skin is active.
 2. **Template overrides** (§5): a folder of replacement templates, used only when the skin is active. Everything not in the folder falls through to the original.
-3. **Generated palette** (§8): Ruby turns the admin's brand color into the full set of token values, in place of the skin's defaults.
+3. **Generated palette** (§8): Ruby turns the base colors an admin picks into the full set of token values, in place of the skin's defaults.
 
 Layers 1 and 2 ship first, with fixed light and dark palettes. Layer 3 waits until the look is approved.
 
@@ -179,7 +179,7 @@ Preview: a "Preview the new look" button on the theme page (admin only) sets `se
 | Trix, CodeMirror (`--app-code-*`) | Check | Must be readable |
 | Tables, modals, `.navtab`, alerts, flash | Rules from the proof | Tokens |
 | Team and event type colors | Keep; they use `contrasting_color` | Check against dark surfaces |
-| Site logo | As uploaded | May disappear on dark; see §8.2 |
+| Site logo | As uploaded | May disappear on dark; it sits on a small light tile there |
 | Stored Pages and widgets with inline colors | Unchanged | Audit. Fallback: give their container a scoped set of light tokens, so they show as a light panel on a dark page |
 | Kiosk | Skin applies; check `_kiosk.scss` | Always light (§7.3) |
 
