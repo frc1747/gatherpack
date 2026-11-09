@@ -770,7 +770,7 @@ feature/search-form-asterisks:
     Search and filter forms no longer mark their fields as required.
   audience: Everyone
 
-feature/table-responsive:
+feature/table-responsive-fit:
   title: Wide tables scroll on phones
   emoji: "📱"
   description: >-

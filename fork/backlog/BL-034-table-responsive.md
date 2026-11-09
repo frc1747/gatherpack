@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream improvement |
 | Priority | low |
-| Status | started (`feature/table-responsive`, see `FORK.md`) |
+| Status | started (`feature/table-responsive-fit`, see `FORK.md`) |
 | Added | 2026-11-08 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Planned branch | see Status |

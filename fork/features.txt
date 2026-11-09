@@ -72,5 +72,5 @@ feature/forms-auto-reminders
 feature/quiet-root-signin
 feature/phone-notifications-connectors
 feature/search-form-asterisks
-feature/table-responsive
+feature/table-responsive-fit
 feature/people-search-phone
