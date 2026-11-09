@@ -6,6 +6,14 @@ module ChecklistsHelper
     tag.span(entry.text, class: "badge #{STATUS_CLASSES.fetch(entry.status, "text-bg-light")}")
   end
 
+  # How far along a count item is, for its bar; nil for an item without a count.
+  def checklist_item_percent(entry)
+    measures = entry.measures || {}
+    return unless measures["confirmed"] && measures["owed"].to_f.positive?
+
+    [ (measures["confirmed"].to_f * 100 / measures["owed"].to_f).floor, 100 ].min
+  end
+
   def checklist_status_class(status)
     STATUS_CLASSES.fetch(status.to_s, "text-bg-light")
   end

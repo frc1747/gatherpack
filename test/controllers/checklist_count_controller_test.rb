@@ -176,4 +176,17 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
       assert_not CommitmentAdjustment.exists?(reason: "Mine")
     end
   end
+
+  test "a person's page shows the count with a bar and keeps the breakdown in Details" do
+    sign_in person(:member).user
+    with_checklists do
+      Checklists::Refresher.new(@checklist.reload, silent: true).call
+      get person_checklists_path(person(:member))
+
+      assert_response :success
+      assert_select ".list-group-item .progress-bar"
+      assert_select ".list-group-item details summary", text: "Details"
+      assert_select ".list-group-item details li", minimum: 2
+    end
+  end
 end

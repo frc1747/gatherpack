@@ -35,6 +35,8 @@ class FormQuestion < ApplicationRecord
   validates :body, presence: true, if: -> { statement? || (heading? && label.blank?) }
   validates :key, presence: true, uniqueness: { scope: :form_id }, format: { with: KEY_FORMAT, message: "must start with a letter and use only lowercase letters, numbers, and underscores" }
   validate :key_unchanged, on: :update
+  validate :key_not_used_before, on: :create
+  validate :answer_terms_unchanged, on: :update
   validate :profile_link_makes_sense
   validate :levels_within_form
   validate :signer_can_see_form
@@ -68,6 +70,12 @@ class FormQuestion < ApplicationRecord
 
   def form_only?
     !profile_backed?
+  end
+
+  # Whether any of the form's submissions (drafts included) has an answer
+  # stored under this question's key.
+  def answered?
+    form.present? && form.persisted? && form.form_submissions.where("form_submissions.answers ? :key", key: key_in_database || key).exists?
   end
 
   # Who signs, in words: "a guardian", "the person themselves".
@@ -146,7 +154,7 @@ class FormQuestion < ApplicationRecord
 
     source = label.presence || body.to_s.truncate(30, omission: "").presence || kind
     base = source.delete("'’").parameterize(separator: "_").gsub(/[^a-z0-9]+/, "_").sub(/\A[^a-z]+/, "").delete_suffix("_").presence || "question"
-    taken = form ? form.form_questions.where.not(id: id).pluck(:key) : []
+    taken = form ? form.form_questions.where.not(id: id).pluck(:key) + form.stored_question_keys : []
     candidate = base
     suffix = 1
     candidate = "#{base}_#{suffix += 1}" while taken.include?(candidate)
@@ -208,6 +216,25 @@ class FormQuestion < ApplicationRecord
 
   def key_unchanged
     errors.add(:key, "can't be changed once created") if will_save_change_to_key?
+  end
+
+  # Answers are stored by key, so a new question can't take over the
+  # answers a removed one left in earlier submissions.
+  def key_not_used_before
+    return unless form && key.present? && form.stored_question_keys.include?(key)
+    return if form.form_questions.any? { |question| !question.equal?(self) && question.key == key }
+
+    errors.add(:key, "was used by a removed question on this form; choose another")
+  end
+
+  # Answers already given follow the question's kind, type and profile
+  # field (whose read level protects them), so none of these change once
+  # there are any. Changing the kind would also clear the profile field.
+  def answer_terms_unchanged
+    changed = %w[ kind data_type person_field_id ].select { |attribute| will_save_change_to_attribute?(attribute) }
+    return if changed.empty? || !answered?
+
+    changed.each { |attribute| errors.add(attribute.to_sym, "can't be changed once the question has answers") }
   end
 
   def profile_link_makes_sense

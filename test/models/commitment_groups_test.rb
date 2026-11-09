@@ -298,6 +298,52 @@ class CommitmentGroupsTest < ActiveSupport::TestCase
     assert_not PersonCommitmentsPolicy.new(@parent_a.user, person(:member)).show?
   end
 
+  test "a relationship type members can add themselves doesn't group: nobody pools or sees another's credit through it" do
+    friend_of = RelationshipType.create!(parent_label: "Friend of", child_label: "Friend of", permission: :added_by_participant)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    @commitment.update_columns(group_relationship_type_id: friend_of.id, additional_amount: 0)
+    check_in(:member2, @games[0])
+    check_in(:member2, @games[1])
+    commitment = Commitment.find(@commitment.id)
+    assert_not commitment.progress_for(person(:member)).met?
+
+    Relationship.create!(parent: person(:member), child: person(:member2), relationship_type: friend_of, created_by: person(:member))
+    Relationship.create!(parent: @parent_b, child: person(:member2), relationship_type: friend_of, created_by: @parent_b)
+
+    commitment = Commitment.find(@commitment.id)
+    assert_not commitment.progress_for(person(:member)).met?, "a member met their commitment with a classmate's credit"
+    assert_equal names(:member), commitment.group_for(person(:member)).map(&:first_name)
+    assert_not commitment.grouped?
+    assert_not commitment.group_relative_of?(person(:member), person(:member2))
+    assert_not commitment.group_relative?(@parent_b)
+    assert_nil commitment.progress_seen_by(@parent_b)
+    assert_not PersonCommitmentsPolicy.new(person(:member).user, person(:member2)).show?
+
+    %i[ added_by_participant added_by_user added_by_team_member ].each do |permission|
+      friend_of.update!(permission: permission)
+      assert_not commitment.reload.update(group_relationship_type: friend_of), permission
+      assert_equal [ "must be a relationship only admins or managers add" ], commitment.errors[:group_relationship_type_id]
+    end
+  end
+
+  test "a relationship type only managers add still groups, pools relatives' credit and shows the parent" do
+    guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_manager)
+    @commitment.update!(group_relationship_type: guardian_of)
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    relate(@parent_a, person(:member), guardian_of)
+    relate(@parent_a, person(:kid), guardian_of)
+    check_in(:kid, @games[0])
+    Checkin.create!(person: @parent_a, event: @games[1])
+
+    commitment = Commitment.find(@commitment.id)
+    assert commitment.grouped?
+    assert_equal names(:kid, :member), commitment.group_for(person(:member)).map(&:first_name)
+    progress = commitment.progress_seen_by(@parent_a)
+    assert_equal 2, progress.confirmed
+    assert_equal [ @parent_a ], progress.relatives
+    assert CommitmentPolicy.new(@parent_a.user, commitment).show?
+  end
+
   test "nobody adjusts credit for anyone in a group with themselves or a relative" do
     relate(@parent_b, person(:kid))
     relate(@parent_b, person(:member2))

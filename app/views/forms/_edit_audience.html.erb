@@ -1,6 +1,10 @@
 <div class="card" id="audience">
   <div class="card-body">
     <% rules = @form.form_audience_rules.includes(:team, :badge, :person).to_a %>
+    <% changeable = policy(@form).change_audience? %>
+    <% unless changeable %>
+      <p class="text-muted" id="audience_locked">This form gives the <%= @form.completion_badge.name %> badge to everyone who completes it, so only admins can change who it asks.</p>
+    <% end %>
     <% if rules.none?(&:effect_include?) %>
       <p class="text-warning-emphasis">Nobody yet. Add a team<%= ", badge," if badges %> or person before opening the form.</p>
     <% end %>
@@ -12,8 +16,10 @@
               <%= i(rule.effect_include? ? "plus" : "minus") %> <%= rule.description %>
               <% if rule.target_badge? && !badges %><span class="badge text-bg-light">Ignored while Badges are turned off</span><% end %>
             </span>
-            <%= button_to "Remove", form_audience_rule_path(@form, rule), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
-                  data: { turbo_confirm: "Remove this rule? Anyone no longer asked keeps the answers they gave." } %>
+            <% if changeable %>
+              <%= button_to "Remove", form_audience_rule_path(@form, rule), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                    data: { turbo_confirm: "Remove this rule? Anyone no longer asked keeps the answers they gave." } %>
+            <% end %>
           </li>
         <% end %>
       </ul>
@@ -29,13 +35,14 @@
         <div class="row g-2 align-items-end">
           <div class="col-md-6">
             <%= f.input :audience_badge_id, label: "Only people with this badge", collection: Badge.order(:name), include_blank: "Everyone the rules include",
-                  hint: "Optional. Narrows who is asked, after the rules.", wrapper_html: { class: "mb-0" } %>
+                  hint: "Optional. Narrows who is asked, after the rules.", wrapper_html: { class: "mb-0" }, disabled: !changeable %>
           </div>
-          <div class="col-auto"><%= f.button :submit, "Save", class: "btn btn-secondary" %></div>
+          <% if changeable %><div class="col-auto"><%= f.button :submit, "Save", class: "btn btn-secondary" %></div><% end %>
         </div>
       <% end %>
     <% end %>
 
+    <% if changeable %>
     <% teams = admin ? Team.order(:name) : current_user.person.all_managed_teams.order(:name) %>
     <% badge_choices = admin ? Badge.order(:name) : Badge.where(team_id: current_user.person.all_managed_teams.select(:id)).order(:name) %>
     <% effects = [ [ "Include", "include" ], [ "Exclude", "exclude" ] ] %>
@@ -75,6 +82,7 @@
         <%= render "forms/audience_checklist_rule", form: @form, effects: effects %>
       <% end %>
     </div>
+    <% end %>
   </div>
 </div>
 

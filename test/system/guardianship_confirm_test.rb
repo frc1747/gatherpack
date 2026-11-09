@@ -17,31 +17,26 @@ class GuardianshipConfirmTest < ApplicationSystemTestCase
     Warden.test_reset!
   end
 
-  test "changing a type with relationships to a guardianship asks first" do
+  test "widening a type with relationships doesn't ask and is refused" do
     type = relationship_types(:one)
     visit edit_relationship_type_path(type)
     select "Guardian while the child is a minor", from: "Guardianship"
 
-    message = dismiss_confirm { click_on "Update Relationship type" }
-    assert_equal "This makes the parent side of 1 relationship a guardian.", message
-    assert type.reload.guardianship_none?
+    click_on "Update Relationship type"
 
-    message = accept_confirm { click_on "Update Relationship type" }
-    assert_equal "This makes the parent side of 1 relationship a guardian.", message
-    assert_text "Relationship type was successfully updated."
-    assert type.reload.guardianship_minor?
-    assert_text "Guardians can:"
+    assert_text "can't grant more while this type already has links"
+    assert type.reload.guardianship_none?
   end
 
   test "changing a guardianship back to none asks first, moving between guardianships doesn't" do
     type = relationship_types(:one)
-    type.update!(guardianship: :minor)
+    type.update_column(:guardianship, RelationshipType.guardianships[:consented])
 
     visit edit_relationship_type_path(type)
-    select "Guardian with the child's consent", from: "Guardianship"
+    select "Guardian while the child is a minor", from: "Guardianship"
     click_on "Update Relationship type"
     assert_text "Relationship type was successfully updated."
-    assert type.reload.guardianship_consented?
+    assert type.reload.guardianship_minor?
 
     visit edit_relationship_type_path(type)
     select "None", from: "Guardianship"
@@ -85,7 +80,7 @@ class GuardianshipConfirmTest < ApplicationSystemTestCase
     assert_not type.reload.show_contact_details?
   end
 
-  test "ticking contact details and changing guardianship asks about both" do
+  test "ticking contact details while picking a wider guardianship asks only about contact details" do
     type = relationship_types(:one)
     visit edit_relationship_type_path(type)
     select "Guardian while the child is a minor", from: "Guardianship"
@@ -93,7 +88,7 @@ class GuardianshipConfirmTest < ApplicationSystemTestCase
 
     message = dismiss_confirm { click_on "Update Relationship type" }
 
-    assert_includes message, "This makes the parent side of 1 relationship a guardian."
+    assert_not_includes message, "This makes the parent side"
     assert_includes message, "This shows the phone and email"
   end
 

@@ -117,15 +117,21 @@ class FormAudienceTest < ActiveSupport::TestCase
     assert FormAudienceRulePolicy.new(person(:admin).user, form.form_audience_rules.build(target_type: :team, team: @den_b)).create?
   end
 
-  test "duplicating copies the rules and grants, not the completion badge" do
+  test "duplicating copies the rules, and the grants and completion badge only for an admin" do
     badge = create_world_badge("Meal Done")
     form = create_world_form(include: [ @den_a ], completion_badge: badge)
     add_rule(form, person(:b1))
     form.form_badge_grants.create!(badge: @health_officer_badge, access: :read)
 
-    copy = form.duplicate!(title: "Meal Choices 2028")
+    copy = form.duplicate!(title: "Meal Choices 2028", created_by: person(:admin))
     assert_equal form.audience.ids.sort, copy.audience.ids.sort
     assert_equal [ @health_officer_badge ], copy.form_badge_grants.map(&:badge)
+    assert_equal badge, copy.completion_badge
+
+    copy = form.duplicate!(title: "Meal Choices 2029", created_by: person(:pack_leader))
+    assert_equal form.audience.ids.sort, copy.audience.ids.sort
+    assert_empty copy.form_badge_grants
     assert_nil copy.completion_badge
+    assert_empty form.duplicate!(title: "Meal Choices 2030").form_badge_grants
   end
 end

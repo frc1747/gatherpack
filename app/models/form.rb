@@ -37,6 +37,7 @@ class Form < ApplicationRecord
   validate :respond_within_read
   validate :closes_after_opens
   validate :completion_badge_reaches_audience
+  validate :completion_badge_grants_nothing, if: -> { completion_badge && will_save_change_to_completion_badge_id? }
   validate :event_within_team
 
   # Browsers send textarea line breaks as CRLF. Without this, saving the
@@ -106,6 +107,23 @@ class Form < ApplicationRecord
     ((person.all_ancestor_teams.ids + below) & within).uniq
   end
 
+  # Badges that give access to people's information: those with person
+  # field or form badge grants, and the form creator badge (by name, whether
+  # or not Badges are on). None of them can be a completion badge.
+  def self.access_badges
+    badges = Badge.where(id: PersonFieldBadgeGrant.select(:badge_id)).or(Badge.where(id: FormBadgeGrant.select(:badge_id)))
+    name = Settings[:forms_creator_badge].to_s.strip
+    name.present? ? badges.or(Badge.where("LOWER(badges.name) = ?", name.downcase)) : badges
+  end
+
+  # The badges an admin may choose as this form's completion badge, plus the
+  # one it has.
+  def completion_badge_choices
+    choices = Badge.added_by_admin.where.not(id: Form.access_badges.select(:id))
+    choices = choices.or(Badge.where(id: completion_badge_id)) if completion_badge_id
+    choices.order(:name)
+  end
+
   # Whether this person runs the form as its creator (holding the creator
   # badge), which makes them a leader for its responses only.
   def run_by_creator?(person)
@@ -166,6 +184,17 @@ class Form < ApplicationRecord
     asked = AudienceLevels.combine([ level ] + grants).where(id: audience.select(:id))
     former = AudienceLevels.combine([ level.where(id: viewer.all_managed_people.select(:id)) ] + grants).where(id: former_subjects.select(:id))
     asked.or(Person.where(id: former.select(:id)))
+  end
+
+  # Every question key stored in this form's submissions, as an answer or in
+  # the copy of the form a submission keeps, including removed questions'.
+  def stored_question_keys
+    return [] unless persisted?
+
+    submissions = FormSubmission.joins(:form_response).where(form_responses: { form_id: id }).distinct
+    answered = submissions.pluck(Arel.sql("jsonb_object_keys(form_submissions.answers)"))
+    snapshots = submissions.pluck(Arel.sql("jsonb_array_elements(CASE WHEN jsonb_typeof(form_submissions.content -> 'questions') = 'array' THEN form_submissions.content -> 'questions' ELSE '[]'::jsonb END) ->> 'key'"))
+    (answered + snapshots).compact.uniq
   end
 
   def response_for(subject)
@@ -290,11 +319,18 @@ class Form < ApplicationRecord
   end
 
   # Copies the settings and questions, not the responses, as a new draft.
+  # The badge grants and completion badge are admin-only settings, so the
+  # copy keeps them only when an admin makes it, and then only those still
+  # allowed: a completion badge only admins assign and that gives no access,
+  # and grants that are in effect (Badge#grant_effective?) to a badge that
+  # isn't a completion badge.
   def duplicate!(title:, key: nil, created_by: nil)
+    badges = created_by&.admin?
     transaction do
       copy = dup
+      badge = completion_badge if badges && completion_badge&.added_by_admin? && !Form.access_badges.exists?(id: completion_badge.id)
       copy.assign_attributes(title: title, key: key, status: :draft, content_version: 1, published_version: 1, reconfirm_from_version: 1,
-        completion_badge: nil, created_by: created_by, opens_at: nil, closes_at: nil)
+        completion_badge: badge, created_by: created_by, opens_at: nil, closes_at: nil)
       copy.save!
       form_questions.each do |question|
         copy.form_questions.create!(question.attributes.except("id", "form_id", "created_at", "updated_at"))
@@ -302,9 +338,20 @@ class Form < ApplicationRecord
       form_audience_rules.each do |rule|
         copy.form_audience_rules.create!(rule.attributes.slice("effect", "target_type", "team_id", "badge_id", "person_id", "include_managers", "checklist_id", "checklist_match"))
       end
-      form_badge_grants.each { |grant| copy.form_badge_grants.create!(badge_id: grant.badge_id, access: grant.access) }
+      if badges
+        completion_badge_ids = Form.where.not(completion_badge_id: nil).select(:completion_badge_id)
+        form_badge_grants.where.not(badge_id: completion_badge_ids).includes(:badge).select { |grant| grant.badge.grant_effective? }.each do |grant|
+          copy.form_badge_grants.create!(badge_id: grant.badge_id, access: grant.access)
+        end
+      end
       copy
     end
+  end
+
+  # Whether a copy (#duplicate!) left off any of this form's badge grants or
+  # its completion badge.
+  def badge_settings_left_off?(copy)
+    (completion_badge_id.present? && copy.completion_badge_id.nil?) || form_badge_grants.count > copy.form_badge_grants.count
   end
 
   private
@@ -360,6 +407,10 @@ class Form < ApplicationRecord
     elsif event.team_id != team_id && !team.all_descendant_ids.include?(event.team_id) && !team.all_ancestor_ids.include?(event.team_id)
       errors.add(:event, "belongs to #{event.team.name}, which isn't #{team.name} or a team above or below it")
     end
+  end
+
+  def completion_badge_grants_nothing
+    errors.add(:completion_badge, "can't be a badge that gives access to people's information") if Form.access_badges.exists?(id: completion_badge.id)
   end
 
   # Only admins assign the badge, and a team badge can only be held by
