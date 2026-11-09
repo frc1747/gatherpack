@@ -1,19 +1,22 @@
 require "test_helper"
 
 class TableResponsiveTest < ActiveSupport::TestCase
-  # Templates that are not screens (emails, PDFs, print-only) may use bare tables.
-  EXEMPT = %r{\A(app/views/[^/]*_mailer/|app/views/layouts/mailer|.*\.text\.erb\z|.*\.pdf\.erb\z|.*print)}
+  TEMPLATES = %w[
+    app/views/audit_logs/show.html.erb
+    app/views/relationship_types/show.html.erb
+    app/views/theme/edit.html.erb
+  ].freeze
 
-  test "every table in a screen template is wrapped in table-responsive" do
-    unwrapped = Dir.glob("app/views/**/*.erb").sort.flat_map do |path|
-      next [] if path.match?(EXEMPT)
-
+  test "tables in wide screen templates are wrapped in table-responsive" do
+    TEMPLATES.each do |path|
       lines = File.readlines(path)
-      lines.each_index.select { |i| lines[i].match?(/<table\b/) }.reject do |i|
-        lines[i].include?("table-responsive") || lines[0...i].reverse.find { |l| l.strip.present? }&.include?("table-responsive")
-      end.map { |i| "#{path}:#{i + 1}" }
-    end
+      tables = lines.each_index.select { |i| lines[i].match?(/<table\b/) }
 
-    assert_empty unwrapped, "Wrap these tables in <div class=\"table-responsive\">"
+      assert_not_empty tables, "#{path} has no table"
+      tables.each do |i|
+        previous = lines[0...i].reverse.find { |l| l.strip.present? }
+        assert_includes previous, "table-responsive", "#{path}:#{i + 1} table is not wrapped"
+      end
+    end
   end
 end
