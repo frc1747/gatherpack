@@ -199,8 +199,9 @@
   margin-bottom: 0;
 }
 
-.mg-home .card.widget {
-  margin-bottom: 1.5rem;
+.mg-home .card.widget + .mg-section,
+.mg-home .card.widget + .card.widget {
+  margin-top: 1.5rem;
 }
 
 /* A phone's to-do row is one tap target: the button's label gives way to a chevron. */
