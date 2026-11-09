@@ -132,6 +132,24 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_select ".mg-sidebar-foot span.mg-avatar", text: @member.person.first_name.first.upcase + @member.person.last_name.first.upcase
   end
 
+  test "a feature's account link sits beside Sign Out while it's visible" do
+    MyGatherpack.register_account_link(:example, label: "Example", path: :root_path, visible: -> { true })
+
+    get root_path
+    assert_select ".mg-sidebar-person .mg-sidebar-account a[href=?]", root_path, text: "Example"
+  ensure
+    MyGatherpack.instance_variable_get(:@account_links).delete(:example)
+  end
+
+  test "an account link that isn't visible is left out" do
+    MyGatherpack.register_account_link(:example, label: "Example", path: :root_path, visible: -> { false })
+
+    get root_path
+    assert_select ".mg-sidebar-account a", text: "Example", count: 0
+  ensure
+    MyGatherpack.instance_variable_get(:@account_links).delete(:example)
+  end
+
   test "home has search at the top and hides the sidebar's" do
     get root_path
 
