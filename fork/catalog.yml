@@ -248,15 +248,6 @@ feature/ransack-associations-default:
     Mailboxes lists, which showed an error after upstream's latest update.
   audience: Admins
 
-feature/pagination-labels:
-  title: Page links read normally again
-  emoji: "📄"
-  description: >-
-    The First, Previous, Next and Last links under long lists showed raw
-    codes such as "&laquo; First" after upstream's latest update. They read
-    as arrows and words again.
-  audience: Everyone
-
 feature/oauth-admin-fixes:
   title: Set up OAuth apps without surprises
   emoji: "🔑"
@@ -320,15 +311,6 @@ feature/mcp-commitments:
     A connected AI client can list commitments and show progress for the people
     the member may see.
   audience: Members who use an AI client
-
-feature/settings-read-through:
-  title: Saved settings apply everywhere at once
-  emoji: "⚙️"
-  description: >-
-    A setting saved on the Settings page used to reach only one server process
-    until a restart, so some pages kept the old value. Every process now picks
-    up the change on its next request.
-  audience: Admins who change settings
 
 feature/seeds-membership-order:
   title: A new install starts on its first try
