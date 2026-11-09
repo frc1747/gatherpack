@@ -1,0 +1,131 @@
+<%# The theme page once the palette is on. The old form stays in edit.html.erb for sites without it. %>
+<% generator = ThemePalette::Generator.new(theme) %>
+
+<%= simple_form_for theme, url: theme_path, method: :patch, html: { multipart: true, id: "theme-form" } do |f| %>
+  <%= f.error_notification %>
+
+  <div data-controller="theme-palette" data-theme-palette-url-value="<%= theme_preview_path %>">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h2>Colors</h2>
+      </div>
+      <div class="card-body">
+        <% if theme.css_variables.present? %>
+          <div class="alert alert-info">
+            Your CSS variables still apply on top of these colors, so they can undo them.
+            <button type="submit" form="theme-palette-import" class="btn btn-sm btn-outline-primary ms-1">Use these as my starting colors</button>
+          </div>
+        <% end %>
+
+        <p class="text-muted">Pick a few colors. The app works out the rest, in light and dark, and keeps text readable.</p>
+
+        <div class="row">
+          <div class="col-md-6"><%= render "theme/palette_color", f: f, theme: theme, generator: generator, field: :brand_color, label: "Brand" %></div>
+          <div class="col-md-6"><%= render "theme/palette_color", f: f, theme: theme, generator: generator, field: :background_color, label: "Page background" %></div>
+          <div class="col-md-6"><%= render "theme/palette_color", f: f, theme: theme, generator: generator, field: :surface_color, label: "Cards and menus" %></div>
+          <div class="col-md-6"><%= render "theme/palette_color", f: f, theme: theme, generator: generator, field: :text_color, label: "Text" %></div>
+        </div>
+
+        <button type="button" class="btn btn-outline-secondary mb-3" data-action="theme-palette#reset">Reset to defaults</button>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <h3>Light</h3>
+            <iframe class="theme-preview-frame w-100" height="620" title="Light preview" src="<%= theme_preview_path(mode: "light", **generator_params(theme)) %>" data-theme-palette-target="frame" data-mode="light" data-action="load->theme-palette#frameLoaded"></iframe>
+          </div>
+          <div class="col-md-6 mb-3">
+            <h3>Dark</h3>
+            <iframe class="theme-preview-frame w-100" height="620" title="Dark preview" src="<%= theme_preview_path(mode: "dark", **generator_params(theme)) %>" data-theme-palette-target="frame" data-mode="dark" data-action="load->theme-palette#frameLoaded"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header"><h2>Logo</h2></div>
+          <div class="card-body">
+            <p class="text-muted">Upload a single square image at least 128x128px.</p>
+            <% if theme.logo.attached? %>
+              <div class="mb-2">
+                <%= image_tag theme.logo, style: "max-height: 80px; max-width: 80px;", class: "d-block mb-2 w-auto" %>
+                <div class="form-check">
+                  <%= check_box_tag "theme[remove_logo]", "1", false, class: "form-check-input" %>
+                  <%= label_tag "theme_remove_logo", "Remove logo", class: "form-check-label text-danger" %>
+                </div>
+              </div>
+            <% end %>
+            <%= f.input :logo, as: :file, label: "Upload logo (SVG or PNG)", input_html: { accept: "image/svg+xml,image/png,image/jpeg" } %>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header"><h2>PWA Icon</h2></div>
+          <div class="card-body">
+            <p class="text-muted">Upload a single square image at least 512x512px.</p>
+            <% if theme.pwa_icon.attached? %>
+              <div class="mb-2">
+                <%= image_tag theme.pwa_icon, style: "max-height: 80px; max-width: 80px;", class: "d-block mb-2 w-auto" %>
+                <div class="form-check">
+                  <%= check_box_tag "theme[remove_pwa_icon]", "1", false, class: "form-check-input" %>
+                  <%= label_tag "theme_remove_pwa_icon", "Remove PWA icon", class: "form-check-label text-danger" %>
+                </div>
+              </div>
+            <% end %>
+            <%= f.input :pwa_icon, as: :file, label: "Upload PWA icon (PNG, ≥512×512)", input_html: { accept: "image/png,image/jpeg" } %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h2>Installed app colors</h2></div>
+      <div class="card-body">
+        <p class="text-muted">These only affect the app's status bar and splash screen.</p>
+        <div class="row">
+          <div class="col-md-6">
+            <%= f.input :pwa_theme_color, label: "Theme Color", input_html: { type: "color", value: theme.pwa_theme_color } %>
+          </div>
+          <div class="col-md-6">
+            <%= f.input :pwa_background_color, label: "Background Color", input_html: { type: "color", value: theme.pwa_background_color } %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <details class="card mb-3">
+      <summary class="card-header"><h2 class="d-inline">Advanced</h2></summary>
+      <div class="card-body">
+        <h3>CSS Variables</h3>
+        <p class="text-muted">
+          One CSS custom property per line. These apply after the colors above.
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#css-vars-modal">
+            <%= i "palette" %> View available variables
+          </button>
+        </p>
+        <%= f.input :css_variables, as: :text, label: false,
+                    placeholder: "# One CSS custom property per line, e.g.:\n# --bs-primary: #6d6753\n# --bs-body-bg: #a59e86\n# Leave empty to use the compiled theme defaults.",
+                    input_html: { rows: 8, class: "text-monospace" } %>
+        <h3>Custom CSS</h3>
+        <%= f.input :custom_css, as: :text, label: false,
+                    placeholder: "/* Add any custom CSS rules here */",
+                    input_html: { rows: 12, class: "text-monospace" } %>
+      </div>
+    </details>
+
+    <div data-theme-palette-target="warnings"><%= render "theme/palette_warnings", warnings: generator.warnings %></div>
+
+    <div class="card mb-3">
+      <div class="card-footer">
+        <%= f.submit "Save Theme", class: "btn btn-lg btn-success" %>
+        <%= link_to "Cancel", theme_path, class: "btn btn-lg btn-primary" %>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+<% if theme.css_variables.present? %>
+  <%= form_with url: theme_palette_import_path, method: :post, id: "theme-palette-import", data: { turbo: false } do %><% end %>
+<% end %>

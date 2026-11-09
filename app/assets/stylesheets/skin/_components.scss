@@ -94,8 +94,13 @@
 }
 
 // !important: beats Bootstrap's utility, which sets a literal white.
-.text-bg-primary, .text-bg-success {
+.text-bg-primary {
   color: var(--gp-on-brand) !important;
+}
+
+// !important: same utility, with its own ink for the status color.
+.text-bg-success {
+  color: var(--gp-on-success) !important;
 }
 
 .dropdown-menu {
@@ -150,13 +155,13 @@
 }
 
 .pagination {
-  --bs-pagination-color: var(--gp-brand);
+  --bs-pagination-color: var(--gp-accent);
   --bs-pagination-bg: var(--gp-surface);
   --bs-pagination-border-color: var(--gp-border);
-  --bs-pagination-hover-color: var(--gp-brand-hover);
+  --bs-pagination-hover-color: var(--gp-accent-hover);
   --bs-pagination-hover-bg: var(--gp-raised);
   --bs-pagination-hover-border-color: var(--gp-border);
-  --bs-pagination-focus-color: var(--gp-brand-hover);
+  --bs-pagination-focus-color: var(--gp-accent-hover);
   --bs-pagination-focus-bg: var(--gp-raised);
   --bs-pagination-focus-box-shadow: 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
   --bs-pagination-active-color: var(--gp-on-brand);

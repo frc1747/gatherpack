@@ -186,6 +186,8 @@ Rails.application.routes.draw do
   resource :theme, only: [ :show, :edit, :update ], controller: "theme"
   resource :color_mode, only: [ :update ]
   resource :skin_preview, only: [ :create, :destroy ]
+  resource :theme_preview, path: "theme/preview", only: [ :show ]
+  resource :theme_palette_import, path: "theme/palette_import", only: [ :create ]
 
   get "search" => "search#index", :as => :search
   get "search/combo" => "search#combo", :as => :combo_search
