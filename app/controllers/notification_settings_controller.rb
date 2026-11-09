@@ -17,4 +17,15 @@ class NotificationSettingsController < InternalController
     PushPreference.find_or_create_by!(user: current_user).update!(enabled_topics: chosen)
     redirect_to notifications_path, notice: "Saved.", status: :see_other
   end
+
+  # POST /notifications/test
+  def send_test
+    sent = GatherPack::PushChannel.deliver_test(current_user, path: notifications_path)
+
+    if sent.zero?
+      redirect_to notifications_path, alert: "Turn on notifications on a device first.", status: :see_other
+    else
+      redirect_to notifications_path, notice: "Test sent to #{helpers.pluralize(sent, "device")}. It should arrive within a minute.", status: :see_other
+    end
+  end
 end
