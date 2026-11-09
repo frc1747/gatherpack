@@ -6,6 +6,11 @@ class TimeKioskScanPanelsTest < ActionDispatch::IntegrationTest
   setup do
     host! "localhost"
     TimeKioskController::TEST_STORE.clear
+    kiosk_user = User.new(email: "front-kiosk@example.com", password: "Password1!")
+    kiosk_user.kiosk = true if kiosk_user.has_attribute?(:kiosk) # Kiosk accounts come with the security series.
+    kiosk_user.save!
+    Person.create!(user: kiosk_user, first_name: "Front", last_name: "Kiosk")
+    sign_in kiosk_user
     @original_panels = TimeKiosk::ScanPanels.all
     @original_view_paths = ActionController::Base.view_paths
     TimeKiosk::ScanPanels.reset!
@@ -15,8 +20,6 @@ class TimeKioskScanPanelsTest < ActionDispatch::IntegrationTest
     @token = Token.create!(value: "100000001", tokenable: @member)
     @other = create_person("other@example.com")
     Token.create!(value: "100000002", tokenable: @other)
-
-    sign_in create_person("kiosk@example.com").user
   end
 
   teardown do
