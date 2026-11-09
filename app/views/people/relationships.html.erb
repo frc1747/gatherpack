@@ -16,6 +16,7 @@
           <% else %>
             <strong title="You don't have permission to view this person."><em><%= relationship.parent.identifier_name %></em></strong>
           <% end %>
+          <%= render "people/relationship_contact_details", relationship: relationship %>
         </div>
         <div class="col-4 col-lg-1">
           <%= image_tag get_avatar_url_128(relationship.parent.avatar), class: "person-img" %>

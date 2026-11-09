@@ -26,22 +26,15 @@
           <div class="col-md-6">
             <div class="form-label">Answers</div>
             <%= hidden_field_tag :columns_for, @form.id %>
-            <% @choices.each do |question| %>
-              <div class="form-check">
-                <%= check_box_tag "question_ids[]", question.id, list.questions.include?(question), id: "question_ids_#{question.id}", class: "form-check-input" %>
-                <%= label_tag "question_ids_#{question.id}", question.label, class: "form-check-label" %>
-              </div>
-            <% end %>
+            <%= render "forms/tick_list", groups: [ [ nil, @choices.map { |question| { name: "question_ids[]", value: question.id, id: "question_ids_#{question.id}", label: question.label, checked: list.questions.include?(question) } } ] ] %>
             <% if @choices.empty? %><div class="form-text">This form has no questions to show.</div><% end %>
           </div>
           <div class="col-md-6">
             <div class="form-label">Profile details</div>
-            <% @profile_fields.each do |field| %>
-              <div class="form-check">
-                <%= check_box_tag "field_ids[]", field.id, list.fields.include?(field), id: "field_ids_#{field.id}", class: "form-check-input" %>
-                <%= label_tag "field_ids_#{field.id}", field.name, class: "form-check-label" %>
-              </div>
-            <% end %>
+            <% field_groups = @profile_fields.group_by(&:person_field_group).map do |group, fields|
+                 [ group&.name, fields.map { |field| { name: "field_ids[]", value: field.id, id: "field_ids_#{field.id}", label: field.name, checked: list.fields.include?(field) } } ]
+               end %>
+            <%= render "forms/tick_list", groups: field_groups %>
           </div>
         </div>
       <% else %>

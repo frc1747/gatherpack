@@ -27,8 +27,8 @@
   <div class="col-md-6">
     <% if GatherPack::Features.enabled?(:badges) %>
       <% if policy(form).manage_badges? %>
-        <%= f.input :completion_badge_id, label: "Completion badge", collection: Badge.added_by_admin.order(:name), include_blank: "None",
-              hint: "Held while someone's response is complete, and removed when it isn't. Use a badge only this form gives out." %>
+        <%= f.input :completion_badge_id, label: "Completion badge", collection: form.completion_badge_choices, include_blank: "None",
+              hint: "Held while someone's response is complete, and removed when it isn't. Use a badge only this form gives out. Badges that give access to people's information can't be used. Once it's set, only admins change who the form asks." %>
       <% elsif form.completion_badge %>
         <div class="mb-3">
           <div class="form-label">Completion badge</div>

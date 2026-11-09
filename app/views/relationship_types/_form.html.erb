@@ -1,10 +1,16 @@
 <%= f.error_notification %>
 <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
-<div class="form-inputs">
+<% confirmation = f.object.guardianship_change_confirmation %>
+<% contact_details_confirmation = f.object.contact_details_change_confirmation %>
+<%= tag.div class: "form-inputs", data: (confirmation || contact_details_confirmation ? { controller: "guardianship-confirm", guardianship_confirm_saved_value: f.object.guardianship_saved?, guardianship_confirm_message_value: confirmation, guardianship_confirm_contact_details_message_value: contact_details_confirmation } : {}) do %>
   <%= f.input :parent_label %>
   <%= f.input :child_label %>
   <%= f.input :permission, as: :select, collection: RelationshipType.permissions.keys, label_method: :titleize, include_blank: false %>
   <%= f.input :guardianship, as: :select, collection: RelationshipType::GUARDIANSHIP_LABELS.invert, include_blank: false,
-        hint: "Guardians can see and edit fields set to family or guardian levels on the child-side person's profile." %>
-</div>
+        hint: safe_join([ render("guardian_grants"),
+          (tag.p("This type already has links, so its guardianship can be reduced but not increased. To give guardianship, create a new type and link people to it.", class: "mb-0") if f.object.guardianship_locked?) ].compact),
+        input_html: { data: { guardianship_confirm_target: "select", action: "change->guardianship-confirm#update" } } %>
+  <%= f.input :show_contact_details, label: "Show contact details", hint: RelationshipType::SHOW_CONTACT_DETAILS_HINT,
+        input_html: { data: { guardianship_confirm_target: "contactDetails", action: "change->guardianship-confirm#update" } } %>
+<% end %>

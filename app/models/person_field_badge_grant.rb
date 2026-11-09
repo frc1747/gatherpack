@@ -9,13 +9,24 @@ class PersonFieldBadgeGrant < ApplicationRecord
   validates :badge_id, uniqueness: { scope: :person_field_id }
   validate :badge_is_admin_assigned
 
+  # Whether the grant counts at all: see BadgeAccessGrants.
+  def effective?
+    badge.grant_effective?
+  end
+
   # A team-scoped badge only reaches people in that team or below it.
+  # PersonFieldAccess checks effective? as well.
   def covers?(subject_team_ids)
     badge.team_id.nil? || subject_team_ids.include?(badge.team_id)
   end
 
+  # Goes by team_id: a badge whose team was deleted covers nobody, not
+  # everyone.
   def covered_people
-    badge.team ? badge.team.descendant_people : Person.all
+    return Person.none unless effective?
+    return Person.all if badge.team_id.nil?
+
+    badge.team ? badge.team.descendant_people : Person.none
   end
 
   def identifier_name

@@ -18,7 +18,7 @@
             <div class="mb-3">
               <div class="form-label"><%= field.name %></div>
               <div class="form-control-plaintext"><%= person_field_display(field, current) %></div>
-              <div class="form-text"><%= person_field_read_only_note(field) %></div>
+              <div class="form-text"><%= person_field_read_only_note(field, person) %></div>
             </div>
           <% end %>
           <% notes = access_notes(field, person, current_user.person) %>
