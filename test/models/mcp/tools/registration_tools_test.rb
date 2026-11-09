@@ -152,7 +152,7 @@ class Mcp::Tools::RegistrationToolsTest < ActionDispatch::IntegrationTest
 
     closed_at = 1.hour.ago
     @registration.update_columns(closes_at: closed_at)
-    result = tool("set_registration_state", :leader, registration_id: @registration.neat_id, state: "open", closes_at: 1.day.ago.iso8601)
+    result = tool("set_registration_state", :leader, registration_id: @registration.neat_id, state: "open", closes_at: (@registration.opens_at - 1.hour).iso8601)
     assert_match(/must be after it opens/, result.error)
     assert_equal closed_at.to_i, @registration.reload.closes_at.to_i
   end
