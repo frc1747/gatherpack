@@ -100,7 +100,7 @@ class FrameLinksTest < ApplicationSystemTestCase
     find("#results a", text: "Run", match: :first).click
 
     assert_no_current_path reports_path, ignore_query: true
-    assert_selector "pre"
+    assert_text(/ok.*true/)
     assert_no_text "Content missing"
     assert page.evaluate_script("window.frameLinkMarker"), "Run caused a full page load"
   end
