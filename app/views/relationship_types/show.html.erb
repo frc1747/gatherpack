@@ -5,24 +5,26 @@
     <h1><%= @relationship_type.identifier_name %></h1>
   </div>
   <div class="card-body">
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th><%= @relationship_type.parent_label %></th>
-          <th></th>
-          <th><%= @relationship_type.child_label %></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @relationship_type.relationships.each do |relationship| %>
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
           <tr>
-            <td><%= link_to relationship.parent.identifier_name, relationship.parent %></td>
-            <td></td>
-            <td><%= link_to relationship.child.identifier_name, relationship.child %></td>
+            <th><%= @relationship_type.parent_label %></th>
+            <th></th>
+            <th><%= @relationship_type.child_label %></th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% @relationship_type.relationships.each do |relationship| %>
+            <tr>
+              <td><%= link_to relationship.parent.identifier_name, relationship.parent %></td>
+              <td></td>
+              <td><%= link_to relationship.child.identifier_name, relationship.child %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
 
   </div>
   <div class="card-footer">
