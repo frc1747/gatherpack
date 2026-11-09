@@ -17,7 +17,7 @@ class Hook < ApplicationRecord
     targets << "form_responses - completed"
     targets << "form_responses - incomplete"
 
-    targets.sort
+    (targets + GatherPack::HookCatalog.entries).uniq.sort
   end
 
   def self.ransackable_attributes(auth_object = nil)
