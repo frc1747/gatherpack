@@ -9,6 +9,10 @@
 #
 # A position has at most one rule of each kind; a person must pass every
 # rule, and within a badge or team rule any one listed is enough.
+#
+# Organizers see pass or fail on rules, never the data behind them. An
+# organizer picks a sheet's dates and ages, so an age result would give
+# away a birthday: see .age_visible_to? and #check_for.
 class SignupPositionRule < ApplicationRecord
   has_neat_id :suru
   include CanBeHooked
@@ -25,6 +29,15 @@ class SignupPositionRule < ApplicationRecord
   validates :team_ids, presence: { message: "needs at least one team" }, if: :team?
   validates :min_age, :max_age, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validate :age_range, if: :age?
+
+  # Shown instead of an age rule's reason to someone who may not see it.
+  AGE_HIDDEN_REASON = "Doesn't meet this place's age rule".freeze
+  # Shown to an organizer for an age rule that wasn't checked.
+  AGE_NOT_CHECKED = "Age not checked".freeze
+  # An organizer's own family through a relationship type members can add
+  # themselves: the rule isn't checked, but this organizer can't place them
+  # either, whatever their age.
+  AGE_FAMILY_REASON = "Another organizer needs to place your family where there's an age rule".freeze
 
   before_validation :clear_other_settings
 
@@ -51,7 +64,43 @@ class SignupPositionRule < ApplicationRecord
     end
   end
 
-  # Nil if the person passes, or why they don't.
+  # Whether the viewer may see if the person passes age rules, and why
+  # not: the person themselves, an admin, or someone who manages them.
+  # Installs with stricter birthday privacy can tighten this.
+  def self.age_visible_to?(viewer, person)
+    return false if viewer.nil? || person.nil?
+
+    viewer.id == person.id || viewer.can_manage(person)
+  end
+
+  # Nil if the person passes, or why they don't, as the viewer may see it
+  # (Signups::AgeCheck#mode_for). An age rule isn't checked at all for an
+  # organizer of the sheet who may not see the person's result
+  # (#unchecked_for?), so they can place them and nothing flags it. Anyone
+  # else who may not see it (a parent signing up their child, or an
+  # organizer placing family related through a trusted type, who still
+  # can't place them against a rule) gets AGE_HIDDEN_REASON. An organizer's
+  # family through any other type gets AGE_FAMILY_REASON whatever their
+  # age: no approving your own family (decision 14), without telling the
+  # organizer anything. Pass age_check to reuse one across rules and rows.
+  def check_for(person, event, viewer, age_check: nil)
+    return check(person, event) unless age?
+
+    case (age_check || Signups::AgeCheck.new(signup_sheet, viewer)).mode_for(person)
+    when :shown then check(person, event)
+    when :unchecked then nil
+    when :family then AGE_FAMILY_REASON
+    else AGE_HIDDEN_REASON if check(person, event)
+    end
+  end
+
+  # Whether this is an age rule #check_for skips for this viewer.
+  def unchecked_for?(person, viewer, age_check: nil)
+    age? && (age_check || Signups::AgeCheck.new(signup_sheet, viewer)).mode_for(person) == :unchecked
+  end
+
+  # Nil if the person passes, or why they don't, with the details. For
+  # anything a viewer sees, use #check_for.
   def check(person, event)
     case kind
     when "badge" then check_badge(person)

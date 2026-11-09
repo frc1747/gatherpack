@@ -26,6 +26,112 @@ class SignupNoticesTest < ActiveSupport::TestCase
     assert address.present?
   end
 
+  test "a sign-up an organizer placed from the roster isn't confirmed to the organizer" do
+    Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:admin), on_behalf_of: person(:sibling), placed_by_organizer: true)
+
+    assert_equal [ email_of(:sibling), email_of(:student) ].sort, enqueued_email_addresses
+  end
+
+  test "an organizer who places themselves from the roster still gets the confirmation" do
+    Signup.place!(slot: slot_for(@cashier), person: person(:admin), signed_up_by: person(:admin), placed_by_organizer: true)
+
+    assert_equal [ email_of(:admin) ], enqueued_email_addresses
+  end
+
+  test "a guardian who signs a child up still gets the confirmation" do
+    create_world_signup(@cashier, :student, signed_up_by: person(:parent))
+    clear_enqueued_jobs
+
+    SignupNotices.new.confirmation(Signup.last)
+    assert_equal [ email_of(:parent), email_of(:student) ].sort, enqueued_email_addresses
+  end
+
+  test "the reminder for a roster placement goes to the taker, not the organizer" do
+    placed = create_world_signup(@cashier, :student, signed_up_by: person(:admin), placed_by_organizer: true)
+    own = create_world_signup(@cashier, :student2, signed_up_by: person(:parent))
+    clear_enqueued_jobs
+
+    travel_to @event.start_time - 2.days
+    SignupReminderJob.perform_now(placed, placed.signup_slot_id, @event.start_time.iso8601)
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+
+    clear_enqueued_jobs
+    SignupReminderJob.perform_now(own, own.signup_slot_id, @event.start_time.iso8601)
+    assert_equal [ email_of(:parent), email_of(:student2) ].sort, enqueued_email_addresses
+  end
+
+  test "a time change goes to the taker of a roster placement, not the organizer" do
+    create_world_signup(@cashier, :student, signed_up_by: person(:admin), placed_by_organizer: true)
+    create_world_signup(@cashier, :student2, signed_up_by: person(:parent))
+    clear_enqueued_jobs
+
+    @event.update!(start_time: Time.zone.parse("2026-10-24 13:00"), end_time: Time.zone.parse("2026-10-24 17:00"))
+
+    assert_equal [ email_of(:parent), email_of(:student), email_of(:student2) ].sort, enqueued_email_addresses
+  end
+
+  test "cancelling a roster placement tells the taker, not the organizer; other sign-ups tell the signer too" do
+    placed = create_world_signup(@cashier, :student, signed_up_by: person(:admin), placed_by_organizer: true)
+    own = create_world_signup(@cashier, :student2, signed_up_by: person(:parent))
+    clear_enqueued_jobs
+
+    SignupNotices.new.cancelled(placed, by: person(:admin))
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+
+    clear_enqueued_jobs
+    SignupNotices.new.cancelled(own, by: person(:admin))
+    assert_equal [ email_of(:parent), email_of(:student2) ].sort, enqueued_email_addresses
+  end
+
+  test "an organizer's message on a roster placement skips the organizer who placed it" do
+    create_world_signup(@cashier, :student, signed_up_by: person(:admin), placed_by_organizer: true)
+    clear_enqueued_jobs
+
+    sent = SignupNotices.new.message(@sheet, @event, subject: "Parking", body: "Hi", from: person(:worker))
+
+    assert_equal 1, sent
+    assert_equal [ email_of(:student) ], enqueued_email_addresses
+  end
+
+  test "a roster placement of someone with no address still goes to the parent who placed it" do
+    child = Person.create!(first_name: "Nomail", last_name: "World")
+    Membership.create!(person: child, team: @students)
+    signup = Signup.create!(signup_slot: slot_for(@cashier), person: child, signed_up_by: person(:parent), on_behalf_of: child, placed_by_organizer: true)
+    clear_enqueued_jobs
+
+    SignupNotices.new.confirmation(signup)
+    assert_equal [ email_of(:parent) ], enqueued_email_addresses
+
+    clear_enqueued_jobs
+    SignupNotices.new.cancelled(signup, by: person(:admin))
+    assert_equal [ email_of(:parent) ], enqueued_email_addresses
+  end
+
+  test "a roster placement of someone with no address goes to who it's on behalf of, not the organizer" do
+    child = Person.create!(first_name: "Nomail", last_name: "World")
+    Membership.create!(person: child, team: @students)
+    signup = Signup.create!(signup_slot: slot_for(@cashier), person: child, signed_up_by: person(:admin), on_behalf_of: person(:sibling), placed_by_organizer: true)
+    clear_enqueued_jobs
+
+    SignupNotices.new.confirmation(signup)
+    assert_equal [ email_of(:sibling) ], enqueued_email_addresses
+  end
+
+  test "a time change names whose place it is for someone who isn't the taker" do
+    child = Person.create!(first_name: "Nomail", last_name: "World")
+    Membership.create!(person: child, team: @students)
+    Signup.create!(signup_slot: slot_for(@cashier), person: child, signed_up_by: person(:admin), on_behalf_of: child, placed_by_organizer: true)
+    create_world_signup(@cashier, :student)
+    clear_enqueued_jobs
+
+    @event.update!(start_time: Time.zone.parse("2026-10-24 13:00"), end_time: Time.zone.parse("2026-10-24 17:00"))
+
+    bodies = enqueued_emails.to_h { |address, _subject, body| [ address, body ] }
+    assert_match "Nomail World is signed up for it on", bodies[email_of(:admin)]
+    assert_no_match "You're signed up", bodies[email_of(:admin)]
+    assert_match "You're signed up for it on", bodies[email_of(:student)]
+  end
+
   test "someone signing themselves up gets one confirmation, and people without an address none" do
     Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
     assert_equal [ email_of(:student) ], enqueued_email_addresses
