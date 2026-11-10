@@ -13,6 +13,13 @@ class McpTest < ActiveSupport::TestCase
     end
   end
 
+  class CommentedScope
+    def resolve
+      # A comment above the only line.
+      scope.all
+    end
+  end
+
   setup { build_mcp_world }
 
   def tool_class(name, feature: nil, scope: :read)
@@ -34,7 +41,8 @@ class McpTest < ActiveSupport::TestCase
     lines[line..].take_while { |text| text.rstrip != closing }.map(&:strip).reject { |text| text.empty? || text.start_with?("#") }
   end
 
-  # Whether a policy query comes down to one only ApplicationPolicy implements.
+  # Whether a policy query comes down to one only ApplicationPolicy implements,
+  # or forwards to a literal true. A literal true query alone doesn't count.
   def allows_everyone?(policy, query)
     method = policy.instance_method(query)
     if method.owner == ApplicationPolicy
@@ -44,7 +52,9 @@ class McpTest < ActiveSupport::TestCase
 
     body = method_body(method)
     forwarded = body.first&.to_sym
-    body.size == 1 && body.first.match?(/\A[a-z_]+\?\z/) && policy.method_defined?(forwarded) && allows_everyone?(policy, forwarded)
+    return false unless body.size == 1 && body.first.match?(/\A[a-z_]+\?\z/) && policy.method_defined?(forwarded)
+
+    method_body(policy.instance_method(forwarded)) == [ "true" ] || allows_everyone?(policy, forwarded)
   end
 
   # A read tool whose #call is the block, run on the tool instance.
@@ -214,19 +224,39 @@ class McpTest < ActiveSupport::TestCase
   end
 
   test "find with a model whose scope is unfiltered raises" do
-    assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).find(BadgeAssignment, "bda_x") }
+    assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).find(Checkin, "cki_x") }
   end
 
   test "policy_scope refuses unconditional scopes unless told otherwise" do
     ctx = mcp_context(user(:alpha_member))
 
     assert_raises(Mcp::ToolBug) { ctx.policy_scope(Checkin) }
-    assert_raises(Mcp::ToolBug) { ctx.policy_scope(BadgeAssignment) }
     assert_raises(Mcp::ToolBug) { ctx.policy_scope(person(:alpha_member).checkins) }
-    assert_raises(Mcp::ToolBug) { ctx.policy_scope(User) }
+    assert_raises(Mcp::ToolBug) { ctx.policy_scope(AuditLog) }
     assert_raises(Mcp::ToolBug) { ctx.policy_scope(Gateway) } # inherited from AdminPolicy
-    assert_includes ctx.policy_scope(BadgeAssignment, unfiltered: true), BadgeAssignment.find_by!(badge: @access_badge)
+    checkin = create_world_checkin(person(:beta_member), create_world_event("Beta Meeting", @beta, Time.utc(2026, 3, 10, 18, 0)))
+    assert_includes ctx.policy_scope(Checkin, unfiltered: true), checkin
     assert_kind_of ActiveRecord::Relation, ctx.policy_scope(Person)
+  end
+
+  test "policy_scope takes the scopes this build filters, and they filter" do
+    ctx = mcp_context(user(:alpha_member))
+
+    assert_not_includes ctx.policy_scope(BadgeAssignment), BadgeAssignment.find_by!(badge: @access_badge, person: person(:badge_holder))
+    assert_equal [ user(:alpha_member) ], ctx.policy_scope(User).to_a
+    assert_empty ctx.policy_scope(OauthApplication.where(id: mcp_application.id))
+  end
+
+  # The scope's two lines hold back only architect-only item types, so a plain
+  # member gets every other row: the guard can't tell that from its shape.
+  test "the audit log scope leaves a plain member nearly every row, so it's on the unfiltered list" do
+    entry = AuditLog.create!(item_type: "Person", item_id: person(:beta_member).id, event: "update")
+    hidden = AuditLog.create!(item_type: "Gateway", item_id: SecureRandom.uuid, event: "update")
+    rows = AuditLogPolicy::Scope.new(user(:alpha_member), AuditLog).resolve
+
+    assert_includes rows, entry
+    assert_not_includes rows, hidden
+    assert_includes Mcp::Context::UNFILTERED_SCOPES, "AuditLogPolicy::Scope"
   end
 
   test "the unfiltered list matches the policies whose resolve is unconditional" do
@@ -236,10 +266,10 @@ class McpTest < ActiveSupport::TestCase
       body.size == 1 && body.first.match?(/\Ascope(\.all)?\z/)
     end
 
-    assert_equal Mcp::Context::UNFILTERED_SCOPES.sort, unconditional.map(&:name).sort
+    assert_equal Mcp::Context::UNFILTERED_SCOPES.sort, (unconditional.map(&:name) + [ "AuditLogPolicy::Scope" ]).sort
   end
 
-  test "the forwarding list matches the policy queries that only call a default query" do
+  test "the forwarding list matches the policy queries that only call one allowing everyone" do
     Rails.application.eager_load!
     forwarding = ApplicationPolicy.descendants.flat_map do |policy|
       policy.public_instance_methods(false).select { |query| query.end_with?("?") && allows_everyone?(policy, query) }
@@ -250,24 +280,30 @@ class McpTest < ActiveSupport::TestCase
   end
 
   test "method_body ignores comment lines" do
-    assert_equal [ "scope.all" ], method_body(LedgerEntryLinkPolicy::Scope.instance_method(:resolve))
+    assert_equal [ "scope.all" ], method_body(CommentedScope.instance_method(:resolve))
   end
 
-  test "policy_scope refuses LedgerEntryLink, whose resolve has a comment above scope.all" do
-    assert_raises(Mcp::ToolBug) { mcp_context(user(:alpha_member)).policy_scope(LedgerEntryLink) }
+  test "policy_scope takes LedgerEntryLink, whose resolve is a real filter in this build" do
+    assert_kind_of ActiveRecord::Relation, mcp_context(user(:alpha_member)).policy_scope(LedgerEntryLink)
   end
 
-  test "authorize! and allowed? refuse a query that forwards to a default" do
-    ctx = mcp_context(user(:alpha_member))
-    period = TimeClockPeriod.new(team: @beta)
+  test "authorize! and allowed? refuse a query on the forwarding list" do
+    ctx = mcp_context(user(:admin))
 
-    assert_raises(Mcp::ToolBug) { ctx.authorize!(period, :summary?) }
-    assert_raises(Mcp::ToolBug) { ctx.allowed?(period, :summary?) }
-    %i[badges? pages? events?].each do |query|
-      assert_raises(Mcp::ToolBug) { ctx.authorize!(@beta, query) }
-      assert_raises(Mcp::ToolBug) { ctx.allowed?(@beta, query) }
-    end
     assert_raises(Mcp::ToolBug) { ctx.authorize!(Question.new, :upvote?) }
+    assert_raises(Mcp::ToolBug) { ctx.allowed?(Question.new, :upvote?) }
+  end
+
+  test "team queries that forward to show? are real checks in this build" do
+    admin = mcp_context(user(:admin))
+    member = mcp_context(user(:alpha_member))
+
+    %i[badges? pages? events?].each do |query|
+      assert_equal true, admin.allowed?(@beta, query)
+      assert_equal true, member.allowed?(@alpha, query)
+      assert_equal false, member.allowed?(@beta, query)
+      assert_raises(Pundit::NotAuthorizedError) { member.authorize!(@beta, query) }
+    end
   end
 
   test "allowed? answers as a condition, using the policy's own rule" do
@@ -279,7 +315,7 @@ class McpTest < ActiveSupport::TestCase
   end
 
   test "allowed? refuses a query only ApplicationPolicy implements" do
-    assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).allowed?(@alpha, :show?) }
+    assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).allowed?(@alpha, :index?) }
     assert_raises(Mcp::ToolBug) { mcp_context(user(:admin)).allowed?(BareRecord.new, :destroy?) }
   end
 
@@ -289,9 +325,12 @@ class McpTest < ActiveSupport::TestCase
 
     assert_raises(Mcp::ToolBug) { admin.authorize!(@access_badge, :index?) } # BadgePolicy has no index?
     assert_equal true, admin.allowed?(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
-    assert_equal false, member.allowed?(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
+    # In this build anyone who may see a badge may list its holders, in scope.
+    beta_badge = create_world_badge("Beta Badge", team: @beta)
+    assert_equal true, member.allowed?(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
+    assert_equal false, member.allowed?(beta_badge, :index?, policy_class: BadgeAssignmentPolicy)
     assert admin.authorize!(@access_badge, :index?, policy_class: BadgeAssignmentPolicy)
-    assert_raises(Pundit::NotAuthorizedError) { member.authorize!(@access_badge, :index?, policy_class: BadgeAssignmentPolicy) }
+    assert_raises(Pundit::NotAuthorizedError) { member.authorize!(beta_badge, :index?, policy_class: BadgeAssignmentPolicy) }
   end
 
   test "the guard applies to the policy_class it's given" do
@@ -304,10 +343,10 @@ class McpTest < ActiveSupport::TestCase
   test "authorize! refuses a query only ApplicationPolicy implements" do
     ctx = mcp_context(user(:admin))
 
-    assert_raises(Mcp::ToolBug) { ctx.authorize!(@alpha, :show?) }
     assert_raises(Mcp::ToolBug) { ctx.authorize!(@alpha, :index?) }
-    assert_raises(Mcp::ToolBug) { ctx.authorize!(person(:admin).memberships.new, :show?) }
+    assert_raises(Mcp::ToolBug) { ctx.authorize!(person(:admin).memberships.new, :index?) }
     assert ctx.authorize!(person(:admin), :show?)
+    assert ctx.authorize!(@alpha, :show?) # TeamPolicy has its own in this build
   end
 
   test "authorize! allows delegating queries only when the policy defines the target" do

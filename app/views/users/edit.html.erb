@@ -11,6 +11,7 @@
     <div class="card-footer">
       <%= link_to "Cancel", edit_person_path(@person), class: "btn btn-warning" %>
       <%= f.button :submit, class: "btn btn-primary" %>
+      <%= link_to "Authorized Applications", authorized_applications_path, class: "btn btn-secondary" if @user == current_user && GatherPack::Features.enabled?(:oauth_provider) %>
     </div>
   </div>
 <% end %>

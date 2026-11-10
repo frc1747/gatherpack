@@ -553,12 +553,13 @@ class Mcp::Tools::GetPersonTest < ActiveSupport::TestCase
   test "on a self-service badge, a plain member gets the ID of their own assignment only" do
     badge = create_world_badge_with(:has_account)
     own = BadgeAssignment.create!(badge: badge, person: person(:alpha_member))
-    teammate = BadgeAssignment.create!(badge: badge, person: person(:ward))
+    BadgeAssignment.create!(badge: badge, person: person(:ward))
     id_for = ->(viewer, holder) { get(viewer, holder).value["badges"].find { |row| row["id"] == badge.neat_id }["badge_assignment_id"] }
 
     assert_equal own.neat_id, id_for.call(:alpha_member, :alpha_member)
     assert_nil id_for.call(:alpha_member, :ward)
-    assert_equal teammate.neat_id, id_for.call(:alpha_manager, :ward)
+    # In this build a team-less "has account" badge is each holder's own, a manager's too.
+    assert_nil id_for.call(:alpha_manager, :ward)
   end
 
   test "empty contact details come back as null" do

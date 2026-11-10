@@ -13,7 +13,7 @@ class TimeKioskSettingsTest < ActionDispatch::IntegrationTest
     Membership.create!(person: @member, team: team)
     Token.create!(value: "100000001", tokenable: @member)
 
-    user = User.create!(email: "kiosk@example.com", password: "Password1!")
+    user = User.create!(email: "kiosk@example.com", password: "Password1!", kiosk: true)
     Person.create!(user: user, first_name: "Test", last_name: "Kiosk")
     sign_in user
   end
