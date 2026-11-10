@@ -1,0 +1,13 @@
+<%# The three status words, each blank for the default (Checklists::WORDS). %>
+<fieldset class="mb-3">
+  <legend class="form-label fs-6 mb-1"><%= legend %></legend>
+  <div class="row g-2">
+    <% Checklists::Words::COLUMNS.each do |status, column| %>
+      <div class="col-sm-4">
+        <%= f.input column, label: "Instead of #{Checklists.word_for(status)}", placeholder: Checklists.word_for(status),
+          input_html: { maxlength: 40 }, wrapper_html: { class: "mb-0" } %>
+      </div>
+    <% end %>
+  </div>
+  <div class="form-text">Optional, for example Eligible and Not Eligible. Blank keeps the usual word.</div>
+</fieldset>
