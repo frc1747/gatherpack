@@ -36,6 +36,23 @@ module Gatherpack
     config.time_zone = "UTC"
 
     config.active_job.queue_adapter = :solid_queue
+
+    # Active Storage links (rails_blob_path, url_for(attachment)) are signed
+    # to open for anyone who holds them; make them expire, so a copied or
+    # leaked link stops working. Pages sign new ones each time they render.
+    # Receipts and mailbox attachments are served through the app instead,
+    # which checks the user can see them.
+    config.active_storage.urls_expire_in = 1.hour
+
+    # Links signed before they expired carry no expiry and would open forever.
+    # Signing with a verifier under a new name ends them. It has to replace
+    # the one Active Storage sets in its own after_initialize, which runs
+    # after config/initializers.
+    initializer "active_storage.expiring_links_verifier", after: "active_storage.verifier" do |app|
+      app.config.after_initialize do
+        ActiveStorage.verifier = app.message_verifier("ActiveStorage links")
+      end
+    end
     config.active_record.yaml_column_permitted_classes = [ Symbol, Date, Time, ActiveSupport::TimeWithZone, ActiveSupport::TimeZone ]
 
     config.generators do |g|

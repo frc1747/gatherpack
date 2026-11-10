@@ -8,6 +8,9 @@ class MembershipsController < InternalController
   def index
     @q = false
     if @team
+      # The roster is part of the full team page, which teams#show gives only
+      # to members and managers; anyone else gets the public page.
+      authorize @team, :show_full?
       @q = policy_scope(Membership).where(team: @team).ransack(params[:q], auth_object: current_user)
       @memberships = @q.result(distinct: true).includes(:person, :team).order("person.last_name" => "desc", "team.name" => "asc").page(params[:page])
 
@@ -87,7 +90,7 @@ class MembershipsController < InternalController
     else
       person_memberships_path(@person)
     end
-    if @membership.update(membership_params)
+    if @membership.update(membership_update_params)
       respond_to do |format|
         format.turbo_stream do
           render turbo_stream: turbo_stream.replace(@membership.person, render_to_string(partial: "memberships/card", locals: { membership: @membership }))
@@ -149,5 +152,11 @@ class MembershipsController < InternalController
   # Only allow a list of trusted parameters through.
   def membership_params
     params.require(:membership).permit(:person_id, :team_id, :manager)
+  end
+
+  # A membership stays with its person and team; editing only changes whether
+  # they manage it.
+  def membership_update_params
+    params.require(:membership).permit(:manager)
   end
 end

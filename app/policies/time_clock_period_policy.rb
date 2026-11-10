@@ -9,12 +9,29 @@ class TimeClockPeriodPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, TimeClockPeriod).resolve.exists?(record.id)
+  end
+
+  # Ending punches at the kiosk doesn't change the period, so its "added by" permission
+  # doesn't apply: an admin, or a manager of its team, whatever the period's permission.
+  def punch_out?
+    user.admin? || manages?(record.team)
+  end
+
+  def new?
+    person.manager?
+  end
+
+  # Only admins may add punches to an "added by admin" period, so only they
+  # may set one up or change one.
   def create?
-    user.admin || person.manager?
+    user.admin? || (manages?(record.team) && !record.added_by_admin?)
   end
 
   def update?
-    user.admin || (record.team.nil? ? false : person.all_managed_teams.include?(record.team))
+    create?
   end
 
   def edit?

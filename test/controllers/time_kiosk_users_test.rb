@@ -57,18 +57,17 @@ class TimeKioskUsersTest < ActionDispatch::IntegrationTest
       post time_kiosk_path, params: { time_kiosk: { tool: "find_token", token_value: token.value } }
     end
 
-    assert_redirected_to root_path
-    assert_equal "The time kiosk is for kiosk accounts only.", flash[:alert]
+    assert_response :forbidden
   end
 
-  test "a blank setting lets anyone signed in open the kiosk" do
+  test "a blank setting leaves the kiosk to kiosk accounts and admins" do
     sign_in create_person("other@example.com").user
 
     with_users_team(nil) do
       get time_kiosk_path
     end
 
-    assert_response :success
+    assert_response :forbidden
   end
 
   private
@@ -90,8 +89,7 @@ class TimeKioskUsersTest < ActionDispatch::IntegrationTest
       get time_kiosk_path
     end
 
-    assert_redirected_to root_path
-    assert_equal "The time kiosk is for kiosk accounts only.", flash[:alert]
+    assert_response :forbidden
   end
 
   def with_users_team(team)
