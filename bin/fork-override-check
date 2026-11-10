@@ -1,0 +1,144 @@
+#!/usr/bin/env ruby
+# Warns when a template a feature replaced has changed since someone last
+# reviewed it. A file at app/view_overrides/<key>/<path> replaces
+# app/views/<path>, and doesn't pick up later changes to it. bin/fork-rebuild
+# runs this after the last merge, because only integration has the original an
+# override really replaces. See fork/STRATEGY.md, "Rebuild Script".
+#
+#   bin/fork-override-check [--ref REF] [--lock PATH]
+#   bin/fork-override-check --ref origin/hbr/integration --accept OVERRIDE_PATH
+#
+# Overrides and originals are read from REF (default HEAD). The lock,
+# fork/view-overrides.lock, records the Git blob of each original as of its
+# last review. --accept records the current blob for one override, or drops
+# the entry if that override is gone. Run it in the hbr/platform checkout,
+# then commit the lock.
+#
+# Findings are warnings: the exit status is 0 whatever is found, and 2 only if
+# the check itself can't run.
+#
+# Stdlib only: runs on system Ruby without Bundler.
+require "open3"
+require "optparse"
+
+module ForkOverrideCheck
+  ROOT = "app/view_overrides"
+  LOCK = "fork/view-overrides.lock"
+  HEADER = <<~TEXT
+    # Replaced templates and the Git blob of each original at its last review.
+    # Maintained by bin/fork-override-check --accept. Format: <blob> <override path>
+  TEXT
+
+  class Error < StandardError; end
+
+  module_function
+
+  def git(*args, allow_failure: false)
+    out, err, status = Open3.capture3("git", *args)
+    return out if status.success?
+    return nil if allow_failure
+
+    raise Error, "git #{args.join(" ")}: #{err.strip}"
+  end
+
+  def overrides(ref)
+    git("ls-tree", "-r", "--name-only", ref, "--", ROOT).lines(chomp: true)
+  end
+
+  # app/view_overrides/<key>/<path> => app/views/<path>
+  def original_path(override)
+    rest = override.delete_prefix("#{ROOT}/").split("/", 2)[1]
+    "app/views/#{rest}"
+  end
+
+  def blob(ref, path)
+    git("rev-parse", "--verify", "--quiet", "#{ref}:#{path}", allow_failure: true)&.strip
+  end
+
+  def read_lock(path)
+    return {} unless File.exist?(path)
+
+    File.readlines(path, chomp: true).reject { |line| line.strip.empty? || line.start_with?("#") }.to_h do |line|
+      hash, override = line.split(" ", 2)
+      [ override, hash ]
+    end
+  end
+
+  def write_lock(path, entries)
+    lines = entries.sort.map { |override, hash| "#{hash} #{override}\n" }
+    File.write(path, HEADER + lines.join)
+  end
+
+  # Findings, each { kind:, override:, original:, from:, to: }. kind is
+  # :changed, :unreviewed, :no_original or :stale.
+  def findings(ref, lock)
+    present = overrides(ref)
+    found = present.filter_map do |override|
+      original = original_path(override)
+      current = blob(ref, original)
+      reviewed = lock[override]
+      next { kind: :no_original, override: override, original: original } if current.nil?
+      next { kind: :unreviewed, override: override, original: original } if reviewed.nil?
+      next if reviewed == current
+
+      { kind: :changed, override: override, original: original, from: reviewed, to: current }
+    end
+    found + (lock.keys - present).map { |override| { kind: :stale, override: override } }
+  end
+
+  MESSAGES = {
+    changed: "original changed since the last review",
+    unreviewed: "not reviewed yet",
+    no_original: "replaces nothing: this file has no original",
+    stale: "in the lock, but the override is gone"
+  }.freeze
+
+  def report(found, ref, out: $stdout)
+    if found.empty?
+      out.puts "Replaced templates: all up to date."
+      return
+    end
+
+    out.puts "Replaced templates to review (warnings; nothing was stopped):"
+    found.each do |finding|
+      out.puts "  #{finding[:override]}: #{MESSAGES.fetch(finding[:kind])}"
+      next unless finding[:kind] == :changed
+
+      diff = git("diff", finding[:from], finding[:to], allow_failure: true)
+      out.puts(diff ? diff.gsub(/^/, "    ") : "    (the reviewed version isn't in this clone; compare #{finding[:original]} by hand)")
+    end
+    out.puts "After reviewing: bin/fork-override-check --ref #{ref} --accept <override path>, in hbr/platform, then commit the lock."
+  end
+
+  def accept(ref, lock_path, override)
+    entries = read_lock(lock_path)
+    if overrides(ref).include?(override)
+      current = blob(ref, original_path(override)) or raise Error, "#{override} has no original at #{ref}"
+      entries[override] = current
+    elsif entries.delete(override).nil?
+      raise Error, "#{override} isn't an override at #{ref}, and isn't in the lock"
+    end
+    write_lock(lock_path, entries)
+  end
+
+  def run(argv)
+    ref = "HEAD"
+    lock_path = nil
+    accepts = []
+    OptionParser.new do |o|
+      o.on("--ref REF") { |value| ref = value }
+      o.on("--lock PATH") { |value| lock_path = value }
+      o.on("--accept OVERRIDE") { |value| accepts << value }
+    end.parse!(argv)
+
+    lock_path ||= File.join(git("rev-parse", "--show-toplevel").strip, LOCK)
+    accepts.each { |override| accept(ref, lock_path, override) }
+    report(findings(ref, read_lock(lock_path)), ref)
+    0
+  rescue Error, OptionParser::ParseError => e
+    warn "fork-override-check: #{e.message}"
+    2
+  end
+end
+
+exit ForkOverrideCheck.run(ARGV) if $PROGRAM_NAME == __FILE__
