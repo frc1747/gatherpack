@@ -12,7 +12,7 @@
               <%= f.input :token_value, label: "Token", input_html: { autocomplete: "off", autofocus: true } %>
             </div>
             <div class="col-4">
-              <%= f.submit "Search", class: "btn btn-lg w-100 btn-primary" %>
+              <%= f.submit (TimeKiosk::Config.allow_unassigned? ? "Search" : "Clock In"), class: "btn btn-lg w-100 btn-primary" %>
             </div>
           </div>
         <% end %>
@@ -29,6 +29,7 @@
       </div>
     <% end %>
 
-    <%= render @time_kiosk.tool.in?(%w[ found_person not_found ]) ? @time_kiosk.tool : "welcome" %>
+    <%= render @time_kiosk.tool.in?(%w[ found_person ]) ? @time_kiosk.tool : "welcome" %>
   </div>
+  <%= render "time_kiosk/return_timer" unless @time_kiosk.tool == "welcome" %>
 </div>
