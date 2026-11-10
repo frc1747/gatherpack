@@ -115,7 +115,7 @@ end
 # "Spring Trip Seats", a Youth Program sign-up sheet for the spring trip,
 # whose Trip seat position needs "Trip Eligibility" (from the checklists
 # data) done. Chloe, eligible, can take a seat and has one; Sam, with no
-# birthday on file, sees "Needs Trip Eligibility: Complete" on the slot and,
+# birthday on file, sees "Needs Trip Eligibility: Eligible" on the slot and,
 # above the dates, the checklist with what's left (Age: add a birthday).
 # The Helper position has no rule, so anyone on the sheet can take it.
 signups = lambda do |s|
@@ -144,7 +144,7 @@ signups = lambda do |s|
   rule = seat.signup_position_rules.find_by!(kind: "checklist")
   s.report "Spring Trip Seats: #{rule.description}"
   s.expect("Chloe has a trip seat") { Signup.live.exists?(signup_slot: slot, person: chloe) }
-  s.expect("Sam can't take a seat yet") { rule.reload.check(s.person("Sam"), trip) == "Needs Trip Eligibility: Complete" }
+  s.expect("Sam can't take a seat yet") { rule.reload.check(s.person("Sam"), trip) == "Needs Trip Eligibility: Eligible" }
 end
 
 # Builds on the "Trip Eligibility" checklist (feature/checklists sample data,

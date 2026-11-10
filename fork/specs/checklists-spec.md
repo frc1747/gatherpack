@@ -85,7 +85,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | Item | One line on the checklist. Two families: **condition items** (badge, form, field, attendance, login, team, age, attested, another checklist, any-of) and **count items** (do N of something, with credit sources and optional pooling). |
 | Count item | The former commitment: an amount in a unit, credit sources with ratio and cap, planned vs confirmed, optional family pooling, adjustments (§6.2). |
 | Result | The stored answer for one person and one item: status, summary, detail, numbers. One more row per person for the checklist's overall. |
-| Status | `met`, `pending`, `not_met`, `exempt`. Fixed words, not configurable: Complete, In Progress, Not Started, Not counted. Labels such as "Rookie" or "Excused" ride on `exempt`. |
+| Status | `met`, `pending`, `not_met`, `exempt`. Default words: Complete, In Progress, Not Started, Not counted. A checklist (for its overall) and each item may set their own words for the first three ("Eligible", "Not Eligible"); a blank one keeps the default, and an item that never reaches a state simply leaves that word blank. Labels such as "Rookie" or "Excused" ride on `exempt`. |
 | Overall | Any counting item `not_met` → not met; else any `pending` → pending; else met. `exempt` is ignored. |
 | Excuse | A manager's or admin's reasoned exception for one person on an item or one meeting (§7). |
 | Adjustment | Credit given or taken on a count item, with a reason (§7). |
@@ -638,6 +638,7 @@ The Page's cells carry `data-filter` and `data-value` (`badge_cell`, Page line 3
 29. **Closed or draft forms, and forms closing inside the window, are problems** shown to organizers.
 30. **Results are read through `status_for` (batch, viewer-filtered) and `checklist_for`;** excuses expose who and when, reasons to managers and admins.
 31. **The report's overall filter includes "isn't Complete".**
+32. **Status words are configuration with defaults** (rev. 4, 2026-11-10): Complete / In Progress / Not Started unless a checklist or an item sets its own. Reverses the fixed words of rev. 3 after seeing an eligibility checklist live: "Not Started" is wrong for a state someone either is or isn't in. No per-kind modes: an item uses the words it needs.
 
 ## 16. Open questions
 

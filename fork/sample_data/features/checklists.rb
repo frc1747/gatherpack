@@ -12,6 +12,8 @@
 # - Nina applied to Youth Applicants and is covered as an applicant only.
 # - Logistics Crew members (Ben leads it) see everyone's overall and the
 #   safety item through a team grant.
+# - The overall reads Eligible, Pending or Not eligible (the checklist's own
+#   words); items keep Complete, In Progress and Not Started.
 #
 # "In Progress" needs a count item (feature/checklists-connectors), so it's left to
 # that layer. Carol (Youth Program) holds the Checklist Organizer badge named in
@@ -173,7 +175,7 @@ Hbr::SampleData.feature "feature/checklists" do |s|
 
   checklist = s.upsert!(Checklist, { title: "Trip Eligibility" },
     team: youth, status: :active, starts_on: season_start, ends_on: ends_on, read_level: "family",
-    created_by: admin,
+    created_by: admin, met_word: "Eligible", pending_word: "Pending", not_met_word: "Not eligible",
     description: "Everything someone needs before the spring trip.")
   ChecklistOrganizer.find_or_create_by!(checklist: checklist, person: s.person("Carol"))
   rule = ->(attrs) { ChecklistRule.find_or_create_by!({ checklist: checklist }.merge(attrs)) }
@@ -212,7 +214,7 @@ Hbr::SampleData.feature "feature/checklists" do |s|
 
   Checklists::Refresher.new(checklist.reload, silent: true).call
   counts = checklist.checklist_results.where(item_id: nil).group(:status).count
-  s.report "Trip Eligibility: #{counts.map { |status, count| "#{count} #{Checklists.word_for(status).downcase}" }.join(", ")}"
+  s.report "Trip Eligibility: #{counts.map { |status, count| "#{count} #{checklist.word_for(status).downcase}" }.join(", ")}"
   s.expect("Chloe is eligible") { checklist.checklist_results.find_by(person: s.person("Chloe"), item_id: nil)&.met? }
 
   attendance.call(s)
