@@ -73,6 +73,13 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Rule added: Needs Trip: Complete or In Progress.", flash[:notice]
   end
 
+  test "a rule names the checklist's own words" do
+    @checklist.update!(met_word: "Eligible", pending_word: "Pending")
+    rule = @position.signup_position_rules.create!(kind: "checklist", checklist: @checklist, accept_pending: true)
+
+    assert_equal "Needs Trip: Eligible or Pending", rule.description
+  end
+
   test "someone who runs the checklist can choose it" do
     sign_in person(:admin).user
 

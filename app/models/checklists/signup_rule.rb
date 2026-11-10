@@ -113,12 +113,12 @@ module Checklists
     end
 
     # "Needs Trip Eligibility: Complete" or
-    # "Needs Trip Eligibility: Complete or In Progress".
+    # "Needs Trip Eligibility: Complete or In Progress", in the checklist's words.
     def checklist_requirement
       return "Needs a checklist that no longer exists" if checklist.nil?
 
-      words = [ Checklists.word_for("met") ]
-      words << Checklists.word_for("pending") if accept_pending?
+      words = [ checklist.word_for("met") ]
+      words << checklist.word_for("pending") if accept_pending?
       "Needs #{checklist.title}: #{words.join(" or ")}"
     end
 
