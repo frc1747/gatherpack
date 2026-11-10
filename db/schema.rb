@@ -1422,6 +1422,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.string "pwa_background_color", default: "#ffffff"
     t.string "pwa_theme_color", default: "#ffffff"
     t.datetime "updated_at", null: false
+    t.string "brand_color"
+    t.string "background_color"
+    t.string "surface_color"
+    t.string "text_color"
   end
 
   create_table "time_clock_periods", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
