@@ -70,7 +70,7 @@ class ChecklistList < ApplicationRecord
       elsif statuses.include?("pending") then "pending"
       else "met"
       end
-      row.merge("overall" => overall, "overall_text" => Checklists.word_for(overall))
+      row.merge("overall" => overall, "overall_text" => checklist.word_for(overall))
     end
   end
 end

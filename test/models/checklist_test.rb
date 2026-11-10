@@ -35,11 +35,34 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_equal "Not Started", status.item(item.id).text
   end
 
-  test "statuses have three fixed words, and exempt stays not counted" do
+  test "statuses have three default words, and exempt stays not counted" do
     assert_equal "Complete", Checklists.word_for(:met)
     assert_equal "In Progress", Checklists.word_for(:pending)
     assert_equal "Not Started", Checklists.word_for(:not_met)
     assert_equal "Not counted", Checklists.word_for(:exempt)
+  end
+
+  test "a checklist and each item can use their own words; blank ones keep the default" do
+    @checklist.update!(met_word: "Eligible", not_met_word: "Not Eligible")
+    item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, met_word: "Trained", not_met_word: " Untrained ")
+    plain = add_item(@checklist, :has_login, "Login")
+    status = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id]
+
+    assert_equal "Not Eligible", status.overall.text
+    assert_equal "Untrained", status.item(item.id).text
+    assert_equal "Complete", status.item(plain.id).text
+    assert_equal "In Progress", @checklist.word_for(:pending)
+    assert_equal "Not counted", item.word_for(:exempt)
+  end
+
+  test "another checklist's item says that checklist's words, and its own word for people that one doesn't cover" do
+    other = create_world_checklist("Outreach", team: @members, met_word: "Done", not_met_word: "Not yet")
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    refresh(other)
+    item = add_item(@checklist, :checklist, "Outreach", { checklist_id: other.id }, exempt_label: "Rookie")
+
+    assert_equal "Outreach: Not yet", evaluate(@checklist, :member, item).summary
+    assert_equal "Rookie", evaluate(@checklist, :organizer, item).label
   end
 
   test "a checklist with no items is done for everyone it covers" do

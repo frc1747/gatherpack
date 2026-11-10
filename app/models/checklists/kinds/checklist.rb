@@ -56,11 +56,11 @@ module Checklists
 
         person_ids.index_with do |person_id|
           status = rows.dig(person_id, nil)&.status
-          next Result.exempt("Not on #{other.title}") if status.nil?
+          next Result.exempt(item.exempt_label.presence || "Not on #{other.title}") if status.nil?
 
           fix = { "label" => "See #{other.title}", "path" => "/checklists/#{other.to_param}",
             "by" => who_acts(rows[person_id].values_at(*counting).compact) }.compact
-          Result.new(status: status, summary: "#{other.title}: #{Checklists.word_for(status)}", fix: status == "met" ? nil : fix)
+          Result.new(status: status, summary: "#{other.title}: #{other.word_for(status)}", fix: status == "met" ? nil : fix)
         end
       end
 

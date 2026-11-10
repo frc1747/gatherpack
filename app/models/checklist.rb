@@ -5,6 +5,7 @@
 class Checklist < ApplicationRecord
   has_neat_id :chkl
   include CanBeHooked
+  include Checklists::Words
   has_paper_trail versions: { class_name: "AuditLog" }
 
   WITHIN_UNITS = %w[days months].freeze
