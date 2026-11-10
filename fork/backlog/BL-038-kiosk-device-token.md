@@ -21,6 +21,8 @@ The time clock kiosk (`/time_kiosk`) only works while some user is signed in. A 
 - Staying signed in depends on Devise "Remember me". That lasts 2 weeks from sign-in and doesn't extend with use (`config/initializers/devise.rb:167`, `:173`), and with `expire_all_remember_me_on_sign_out = true` (`:170`) one sign-out of that account anywhere ends it. The usual workaround is Chrome's "Continue where you left off", which keeps the session cookie through reboots, but clearing browser data or switching profiles loses it.
 - Because a full user is signed in, the brand link in the kiosk header (`app/views/layouts/kiosk.html.erb:34`, `href="/"`) opens the whole app as that account for anyone standing at the kiosk.
 
+**In the HBR release** (`feature/security-series`, shipped since hbr.34; commits `f5c09e9b`, `f9545893`), the time kiosk already runs only on accounts flagged `kiosk`, and `KioskConfinement` keeps those accounts to the kiosk. That means the brand-link escape above is closed in the fork. A kiosk account is also signed out after 12 hours without a request (`User::KIOSK_TIMEOUT`) and is never remembered (`User#remember_me`, `#remember_me?`). Because of that, a dedicated kiosk computer in production has to be signed in again every morning, and on every reboot that loses Chrome's session cookie. That limit is deliberate, and this item is how to remove the daily sign-in without undoing it. Build on the kiosk-account rules rather than duplicating them: a paired device acts as a kiosk session with no user, and the confinement rules still apply to it.
+
 ## Design
 
 **Model.** `KioskDevice` (`has_neat_id :kdv`, paper trail):
