@@ -1,0 +1,20 @@
+<%# A count item's form (Checklists::Kinds::Count): the item's settings, then what counts and the credit given or taken, on its commitment. %>
+<% breadcrumb :checklist_item, @item %>
+
+<div class="card">
+  <div class="card-header"><h1>Edit <%= @item.label_was %></h1></div>
+  <div class="card-body"><%= render "form", checklist: @checklist, item: @item, impact: @impact %></div>
+</div>
+
+<% if @item.wrapped? %>
+  <p class="small text-body-secondary mt-2 mb-0">
+    This count was set up before checklists, so who sees it stays as it was: the person, the people related to their group through how they owe together,
+    and whoever runs the checklist. "Who sees it" above doesn't change that.
+  </p>
+<% end %>
+
+<% if (@commitment = @item.commitment) %>
+  <h2 class="h4 mt-4">What counts</h2>
+  <%= render "commitments/manage_sources" %>
+  <%= render "checklist_items/count_adjustments", commitment: @commitment %>
+<% end %>
