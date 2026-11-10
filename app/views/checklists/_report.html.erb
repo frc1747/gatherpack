@@ -83,10 +83,10 @@
                         <% if entry.excuse && entry.excuse["by"] %>
                           <div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %><%= ": #{entry.excuse["reason"]}" if entry.excuse["reason"] %></div>
                           <% if entry.excuse["id"] && !checklist.archived? %>
-                            <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-inline" %>
+                            <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-block" %>
                           <% end %>
                         <% elsif !entry.met? && !checklist.archived? && report.excusable?(status.person_id) %>
-                          <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: status.person_id), class: "small no-print" %>
+                          <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: status.person_id), class: "d-block small no-print" %>
                         <% end %>
                       <% end %>
                     </td>
