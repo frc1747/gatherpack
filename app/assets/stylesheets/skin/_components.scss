@@ -98,6 +98,12 @@
   color: var(--gp-on-brand) !important;
 }
 
+// "Light" fills are the raised surface (--bs-light-rgb), which is dark in dark
+// mode; Bootstrap's utility keeps literal black text on them.
+.text-bg-light {
+  color: var(--gp-text) !important;
+}
+
 .dropdown-menu {
   --bs-dropdown-bg: var(--gp-surface);
   --bs-dropdown-color: var(--gp-text);
