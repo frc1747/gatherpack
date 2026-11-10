@@ -30,20 +30,17 @@ A kiosk account's time kiosk shows a "Sign out" button in its header. Anyone at 
 ## Design
 
 - Remove the `kiosk_account?` Sign out block from `layouts/kiosk.html.erb`. Keep "Stop Impersonating" in the same `d-flex` wrapper. Update the comment to say only the impersonation exit is there.
-- Leave the sessions route and `KioskConfinement#signing_in_or_out?` alone. Sign-out is `DELETE` only (`config.sign_out_via = :delete`), so without the button nobody at the kiosk can reach it. Ways to end a kiosk session stay the same:
-  - The 12-hour idle timeout (`User::KIOSK_TIMEOUT`).
-  - A mentor signs in to the kiosk account on another device and signs out, which ends its sessions everywhere (`session_revocation_test.rb:32`).
-  - Changing the kiosk account's password.
+- Leave the sessions route and `KioskConfinement#signing_in_or_out?` alone. Sign-out is `DELETE` only (`config.sign_out_via = :delete`), so without the button nobody at the kiosk can reach it.
+- This is the stopgap. A kiosk account still ends at its 12-hour idle timeout (`User::KIOSK_TIMEOUT`) or a Chrome restart that loses the session cookie. The goal is a kiosk that never signs out, and that's BL-038: a paired device has no user session, so nothing times out and there's no Sign out to tap.
 - Regular users on the kiosk keep their usual way out (the brand link to the app, then the sidebar), unchanged.
 - No flag: it removes a fork-only button and restores upstream's layout for this case.
 
 ## Tests
 
 - Replace `kiosk_session_test.rb:103` with: a kiosk account's kiosk page has no sign-out form (`assert_select "form[action=?]", destroy_user_session_path, count: 0`).
-- Keep a test that a kiosk account's session still ends on `DELETE destroy_user_session_path` (the request, not the button), so remote sign-out keeps working.
 - An admin impersonating a kiosk account still sees "Stop Impersonating".
 
 ## Fork strategy notes
 
 - The fix goes on `feature/security-series`, where the button lives. The fit branches that merge the security series (`feature/turbo-frame-links-fit`, `feature/local-assets-fit`) pick it up at the next rebuild. `feature/local-assets` also edits `layouts/kiosk.html.erb` (head lines only), so check that merge at sync.
-- BL-038 (kiosk devices) removes the need for a kiosk account on dedicated computers, but this fix stands on its own until then.
+- BL-038 (kiosk devices) is the lasting fix. Once dedicated kiosks are paired devices, kiosk accounts only matter for kiosks not yet paired.
