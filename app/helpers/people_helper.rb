@@ -48,7 +48,7 @@ module PeopleHelper
   def person_as_badge(person, **opts)
     content = i("user") + " " + person.identifier_name
     if opts[:link]
-      link_to person, class: "undecorated", 'data-turbo': false do
+      link_to person, class: "undecorated", data: { turbo_frame: "_top", turbo_prefetch: false } do
         tag.span content, class: "badge text-bg-primary"
       end
     else
@@ -66,12 +66,12 @@ module PeopleHelper
         pluralize(hours, "hour")
       end
       content = safe_join([ total, i("hourglass-half"), time_clock_period.identifier_name ], " ")
-      link_to time_clock_period_path(time_clock_period, q: { person_id_eq: person.id }), class: "undecorated", "data-turbo": false do
+      link_to time_clock_period_path(time_clock_period, q: { person_id_eq: person.id }), class: "undecorated", data: { turbo_frame: "_top" } do
         tag.span content, class: "badge text-bg-primary"
       end
     else
       content = pluralize(hours, "unallocated hour")
-      link_to time_clock_punches_path(q: { person_id_eq: person.id }), class: "undecorated", "data-turbo": false do
+      link_to time_clock_punches_path(q: { person_id_eq: person.id }), class: "undecorated", data: { turbo_frame: "_top" } do
         tag.span content, class: "badge text-bg-primary"
       end
     end

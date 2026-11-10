@@ -8,7 +8,7 @@
   <td class="align-middle"><%= as_badge time_clock_punch.time_clock_period, link: true unless time_clock_punch.time_clock_period.nil? %></td>
   <% if @has_editable_punches %>
     <td class="align-middle">
-      <%= link_to "Edit", edit_time_clock_punch_path(time_clock_punch), class: "btn btn-sm btn-warning", 'data-turbo': false if policy(time_clock_punch).edit? %>
+      <%= link_to "Edit", edit_time_clock_punch_path(time_clock_punch), class: "btn btn-sm btn-warning", data: { turbo_frame: "_top" } if policy(time_clock_punch).edit? %>
       <%= link_to "Delete", time_clock_punch, class: "btn btn-sm btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(time_clock_punch).destroy? %>
       <%#= TODO DUPLICATE A PUNCH %>
     </td>
