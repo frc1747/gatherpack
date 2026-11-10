@@ -1,0 +1,31 @@
+<%# The one date control (Checklists::RelativeDate): "on or after <date>" or
+    "within the last N days | months", or none. Locals: name (the param
+    name; sends [mode], [date], [amount], [unit]), field_id, legend, picked
+    (a RelativeDate or nil). Optional words for other uses of the same
+    choice, such as a filter for things older than a date: none_label,
+    date_label, within_label, after_label (shown after the unit), and
+    form_id to join a form elsewhere on the page (the form= attribute). %>
+<% none_label = local_assigns.fetch(:none_label, "Any time") %>
+<% date_label = local_assigns.fetch(:date_label, "On or after") %>
+<% within_label = local_assigns.fetch(:within_label, "Within the last") %>
+<% after_label = local_assigns[:after_label] %>
+<% form_id = local_assigns[:form_id] %>
+<fieldset>
+  <legend class="form-label fs-6"><%= legend %></legend>
+  <div class="form-check">
+    <%= radio_button_tag "#{name}[mode]", "", picked.nil?, id: "#{field_id}_none", form: form_id, class: "form-check-input" %>
+    <%= label_tag "#{field_id}_none", none_label, class: "form-check-label" %>
+  </div>
+  <div class="form-check d-flex gap-2 align-items-center">
+    <%= radio_button_tag "#{name}[mode]", "date", picked && !picked.relative?, id: "#{field_id}_date", form: form_id, class: "form-check-input" %>
+    <%= label_tag "#{field_id}_date", date_label, class: "form-check-label" %>
+    <%= date_field_tag "#{name}[date]", picked&.date, id: "#{field_id}_date_value", form: form_id, autocomplete: "off", class: "form-control form-control-sm w-auto", "aria-label": "#{legend}: date" %>
+  </div>
+  <div class="form-check d-flex gap-2 align-items-center mt-1">
+    <%= radio_button_tag "#{name}[mode]", "within", picked&.relative?, id: "#{field_id}_within", form: form_id, class: "form-check-input" %>
+    <%= label_tag "#{field_id}_within", within_label, class: "form-check-label" %>
+    <%= number_field_tag "#{name}[amount]", picked&.amount, min: 1, id: "#{field_id}_amount", form: form_id, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em", "aria-label": "#{legend}: how many" %>
+    <%= select_tag "#{name}[unit]", options_for_select(Checklists::RelativeDate::UNITS.map { |unit| [ unit, unit ] }, picked&.unit), id: "#{field_id}_unit", form: form_id, class: "form-select form-select-sm w-auto", "aria-label": "#{legend}: days or months" %>
+    <% if after_label %><span><%= after_label %></span><% end %>
+  </div>
+</fieldset>
