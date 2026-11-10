@@ -35,7 +35,7 @@
                         </div>
                       </div>
                       <div class="col-2">
-                        <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_period", time_clock_period_id: period.id, person_id: @person.id }), method: :post %>
+                        <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_period", time_clock_period_id: period.id, person_ref: @time_kiosk.person_ref }), method: :post %>
                       </div>
                     </div>
                   <% end %>
@@ -45,7 +45,7 @@
                         All Periods [<%= @time_kiosk.managed_periods.sum { |p| p.open_punches.count } %>]
                       </div>
                       <div class="col-2">
-                        <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_all", person_id: @person.id }), method: :post %>
+                        <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_all", person_ref: @time_kiosk.person_ref }), method: :post %>
                       </div>
                     </div>
                   <% end %>
@@ -76,9 +76,9 @@
         <h3>Clock In</h3>
         <div class="toolbox">
           <% @time_clock_periods.each do |p| %>
-            <%= tool_button "clock", p.name, "btn-primary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_id: @person.id, time_clock_period_id: p.id }), method: :post %>
+            <%= tool_button "clock", p.name, "btn-primary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_ref: @time_kiosk.person_ref, time_clock_period_id: p.id }), method: :post %>
           <% end %>
-          <%= tool_button "clock", "Start Unassigned", "btn-secondary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_id: @person.id, time_clock_period_id: nil }), method: :post %>
+          <%= tool_button "clock", "Start Unassigned", "btn-secondary w-100 my-2", time_kiosk_path(time_kiosk: { tool: "punch_in", person_ref: @time_kiosk.person_ref, time_clock_period_id: nil }), method: :post %>
         </div>
       </div>
       <div class="col-8 text-end">
@@ -97,7 +97,7 @@
                 </dl>
               </div>
               <div class="col">
-                <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out", time_clock_punch_id: punch.id }), method: :post %>
+                <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out", time_clock_punch_id: punch.id, person_ref: @time_kiosk.person_ref }), method: :post %>
               </div>
             </div>
 
