@@ -1,0 +1,26 @@
+<%# The applicant's checklist beside their application, for people who
+    decide it: "4 of 6 complete", what's missing, and on opening each item and
+    who has to do it. %>
+<% status = intake_application_checklist(application) %>
+<% if status %>
+  <% open_items = status.explained.select { |entry| entry.item.counts? && (entry.not_met? || entry.pending?) } %>
+  <details class="mt-1" id="<%= dom_id(application, :intake_checklist) %>">
+    <summary>
+      <%= checklist_status_badge(status.overall) if status.overall %>
+      <%= Intake::ApplicationChecklists.counts_text(status) %>
+      <% if open_items.any? %><span class="text-muted">· waiting for <%= open_items.map { |entry| entry.item.label }.to_sentence %></span><% end %>
+    </summary>
+    <ul class="list-unstyled ms-3 mb-0">
+      <% status.explained.each do |entry| %>
+        <li>
+          <%= checklist_status_badge(entry) %> <%= entry.item.label %><%= ": #{entry.summary}" if entry.full? && entry.summary.present? %>
+          <% if entry.excuse && entry.excuse["by"] %><span class="text-muted">(excused by <%= entry.excuse["by"] %>)</span><% end %>
+          <% if (owner = intake_item_owner(application, entry)) %><span class="text-muted">· to do: <%= owner %></span><% end %>
+        </li>
+      <% end %>
+    </ul>
+  </details>
+  <% if application.pending? && application.registration.gate_approval? && !status.overall&.met? && !status.overall&.exempt? %>
+    <div class="text-muted">Approval waits until this is complete.</div>
+  <% end %>
+<% end %>
