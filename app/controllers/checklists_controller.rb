@@ -133,7 +133,7 @@ class ChecklistsController < InternalController
 
   def checklist_params
     permitted = params.require(:checklist).permit(:title, :description, :team_id, :starts_on, :starts_within_amount,
-      :starts_within_unit, :ends_on, :status, :read_level, :start_mode)
+      :starts_within_unit, :ends_on, :status, :read_level, :start_mode, :met_word, :pending_word, :not_met_word)
     mode = permitted.delete(:start_mode)
     if mode == "within"
       permitted[:starts_on] = nil

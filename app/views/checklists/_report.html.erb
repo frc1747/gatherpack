@@ -7,7 +7,7 @@
     <p class="mb-2">
       <% Checklists::STATUSES.each do |status| %>
         <% next unless counts[status] %>
-        <span class="badge <%= checklist_status_class(status) %>"><%= Checklists.word_for(status) %>: <%= counts[status] %></span>
+        <span class="badge <%= checklist_status_class(status) %>"><%= report.checklist.word_for(status) %>: <%= counts[status] %></span>
       <% end %>
       <% if report.statuses.empty? %><span class="text-body-secondary">There's nobody here for you to see yet.</span><% end %>
     </p>
@@ -17,7 +17,7 @@
           <input type="search" autocomplete="off" class="form-control form-control-sm" placeholder="Filter by name" aria-label="Filter by name" data-checklist-report-target="name" data-action="input->checklist-report#filter">
         </div>
         <div class="col-md-8 small">
-          <label><input type="checkbox" data-checklist-report-target="notDone" data-action="checklist-report#filter"> Only those not <%= Checklists.word_for("met").downcase %></label>
+          <label><input type="checkbox" data-checklist-report-target="notDone" data-action="checklist-report#filter"> Only those not <%= report.checklist.word_for("met").downcase %></label>
           <span class="text-body-secondary ms-2">Tick values under a heading to show people with any of them; headings combine.</span>
         </div>
       </div>
@@ -40,7 +40,7 @@
       <% report.sections.each do |heading, statuses| %>
         <% if heading %><h2 class="h5 mt-3"><%= heading %></h2><% end %>
         <div class="table-responsive">
-          <table class="table table-sm align-middle" data-checklist-report-target="table">
+          <table class="table table-sm align-top" data-checklist-report-target="table">
             <thead>
               <tr>
                 <th role="button" data-action="click->checklist-report#sort">Name</th>
@@ -56,7 +56,7 @@
                         <% order.each do |status| %>
                           <label class="d-block text-nowrap">
                             <input type="checkbox" value="<%= status %>" data-column="<%= index %>" data-checklist-report-target="tick" data-action="checklist-report#filter">
-                            <%= Checklists.word_for(status) %>
+                            <%= (item || report.checklist).word_for(status) %>
                           </label>
                         <% end %>
                       </div>

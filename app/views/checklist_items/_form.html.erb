@@ -41,6 +41,7 @@
         </div>
       </div>
       <%= f.input :counts, label: "Counts toward the overall", hint: "Untick to show it without affecting anyone's result" unless item.parent_id.present? %>
+      <%= render "checklists/words_fields", f: f, legend: "Words for this item" %>
       <%= f.input :exempt_label, label: "Word for people it doesn't apply to", placeholder: "Doesn't apply" %>
 
       <%= f.button :submit, "Save", class: "btn btn-primary" %>
