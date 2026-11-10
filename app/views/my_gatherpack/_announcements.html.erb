@@ -1,0 +1,16 @@
+<% if @announcements.any? %>
+  <section class="mg-section" data-home-section="announcements">
+    <h2 class="mg-heading">Latest</h2>
+    <div class="card mg-list">
+      <% @announcements.sort_by(&:start_time).reverse_each do |announcement| %>
+        <div class="mg-row" id="<%= dom_id announcement %>">
+          <div class="mg-row-body">
+            <div class="mg-row-title"><%= link_to announcement.title, announcement %></div>
+            <div class="mg-row-content"><%= md announcement.content %></div>
+            <div class="mg-row-detail"><%= time_ago_in_words(announcement.start_time) %> ago</div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </section>
+<% end %>

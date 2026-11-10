@@ -1,0 +1,10 @@
+<div class="mg-row">
+  <div class="mg-row-date">
+    <span class="mg-row-weekday"><%= item.at.strftime("%a") %></span>
+    <span class="mg-row-day"><%= item.at.day %></span>
+  </div>
+  <div class="mg-row-body">
+    <div class="mg-row-title"><%= link_to item.title, item.path %></div>
+    <div class="mg-row-detail"><%= item.detail %></div>
+  </div>
+</div>
