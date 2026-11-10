@@ -1,0 +1,102 @@
+<%# One row per visible person; sort by clicking a heading, filter by ticks, numbers and name.
+    Rows hold only what the viewer may see, so sorting and filtering can't reveal more. %>
+<% order = %w[not_met pending met exempt] %>
+<div class="card mt-3" data-controller="checklist-report">
+  <div class="card-body">
+    <% counts = report.counts %>
+    <p class="mb-2">
+      <% Checklists::STATUSES.each do |status| %>
+        <% next unless counts[status] %>
+        <span class="badge <%= checklist_status_class(status) %>"><%= report.checklist.word_for(status) %>: <%= counts[status] %></span>
+      <% end %>
+      <% if report.statuses.empty? %><span class="text-body-secondary">There's nobody here for you to see yet.</span><% end %>
+    </p>
+    <% if report.statuses.any? %>
+      <div class="row g-2 mb-2 no-print">
+        <div class="col-md-4">
+          <input type="search" autocomplete="off" class="form-control form-control-sm" placeholder="Filter by name" aria-label="Filter by name" data-checklist-report-target="name" data-action="input->checklist-report#filter">
+        </div>
+        <div class="col-md-8 small">
+          <label><input type="checkbox" data-checklist-report-target="notDone" data-action="checklist-report#filter"> Only those not <%= report.checklist.word_for("met").downcase %></label>
+          <span class="text-body-secondary ms-2">Tick values under a heading to show people with any of them; headings combine.</span>
+        </div>
+      </div>
+      <% measure_filters = report.measure_filters %>
+      <details class="mb-2 no-print small">
+        <summary>Number filters</summary>
+        <div class="row g-2 mt-1">
+          <% measure_filters.each do |index, key, label| %>
+            <div class="col-md-6 d-flex gap-2 align-items-center">
+              <span class="flex-grow-1"><%= label %></span>
+              <input type="number" autocomplete="off" class="form-control form-control-sm" style="width: 6em" placeholder="min" aria-label="<%= label %> at least"
+                data-checklist-report-target="bound" data-column="<%= index %>" data-key="<%= key %>" data-bound="min" data-action="input->checklist-report#filter">
+              <input type="number" autocomplete="off" class="form-control form-control-sm" style="width: 6em" placeholder="max" aria-label="<%= label %> at most"
+                data-checklist-report-target="bound" data-column="<%= index %>" data-key="<%= key %>" data-bound="max" data-action="input->checklist-report#filter">
+            </div>
+          <% end %>
+        </div>
+      </details>
+
+      <% report.sections.each do |heading, statuses| %>
+        <% if heading %><h2 class="h5 mt-3"><%= heading %></h2><% end %>
+        <div class="table-responsive">
+          <table class="table table-sm align-top" data-checklist-report-target="table">
+            <thead>
+              <tr>
+                <th role="button" data-action="click->checklist-report#sort">Name</th>
+                <% ([ [ "Overall", nil ] ] + report.columns.map { |item| [ item.label, item ] }).each_with_index do |(label, item), offset| %>
+                  <% index = offset + 1 %>
+                  <th>
+                    <span role="button" data-action="click->checklist-report#sort"><%= label %></span>
+                    <div class="dropdown d-inline no-print">
+                      <button class="btn btn-link btn-sm p-0 ms-1" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Filter <%= label %>">
+                        <i class="fa-solid fa-filter"></i>
+                      </button>
+                      <div class="dropdown-menu p-2 small">
+                        <% order.each do |status| %>
+                          <label class="d-block text-nowrap">
+                            <input type="checkbox" value="<%= status %>" data-column="<%= index %>" data-checklist-report-target="tick" data-action="checklist-report#filter">
+                            <%= (item || report.checklist).word_for(status) %>
+                          </label>
+                        <% end %>
+                      </div>
+                    </div>
+                  </th>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% statuses.each do |status| %>
+                <tr data-name="<%= report.name(status.person_id).to_s.downcase %>">
+                  <td data-value="<%= report.name(status.person_id) %>">
+                    <%= link_to report.name(status.person_id), person_checklists_path(status.person_id) %>
+                  </td>
+                  <% overall = status.overall %>
+                  <td data-value="<%= overall ? order.index(overall.status) : 9 %>" data-status="<%= overall&.status %>" data-measures="<%= overall&.measures.to_h.to_json %>" title="<%= overall&.summary.presence %>">
+                    <%= checklist_status_badge(overall) if overall %>
+                  </td>
+                  <% report.columns.each do |item| %>
+                    <% entry = status.item(item.id) %>
+                    <td data-value="<%= entry ? order.index(entry.status) : 9 %>" data-status="<%= entry&.status %>" data-measures="<%= entry&.measures.to_h.to_json %>" title="<%= entry.summary.presence if entry&.full? %>">
+                      <% if entry %>
+                        <%= checklist_status_badge(entry) %>
+                        <% if entry.excuse && entry.excuse["by"] %>
+                          <div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %><%= ": #{entry.excuse["reason"]}" if entry.excuse["reason"] %></div>
+                          <% if entry.excuse["id"] && !checklist.archived? %>
+                            <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-block" %>
+                          <% end %>
+                        <% elsif !entry.met? && !checklist.archived? && report.excusable?(status.person_id) %>
+                          <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: status.person_id), class: "d-block small no-print" %>
+                        <% end %>
+                      <% end %>
+                    </td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>
