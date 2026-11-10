@@ -17,7 +17,7 @@ Every release is a public tag and ghcr image. The private flow (`sec/release-*`,
 4. Preview the changelog if needed: `bin/fork-changelog --stdout`. Its "What's new" section is the start of the release notes.
 5. Full suite + RuboCop + system tests (`gp-test` agent). Then `git push --force-with-lease origin hbr/integration` and wait for the HBR Integration workflow (`gh run list --workflow hbr-integration.yml --limit 1`).
 6. Tag the rebuild's last commit, the "Update HBR changelog" commit, with exactly that name. Use an annotated tag with a message modeled on the previous one (`git tag -n20 <previous>`). Push the tag. Never `v*` for anything but a release: it triggers an image publish. Upstream-candidate checkpoints use `upstream-candidate/<feature>-<n>`.
-7. Check that the image build passes for amd64 and arm64 (`gh run list --workflow build.yml --limit 1`).
+7. Check that the image build passes for amd64 and arm64. The tag push runs the **CI** workflow, whose `publish` jobs call `build.yml`; `build.yml` runs on its own only when dispatched by hand. Watch `gh run list -R frc1747/gatherpack --workflow ci.yml --branch <tag> --limit 1`, then confirm `publish / Build linux/amd64`, `publish / Build linux/arm64` and `publish / Publish manifest` with `gh run view <id> -R frc1747/gatherpack --json jobs`.
 
 ## Before it goes to production
 
