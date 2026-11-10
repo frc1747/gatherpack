@@ -36,6 +36,29 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(fetch(request).catch(() => caches.match("/offline.html")))
   }
 })
+<% if GatherPack::PushChannel.available? %>
+
+// A notification carries only a title and a local path.
+self.addEventListener("push", (event) => {
+  const { title, path } = event.data.json()
+  event.waitUntil(self.registration.showNotification(title, { data: { path } }))
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+
+  const url = new URL(event.notification.data?.path || "/", self.location.origin)
+  const target = url.origin === self.location.origin ? url.href : `${self.location.origin}/`
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((windows) => {
+      const existing = windows[0]
+      if (!existing) return self.clients.openWindow(target)
+      return existing.focus().then((focused) => focused.navigate(target))
+    })
+  )
+})
+<% end %>
 <% else %>
 // The installable app feature is off. Remove everything this worker stored and
 // then remove the worker itself.
