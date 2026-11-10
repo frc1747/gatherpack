@@ -1,7 +1,188 @@
 require "test_helper"
 
 class RelationshipTypesControllerTest < ActionDispatch::IntegrationTest
-  # TODO: Add tests for RelationshipTypesController.
-  # Scaffold-generated tests were removed to provide a clean foundation.
-  # See test/controllers/api/v1/user_info_controller_test.rb for a hand-written example.
+  include Devise::Test::IntegrationHelpers
+
+  setup do
+    host! "localhost"
+    @admin = User.create!(email: "admin@example.com", password: "Password1!", admin: true)
+    Person.create!(user: @admin, first_name: "Ada", last_name: "Admin")
+    sign_in @admin
+  end
+
+  test "an admin can mark a type as a guardianship" do
+    type = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin)
+
+    get edit_relationship_type_path(type)
+    assert_response :success
+    assert_select "select[name='relationship_type[guardianship]'] option", text: "Guardian while the child is a minor"
+
+    patch relationship_type_path(type), params: { relationship_type: { guardianship: "minor" } }
+    assert_redirected_to relationship_type_path(type)
+    assert type.reload.guardianship_minor?
+
+    get relationship_types_path
+    assert_select ".badge", text: "Guardian"
+  end
+
+  test "a guardianship type with a member-level permission is rejected" do
+    type = relationship_types(:one)
+
+    patch relationship_type_path(type), params: { relationship_type: { guardianship: "minor", permission: "added_by_user" } }
+
+    assert_response :unprocessable_entity
+    assert type.reload.guardianship_none?
+  end
+
+  test "the form lists what guardians can do" do
+    get new_relationship_type_path
+
+    assert_response :success
+    assert_guardian_grants_listed
+  end
+
+  test "the form and show page list a line a feature registers" do
+    preserving_guardian_grants do
+      RelationshipType.register_guardian_grant("do something new")
+      type = relationship_types(:one)
+      type.update_column(:guardianship, RelationshipType.guardianships[:minor])
+
+      get edit_relationship_type_path(type)
+      assert_select ".form-text li", text: "do something new"
+
+      get relationship_type_path(type)
+      assert_select ".form-text li", text: "do something new"
+    end
+  end
+
+  test "the form follows a conditional line's condition" do
+    preserving_guardian_grants do
+      enabled = false
+      RelationshipType.register_guardian_grant("do something new", if: -> { enabled })
+
+      get new_relationship_type_path
+      assert_select ".form-text li", text: "do something new", count: 0
+
+      enabled = true
+
+      get new_relationship_type_path
+      assert_select ".form-text li", text: "do something new"
+    end
+  end
+
+  test "the show page lists what guardians can do only for a flagged type" do
+    type = relationship_types(:one)
+
+    get relationship_type_path(type)
+    assert_response :success
+    assert_select "p", text: "Guardians can:", count: 0
+    assert_select "p", text: /Don't use guardianship/, count: 0
+
+    type.update_column(:guardianship, RelationshipType.guardianships[:consented])
+
+    get relationship_type_path(type)
+    assert_guardian_grants_listed
+  end
+
+  test "editing a type with relationships doesn't ask before widening, which is refused" do
+    type = relationship_types(:one)
+
+    get edit_relationship_type_path(type)
+
+    assert_select "[data-guardianship-confirm-message-value]", count: 0
+  end
+
+  test "editing a flagged type with relationships carries the reverse confirmation" do
+    type = relationship_types(:one)
+    type.update_column(:guardianship, RelationshipType.guardianships[:minor])
+
+    get edit_relationship_type_path(type)
+
+    assert_select ".form-inputs[data-controller='guardianship-confirm'][data-guardianship-confirm-saved-value='true']" \
+      "[data-guardianship-confirm-message-value='This stops the parent side of 1 relationship being a guardian.']"
+  end
+
+  test "a rejected change keeps the confirmation based on the saved value" do
+    type = relationship_types(:one)
+
+    patch relationship_type_path(type), params: { relationship_type: { guardianship: "minor", permission: "added_by_user" } }
+
+    assert_response :unprocessable_entity
+    assert_select "[data-guardianship-confirm-message-value]", count: 0
+  end
+
+  test "a new type or a type with no relationships doesn't carry a confirmation" do
+    get new_relationship_type_path
+    assert_select "[data-controller='guardianship-confirm']", count: 0
+
+    type = RelationshipType.create!(parent_label: "Parent of", child_label: "Child of", permission: :added_by_admin)
+
+    get edit_relationship_type_path(type)
+    assert_select "[data-controller='guardianship-confirm']", count: 0
+  end
+
+  test "an admin can set a type to show contact details" do
+    type = relationship_types(:one)
+
+    get edit_relationship_type_path(type)
+    assert_select "label", text: "Show contact details"
+    assert_select "input[type=checkbox][name='relationship_type[show_contact_details]']"
+    assert_select ".form-text", text: RelationshipType::SHOW_CONTACT_DETAILS_HINT
+
+    patch relationship_type_path(type), params: { relationship_type: { show_contact_details: "1" } }
+    assert_redirected_to relationship_type_path(type)
+    assert type.reload.show_contact_details?
+  end
+
+  test "the show page states it only for a type that shows contact details" do
+    type = relationship_types(:one)
+
+    get relationship_type_path(type)
+    assert_select ".form-text", text: RelationshipType::SHOW_CONTACT_DETAILS_HINT, count: 0
+
+    type.update!(show_contact_details: true)
+
+    get relationship_type_path(type)
+    assert_select "p", text: "Show contact details: Yes"
+    assert_select ".form-text", text: RelationshipType::SHOW_CONTACT_DETAILS_HINT
+  end
+
+  test "editing a type with relationships carries the contact details confirmation until it's on" do
+    type = relationship_types(:one)
+
+    get edit_relationship_type_path(type)
+    assert_select ".form-inputs[data-guardianship-confirm-contact-details-message-value=?]", type.contact_details_change_confirmation
+    assert_select "input[type=checkbox][data-guardianship-confirm-target='contactDetails']"
+
+    type.update!(show_contact_details: true)
+
+    get edit_relationship_type_path(type)
+    assert_select ".form-inputs[data-guardianship-confirm-contact-details-message-value]", count: 0
+  end
+
+  test "a member-added type can't be set to show contact details" do
+    type = relationship_types(:one)
+
+    patch relationship_type_path(type), params: { relationship_type: { show_contact_details: "1", permission: "added_by_user" } }
+
+    assert_response :unprocessable_entity
+    assert_not type.reload.show_contact_details?
+  end
+
+  private
+
+  def preserving_guardian_grants
+    original = RelationshipType.instance_variable_get(:@guardian_grants).dup
+    yield
+  ensure
+    RelationshipType.instance_variable_set(:@guardian_grants, original)
+  end
+
+  def assert_guardian_grants_listed
+    assert_select ".form-text p", text: "Guardians can:"
+    RelationshipType.guardian_grants.each do |grant|
+      assert_select ".form-text li", text: grant
+    end
+    assert_select ".form-text p", text: "Don't use guardianship just to link people. For an emergency contact, use a type with no guardianship."
+  end
 end
