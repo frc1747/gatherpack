@@ -8,7 +8,7 @@
     <code data-lang="ruby"><pre><%= @report.code %></pre></code>
   </div>
   <div class="card-footer">
-    <%= link_to "Run", run_report_path(@report), class: "btn btn-success" %>
+    <%= link_to "Run", run_report_path(@report), class: "btn btn-success", data: { turbo_prefetch: false } %>
     <%= link_to "Edit", edit_report_path(@report), class: "btn btn-warning" if policy(@report).edit? %>
     <%= link_to "Delete", @report, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@report).destroy? %>
   </div>
