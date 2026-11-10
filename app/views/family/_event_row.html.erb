@@ -1,0 +1,11 @@
+<%# When and where only. It links only when the viewer can already open the event. %>
+<div class="mg-row">
+  <div class="mg-row-date">
+    <span class="mg-row-weekday"><%= row.start_time.strftime("%a") %></span>
+    <span class="mg-row-day"><%= row.start_time.day %></span>
+  </div>
+  <div class="mg-row-body">
+    <div class="mg-row-title"><%= row.event ? link_to(row.title, event_path(row.event)) : row.title %></div>
+    <div class="mg-row-detail"><%= family_event_detail(row) %></div>
+  </div>
+</div>
