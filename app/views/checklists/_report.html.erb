@@ -85,7 +85,7 @@
                           <% if entry.excuse["id"] && !checklist.archived? %>
                             <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-block" %>
                           <% end %>
-                        <% elsif !entry.met? && !checklist.archived? && report.excusable?(status.person_id) %>
+                        <% elsif (entry.not_met? || entry.pending?) && !checklist.archived? && report.excusable?(status.person_id) %>
                           <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: status.person_id), class: "d-block small no-print" %>
                         <% end %>
                       <% end %>

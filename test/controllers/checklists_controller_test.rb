@@ -57,6 +57,20 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the report offers Excuse only where an item is still owed, not where it doesn't apply" do
+    add_rule(@checklist, :exclude, :person, item: @safety_item, person_id: person(:rookie).id)
+    refresh(@checklist)
+    with_feature do
+      sign_in person(:admin).user
+      get checklist_path(@checklist)
+      assert_response :success
+      excuse = ->(name) { new_checklist_checklist_excuse_path(@checklist, item_id: @safety_item.id, person_id: person(name).id) }
+      assert_select "a[href=?]", excuse.(:member2), text: "Excuse"
+      assert_select "a[href=?]", excuse.(:rookie), count: 0
+      assert_select "a[href=?]", excuse.(:member), count: 0
+    end
+  end
+
   test "a member sees only themselves" do
     with_feature do
       sign_in person(:member).user
