@@ -25,6 +25,10 @@ module Checklists
         def description = "Do a number of something, such as shifts or events, counted from what people do. Save it, then choose what counts"
         def uses_dates? = true
 
+        # The pooling relationship type: protected from deletion while an
+        # item pools through it (Checklists::ProtectsReferences).
+        def references = { "group_relationship_type_id" => "RelationshipType" }
+
         def settings
           [
             ItemKind::Setting.new(key: :base_amount, type: :number, label: "How many", hint: "By each person, or by a group's first member"),
@@ -237,25 +241,47 @@ module Checklists
         # What person has coming up and has done toward the item, and where
         # they can still earn credit, for their Details: [upcoming, done,
         # chances]. upcoming are their planned credit records (signed up, not
-        # yet done), soonest first; done their confirmed ones, newest first
-        # (never another pooled group member's: a result shows only what is
-        # about its own person); chances are [label, target] pairs from the
+        # yet done), soonest first; done their confirmed ones, newest first.
+        # When the item is owed together and the viewer sees the pooled group
+        # (shows_group_records?), both also hold the group's records (a
+        # parent's shift), which the count adds up; chances are [label, target] pairs from the
         # sources' how_to_earn, one per label, leaving out events they already
         # have a record at (signed up for it, say), while credit is still
         # owed. Empty when they don't owe.
-        def person_detail(item, person)
+        def person_detail(item, person, viewer: nil)
           commitment = commitment_for(item, as_of: Context.new(item.checklist).as_of)
           progress = commitment.progress(Person.where(id: person.id))[person.id]
           return [ [], [], [] ] unless progress
 
-          records = progress.lines.flat_map(&:records).select { |record| record.person_id == person.id }
+          all_records = progress.lines.flat_map(&:records)
+          own = all_records.select { |record| record.person_id == person.id }
+          records = shows_group_records?(item, viewer, person) ? all_records : own
           done, upcoming = records.partition(&:confirmed?)
           open = !progress.met? && progress.remaining.positive?
           # Two sources can offer the same date (sign up for it, check in at it): the first one's link stands.
           chances = open ? progress.lines.select(&:available?).flat_map { |line| line.source.kind_instance.how_to_earn.links }.uniq(&:first) : []
-          taken = records.filter_map { |record| record.dedupe_key.to_s[EVENT_KEY, 1] }.to_set
+          taken = own.filter_map { |record| record.dedupe_key.to_s[EVENT_KEY, 1] }.to_set
           chances = chances.reject { |_, target| taken.include?(event_id_of(target)) }
           [ upcoming.sort_by(&:date), done.sort_by(&:date).reverse, chances ]
+        end
+
+        # Whether the viewer sees a pooled item's group by name (spec §10.1:
+        # names show at the group level): admins, the person's leaders, and
+        # anyone in or related to the person's group through the pooling
+        # relationship. Others (a badge grant, a teammate) see the person's
+        # own records only.
+        def shows_group_records?(item, viewer, person)
+          return false if viewer.nil? || item.config["group_relationship_type_id"].blank?
+          return true if viewer.admin? || viewer.id == person.id
+
+          group_reach(item, viewer, [ person.id ]).include?(person.id) || AudienceLevels.led_people(viewer).exists?(id: person.id)
+        end
+
+        # Names of the people who earned records that aren't the person's
+        # own (a parent, a sibling), by id, for labelling them in Details.
+        def earned_by_others(records, person)
+          ids = records.map(&:worker).uniq - [ person.id ]
+          ids.empty? ? {} : Person.where(id: ids).to_h { |other| [ other.id, other.identifier_name ] }
         end
 
         # The event a place to earn credit is at: an Event, or a path whose

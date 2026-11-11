@@ -2,9 +2,10 @@ require "test_helper"
 require_relative "../support/checklists_count_world"
 
 # A count item's Details on a person's checklists: Upcoming (what they
-# are signed up for, not done yet), Done (their own confirmed credit
-# records) and Still open (where they can still earn credit), the same
-# through another checklist's line, and its Next fix where it can be done.
+# are signed up for, not done yet), Done (their confirmed credit records,
+# and their group's for a count owed together) and Still open (where they
+# can still earn credit), the same through another checklist's line, and
+# its Next fix where it can be done.
 class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include ChecklistsCountWorld
@@ -109,6 +110,32 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
       assert_select "##{ActionView::RecordIdentifier.dom_id(travel)} details p", text: "Nothing yet"
       assert_select "##{ActionView::RecordIdentifier.dom_id(travel)} details a[href=?]", event_path(@events.second), text: "Game 2"
     end
+  end
+
+  test "a count owed together lists the group's records under Done, naming who earned them, to people who see the group" do
+    pooled = add_count_item(@checklist, "Family shifts", { base_amount: 3, group_relationship_type_id: @parent_of.id })
+    pooled.commitment.commitment_sources.create!(kind: "test_shifts", subject: @outreach)
+    TestShiftSource.given_records = [
+      record(:organizer, :confirmed, Date.new(2026, 10, 7), "Parent's shift", @events.first),
+      record(:kid, :confirmed, Date.new(2026, 10, 5), "Kid's shift", @events.second)
+    ]
+
+    with_checklists do
+      refresh_all
+      sign_in person(:kid).user
+      get person_checklists_path(person(:kid))
+      assert_response :success
+
+      done = css_select("details [data-count-detail=done]").map { |list| list.css("li").map { |li| li.text.squish } }
+      assert_includes done, [ "Oct 7 · Parent's shift · by #{person(:organizer).identifier_name}", "Oct 5 · Kid's shift" ]
+    end
+
+    _, done, = Checklists::Kinds::Count.person_detail(pooled, person(:kid), viewer: person(:organizer))
+    assert_equal [ "Parent's shift", "Kid's shift" ], done.map(&:label), "the parent in the group sees it too"
+    _, done, = Checklists::Kinds::Count.person_detail(pooled, person(:kid), viewer: person(:member))
+    assert_equal [ "Kid's shift" ], done.map(&:label), "a teammate outside the group sees only the person's own"
+    _, done, = Checklists::Kinds::Count.person_detail(pooled, person(:kid))
+    assert_equal [ "Kid's shift" ], done.map(&:label)
   end
 
   test "the Next fix for a sign-up opens the sheet where it can be taken" do
