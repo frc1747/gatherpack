@@ -51,6 +51,10 @@
 
           <%= nav_link "Setup", setup_path, "cogs" %>
           <%= nav_link "Audit Log", audit_logs_path, "file-circle-check" %>
+          <%# The route exists only while oauth_provider was on at boot. %>
+          <% if GatherPack::Features.enabled?(:mcp) && respond_to?(:mcp_calls_path) %>
+            <%= nav_link "MCP Calls", mcp_calls_path, "robot" %>
+          <% end %>
         <% end %>
       </div>
 
