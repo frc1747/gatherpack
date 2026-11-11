@@ -23,7 +23,9 @@ Rails.application.routes.draw do
   resources :variables
 
   resources :teams do
-    resources :memberships
+    resources :memberships do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show update]
     member do
       get :badges if GatherPack::Features.enabled?(:badges)
@@ -37,7 +39,9 @@ Rails.application.routes.draw do
   resources :relationship_types
 
   resources :people do
-    resources :memberships, only: %i[index new create destroy]
+    resources :memberships, only: %i[index new create destroy] do
+      get "candidates", on: :collection
+    end
     resources :membership_applications, only: %i[index show create destroy]
     resources :relationships, only: %i[new create destroy] do
       member do
@@ -63,7 +67,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:badges)
     resources :badges do
-      resources :badge_assignments
+      resources :badge_assignments do
+        get "candidates", on: :collection
+      end
     end
     resources :badge_types
   end
@@ -74,7 +80,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:events)
     resources :events do
-      resources :checkins, except: %i[index]
+      resources :checkins, except: %i[index] do
+        get "candidates", on: :collection
+      end
       member do
         get "arrange"
         get "print"
