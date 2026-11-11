@@ -262,6 +262,23 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "another checklist's line is no to-do of its own when that checklist's rows are there" do
+    concessions = create_world_checklist("Concessions")
+    add_rule(concessions, :include, :person, person_id: person(:member).id)
+    add_item(concessions, :plain, "Shifts")
+    add_item(@checklist, :checklist, "Concessions", { checklist_id: concessions.id })
+    refresh(concessions)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_select "[data-home-column=todo] .mg-row", 1
+      assert_select "[data-home-column=todo] a[href='/forms']", text: "Fill out"
+      assert_select "[data-home-column=todo] a[href=?]", checklist_path(concessions), false
+    end
+  end
+
   test "a checklist with everything finished stays in Your Checklists" do
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
@@ -327,6 +344,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       refresh(@checklist)
       get root_path
       assert_select "[data-home-column=todo] .mg-row"
+      assert_select "[data-home-column=todo] a[href=?]", checklist_path(prereq), text: "Ask a leader"
     end
   end
 

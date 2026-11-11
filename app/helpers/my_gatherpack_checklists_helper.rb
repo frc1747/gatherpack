@@ -18,6 +18,8 @@ module MyGatherpackChecklistsHelper
       ward = my_gatherpack_ward_name(subject)
       status.explained.filter_map do |entry|
         next unless entry.full? && UNFINISHED.include?(entry.status)
+        # Another checklist's line repeats that checklist's own rows, fix included.
+        next if entry.item.kind == "checklist" && my_gatherpack_checklist_ids_for(subject).include?(entry.item.config["checklist_id"])
 
         action, path = my_gatherpack_checklist_fix(checklist, entry, subject, ward: ward)
         next unless action
@@ -137,7 +139,16 @@ module MyGatherpackChecklistsHelper
       [ label, person_checklists_path(subject) ]
     elsif fix["path"].present? && fix["path"].start_with?("/")
       [ fix["label"], fix["path"] ]
+    elsif fix["by"] == "leader" && checklist.organizer?(current_user.person)
+      # Something only a leader can do, for one: the checklist is where they act on it.
+      [ fix["label"], checklist_path(checklist) ]
     end
+  end
+
+  # The ids of the checklists the subject has rows on.
+  def my_gatherpack_checklist_ids_for(subject)
+    @my_gatherpack_checklist_ids_for ||= my_gatherpack_checklist_results.group_by(&:first).transform_values { |rows| rows.map { |row| row.second.id }.to_set }
+    @my_gatherpack_checklist_ids_for.fetch(subject, Set.new)
   end
 
   def my_gatherpack_checklist_due(checklist, entry)
