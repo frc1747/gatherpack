@@ -1,0 +1,20 @@
+<% signatures = submission.form_signatures.sort_by(&:signed_at) %>
+<% if signatures.any? %>
+  <ul class="list-unstyled small mb-0 mt-2">
+    <% signatures.each do |signature| %>
+      <li class="<%= "text-muted text-decoration-line-through" unless signature.standing? %>" id="<%= dom_id signature %>">
+        <%= i "signature" %>
+        <%= signature.form_question.label %>:
+        <% if signature.signed_as_leader? %>
+          paper form recorded by <%= signature.signer.identifier_name %>
+        <% else %>
+          signed by <%= signature.signer.identifier_name %><%= " (guardian)" if signature.signed_as_guardian? %>
+        <% end %>
+        on <%= nice_datetime(signature.signed_at) %>
+        <% unless signature.standing? %>
+          <span class="text-body">· revoked <%= nice_datetime(signature.revoked_at) %>: <%= signature.revoked_reason %></span>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+<% end %>
