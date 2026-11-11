@@ -305,6 +305,13 @@ module Checklists
         end
       end
 
+      # Whether this kind shows its details (summary, measures) to fewer
+      # viewers than may see its status, as attendance hours do. Another
+      # item must not carry such details where the kind can't limit them.
+      def limits_detail?
+        overrides?(:cap_levels) || overrides?(:visible_to?)
+      end
+
       private
 
       def overrides?(name)
