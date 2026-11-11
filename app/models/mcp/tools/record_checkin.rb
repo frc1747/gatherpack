@@ -14,7 +14,8 @@
 # doesn't check the person, but its form offers only those people ("people" search scope).
 class Mcp::Tools::RecordCheckin < Mcp::Tool
   tool_name "record_checkin"
-  description "Check a person in to an event. Locked events only take check-ins from admins and the team's managers. Returns the new check-in."
+  description "Check a person in to an event. Admins can check in anyone. The event team's managers can check in themselves and people they manage, locked events included. " \
+    "Anyone else can check in only themselves, and not on a locked event. Returns the new check-in."
   scope :write
   feature :events
   input_schema(

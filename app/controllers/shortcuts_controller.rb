@@ -33,7 +33,12 @@ class ShortcutsController < InternalController
 
   # PATCH/PUT /shortcuts/1
   def update
-    if @shortcut.update(shortcut_params)
+    # Authorize again once the new attributes are in place: set_shortcut only
+    # checked the shortcut's current team, not the one in the form.
+    @shortcut.assign_attributes(shortcut_params)
+    authorize @shortcut
+
+    if @shortcut.save
       redirect_to @shortcut, notice: "Shortcut was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

@@ -1,8 +1,8 @@
-class RelationshipsController < ApplicationController
+class RelationshipsController < InternalController
   before_action :set_person
 
   def new
-    @relationship = Relationship.new
+    @relationship = authorize Relationship.new(node_occupant: @person)
   end
 
   def create
@@ -10,8 +10,14 @@ class RelationshipsController < ApplicationController
     @relationship.created_by = current_user.person
     @relationship.node_occupant = @person
     @relationship.reify
+    # The other side comes from the form by id, so like the person in the
+    # URL it must be someone the user can see, or someone they are already
+    # related to (an adult giving a former guardian access again).
+    [ @relationship.parent_id, @relationship.child_id ].compact.each do |id|
+      policy_scope(Person).find_by(id: id) || related_people.find(id)
+    end
+    authorize @relationship
     if @relationship.parent.present? && @relationship.child.present?
-      authorize @relationship
       if @relationship.save
         redirect_to @person
       else
@@ -40,8 +46,15 @@ class RelationshipsController < ApplicationController
   end
 
   private
+  # People on either side of a relationship with the signed-in person.
+  def related_people
+    me = current_user.person
+    Person.where(id: Relationship.where(child_id: me.id).select(:parent_id))
+      .or(Person.where(id: Relationship.where(parent_id: me.id).select(:child_id)))
+  end
+
   def set_person
-    @person = Person.find(params[:person_id])
+    @person = policy_scope(Person).find(params[:person_id])
   end
 
   def relationship_params

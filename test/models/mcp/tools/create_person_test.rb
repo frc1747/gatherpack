@@ -146,18 +146,17 @@ class Mcp::Tools::CreatePersonTest < ActionDispatch::IntegrationTest
     assert_not_nil create_person(:admin, manager: false).value
   end
 
-  test "a team manager creates a person on their own team only" do
-    result = create_person(:alpha_manager, team_id: @alpha.neat_id, manager: true)
-    assert_equal @alpha.neat_id, result.value["teams"].first["id"]
-
+  test "a team manager can't, on any team: PersonPolicy#create? is for admins, and comes before the team lookup" do
+    assert_nothing_created("Not allowed") { create_person(:alpha_manager, team_id: @alpha.neat_id, manager: true) }
     assert_nothing_created("Not allowed") { create_person(:alpha_manager) }
-    assert_nothing_created("Not found") { create_person(:alpha_manager, team_id: @beta.neat_id) }
+    assert_nothing_created("Not allowed") { create_person(:alpha_manager, team_id: @beta.neat_id) }
+    assert_not page_changes_rows?(Person, as: user(:alpha_manager)) { post people_path, params: { person: { first_name: "A", last_name: "B" } } }
   end
 
-  test "a manager of a parent team creates on a sub-team" do
+  test "a manager of a parent team can't create on a sub-team either" do
     kid = create_world_team("Kid", parent: @alpha)
 
-    assert_not create_person(:alpha_manager, team_id: kid.neat_id).error?
+    assert_nothing_created("Not allowed") { create_person(:alpha_manager, team_id: kid.neat_id) }
   end
 
   test "a plain member and a guardian can't, even on a team open to any account" do
@@ -165,9 +164,9 @@ class Mcp::Tools::CreatePersonTest < ActionDispatch::IntegrationTest
 
     assert_nothing_created("Not allowed") { create_person(:beta_member) }
     assert_nothing_created("Not allowed") { create_person(:beta_member, team_id: @beta.neat_id) }
-    assert_nothing_created("Not found") { create_person(:beta_member, team_id: @alpha.neat_id) }
+    assert_nothing_created("Not allowed") { create_person(:beta_member, team_id: @alpha.neat_id) }
     assert_nothing_created("Not allowed") { create_person(:guardian) }
-    assert_nothing_created("Not found") { create_person(:guardian, team_id: @alpha.neat_id) }
+    assert_nothing_created("Not allowed") { create_person(:guardian, team_id: @alpha.neat_id) }
   end
 
   test "bad IDs and types are refused" do
