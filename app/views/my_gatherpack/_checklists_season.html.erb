@@ -18,7 +18,7 @@
             <%# A measured item shows its count and a bar; a yes/no item shows its status as a pill. %>
             <div class="mg-season-item">
               <div class="d-flex justify-content-between align-items-center gap-2">
-                <%= link_to item.item.label, path, class: "link-body-emphasis text-decoration-none" %>
+                <%= link_to item.item.label, my_gatherpack_season_item_path(entry, item, path), class: "link-body-emphasis text-decoration-none" %>
                 <% if percent %>
                   <span class="text-body-secondary flex-shrink-0"><%= my_gatherpack_season_count(item) %></span>
                 <% else %>

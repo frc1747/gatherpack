@@ -35,7 +35,7 @@ module MyGatherpackChecklistsHelper
   # Each checklist the viewer can see items on, for Your season: everything on
   # it, unfinished first, so finished work shows too.
   def my_gatherpack_season_entries
-    my_gatherpack_checklist_results.filter_map do |subject, checklist, status|
+    entries = my_gatherpack_checklist_results.filter_map do |subject, checklist, status|
       items = status.explained.select(&:full?)
       next if items.empty?
 
@@ -43,14 +43,28 @@ module MyGatherpackChecklistsHelper
       SeasonEntry.new(checklist: checklist, subject: subject, ward: my_gatherpack_ward_name(subject),
         done: counted.count(&:met?), total: counted.size, items: items)
     end
+    my_gatherpack_without_repeats(entries)
   end
 
-  # "3 of 5" for a count item (one whose result carries confirmed and owed).
+  # "3 of 5" for an item that measures progress (its result carries confirmed
+  # and owed), with " h" when the kind measures hours.
   def my_gatherpack_season_count(entry)
     measures = entry.measures || {}
     return unless measures["confirmed"] && measures["owed"]
 
-    "#{number_with_precision(measures["confirmed"], precision: 2, strip_insignificant_zeros: true)} of #{number_with_precision(measures["owed"], precision: 2, strip_insignificant_zeros: true)}"
+    hours = Array(entry.item.kind_class&.measures).any? { |measure| measure.key.to_s == "owed" && measure.type == :hours }
+    number = ->(value) { number_with_precision(value, precision: 2, strip_insignificant_zeros: true) }
+    "#{number.(measures["confirmed"])} of #{number.(measures["owed"])}#{" h" if hours}"
+  end
+
+  # Where a Your season line links: an item that is another checklist goes
+  # to that checklist (for the viewer's own row), anything else to the row's
+  # own page.
+  def my_gatherpack_season_item_path(entry, item, row_path)
+    return row_path if entry.ward || item.item.kind != "checklist"
+
+    other = my_gatherpack_season_others[item.item.config["checklist_id"]]
+    other ? checklist_path(other) : row_path
   end
 
   # How far along a measured item is, for its bar: nil for an item without a
@@ -64,6 +78,26 @@ module MyGatherpackChecklistsHelper
   end
 
   private
+
+  # Leaves out a one-item checklist that another of the same person's
+  # checklists already shows as a line ("Another checklist" item): that line
+  # says the same, numbers included. A checklist with several items keeps
+  # its own card, since the line can't show them.
+  def my_gatherpack_without_repeats(entries)
+    shown = entries.each_with_object(Hash.new { |hash, key| hash[key] = Set.new }) do |entry, ids|
+      entry.items.each { |item| ids[entry.subject.id] << item.item.config["checklist_id"] if item.item.kind == "checklist" }
+    end
+    entries.reject { |entry| entry.items.one? && shown[entry.subject.id].include?(entry.checklist.id) }
+  end
+
+  # The checklists Your season lines point to, by id, in one query.
+  def my_gatherpack_season_others
+    @my_gatherpack_season_others ||= begin
+      ids = my_gatherpack_checklist_results.flat_map { |_, _, status| status.explained.map(&:item) }
+        .select { |item| item.kind == "checklist" }.map { |item| item.config["checklist_id"] }.compact.uniq
+      Checklist.where(id: ids).index_by(&:id)
+    end
+  end
 
   # What a ward is called on a row: nil for the viewer themselves, otherwise
   # a name that is never blank, since the row's wording depends on it.

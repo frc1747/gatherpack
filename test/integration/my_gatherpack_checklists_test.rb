@@ -14,6 +14,18 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # A counting item measured in hours, like attendance.
+  class Hours < Checklists::ItemKind
+    def self.measures
+      [ Checklists::ItemKind::Measure.new(key: :confirmed, label: "Hours toward the minimum", type: :hours),
+        Checklists::ItemKind::Measure.new(key: :owed, label: "Hours needed", type: :hours) ]
+    end
+
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("Below", measures: { "confirmed" => 2.5, "owed" => 4.0 }) }
+    end
+  end
+
   # A fix anyone can use: a plain link.
   class Plain < Checklists::ItemKind
     def evaluate(person_ids)
@@ -29,6 +41,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.register_item_kind(:fix_link, ChecklistsTestKinds::FixLink)
     Checklists.register_item_kind(:shifts, Shifts)
     Checklists.register_item_kind(:plain, Plain)
+    Checklists.register_item_kind(:hours, Hours)
     build_checklists_world
     @checklist = create_world_checklist("Trip")
     add_rule(@checklist, :include, :person, person_id: person(:member).id)
@@ -42,6 +55,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.unregister_item_kind(:fix_link)
     Checklists.unregister_item_kind(:shifts)
     Checklists.unregister_item_kind(:plain)
+    Checklists.unregister_item_kind(:hours)
     MyGatherpack.sections.replace(@original_sections)
     MyGatherpack::Menu.table = @original_table
     MyGatherpack::Menu.manager_checks.replace(@original_checks)
@@ -207,6 +221,43 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       assert_equal "Complete", login.css(".badge").text.strip
       assert_empty login.css(".progress"), "a yes/no item has nothing to measure"
       assert_no_match "100%", css_select("[data-home-section=checklists-season]").text
+    end
+  end
+
+  test "an item measured in hours reads confirmed of owed h" do
+    add_item(@checklist, :hours, "Attendance")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "2.5 of 4 h"
+      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 62%']"
+    end
+  end
+
+  test "a one-item checklist another checklist already shows as a line has no card of its own" do
+    concessions = create_world_checklist("Concessions")
+    add_rule(concessions, :include, :person, person_id: person(:member).id)
+    add_item(concessions, :shifts, "Concessions")
+    workshops = create_world_checklist("Workshops")
+    add_rule(workshops, :include, :person, person_id: person(:member).id)
+    add_item(workshops, :shifts, "Build")
+    add_item(workshops, :has_login, "Login")
+    add_item(@checklist, :checklist, "Concessions", { checklist_id: concessions.id })
+    add_item(@checklist, :checklist, "Workshops", { checklist_id: workshops.id })
+    [ concessions, workshops, @checklist ].each { |checklist| refresh(checklist) }
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      titles = css_select("[data-home-section=checklists-season] .mg-row-title a").map { |link| link.text.strip }
+      assert_includes titles, "Trip"
+      assert_not_includes titles, "Concessions", "the Trip line says it all"
+      assert_includes titles, "Workshops", "two items can't fit on one line"
+      assert_select "[data-home-section=checklists-season] .mg-season-item a[href=?]", checklist_path(concessions), text: "Concessions"
     end
   end
 
