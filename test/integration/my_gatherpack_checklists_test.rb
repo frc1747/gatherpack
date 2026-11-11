@@ -203,7 +203,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
 
       assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Shifts"
       assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "1 of 3"
-      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 33%']"
+      assert_select "[data-home-section=checklists-season] .progress-bar.bg-danger[style*='width: 33%']", true, "a shortfall shows in the not-met pill color"
     end
   end
 
