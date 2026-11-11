@@ -79,6 +79,8 @@ FORCE_SSL=true    # redirect http -> https, mark cookies secure, send HSTS
 ASSUME_SSL=true   # trust that the proxy already terminated TLS
 ```
 
+Have the proxy compress responses (gzip or brotli) too: the app does not, and the Font Awesome script is about 1.5 MB uncompressed.
+
 Setting `FORCE_SSL` without `ASSUME_SSL` produces a redirect loop. Setting
 either one while the app is genuinely served over plain HTTP breaks sign-in,
 because the session cookie is marked secure and never comes back. Both default
