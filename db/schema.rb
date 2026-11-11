@@ -1463,6 +1463,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.string "session_token", default: -> { "(gen_random_uuid())::text" }, null: false
     t.boolean "kiosk", default: false, null: false
     t.datetime "intake_login_verified_at"
+    t.string "color_mode"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
