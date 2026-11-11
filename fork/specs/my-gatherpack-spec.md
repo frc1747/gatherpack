@@ -61,7 +61,7 @@ Before building, watch three or four members and a guardian do the §1 tasks on 
 | `feature/my-gatherpack` | `feature/view-overrides` + `feature/nav-item-visible` + `feature/sidebar-slots` | Flag, override folder, section registry, menu, home, family page, phone screens that are upstream-only |
 | `feature/my-gatherpack-forms` | `feature/my-gatherpack` + `feature/forms` | Forms sections and the phone form |
 | `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups section and the phone sheet |
-| `feature/my-gatherpack-checklists` | `feature/my-gatherpack` + `feature/checklists` | To-do items, Your season and the family page rows, from checklists |
+| `feature/my-gatherpack-checklists` | `feature/my-gatherpack` + `feature/checklists` | To-do items, Your Checklists and the family page rows, from checklists |
 | `feature/my-gatherpack-orders` | `feature/my-gatherpack` + `feature/orders` | Planned, waits for Orders. To do rows, Your orders and menu placements ([`orders-spec.md`](orders-spec.md) §3.15) |
 | Small `feature/*` branches | `upstream/main` | One per cleanup item (§8), each with its own backlog entry |
 
@@ -150,7 +150,7 @@ Matches the mockups in the pitch.
 | Status | "Clocked in since 4:32 PM", shown only when clocked in | `time_clock_punches.still_clocked_in`, `:time_tracking` enabled |
 | To do | Forms due, checklist items the viewer can fix, waiting on you as a leader | `forms_to_complete`, `leader_todos`, `Checklists.checklist_for` |
 | Coming up | Own sign-ups and events, soonest first, next 5 | `SignupsSummary#signups`, `policy_scope(Event)` |
-| Your season | Each checklist with all its items, unfinished first, with a progress bar. A count item shows `confirmed of owed`; a finished item shows a full bar and 100%; an excused item says so | `SignupsSummary#checklists` |
+| Your Checklists | Each checklist with all its items, unfinished first. Only an item that measures progress (its result carries `confirmed` and `owed`) shows `confirmed of owed` (" h" when its kind measures hours) and a bar; every other item shows its status word as a pill, including one that doesn't apply (e.g. Rookie). A one-item checklist that another of the person's checklists already shows as a line is left out, and that line links to it | `SignupsSummary#checklists` |
 | Latest | Announcements | `@announcements` |
 | Below | Shortcuts, ledgers, as today (no calendar: Coming up links to the full one) | Existing partials and markup |
 
