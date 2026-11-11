@@ -9,6 +9,7 @@ module Checklists
   #   self.apply_copy_dates(item, config, dates)  # the copied config with the new dates in place
   #   self.form_partial             # a partial for a form section of its own (a table of rows)
   #   self.form_params              # what that section posts under config, as permit arguments
+  #   self.detail_partial           # a partial for a person's Details on their checklists page
   #   self.normalize_form(params)   # the config the section's params give
   #   self.visible_to?(item, viewer, person)  # a cap on who sees a person's result (default true)
   #   self.authorable_by?(item, author)       # whether this author may set the item up so (default true)
@@ -252,6 +253,15 @@ module Checklists
         nil
       end
 
+      # A kind that shows a person's details in its own way names a partial
+      # here. On a person's checklists it fills the item's Details in place
+      # of the detail lines, for rows the viewer sees in full, with locals
+      # entry (the ItemStatus), person and viewer. When it renders nothing,
+      # the detail lines show as usual.
+      def detail_partial
+        nil
+      end
+
       # What the form section posts under config, as arguments to permit:
       # [{ rules: [:name, :share] }] for rows of rules.
       def form_params
@@ -303,6 +313,13 @@ module Checklists
           found = model_name.constantize.where(id: ids).ids
           (ids - found).map { "A #{model_name.underscore.humanize(capitalize: false)} this item uses was deleted" }
         end
+      end
+
+      # Whether this kind shows its details (summary, measures) to fewer
+      # viewers than may see its status, as attendance hours do. Another
+      # item must not carry such details where the kind can't limit them.
+      def limits_detail?
+        overrides?(:cap_levels) || overrides?(:visible_to?)
       end
 
       private

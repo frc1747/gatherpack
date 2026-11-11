@@ -14,6 +14,17 @@ module ChecklistsHelper
     [ (measures["confirmed"].to_f * 100 / measures["owed"].to_f).floor, 100 ].min
   end
 
+  # "3 of 5" for a measured item (confirmed of owed), with " h" when its
+  # kind measures hours; nil for an item without a count.
+  def checklist_item_count(entry)
+    measures = entry.measures || {}
+    return unless measures["confirmed"] && measures["owed"]
+
+    hours = Array(entry.item.kind_class&.measures).any? { |measure| measure.key.to_s == "owed" && measure.type == :hours }
+    number = ->(value) { number_with_precision(value, precision: 2, strip_insignificant_zeros: true) }
+    "#{number.(measures["confirmed"])} of #{number.(measures["owed"])}#{" h" if hours}"
+  end
+
   def checklist_status_class(status)
     STATUS_CLASSES.fetch(status.to_s, "text-bg-light")
   end
@@ -32,13 +43,18 @@ module ChecklistsHelper
   # leader can do). A fix may carry a requirement, { "record" => a global
   # id, "query" => a policy question such as "update?" }: the link shows
   # only when the viewer's policy answers yes, else the label as text.
+  # A pointer to what only a leader can do ("Ask a leader") shows only to
+  # the checklist's organizers, who can act on it.
   def checklist_fix(checklist, entry, person_id)
     fix = entry.fix
     return if fix.blank? || entry.met? || entry.exempt?
+    return if checklist_leader_pointer?(fix) && !checklist.organizer?(current_user&.person)
     return tag.span(fix["label"], class: "text-body-secondary") unless checklist_fix_allowed?(fix["requires"])
 
     if fix["action"] == "attest"
-      # A group ("any of") shows its child's fix, with that child's item_id.
+      # A group ("any of") shows its child's fix, with that child's item_id;
+      # another checklist's line, the counted item's, with its checklist_id.
+      checklist = Checklist.find_by(id: fix["checklist_id"]) || checklist if fix["checklist_id"]
       item = (fix["item_id"] && checklist.checklist_items.find_by(id: fix["item_id"])) || entry.item
       attestation = ChecklistAttestation.new(person_id: person_id)
       attestation.item = item
@@ -52,6 +68,29 @@ module ChecklistsHelper
     else
       tag.span(fix["label"], class: "text-body-secondary")
     end
+  end
+
+  # Something only a leader can do, with nothing to open or confirm.
+  def checklist_leader_pointer?(fix)
+    fix["by"] == "leader" && fix["requires"].blank? && fix["path"].blank? && fix["action"] != "attest"
+  end
+
+  # Whether the viewer may open target, a record or a path to a record's
+  # page ("/signup_sheets/ss_..#evt_.."): its policy's show?. A path that
+  # names no record isn't offered.
+  def checklist_link_allowed?(target)
+    record = target
+    if target.is_a?(String)
+      return false unless target.start_with?("/")
+
+      params = Rails.application.routes.recognize_path(target.split(/[?#]/).first)
+      return false unless params[:action] == "show" && params[:id].present?
+
+      record = NeatIds.find(params[:id])
+    end
+    record.is_a?(ActiveRecord::Base) && policy(record).show?
+  rescue ActionController::RoutingError, ActiveRecord::RecordNotFound, NeatIds::Error, Pundit::NotDefinedError
+    false
   end
 
   def checklist_fix_allowed?(requires)

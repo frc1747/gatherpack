@@ -22,6 +22,8 @@
         </div>
       </div>
       <% measure_filters = report.measure_filters %>
+      <%# How many people have each status in a column, across every section, for the filter lists. %>
+      <% column_counts = ->(item) { report.statuses.values.filter_map { |row| item ? row.item(item.id)&.status : row.overall&.status }.tally } %>
       <details class="mb-2 no-print small">
         <summary>Number filters</summary>
         <div class="row g-2 mt-1">
@@ -53,10 +55,12 @@
                         <i class="fa-solid fa-filter"></i>
                       </button>
                       <div class="dropdown-menu p-2 small">
+                        <% counts_here = column_counts.(item) %>
                         <% order.each do |status| %>
+                          <% next unless counts_here[status] %>
                           <label class="d-block text-nowrap">
                             <input type="checkbox" value="<%= status %>" data-column="<%= index %>" data-checklist-report-target="tick" data-action="checklist-report#filter">
-                            <%= (item || report.checklist).word_for(status) %>
+                            <%= (item || report.checklist).word_for(status) %> <span class="text-body-secondary">(<%= counts_here[status] %>)</span>
                           </label>
                         <% end %>
                       </div>
@@ -72,25 +76,21 @@
                     <%= link_to report.name(status.person_id), person_checklists_path(status.person_id) %>
                   </td>
                   <% overall = status.overall %>
-                  <td data-value="<%= overall ? order.index(overall.status) : 9 %>" data-status="<%= overall&.status %>" data-measures="<%= overall&.measures.to_h.to_json %>">
-                    <% if overall %>
-                      <%= checklist_status_badge(overall) %>
-                      <% if overall.summary.present? %><div class="small"><%= overall.summary %></div><% end %>
-                    <% end %>
+                  <td data-value="<%= overall ? order.index(overall.status) : 9 %>" data-status="<%= overall&.status %>" data-measures="<%= overall&.measures.to_h.to_json %>" title="<%= overall&.summary.presence %>">
+                    <%= checklist_status_badge(overall) if overall %>
                   </td>
                   <% report.columns.each do |item| %>
                     <% entry = status.item(item.id) %>
-                    <td data-value="<%= entry ? order.index(entry.status) : 9 %>" data-status="<%= entry&.status %>" data-measures="<%= entry&.measures.to_h.to_json %>">
+                    <td data-value="<%= entry ? order.index(entry.status) : 9 %>" data-status="<%= entry&.status %>" data-measures="<%= entry&.measures.to_h.to_json %>" title="<%= entry.summary.presence if entry&.full? %>">
                       <% if entry %>
                         <%= checklist_status_badge(entry) %>
-                        <% if entry.full? && entry.summary.present? && entry.summary != entry.text %><div class="small"><%= entry.summary %></div><% end %>
                         <% if entry.excuse && entry.excuse["by"] %>
                           <div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %><%= ": #{entry.excuse["reason"]}" if entry.excuse["reason"] %></div>
                           <% if entry.excuse["id"] && !checklist.archived? %>
-                            <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-inline" %>
+                            <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-block" %>
                           <% end %>
-                        <% elsif !entry.met? && !checklist.archived? && report.excusable?(status.person_id) %>
-                          <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: status.person_id), class: "small no-print" %>
+                        <% elsif (entry.not_met? || entry.pending?) && !checklist.archived? && report.excusable?(status.person_id) %>
+                          <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: status.person_id), class: "d-block small no-print" %>
                         <% end %>
                       <% end %>
                     </td>
