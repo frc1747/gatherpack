@@ -27,14 +27,26 @@ module Checklists
       end
     end
 
+    # Whether the overall gets a column: when the viewer sees it for anyone,
+    # like an item's column.
+    def overall?
+      @overall = statuses.values.any?(&:overall) if @overall.nil?
+      @overall
+    end
+
+    # The table index of the first item column, after Name (and Overall).
+    def first_item_index
+      overall? ? 2 : 1
+    end
+
     # [[column index, key, label]] for the number filters: the overall's
     # items to do, then each column's measures. Owner-only measures are left
     # out, since most rows wouldn't carry them.
     def measure_filters
-      filters = [ [ 1, "unmet", "Overall: items to do" ] ]
+      filters = overall? ? [ [ 1, "unmet", "Overall: items to do" ] ] : []
       columns.each_with_index do |item, index|
         Array(item.kind_class&.measures).reject(&:owner_only).each do |measure|
-          filters << [ index + 2, measure.key.to_s, "#{item.label}: #{measure.label}" ]
+          filters << [ index + first_item_index, measure.key.to_s, "#{item.label}: #{measure.label}" ]
         end
       end
       filters
