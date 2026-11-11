@@ -1041,6 +1041,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
     t.index ["team_id"], name: "index_person_fields_on_team_id"
   end
 
+  create_table "push_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.string "enabled_topics", default: [], null: false, array: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_push_preferences_on_user_id", unique: true
+  end
+
+  create_table "push_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.text "endpoint", null: false
+    t.string "p256dh", null: false
+    t.string "auth", null: false
+    t.string "device_label"
+    t.datetime "last_sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["endpoint"], name: "index_push_subscriptions_on_endpoint", unique: true
+    t.index ["user_id"], name: "index_push_subscriptions_on_user_id"
+  end
+
   create_table "questions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "closed", default: false, null: false
     t.text "content", null: false
@@ -1626,6 +1647,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
   add_foreign_key "person_field_values", "person_fields"
   add_foreign_key "person_fields", "person_field_groups"
   add_foreign_key "person_fields", "teams"
+  add_foreign_key "push_preferences", "users", on_delete: :cascade
+  add_foreign_key "push_subscriptions", "users", on_delete: :cascade
   add_foreign_key "questions", "people"
   add_foreign_key "questions", "teams"
   add_foreign_key "relationships", "people", column: "child_id"
