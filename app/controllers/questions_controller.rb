@@ -4,7 +4,7 @@ class QuestionsController < InternalController
   def index
     params[:q] ||= {}
     params[:q][:closed_eq] ||= "0" unless params[:q].key?(:closed_eq)
-    @q = policy_scope(Question).ransack(params[:q])
+    @q = policy_scope(Question).ransack(params[:q], auth_object: current_user)
     @q.sorts = "created_at desc" if @q.sorts.empty?
     @questions = @q.result(distinct: true).includes(:team, :person, :replies).page(params[:page])
   end
@@ -35,7 +35,13 @@ class QuestionsController < InternalController
   end
 
   def update
-    if @question.update(question_params)
+    # Authorize again once the new attributes are in place, and check a new
+    # team as if the question were being asked there.
+    @question.assign_attributes(question_params)
+    authorize @question
+    authorize @question, :create? if @question.team_id_changed?
+
+    if @question.save
       redirect_to @question, notice: "Question was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -62,7 +68,10 @@ class QuestionsController < InternalController
   def move
     authorize @question, :move?
     team = Team.find(params[:team_id])
-    @question.update!(team: team)
+    @question.team = team
+    # move? checks the question's team, so ask again for the team it's going to.
+    authorize @question, :move?
+    @question.save!
     redirect_to @question, notice: "Question moved to #{team.name}.", status: :see_other
   end
 

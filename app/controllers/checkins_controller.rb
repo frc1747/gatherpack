@@ -44,7 +44,10 @@ class CheckinsController < InternalController
   # PATCH/PUT /checkins/1
   def update
     @checkin.created_by = current_user.person
-    if @checkin.update(checkin_params)
+    @checkin.assign_attributes(checkin_params)
+    # Moving a check-in to someone else checks that person in.
+    authorize @checkin, :create? if @checkin.person_id_changed?
+    if @checkin.save
       redirect_to [ @event, @checkin ], notice: "Checkin was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -63,7 +66,8 @@ class CheckinsController < InternalController
       .joins(:checkin)
       .where(checkins: { event_id: @event.id }, checkin_field_id: @event.event_type.checkin_fields.select(:id))
       .find(params[:field_id])
-    authorize @checkin_field_response.checkin, :update?
+    @checkin_field_response.checkin.created_by = current_user.person
+    authorize @checkin_field_response, :update?
     if @checkin_field_response.update(response: params[:response])
       respond_to do |res|
         res.json do
@@ -92,6 +96,15 @@ class CheckinsController < InternalController
   end
 
   private
+    # field_update and rename_response are called with fetch, which sends a
+    # JSON body with no Accept header and would follow a redirect and report
+    # success.
+    def pundit_not_authorized
+      return head :forbidden if request.format.json? || request.media_type == "application/json"
+
+      super
+    end
+
     # Use callbacks to share common setup or constraints between actions.
     def set_checkin
       @checkin = authorize policy_scope(@event.checkins).find(params[:id])

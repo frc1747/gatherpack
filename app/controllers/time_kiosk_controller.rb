@@ -1,12 +1,20 @@
-class TimeKioskController < ApplicationController
+class TimeKioskController < InternalController
   layout "kiosk"
-  before_action :require_kiosk_user
+  rescue_from Pundit::NotAuthorizedError, with: :refuse_kiosk
+  # The kiosk acts for the person whose card is scanned, not the signed-in
+  # user, so it has no scope of its own; who may run it is up to
+  # TimeKioskPolicy.
+  before_action -> { skip_policy_scope; authorize :time_kiosk, :use? }
   TOOLS = %w[ find_token punch_in punch_out punch_out_period punch_out_all ].freeze
   PUNCH_TOOLS = TOOLS - %w[ find_token ]
   TEST_STORE = ActiveSupport::Cache::MemoryStore.new
   rate_limit to: 60, within: 1.minute, by: -> { current_user.id }, with: -> { show_welcome("Too many scans. Wait a minute and try again.") },
     store: Rails.env.test? ? TEST_STORE : Rails.cache, if: -> { params.dig(:time_kiosk, :tool) == "find_token" }
-  before_action -> { show_welcome }, if: -> { PUNCH_TOOLS.include?(params.dig(:time_kiosk, :tool)) && !request.post? }
+  before_action -> { show_welcome }, if: -> { PUNCH_TOOLS.include?(params.dig(:time_kiosk, :tool)) && !(request.post? || request.patch?) }
+
+  def kiosk_page?
+    true
+  end
 
   def index
     @time_kiosk = TimeKiosk.new(time_kiosk_params)
@@ -70,7 +78,9 @@ class TimeKioskController < ApplicationController
 
     if @time_kiosk.tool == "punch_out_period"
       user = @time_kiosk.signed_person.user
-      if @time_kiosk.time_clock_period && user && Pundit.policy(user, @time_kiosk.time_clock_period).edit?
+      if @time_kiosk.time_clock_period && !(user && Pundit.policy(user, @time_kiosk.time_clock_period).punch_out?)
+        flash.now[:warning] = "You can't clock out this period."
+      elsif @time_kiosk.time_clock_period
         period = @time_kiosk.time_clock_period
         current_time = Time.current
         max_time = period&.end_time&.end_of_day || current_time
@@ -87,7 +97,9 @@ class TimeKioskController < ApplicationController
 
     if @time_kiosk.tool == "punch_out_all"
       current_time = Time.current
-      periods = @time_kiosk.signed_person.user ? @time_kiosk.signed_person_managed_periods : []
+      user = @time_kiosk.signed_person.user
+      periods = user ? @time_kiosk.signed_person_managed_periods.select { |period| Pundit.policy(user, period).punch_out? } : []
+      flash.now[:warning] = "You can't clock out these periods." if periods.empty?
       count = 0
       periods.each do |period|
         max_time = period&.end_time&.end_of_day || current_time
@@ -132,10 +144,9 @@ class TimeKioskController < ApplicationController
     params.require(:time_kiosk).permit(:tool, :token_value, :time_clock_period_id, :time_clock_punch_id, :person_ref) if params[:time_kiosk]
   end
 
-  def require_kiosk_user
-    team = TimeKiosk::Config.users_team
-    return if team.nil? || current_user.admin || current_user.person&.teams&.exists?(id: team.id)
-
-    redirect_to root_path, alert: "The time kiosk is for kiosk accounts only."
+  # An account that may not run the kiosk is told so rather than sent back
+  # to a page that would bring it here again.
+  def refuse_kiosk
+    render :refused, status: :forbidden, formats: :html
   end
 end

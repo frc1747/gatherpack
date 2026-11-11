@@ -1,16 +1,16 @@
-class ThemeController < ApplicationController
+class ThemeController < InternalController
   before_action :check_for_admin
 
   def show
-    @theme = Theme.instance
+    @theme = authorize Theme.instance
   end
 
   def edit
-    @theme = Theme.instance
+    @theme = authorize Theme.instance
   end
 
   def update
-    @theme = Theme.instance
+    @theme = authorize Theme.instance
 
     if params[:theme][:remove_logo] == "1"
       @theme.logo.purge

@@ -141,7 +141,10 @@ class Mcp::Tools::UpdatePunchTest < ActionDispatch::IntegrationTest
   end
 
   test "a period's permission and rules come back, and nothing changes" do
-    assert_unchanged(@punch) { assert_match(/\ANot allowed: Time clock period does not meet/, update(:alpha_manager, @punch, period_id: @alpha_period.neat_id).error) }
+    assert_unchanged(@punch) { assert_equal "Not allowed", update(:alpha_manager, @punch, period_id: @alpha_period.neat_id).error }
+    assert_nil update(:alpha_manager, @punch, period_id: @other_period.neat_id).error
+    assert_equal @other_period, @punch.reload.time_clock_period
+    assert_nil update(:alpha_manager, @punch, period_id: @manager_period.neat_id).error
     assert_unchanged(@punch) { assert_equal "Not found", update(:alpha_manager, @punch, period_id: @beta_period.neat_id).error }
     assert_unchanged(@punch) { assert_match(/not a member of the team/, update(:admin, @punch, period_id: @beta_period.neat_id).error) }
     assert_unchanged(@punch) { assert_match(/cannot end before start time/, update(:admin, @punch, ends_at: "2026-03-09T00:00:00").error) }

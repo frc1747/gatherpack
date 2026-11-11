@@ -9,6 +9,9 @@ class BudgetsController < InternalController
 
   # GET /budgets/1
   def show
+    # The budget only counts its own team's entries, which everyone who may
+    # see it may open; list them through the scope anyway.
+    @ledger_entries = @budget.ledger_entries.where(id: policy_scope(LedgerEntry))
   end
 
   # GET /budgets/new
@@ -33,6 +36,12 @@ class BudgetsController < InternalController
 
   # PATCH/PUT /budgets/1
   def update
+    # set_budget checked it as stored; check it in its new period too, so it
+    # can't be moved somewhere the user doesn't manage. Only the period is
+    # assigned first: assigning ledger_tag_ids saves the taggings at once.
+    @budget.assign_attributes(budget_params.slice(:budget_period_id))
+    authorize @budget
+
     if @budget.update(budget_params)
       redirect_to @budget, notice: "Budget was successfully updated.", status: :see_other
     else
