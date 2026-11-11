@@ -13,9 +13,17 @@ class CheckinField < ApplicationRecord
   validate :person_field_fixed, on: :update
 
   after_create :create_checkin_field_responses
+  # A field's answers go with it, each removed through its own callbacks so
+  # the audit log keeps them. The delete confirmation says how many.
+  before_destroy :destroy_checkin_field_responses
 
   def self.ransackable_attributes(auth_object = nil)
     [ "name", "permission", "updated_at" ]
+  end
+
+  # Responses with an answer filled in (every check-in gets a blank one).
+  def answer_count
+    checkin_field_responses.where.not(response: [ nil, "" ]).count
   end
 
   def identifier_name
@@ -61,5 +69,9 @@ class CheckinField < ApplicationRecord
         checkin.refresh_fields
       end
     end
+  end
+
+  def destroy_checkin_field_responses
+    checkin_field_responses.destroy_all
   end
 end
