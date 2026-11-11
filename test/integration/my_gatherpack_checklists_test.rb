@@ -220,6 +220,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       login = css_select("[data-home-section=checklists-season] .mg-season-item").find { |item| item.text.include?("Login") }
       assert_equal "Complete", login.css(".badge").text.strip
       assert_empty login.css(".progress"), "a yes/no item has nothing to measure"
+      assert_select "[data-home-section=checklists-season] .mg-row-detail", false, "the pill says it all: no status sentence under an item"
       assert_no_match "100%", css_select("[data-home-section=checklists-season]").text
     end
   end
