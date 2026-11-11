@@ -84,8 +84,11 @@
         <%= button_to "Delete", form_path(@form), method: :delete, class: "btn btn-danger", form_class: "d-inline", data: { turbo_confirm: "Delete this form? It has no submitted responses." } %>
       <% end %>
     <% end %>
+    <% if manage && GatherPack::Features.enabled?(:forms_auto_reminders) && (due = @form.auto_reminder_at) %>
+      <div class="form-text mt-2">An automatic reminder goes out <%= due.in_time_zone(Settings[:time_zone].presence || "UTC").strftime("%B %-d") %> to people who haven't answered<%= ", or as soon as the form opens if that date has passed" if @form.draft? %>.</div>
+    <% end %>
     <% if (last = @form.form_reminders.order(:sent_at).last) %>
-      <div class="form-text mt-2">Last reminder: <%= nice_datetime(last.sent_at) %> to <%= pluralize(last.recipient_count, "person", plural: "people") %><%= form_reminder_guardian_note(last) %><%= " by #{last.sent_by.identifier_name}" if last.sent_by %>.</div>
+      <div class="form-text mt-2">Last reminder: <%= nice_datetime(last.sent_at) %> to <%= pluralize(last.recipient_count, "person", plural: "people") %><%= form_reminder_guardian_note(last) %><%= form_reminder_sent_by_note(last) %>.</div>
     <% end %>
   </div>
 </div>
