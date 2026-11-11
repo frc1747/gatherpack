@@ -1,0 +1,5 @@
+<% content_for :title, "Registration" %>
+<h1 class="h3">Registration has closed.</h1>
+<% if (successor = @registration&.successor) && successor.not_yet_open? %>
+  <p>The next one opens on <%= l(successor.opens_at.to_date, format: :long) %>.</p>
+<% end %>
