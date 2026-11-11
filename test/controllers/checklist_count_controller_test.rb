@@ -177,7 +177,7 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a person's page shows the count with a bar and keeps the breakdown in Details" do
+  test "a person's page shows the count with a bar, and what was done in Details" do
     sign_in person(:member).user
     with_checklists do
       Checklists::Refresher.new(@checklist.reload, silent: true).call
@@ -186,7 +186,8 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select ".list-group-item .progress-bar"
       assert_select ".list-group-item details summary", text: "Details"
-      assert_select ".list-group-item details li", minimum: 2
+      assert_select ".list-group-item details div.fw-semibold", text: "Done"
+      assert_no_match "to go.", response.body, "no tally sentences"
     end
   end
 end

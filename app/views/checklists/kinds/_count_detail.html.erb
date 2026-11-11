@@ -1,0 +1,25 @@
+<%# A count item's Details for one person: what they have done and where they can still earn credit, linking only what the viewer may open. %>
+<% records, chances = Checklists::Kinds::Count.person_detail(entry.item, person) %>
+<% chances = chances.select { |_, target| checklist_link_allowed?(target) }.first(5) %>
+<div class="mt-1">
+  <div class="fw-semibold">Done</div>
+  <% if records.any? %>
+    <ul class="mb-1 ps-3">
+      <% records.each do |record| %>
+        <li>
+          <%= record.date.strftime("%b %-d") %> · <%= checklist_link_allowed?(record.link) ? link_to(record.label, record.link) : record.label %><%= " · signed up" unless record.confirmed? %>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p class="mb-1">Nothing yet</p>
+  <% end %>
+  <% if chances.any? %>
+    <div class="fw-semibold">Still open</div>
+    <ul class="mb-0 ps-3">
+      <% chances.each do |label, target| %>
+        <li><%= link_to label, target %></li>
+      <% end %>
+    </ul>
+  <% end %>
+</div>

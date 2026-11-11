@@ -183,16 +183,19 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a nested checklist's fix links to it" do
+  test "a nested checklist's line carries its item's own fix, confirming on that checklist" do
     other = create_checklist("Safety", @club)
-    add_item(other, :attested, "Waiver", { statement: "Waiver signed", attested_by: "manager" })
+    waiver = add_item(other, :attested, "Waiver", { statement: "Waiver signed", attested_by: "person" })
     add_item(@checklist, :checklist, "Safety done", { checklist_id: other.id })
+    Checklists::Refresher.new(other.reload, silent: true).call
     Checklists::Refresher.new(@checklist.reload, silent: true).call
     require_checklist
     sign_in person(:student).user
 
     get signup_sheet_path(@sheet)
-    assert_select "#checklist_signup_panel a[href=?]", checklist_path(other), text: "See Safety"
+    assert_select "#checklist_signup_panel form[action=?] button", checklist_checklist_attestations_path(other, item_id: waiver.id, person_id: person(:student).id),
+      text: "I confirm"
+    assert_select "#checklist_signup_panel a[href=?]", checklist_path(other), false, "never the checklist's report"
   end
 
   test "once the person finishes, the panel goes and they can sign up" do

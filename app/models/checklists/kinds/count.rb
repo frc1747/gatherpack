@@ -229,6 +229,25 @@ module Checklists
           end
         end
 
+        def detail_partial = "checklists/kinds/count_detail"
+
+        # What person has done toward the item and where they can still earn
+        # credit, for their Details: [records, chances]. records are their
+        # own credit records, newest first (never another pooled group
+        # member's: a result shows only what is about its own person);
+        # chances are [label, target] pairs from the sources' how_to_earn,
+        # while credit is still owed. Empty when they don't owe.
+        def person_detail(item, person)
+          commitment = commitment_for(item, as_of: Context.new(item.checklist).as_of)
+          progress = commitment.progress(Person.where(id: person.id))[person.id]
+          return [ [], [] ] unless progress
+
+          records = progress.lines.flat_map(&:records).select { |record| record.person_id == person.id }.sort_by(&:date).reverse
+          open = !progress.met? && progress.remaining.positive?
+          chances = open ? progress.lines.select(&:available?).flat_map { |line| line.source.kind_instance.how_to_earn.links } : []
+          [ records, chances ]
+        end
+
         # Marks the checklists whose count items have a source of a kind
         # watching this notification (sign-ups, say).
         def source_changed(name)
