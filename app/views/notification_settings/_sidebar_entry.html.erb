@@ -1,0 +1,3 @@
+<div data-controller="push-sync" data-push-sync-url-value="<%= sync_push_subscription_path %>" data-push-sync-user-value="<%= current_user.neat_id %>">
+  <%= nav_link "Notifications", notifications_path, "bell" if local_assigns.fetch(:show_link, true) %>
+</div>
