@@ -30,5 +30,11 @@
       </li>
     <% end %>
 
+    <% feature_profile_tabs(@person).each do |tab| %>
+      <% tab_path = instance_exec(@person, &tab.path) %>
+      <li class="nav-item">
+        <a href="<%= tab_path %>" class="nav-link <%= "active" if current_page?(tab_path) %>"><%= tab.label %></a>
+      </li>
+    <% end %>
   </ul>
 </div>
