@@ -16,12 +16,14 @@
     <div class="card-body">
       <% if @response.needs_reconfirmation? && based_on&.active? %>
         <div class="alert alert-warning">
-          <% if @response.reconfirmation_reason == :form %>
+          <% if @response.reconfirmation_reason == :expired %>
+            This has expired. Please review the answers and sign again.
+          <% elsif @response.reconfirmation_reason == :form %>
             This form changed after it was signed. Please review the answers and submit them again.
           <% else %>
             Profile details this form recorded have changed since it was signed (<%= @response.profile_changes.map(&:label).to_sentence %>). Please review and submit again.
           <% end %>
-          <%= "It will need signing again." if @form.signature_questions.any? %>
+          <%= "It will need signing again." if @form.signature_questions.any? && @response.reconfirmation_reason != :expired %>
         </div>
       <% end %>
       <% if @submission.pending? %>
