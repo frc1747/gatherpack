@@ -1,0 +1,4 @@
+<%# Another checklist's line: when it passes its one counted item's counts through, that item's Details. %>
+<% inner = Checklists::Kinds::Checklist.inner_entry(entry.item, person, viewer) %>
+<% inner_partial = inner&.full? && inner.item.kind_class&.detail_partial %>
+<%= render inner_partial, entry: inner, person: person, viewer: viewer if inner_partial %>
