@@ -39,6 +39,8 @@
       <% applications.select { |application| application.denied? && application.reviewer_notes.present? }.each do |application| %>
         <p class="text-muted small mt-2"><%= application.team.name %>: <%= application.reviewer_notes %></p>
       <% end %>
+      <%= render "intake/me/checklist", registration: @registration, person: person, self_view: person == @person,
+        status: intake_registration_checklist_statuses(@registration, @people)[person.id] %>
 
       <% if person.birthday.nil? %>
         <%= form_with url: intake_me_person_path(@registration.slug, person), method: :patch, scope: :person, class: "mt-3" do |f| %>
