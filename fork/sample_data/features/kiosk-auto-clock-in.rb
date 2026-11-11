@@ -1,6 +1,6 @@
 # Kiosk cases: one period and two periods, already clocked in, a missed
 # clock-out, clocked out earlier today, and a plain account for the kiosk
-# screen. The three kiosk settings stay at their defaults; the README says
+# screen. The four kiosk settings stay at their defaults; the README says
 # which to change to try auto clock-in.
 Hbr::SampleData.people "Kiosk Account"
 

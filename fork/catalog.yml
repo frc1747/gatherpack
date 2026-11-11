@@ -125,8 +125,12 @@ feature/kiosk-auto-clock-in:
     period applies to them, send the kiosk back to the welcome screen after a
     few seconds, and choose a team whose members may open the kiosk. When a
     scan can clock people in, the button reads Clock In. An unrecognized card
-    shows "Card not recognized" on the welcome screen. With the default
-    settings the kiosk otherwise works as before.
+    shows "Card not recognized" on the welcome screen. After a clock-in or
+    clock-out the welcome screen briefly confirms who was clocked in or out
+    (or how many, for a manager's clock-out). On a touch screen with a card
+    scanner, an optional setting sends stray taps back to the Token box so
+    the next scan isn't lost. With the default settings the kiosk otherwise
+    works as before.
   audience: People clocking in at the kiosk; admins set it up
   settings:
     - name: "Kiosk: Allow Unassigned Punches"
@@ -138,6 +142,9 @@ feature/kiosk-auto-clock-in:
     - name: "Kiosk: Who Can Open the Kiosk"
       key: time_kiosk_users_team
       default: blank (anyone signed in)
+    - name: "Kiosk: Keep the Token Box Ready"
+      key: time_kiosk_keep_focus
+      default: "off"
 
 feature/extension-registries:
   title: Features can add their own settings and hook events
