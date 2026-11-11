@@ -1,0 +1,4 @@
+<% chosen = Array(value) %>
+<% forms = policy_scope(Form).visible.or(Form.where(id: chosen)).order(:title) %>
+<%= label_tag field_id, setting.label, class: "form-label" %>
+<%= select_tag "#{name}[]", options_for_select(forms.pluck(:title, :id), chosen), multiple: true, id: field_id, class: "form-select", size: 6 %>
