@@ -1,0 +1,16 @@
+<% breadcrumb @commitment %>
+
+<%= simple_form_for([ @commitment, @source ]) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Add <%= @source.kind_class.label.downcase %> to <%= @commitment.title %></h1>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", edit_commitment_path(@commitment, anchor: "sources"), class: "btn btn-warning" %>
+    <%= f.button :submit, "Add source", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
