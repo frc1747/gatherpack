@@ -3,7 +3,7 @@ class PeopleController < InternalController
 
   # GET /people
   def index
-    @q = policy_scope(Person).ransack(params[:q])
+    @q = policy_scope(Person).ransack(params[:q], auth_object: current_user)
     @q.sorts = "last_name asc" if @q.sorts.empty?
     @people = @q.result(distinct: true).order(last_name: :asc, first_name: :asc).page(params[:page])
   end
