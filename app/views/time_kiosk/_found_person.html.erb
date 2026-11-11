@@ -11,7 +11,7 @@
         <h3 class="display-3"><%= @person.identifier_name %></h3>
         <% if @person.manager? && @person.user %>
           <div class="toolbox justify-content-around">
-            <%= tool_modal_button "triangle-exclamation", "Manager", "btn-info", "managerModal" %>
+            <%= tool_modal_button "triangle-exclamation", "Manager", "btn-info", "managerModal" if @time_kiosk.managed_periods.any? %>
           </div>
 
         <div class="modal modal-xl fade" id="managerModal" tabindex="-1" aria-labelledby="managerModalLabel" aria-hidden="true" data-controller="modal-form" data-modal-form-target="modal">
