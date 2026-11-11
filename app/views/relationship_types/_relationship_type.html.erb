@@ -1,6 +1,6 @@
 <div class="card" id="<%= dom_id relationship_type %>">
   <div class="card-header">
-    <%= link_to relationship_type.identifier_name, relationship_type, 'data-turbo': false %>
+    <%= link_to relationship_type.identifier_name, relationship_type, data: { turbo_frame: "_top" } %>
     <% if relationship_type.guardianship? %>
       <span class="badge text-bg-info" title="<%= RelationshipType::GUARDIANSHIP_LABELS[relationship_type.guardianship] %>">Guardian</span>
     <% end %>
