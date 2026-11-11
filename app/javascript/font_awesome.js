@@ -11,6 +11,8 @@ const iconsQuery = `
 }
 `
 
+// The one Font Awesome call that is still external: the icon picker (admin only)
+// searches the icon list through api.fontawesome.com. The icons themselves are local.
 async function sendQuery(query) {
     return await (await fetch("https://api.fontawesome.com", {
         method: "POST",
