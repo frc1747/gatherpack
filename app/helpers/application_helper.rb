@@ -57,6 +57,8 @@ module ApplicationHelper
     case type
     when "notice"
       bootstrap_type = "info"
+    when "alert"
+      bootstrap_type = "danger"
     else
       bootstrap_type = type
     end
@@ -68,7 +70,7 @@ module ApplicationHelper
     case type
     when "success"
       bootstrap_icon = "circle-check"
-    when "warning", "danger"
+    when "warning", "danger", "alert"
       bootstrap_icon = "triangle-exclamation"
     else
       bootstrap_icon = "circle-info"
