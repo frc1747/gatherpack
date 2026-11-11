@@ -13,6 +13,10 @@ class TimeKiosk::Config
       [ read(:time_kiosk_return_seconds).to_i, 0 ].max
     end
 
+    def keep_focus?
+      read(:time_kiosk_keep_focus).to_s == "true"
+    end
+
     def users_team
       id = read(:time_kiosk_users_team).presence
       Team.find_by(id: id) if id

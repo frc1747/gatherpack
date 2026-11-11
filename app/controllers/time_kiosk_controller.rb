@@ -58,6 +58,7 @@ class TimeKioskController < InternalController
         flash.now[:warning] = "Choose a time period."
       elsif period && !TimeClockPunch.exists?(person: person, time_clock_period: period, end_time: nil)
         TimeClockPunch.create(person: person, start_time: Time.current, time_clock_period: period, created_by: "kiosk")
+        flash.now[:success] = "#{person.identifier_name} clocked in to #{period.name}."
       end
       @time_kiosk.tool = "welcome"
     end
@@ -70,6 +71,7 @@ class TimeKioskController < InternalController
         end_time = current_time > max_time ? max_time: current_time
 
         punch.update(end_time: end_time, created_by: "kiosk")
+        flash.now[:success] = "#{@time_kiosk.signed_person.identifier_name} clocked out."
       end
       @time_kiosk.tool = "welcome"
     end
@@ -84,9 +86,11 @@ class TimeKioskController < InternalController
         max_time = period&.end_time&.end_of_day || current_time
         end_time = current_time > max_time ? max_time: current_time
 
-        period.open_punches.each do |punch|
+        punches = period.open_punches.to_a
+        punches.each do |punch|
           punch.update(end_time: end_time, created_by: "kiosk")
         end
+        flash.now[:success] = "#{clocked_out(punches.size)} from #{period.name}."
       end
       @time_kiosk.tool = "welcome"
     end
@@ -96,13 +100,16 @@ class TimeKioskController < InternalController
       user = @time_kiosk.signed_person.user
       periods = user ? @time_kiosk.signed_person_managed_periods.select { |period| Pundit.policy(user, period).punch_out? } : []
       flash.now[:warning] = "You can't clock out these periods." if periods.empty?
+      count = 0
       periods.each do |period|
         max_time = period&.end_time&.end_of_day || current_time
         end_time = current_time > max_time ? max_time: current_time
         period.open_punches.each do |punch|
           punch.update(end_time: end_time, created_by: "kiosk")
+          count += 1
         end
       end
+      flash.now[:success] = "#{clocked_out(count)}." if periods.any?
       @time_kiosk.tool = "welcome"
     end
 
@@ -116,6 +123,10 @@ class TimeKioskController < InternalController
       format.turbo_stream { render turbo_stream: turbo_stream.replace("kiosk-content", partial: "time_kiosk/kiosk") }
       format.html { render :index }
     end
+  end
+
+  def clocked_out(count)
+    "Clocked out #{helpers.pluralize(count, "person", plural: "people")}"
   end
 
   def card_not_recognized
