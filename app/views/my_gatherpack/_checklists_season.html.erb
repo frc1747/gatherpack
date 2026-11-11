@@ -1,8 +1,8 @@
-<%# Your season: each checklist with all its items, finished ones included. Renders nothing when there are none. %>
+<%# Your Checklists: each checklist with all its items, finished ones included. Renders nothing when there are none. %>
 <% entries = my_gatherpack_season_entries %>
 <% if entries.any? %>
   <section class="mg-section" data-home-section="checklists-season">
-    <h2 class="mg-heading">Your season</h2>
+    <h2 class="mg-heading">Your Checklists</h2>
     <div class="card mg-list">
       <% entries.each do |entry| %>
         <% path = entry.ward ? person_checklists_path(entry.subject) : checklist_path(entry.checklist) %>

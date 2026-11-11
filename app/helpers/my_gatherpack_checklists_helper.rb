@@ -32,7 +32,7 @@ module MyGatherpackChecklistsHelper
     end
   end
 
-  # Each checklist the viewer can see items on, for Your season: everything on
+  # Each checklist the viewer can see items on, for Your Checklists: everything on
   # it, unfinished first, so finished work shows too.
   def my_gatherpack_season_entries
     entries = my_gatherpack_checklist_results.filter_map do |subject, checklist, status|
@@ -57,7 +57,7 @@ module MyGatherpackChecklistsHelper
     "#{number.(measures["confirmed"])} of #{number.(measures["owed"])}#{" h" if hours}"
   end
 
-  # Where a Your season line links: an item that is another checklist goes
+  # Where a Your Checklists line links: an item that is another checklist goes
   # to that checklist (for the viewer's own row), anything else to the row's
   # own page.
   def my_gatherpack_season_item_path(entry, item, row_path)
@@ -90,7 +90,7 @@ module MyGatherpackChecklistsHelper
     entries.reject { |entry| entry.items.one? && shown[entry.subject.id].include?(entry.checklist.id) }
   end
 
-  # The checklists Your season lines point to, by id, in one query.
+  # The checklists Your Checklists lines point to, by id, in one query.
   def my_gatherpack_season_others
     @my_gatherpack_season_others ||= begin
       ids = my_gatherpack_checklist_results.flat_map { |_, _, status| status.explained.map(&:item) }

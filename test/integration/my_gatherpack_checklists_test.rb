@@ -2,7 +2,7 @@ require "test_helper"
 require_relative "../support/checklists_world"
 require_relative "../support/checklists_test_kinds"
 
-# Checklists on the home page and menu: to-do rows, Your season and Manage.
+# Checklists on the home page and menu: to-do rows, Your Checklists and Manage.
 class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include ChecklistsWorld
@@ -82,7 +82,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
       assert_select "h1", text: "Hi Member. You have 1 thing to do."
-      assert_select "[data-home-section=checklists-season]"
+      assert_select "[data-home-section=checklists-season] h2", text: "Your Checklists"
 
       badge_item.destroy
       refresh(@checklist)
@@ -192,7 +192,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "your season shows a progress bar, and a count item reads confirmed of owed" do
+  test "Your Checklists shows a progress bar, and a count item reads confirmed of owed" do
     add_item(@checklist, :shifts, "Shifts")
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
@@ -207,7 +207,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "your season shows a finished yes/no item as a status pill, not a bar or a percentage" do
+  test "Your Checklists shows a finished yes/no item as a status pill, not a bar or a percentage" do
     add_item(@checklist, :shifts, "Shifts")
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
@@ -261,7 +261,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a checklist with everything finished stays in your season" do
+  test "a checklist with everything finished stays in Your Checklists" do
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
 
@@ -274,7 +274,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "an ended checklist is no to-do and not in your season" do
+  test "an ended checklist is no to-do and not in Your Checklists" do
     ended = create_world_checklist("Last season", ends_on: 1.week.ago.to_date)
     add_rule(ended, :include, :person, person_id: person(:member).id)
     add_item(ended, :plain, "Old form")
