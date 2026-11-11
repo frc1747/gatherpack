@@ -1,5 +1,6 @@
-<%# One person's results on one checklist, unmet first, with what to do. %>
-<div class="card mb-3">
+<%# One person's results on one checklist, unmet first, with what to do. person is optional (found from status). %>
+<% person = local_assigns[:person] || Person.find(status.person_id) %>
+<div class="card mb-3" id="<%= dom_id(checklist) %>">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span><%= link_to checklist.title, checklist %></span>
     <%= checklist_status_badge(status.overall) if status.overall %>
@@ -22,7 +23,15 @@
                   <div class="progress-bar <%= checklist_status_class(entry.status).sub("text-bg-", "bg-") %>" style="width: <%= percent %>%"></div>
                 </div>
               <% end %>
-              <% if percent ? detail_lines.any? : detail_lines.many? %>
+              <%# A kind may show the Details its own way (ItemKind.detail_partial); when it shows nothing, the detail lines do. %>
+              <% detail_partial = entry.item.kind_class&.detail_partial %>
+              <% own_detail = detail_partial ? render(detail_partial, entry: entry, person: person, viewer: current_user.person) : "" %>
+              <% if own_detail.strip.present? %>
+                <details class="small text-body-secondary">
+                  <summary>Details</summary>
+                  <%= own_detail %>
+                </details>
+              <% elsif percent ? detail_lines.any? : detail_lines.many? %>
                 <details class="small text-body-secondary">
                   <summary>Details</summary>
                   <ul class="mb-0 mt-1 ps-3">

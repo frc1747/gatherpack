@@ -9,6 +9,7 @@ module Checklists
   #   self.apply_copy_dates(item, config, dates)  # the copied config with the new dates in place
   #   self.form_partial             # a partial for a form section of its own (a table of rows)
   #   self.form_params              # what that section posts under config, as permit arguments
+  #   self.detail_partial           # a partial for a person's Details on their checklists page
   #   self.normalize_form(params)   # the config the section's params give
   #   self.visible_to?(item, viewer, person)  # a cap on who sees a person's result (default true)
   #   self.authorable_by?(item, author)       # whether this author may set the item up so (default true)
@@ -249,6 +250,15 @@ module Checklists
       # settings, with locals f (the item form), item, checklist and
       # field_name (the param prefix for its fields, "checklist_item[config]").
       def form_partial
+        nil
+      end
+
+      # A kind that shows a person's details in its own way names a partial
+      # here. On a person's checklists it fills the item's Details in place
+      # of the detail lines, for rows the viewer sees in full, with locals
+      # entry (the ItemStatus), person and viewer. When it renders nothing,
+      # the detail lines show as usual.
+      def detail_partial
         nil
       end
 

@@ -214,6 +214,21 @@ module ChecklistsTestKinds
     end
   end
 
+  # Progress with a next step to take and Details of its own
+  # (detail_partial, from the test views).
+  class Shifts < Progress
+    VIEWS = Rows::VIEWS
+
+    def self.detail_partial = "checklists/test_shifts_detail"
+
+    def evaluate(person_ids)
+      super.transform_values do |result|
+        result.fix = { "label" => "Next: Stocking", "path" => "/shifts/next", "by" => "person" } unless result.status == "met"
+        result
+      end
+    end
+  end
+
   # Progress whose numbers only the person and admins may see.
   class PrivateProgress < Progress
     def self.visible_to?(_item, viewer, person)

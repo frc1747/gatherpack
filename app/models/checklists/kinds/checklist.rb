@@ -42,6 +42,22 @@ module Checklists
           "Finishes #{referenced_records(item, "checklist_id").first&.title || "another checklist"}"
         end
 
+        # The other checklist's one counted item, as viewer sees it on person's
+        # results, when this item passes its counts through (see
+        # passes_progress?); else nil. Its kind's detail_partial fills this
+        # item's Details too.
+        def inner_entry(item, person, viewer)
+          other = referenced_records(item, "checklist_id").first
+          return if other.nil?
+
+          counted = other.top_level_items.select(&:counts?)
+          return unless counted.one? && counted.first.kind_class.present? && !counted.first.kind_class.limits_detail?
+
+          Checklists.status_for(other, [ person ], viewer: viewer)[person.id]&.item(counted.first.id)
+        end
+
+        def detail_partial = "checklists/kinds/checklist_detail"
+
         # The other checklist's overall comes from all its counting items;
         # for a viewer an item there hides from someone, this item is capped
         # for that person too, so it can't carry the hidden answer over.
@@ -63,15 +79,19 @@ module Checklists
         rows = reader.rows(person_ids)
         counting = reader.items.select(&:counts?).map(&:id)
         pass_progress = passes_progress?(reader)
+        people = pass_progress ? {} : ::Person.where(id: person_ids).index_by(&:id)
 
         person_ids.index_with do |person_id|
           status = rows.dig(person_id, nil)&.status
           next Result.exempt(item.exempt_label.presence || "Not on #{other.title}") if status.nil?
 
-          fix = { "label" => "See #{other.title}", "path" => "/checklists/#{other.to_param}",
-            "by" => who_acts(rows[person_id].values_at(*counting).compact) }.compact
-          Result.new(status: status, summary: "#{other.title}: #{other.word_for(status)}", fix: status == "met" ? nil : fix,
-            measures: pass_progress ? progress(rows[person_id].values_at(*counting)) : {})
+          counted_rows = rows[person_id].values_at(*counting)
+          fix = if status == "met" then nil
+          elsif pass_progress then inner_fix(other, reader.items.find(&:counts?), counted_rows.first)
+          else card_fix(other, people[person_id], counted_rows.compact)
+          end
+          Result.new(status: status, summary: "#{other.title}: #{other.word_for(status)}", fix: fix,
+            measures: pass_progress ? progress(counted_rows) : {})
         end
       end
 
@@ -85,6 +105,26 @@ module Checklists
       def passes_progress?(reader)
         counted = reader.items.select(&:counts?)
         counted.one? && counted.first.kind_class.present? && !counted.first.kind_class.limits_detail?
+      end
+
+      # The counted item's own fix ("Next: ..."), so the line leads where
+      # that item would. A confirm names its item and checklist, since it
+      # posts there.
+      def inner_fix(other, counted, row)
+        fix = row&.fix
+        return if fix.blank?
+        return fix unless fix["action"] == "attest"
+
+        fix.merge("item_id" => fix["item_id"] || counted.id, "checklist_id" => other.id)
+      end
+
+      # A link to the other checklist's card on the person's own checklists
+      # page, which says what is left there.
+      def card_fix(other, person, counted_rows)
+        return if person.nil?
+
+        path = Rails.application.routes.url_helpers.person_checklists_path(person, anchor: ActionView::RecordIdentifier.dom_id(other))
+        { "label" => "See #{other.title}", "path" => path, "by" => who_acts(counted_rows) }.compact
       end
 
       def progress(counted_rows)

@@ -177,7 +177,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       get person_checklists_path(person(:kid))
       assert_response :success
       assert_match "Trip", response.body
-      assert_match "Ask a leader", response.body
+      assert_no_match "Ask a leader", response.body, "only a leader can act on it"
 
       sign_in person(:parent).user
       get person_checklists_path(person(:kid))
