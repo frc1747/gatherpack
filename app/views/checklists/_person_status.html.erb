@@ -17,7 +17,8 @@
               <% if percent %>
                 <div><%= entry.summary %></div>
                 <div class="progress mt-1 mb-2" style="height: .5rem" role="progressbar" aria-label="<%= entry.item.label %>" aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
-                  <div class="progress-bar" style="width: <%= percent %>%"></div>
+                  <%# The bar takes its status's pill color, so a shortfall shows red or yellow. %>
+                  <div class="progress-bar <%= checklist_status_class(entry.status).sub("text-bg-", "bg-") %>" style="width: <%= percent %>%"></div>
                 </div>
               <% elsif detail_lines.one? || detail_lines.empty? %>
                 <div class="small"><%= entry.detail.presence || entry.summary %></div>

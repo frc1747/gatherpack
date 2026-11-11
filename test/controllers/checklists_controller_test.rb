@@ -83,6 +83,20 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a measured item's bar on a person's checklists takes its status's pill color" do
+    Checklists.register_item_kind(:progress, ChecklistsTestKinds::Progress)
+    add_item(@checklist, :progress, "Hours", { confirmed: "1", owed: "3" })
+    refresh(@checklist)
+    with_feature do
+      sign_in person(:admin).user
+      get person_checklists_path(person(:member))
+      assert_response :success
+      assert_select ".progress-bar.bg-danger[style*='width: 33%']", true, "a shortfall is red, like its Not Started pill"
+    end
+  ensure
+    Checklists.unregister_item_kind(:progress)
+  end
+
   test "a member sees only themselves" do
     with_feature do
       sign_in person(:member).user
