@@ -10,16 +10,19 @@ class EventTypeTest < ActiveSupport::TestCase
     end
   end
 
-  test "a type whose check-in fields have responses is not destroyed" do
+  test "a type with no events whose check-in fields kept answers is destroyed with them" do
     event_type = event_types(:one)
     # Moving the event away (skipping callbacks) leaves its checkin's response on the old type's field.
     events(:one).update_column(:event_type_id, event_types(:two).id)
     assert event_type.events.empty?
-    assert CheckinFieldResponse.exists?(checkin_field: checkin_fields(:one))
+    response = checkin_field_responses(:one)
+    assert_equal checkin_fields(:one), response.checkin_field
+    assert_equal 1, event_type.checkin_answer_count
 
-    assert_no_difference [ "EventType.count", "CheckinField.count", "CheckinFieldResponse.count" ] do
-      assert_not event_type.destroy
+    assert_difference "AuditLog.where(item_type: 'CheckinFieldResponse', event: 'destroy').count", 1 do
+      event_type.destroy!
     end
-    assert_includes event_type.errors.full_messages, "Cannot delete an event type whose check-in fields have responses"
+    assert_not CheckinField.exists?(checkin_fields(:one).id)
+    assert_not CheckinFieldResponse.exists?(response.id)
   end
 end

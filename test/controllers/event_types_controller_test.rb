@@ -21,16 +21,17 @@ class EventTypesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to event_types_url
   end
 
-  test "an event type whose check-in fields have responses is refused with a message" do
+  test "an event type with no events says how many kept answers its delete removes, and removes them" do
     event_type = event_types(:one)
     events(:one).update_column(:event_type_id, event_types(:two).id)
 
-    assert_no_difference [ "EventType.count", "CheckinField.count", "CheckinFieldResponse.count" ] do
+    get event_type_url(event_type)
+    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Are you sure? This also deletes 1 check-in answer."
+
+    assert_difference [ "EventType.count", "CheckinField.count", "CheckinFieldResponse.count" ], -1 do
       delete event_type_url(event_type)
     end
-
-    assert_redirected_to event_type_url(event_type)
-    assert_equal "Cannot delete an event type whose check-in fields have responses", flash[:alert]
+    assert_redirected_to event_types_url
   end
 
   test "an event type with events is not deleted" do

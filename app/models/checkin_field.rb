@@ -2,7 +2,9 @@ class CheckinField < ApplicationRecord
   has_neat_id :ckf
   has_paper_trail versions: { class_name: "AuditLog" }
   belongs_to :event_type
-  has_many :checkin_field_responses
+  # A field's answers go with it, each removed through its own callbacks so
+  # the audit log keeps them. The delete confirmation says how many.
+  has_many :checkin_field_responses, dependent: :destroy
   enum :permission, added_by_admin: 0, added_by_manager: 1, added_by_team_member: 2, added_by_participant: 3, added_by_user: 4
 
   validates :name, presence: true
@@ -15,6 +17,11 @@ class CheckinField < ApplicationRecord
 
   def identifier_name
     "#{event_type.name} / #{name}"
+  end
+
+  # Responses with an answer filled in (every check-in gets a blank one).
+  def answer_count
+    checkin_field_responses.where.not(response: [ nil, "" ]).count
   end
 
   private
