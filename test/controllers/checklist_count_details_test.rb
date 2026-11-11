@@ -49,7 +49,8 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
       record(:member, :planned, Date.new(2026, 11, 20), "Stocking: Game 9", @draft_sheet),
       record(:member2, :confirmed, Date.new(2026, 10, 6), "Someone else's shift", @events.first)
     ]
-    TestShiftSource.given_links = [ [ "Hidden sheet", signup_sheet_path(@draft_sheet) ] ] + @events.map { |event| [ event.name, event ] }
+    TestShiftSource.given_links = [ [ "Hidden sheet", signup_sheet_path(@draft_sheet) ] ] + @events.map { |event| [ event.name, event ] } +
+      [ [ "Game 1", signup_sheet_path(@draft_sheet) ] ]
 
     with_checklists do
       refresh_all
