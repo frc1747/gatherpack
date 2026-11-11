@@ -89,7 +89,7 @@ The test is whether an organizer can rebuild today's Eligibility Report (about 7
 | Overall | Any counting item `not_met` → not met; else any `pending` → pending; else met. `exempt` is ignored. |
 | Excuse | A manager's or admin's reasoned exception for one person on an item or one meeting (§7). |
 | Adjustment | Credit given or taken on a count item, with a reason (§7). |
-| Grant | Lets holders of a badge, or members of a team, see a checklist's overall and chosen items for everyone it covers (§10.2). |
+| Grant | Lets holders of a badge, or members of a team, see a checklist's chosen items, and its overall if chosen, for everyone it covers (§10.2). |
 | Attestation | A recorded "this is done" by the person, a guardian, or a manager (§6.7). |
 | Window | The checklist's dates. An item's dates default to it and can be overridden. |
 
@@ -343,7 +343,7 @@ Guardian parts show only to a viewer who is a guardian (a ward's block, "Fix it 
 
 ### 10.2 Grants
 
-`checklist_grants`: `checklist_id`, `badge_id` or `team_id`, `item_ids` (empty = overall only), `access` (`status`, `full`). Holders of the badge, or members of the team (and below), see the overall plus the listed items for everyone the checklist covers. Only admin-assigned badges can grant (`form_badge_grant.rb:15`, `:33`), so nobody grants themselves access. Managers of a granted team can widen it, the trust the Page extends today. This is the whole of the three viewer tiers in §14.5.
+`checklist_grants`: `checklist_id`, `badge_id` or `team_id`, `item_ids`, `overall` (default on), `access` (`status`, `full`). Holders of the badge, or members of the team (and below), see the listed items for everyone the checklist covers, and the overall when `overall` is on. The overall is picked like an item: a grant can show items without it, so a viewer can see the parts without a combined answer that leaves out an item hidden from them. A grant shows the overall or at least one item. The report shows the Overall column only when the viewer sees the overall for someone, as with item columns. Those who run the checklist (admins, managers of its team or a team above, organizers) see everything whatever the grants say. Only admin-assigned badges can grant (`form_badge_grant.rb:15`, `:33`), so nobody grants themselves access. Managers of a granted team can widen it, the trust the Page extends today. This is the whole of the three viewer tiers in §14.5.
 
 ### 10.3 Using a checklist as a test in other features
 
