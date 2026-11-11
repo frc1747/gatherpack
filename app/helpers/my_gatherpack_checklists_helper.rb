@@ -53,19 +53,12 @@ module MyGatherpackChecklistsHelper
     "#{number_with_precision(measures["confirmed"], precision: 2, strip_insignificant_zeros: true)} of #{number_with_precision(measures["owed"], precision: 2, strip_insignificant_zeros: true)}"
   end
 
-  # What the right of a row says: the count, or for an item without one, that
-  # it's finished or why it doesn't apply.
-  def my_gatherpack_season_status(entry)
-    my_gatherpack_season_count(entry) || ("100%" if entry.met?) || (entry.text if entry.exempt?)
-  end
-
-  # How far along an item is, for its bar: full once met, and otherwise nil for
-  # an item without a count.
+  # How far along a measured item is, for its bar: nil for an item without a
+  # count (a yes/no item), which shows a status pill instead. Full once met.
   def my_gatherpack_season_percent(entry)
-    return 100 if entry.met?
-
     measures = entry.measures || {}
     return unless measures["confirmed"] && measures["owed"].to_f.positive?
+    return 100 if entry.met?
 
     [ (measures["confirmed"].to_f * 100 / measures["owed"].to_f).floor, 100 ].min
   end

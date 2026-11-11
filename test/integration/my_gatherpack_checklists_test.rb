@@ -193,7 +193,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "your season shows finished items complete, beside what's left" do
+  test "your season shows a finished yes/no item as a status pill, not a bar or a percentage" do
     add_item(@checklist, :shifts, "Shifts")
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
@@ -203,8 +203,10 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       get root_path
 
       assert_equal %w[Shifts Login], css_select("[data-home-section=checklists-season] .mg-season-item a").map { |link| link.text.strip }
-      assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "100%"
-      assert_select "[data-home-section=checklists-season] .progress-bar.bg-success[style*='width: 100%']", 1
+      login = css_select("[data-home-section=checklists-season] .mg-season-item").find { |item| item.text.include?("Login") }
+      assert_equal "Complete", login.css(".badge").text.strip
+      assert_empty login.css(".progress"), "a yes/no item has nothing to measure"
+      assert_no_match "100%", css_select("[data-home-section=checklists-season]").text
     end
   end
 
