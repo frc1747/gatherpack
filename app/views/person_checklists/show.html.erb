@@ -1,0 +1,13 @@
+<%= render "people/show_shared" %>
+
+<div class="card">
+  <div class="card-header"><h1>Checklists</h1></div>
+  <div class="card-body">
+    <% if @checklists.empty? %>
+      <p class="text-body-secondary mb-0">No checklists to show for <%= @person.display_name %>.</p>
+    <% end %>
+    <% @checklists.each do |checklist, status| %>
+      <%= render "checklists/person_status", checklist: checklist, status: status, person: @person %>
+    <% end %>
+  </div>
+</div>

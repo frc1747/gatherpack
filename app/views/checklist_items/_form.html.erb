@@ -1,0 +1,78 @@
+<% kind = item.kind_class %>
+<div class="row" data-controller="checklist-preview" data-checklist-preview-url-value="<%= preview_checklist_checklist_items_path(checklist, id: item.persisted? ? item.id : nil) %>">
+  <div class="col-lg-8">
+    <%= simple_form_for [ checklist, item ], url: item.new_record? ? checklist_checklist_items_path(checklist) : checklist_checklist_item_path(checklist, item),
+      data: { checklist_preview_target: "form" } do |f| %>
+      <%= f.error_notification %>
+      <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+      <% if defined?(impact) && impact&.any? %>
+        <div class="alert alert-warning">
+          <p class="fw-semibold mb-1">Saving this changes people's results:</p>
+          <ul class="mb-2"><% impact.sentences.each do |sentence| %><li><%= sentence %></li><% end %></ul>
+          <%= hidden_field_tag :confirmed, "1" %>
+          <%= f.submit "Save anyway", class: "btn btn-warning btn-sm" %>
+        </div>
+      <% end %>
+
+      <%= f.hidden_field :kind %>
+      <%= f.hidden_field :parent_id %>
+      <p class="text-body-secondary"><%= kind&.description %></p>
+      <%= f.input :label, hint: "What people see, e.g. \"Safety training\"" %>
+
+      <% Array(kind&.offered_settings(current_user.person, item)).each do |setting| %>
+        <%= render "checklist_items/setting", f: f, item: item, setting: setting, checklist: checklist %>
+      <% end %>
+      <% if kind&.form_partial %>
+        <%= render kind.form_partial, f: f, item: item, checklist: checklist, field_name: "checklist_item[config]" %>
+      <% end %>
+
+      <% if kind&.uses_dates? %>
+        <%= render "checklists/dates_fields", f: f, record: item, allow_inherit: true %>
+      <% end %>
+
+      <div class="row">
+        <div class="col-md-6">
+          <%= f.input :due_on, as: :date, html5: true, label: "Due by", hint: "Optional. Not complete after this day shows as Missed" %>
+        </div>
+        <div class="col-md-6">
+          <%= f.input :read_level, as: :select, label: "Who sees it", include_blank: "Same as the checklist",
+            collection: Checklists::READ_LEVELS.map { |key, text| [ text, key ] } %>
+        </div>
+      </div>
+      <%= f.input :counts, label: "Counts toward the overall", hint: "Untick to show it without affecting anyone's result" unless item.parent_id.present? %>
+      <%= render "checklists/words_fields", f: f, legend: "Words for this item" %>
+      <%= f.input :exempt_label, label: "Word for people it doesn't apply to", placeholder: "Doesn't apply" %>
+
+      <%= f.button :submit, "Save", class: "btn btn-primary" %>
+      <%= link_to "Cancel", edit_checklist_path(checklist, anchor: "items"), class: "btn btn-link" %>
+    <% end %>
+
+    <% if item.persisted? %>
+      <h2 class="h5 mt-4">Who it applies to</h2>
+      <% rules = item.checklist_rules.includes(:team, :badge, :person) %>
+      <p class="small text-body-secondary"><%= rules.empty? ? "Everyone the checklist covers." : "People outside these rules get \"#{item.exempt_label.presence || "Doesn't apply"}\"." %></p>
+      <ul class="list-unstyled">
+        <% rules.each do |rule| %>
+          <li class="d-flex justify-content-between">
+            <span><%= rule.description %></span>
+            <%= button_to "Remove", checklist_checklist_rule_path(checklist, rule), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
+          </li>
+        <% end %>
+      </ul>
+      <%= render "checklists/rule_form", checklist: checklist, item: item, preview_url: nil %>
+    <% end %>
+  </div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Who this passes <span class="spinner-border spinner-border-sm d-none" data-checklist-preview-target="spinner" aria-hidden="true"></span></div>
+      <div class="card-body small" data-checklist-preview-target="output">
+        <% if kind && item.persisted? && item.errors.empty? %>
+          <%= render "checklists/preview", preview: Checklists::Preview.new(checklist, item: item, viewer: current_user.person), checklist: checklist %>
+        <% else %>
+          <span class="text-body-secondary">Fill in the item to see who it passes.</span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
