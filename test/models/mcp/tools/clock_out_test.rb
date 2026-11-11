@@ -79,6 +79,23 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     assert_nil other.reload.end_time
   end
 
+  test "with the kiosk letting managers clock out their people, a manager closes those people's punches in any period or none" do
+    Membership.create!(person: person(:ward), team: @beta)
+    other = create_world_punch(person(:ward), @beta_period, 34, nil)
+    loose = TimeClockPunch.create!(person: person(:ward), start_time: Time.utc(2026, 3, 11, 8))
+
+    with_settings(TimeKiosk::ManagerClockOut::SETTING => "true") do
+      all = changed_ids(clock_out(:alpha_manager, all: true, dry_run: true))
+      assert_includes all, other.neat_id
+      assert_includes all, loose.neat_id
+      assert_not_includes all, @beta_open.neat_id
+
+      result = clock_out(:alpha_manager, person_id: person(:ward).neat_id)
+      assert_equal [ @ward_open, other, loose ].map(&:neat_id).sort, changed_ids(result).sort
+    end
+    assert_nil @beta_open.reload.end_time
+  end
+
   test "a manager's own punch on another team's period closes" do
     Membership.create!(person: person(:alpha_manager), team: @beta)
     own = create_world_punch(person(:alpha_manager), @beta_period, 34, nil)
