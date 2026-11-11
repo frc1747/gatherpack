@@ -27,7 +27,7 @@ Found by the help site's admin guides (tasks 97 and 98, hbr.38).
 
 ## Fix (2026-11-11)
 
-- `CheckinField has_many :checkin_field_responses, dependent: :destroy`: each removal goes through the audit log and fires `checkin_field_responses` destroy hooks (the model includes `CanBeHooked`).
+- `CheckinField` destroys its responses in a `before_destroy` (the same as `dependent: :destroy`, placed away from the lines `feature/person-fields` adds so the rebuild merges cleanly): each removal goes through the audit log and fires `checkin_field_responses` destroy hooks (the model includes `CanBeHooked`).
 - `EventType` drops BL-031's refusal; its `dependent: :destroy` on check-in fields now removes kept answers too.
 - The Delete confirmation on a check-in field and on an event type says "Are you sure? This also deletes N check-in answers." when any answers are filled in (`CheckinAnswersHelper`, `CheckinField#answer_count`, `EventType#checkin_answer_count`); blank responses aren't counted.
 
