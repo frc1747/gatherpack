@@ -51,6 +51,19 @@ class TimeKioskControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the Manager button shows only for a manager with a period to clock out" do
+    Token.create!(value: "100000002", tokenable: @manager)
+    kiosk tool: "find_token", token_value: "100000002"
+    assert_select "a[data-bs-target='#managerModal']", count: 1
+
+    periodless = create_person("periodless@example.com")
+    Membership.create!(person: periodless, team: Team.create!(name: "Mentors", team_type: team_types(:one)), manager: true)
+    Token.create!(value: "100000003", tokenable: periodless)
+    kiosk tool: "find_token", token_value: "100000003"
+    assert_select "h3", text: periodless.identifier_name
+    assert_select "a[data-bs-target='#managerModal']", count: 0
+  end
+
   test "punch_in clocks in the scanned person" do
     assert_difference -> { @member.time_clock_punches.count } do
       kiosk tool: "punch_in", person_ref: ref_for(@member), time_clock_period_id: @period.id
