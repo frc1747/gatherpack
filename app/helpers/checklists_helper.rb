@@ -14,6 +14,17 @@ module ChecklistsHelper
     [ (measures["confirmed"].to_f * 100 / measures["owed"].to_f).floor, 100 ].min
   end
 
+  # "3 of 5" for a measured item (confirmed of owed), with " h" when its
+  # kind measures hours; nil for an item without a count.
+  def checklist_item_count(entry)
+    measures = entry.measures || {}
+    return unless measures["confirmed"] && measures["owed"]
+
+    hours = Array(entry.item.kind_class&.measures).any? { |measure| measure.key.to_s == "owed" && measure.type == :hours }
+    number = ->(value) { number_with_precision(value, precision: 2, strip_insignificant_zeros: true) }
+    "#{number.(measures["confirmed"])} of #{number.(measures["owed"])}#{" h" if hours}"
+  end
+
   def checklist_status_class(status)
     STATUS_CLASSES.fetch(status.to_s, "text-bg-light")
   end

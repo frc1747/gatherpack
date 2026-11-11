@@ -14,16 +14,13 @@
             <% if entry.full? %>
               <% detail_lines = entry.detail.to_s.split("\n") %>
               <% percent = checklist_item_percent(entry) %>
+              <%# A measured item shows its count and a bar; any other item only its pill, no status sentence. %>
               <% if percent %>
-                <div><%= entry.summary %></div>
+                <div class="small"><%= checklist_item_count(entry) %></div>
                 <div class="progress mt-1 mb-2" style="height: .5rem" role="progressbar" aria-label="<%= entry.item.label %>" aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
                   <%# The bar takes its status's pill color, so a shortfall shows red or yellow. %>
                   <div class="progress-bar <%= checklist_status_class(entry.status).sub("text-bg-", "bg-") %>" style="width: <%= percent %>%"></div>
                 </div>
-              <% elsif detail_lines.one? || detail_lines.empty? %>
-                <div class="small"><%= entry.detail.presence || entry.summary %></div>
-              <% else %>
-                <div class="small"><%= entry.summary %></div>
               <% end %>
               <% if percent ? detail_lines.any? : detail_lines.many? %>
                 <details class="small text-body-secondary">
@@ -35,7 +32,7 @@
               <% end %>
               <% if entry.excuse && entry.excuse["by"] %><div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %></div><% end %>
               <% Array(entry.children).each do |child| %>
-                <div class="small ms-3"><%= checklist_status_badge(child) %> <%= child.item.label %><%= ": #{child.summary}" if child.full? && child.summary.present? %></div>
+                <div class="small ms-3"><%= checklist_status_badge(child) %> <%= child.item.label %></div>
               <% end %>
               <% if (fix = checklist_fix(checklist, entry, status.person_id)).present? %>
                 <div class="mt-2"><%= fix %></div>

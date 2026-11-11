@@ -92,6 +92,8 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       get person_checklists_path(person(:member))
       assert_response :success
       assert_select ".progress-bar.bg-danger[style*='width: 33%']", true, "a shortfall is red, like its Not Started pill"
+      assert_select ".list-group-item div.small", text: "1 of 3"
+      assert_no_match "Has a login", response.body, "a yes/no item shows its pill, not a status sentence"
     end
   ensure
     Checklists.unregister_item_kind(:progress)
