@@ -601,6 +601,21 @@ feature/kiosk-scan-panels:
     Nothing changes on screen until a feature adds a panel.
   audience: Everyone at the kiosk (behind the scenes)
 
+feature/kiosk-manager-clock-out:
+  title: Managers clock out their people at the kiosk
+  emoji: "🕔"
+  description: >-
+    With the setting on, a team manager who scans their card at the time
+    kiosk can clock out anyone in the teams they manage (and the teams below
+    them) from the Manager window, whichever time period those people are
+    clocked in to. Off, the Manager window covers only the periods that
+    belong to the manager's own teams, as before.
+  audience: Team managers at the kiosk; admins turn it on
+  settings:
+    - name: "Kiosk: Managers Clock Out the People They Manage"
+      key: time_kiosk_managers_clock_out_people
+      default: "off"
+
 feature/intake-checklist:
   title: Checklists for registrations
   emoji: "🧾"

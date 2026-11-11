@@ -73,3 +73,4 @@ feature/search-form-asterisks
 feature/table-responsive-fit
 feature/people-search-phone
 feature/theme-palette
+feature/kiosk-manager-clock-out
