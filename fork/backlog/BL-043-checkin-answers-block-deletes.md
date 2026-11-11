@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug (check-in fields); fork follow-up to BL-031/BL-032 (event types) |
 | Priority | low |
-| Status | new |
+| Status | started (`feature/event-type-checkin-fields`, see `FORK.md`) |
 | Added | 2026-11-11 |
 | Commit checked | `hbr/integration` @ `f19a201d` (`v0.0.0-hbr.38`) |
 | Planned branch | `feature/event-type-checkin-fields` (BL-031's branch) |
@@ -25,21 +25,15 @@ Found by the help site's admin guides (tasks 97 and 98, hbr.38).
 - `app/models/checkin_field.rb:6`: `has_many :checkin_field_responses`, no `dependent:`; `db/schema.rb`: `add_foreign_key "checkin_field_responses", "checkin_fields"`.
 - `app/models/event_type.rb` on `feature/event-type-checkin-fields`: the refusal *Cannot delete an event type whose check-in fields have responses*.
 
-## Fix
+## Fix (2026-11-11)
 
-Ask, then delete the answers, as BL-032 decided:
-
-- `CheckinField has_many :checkin_field_responses, dependent: :destroy` (destroy, not delete, so each removal is audited and fires hooks). Blank rows go silently.
-- When the field or type has non-blank answers, the Delete confirmation says how many ("This removes 14 answers from 9 check-ins.") before the click. Count with one query in the show view.
-- Event type delete drops the BL-031 refusal and relies on the field's `dependent: :destroy`.
-- Linked check-in fields (person-fields) store no responses, so they're unaffected.
+- `CheckinField has_many :checkin_field_responses, dependent: :destroy`: each removal goes through the audit log and fires `checkin_field_responses` destroy hooks (the model includes `CanBeHooked`).
+- `EventType` drops BL-031's refusal; its `dependent: :destroy` on check-in fields now removes kept answers too.
+- The Delete confirmation on a check-in field and on an event type says "Are you sure? This also deletes N check-in answers." when any answers are filled in (`CheckinAnswersHelper`, `CheckinField#answer_count`, `EventType#checkin_answer_count`); blank responses aren't counted.
 
 ## Tests
 
-- Deleting a field with blank responses succeeds and removes them.
-- Deleting a field with answers succeeds after the confirmation, removes them and writes audit entries.
-- Deleting an event type with no events whose fields hold kept answers succeeds and removes fields and answers.
-- An event type with events is still refused by the policy.
+`test/models/checkin_field_test.rb` (new), `test/models/event_type_test.rb`, `test/controllers/checkin_fields_controller_test.rb`, `test/controllers/event_types_controller_test.rb`: blank and filled responses go with the field and are audited; a type with kept answers deletes with them; both confirmations show the count.
 
 ## Fork strategy notes
 

@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | low |
-| Status | new |
+| Status | started (`feature/checklists-connectors`, see `FORK.md`) |
 | Added | 2026-11-11 |
 | Commit checked | `hbr/integration` @ `f19a201d` (`v0.0.0-hbr.38`) |
 | Planned branch | `feature/checklists-connectors` (fix on the branch itself) |
@@ -21,14 +21,13 @@ A checklist count item can name a relationship type under **Owe together through
 - `app/models/relationship_type.rb`: `has_many :relationships`, no destroy guard.
 - `config/initializers/checklists_count.rb`, `to_prepare` block: where the count kind already adds associations to other models.
 
-## Fix
+## Fix (2026-11-11)
 
-Refuse the delete, naming what uses the type. In the `to_prepare` block, add a `before_destroy` on `RelationshipType` (through a small concern, like `Checklists::CountWatched`) that finds count items with `config ->> 'group_relationship_type_id' = id`, adds "Used by the checklist count item <item> in <checklist>" errors and `throw(:abort)`. `feature/blocked-delete-message` (BL-019) already turns the resulting `RecordNotDestroyed` into a message showing those errors.
+The count kind now declares `references = { "group_relationship_type_id" => "RelationshipType" }`, so the existing `Checklists::ProtectsReferences` guard (already used for badges, teams, forms and periods) refuses the delete with "Used by the checklist <title>; take it off there first". The copier also treats the type as a referenced record, like the other kinds' references. With `feature/blocked-delete-message` the admin sees that message instead of an error page.
 
 ## Tests
 
-- Deleting a type that a count item pools through is refused, the type stays, and the alert names the checklist.
-- Deleting a type no count item uses still works.
+`test/models/checklist_count_test.rb`: a type a count item pools through is refused with the checklist's name; an unused type deletes; once the item is gone the type deletes.
 
 ## Fork strategy notes
 

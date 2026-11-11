@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | medium |
-| Status | new |
+| Status | started (`feature/checklists-connectors`, see `FORK.md`) |
 | Added | 2026-11-11 |
 | Commit checked | `hbr/integration` @ `f19a201d` (`v0.0.0-hbr.38`) |
 | Planned branch | `feature/checklists-connectors` (fix on the branch itself) |
@@ -17,19 +17,16 @@ A count item that's owed together through a relationship (**Owe together through
 ## Where things are (`f19a201d`)
 
 - `app/models/checklists/kinds/count.rb:246-259`, `person_detail`: `progress.lines.flat_map(&:records).select { |record| record.person_id == person.id }` keeps only the person's own records. `progress` already includes the group's records; that's what the count uses.
-- The same filter feeds `taken` (line 256), so a date a family member already holds is still offered under the chances to earn.
 
-## Fix
+## Fix (2026-11-11)
 
-- Keep every record in `progress`'s lines, not just the person's own. Label records earned by someone else with their name ("Shift on Mar 3, by Pat Lee"), so it's clear the credit was pooled. The viewer may already see the group's progress (the item's default read level is `group` when pooled), so naming the group member shows nothing new.
-- Build `taken` from all of them too, so a date a family member holds isn't offered again.
-- Unpooled items are unchanged: their lines only hold the person's records.
+- `person_detail(item, person, viewer:)` keeps the group's records when the viewer sees the pooled group by name (spec §10.1: names show at the `group` level): admins, the person, anyone in or related to the person's group through the pooling relationship, and the person's leaders. Anyone else (a badge grant, a teammate) still sees only the person's own records, since the stored result never names group members.
+- Records earned by someone other than the person end with "· by <name>".
+- Still open is unchanged: it leaves out only dates the person holds, since a family member holding a date doesn't stop the person earning there too.
 
 ## Tests
 
-- Pooled item: a guardian's confirmed check-in shows under the student's Done with the guardian's name, and the student's own records show without one.
-- A date the guardian signed up for isn't offered to the student under chances.
-- Unpooled item: Done lists only the person's records, as before.
+`test/controllers/checklist_count_details_test.rb`: the person sees a parent's shift under Done with the parent's name; the parent sees it too; a teammate outside the group and a viewer-less call see only the person's own.
 
 ## Fork strategy notes
 
