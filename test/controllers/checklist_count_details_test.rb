@@ -76,6 +76,19 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "Still open leaves out the events the person already holds a place at" do
+    held = [ @events.first, @events.second ]
+    TestShiftSource.given_records = held.map do |event|
+      record(:member, :planned, event.start_time.to_date, "Stocking: #{event.name}", event, dedupe_key: Commitments.event_key(event.id, person(:member).id))
+    end
+    TestShiftSource.given_links = [ [ "Game 1", @events.first ],
+      [ "Game 2", "#{signup_sheet_path(@draft_sheet)}##{ActionView::RecordIdentifier.dom_id(@events.second)}" ], [ "Game 3", @events.third ] ]
+
+    upcoming, _, chances = Checklists::Kinds::Count.person_detail(@item, person(:member))
+    assert_equal 2, upcoming.size
+    assert_equal [ "Game 3" ], chances.map(&:first)
+  end
+
   test "another checklist's line passing the count through shows the same lists, and the count has no card of its own" do
     TestShiftSource.given_records = [ record(:member, :planned, Date.new(2026, 11, 20), "Stocking: Game 9", @events.first) ]
     TestShiftSource.given_links = [ [ "Game 2", @events.second ] ]
@@ -112,8 +125,8 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
 
   private
 
-  def record(name, state, date, label, link)
-    Commitments::CreditRecord.new(person_id: person(name).id, quantity: 1, state: state, date: date, label: label, link: link)
+  def record(name, state, date, label, link, dedupe_key: nil)
+    Commitments::CreditRecord.new(person_id: person(name).id, quantity: 1, state: state, date: date, label: label, link: link, dedupe_key: dedupe_key)
   end
 
   def refresh_all

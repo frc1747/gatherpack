@@ -15,6 +15,9 @@ module Checklists
       # The models whose changes can change a count (Checklists::CountWatched).
       WATCHED = %w[Checkin Event Relationship CommitmentSource CommitmentAdjustment Commitment].freeze
 
+      # The event in a record's dedupe key (Commitments.event_key).
+      EVENT_KEY = /\AEvent:([^:]+):/
+
       COUNTS_WHEN = [ [ "Confirmed credit reaches the amount", "confirmed" ], [ "Confirmed and planned credit together reach it", "planned" ] ].freeze
 
       class << self
@@ -237,8 +240,9 @@ module Checklists
         # yet done), soonest first; done their confirmed ones, newest first
         # (never another pooled group member's: a result shows only what is
         # about its own person); chances are [label, target] pairs from the
-        # sources' how_to_earn, one per label, while credit is still owed.
-        # Empty when they don't owe.
+        # sources' how_to_earn, one per label, leaving out events they already
+        # have a record at (signed up for it, say), while credit is still
+        # owed. Empty when they don't owe.
         def person_detail(item, person)
           commitment = commitment_for(item, as_of: Context.new(item.checklist).as_of)
           progress = commitment.progress(Person.where(id: person.id))[person.id]
@@ -249,7 +253,18 @@ module Checklists
           open = !progress.met? && progress.remaining.positive?
           # Two sources can offer the same date (sign up for it, check in at it): the first one's link stands.
           chances = open ? progress.lines.select(&:available?).flat_map { |line| line.source.kind_instance.how_to_earn.links }.uniq(&:first) : []
+          taken = records.filter_map { |record| record.dedupe_key.to_s[EVENT_KEY, 1] }.to_set
+          chances = chances.reject { |_, target| taken.include?(event_id_of(target)) }
           [ upcoming.sort_by(&:date), done.sort_by(&:date).reverse, chances ]
+        end
+
+        # The event a place to earn credit is at: an Event, or a path whose
+        # anchor names one ("/signup_sheets/sush_..#event_<id>"); else nil.
+        def event_id_of(target)
+          case target
+          when ::Event then target.id
+          when String then target[/#event_([0-9a-f-]{36})\z/, 1]
+          end
         end
 
         # Marks the checklists whose count items have a source of a kind
