@@ -6,7 +6,7 @@ class Event < ApplicationRecord
   belongs_to :team, optional: true
   belongs_to :time_clock_period, optional: true
 
-  has_many :checkins
+  has_many :checkins, dependent: :destroy
   has_many :checkin_field_responses, through: :checkins
   # Removing an event from its sheets removes its slots, which fails while
   # any has sign-ups that aren't cancelled.
