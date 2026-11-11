@@ -119,6 +119,7 @@ class Settings
     add_setting(:time_kiosk_allow_unassigned, :boolean, "Kiosk: Allow Unassigned Punches", "true", "Time Clock", "Offer \"Start Unassigned\" at the kiosk for time that isn't part of a period. Turn off to require a period: if only one period applies, scanning a card clocks the person in to it right away.")
     add_setting(:time_kiosk_return_seconds, :integer, "Kiosk: Return to Welcome After (seconds)", "0", "Time Clock", "After a scan, go back to the Welcome screen after this many seconds. 0 keeps the person's screen up until the next scan.")
     add_setting(:time_kiosk_users_team, :team_select, "Kiosk: Who Can Open the Kiosk", "", "Time Clock", "Only admins and direct members of this team can open the time kiosk. Leave blank to let anyone signed in open it.")
+    add_setting(:time_kiosk_keep_focus, :boolean, "Kiosk: Keep the Token Box Ready", "false", "Time Clock", "For touch screens with a card scanner: a tap anywhere except a button or field puts the cursor back in the Token box, so the next scan isn't lost.")
 
     add_setting(:shirt_sizes, :string, "Shirt Sizes", "Youth S, Youth M, Youth L, S, M, L, XL, XXL, 3XL, 4XL", "People", "Comma-separated list of valid shirt sizes")
     add_setting(:gender_options, :string, "Gender Options", "M, F, X", "People", "Comma-separated list of valid gender options")
