@@ -20,6 +20,12 @@ module Checklists
       model.include(self) unless model < self
     end
 
+    # The checklists that use this record (Housekeeping skips archiving it
+    # while one that isn't archived does).
+    def checklists_using_this
+      Checklist.where(id: checklist_ids_using_this)
+    end
+
     private
 
     def refuse_while_checklist_uses

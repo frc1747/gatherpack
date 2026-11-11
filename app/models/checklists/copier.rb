@@ -9,12 +9,10 @@ module Checklists
   #   copier.replacements   # [Replacement] records named with a year
   #   copier.call(title:, by:, dates: { key => date }, replace: { key => id })
   class Copier
-    YEAR = /\b(19|20)\d{2}\b/
+    include ::Housekeeping::DateShift
 
     DateChange = Struct.new(:key, :label, :old, :proposed, keyword_init: true)
-    Replacement = Struct.new(:key, :record, :proposed, keyword_init: true) do
-      def model = record.class
-    end
+    Replacement = ::Housekeeping::DateShift::Replacement
 
     # The copy was refused: by may not set up items (labels; their kind's
     # authorable_by? said no to the copied config, replacements included) or
@@ -29,7 +27,7 @@ module Checklists
       end
     end
 
-    attr_reader :checklist, :shift_months
+    attr_reader :checklist
 
     def initialize(checklist, shift_months: 12)
       @checklist = checklist
@@ -58,12 +56,21 @@ module Checklists
     # Badges, teams, checklists... named with a year, matched to the name
     # with the year shifted when one exists.
     def replacements
-      referenced_records.filter_map do |record|
-        name = name_of(record)
-        next unless name.to_s.match?(YEAR)
+      replacements_for(referenced_records)
+    end
 
-        shifted = name.gsub(YEAR) { |year| (year.to_i + shift_years).to_s }
-        Replacement.new(key: key_for(record), record: record, proposed: find_named(record.class, shifted))
+    # Every record the copy names: what its items, rules and grants refer
+    # to. Any of them can be swapped through call's replace:, not only those
+    # named with a year (a copy made alongside, say).
+    def referenced_records
+      @referenced_records ||= begin
+        records = items.flat_map do |item|
+          Array(item.kind_class&.references).flat_map { |key, _| item.kind_class.referenced_records(item, key) }
+        end
+        rules = checklist.checklist_rules.includes(:team, :badge).to_a
+        records += rules.flat_map { |rule| [ rule.team, rule.badge ] }
+        records += checklist.checklist_grants.includes(:team, :badge).flat_map { |grant| [ grant.team, grant.badge ] }
+        records.compact.uniq
       end
     end
 
@@ -78,7 +85,7 @@ module Checklists
     # Refused when by couldn't set up a copied item or make a copied grant.
     def call(title:, by:, dates: {}, replace: {})
       dates = date_changes.to_h { |change| [ change.key, change.proposed ] }.merge(dates.to_h.transform_values { |value| cast_date(value) }.compact)
-      known = replacements.to_h { |replacement| [ replacement.key, replacement.model ] }
+      known = referenced_records.to_h { |record| [ replacement_key(record), record.class ] }
       replace = replace.to_h.compact_blank.select { |key, id| known[key]&.exists?(id: id) }
 
       Checklist.transaction do
@@ -115,46 +122,14 @@ module Checklists
 
     private
 
-    def shift_years
-      (shift_months / 12.0).round
-    end
-
-    def shift(date)
-      date && date + shift_months.months
-    end
-
     def items
       @items ||= checklist.checklist_items.order(:position).to_a
-    end
-
-
-    def referenced_records
-      records = items.flat_map do |item|
-        Array(item.kind_class&.references).flat_map { |key, _| item.kind_class.referenced_records(item, key) }
-      end
-      rules = checklist.checklist_rules.includes(:team, :badge).to_a
-      records += rules.flat_map { |rule| [ rule.team, rule.badge ] }
-      records += checklist.checklist_grants.includes(:team, :badge).flat_map { |grant| [ grant.team, grant.badge ] }
-      records.compact.uniq
-    end
-
-    def key_for(record)
-      "#{record.class.name}:#{record.id}"
-    end
-
-    def name_of(record)
-      record.respond_to?(:title) ? record.title : record.try(:name)
-    end
-
-    def find_named(model, name)
-      column = model.column_names.include?("title") ? :title : :name
-      model.find_by(column => name)
     end
 
     def swap(record, replace)
       return if record.nil?
 
-      replace[key_for(record)].presence || record.id
+      replace[replacement_key(record)].presence || record.id
     end
 
     # Each copied item is checked against by (ItemKind.authorable_by? on the
