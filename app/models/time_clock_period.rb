@@ -28,11 +28,11 @@ class TimeClockPeriod < ApplicationRecord
   end
 
   def available_hours
-    self.events.where(start_time: start_time..end_time, end_time: start_time..end_time).where("end_time < ?", Time.now).map(&:hours).sum
+    events_in_period.where("end_time < ?", Time.current).map(&:hours).sum
   end
 
   def total_hours
-    self.events.where(start_time: start_time..end_time, end_time: start_time..end_time).map(&:hours).sum
+    events_in_period.map(&:hours).sum
   end
 
   def open_punches
@@ -40,6 +40,13 @@ class TimeClockPeriod < ApplicationRecord
   end
 
   private
+
+  # Events are timestamps and the period bounds are dates, so compare by the
+  # period's local days (like TimeClockPunch#valid_times) rather than midnight UTC.
+  def events_in_period
+    range = start_time.beginning_of_day..end_time.end_of_day
+    events.where(start_time: range, end_time: range)
+  end
 
   def valid_times
     if start_time.present? && end_time.present?
