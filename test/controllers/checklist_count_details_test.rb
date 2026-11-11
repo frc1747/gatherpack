@@ -1,7 +1,8 @@
 require "test_helper"
 require_relative "../support/checklists_count_world"
 
-# A count item's Details on a person's checklists: Done (their own credit
+# A count item's Details on a person's checklists: Upcoming (what they
+# are signed up for, not done yet), Done (their own confirmed credit
 # records) and Still open (where they can still earn credit), the same
 # through another checklist's line, and its Next fix where it can be done.
 class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
@@ -43,7 +44,7 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
     TestShiftSource.given_records = TestShiftSource.given_links = nil
   end
 
-  test "Details list the person's own records, newest first with planned ones signed up, and up to 5 places still open they may open" do
+  test "Details keep what is signed up under Upcoming apart from Done, and list up to 5 places still open they may open" do
     TestShiftSource.given_records = [
       record(:member, :confirmed, Date.new(2026, 10, 5), "Stocking: Game 0", @events.first),
       record(:member, :planned, Date.new(2026, 11, 20), "Stocking: Game 9", @draft_sheet),
@@ -59,8 +60,11 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
       assert_response :success
 
       assert_select "details", 1
-      done = css_select("details li").map { |li| li.text.squish }
-      assert_equal [ "Nov 20 · Stocking: Game 9 · signed up", "Oct 5 · Stocking: Game 0" ], done.first(2)
+      assert_equal %w[Upcoming Done], css_select("details div.fw-semibold").map { |div| div.text.strip }.first(2)
+      assert_equal [ "Nov 20 · Stocking: Game 9" ], css_select("details [data-count-detail=upcoming] li").map { |li| li.text.squish }
+      assert_equal [ "Oct 5 · Stocking: Game 0" ], css_select("details [data-count-detail=done] li").map { |li| li.text.squish },
+        "signed up isn't done"
+      assert_no_match "signed up", response.body
       assert_select "details a", text: "Stocking: Game 0"
       assert_select "details a", text: "Stocking: Game 9", count: 0, message: "a draft sheet the member can't open isn't linked"
       assert_no_match "Someone else", response.body
@@ -88,7 +92,8 @@ class ChecklistCountDetailsTest < ActionDispatch::IntegrationTest
       assert_response :success
 
       assert_select "##{ActionView::RecordIdentifier.dom_id(@checklist)}", false
-      assert_select "##{ActionView::RecordIdentifier.dom_id(travel)} details li", text: "Nov 20 · Stocking: Game 9 · signed up"
+      assert_select "##{ActionView::RecordIdentifier.dom_id(travel)} details [data-count-detail=upcoming] li", text: "Nov 20 · Stocking: Game 9"
+      assert_select "##{ActionView::RecordIdentifier.dom_id(travel)} details p", text: "Nothing yet"
       assert_select "##{ActionView::RecordIdentifier.dom_id(travel)} details a[href=?]", event_path(@events.second), text: "Game 2"
     end
   end

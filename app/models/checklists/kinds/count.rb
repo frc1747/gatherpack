@@ -231,22 +231,25 @@ module Checklists
 
         def detail_partial = "checklists/kinds/count_detail"
 
-        # What person has done toward the item and where they can still earn
-        # credit, for their Details: [records, chances]. records are their
-        # own credit records, newest first (never another pooled group
-        # member's: a result shows only what is about its own person);
-        # chances are [label, target] pairs from the sources' how_to_earn,
-        # one per label, while credit is still owed. Empty when they don't owe.
+        # What person has coming up and has done toward the item, and where
+        # they can still earn credit, for their Details: [upcoming, done,
+        # chances]. upcoming are their planned credit records (signed up, not
+        # yet done), soonest first; done their confirmed ones, newest first
+        # (never another pooled group member's: a result shows only what is
+        # about its own person); chances are [label, target] pairs from the
+        # sources' how_to_earn, one per label, while credit is still owed.
+        # Empty when they don't owe.
         def person_detail(item, person)
           commitment = commitment_for(item, as_of: Context.new(item.checklist).as_of)
           progress = commitment.progress(Person.where(id: person.id))[person.id]
-          return [ [], [] ] unless progress
+          return [ [], [], [] ] unless progress
 
-          records = progress.lines.flat_map(&:records).select { |record| record.person_id == person.id }.sort_by(&:date).reverse
+          records = progress.lines.flat_map(&:records).select { |record| record.person_id == person.id }
+          done, upcoming = records.partition(&:confirmed?)
           open = !progress.met? && progress.remaining.positive?
           # Two sources can offer the same date (sign up for it, check in at it): the first one's link stands.
           chances = open ? progress.lines.select(&:available?).flat_map { |line| line.source.kind_instance.how_to_earn.links }.uniq(&:first) : []
-          [ records, chances ]
+          [ upcoming.sort_by(&:date), done.sort_by(&:date).reverse, chances ]
         end
 
         # Marks the checklists whose count items have a source of a kind

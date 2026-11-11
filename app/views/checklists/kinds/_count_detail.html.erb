@@ -1,14 +1,21 @@
-<%# A count item's Details for one person: what they have done and where they can still earn credit, linking only what the viewer may open. %>
-<% records, chances = Checklists::Kinds::Count.person_detail(entry.item, person) %>
+<%# A count item's Details for one person: what they are signed up for (not done yet), what they have done, and where they can still earn credit, linking only what the viewer may open. %>
+<% upcoming, done, chances = Checklists::Kinds::Count.person_detail(entry.item, person) %>
 <% chances = chances.select { |_, target| checklist_link_allowed?(target) }.first(5) %>
+<% record_line = ->(record) { safe_join([ record.date.strftime("%b %-d"), " · ", checklist_link_allowed?(record.link) ? link_to(record.label, record.link) : record.label ]) } %>
 <div class="mt-1">
+  <% if upcoming.any? %>
+    <div class="fw-semibold">Upcoming</div>
+    <ul class="mb-1 ps-3" data-count-detail="upcoming">
+      <% upcoming.each do |record| %>
+        <li><%= record_line.(record) %></li>
+      <% end %>
+    </ul>
+  <% end %>
   <div class="fw-semibold">Done</div>
-  <% if records.any? %>
-    <ul class="mb-1 ps-3">
-      <% records.each do |record| %>
-        <li>
-          <%= record.date.strftime("%b %-d") %> · <%= checklist_link_allowed?(record.link) ? link_to(record.label, record.link) : record.label %><%= " · signed up" unless record.confirmed? %>
-        </li>
+  <% if done.any? %>
+    <ul class="mb-1 ps-3" data-count-detail="done">
+      <% done.each do |record| %>
+        <li><%= record_line.(record) %></li>
       <% end %>
     </ul>
   <% else %>
@@ -16,7 +23,7 @@
   <% end %>
   <% if chances.any? %>
     <div class="fw-semibold">Still open</div>
-    <ul class="mb-0 ps-3">
+    <ul class="mb-0 ps-3" data-count-detail="open">
       <% chances.each do |label, target| %>
         <li><%= link_to label, target %></li>
       <% end %>
