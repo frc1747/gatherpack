@@ -242,6 +242,8 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
 
     late = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:student))
     travel_to @event.start_time + 1.minute
+    sign_out :user
+    sign_in person(:student).user
     get signup_sheet_path(@sheet)
     assert_select "#my_signups button", text: "Cancel", count: 0
     assert_select "#my_signups", text: /Ask an organizer to cancel/

@@ -96,8 +96,8 @@ class Mcp::Tools::AddLoginTest < ActionDispatch::IntegrationTest
     assert_not result.value["person"].key?("email")
   end
 
-  test "a team manager creates one for their team's people only" do
-    assert_not add_login(:alpha_manager, @alpha_new).error?
+  test "a team manager can't: PersonPolicy#create? and UserPolicy#create? are for admins" do
+    assert_no_login("Not allowed", @alpha_new) { add_login(:alpha_manager, @alpha_new) }
     assert_no_login("Not found", @beta_new) { add_login(:alpha_manager, @beta_new, email: "other@example.com") }
   end
 
@@ -143,16 +143,16 @@ class Mcp::Tools::AddLoginTest < ActionDispatch::IntegrationTest
   end
 
   test "hooks run, and the audit rows name the token's user" do
-    assert_hook_runs("users - create") { add_login(:alpha_manager, @alpha_new) }
+    assert_hook_runs("users - create") { add_login(:admin, @alpha_new) }
     login = @alpha_new.reload.user
-    assert_equal user(:alpha_manager).id, AuditLog.where(item_type: "User", item_id: login.id, event: "create").last.whodunnit
-    assert_equal user(:alpha_manager).id, AuditLog.where(item_type: "Person", item_id: @alpha_new.id, event: "update").order(:created_at).last.whodunnit
+    assert_equal user(:admin).id, AuditLog.where(item_type: "User", item_id: login.id, event: "create").last.whodunnit
+    assert_equal user(:admin).id, AuditLog.where(item_type: "Person", item_id: @alpha_new.id, event: "update").order(:created_at).last.whodunnit
   end
 
   test "it allows and refuses as the page does" do
     [
       [ :admin, @beta_new, true ],
-      [ :alpha_manager, @alpha_new, true ],
+      [ :alpha_manager, @alpha_new, false ],
       [ :alpha_manager, @beta_new, false ],
       [ :beta_member, @alpha_new, false ],
       [ :guardian, @alpha_new, false ]

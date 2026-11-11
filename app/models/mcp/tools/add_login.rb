@@ -6,8 +6,7 @@
 # then authorizes create? on the person and on the User, which those policies don't
 # define on every build. A build's own create? applies where it exists, and the gate
 # here is the record the login belongs to: UserPolicy#update? with that person, the
-# check the same screen's edit makes (line 47). So admins and managers of their teams;
-# narrower than a POST on a build with no create?.
+# check the same screen's edit makes (line 47). On this build create? makes that admins only.
 #
 # Also narrower, by the spec: the page replaces the login of a person who has one, and
 # adopts an existing login with that email if it has no person. Both are refused here.
@@ -16,7 +15,7 @@ class Mcp::Tools::AddLogin < Mcp::Tool
 
   tool_name "add_login"
   description "Create a login for a person who has none, as their profile's Create Email/Password does. Nobody sees the password: the person uses Forgot password. " \
-    "Admins and managers of the person's teams can: anyone else in view gets \"Not allowed\", someone you can't see \"Not found\". " \
+    "Only admins can: anyone else in view gets \"Not allowed\", someone you can't see \"Not found\". " \
     "Refused if they already have a login or the email is in use. Returns the person as get_person shows them, and has_login."
   scope :write
   input_schema(

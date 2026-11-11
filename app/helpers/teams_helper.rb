@@ -5,6 +5,6 @@ module TeamsHelper
     else
       i(team.team_type.icon) + " " + team.name
     end
-    tag.span content, class: "badge", style: "background-color: #{team.color}; color: #{contrasting_color(team.color)}"
+    tag.span content, class: "badge", style: "background-color: #{safe_color(team.color)}; color: #{contrasting_color(team.color)}"
   end
 end
