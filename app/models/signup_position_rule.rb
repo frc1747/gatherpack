@@ -6,6 +6,8 @@
 # - age: age on the event's date is within min_age and max_age; no birthday
 #   on file fails
 # - team: is a member of any of the teams or a team below one
+# - checklist: finishes the checklist (Checklists::SignupRule, added by the
+#   checklists connector)
 #
 # A position has at most one rule of each kind; a person must pass every
 # rule, and within a badge or team rule any one listed is enough.
@@ -20,7 +22,7 @@ class SignupPositionRule < ApplicationRecord
 
   belongs_to :signup_position
 
-  enum :kind, { badge: 0, age: 1, team: 2 }, validate: true
+  enum :kind, { badge: 0, age: 1, team: 2, checklist: 3 }, validate: true
 
   normalizes :badge_ids, :team_ids, with: ->(ids) { Array(ids).compact_blank.uniq }
 
