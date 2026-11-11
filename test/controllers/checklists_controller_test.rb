@@ -71,6 +71,18 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "each column's filter list shows how many people have each status, and leaves out ones nobody has" do
+    with_feature do
+      sign_in person(:admin).user
+      get checklist_path(@checklist)
+      assert_response :success
+      assert_select "th", text: /Safety/ do
+        assert_select "label", text: /Complete\s+\(1\)/, count: 1, message: "only Member has the Safety badge"
+        assert_select "label", text: /In Progress/, count: 0
+      end
+    end
+  end
+
   test "a member sees only themselves" do
     with_feature do
       sign_in person(:member).user
@@ -700,13 +712,15 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the report offers tick filters on every column and number filters" do
+  test "the report offers tick filters on every column, one per status someone has, and number filters" do
     with_feature do
       sign_in person(:admin).user
       get checklist_path(@checklist)
 
-      assert_select "input[data-checklist-report-target=tick][data-column='1']", 4
-      assert_select "input[data-checklist-report-target=tick][data-column='2']", 4
+      [ "1", "2" ].each do |column|
+        values = css_select("input[data-checklist-report-target=tick][data-column='#{column}']").map { |box| box["value"] }
+        assert_equal %w[not_met met], values, "column #{column}: only statuses someone in it has, in report order"
+      end
       assert_select "input[data-checklist-report-target=bound][data-key=unmet]", 2
     end
   end
