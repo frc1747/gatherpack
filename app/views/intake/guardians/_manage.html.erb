@@ -33,7 +33,7 @@
         <% if (waiting = rows.detect { |row| row.guardian_confirmed_at.nil? }) %>
           <%= hidden_field_tag :row_id, waiting.id, id: nil %>
         <% end %>
-        <%= combobox_tag :guardian, combo_search_path(scope: "people", attribute: "guardian"), id: "link_guardian_#{ward.id}", placeholder: "Find a person on file", required: true, aria: { label: "Guardian already on file" } %>
+        <%= combobox_tag :guardian, combo_search_path(scope: "people", attribute: "guardian"), id: "link_guardian_#{ward.id}", placeholder: "Find a person, or type a login email", free_text: true, required: true, aria: { label: "Guardian already on file" } %>
         <%= submit_tag "Link a guardian on file", class: "btn btn-sm btn-outline-primary" %>
       <% end %>
     <% end %>
