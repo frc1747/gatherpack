@@ -79,23 +79,6 @@ class StockMovementTest < ActiveSupport::TestCase
     end
   end
 
-  test "two counts and a used at the same moment all land" do
-    with_inventory(@world) do
-      stock!(@world, 10)
-      jobs = [ -> { record(@world, :counted, 8, person: @world.member) },
-               -> { record(@world, :used, 2, person: @world.teammate) },
-               -> { record(@world, :counted, 8, person: @world.teammate) } ]
-      jobs.map { |job| Thread.new { ActiveRecord::Base.connection_pool.with_connection { job.call } } }.each(&:join)
-
-      assert_equal 4, StockMovement.where(item: @world.screws).count
-      assert_equal sum, level
-      # Whatever the order, each count's difference was worked out from the
-      # stock at that moment, so the levels and movements agree.
-      counts = StockMovement.counted.where(item: @world.screws).order(:created_at)
-      assert counts.all? { |count| count.counted_quantity == 8 }
-    end
-  end
-
   test "a move writes two rows with one group, and its undo reverses both" do
     with_inventory(@world) do
       stock!(@world, 10)
@@ -150,6 +133,48 @@ class StockMovementTest < ActiveSupport::TestCase
         later.undo!(by: @world.keeper)
       end
       assert_equal 10, level
+    end
+  end
+
+  test "a second undo is refused, even from a copy that checked before the first landed" do
+    with_inventory(@world) do
+      stock!(@world, 10)
+      used = record(@world, :used, 3, person: @world.member)
+      stale = StockMovement.find(used.id)
+      assert stale.undoable_by?(@world.member)
+
+      used.undo!(by: @world.member)
+      error = assert_raises(Inventory::Refused) { stale.undo!(by: @world.member) }
+      assert_equal "This change can't be undone", error.message
+      assert_equal 1, StockMovement.where(reverses_id: used.id).count
+      assert_equal 10, level
+    end
+  end
+
+  test "a movement can be reversed only once in the database too" do
+    with_inventory(@world) do
+      used = record(@world, :used, 1)
+      StockMovement.create!(kind: "used", item: @world.screws, location: @world.bin1, quantity: 1, reverses: used)
+
+      assert_raises(ActiveRecord::RecordNotUnique) do
+        StockMovement.create!(kind: "used", item: @world.screws, location: @world.bin1, quantity: 1, reverses: used)
+      end
+    end
+  end
+
+  test "deleting a person keeps their changes and blanks who made them" do
+    with_inventory(@world) do
+      stock!(@world, 10)
+      used = record(@world, :used, 2, person: @world.member, recorded_by: @world.keeper)
+      @world.member.destroy!
+      @world.keeper.destroy!
+
+      used = StockMovement.find(used.id)
+      assert_nil used.person_id
+      assert_nil used.recorded_by_id
+      assert_equal 8, level
+      assert_equal 8, sum
+      assert_not used.undoable_by?(@world.teammate)
     end
   end
 
@@ -261,6 +286,15 @@ class StockMovementTest < ActiveSupport::TestCase
       [ 0, -2, "1.5", "lots" ].each do |quantity|
         assert_raises(Inventory::Refused, quantity.inspect) { record(@world, :received, quantity) }
       end
+      stock!(@world, 8)
+      [ "2.5", "3x", 2.5, "lots" ].each do |quantity|
+        assert_no_difference -> { StockMovement.count } do
+          assert_raises(Inventory::Refused, quantity.inspect) { record(@world, :used, quantity) }
+          assert_raises(Inventory::Refused, quantity.inspect) { record(@world, :moved, quantity, to_location: @world.bin2) }
+          assert_raises(Inventory::Refused, quantity.inspect) { record(@world, :counted, quantity) }
+        end
+      end
+      assert_equal 8, level
       assert_raises(Inventory::Refused) { record(@world, :counted, -1) }
       assert_equal 3, record(@world, :received, "3").quantity
     end

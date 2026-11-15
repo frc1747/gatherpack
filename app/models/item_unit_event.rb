@@ -65,7 +65,7 @@ class ItemUnitEvent < ApplicationRecord
   end
 
   def undone?
-    reversal.present?
+    ItemUnitEvent.exists?(reverses_id: id)
   end
 
   def carried?
@@ -77,7 +77,7 @@ class ItemUnitEvent < ApplicationRecord
   # and by managers of the item's team at any time.
   def undoable_by?(person, at: Time.current)
     return false if person.nil? || reversal? || undone? || carried? || !UNDOABLE.include?(action)
-    return false unless item_unit.events.reorder(created_at: :desc, id: :desc).first&.id == id
+    return false unless latest?
 
     access = Inventory::Access.for(person)
     return true if access.manages?(item_unit.item.team_id)
@@ -91,6 +91,25 @@ class ItemUnitEvent < ApplicationRecord
     raise Inventory::Refused, "This can't be undone" unless undoable_by?(recorded_by || by)
 
     unit = item_unit
+    unit.item.transaction do
+      # Checked again under the item's and unit's locks (the action takes
+      # the same ones), so two undos at once can't both write a reversal.
+      unit.item.lock!
+      unit.lock!
+      raise Inventory::Refused, "This has already been undone" if ItemUnitEvent.exists?(reverses_id: id)
+      raise Inventory::Refused, "This can't be undone" unless latest?
+
+      reverse!(unit, by, recorded_by)
+    end
+  end
+
+  private
+
+  def latest?
+    ItemUnitEvent.where(item_unit_id: item_unit_id).order(created_at: :desc, id: :desc).pick(:id) == id
+  end
+
+  def reverse!(unit, by, recorded_by)
     if RELOCATIONS.include?(action)
       outer = from_unit if from_unit&.active? && !from_unit.condition_retired?
       unit.relocate!(action, outer ? outer.location : from_location, outer, person: by, recorded_by: recorded_by,
@@ -99,8 +118,6 @@ class ItemUnitEvent < ApplicationRecord
       unit.change_condition!(action, condition_before, person: by, recorded_by: recorded_by, note: "Undo", reverses: self)
     end
   end
-
-  private
 
   def announce
     return if announcement.nil?

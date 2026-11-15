@@ -1,7 +1,7 @@
-# A delegated grant: a list of "Badge name > Highest team name" pairs, as in
-# the sign-ups organizer grant and Orders::Reach (the same shape, so the
-# three can later be merged without changing behavior; inventory carries
-# its own copy so it doesn't depend on either). A holder of one of the
+# A delegated grant: a list of "Badge name > Highest team name" pairs, the
+# same shape as the other badge → highest-team grants (the sign-ups
+# organizer grant among them), so they can later be merged without changing
+# behavior. Inventory carries its own copy so it depends on none of them. A holder of one of the
 # badges reaches the teams they belong to (their own and those above) at or
 # below the pair's highest team, plus the teams below their own. Leaving
 # out the highest team allows only the teams they're directly in and those

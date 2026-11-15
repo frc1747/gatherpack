@@ -9,15 +9,18 @@ Rails.application.config.to_prepare do
   GatherPack::Features.register_section("Purchasing", position: 35)
   GatherPack::Features.register_section("Inventory", position: 35)
 
-  # Reorder, Items, Places and Changes are for inventory managers. Builds
-  # whose menu entries can be hidden per person hide them from everyone else.
-  managers_only = lambda do |label, path, icon|
-    options = { label: label, path: path, icon: icon }
+  # Reorder, Items, Places and Changes are for inventory managers. They go
+  # in the menu only where a menu entry can be hidden per person; elsewhere
+  # the Inventory pages link to them (Inventory.manager_pages).
+  manager_items =
     if GatherPack::Feature::NavItem.members.include?(:visible)
-      options[:visible] = ->(user) { Inventory::Access.for(user&.person).manager? }
+      Inventory::MANAGER_PAGES.map do |label, path, icon|
+        GatherPack::Feature::NavItem.new(label: label, path: path, icon: icon,
+          visible: ->(user) { Inventory::Access.for(user&.person).manager? })
+      end
+    else
+      []
     end
-    GatherPack::Feature::NavItem.new(**options)
-  end
 
   GatherPack::Features.register(
     Inventory::Feature.new(
@@ -27,12 +30,8 @@ Rails.application.config.to_prepare do
       default_enabled: false,
       nav_position: 50,
       nav_items: [
-        GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked"),
-        managers_only.call("Reorder", :inventory_reorder_path, "cart-flatbed"),
-        managers_only.call("Items", :inventory_items_path, "box"),
-        managers_only.call("Places", :inventory_locations_path, "warehouse"),
-        managers_only.call("Changes", :inventory_movements_path, "right-left")
-      ]
+        GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked")
+      ] + manager_items
     )
   )
 

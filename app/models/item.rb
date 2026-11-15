@@ -20,6 +20,7 @@ class Item < ApplicationRecord
   validates :reorder_point, :reorder_quantity, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validate :reading_fields_shape
   validate :untracking_without_units
+  validate :tracking_through_start_tracking
   validate :home_location_is_storage
 
   attribute :unit, :string, default: -> { Inventory::Config.default_unit }
@@ -62,8 +63,8 @@ class Item < ApplicationRecord
     item_sources.find(&:preferred?) || item_sources.first
   end
 
-  # What another feature needs to describe this item (the orders bridge
-  # maps it to an order line), as plain keys.
+  # What another feature needs to describe this item, as plain keys.
+  # Inventory doesn't know what the other feature does with them.
   def line_attributes
     source = preferred_source
     {
@@ -145,6 +146,7 @@ class Item < ApplicationRecord
 
     transaction do
       lock!
+      @starting_tracking = true
       update!(tracked: true)
       stock_levels.lock.where.not(quantity: 0).includes(:location).find_each do |level|
         if level.quantity.positive?
@@ -158,6 +160,8 @@ class Item < ApplicationRecord
       end
     end
     self
+  ensure
+    @starting_tracking = false
   end
 
   # Turns tracking off; refused while the item has units.
@@ -195,6 +199,14 @@ class Item < ApplicationRecord
     return unless persisted? && will_save_change_to_tracked? && !tracked?
 
     errors.add(:tracked, "can't be turned off while the item has units") if item_units.exists?
+  end
+
+  # Turning tracking on for an existing item goes through start_tracking!,
+  # which turns its stock into units, so no stock is lost.
+  def tracking_through_start_tracking
+    return unless persisted? && will_save_change_to_tracked? && tracked? && !@starting_tracking
+
+    errors.add(:tracked, "is turned on with start_tracking!, which turns the item's stock into units")
   end
 
   def home_location_is_storage

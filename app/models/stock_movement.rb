@@ -86,6 +86,7 @@ class StockMovement < ApplicationRecord
     end
 
     count = whole_number(quantity)
+    raise Inventory::Refused, "The quantity must be a whole number" if count == :invalid
     attributes = { kind: kind, item: item, person: person, recorded_by: (recorded_by if recorded_by != person),
       reason: reason, note: note.to_s.strip.presence }
 
@@ -122,12 +123,10 @@ class StockMovement < ApplicationRecord
     recorded_by_id || person_id
   end
 
+  # Asks the database each time, so a check inside undo!'s lock sees a
+  # reversal another request has just written.
   def undone?
-    if move_group_id
-      StockMovement.where(reverses_id: move_rows.map(&:id)).exists?
-    else
-      reversal.present?
-    end
+    StockMovement.where(reverses_id: move_rows.map(&:id)).exists?
   end
 
   def reversal?
@@ -210,11 +209,14 @@ class StockMovement < ApplicationRecord
       write_row!(**attributes, location: to, quantity: count, move_group_id: group, level: levels[to.id]) ]
   end
 
+  # nil when blank (the kind's default applies), :invalid when it isn't a
+  # whole number ("2.5", "3x", 2.5).
   def self.whole_number(value)
     return nil if value.nil? || value.to_s.strip.empty?
     return value if value.is_a?(Integer)
+    return :invalid unless value.is_a?(String)
 
-    Integer(value.to_s.strip, 10, exception: false)
+    Integer(value.strip, 10, exception: false) || :invalid
   end
 
   private_class_method :check_recordable!, :move_rows!, :whole_number

@@ -58,6 +58,15 @@ module Inventory
     removed: "item_units - removed"
   }.freeze
 
+  # The manager pages: label, route helper, icon. In the menu where entries
+  # can be hidden per person, and linked from the Inventory pages.
+  MANAGER_PAGES = [
+    [ "Reorder", :inventory_reorder_path, "cart-flatbed" ],
+    [ "Items", :inventory_items_path, "box" ],
+    [ "Places", :inventory_locations_path, "warehouse" ],
+    [ "Changes", :inventory_movements_path, "right-left" ]
+  ].freeze
+
   HOOK_TARGETS = %w[items item_sources locations stock_movements item_units item_unit_events].freeze
   HOOK_EVENTS = (ITEM_EVENTS.values + [ COUNT_DIFFERS_EVENT ] + UNIT_EVENTS.values).freeze
 
@@ -140,6 +149,13 @@ module Inventory
 
   def self.enabled?
     GatherPack::Features.enabled?(:inventory)
+  end
+
+  # The manager pages this person may open, as [label, route helper, icon]:
+  # all of them for inventory managers, team managers and admins, none for
+  # anyone else.
+  def self.manager_pages(person)
+    Inventory::Access.for(person).manager? ? MANAGER_PAGES : []
   end
 
   # Fires a hook event with a record, while the feature is on.

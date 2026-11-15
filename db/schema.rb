@@ -266,7 +266,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.index ["item_unit_id", "created_at"], name: "index_item_unit_events_on_item_unit_id_and_created_at"
     t.index ["person_id"], name: "index_item_unit_events_on_person_id"
     t.index ["recorded_by_id"], name: "index_item_unit_events_on_recorded_by_id"
-    t.index ["reverses_id"], name: "index_item_unit_events_on_reverses_id"
+    t.index ["reverses_id"], name: "index_item_unit_events_on_reverses_id", unique: true
     t.index ["to_location_id"], name: "index_item_unit_events_on_to_location_id"
     t.index ["to_unit_id"], name: "index_item_unit_events_on_to_unit_id"
     t.index ["via_unit_id"], name: "index_item_unit_events_on_via_unit_id"
@@ -792,7 +792,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.index ["move_group_id"], name: "index_stock_movements_on_move_group_id"
     t.index ["person_id"], name: "index_stock_movements_on_person_id"
     t.index ["recorded_by_id"], name: "index_stock_movements_on_recorded_by_id"
-    t.index ["reverses_id"], name: "index_stock_movements_on_reverses_id"
+    t.index ["reverses_id"], name: "index_stock_movements_on_reverses_id", unique: true
   end
 
   create_table "team_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -920,8 +920,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
   add_foreign_key "item_unit_events", "item_units", column: "via_unit_id"
   add_foreign_key "item_unit_events", "locations", column: "from_location_id"
   add_foreign_key "item_unit_events", "locations", column: "to_location_id"
-  add_foreign_key "item_unit_events", "people"
-  add_foreign_key "item_unit_events", "people", column: "recorded_by_id"
+  add_foreign_key "item_unit_events", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "item_unit_events", "people", on_delete: :nullify
   add_foreign_key "item_units", "item_units", column: "installed_in_id"
   add_foreign_key "item_units", "items"
   add_foreign_key "item_units", "locations"
@@ -970,8 +970,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
   add_foreign_key "stock_levels", "locations"
   add_foreign_key "stock_movements", "items"
   add_foreign_key "stock_movements", "locations"
-  add_foreign_key "stock_movements", "people"
-  add_foreign_key "stock_movements", "people", column: "recorded_by_id"
+  add_foreign_key "stock_movements", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "stock_movements", "people", on_delete: :nullify
   add_foreign_key "stock_movements", "stock_movements", column: "reverses_id"
   add_foreign_key "teams", "team_types"
   add_foreign_key "teams", "teams", column: "parent_id"

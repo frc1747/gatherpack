@@ -107,6 +107,9 @@ class Location < ApplicationRecord
     return unless machine?
 
     errors.add(:parent, "must be a storage place, or blank, for a machine") if parent&.machine?
+    if persisted? && will_save_change_to_kind? && stock_levels.where.not(quantity: 0).exists?
+      errors.add(:kind, "can't be machine while counted stock is kept here: move or remove it first")
+    end
   end
 
   def code_unique_in_top_level_place

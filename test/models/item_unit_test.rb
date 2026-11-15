@@ -151,6 +151,32 @@ class ItemUnitTest < ActiveSupport::TestCase
     end
   end
 
+  test "a second undo is refused, even from a copy that checked before the first landed" do
+    with_inventory(@world) do
+      move = @units[0].move!(to: @world.bin2, by: @world.member)
+      stale = ItemUnitEvent.find(move.id)
+      assert stale.undoable_by?(@world.member)
+
+      move.undo!(by: @world.member)
+      assert_raises(Inventory::Refused) { stale.undo!(by: @world.member) }
+      assert_equal 1, ItemUnitEvent.where(reverses_id: move.id).count
+      assert_equal @world.bin1, @units[0].reload.location
+    end
+  end
+
+  test "deleting a person keeps unit history and blanks who did it" do
+    with_inventory(@world) do
+      event = @units[0].move!(to: @world.bin2, by: @world.member, recorded_by: @world.keeper)
+      @world.member.destroy!
+      @world.keeper.destroy!
+
+      event = ItemUnitEvent.find(event.id)
+      assert_nil event.person_id
+      assert_nil event.recorded_by_id
+      assert_equal @world.bin2, @units[0].reload.location
+    end
+  end
+
   test "undoing an outer unit's install carries its contents back" do
     with_inventory(@world) do
       @units[1].install!(into: @units[0], by: @world.member)
@@ -212,6 +238,13 @@ class ItemUnitTest < ActiveSupport::TestCase
       assert_raises(Inventory::Refused) { @world.screws.stop_tracking!(by: @world.keeper) }
       assert_not @world.screws.update(tracked: false)
 
+      plain = Item.create!(team: @world.club, name: "Washer", home_location: @world.bin1)
+      stock!(@world, 5, item: plain)
+      assert_not plain.update(tracked: true), "turning tracking on goes through start_tracking!"
+      assert_includes plain.errors[:tracked].first, "start_tracking!"
+      assert_not plain.reload.tracked?
+      assert_equal 5, plain.total_stock
+
       bare = Item.create!(team: @world.club, name: "Gearbox")
       bare.start_tracking!(by: @world.keeper)
       bare.stop_tracking!(by: @world.keeper)
@@ -239,6 +272,13 @@ class ItemUnitTest < ActiveSupport::TestCase
       assert_equal 7, @motor.total_stock
       assert_raises(Inventory::Refused) { ItemUnit.receive!(item: @motor, location: @world.bin2, count: 1, person: @world.member) }
       assert_raises(Inventory::Refused) { ItemUnit.receive!(item: @world.screws, location: @world.bin2, count: 1, person: @world.keeper) }
+
+      old_shelf = Location.create!(team: @world.club, name: "Old shelf", active: false)
+      error = assert_raises(Inventory::Refused) do
+        ItemUnit.receive!(item: @motor, location: old_shelf, count: 2, person: @world.keeper, authorized_by: @world.admin)
+      end
+      assert_equal "Old shelf isn't active", error.message
+      assert_equal 7, @motor.item_units.count
     end
   end
 

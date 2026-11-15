@@ -1,5 +1,5 @@
 require "test_helper"
-require "support/settings_test_helper"
+require "support/inventory_world"
 
 class Inventory::FeatureTest < ActiveSupport::TestCase
   include SettingsTestHelper
@@ -29,13 +29,39 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
     with_settings(feature_inventory: "true", feature_stub_purchasing: "true") do
       assert_equal "Purchasing", inventory.nav_section
       items = GatherPack::Features.nav_sections.to_h["Purchasing"].map(&:label)
-      assert_equal [ "Stub", "Inventory", "Reorder", "Items", "Places", "Changes" ], items
+      assert_equal [ "Stub", "Inventory" ] + manager_labels, items
       assert_not_includes section_names, "Inventory"
     end
 
     with_settings(feature_inventory: "true", feature_stub_purchasing: "false") do
       assert_equal "Inventory", inventory.nav_section
     end
+  end
+
+  # The manager pages are in the menu only where an entry can be hidden per
+  # person.
+  def manager_labels
+    GatherPack::Feature::NavItem.members.include?(:visible) ? %w[Reorder Items Places Changes] : []
+  end
+
+  test "manager pages are offered only to managers" do
+    world = Object.new.extend(InventoryWorld).build_inventory_world
+    with_settings(feature_inventory: "true", inventory_managers: "#{world.keeper_badge.name} > #{world.club.name}") do
+      Inventory::Current.reset
+      assert_equal %w[Reorder Items Places Changes], Inventory.manager_pages(world.keeper).map(&:first)
+      assert_equal %w[Reorder Items Places Changes], Inventory.manager_pages(world.manager).map(&:first)
+      assert_empty Inventory.manager_pages(world.member)
+
+      menu = inventory.nav_items
+      if GatherPack::Feature::NavItem.members.include?(:visible)
+        assert_not menu.find { |item| item.label == "Reorder" }.visible?(world.member.user)
+        assert menu.find { |item| item.label == "Reorder" }.visible?(world.keeper.user)
+      else
+        assert_equal [ "Inventory" ], menu.map(&:label)
+      end
+    end
+  ensure
+    Inventory::Current.reset
   end
 
   test "the flag is off by default and gates the menu" do

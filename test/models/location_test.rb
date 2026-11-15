@@ -37,6 +37,18 @@ class LocationTest < ActiveSupport::TestCase
     end
   end
 
+  test "a place holding counted stock can't become a machine" do
+    with_inventory(@world) do
+      stock!(@world, 5)
+
+      assert_not @world.bin1.update(kind: "machine")
+      assert_includes @world.bin1.errors[:kind].first, "move or remove it first"
+
+      record(@world, :used, 5, location: @world.bin1.reload)
+      assert @world.bin1.update(kind: "machine")
+    end
+  end
+
   test "a place with history can't be deleted" do
     with_inventory(@world) do
       stock!(@world, 1)

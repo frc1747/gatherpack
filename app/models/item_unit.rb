@@ -109,6 +109,7 @@ class ItemUnit < ApplicationRecord
     end
     raise Inventory::Refused, "#{item.name} isn't tracked" unless item.tracked?
     raise Inventory::Refused, "Receive into a storage place, not a machine" if location.machine?
+    raise Inventory::Refused, "#{location.name} isn't active" unless location.active?
 
     count = Integer(count.to_s, 10, exception: false)
     raise Inventory::Refused, "The number of units must be a whole number above zero" if count.nil? || count <= 0
