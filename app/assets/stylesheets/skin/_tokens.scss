@@ -22,6 +22,15 @@
   --gp-success: #146c43;
   --gp-success-rgb: 20, 108, 67;
   --gp-success-soft: #dcebe0;
+  --gp-on-success: #fff;
+  --gp-code-keyword: #816325;
+  --gp-code-comment: #68676f;
+  --gp-code-operator: #69665b;
+  --gp-code-string: #566d38;
+  --gp-code-atom: #396e88;
+  --gp-code-number: #576f1f;
+  --gp-code-name: #7b642c;
+  --gp-code-class: #5f6b3c;
 
   --gp-page: #ebe6d8;
   --gp-page-rgb: 235, 230, 216;
@@ -61,6 +70,15 @@
   --gp-success: #4cc38a;
   --gp-success-rgb: 76, 195, 138;
   --gp-success-soft: #17382a;
+  --gp-on-success: #000;
+  --gp-code-keyword: #cfa757;
+  --gp-code-comment: #9e9da4;
+  --gp-code-operator: #a29e93;
+  --gp-code-string: #86a957;
+  --gp-code-atom: #6ca5c1;
+  --gp-code-number: #85ab30;
+  --gp-code-name: #bd9a46;
+  --gp-code-class: #92a55e;
 
   --gp-page: #1c1a12;
   --gp-page-rgb: 28, 26, 18;
@@ -141,6 +159,14 @@
   --app-code-active-line-bg: var(--gp-brand-soft);
   --app-code-selection-bg: rgba(var(--gp-brand-rgb), .2);
   --app-code-focused-selection-bg: rgba(var(--gp-brand-rgb), .3);
+  --app-code-keyword: var(--gp-code-keyword);
+  --app-code-comment: var(--gp-code-comment);
+  --app-code-operator: var(--gp-code-operator);
+  --app-code-string: var(--gp-code-string);
+  --app-code-atom: var(--gp-code-atom);
+  --app-code-number: var(--gp-code-number);
+  --app-code-name: var(--gp-code-name);
+  --app-code-class: var(--gp-code-class);
 
   --fc-border-color: var(--gp-border);
   --fc-page-bg-color: var(--gp-surface);

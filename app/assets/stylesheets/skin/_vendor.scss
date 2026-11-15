@@ -45,8 +45,10 @@
 }
 
 trix-editor {
+  background-color: var(--gp-surface);
   border-color: var(--gp-input-border);
   border-radius: var(--gp-radius-sm);
+  color: var(--gp-text);
 }
 
 trix-toolbar .trix-button-group {
@@ -54,15 +56,78 @@ trix-toolbar .trix-button-group {
 }
 
 trix-toolbar .trix-button {
+  background-color: var(--gp-raised);
   border-color: var(--gp-input-border);
-  filter: invert(var(--gp-icon-invert));
-}
-
-.cm-editor .cm-content {
   color: var(--gp-text);
 }
 
-.cm-editor .cm-gutters {
-  border-color: var(--gp-border);
-  color: var(--gp-muted);
+// On the icon alone, so the active background below isn't inverted with it.
+trix-toolbar .trix-button--icon::before {
+  filter: invert(var(--gp-icon-invert));
+}
+
+trix-toolbar .trix-button.trix-active {
+  background-color: var(--gp-brand-soft);
+  color: var(--gp-text);
+}
+
+trix-toolbar .trix-dialog {
+  background-color: var(--gp-surface);
+  border-color: var(--gp-input-border);
+  box-shadow: var(--gp-shadow-raised);
+  color: var(--gp-text);
+}
+
+trix-toolbar .trix-input--dialog {
+  background-color: var(--gp-surface);
+  border-color: var(--gp-input-border);
+  color: var(--gp-text);
+}
+
+// :root is for specificity: CodeMirror adds its own theme after this
+// stylesheet, with selectors of the same weight.
+:root .cm-editor {
+  color: var(--gp-text);
+
+  &.cm-focused {
+    outline-color: var(--gp-input-border);
+  }
+
+  .cm-content {
+    caret-color: var(--gp-text);
+    color: var(--gp-text);
+  }
+
+  .cm-cursor, .cm-dropCursor {
+    border-left-color: var(--gp-text);
+  }
+
+  .cm-gutters {
+    background-color: var(--gp-surface);
+    border-color: var(--gp-border);
+    color: var(--gp-muted);
+  }
+
+  .cm-activeLineGutter {
+    background-color: var(--gp-raised);
+  }
+
+  .cm-panels, .cm-tooltip {
+    background-color: var(--gp-surface);
+    border-color: var(--gp-border);
+    color: var(--gp-text);
+  }
+
+  .cm-textfield {
+    background-color: var(--gp-surface);
+    border-color: var(--gp-input-border);
+    color: var(--gp-text);
+  }
+
+  .cm-button {
+    background-color: var(--gp-raised);
+    background-image: none;
+    border-color: var(--gp-input-border);
+    color: var(--gp-text);
+  }
 }
