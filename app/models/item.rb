@@ -34,6 +34,10 @@ class Item < ApplicationRecord
     %w[name category manufacturer manufacturer_part_number team_id active tracked]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   def identifier_icon
     tracked? ? "microchip" : "box"
   end

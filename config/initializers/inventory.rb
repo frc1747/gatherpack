@@ -62,10 +62,11 @@ Rails.application.config.to_prepare do
   GatherPack::HookCatalog.register_events(*Inventory::HOOK_EVENTS)
 
   # The reorder list's own actions on ticked items: Print and Download CSV.
+  # Both only read, so they may run from a GET.
   routes = Rails.application.routes.url_helpers
   ticked = ->(rows) { rows.to_h { |item, quantity| [ item.id, quantity ] } }
-  Inventory.extensions.register_reorder_action(:print, label: "Print",
+  Inventory.extensions.register_reorder_action(:print, label: "Print", method: :get,
     path: ->(rows) { routes.inventory_reorder_path(print: 1, items: ticked.call(rows)) })
-  Inventory.extensions.register_reorder_action(:csv, label: "Download CSV",
+  Inventory.extensions.register_reorder_action(:csv, label: "Download CSV", method: :get,
     path: ->(rows) { routes.inventory_reorder_path(format: :csv, items: ticked.call(rows)) })
 end

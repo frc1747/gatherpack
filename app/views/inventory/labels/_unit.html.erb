@@ -1,0 +1,14 @@
+<%# A small label for one unit (inventory spec §3.15): code, item name, and a
+    QR code that opens the unit page. Rendered by the label sheet for each
+    unit; local unit:. The QR code needs rqrcode, which the label sheet
+    adds; without it the label shows the link only. %>
+<% url = inventory_unit_url(unit) %>
+<div class="inventory-label inventory-label-unit" id="<%= dom_id(unit, :label) %>">
+  <% if defined?(RQRCode) %>
+    <div class="inventory-label-qr"><%= RQRCode::QRCode.new(url).as_svg(module_size: 2, use_path: true, viewbox: true).html_safe %></div>
+  <% end %>
+  <div class="inventory-label-text">
+    <div class="fw-bold"><%= link_to unit.code.presence || "No code yet", url %></div>
+    <div class="small"><%= unit.item.name %></div>
+  </div>
+</div>

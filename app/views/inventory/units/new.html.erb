@@ -1,0 +1,24 @@
+<% breadcrumb :inventory_item_units_new, @item %>
+<% content_for :title, "Add units: #{@item.name}" %>
+
+<div class="row"><div class="col-lg-8 col-xl-6">
+  <h1 class="h3">Add units</h1>
+  <p><%= link_to @item.name, inventory_item_path(@item) %>. Each one gets its own page; fill in the codes when they're labelled.</p>
+  <%= form_with url: inventory_units_path, method: :post do |form| %>
+    <%= hidden_field_tag :item_id, @item.id %>
+    <div class="mb-3">
+      <%= label_tag :count, "How many", class: "form-label" %>
+      <%= number_field_tag :count, 1, min: 1, step: 1, inputmode: "numeric", class: "form-control form-control-lg", required: true %>
+    </div>
+    <div class="mb-3">
+      <%= label_tag :location_id, "Where", class: "form-label" %>
+      <%= select_tag :location_id, options_for_select(inventory_place_options(policy_scope(Location).active.storage), @item.home_location_id),
+            include_blank: "Pick a place", class: "form-select form-select-lg", required: true %>
+    </div>
+    <div class="mb-3">
+      <%= label_tag :note, "Note (optional)", class: "form-label" %>
+      <%= text_field_tag :note, nil, class: "form-control form-control-lg", placeholder: "Where they came from" %>
+    </div>
+    <%= form.submit "Add units", class: "btn btn-lg btn-primary" %>
+  <% end %>
+</div></div>
