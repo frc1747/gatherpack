@@ -30,7 +30,15 @@ class OrderNotices
 
   # Final approval: the requester and watchers now, and each buyer who asked
   # to hear about every approval (the rest get Orders::Reminders' digest).
-  def approved(order_request, by: nil)
+  # A re-approval (a buyer's change that went past the tolerance) is told to
+  # the requester alone: nothing is left to buy.
+  def approved(order_request, by: nil, reapproval: false)
+    if reapproval
+      return deliver([ order_request.requested_by ], "Approved: #{order_request.display_title}", by: by) do
+        "<p>The higher price on #{h(order_request.display_title)} was approved.</p>#{details(order_request)}"
+      end
+    end
+
     told = deliver(Orders::Recipients.requester_and_watchers(order_request), "Approved: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} was approved. A buyer will order it.</p>#{details(order_request)}"
     end
@@ -50,8 +58,9 @@ class OrderNotices
   end
 
   # Declined: the requester and watchers, with the comment.
-  def declined(order_request, comment: nil, by: nil)
-    deliver(Orders::Recipients.requester_and_watchers(order_request), "Declined: #{order_request.display_title}", by: by) do
+  def declined(order_request, comment: nil, by: nil, reapproval: false)
+    people = reapproval ? [ order_request.requested_by ] : Orders::Recipients.requester_and_watchers(order_request)
+    deliver(people, "Declined: #{order_request.display_title}", by: by) do
       "<p>#{h(by&.display_name || "An approver")} declined #{h(order_request.display_title)}.</p>#{comment_text(comment)}#{details(order_request)}"
     end
   end

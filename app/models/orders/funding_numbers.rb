@@ -41,7 +41,11 @@ module Orders
     end
 
     # What would remain after the request, or nil with no amount.
+    # On a re-approval the items are already counted as committed or spent,
+    # so nothing more comes off.
     def remaining_after_cents(order_request)
+      return remaining_cents unless order_request.submitted?
+
       remaining_cents && remaining_cents - request_cents(order_request)
     end
 
