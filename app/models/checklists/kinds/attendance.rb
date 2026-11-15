@@ -131,6 +131,10 @@ module Checklists
             ItemKind::Measure.new(key: :held, label: "Meetings held", type: :number),
             ItemKind::Measure.new(key: :credited, label: "Hours at meetings", type: :hours),
             ItemKind::Measure.new(key: :percent, label: "Attendance %", type: :percent),
+            # Progress toward the minimum, for the item's bar: hours counted
+            # (each rule capped at what it needs) of the hours the rules need.
+            ItemKind::Measure.new(key: :confirmed, label: "Hours toward the minimum", type: :hours),
+            ItemKind::Measure.new(key: :owed, label: "Hours needed", type: :hours),
             ItemKind::Measure.new(key: :extra, label: "Extra hours", type: :hours, owner_only: true)
           ]
         end
@@ -417,6 +421,11 @@ module Checklists
       def result_for(person, excused)
         measures = { "meetings" => person.attended, "held" => person.held_meetings, "credited" => person.credited_hours,
           "percent" => person.percent&.round(1), "extra" => person.extra_hours }
+        owed = Tally.hours(person.checks.sum(&:needed))
+        if owed.positive?
+          measures["confirmed"] = Tally.hours(person.checks.sum { |check| [ check.got, check.needed ].min })
+          measures["owed"] = owed
+        end
         lines = person.checks.map { |check| check_line(check) }
         lines.concat(excused.map { |meeting, excuse| "Excused from #{meeting_name(meeting)} by #{excuse.created_by&.display_name || "a manager"}, #{short_date(excuse.created_at)}" })
         detail = lines.join("; ")

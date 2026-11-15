@@ -101,6 +101,18 @@ module Checklists
       end
     end
 
+    # One person's [[checklist, status], ...] without the one-item checklists
+    # another of them already shows as a line (an "Another checklist" item
+    # the viewer sees in full): that line says the same, numbers included. A
+    # checklist with several items keeps its own card, since the line can't
+    # show them.
+    def without_repeats(results)
+      shown = results.flat_map do |_, status|
+        status.all_items.filter_map { |entry| entry.item.config["checklist_id"] if entry.full? && entry.item&.kind == "checklist" }
+      end.to_set
+      results.reject { |checklist, status| status.items.one? && shown.include?(checklist.id) }
+    end
+
     # Whether the person finishes the checklist. accept: :met counts a met or
     # exempt overall (an item that doesn't apply to them already counts as
     # complete inside it); pass [:met, :pending] where signing up is the way to

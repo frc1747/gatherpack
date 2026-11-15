@@ -1,6 +1,7 @@
 <% rules = @signup_position.signup_position_rules.index_by(&:kind) %>
 <% kinds = { "badge" => "Needs a badge", "age" => "Age on the event date", "team" => "In a team" } %>
 <% kinds.delete("badge") unless GatherPack::Features.enabled?(:badges) || rules["badge"] %>
+<% kinds["checklist"] = "Finishes a checklist" if Checklists.enabled? || rules["checklist"] %>
 <div class="card mt-3" id="rules">
   <div class="card-header">
     <h2 class="h5 mb-0">Who can take this position</h2>
@@ -42,6 +43,8 @@
                   <%= r.input :team_ids, as: :check_boxes, label: "Any of these teams", hint: "Or a team below one of them.",
                         collection: Team.where(id: [ @signup_sheet.team_id ] + @signup_sheet.team.all_descendant_ids).order(:name),
                         label_method: :name, value_method: :id %>
+                <% when "checklist" %>
+                  <%= render "signup_checklists/rule_fields", r: r, rule: rule %>
                 <% end %>
               <% end %>
               <div class="d-flex gap-2">

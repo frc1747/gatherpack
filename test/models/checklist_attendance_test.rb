@@ -22,7 +22,8 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       left_early = evaluate(@checklist, :member, item)
       assert_equal "not_met", left_early.status
       assert_equal "Below minimum", left_early.label
-      assert_equal({ "meetings" => 1, "held" => 1, "credited" => 1.0, "percent" => 50.0, "extra" => 0.0 }, left_early.measures)
+      assert_equal({ "meetings" => 1, "held" => 1, "credited" => 1.0, "percent" => 50.0, "extra" => 0.0, "confirmed" => 1.0, "owed" => 1.2 }, left_early.measures,
+        "confirmed of owed: 1 h toward the 1.2 h (60% of 2 h) the rule needs")
       assert_equal "✗ Fall: 50% of 2 h (needs 60%)", left_early.detail
 
       stayed_late = evaluate(@checklist, :member2, item)

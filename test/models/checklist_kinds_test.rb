@@ -1,5 +1,6 @@
 require "test_helper"
 require_relative "../support/checklists_world"
+require_relative "../support/checklists_test_kinds"
 
 class ChecklistKindsTest < ActiveSupport::TestCase
   include ChecklistsWorld
@@ -179,6 +180,31 @@ class ChecklistKindsTest < ActiveSupport::TestCase
     assert_equal "met", evaluate(@checklist, :member, item).status
     assert_equal "not_met", evaluate(@checklist, :member2, item).status
     assert_equal "exempt", evaluate(@checklist, :organizer, item).status
+  end
+
+  test "checklist: the other checklist's one measured item passes its count through, and only then" do
+    Checklists.register_item_kind(:progress, ChecklistsTestKinds::Progress)
+    Checklists.register_item_kind(:private_progress, ChecklistsTestKinds::PrivateProgress)
+    other = create_world_checklist("Shifts", team: @members)
+    shifts = add_item(other, :progress, "Shifts", { confirmed: "2", owed: "3" })
+    refresh(other)
+    item = add_item(@checklist, :checklist, "Shifts", { checklist_id: other.id })
+
+    result = evaluate(@checklist, :member, item)
+    assert_equal "not_met", result.status
+    assert_equal({ "confirmed" => 2, "owed" => 3 }, result.measures)
+
+    add_item(other, :has_login, "Login")
+    refresh(other)
+    assert_empty evaluate(@checklist, :member, item).measures, "two counted items: no one number to show"
+
+    other.checklist_items.where(label: "Login").destroy_all
+    shifts.update!(kind: "private_progress")
+    refresh(other)
+    assert_empty evaluate(@checklist, :member, item).measures, "a kind that limits who sees its numbers keeps them to itself"
+  ensure
+    Checklists.unregister_item_kind(:progress)
+    Checklists.unregister_item_kind(:private_progress)
   end
 
   test "checklist: the fix says who acts on what's left on the other checklist" do

@@ -6,6 +6,7 @@
 class ChecklistItem < ApplicationRecord
   has_neat_id :chli
   include CanBeHooked
+  include Checklists::Words
   has_paper_trail versions: { class_name: "AuditLog" }
 
   # The form's start choice ("date", "within", "checklist"); not stored.

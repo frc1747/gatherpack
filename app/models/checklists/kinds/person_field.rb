@@ -136,13 +136,23 @@ module Checklists
           item.errors.add(:base, "Give a number") if %w[ at_least at_most ].include?(operator) && item.config["number"].blank?
         end
 
+        # The test in words, with what blank counts as when that passes:
+        # "Academically Eligible is Yes, or blank".
         def describe(item)
+          sentence = sentence(item)
+          field(item) && item.config["blank"] == "met" ? "#{sentence}, or blank" : sentence
+        end
+
+        # The test alone, which is also what a passing result says.
+        def sentence(item)
           field = field(item)
           return "A profile field that no longer exists" unless field
 
           operator = item.config["operator"]
+          choices = values(item).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
           sentence = case operator
-          when "any_of", "none_of" then "#{field.name} #{OPERATORS[operator]} #{values(item).to_sentence(two_words_connector: " or ", last_word_connector: ", or ")}"
+          when "any_of" then "#{field.name} is #{choices}"
+          when "none_of" then "#{field.name} isn't #{choices}"
           when "on_or_after", "on_or_before" then "#{field.name} #{date_phrase(operator, relative(item, "date"))}".strip
           when "at_least", "at_most" then "#{field.name} #{OPERATORS[operator]} #{item.config["number"]}"
           else "#{field.name} #{OPERATORS[operator]}"
@@ -222,7 +232,7 @@ module Checklists
 
       def evaluate(person_ids)
         field = self.class.field(item)
-        sentence = self.class.describe(item)
+        sentence = self.class.sentence(item)
         return person_ids.index_with { Result.not_met("Its field was deleted", detail: "The profile field this item tests was deleted") } if field.nil?
         return person_ids.index_with { Result.not_met("Can't be checked", detail: "#{sentence} can't be tested: the test doesn't fit the field") } unless self.class.operator_fits?(field, config["operator"])
 

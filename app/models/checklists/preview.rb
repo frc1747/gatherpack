@@ -9,10 +9,16 @@ module Checklists
 
     attr_reader :hidden
 
+    # The draft item's words, or the checklist's for a population preview.
+    def word_for(status)
+      @words.word_for(status)
+    end
+
     # viewer, when given, is who sees the preview: an item's kind may hide
     # some people's results from them (ItemKind.visible_to?), and those
     # are counted only as hidden, for an item and for the population.
     def initialize(checklist, item: nil, rules: nil, viewer: nil)
+      @words = item || checklist
       evaluator = Evaluator.new(checklist, items: item ? [ item ] : nil, rules: rules)
       ids = evaluator.covered_ids
       if viewer

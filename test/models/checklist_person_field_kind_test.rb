@@ -172,7 +172,20 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
         result = evaluate(@checklist, :member, item)
         assert_no_match(/peanuts/, [ result.summary, result.detail ].join)
       end
-      assert_equal "Allergies is none of gluten", evaluate(@checklist, :member, none).summary
+      assert_equal "Allergies isn't gluten", evaluate(@checklist, :member, none).summary
+      assert_equal "Allergies is gluten", Checklists::Kinds::PersonField.describe(other)
+    end
+  end
+
+  test "a test that passes on blank says so in its description, not in each result" do
+    with_fields do
+      eligible = create_field("Eligible", :select, choices: %w[ Yes No ])
+      assign(:member, eligible, "Yes")
+      item = add_field_item(eligible, "any_of", values: "Yes", blank: "met")
+
+      assert_equal "Eligible is Yes, or blank", Checklists::Kinds::PersonField.describe(item)
+      assert_equal "Eligible is Yes", evaluate(@checklist, :member, item).summary
+      assert_equal "met", evaluate(@checklist, :member2, item).status
     end
   end
 
