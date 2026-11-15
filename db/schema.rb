@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_16_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -261,7 +261,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.integer "position", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "vendor_id"
     t.index ["item_id"], name: "index_item_sources_on_item_id"
+    t.index ["vendor_id"], name: "index_item_sources_on_vendor_id"
   end
 
   create_table "item_unit_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1096,6 +1098,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
   add_foreign_key "funding_sources", "budgets"
   add_foreign_key "funding_sources", "teams"
   add_foreign_key "item_sources", "items"
+  add_foreign_key "item_sources", "vendors", on_delete: :nullify
   add_foreign_key "item_unit_events", "item_unit_events", column: "reverses_id"
   add_foreign_key "item_unit_events", "item_units"
   add_foreign_key "item_unit_events", "item_units", column: "from_unit_id"
