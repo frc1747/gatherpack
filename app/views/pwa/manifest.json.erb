@@ -25,5 +25,12 @@
   "display": "standalone",
   "start_url": "/",
   "scope": "/",
+<% if installable %>
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": { "url": "url", "text": "text", "title": "title" }
+  },
+<% end %>
   "description": <%= raw json_escape((installable ? Settings[:pwa_description].presence || "Get together with GatherPack" : "Get together with GatherPack").to_json) %>
 }
