@@ -1,0 +1,18 @@
+<% breadcrumb @order_request %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @order_request.draft? ? "Finish your request" : "Change your request" %></h1>
+    <% unless @order_request.draft? %>
+      <span class="badge text-bg-secondary"><%= order_request_status_text(@order_request) %></span>
+    <% end %>
+  </div>
+  <div class="card-body">
+    <% if @order_request.changes_requested? && (asked = @order_request.order_approvals.reverse.find(&:changes_requested?)) %>
+      <div class="alert alert-warning">
+        <strong>Changes asked for:</strong> <%= asked.comment %>
+      </div>
+    <% end %>
+    <%= order_request_slot :form, order_request: @order_request, lines: @lines %>
+  </div>
+</div>

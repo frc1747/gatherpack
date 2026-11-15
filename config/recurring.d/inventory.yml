@@ -1,0 +1,6 @@
+# Inventory managers' daily digest: items running low, counts that changed
+# a lot and units needing repair. Sends nothing while inventory is off.
+inventory_digest:
+  class: InventoryDigestJob
+  queue: default
+  schedule: at 7am every day
