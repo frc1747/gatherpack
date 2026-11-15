@@ -25,11 +25,16 @@ class OrderLine < ApplicationRecord
   monetize :estimated_unit_price_cents, allow_nil: true
   monetize :actual_unit_price_cents, allow_nil: true
 
-  # Fields the requester (and approvers, before approval) edit.
+  # Fields the requester (and approvers, before approval) edit. item_type
+  # and item_id link the line to what a line entry extension picked.
   EDITABLE_FIELDS = %w[
     description manufacturer manufacturer_part_number vendor_id other_vendor_name other_vendor_reason
     vendor_part_number url quantity unit units_per estimated_unit_price_cents funding_source_id note
+    item_type item_id
   ].freeze
+  # A line's link is a web page; anything else (javascript:, data:) isn't
+  # stored or shown as a link.
+  WEB_LINK_SCHEMES = %w[http https].freeze
   OPEN_TO_RECEIVE = %w[ordered backordered partly_received].freeze
   CONDITIONS_OK = %w[good].freeze
 
@@ -37,6 +42,7 @@ class OrderLine < ApplicationRecord
   validates :units_per, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
   validates :estimated_unit_price_cents, :actual_unit_price_cents, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validate :link_or_description
+  validate :url_is_web_link
   validate :other_vendor_reason_given
   validate :funding_source_usable
 
@@ -59,6 +65,19 @@ class OrderLine < ApplicationRecord
 
   def display_name
     description.presence || url_host || url.presence || "Item"
+  end
+
+  # Whether url is an http or https link with a host, so it's safe to show
+  # as one.
+  def self.web_link?(url)
+    uri = URI.parse(url.to_s.strip)
+    WEB_LINK_SCHEMES.include?(uri.scheme&.downcase) && uri.host.present?
+  rescue URI::InvalidURIError
+    false
+  end
+
+  def web_link?
+    self.class.web_link?(url)
   end
 
   def url_host
@@ -126,7 +145,7 @@ class OrderLine < ApplicationRecord
 
   # Attributes for the same line on a new request ("Order again").
   def reorder_attributes
-    attributes.slice(*EDITABLE_FIELDS, "item_type", "item_id")
+    attributes.slice(*EDITABLE_FIELDS)
       .merge("estimated_unit_price_cents" => unit_price_cents)
       .except("funding_source_id")
   end
@@ -309,6 +328,12 @@ class OrderLine < ApplicationRecord
 
   def link_or_description
     errors.add(:base, "Give a link or say what it is") if url.blank? && description.blank?
+  end
+
+  def url_is_web_link
+    return if url.blank? || !will_save_change_to_url? || web_link?
+
+    errors.add(:base, "The link must be a web page (http:// or https://)")
   end
 
   def other_vendor_reason_given

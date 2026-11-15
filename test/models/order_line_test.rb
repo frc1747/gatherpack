@@ -12,6 +12,29 @@ class OrderLineTest < ActiveSupport::TestCase
     order_request.order_lines.first.reload
   end
 
+  test "a line's link must be an http or https web page" do
+    order_request = draft_request(@world)
+    line = order_request.order_lines.sole
+
+    [ "javascript:alert(1)", "data:text/html,hi", "ftp://shop.example/x", "https://" ].each do |url|
+      line.url = url
+      assert_not line.valid?, "#{url} should be refused"
+      assert_includes line.errors[:base], "The link must be a web page (http:// or https://)"
+    end
+    line.url = "HTTPS://shop.example/p/1"
+    assert line.valid?
+  end
+
+  test "drafts are deleted through discard_draft!, and nothing else is" do
+    draft = draft_request(@world)
+    draft.discard_draft!(by: @world.requester)
+    assert_not OrderRequest.exists?(draft.id)
+
+    submitted = submitted_request(@world)
+    assert_raises(Orders::Refused) { submitted.discard_draft!(by: @world.requester) }
+    assert_raises(Orders::Refused) { draft_request(@world).comment!("Hello", by: @world.requester) }
+  end
+
   test "a line's vendor is a vendor, another store, or not sure" do
     line = OrderLine.new(vendor: @world.preferred_vendor, other_vendor_name: "ignored")
     line.valid?

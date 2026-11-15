@@ -1,0 +1,105 @@
+<%# One item on the request form. key names its fields (a number; NEW_LINE in the template for Add another item). %>
+<% name = "order_request[lines][#{key}]" %>
+<% choice = order_line_vendor_choice(line) %>
+<fieldset class="card mb-3 orders-line" data-order-line <%= "hidden" if removed %>>
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <legend class="h6 mb-0" data-order-line-number>Item <%= number %></legend>
+      <button type="button" class="btn btn-link text-danger" data-action="order-form#removeLine">Remove</button>
+    </div>
+    <%= fields_for name, line do |lf| %>
+      <%= hidden_field_tag "#{name}[id]", line.persisted? ? line.id : "", id: nil, data: { field: "id" } %>
+      <%= hidden_field_tag "#{name}[_destroy]", removed ? "1" : "", id: nil, data: { field: "destroy" } %>
+      <%# Set by a line entry extension's picker (Orders.line_entry_extensions). %>
+      <%= hidden_field_tag "#{name}[item_type]", line.item_type, id: nil, data: { field: "item_type" } %>
+      <%= hidden_field_tag "#{name}[item_id]", line.item_id, id: nil, data: { field: "item_id" } %>
+
+      <div class="mb-3">
+        <%= lf.label :url, "Link", class: "form-label" %>
+        <%= lf.text_field :url, class: "form-control", inputmode: "url", autocomplete: "off", autocapitalize: "off",
+              placeholder: "Paste a link to the item, if you have one",
+              data: { field: "url", action: "input->order-form#linkChanged" } %>
+        <div class="form-text" data-field="match"><%=
+          if line.url.present?
+            case line.vendor_choice
+            when :vendor then [ "From #{line.vendor.name}", (line.vendor_part_number.present? ? "part #{line.vendor_part_number}" : nil) ].compact.join(" · ")
+            when :other then "Other store: #{line.other_vendor_name}"
+            end
+          end
+        %></div>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-8 col-md-9">
+          <%= lf.label :description, "What is it?", class: "form-label" %>
+          <%= lf.text_field :description, class: "form-control", placeholder: "Say what it is, if there's no link" %>
+        </div>
+        <div class="col-4 col-md-3">
+          <%= lf.label :quantity, "How many?", class: "form-label" %>
+          <%= lf.number_field :quantity, min: 1, step: 1, inputmode: "numeric", class: "form-control" %>
+        </div>
+      </div>
+
+      <details class="orders-more" data-more>
+        <summary>More details</summary>
+        <div class="pt-2">
+          <div class="mb-3">
+            <%= label_tag "#{name}[vendor_choice]", "Where from?", class: "form-label", for: "#{lf.field_id(:vendor_choice)}" %>
+            <%= select_tag "#{name}[vendor_choice]", order_vendor_options(vendors, line), id: lf.field_id(:vendor_choice),
+                  class: "form-select", data: { field: "vendor_choice", action: "change->order-form#vendorChosen" } %>
+          </div>
+          <div class="mb-3" data-field="other_store" <%= "hidden" unless choice == "other" %>>
+            <%= lf.label :other_vendor_name, "Store name", class: "form-label" %>
+            <%= lf.text_field :other_vendor_name, class: "form-control", data: { field: "other_vendor_name" } %>
+            <% if Orders::Config.require_other_vendor_reason? %>
+              <%= lf.label :other_vendor_reason, "Why this store?", class: "form-label mt-2" %>
+              <%= lf.text_field :other_vendor_reason, class: "form-control" %>
+            <% end %>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-12 col-md-4">
+              <%= lf.label :vendor_part_number, "Store part number", class: "form-label" %>
+              <%= lf.text_field :vendor_part_number, class: "form-control", autocapitalize: "off", data: { field: "vendor_part_number" } %>
+            </div>
+            <div class="col-6 col-md-4">
+              <%= lf.label :manufacturer, "Maker", class: "form-label" %>
+              <%= lf.text_field :manufacturer, class: "form-control" %>
+            </div>
+            <div class="col-6 col-md-4">
+              <%= lf.label :manufacturer_part_number, "Maker part number", class: "form-label" %>
+              <%= lf.text_field :manufacturer_part_number, class: "form-control", autocapitalize: "off" %>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <%= lf.label :unit, "Unit", class: "form-label" %>
+              <%= lf.text_field :unit, class: "form-control", placeholder: "each", list: "order_units" %>
+            </div>
+            <div class="col-4">
+              <%= lf.label :units_per, "Pieces per unit", class: "form-label" %>
+              <%= lf.number_field :units_per, min: 1, step: 1, inputmode: "numeric", class: "form-control" %>
+            </div>
+            <div class="col-4">
+              <%= label_tag "#{name}[estimated_unit_price]", "Price each", class: "form-label", for: lf.field_id(:estimated_unit_price) %>
+              <%= text_field_tag "#{name}[estimated_unit_price]", line.estimated_unit_price_cents && format("%.2f", line.estimated_unit_price_cents / 100.0),
+                    id: lf.field_id(:estimated_unit_price), class: "form-control", inputmode: "decimal", placeholder: "0.00" %>
+            </div>
+          </div>
+          <div class="mb-3">
+            <%= lf.label :photo, "Photo", class: "form-label" %>
+            <% if line.persisted? && line.photo.attached? %>
+              <div class="mb-2"><%= order_line_photo_thumbnail(line) %></div>
+            <% end %>
+            <%= lf.file_field :photo, accept: "image/*", capture: "environment", class: "form-control",
+                  data: { field: "photo", action: "change->order-form#photoChosen" } %>
+            <div class="form-text" data-field="photo_status"></div>
+          </div>
+          <div class="mb-1">
+            <%= lf.label :note, "Note", class: "form-label" %>
+            <%= lf.text_area :note, rows: 2, class: "form-control" %>
+          </div>
+        </div>
+      </details>
+    <% end %>
+  </div>
+</fieldset>
