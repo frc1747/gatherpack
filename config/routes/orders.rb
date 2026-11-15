@@ -14,12 +14,13 @@ namespace :orders do
     end
     resources :lines, only: %i[create update destroy] do
       member do
-        post :backorder
-        post :split
-        post :cancel
+        post :backorder, controller: "buyer_lines"
+        post :change_quantity, controller: "buyer_lines"
+        post :split, controller: "buyer_lines"
+        post :cancel, controller: "buyer_lines"
         post :mark_received
         post :resolve
-        post :reallocate
+        post :reallocate, to: "reallocations#create"
       end
       resources :deliveries, only: %i[new create]
     end
@@ -33,14 +34,20 @@ namespace :orders do
     end
     member do
       post :mark_all_received
+      post :make_vendor
     end
   end
   resources :deliveries, only: :index
-  resources :vendors
+  resources :vendors do
+    collection do
+      get :pattern_test
+    end
+  end
   resources :funding_sources do
     member do
       get :report
     end
   end
   resources :reports, only: %i[index show]
+  resource :settings, only: %i[show update]
 end

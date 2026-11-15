@@ -10,6 +10,7 @@
 #   waiting.needing_changes  # the person's requests sent back to them
 #   waiting.problems         # requests with a problem on a line they bought
 #   waiting.lines_to_buy     # count of approved items within buyer reach
+#   waiting.buy_lines        # those items, as a relation (the To buy page)
 #   waiting.lines_to_receive # count on their own and followed requests
 #   waiting.active_requests  # their own and followed requests still active
 #
@@ -62,6 +63,15 @@ module Orders
 
     def earliest_to_buy
       buy_queue[1]
+    end
+
+    # The approved, unbought items within the person's buyer reach.
+    def buy_lines
+      return OrderLine.none if person.nil? || !access.buyer?
+
+      lines = OrderLine.joins(:order_request).where(status: :approved, purchase_id: nil)
+        .where(order_requests: { status: %w[approved ordering received] })
+      access.admin? ? lines : lines.where(order_requests: { team_id: access.buyer_team_ids.to_a })
     end
 
     # Items on a purchase, still to receive, on the person's own and
@@ -149,10 +159,7 @@ module Orders
         if person.nil? || !access.buyer?
           [ 0, nil ]
         else
-          lines = OrderLine.joins(:order_request).where(status: :approved, purchase_id: nil)
-            .where(order_requests: { status: %w[approved ordering received] })
-          lines = lines.where(order_requests: { team_id: access.buyer_team_ids.to_a }) unless access.admin?
-          count, earliest = lines.pick(Arel.sql("COUNT(*)"), Arel.sql("MIN(order_requests.needed_by)"))
+          count, earliest = buy_lines.pick(Arel.sql("COUNT(*)"), Arel.sql("MIN(order_requests.needed_by)"))
           [ count.to_i, earliest ]
         end
       end
