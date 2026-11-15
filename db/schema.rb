@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_15_100800) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -509,6 +509,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_100800) do
     t.index ["vendor_id"], name: "index_order_lines_on_vendor_id"
   end
 
+  create_table "order_notice_marks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_request_id", null: false
+    t.string "kind", null: false
+    t.string "detail"
+    t.datetime "sent_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_request_id", "kind"], name: "index_order_notice_marks_on_order_request_id_and_kind", unique: true
+    t.index ["order_request_id"], name: "index_order_notice_marks_on_order_request_id"
+  end
+
+  create_table "order_notice_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.integer "buyer_notices", default: 0, null: false
+    t.date "digest_sent_on"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_order_notice_preferences_on_person_id", unique: true
+  end
+
   create_table "order_request_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "order_request_id", null: false
     t.uuid "order_line_id"
@@ -972,6 +992,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_100800) do
   add_foreign_key "order_lines", "order_requests"
   add_foreign_key "order_lines", "purchases"
   add_foreign_key "order_lines", "vendors"
+  add_foreign_key "order_notice_marks", "order_requests"
+  add_foreign_key "order_notice_preferences", "people"
   add_foreign_key "order_request_events", "order_lines"
   add_foreign_key "order_request_events", "order_requests"
   add_foreign_key "order_request_events", "people", column: "actor_id"
