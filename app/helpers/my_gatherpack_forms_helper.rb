@@ -4,7 +4,10 @@
 module MyGatherpackFormsHelper
   def my_gatherpack_form_items
     person = current_user.person
-    entries = forms_to_complete(person).map { |entry| my_gatherpack_form_entry_item(entry, person) }
+    # A form another section already shows (a checklist item that lists it) appears there only.
+    entries = forms_to_complete(person)
+      .reject { |entry| MyGatherpack::Claims.claimed?(self, :form, entry.subject, entry.form.id) }
+      .map { |entry| my_gatherpack_form_entry_item(entry, person) }
     leaders = leader_todos(person).map { |todo| my_gatherpack_leader_todo_item(todo) }
     entries + leaders
   end
