@@ -1,7 +1,9 @@
 require_relative "../../lib/gatherpack/service_worker"
+require_relative "../../lib/gatherpack/share_actions"
 
 # Installable app: a short name for the home screen, a service worker that caches
-# only digested assets and the offline page, and an install entry in the sidebar.
+# only digested assets and the offline page, an install entry in the sidebar, and
+# a /share page that other apps can send links to (see GatherPack::ShareActions).
 # The flag turns it all off; a device that already has the worker removes it the
 # next time it checks (see app/views/pwa/service-worker.js.erb).
 Rails.application.config.to_prepare do
