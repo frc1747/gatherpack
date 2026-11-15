@@ -55,7 +55,8 @@ Hbr::SampleData.feature "feature/my-gatherpack-activity" do |s|
 
   activity = MyGatherpack::Activity.new(ella, season: season)
   s.report "Ella (member@) has check-ins at three event types and meeting punches this season and last"
-  s.expect("Ella's season has three kinds of event and meetings") { activity.kind_rows.map(&:name) == %w[Meetings Outreach Training Workday] }
+  # Other layers (commitments' Crew Shifts) can add kinds of their own.
+  s.expect("Ella's season has three kinds of event and meetings") { (%w[Meetings Outreach Training Workday] - activity.kind_rows.map(&:name)).empty? }
   s.expect("Ella came to two of three crew meetings") { [ activity.meetings_attended, activity.meetings_held.size ] == [ 2, 3 ] }
   s.expect("Training is all-day, so it has no hours") { activity.kind_row(training.neat_id)&.hours.nil? }
   s.expect("the season select offers last season too") { activity.seasons.include?(last_season) }
