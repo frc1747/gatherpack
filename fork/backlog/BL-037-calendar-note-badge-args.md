@@ -4,10 +4,10 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | new |
+| Status | started (`feature/calendar-note-badge`, see `FORK.md`) |
 | Added | 2026-11-08 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
-| Planned branch | none yet |
+| Planned branch | `feature/calendar-note-badge` |
 | Upstream issue / PR | none |
 
 ## Summary

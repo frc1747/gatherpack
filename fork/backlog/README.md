@@ -43,7 +43,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-034](BL-034-table-responsive.md) | Three screens have wide tables that widen the page on a phone | upstream improvement | low | started | 2026-11-08 |
 | [BL-035](BL-035-people-search-phone.md) | The People search form fills the phone screen | upstream improvement | medium | started | 2026-11-08 |
 | [BL-036](BL-036-ransack-associations-allowlist.md) | Six admin list pages raise a Ransack allowlist error | upstream bug | medium | started | 2026-11-08 |
-| [BL-037](BL-037-calendar-note-badge-args.md) | The calendar notes page crashes when a note links to a record | upstream bug | medium | new | 2026-11-08 |
+| [BL-037](BL-037-calendar-note-badge-args.md) | The calendar notes page crashes when a note links to a record | upstream bug | medium | started | 2026-11-08 |
 | [BL-038](BL-038-kiosk-device-token.md) | Let a dedicated kiosk computer stay on the time clock without a user login | upstream feature | medium | new | 2026-11-09 |
 | [BL-039](BL-039-kiosk-no-sign-out.md) | Take the Sign out button off the kiosk account's kiosk header | fork change | medium | new | 2026-11-09 |
 | [BL-040](BL-040-kiosk-serial-scanner.md) | Read the kiosk's card scanner as a serial device instead of a keyboard | fork-only | low | waiting | 2026-11-10 |

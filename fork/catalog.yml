@@ -907,3 +907,11 @@ feature/mcp-orders:
     - name: Orders and Inventory
       key: feature_orders, feature_inventory
       default: "off"
+
+feature/calendar-note-badge:
+  title: Calendar notes linked to a team open again
+  emoji: "🗓️"
+  description: >-
+    The calendar notes list no longer shows an error when a note is linked
+    to a team or a person.
+  audience: Everyone who uses calendar notes
