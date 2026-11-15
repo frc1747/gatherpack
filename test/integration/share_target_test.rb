@@ -75,4 +75,10 @@ class ShareTargetTest < ActionDispatch::IntegrationTest
     assert_select "a[href='/toss']", "Toss it"
     assert_select "a", text: "Secret", count: 0
   end
+
+  test "the page verifies authorization" do
+    assert ShareController <= InternalController
+    assert SharePolicy.new(@user, :share).show?
+    assert_not SharePolicy.new(nil, :share).show?
+  end
 end
