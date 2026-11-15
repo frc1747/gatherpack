@@ -1,0 +1,41 @@
+<%# Guardian requests for a young person on a registration, for its managers:
+    their state, a corrected email, Send again, and linking someone on file. %>
+<% rows = Intake::HouseholdMember.guardian.joins(:entry).where(intake_entries: { registration_id: registration.id }).select { |row| row.facts["ward_id"] == ward.id } %>
+<% if rows.any? || (Intake.person_needs_guardian?(ward) && !ward.guardians.exists?) %>
+  <div class="mt-2" id="<%= dom_id(ward, :intake_guardians) %>">
+    <% rows.each do |row| %>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <% if row.guardian_confirmed_at && (linked_by = Person.find_by(id: row.facts["linked_by_id"])) %>
+          <span class="badge text-bg-success">Guardian <%= row.person&.display_name %> linked by <%= linked_by.display_name %> on <%= l row.guardian_confirmed_at.to_date, format: :long %></span>
+        <% elsif row.guardian_confirmed_at %>
+          <span class="badge text-bg-success">Guardian confirmed by email on <%= l row.guardian_confirmed_at.to_date, format: :long %></span>
+        <% elsif row.facts["manager_confirms"] %>
+          <span class="badge text-bg-secondary">Waiting for a manager to confirm <%= row.facts["first_name"] %> <%= row.facts["last_name"] %></span>
+          <%= form_with url: intake_registration_guardians_path(registration) do %>
+            <%= hidden_field_tag :ward_id, ward.id, id: nil %>
+            <%= hidden_field_tag :row_id, row.id, id: nil %>
+            <%= hidden_field_tag :guardian, row.facts["person_id"], id: nil %>
+            <%= submit_tag "Confirm as guardian", class: "btn btn-sm btn-outline-primary" %>
+          <% end %>
+        <% else %>
+          <span class="badge text-bg-secondary">Waiting for <%= row.facts["first_name"] %> to confirm</span>
+          <%= form_with url: intake_registration_guardian_path(registration, row), method: :patch, class: "d-flex gap-1" do %>
+            <%= email_field_tag :email, row.facts["email"], id: "guardian_email_#{row.id}", class: "form-control form-control-sm", aria: { label: "Guardian's email" } %>
+            <%= submit_tag "Change email", class: "btn btn-sm btn-outline-primary" %>
+          <% end %>
+          <%= button_to "Send again", resend_intake_registration_guardian_path(registration, row), class: "btn btn-sm btn-outline-secondary" %>
+        <% end %>
+      </div>
+    <% end %>
+    <% unless ward.guardians.exists? %>
+      <%= form_with url: intake_registration_guardians_path(registration), class: "d-flex flex-wrap gap-1 align-items-center" do %>
+        <%= hidden_field_tag :ward_id, ward.id, id: nil %>
+        <% if (waiting = rows.detect { |row| row.guardian_confirmed_at.nil? }) %>
+          <%= hidden_field_tag :row_id, waiting.id, id: nil %>
+        <% end %>
+        <%= text_field_tag :guardian, nil, id: "link_guardian_#{ward.id}", placeholder: "Login email or person id (per_...)", class: "form-control form-control-sm", style: "max-width: 18rem;", aria: { label: "Guardian already on file" } %>
+        <%= submit_tag "Link a guardian on file", class: "btn btn-sm btn-outline-primary" %>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

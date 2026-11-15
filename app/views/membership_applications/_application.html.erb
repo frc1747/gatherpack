@@ -12,6 +12,7 @@
       <strong><%= link_to membership_application.person.display_name, person_path(membership_application.person) %></strong>
       →
       <%= as_badge membership_application.team %>
+      <%= render "intake/membership_applications/details", application: membership_application %>
     </div>
     <div>
       <small class="text-muted"><%= membership_application.created_at.strftime("%b %d, %Y") %></small>

@@ -1,0 +1,6 @@
+<% content_for :title, "Confirm your new email" %>
+<h1 class="h3">Change your email to <%= @new_email %>?</h1>
+<%= form_with url: intake_email_change_path, data: { turbo: false } do |f| %>
+  <%= hidden_field_tag :token, @token %>
+  <%= f.submit "Use this email", class: "btn btn-primary" %>
+<% end %>
