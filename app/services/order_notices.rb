@@ -30,7 +30,14 @@ class OrderNotices
 
   # Final approval: the requester and watchers now, and each buyer who asked
   # to hear about every approval (the rest get Orders::Reminders' digest).
-  def approved(order_request, by: nil)
+  # lines: names the items of a re-approval (a buyer's change that went past
+  # the tolerance); that goes to the requester, watchers and those items'
+  # buyers, and nothing is left to buy.
+  def approved(order_request, by: nil, lines: nil)
+    if lines
+      return reapproval_decided(order_request, lines, "Approved again", nil, by) { |who, what| "#{who} approved the higher price of #{what}." }
+    end
+
     told = deliver(Orders::Recipients.requester_and_watchers(order_request), "Approved: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} was approved. A buyer will order it.</p>#{details(order_request)}"
     end
@@ -41,8 +48,15 @@ class OrderNotices
     end
   end
 
-  # Changes requested: the requester and watchers, with the comment.
-  def changes_requested(order_request, comment: nil, by: nil)
+  # Changes requested: the requester and watchers, with the comment. On a
+  # re-approval (lines:) the items keep waiting, so it says so.
+  def changes_requested(order_request, comment: nil, by: nil, lines: nil)
+    if lines
+      return reapproval_decided(order_request, lines, "Needs changes", comment, by) do |who, what|
+        "#{who} asked for changes to #{what}, after a price went up. The items are still waiting for a decision."
+      end
+    end
+
     deliver(Orders::Recipients.requester_and_watchers(order_request), "Needs changes: #{order_request.display_title}", by: by) do
       "<p>#{h(by&.display_name || "An approver")} asked for changes to #{h(order_request.display_title)}.</p>" \
         "#{comment_text(comment)}<p>Change it and send it again.</p>#{details(order_request)}"
@@ -50,7 +64,11 @@ class OrderNotices
   end
 
   # Declined: the requester and watchers, with the comment.
-  def declined(order_request, comment: nil, by: nil)
+  def declined(order_request, comment: nil, by: nil, lines: nil)
+    if lines
+      return reapproval_decided(order_request, lines, "Declined", comment, by) { |who, what| "#{who} declined the higher price of #{what}. The items were cancelled." }
+    end
+
     deliver(Orders::Recipients.requester_and_watchers(order_request), "Declined: #{order_request.display_title}", by: by) do
       "<p>#{h(by&.display_name || "An approver")} declined #{h(order_request.display_title)}.</p>#{comment_text(comment)}#{details(order_request)}"
     end
@@ -146,6 +164,18 @@ class OrderNotices
       SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{body}")
     end
     people.size
+  end
+
+  # A decision on items sent back for re-approval: the requester, watchers
+  # and the buyers who bought those items. The block gives the sentence.
+  def reapproval_decided(order_request, names, subject, comment, by)
+    lines = order_request.order_lines.select { |line| names.include?(line.display_name) }
+    people = Orders::Recipients.requester_and_watchers(order_request) + lines.filter_map { |line| line.purchase&.buyer }
+    deliver(people, "#{subject}: #{order_request.display_title}", by: by) do
+      who = h(by&.display_name || "An approver")
+      what = "#{h(names.to_sentence)} on #{h(order_request.display_title)}"
+      "<p>#{yield(who, what)}</p>#{comment_text(comment)}#{details(order_request)}"
+    end
   end
 
   def approvers_now(order_request)

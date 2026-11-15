@@ -40,8 +40,8 @@ module Orders
       case action
       when "submitted" then notices.submitted(request, by: actor)
       when "approved" then notify_approved(request, notices)
-      when "changes_requested" then notices.changes_requested(request, comment: comment, by: actor)
-      when "declined" then notices.declined(request, comment: comment, by: actor) unless reapproval?
+      when "changes_requested" then notices.changes_requested(request, comment: comment, by: actor, lines: reapproved_lines)
+      when "declined" then notices.declined(request, comment: comment, by: actor, lines: reapproved_lines)
       when "purchased" then notify_purchased(request, notices)
       when "backordered" then notices.backordered(order_line, by: actor)
       when "problem" then notices.problem(order_line, by: actor)
@@ -55,8 +55,14 @@ module Orders
       field_changes.key?("lines")
     end
 
+    # The names of the items a re-approval decision was about, or nil for a
+    # decision on a whole request.
+    def reapproved_lines
+      Array(field_changes["lines"]) if reapproval?
+    end
+
     def notify_approved(request, notices)
-      return if reapproval?
+      return notices.approved(request, by: actor, lines: reapproved_lines) if reapproval?
 
       if field_changes.dig("status", 1) == "approved"
         notices.approved(request, by: actor)

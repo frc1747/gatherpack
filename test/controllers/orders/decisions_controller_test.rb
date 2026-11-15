@@ -199,7 +199,7 @@ class Orders::DecisionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "re-approval: approving keeps the changed items, declining cancels them, asking for changes is refused" do
+  test "re-approval: approving keeps the changed items, declining cancels them, asking for changes leaves them waiting" do
     with_settings(orders_settings(@world, orders_price_tolerance: "10%, 25")) do
       Orders::Current.reset
       kept = approved_request(@world, lines: [ { description: "Kit", price: 100 } ])
@@ -209,8 +209,13 @@ class Orders::DecisionsControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.mentor.user
 
       post orders_request_decisions_url(kept), params: { decision: "changes_requested", comment: "Hmm" }
-      assert_equal "Approve or decline the changed items.", flash[:alert]
+      assert_equal "Sent back for changes: #{kept.display_title}", flash[:notice]
       assert kept.reload.needs_reapproval?
+      assert_equal "changes_requested", kept.events.reorder(:created_at, :id).last.action
+      assert_equal "Hmm", kept.events.reorder(:created_at, :id).last.comment
+
+      post orders_request_decisions_url(kept), params: { decision: "changes_requested" }
+      assert_equal "Say what needs changing or why it's declined.", flash[:alert]
 
       post orders_request_decisions_url(kept), params: { decision: "approved" }
       assert kept.order_lines.first.reload.ordered?

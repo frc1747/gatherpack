@@ -118,7 +118,7 @@ class Orders::RequestDecisionTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "re-approval lists the changed items, with no Ask for changes and no item edits" do
+  test "re-approval lists the changed items, with Ask for changes and no item edits" do
     with_settings(orders_settings(@world, orders_price_tolerance: "10%, 25")) do
       Orders::Current.reset
       order_request = approved_request(@world, lines: [ { description: "Kit", price: 100 } ])
@@ -131,8 +131,89 @@ class Orders::RequestDecisionTest < ActionDispatch::IntegrationTest
       assert_select "#decision li", /Kit × 1/
       assert_select "button[value=approved]"
       assert_select "button[value=declined]"
-      assert_select "button[value=changes_requested]", 0
+      assert_select "button[value=changes_requested]", "Ask for changes"
       assert_select "details.orders-line-edit", 0
+    end
+  end
+
+  test "every item's fix form has its own field ids, so a label reaches its own box" do
+    with_orders(@world) do
+      order_request = submitted_request(@world, lines: [ { description: "Gear", price: 10 }, { description: "Belt", price: 5 } ])
+      sign_in @world.mentor.user
+
+      get orders_request_url(order_request)
+
+      forms = css_select("details.orders-line-edit form")
+      assert_equal 2, forms.size
+      label_targets = forms.map { |form| form.css("label").filter_map { |label| label["for"] } }
+      assert_empty label_targets.first & label_targets.last
+      forms.each do |form|
+        ids = form.css("[id]").map { |node| node["id"] }
+        label_targets_in_form = form.css("label").filter_map { |label| label["for"] }
+        assert_empty label_targets_in_form - ids, "each label points at a field in its own form"
+      end
+      all_ids = css_select("details.orders-line-edit [id]").map { |node| node["id"] }
+      assert_equal all_ids.uniq, all_ids
+    end
+  end
+
+  test "the comment box says when a comment is needed, on a re-approval too" do
+    with_settings(orders_settings(@world, orders_price_tolerance: "10%, 25")) do
+      Orders::Current.reset
+      first = submitted_request(@world)
+      reapproval = approved_request(@world, lines: [ { description: "Kit", price: 100 } ])
+      buy(@world, reapproval.order_lines.to_a, prices: { reapproval.order_lines.first.id => 13_000 })
+      sign_in @world.mentor.user
+
+      [ first, reapproval ].each do |order_request|
+        get orders_request_url(order_request)
+
+        assert_select "#decision textarea[placeholder='Comment (needed to ask for changes or decline)']"
+      end
+    end
+  end
+
+  test "re-approval funding shows what the items cost, not $0.00, and counts them once" do
+    with_settings(orders_settings(@world, orders_price_tolerance: "10%, 25")) do
+      Orders::Current.reset
+      budget = FundingSource.create!(team: @world.robotics, name: "Build budget", amount_cents: 100_000)
+      order_request = approved_request(@world, lines: [ { description: "Kit", price: 100 } ], funding_source: budget)
+      buy(@world, order_request.order_lines.to_a, prices: { order_request.order_lines.first.id => 13_000 })
+      sign_in @world.mentor.user
+
+      get orders_request_url(order_request)
+
+      assert_select ".orders-decision-funding dt", text: "Items to re-approve"
+      assert_select ".orders-decision-funding dd", text: "$130.00", minimum: 1
+      order_request.reload
+      numbers = Orders::FundingNumbers.new(budget)
+      assert_equal 13_000, numbers.request_cents(order_request)
+      assert_equal numbers.remaining_cents, numbers.remaining_after_cents(order_request)
+      assert_equal 100_000 - 13_000, numbers.remaining_cents
+    end
+  end
+
+  test "the items of a declined request say it was declined, not that they're waiting" do
+    with_orders(@world) do
+      order_request = submitted_request(@world, lines: [ { description: "Gear", price: 10 }, { description: "Belt", price: 5 } ])
+      order_request.decide!(:declined, by: @world.mentor, comment: "Not this term")
+      sign_in @world.requester.user
+
+      get orders_request_url(order_request)
+
+      assert_select "#items .badge", text: "Declined", count: 2
+      assert_select "#items .badge", text: "Waiting for approval", count: 0
+    end
+  end
+
+  test "items of a request waiting for approval still say so" do
+    with_orders(@world) do
+      order_request = submitted_request(@world)
+      sign_in @world.requester.user
+
+      get orders_request_url(order_request)
+
+      assert_select "#items .badge", text: "Waiting for approval"
     end
   end
 

@@ -35,13 +35,18 @@ module Orders
     end
 
     # What this request would add: its live lines on this source that
-    # aren't counted yet (not yet approved).
+    # aren't counted yet (not yet approved). For a re-approval, the cost of
+    # the items waiting for it, which committed and spent already include.
     def request_cents(order_request)
-      order_request.live_lines.select { |line| line.pending? && line.effective_funding_source_id == source.id }.sum(&:cost_cents)
+      status = order_request.submitted? ? :pending : :needs_reapproval
+      order_request.live_lines.select { |line| line.status == status.to_s && line.effective_funding_source_id == source.id }.sum(&:cost_cents)
     end
 
-    # What would remain after the request, or nil with no amount.
+    # What would remain after the request, or nil with no amount. On a
+    # re-approval the items are already counted, so nothing more comes off.
     def remaining_after_cents(order_request)
+      return remaining_cents if remaining_cents && !order_request.submitted?
+
       remaining_cents && remaining_cents - request_cents(order_request)
     end
 

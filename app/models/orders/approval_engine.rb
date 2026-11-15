@@ -108,9 +108,6 @@ module Orders
         end
 
         reapproval = !submitted?
-        if reapproval && decision == "changes_requested"
-          raise Orders::Refused, "Approve or decline the changed items."
-        end
 
         changes = {}
         if decision == "approved"
@@ -124,7 +121,11 @@ module Orders
           end
         end
 
-        order_approvals.create!(step_key: step.key, approver: by, decision: decision, comment: comment.presence)
+        # Asking for changes on re-approval sends nothing back: the items keep
+        # waiting, so it's a timeline entry and a notice, not an approval.
+        unless reapproval && decision == "changes_requested"
+          order_approvals.create!(step_key: step.key, approver: by, decision: decision, comment: comment.presence)
+        end
         reapproval ? record_reapproval(decision, step, by, comment, changes) : record_decision(decision, step, steps, by, comment, changes)
       end
     end
@@ -155,10 +156,9 @@ module Orders
     def record_reapproval(decision, step, by, comment, changes)
       lines = reapproval_lines
       lines.each do |line|
-        if decision == "approved"
-          line.update!(status: line.purchase_id ? :ordered : :approved)
-        else
-          line.update!(status: :cancelled)
+        case decision
+        when "approved" then line.update!(status: line.purchase_id ? :ordered : :approved)
+        when "declined" then line.update!(status: :cancelled)
         end
       end
       changes["lines"] = lines.map(&:display_name)
