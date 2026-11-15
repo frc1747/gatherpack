@@ -31,7 +31,14 @@ class Intake::JoinController < InternalController
       return render :show, status: :too_many_requests
     end
     # Bots are dropped quietly: they see what a person would.
-    return render :thanks if Intake::FormGuard.drop?(params) || !Intake::BotCheck.adapter.passed?(params, request)
+    return render :thanks if Intake::FormGuard.drop?(params)
+    unless Intake::BotCheck.adapter.passed?(params, request)
+      # An adapter that can tell a person to retry says so; others drop quietly.
+      message = Intake::BotCheck.adapter.try(:failure_message)
+      return render :thanks if message.blank?
+      @entry.errors.add(:base, message)
+      return render(:show, status: :unprocessable_content)
+    end
     return render(:show, status: :unprocessable_content) unless @entry.valid?
     return render_busy if @registration.at_entry_cap?
 
