@@ -1,9 +1,9 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  value: MyString
+  value: "1000001"
   tokenable: one (Person)
 
 two:
-  value: MyString
+  value: "1000002"
   tokenable: two (Person)
