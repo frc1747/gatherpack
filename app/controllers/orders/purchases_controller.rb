@@ -15,6 +15,7 @@ module Orders
       @purchases = policy_scope(Purchase).includes(:vendor, :buyer, order_lines: :order_request)
         .order(Purchase.arel_table[:ordered_on].desc.nulls_last, created_at: :desc)
       @purchases = @purchases.where(buyer: current_user.person) if params[:mine].present?
+      @purchases = @purchases.where(ledger_entry_id: nil) if params[:not_in_ledger].present? && Orders::LedgerRecording.ledger_on?
       @purchases = @purchases.page(params[:page])
     end
 
@@ -44,9 +45,13 @@ module Orders
       @group = Orders::ToBuy.new(current_user.person).selection(params[:line_ids])
       @purchase = Purchase.new(purchase_attributes)
       vendor, other_vendor_name = chosen_vendor
-      purchase = Orders::RecordPurchase.new(buyer: current_user.person, lines: @group.lines, vendor: vendor,
-        other_vendor_name: other_vendor_name, prices: line_prices, attributes: purchase_attributes,
-        receipts: params.dig(:purchase, :receipts)).call
+      purchase = Purchase.transaction do
+        recorded = Orders::RecordPurchase.new(buyer: current_user.person, lines: @group.lines, vendor: vendor,
+          other_vendor_name: other_vendor_name, prices: line_prices, attributes: purchase_attributes,
+          receipts: params.dig(:purchase, :receipts)).call
+        record_in_ledger(recorded)
+        recorded
+      end
       redirect_to orders_purchase_path(purchase), notice: recorded_notice(purchase)
     rescue ActiveRecord::RecordInvalid => e
       prefix = e.record.is_a?(OrderLine) ? "#{e.record.display_name}: " : ""
@@ -114,6 +119,14 @@ module Orders
       params.fetch(:prices, {}).permit(@group.lines.map(&:id)).to_h.filter_map do |line_id, text|
         [ line_id, Monetize.parse(text).cents ] if text.present?
       end.to_h
+    end
+
+    # Record in ledger, when ticked on the purchase form (spec §6). A refusal
+    # rolls the purchase back with it.
+    def record_in_ledger(purchase)
+      return unless params[:record_in_ledger] == "1" && Orders::LedgerRecording.ledger_on?
+
+      Orders::RecordInLedger.new(purchase, ledger: Ledger.find_by(id: params[:ledger_id]), by: current_user.person).call
     end
 
     def paid_with_labels

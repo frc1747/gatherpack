@@ -60,6 +60,12 @@ class PurchasePolicy < ApplicationPolicy
     full?
   end
 
+  # Record in ledger later (spec §6): the purchase isn't in a ledger yet,
+  # and the viewer sees all of it and may add entries to some ledger.
+  def record_in_ledger?
+    record.ledger_entry_id.nil? && full? && Orders::LedgerRecording.ledgers_for(person).any?
+  end
+
   def mark_all_received?
     show?
   end
