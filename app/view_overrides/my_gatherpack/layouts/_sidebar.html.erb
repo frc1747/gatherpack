@@ -107,7 +107,12 @@
           <%= my_gatherpack_avatar(current_user.person) %>
           <div class="min-w-0">
             <%= link_to current_user.person.identifier_name, current_user.person, class: "d-block text-truncate" %>
-            <%= link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "mg-sign-out" %>
+            <div class="mg-sidebar-account">
+              <% MyGatherpack.account_links_for(self).each do |link| %>
+                <%= link_to link.label, public_send(link.path), class: "mg-sign-out" %>
+              <% end %>
+              <%= link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "mg-sign-out" %>
+            </div>
           </div>
         </div>
       </div>

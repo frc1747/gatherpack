@@ -17,7 +17,8 @@ Rails.application.config.to_prepare do
 
   MyGatherpack.register_section(:events, partial: "my_gatherpack/event_row", column: :coming_up, position: 10,
     enabled: -> { GatherPack::Features.enabled?(:events) }, items: -> { my_gatherpack_event_items })
-  MyGatherpack.register_section(:right_widgets, partial: "my_gatherpack/right_widgets", column: :side, position: 20)
+  # After the checklist season (20) and the activity section (20.5), which sit under My Season.
+  MyGatherpack.register_section(:right_widgets, partial: "my_gatherpack/right_widgets", column: :side, position: 25)
   MyGatherpack.register_section(:announcements, partial: "my_gatherpack/announcements", column: :side, position: 30)
 
   GatherPack::SidebarSlots.fingerprint(:my_gatherpack) { my_gatherpack_sidebar_fingerprint }

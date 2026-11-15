@@ -23,7 +23,11 @@ module MyGatherpack
     end
   end
 
+  # A link to one of a person's own settings, beside Sign Out in the sidebar.
+  AccountLink = Struct.new(:key, :label, :path, :visible, keyword_init: true)
+
   @sections = {}
+  @account_links = {}
 
   class << self
     attr_reader :sections
@@ -50,6 +54,16 @@ module MyGatherpack
         .each_with_index
         .sort_by { |section, index| [ section.position, index ] }
         .map(&:first)
+    end
+
+    # +path+ names a route helper. +visible+ runs in the view context.
+    # Registering the same key again replaces it, so reloading code is safe.
+    def register_account_link(key, label:, path:, visible: nil)
+      @account_links[key] = AccountLink.new(key: key, label: label, path: path, visible: visible)
+    end
+
+    def account_links_for(view)
+      @account_links.values.select { |link| link.visible.nil? || view.instance_exec(&link.visible) }
     end
   end
 end
