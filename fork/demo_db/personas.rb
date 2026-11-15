@@ -25,12 +25,12 @@ PERSONAS = [
   { first: "Demo", last: "Student", email: "demo.student@example.invalid", gender: "M", shirt_size: "M", birthday: "2010-08-19",
     teams: { "Team 1747 - Class of 2028" => false },
     badges: [ "2027 Season Safety Training Complete", "2027 FIRST Registered", "2027 FIRST Consent Signed" ],
-    forms: 0, signups: 0, attends: 3 },
+    forms: 0, signups: 0, attends: 3, item_quantities: true },
   # All done: every checklist item met, and two upcoming sign-ups.
   { first: "Demo", last: "Veteran", email: "demo.veteran@example.invalid", gender: "F", shirt_size: "S", birthday: "2009-11-30",
     teams: { "Team 1747 - Class of 2027" => false },
     badges: [ "2027 Season Safety Training Complete", "2027 FIRST Registered", "2027 FIRST Consent Signed" ],
-    listed_forms: true, checkins: { "Outreach" => 2, "Concessions" => 2 }, attends: 1 },
+    listed_forms: true, item_quantities: true, checkins: { "Outreach" => 2, "Concessions" => 2 }, attends: 1 },
   # Guardian of Demo Member and Demo Student, through the relationship Concessions pools on.
   { first: "Demo", last: "Parent", email: "demo.parent@example.invalid", gender: "F", shirt_size: "M", birthday: "1980-02-08",
     teams: {}, badges: [], forms: 0, signups: 0, guardian_of: %w[demo.member@example.invalid demo.student@example.invalid] }
@@ -150,7 +150,7 @@ PERSONAS.each_with_index do |spec, index|
     break if placed >= spec.fetch(:signups, 2)
     next if Signup.exists?(signup_slot: slot, person: person)
     position = slot.signup_position
-    signup = Signup.place!(slot: slot, person: person, signed_up_by: person, quantity: position.people? ? nil : 1, answer: position.question.present? ? "Yes" : nil)
+    signup = Signup.place!(slot: slot, person: person, signed_up_by: person, quantity: spec[:item_quantities] && !position.people? ? 1 : nil, answer: position.question.present? ? "Yes" : nil)
     say "sign-up", "#{position.signup_sheet.title}: #{position.name} (#{slot.event.start_time.to_date})"
     placed += 1
   rescue ActiveRecord::RecordInvalid => error
@@ -160,12 +160,12 @@ PERSONAS.each_with_index do |spec, index|
   say "sign-ups", placed
 end
 
-# Guardians, through the relationship type Concessions pools on. An admin adds them,
+# Guardians, through the relationship type Concessions' count item pools on. An admin adds them,
 # as the type needs a manager of both sides.
 PERSONAS.each do |spec|
   next unless spec[:guardian_of]
   guardian = User.find_by!(email: spec[:email]).person
-  type = RelationshipType.find_by!(guardianship: RelationshipType.guardianships[:minor])
+  type = RelationshipType.find(ChecklistItem.where(kind: "count").filter_map { _1.config["group_relationship_type_id"].presence }.first)
   spec[:guardian_of].each do |email|
     ward = User.find_by!(email: email).person
     relationship = Relationship.find_or_initialize_by(parent: guardian, child: ward, relationship_type: type)

@@ -150,6 +150,7 @@ check "Demo Member has two Outreach check-ins this season",
   Checkin.joins(event: :event_type).where(person: member, event_types: { name: "Outreach" }).where(events: { start_time: season_start..Time.current }).count == 2
 check "Demo Member isn't covered by Outreach (a rookie)", overall.(outreach, member).nil?
 check "Demo Student is covered by Outreach and hasn't done it", %w[not_met pending].include?(overall.(outreach, student))
+check "Demo Student's Concessions isn't met", overall.(concessions, student) == "not_met", overall.(concessions, student)
 check "Demo Student has no Concessions credit", Checkin.joins(event: :event_type).where(person: student, event_types: { name: [ "Concessions", "Concessions Stocking" ] }).none? && Signup.where(person: student).none?
 check "Demo Student's travel checklist isn't met", %w[not_met pending].include?(overall.(travel, student)), overall.(travel, student)
 punches = ->(person) { TimeClockPunch.where(person: person).count }
@@ -173,8 +174,12 @@ if rule
   check "Demo Student is covered by the sheet's checklist but hasn't finished it", !overall.(outreach, student).nil? && !rule.passes?(student)
   check "Demo Member isn't covered by the sheet's checklist", overall.(outreach, member).nil? && !rule.passes?(member)
   check "Demo Veteran passes the sheet's rule", rule.passes?(veteran)
-  counted = Commitment.where(id: outreach.checklist_items.pluck(:commitment_id)).flat_map(&:commitment_sources).select { _1.kind == "signups" && _1.subject_id == sheet.id }
-  check "the sheet doesn't count toward the checklist its rule needs", counted.empty?
+  # As Checklists::SignupRuleLoop: the sheet, the position or the sheet's event type as a credit source.
+  position = rule.signup_position
+  sources = CommitmentSource.where(commitment_id: outreach.checklist_items.where(kind: "count").select(:commitment_id))
+  counted = sources.where(subject_type: "SignupSheet", subject_id: sheet.id).or(sources.where(subject_type: "SignupPosition", subject_id: position.id))
+  counted = counted.or(sources.where(subject_type: "EventType", subject_id: sheet.event_type_id)) if sheet.event_type_id
+  check "the sheet doesn't count toward the checklist its rule needs", counted.none?
 end
 
 PROTECT_EMAILS.each do |email|
