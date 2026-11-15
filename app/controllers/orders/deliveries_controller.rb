@@ -40,18 +40,12 @@ module Orders
     end
 
     # POST /orders/purchases/1/mark_all_received
-    # Only the items on requests the viewer may receive for.
+    # Only the items on requests the viewer may receive for, and with mine=1
+    # only those on their own and followed requests, as the list showed.
     def mark_all_purchase
-      authorize OrderRequest, :index?
-      purchase = policy_scope(Purchase).find(params[:id])
-      requests = purchase.order_requests.select { |order_request| policy(order_request).receive? }
-      raise Pundit::NotAuthorizedError if requests.empty?
-
-      OrderRequest.transaction do
-        requests.sort_by(&:id).each do |order_request|
-          order_request.mark_all_received!(by: current_user.person, purchase: purchase) if order_request.order_lines.any? { |line| line.purchase_id == purchase.id && line.open_to_receive? }
-        end
-      end
+      purchase = authorize policy_scope(Purchase).find(params[:id]), :mark_all_received?
+      receiving = Orders::Receiving.new(current_user, policy_scope(OrderRequest), mine: params[:mine].present?)
+      purchase.mark_all_received!(by: current_user.person, only: receiving.requests)
       redirect_to after_path, notice: "Everything on this order is marked as here"
     end
 

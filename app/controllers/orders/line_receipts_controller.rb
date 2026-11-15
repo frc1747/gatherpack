@@ -14,7 +14,7 @@ module Orders
     # POST /orders/requests/1/lines/2/resolve
     def resolve
       authorize @line, :buy?
-      @line.resolve_problem!(params[:resolution], by: current_user.person, comment: params[:comment])
+      @line.resolve_problem!(params[:resolution], by: current_user.person, comment: params[:comment], quantity: params[:quantity].presence)
       redirect_to orders_request_path(@order_request),
         notice: params[:resolution] == "reorder" ? "Ordering a replacement for #{@line.display_name}" : "Cancelled: #{@line.display_name}"
     end

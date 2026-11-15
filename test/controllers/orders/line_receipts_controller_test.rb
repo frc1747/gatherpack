@@ -87,6 +87,35 @@ class Orders::LineReceiptsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a replacement for part of what's still to come leaves the rest of the item to arrive" do
+    with_orders(@world) do
+      order_request, line = ordered_line(quantity: 3)
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged, note: "Cracked")
+      sign_in @world.buyer.user
+
+      post resolve_orders_request_line_url(order_request, line), params: { resolution: "reorder", quantity: 1 }
+      assert_redirected_to orders_request_url(order_request)
+      assert_equal 2, line.reload.quantity
+      assert line.ordered?
+      assert_equal 1, order_request.order_lines.reload.order(:position).last.quantity
+
+      line.record_delivery!(by: @world.requester, quantity: 2, condition: :good)
+      assert line.reload.received?
+    end
+  end
+
+  test "a replacement can't be for more than is still to come" do
+    with_orders(@world) do
+      order_request, line = problem_line
+      sign_in @world.buyer.user
+
+      assert_no_difference -> { order_request.order_lines.count } do
+        post resolve_orders_request_line_url(order_request, line), params: { resolution: "reorder", quantity: 5 }
+      end
+      assert line.reload.problem?
+    end
+  end
+
   test "a problem where some came good keeps the good part received" do
     with_orders(@world) do
       order_request, line = ordered_line

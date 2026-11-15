@@ -88,9 +88,12 @@ class Purchase < ApplicationRecord
     paid_with_choice&.reimburse || false
   end
 
-  # Records the remaining quantity of every open line as received.
-  def mark_all_received!(by:)
-    open = order_lines.select(&:open_to_receive?)
+  # Records the remaining quantity of every open line as received. With
+  # only:, just the lines of those requests (the ones the person may
+  # receive for).
+  def mark_all_received!(by:, only: nil)
+    open = order_lines.select { |line| line.open_to_receive? && !line.problem? }
+    open = open.select { |line| only.map(&:id).include?(line.order_request_id) } if only
     raise Orders::Refused, "Nothing here is waiting to be received." if open.empty?
 
     transaction do

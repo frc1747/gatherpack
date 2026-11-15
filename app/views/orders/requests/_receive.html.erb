@@ -1,7 +1,7 @@
 <%# Receiving, on the request page (spec §3.6): what's still to arrive, the
     buyer's problem and no-record actions, and what has arrived. %>
 <% lines = order_request.order_lines.reject(&:cancelled?) %>
-<% open = lines.select(&:open_to_receive?) %>
+<% open = lines.select { |line| line.open_to_receive? && !line.problem? } %>
 <% problems = lines.select(&:problem?) %>
 <% delivered = lines.select { |line| line.order_deliveries.any? } %>
 <% can_receive = policy(order_request).receive? %>
@@ -29,8 +29,8 @@
             </div>
             <% if policy(line).mark_received? %>
               <%= form_with url: mark_received_orders_request_line_path(order_request, line), class: "d-flex gap-2 mt-2" do %>
-                <%= text_field_tag :note, nil, placeholder: "Went straight to… (needed)", required: true, class: "form-control", "aria-label": "Where it went" %>
-                <%= submit_tag "Already got it", class: "btn btn-outline-secondary text-nowrap" %>
+                <%= text_field_tag :note, nil, placeholder: "Went straight to… (needed)", required: true, class: "form-control form-control-lg", "aria-label": "Where it went" %>
+                <%= submit_tag "Already got it", class: "btn btn-outline-secondary btn-lg text-nowrap" %>
               <% end %>
             <% end %>
           </div>
@@ -45,9 +45,17 @@
         <% if last %>
           <div><%= last.quantity %> came <%= last.condition.humanize.downcase %><%= ": #{last.note}" if last.note.present? %></div>
         <% end %>
+        <% if can_receive && line.outstanding_quantity.positive? %>
+          <div class="mt-2">
+            <%= link_to "Receive the rest (#{line.outstanding_quantity} to come)", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-outline-primary btn-lg" %>
+          </div>
+        <% end %>
         <% if policy(line).buy? %>
           <%= form_with url: resolve_orders_request_line_path(order_request, line), class: "mt-2" do %>
-            <%= text_field_tag :comment, nil, placeholder: "Note (needed to cancel)", class: "form-control mb-2", "aria-label": "Note" %>
+            <%= label_tag "quantity_#{line.id}", "How many to order again?", class: "form-label" %>
+            <%= number_field_tag :quantity, [ line.problem_quantity, line.outstanding_quantity ].min, id: "quantity_#{line.id}", min: 1, max: line.outstanding_quantity,
+                  class: "form-control form-control-lg mb-2" %>
+            <%= text_field_tag :comment, nil, placeholder: "Note (needed to cancel)", class: "form-control form-control-lg mb-2", "aria-label": "Note" %>
             <%= button_tag "Order a replacement", name: "resolution", value: "reorder", class: "btn btn-primary btn-lg" %>
             <%= button_tag "Cancel it", name: "resolution", value: "cancel", class: "btn btn-outline-danger btn-lg" %>
           <% end %>
@@ -69,7 +77,8 @@
     <% end %>
 
     <% if can_receive && open.any? %>
-      <div class="pb-5 mb-4"></div>
+      <%# The page leaves room under the bar (see requests/show). %>
+      <% content_for :fixed_bottom_bar, "yes" %>
       <div class="fixed-bottom bg-body border-top p-2">
         <%= button_to "Mark all received", mark_all_received_orders_request_path(order_request), method: :post,
               class: "btn btn-primary btn-lg w-100", form_class: "m-0" %>

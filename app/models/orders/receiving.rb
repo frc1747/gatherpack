@@ -40,7 +40,7 @@ module Orders
     def requests
       @requests ||= begin
         candidates = @scope.where.not(status: FINISHED)
-          .includes(:team, :order_request_watchers, order_lines: [ :purchase, :vendor ]).to_a
+          .includes(:team, :order_request_watchers, order_lines: [ :purchase, :vendor, :order_deliveries ]).to_a
         candidates = candidates.select { |order_request| own_or_followed?(order_request) } if @mine
         candidates.select { |order_request| OrderRequestPolicy.new(@user, order_request).receive? }
       end

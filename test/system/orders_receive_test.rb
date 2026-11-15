@@ -35,6 +35,7 @@ class OrdersReceiveTest < ApplicationSystemTestCase
       assert_text "Parts Depot"
       assert_operator find_link("Receive", match: :first).native.size.height, :>=, 44
 
+      assert_operator find_link("Show all I can receive").native.size.height, :>=, 44
       click_on "Receive", match: :first
       assert_text "Receive Gear"
       fill_in "How many came?", with: "2"
@@ -62,6 +63,17 @@ class OrdersReceiveTest < ApplicationSystemTestCase
 
       assert_text "Everything on this request is marked as here"
       assert order_request.reload.received?
+    end
+  end
+
+  test "the buyer's no-record button and note field are phone sized" do
+    with_orders(@world) do
+      order_request = ordered_request
+      login_as(@world.buyer.user, scope: :user)
+
+      visit orders_request_path(order_request)
+      assert_operator find_button("Already got it", match: :first).native.size.height, :>=, 44
+      assert_operator first("input[aria-label='Where it went']").native.size.height, :>=, 44
     end
   end
 

@@ -7,10 +7,7 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
 
   PIXEL = Base64.decode64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==")
 
-  setup do
-    @world = build_orders_world
-    ActionController::Base.prepend_view_path Rails.root.join("test/support/views")
-  end
+  setup { @world = build_orders_world }
 
   # An approved request bought from one purchase.
   def ordered_request(lines: [ { description: "Gear", quantity: 3, price: 10 }, { description: "Belt", price: 5 } ], **attributes)
@@ -83,6 +80,8 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
 
   test "a receiving extension adds fields to the dialog and is called with the saved delivery" do
     called = []
+    original_paths = ActionController::Base.view_paths
+    ActionController::Base.prepend_view_path Rails.root.join("test/support/views")
     Orders.receiving_extensions.register(:test_put_away, partial: "orders/deliveries/test_put_away",
       after_receive: ->(delivery, params) { called << [ delivery, params.dig(:order_delivery, :put_away) ] })
     with_orders(@world) do
@@ -104,6 +103,7 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
     end
   ensure
     Orders.receiving_extensions.reset!
+    ActionController::Base.view_paths = original_paths
   end
 
   test "receiving the full quantity makes the item here, less makes it partly here" do
@@ -209,6 +209,64 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
       post mark_all_received_orders_purchase_url(purchase)
       assert mine.reload.order_lines.all?(&:received?)
       assert theirs.reload.order_lines.all?(&:ordered?)
+    end
+  end
+
+  test "mark all received on a purchase from the mine=1 list leaves other people's items alone" do
+    with_orders(@world) do
+      mine = approved_request(@world, lines: [ { description: "Mine", price: 5 } ])
+      theirs = approved_request(@world, lines: [ { description: "Theirs", price: 5 } ], by: @world.teammate)
+      purchase = buy(@world, mine.order_lines.to_a + theirs.order_lines.to_a, vendor: @world.preferred_vendor)
+      sign_in @world.requester.user
+
+      post mark_all_received_orders_purchase_url(purchase, mine: 1, from: "list")
+      assert_redirected_to orders_deliveries_url(mine: 1)
+      assert mine.reload.order_lines.all?(&:received?)
+      assert theirs.reload.order_lines.all?(&:ordered?)
+    end
+  end
+
+  test "a partly damaged item can still have the rest received, from the list and the request page" do
+    with_orders(@world) do
+      order_request, = ordered_request
+      line = order_request.order_lines.find_by(description: "Gear")
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged, note: "Cracked")
+      sign_in @world.requester.user
+
+      get orders_deliveries_url(mine: 1)
+      assert_select "a", text: "Receive", count: 2
+      assert_equal Orders::WaitingOn.new(@world.requester).lines_to_receive, 2
+
+      get orders_request_url(order_request)
+      assert_select "a", text: /Receive the rest \(3 to come\)/
+
+      post orders_request_line_deliveries_url(order_request, line), params: delivery_params(quantity: 2)
+      assert line.reload.problem?, "still a problem until the buyer settles the damaged one"
+      assert_equal 1, line.outstanding_quantity
+    end
+  end
+
+  test "mark all received leaves a problem item for the buyer" do
+    with_orders(@world) do
+      order_request, = ordered_request
+      line = order_request.order_lines.find_by(description: "Gear")
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged)
+      sign_in @world.requester.user
+
+      post mark_all_received_orders_request_url(order_request)
+      assert line.reload.problem?
+      assert order_request.order_lines.find_by(description: "Belt").received?
+    end
+  end
+
+  test "the request page leaves room under the fixed bar once, at the end of the page" do
+    with_orders(@world) do
+      order_request, = ordered_request
+      sign_in @world.requester.user
+
+      get orders_request_url(order_request)
+      assert_select "div.pb-5.mb-4", count: 1
+      assert_select "#receiving div.pb-5", count: 0
     end
   end
 

@@ -101,8 +101,15 @@ class OrderLine < ApplicationRecord
     funding_source || order_request&.funding_source
   end
 
+  # Still waiting for some of its quantity. A problem item is too while part
+  # of it is yet to come (the rest of a box that arrived damaged).
   def open_to_receive?
-    status.in?(OPEN_TO_RECEIVE)
+    status.in?(OPEN_TO_RECEIVE) || (problem? && outstanding_quantity.positive?)
+  end
+
+  # Quantity that arrived damaged or wrong, the default for a replacement.
+  def problem_quantity
+    order_deliveries.reject(&:good?).sum(&:quantity)
   end
 
   # Quantity that arrived in good condition.
@@ -214,6 +221,7 @@ class OrderLine < ApplicationRecord
       status_now =
         if !delivery.good? then :problem
         elsif received_quantity >= self.quantity then :received
+        elsif problem? then :problem
         else :partly_received
         end
       update!(status: status_now)
@@ -240,12 +248,14 @@ class OrderLine < ApplicationRecord
     end
   end
 
-  # The buyer settles a problem. :reorder adds a like-for-like line for
-  # what didn't arrive in good condition, ready to buy with no new
-  # approval; :cancel gives up on it. Either way this line is finished:
-  # received if some of it arrived good, otherwise cancelled. Returns the
-  # new line for :reorder.
-  def resolve_problem!(resolution, by:, comment: nil)
+  # The buyer settles a problem. :reorder adds a like-for-like line, ready
+  # to buy with no new approval, for quantity items (default: all that
+  # didn't arrive in good condition); :cancel gives up on it. When nothing
+  # more is expected from this line it's finished: received if some of it
+  # arrived good, otherwise cancelled. A reorder for less than what's still
+  # to come takes that much off this line, which carries on for the rest.
+  # Returns the new line for :reorder.
+  def resolve_problem!(resolution, by:, comment: nil, quantity: nil)
     resolution = resolution.to_s
     raise Orders::Refused, "Choose reorder or cancel." unless %w[reorder cancel].include?(resolution)
     raise Orders::Refused, "Give a reason for cancelling." if resolution == "cancel" && comment.blank?
@@ -253,8 +263,18 @@ class OrderLine < ApplicationRecord
     within_lock do
       raise Orders::Refused, "This item has no problem to resolve." unless problem?
 
-      missing = outstanding_quantity
-      finished = received_quantity.positive? ? :received : :cancelled
+      to_come = outstanding_quantity
+      missing = quantity.present? ? quantity.to_i : to_come
+      if resolution == "reorder" && !missing.between?(1, to_come)
+        raise Orders::Refused, "Order between 1 and #{to_come} to replace."
+      end
+
+      carries_on = resolution == "reorder" && missing < to_come
+      finished =
+        if carries_on then received_quantity.positive? ? :partly_received : :ordered
+        elsif received_quantity.positive? then :received
+        else :cancelled
+        end
       replacement = nil
       if resolution == "reorder"
         replacement = order_request.order_lines.create!(
@@ -262,10 +282,16 @@ class OrderLine < ApplicationRecord
             "funding_source_id" => funding_source_id, "position" => (order_request.order_lines.maximum(:position) || 0) + 1)
         )
       end
-      update!(status: finished)
-      order_request.log!(finished == :received ? :received : :cancelled, by: by, line: self, comment: comment,
-        changes: { "status" => [ "problem", finished.to_s ], "resolution" => resolution }
-          .merge(replacement ? { "reordered" => missing } : {}))
+      changes = { "status" => [ "problem", finished.to_s ], "resolution" => resolution }
+      changes["reordered"] = missing if replacement
+      if carries_on
+        update!(status: finished, quantity: self.quantity - missing)
+        changes["quantity"] = [ self.quantity + missing, self.quantity ]
+        order_request.log!(:edited, by: by, line: self, comment: comment, changes: changes)
+      else
+        update!(status: finished)
+        order_request.log!(finished == :received ? :received : :cancelled, by: by, line: self, comment: comment, changes: changes)
+      end
       order_request.refresh_status_from_lines
       replacement
     end
