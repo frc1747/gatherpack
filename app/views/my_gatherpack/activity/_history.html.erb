@@ -1,0 +1,25 @@
+<%# History, newest first: the date and hours, then what and how. %>
+<% entries = activity.history(kind) %>
+<% row = activity.kind_row(kind) if kind %>
+<section class="mg-section" id="history" data-activity-block="history">
+  <div class="mg-heading-row">
+    <h2 class="mg-heading">History<% if row %> · <%= row.name %><% end %></h2>
+    <% if row %>
+      <%= link_to "Show all", activity_page_path(activity.person, season: (activity.season.to_param unless activity.season.current?), anchor: "history") %>
+    <% end %>
+  </div>
+  <% if entries.any? %>
+    <div class="card mg-list">
+      <% entries.each do |entry| %>
+        <% path = activity_entry_path(entry) %>
+        <div class="mg-row d-block" data-activity-entry>
+          <div class="mg-row-detail"><%= activity_entry_when(entry) %></div>
+          <div class="mg-row-title"><%= path ? link_to(entry.title, path) : entry.title %></div>
+          <div class="mg-row-detail"><%= [ entry.detail.presence, entry.how ].compact.join(" · ") %></div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="text-body-secondary mb-0">Nothing recorded this season.</p>
+  <% end %>
+</section>
