@@ -1,0 +1,45 @@
+<%# A buyer's changes to one item: delayed, quantity, split, cancel. %>
+<% actions = buyer_line_actions(line) %>
+<% if actions.any? %>
+  <details class="orders-line-actions">
+    <summary class="btn btn-sm btn-outline-secondary">Change</summary>
+    <div class="border rounded p-2 mt-1 bg-body" style="min-width: 16rem;">
+      <% if actions.include?(:backorder) %>
+        <%= form_with url: backorder_orders_request_line_path(line.order_request, line), class: "mb-2" do |f| %>
+          <%= f.label :expected_on, "Delayed: expected on", class: "form-label small mb-0", for: "expected_on_#{line.id}" %>
+          <div class="input-group input-group-sm">
+            <%= f.date_field :expected_on, id: "expected_on_#{line.id}", class: "form-control" %>
+            <%= f.submit "Mark delayed", class: "btn btn-outline-warning" %>
+          </div>
+        <% end %>
+      <% end %>
+      <% if actions.include?(:change_quantity) %>
+        <%= form_with url: change_quantity_orders_request_line_path(line.order_request, line), class: "mb-2" do |f| %>
+          <%= f.label :quantity, "Quantity", class: "form-label small mb-0", for: "quantity_#{line.id}" %>
+          <div class="input-group input-group-sm">
+            <%= f.number_field :quantity, value: line.quantity, min: 1, id: "quantity_#{line.id}", class: "form-control" %>
+            <%= f.submit "Change quantity", class: "btn btn-outline-secondary" %>
+          </div>
+        <% end %>
+      <% end %>
+      <% if actions.include?(:split) && line.quantity > 1 %>
+        <%= form_with url: split_orders_request_line_path(line.order_request, line), class: "mb-2" do |f| %>
+          <%= f.label :quantity_now, "Buy now (the rest later)", class: "form-label small mb-0", for: "quantity_now_#{line.id}" %>
+          <div class="input-group input-group-sm">
+            <%= f.number_field :quantity_now, min: 1, max: line.quantity - 1, id: "quantity_now_#{line.id}", class: "form-control" %>
+            <%= f.submit "Split", class: "btn btn-outline-secondary" %>
+          </div>
+        <% end %>
+      <% end %>
+      <% if actions.include?(:cancel) %>
+        <%= form_with url: cancel_orders_request_line_path(line.order_request, line) do |f| %>
+          <%= f.label :reason, "Cancel: why?", class: "form-label small mb-0", for: "reason_#{line.id}" %>
+          <div class="input-group input-group-sm">
+            <%= f.text_field :reason, required: true, id: "reason_#{line.id}", class: "form-control" %>
+            <%= f.submit "Cancel item", class: "btn btn-outline-danger" %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  </details>
+<% end %>
