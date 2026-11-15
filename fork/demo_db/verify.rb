@@ -13,7 +13,8 @@ PaperTrail.enabled = false
 PASSWORD = ENV["DEMO_PASSWORD"].presence || "password123"
 PROTECT_TEAM = ENV["DEMO_PROTECT_TEAM"].presence || "Mentors"
 PROTECT_EMAILS = ENV["DEMO_PROTECT_EMAILS"].to_s.split(",").map { |email| email.strip.downcase }.reject(&:empty?)
-PERSONA_EMAILS = %w[demo.member@example.invalid demo.lead@example.invalid demo.mentor@example.invalid].freeze
+PERSONA_EMAILS = %w[demo.member@example.invalid demo.lead@example.invalid demo.mentor@example.invalid
+  demo.student@example.invalid demo.veteran@example.invalid demo.parent@example.invalid].freeze
 DB = ActiveRecord::Base.connection
 
 class SourceRecord < ActiveRecord::Base
@@ -86,6 +87,7 @@ columns = rows(DB, "select table_name, column_name from information_schema.colum
 columns.each do |column|
   table, name = column["table_name"], column["column_name"]
   next if table.start_with?("solid_")
+  next if table == "users" && name == "encrypted_password" # random hashes can spell a name by chance; checked as hashes above
   scope = table == "people" ? " where id not in (#{protected_people.map { DB.quote(_1) }.join(',')})" : ""
   scope = " where id not in (#{protected_users.map { DB.quote(_1) }.join(',')})" if table == "users"
   DB.select_values("select #{DB.quote_column_name(name)}::text from #{DB.quote_table_name(table)}#{scope}").compact.each do |text|
@@ -111,6 +113,7 @@ check "no hook calls an outside service", Hook.where("code ~* 'https?:|net::http
 # --- Structure unchanged -------------------------------------------------------------
 puts "== Row counts (source -> demo)"
 expected_changes = /\A(people|users|memberships|badge_assignments|form_responses|form_submissions|form_signatures|signups|signup_sheet_organizers|commitment_[a-z_]+|
+  checkins|checkin_field_responses|time_clock_punches|relationships|signup_sheets|signup_positions|signup_slots|signup_position_rules|checklist_results|checklist_refreshes|
   active_storage_[a-z_]+|solid_[a-z_]+|oauth_access_[a-z_]+|gateways|tokens|action_mailbox_inbound_emails)\z/x
 SRC.tables.sort.each do |table|
   next unless DB.table_exists?(table)
@@ -132,6 +135,48 @@ PERSONA_EMAILS.each do |email|
   puts "      forms: #{FormResponse.where(subject: person).includes(:form).map { "#{_1.form.title} (#{_1.status})" }.join(', ')}"
   puts "      sign-ups: #{Signup.where(person: person).count}, badges: #{person.badges.count}"
 end
+# --- Checklist personas (Home answers, activity page, rule wording) ------------------
+puts "== Checklist personas"
+persona = ->(email) { User.find_by!(email: email).person }
+overall = lambda do |checklist, person|
+  Checklists::Reader.new(checklist, nil).overall_statuses([ person.id ])[person.id]
+end
+checklist = ->(prefix) { Checklist.active.find_by!("title LIKE ?", "#{prefix}%") }
+member, student, veteran, parent = %w[member student veteran parent].map { persona.("demo.#{_1}@example.invalid") }
+
+outreach, concessions, travel = checklist.("Outreach"), checklist.("Concessions"), checklist.("2026-27 Travel")
+season_start = outreach.starts_on.beginning_of_day
+check "Demo Member has two Outreach check-ins this season",
+  Checkin.joins(event: :event_type).where(person: member, event_types: { name: "Outreach" }).where(events: { start_time: season_start..Time.current }).count == 2
+check "Demo Member isn't covered by Outreach (a rookie)", overall.(outreach, member).nil?
+check "Demo Student is covered by Outreach and hasn't done it", %w[not_met pending].include?(overall.(outreach, student))
+check "Demo Student has no Concessions credit", Checkin.joins(event: :event_type).where(person: student, event_types: { name: [ "Concessions", "Concessions Stocking" ] }).none? && Signup.where(person: student).none?
+check "Demo Student's travel checklist isn't met", %w[not_met pending].include?(overall.(travel, student)), overall.(travel, student)
+punches = ->(person) { TimeClockPunch.where(person: person).count }
+check "Demo Student has some meeting punches, fewer than Demo Veteran", punches.(student).positive? && punches.(student) < punches.(veteran), "#{punches.(student)} of #{punches.(veteran)}"
+listed_forms = Form.where(id: ChecklistItem.where(kind: "form_complete").flat_map { Array(_1.config["form_ids"]) })
+check "a form a checklist item lists is unsubmitted by Demo Student", listed_forms.any? && listed_forms.all? { |form| FormResponse.where(form: form, subject: student).none? }
+Checklist.active.find_each do |list|
+  status = overall.(list, veteran)
+  check "Demo Veteran has #{list.title} met", status.nil? || %w[met exempt].include?(status), status
+end
+check "Demo Veteran has two upcoming sign-ups",
+  Signup.joins(signup_slot: :event).where(person: veteran).where("events.start_time > ?", Time.current).count == 2
+check "Demo Parent guardians Demo Member and Demo Student", parent.wards.map(&:id).sort == [ member.id, student.id ].sort
+pooling = ChecklistItem.where(kind: "count").filter_map { _1.config["group_relationship_type_id"].presence }.uniq
+check "Concessions pools through the relationship that links Demo Parent", Relationship.where(parent: parent).pluck(:relationship_type_id).all? { pooling.include?(_1) }
+
+sheet = SignupSheet.find_by(title: "Outreach Booth Helpers")
+rule = sheet&.signup_positions&.flat_map(&:signup_position_rules)&.find(&:checklist?)
+check "the sheet has a position that needs Outreach", rule&.checklist == outreach
+if rule
+  check "Demo Student is covered by the sheet's checklist but hasn't finished it", !overall.(outreach, student).nil? && !rule.passes?(student)
+  check "Demo Member isn't covered by the sheet's checklist", overall.(outreach, member).nil? && !rule.passes?(member)
+  check "Demo Veteran passes the sheet's rule", rule.passes?(veteran)
+  counted = Commitment.where(id: outreach.checklist_items.pluck(:commitment_id)).flat_map(&:commitment_sources).select { _1.kind == "signups" && _1.subject_id == sheet.id }
+  check "the sheet doesn't count toward the checklist its rule needs", counted.empty?
+end
+
 PROTECT_EMAILS.each do |email|
   user = User.find_by("lower(email) = ?", email)
   check "#{email} can sign in (unchanged password, not locked)", user && user.active_for_authentication? && user.locked_at.nil?
