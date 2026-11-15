@@ -894,3 +894,16 @@ feature/my-gatherpack-inventory:
     - name: Inventory
       key: feature_inventory
       default: "off"
+
+feature/mcp-orders:
+  title: Orders and inventory for AI assistants
+  emoji: "🤖"
+  description: >-
+    A member's AI assistant can look up requests, purchases, funding and
+    stock, and ask for, approve, buy, receive and record items, within the
+    member's own permissions and only when changes through AI are turned on.
+  audience: Members who use an AI assistant
+  settings:
+    - name: Orders and Inventory
+      key: feature_orders, feature_inventory
+      default: "off"
