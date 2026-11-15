@@ -48,6 +48,32 @@
 
 Each persona also has badges, form responses and up to two upcoming sign-ups, all made through the models (punches are added by an admin, as the time clock periods require). The Student and the Parent have no forms or sign-ups. One more record is added: the sign-up sheet "Outreach Booth Helpers", whose position needs the Outreach checklist. Sam Student is covered by it and hasn't finished it, Demo Member isn't covered, and nothing on the sheet counts toward Outreach. Checklist results are refreshed at the end, as the worker would.
 
+## Orders data
+
+`orders.rb` fills a demo with believable robotics purchasing so Orders can be seen and documented: eight suppliers (WCP, REV, AndyMark, McMaster-Carr, Amazon, Bambu Lab, CTR Electronics, The Thrifty Bot), three funding sources (Build season, Outreach, and a restricted parts grant), and about 25 requests over the last ten weeks, one for every state (draft, waiting for approval, changes asked, declined, approved, partly bought, ordered, backordered, partly received, received, closed, a price rise needing approval again, and a delivery with a problem). When the Inventory flag is on it adds a Shop with a Hardware cabinet, Electronics shelf and Motor bin, 15 counted items (a few below their reorder point), Kraken and NEO Vortex motors as tracked units, and a Practice bot machine; with order-inventory on, received lines are put on the shelf.
+
+Run it in the demo's app checkout, after `personas.rb`, with the Orders flag on (and Inventory for the stock):
+
+```
+cd ../demo-<tag>
+DATABASE_URL=postgres://postgres:password@localhost/gatherpack_demo \
+VERSIONS_DATABASE_URL=postgres://postgres:password@localhost/gatherpack_demo_versions \
+bin/rails runner /path/to/fork/demo_db/orders.rb
+```
+
+Then restart the app: settings are read once per process. It prints a short summary (requests and lines by state, purchases, vendors, items). Running it again creates nothing new.
+
+- It uses the same guard as the other scripts. Everything goes through the model methods the screens use, at backdated times, so timelines look real.
+- **People, by role:** requesters are students on the teams below the top team (the Demo Member, Sam Student and Demo Lead personas first); approvers and buyers come from the Mentors team, managers first. Orders decides who may approve or buy for a team, so when a mentor doesn't reach a student's team the script falls back to other team managers, then an admin. The summary counts those. To have mentors do it all, give them a mentor badge held at the top team (the script uses an admin-assigned badge with "mentor" in its name).
+- **Settings,** only where blank: approval step "Mentor approval" (plus "From $500, also a lead mentor" when such a badge exists), buyers, and paid-with "Team card" and "Paid personally (reimburse)".
+- **On a Northwind sample copy** (to check the script without a demo): load the sample data into a throwaway database, then name it in `ORDERS_SAMPLE_DB`:
+
+  ```
+  ORDERS_SAMPLE_DB=gp_sample_check bin/rails runner /path/to/fork/demo_db/orders.rb
+  ```
+
+  There is no Mentors team there, so team managers and the admin approve and buy. It refuses unless the database is local, isn't production and has the Northwind teams. Run it from a scratch checkout: it writes that checkout's `storage/settings.pstore`.
+
 ## Safety
 
 The script refuses to run when:
