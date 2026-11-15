@@ -148,6 +148,12 @@ Cards `10000001` to `10000032`, one per Northwind person in last-name order. Typ
 
 **MCP server** (Setup → MCP Calls, as an admin). Three calls are already in the log. `admin@` and `manager@` hold the AI Client Access badge, so only they can connect. The Northwind AI Client OAuth application has its client ID and secret on its page; add `http://localhost:3000/mcp` as a connector, or change the redirect URI to suit your client. Turn on **MCP: allow changes** in Settings to try the write tools. Gina has an open punch for `clock_out`, Grace has a pending application to Volunteer Applicants, and Volunteer Handbook and My Team Count are a static and a dynamic Page. Turn on **MCP: read dynamic pages** to read the second through `get_page`.
 
+**Orders** (Orders in the menu; turn on `feature_orders`). Facilities and Logistics members have asked Operations for things in every state: a draft, one waiting on the first approval with a "Not sure" line, a pressure washer over $500 waiting on the second step, one with changes requested, one declined, purchases partly received and backordered, a delivery that arrived damaged, a fan bought well over its estimate that needs approving again, and a request split between two funding sources. Sign in as `member@` (Ella) to ask for something from a phone, or as the admin to approve, buy and receive. The Operations Account ledger shows two purchases recorded and the rest "Not in ledger".
+
+**Inventory** (Inventory in the menu; turn on `feature_inventory`). The Build shop has cabinets, drawers, a wire shelf and a robot cart with two robots. Zip ties and heat shrink are running low, a shaft collar is out of stock and M5 nuts need a count. Motors, swerve modules and batteries are tracked one by one: open the Competition robot to see what is on it, take a motor off, and check a battery's readings. Isla Lopez manages Operations' stock; `member@` can record used, moved and counted.
+
+**Orders and inventory together.** On Reorder, "Order these" turns the low items into a draft request with their usual store filled in, and receiving an order puts the items back on their shelf.
+
 ## Safety
 
 - It refuses to run if any login is outside `@example.com`, or any person exists that neither this data nor `db/seeds.rb` creates. The message names what it found. `SAMPLE_DATA_FORCE=1` loads it anyway; don't do that on a real site.

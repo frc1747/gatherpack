@@ -827,3 +827,70 @@ feature/phone-notifications:
     phone, on top of email. Each person picks their own devices and
     topics.
   audience: Everyone
+
+feature/orders:
+  title: Ask to buy something
+  emoji: "🛒"
+  description: >-
+    Members ask for what their team needs, from a phone, with a link or a
+    photo. Approvers say yes, no or "change this" in the order the
+    organization sets, buyers record what they bought and from where, and
+    whoever receives it marks it here. Everyone sees what each request is
+    waiting on, and purchases can be recorded in a ledger against a budget.
+  audience: Everyone on a team asks; approvers, buyers and treasurers act
+  settings:
+    - name: Orders
+      key: feature_orders
+      default: "off"
+
+feature/inventory:
+  title: Inventory
+  emoji: "📦"
+  description: >-
+    Teams keep track of what they have and where it is: count it, mark it
+    used, move it, and see what is running low. Reusable parts, such as
+    motors on a robot, are tracked one by one with their condition and the
+    machine they are on, and come off and go back on with a tap.
+  audience: Team members who use stock; leaders who keep it
+  settings:
+    - name: Inventory
+      key: feature_inventory
+      default: "off"
+
+feature/order-inventory:
+  title: Order what is running low
+  emoji: "🔁"
+  description: >-
+    Items that are running low can be turned into a request to buy them,
+    with the usual store filled in, and what arrives on an order goes
+    straight onto the shelf it belongs on.
+  audience: People who keep stock and people who buy
+  settings:
+    - name: Orders and Inventory both on
+      key: feature_orders, feature_inventory
+      default: "off"
+
+feature/my-gatherpack-orders:
+  title: Your requests on your home page
+  emoji: "🛒"
+  description: >-
+    Home shows the requests waiting on you (to approve, buy, receive or
+    sort out) and where your own requests stand. A link shared from a phone
+    to the installed app can start a request.
+  audience: Everyone who asks, approves or buys
+  settings:
+    - name: Orders
+      key: feature_orders
+      default: "off"
+
+feature/my-gatherpack-inventory:
+  title: Inventory on your home page
+  emoji: "📦"
+  description: >-
+    Home tells the people who keep stock how many items are running low,
+    with a button to reorder them, and Manage lists the inventory pages.
+  audience: People who keep stock
+  settings:
+    - name: Inventory
+      key: feature_inventory
+      default: "off"
