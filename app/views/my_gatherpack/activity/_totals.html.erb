@@ -1,0 +1,34 @@
+<%# Totals: meeting hours (own page) or the attendance items (a ward's), events, hours at events, places signed up for. %>
+<% event_rows = activity.kind_rows.reject(&:meetings?) %>
+<section class="mg-section" data-activity-block="totals">
+  <h2 class="mg-heading">Totals</h2>
+  <div class="mg-activity-tiles">
+    <% if activity.meetings? %>
+      <div class="card mg-activity-tile" data-activity-tile="meetings">
+        <div class="mg-activity-tile-value"><%= activity_hours(activity.meeting_hours) %></div>
+        <div class="mg-row-detail">Meeting hours<% if activity.meetings_held.any? %> · <%= activity.meetings_attended %> of <%= pluralize(activity.meetings_held.size, "meeting") %><% end %></div>
+      </div>
+    <% else %>
+      <% activity.attendance_items.each do |entry| %>
+        <div class="card mg-activity-tile" data-activity-tile="attendance">
+          <div class="mg-activity-tile-value"><%= entry.text %></div>
+          <div class="mg-row-detail"><%= entry.item.label %></div>
+        </div>
+      <% end %>
+    <% end %>
+    <div class="card mg-activity-tile" data-activity-tile="events">
+      <div class="mg-activity-tile-value"><%= activity.event_count %></div>
+      <div class="mg-row-detail"><%= event_rows.any? ? event_rows.map { |row| "#{row.name} #{row.events}" }.join(" · ") : "Events" %></div>
+    </div>
+    <div class="card mg-activity-tile" data-activity-tile="event-hours">
+      <div class="mg-activity-tile-value"><%= activity_hours(activity.event_hours) %></div>
+      <div class="mg-row-detail">Hours at events</div>
+    </div>
+    <% if GatherPack::Features.enabled?(:signups) %>
+      <div class="card mg-activity-tile" data-activity-tile="signups">
+        <div class="mg-activity-tile-value"><%= activity.upcoming_signups.size %></div>
+        <div class="mg-row-detail">Places signed up for</div>
+      </div>
+    <% end %>
+  </div>
+</section>
