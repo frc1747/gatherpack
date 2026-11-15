@@ -73,6 +73,15 @@ class SettingsInputsTest < ActiveSupport::TestCase
     assert_nil Settings.page_for("Site Settings")
   end
 
+  test "a page whose condition is false isn't used" do
+    shown = false
+    Settings.page("Input Tests", :root_path, if: -> { shown })
+
+    assert_nil Settings.page_for("Input Tests")
+    shown = true
+    assert_equal :root_path, Settings.page_for("Input Tests").path
+  end
+
   # --- teams ---------------------------------------------------------------
 
   test "teams keep saved names in order and add new ones" do
@@ -97,12 +106,11 @@ class SettingsInputsTest < ActiveSupport::TestCase
     assert missing.first.checked
   end
 
-  test "teams sharing a name are labelled with their path" do
+  test "teams sharing a name are one choice labelled with their paths" do
     Team.create!(name: "Alpha Team", team_type: team_types(:one), parent: teams(:two))
 
-    labels = input(:input_test_teams).choices.map(&:first)
-    assert_includes labels, "Beta Team › Alpha Team"
-    assert_includes labels, "Alpha Team"
+    choices = input(:input_test_teams).choices.select { |_, name| name == "Alpha Team" }
+    assert_equal [ [ "Alpha Team (Alpha Team, Beta Team › Alpha Team)", "Alpha Team" ] ], choices
   end
 
   test "clearing every team saves blank" do
@@ -202,6 +210,22 @@ class SettingsInputsTest < ActiveSupport::TestCase
     assert_equal "Daily", input(:input_test_notice).default_label
   end
 
+  test "select keeps a blank value blank" do
+    Settings.set(:input_test_notice, "")
+
+    assert_equal [ "Not set", "" ], input(:input_test_notice).choices.last
+    assert_equal "", input(:input_test_notice).selected_value
+    assert_equal "", input(:input_test_notice).text_from("")
+  end
+
+  test "select matches choices ignoring case" do
+    Settings.set(:input_test_notice, "Daily")
+
+    assert_equal "daily", input(:input_test_notice).selected_value
+    assert_not input(:input_test_notice).choices.any? { |label, _| label.start_with?("Not found") }
+    assert_equal "Daily", input(:input_test_notice).text_from("daily"), "an unchanged value keeps its text"
+  end
+
   test "list saves entries joined as before" do
     Settings.set(:input_test_domains, "a.com,b.com")
 
@@ -259,10 +283,10 @@ class SettingsInputsTest < ActiveSupport::TestCase
   # --- return path -----------------------------------------------------------
 
   test "only a path on this site is a return path" do
-    assert_equal "/orders/setup", SettingInputParams.local_path("/orders/setup")
-    assert_equal "/orders/setup?tab=1", SettingInputParams.local_path("/orders/setup?tab=1")
+    assert_equal "/teams/setup", SettingInputParams.local_path("/teams/setup")
+    assert_equal "/teams/setup?tab=1", SettingInputParams.local_path("/teams/setup?tab=1")
 
-    [ "https://example.com/", "//example.com/x", "/\\example.com", "javascript:alert(1)", "orders", "", nil, "/a b" ].each do |path|
+    [ "https://example.com/", "//example.com/x", "/\\example.com", "javascript:alert(1)", "teams", "", nil, "/a b" ].each do |path|
       assert_nil SettingInputParams.local_path(path), "#{path.inspect} should be refused"
     end
   end

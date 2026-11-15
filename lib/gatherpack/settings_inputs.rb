@@ -7,10 +7,19 @@
 # feature still works (with a text box) where this seam isn't merged:
 #
 #   Settings.input(:my_teams, :teams) if Settings.respond_to?(:input)
-#   Settings.page("My Feature", :my_feature_setup_path) if Settings.respond_to?(:page)
+#   Settings.page("My Feature", :my_feature_setup_path,
+#     if: -> { GatherPack::Features.enabled?(:my_feature) }) if Settings.respond_to?(:page)
+#
+# Pass if: when the page isn't always there (a feature that's off redirects
+# away from it): while it's false the group is drawn on the settings page as
+# usual, so its settings can still be set.
 class Settings
   Input = Data.define(:setting_key, :kind, :options)
-  Page = Data.define(:group, :path, :label)
+  Page = Data.define(:group, :path, :label, :condition) do
+    def shown?
+      condition.nil? || condition.call
+    end
+  end
 
   class << self
     # Draws setting_key with an input of the given kind instead of a text box.
@@ -26,13 +35,16 @@ class Settings
 
     # Shows a group's settings on the feature's own page: the settings page
     # lists the group as one line with a link there. path is a route helper
-    # name (Symbol), a path, or a callable returning one.
-    def page(group, path, label: nil)
-      instance.pages[group] = Page.new(group, path, label)
+    # name (Symbol), a path, or a callable returning one. if: (a callable)
+    # says whether the page is there right now.
+    def page(group, path, label: nil, if: nil)
+      instance.pages[group] = Page.new(group, path, label, binding.local_variable_get(:if))
     end
 
+    # The group's page, or nil when it has none or its if: is false.
     def page_for(group)
-      instance.pages[group]
+      page = instance.pages[group]
+      page if page&.shown?
     end
   end
 

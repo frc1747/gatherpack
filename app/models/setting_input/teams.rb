@@ -1,6 +1,7 @@
 # Teams, stored one team name per line, matched exactly as Team.where(name:)
-# does. A name used by more than one team is labelled with its path, and
-# checking either one stores the name.
+# does. The stored name can't tell apart teams that share it, so they are one
+# choice, labelled with each team's path: "Mechanical (A › Mechanical,
+# B › Mechanical)".
 class SettingInput::Teams < SettingInput::Checkboxes
   def separator
     "\n"
@@ -9,11 +10,10 @@ class SettingInput::Teams < SettingInput::Checkboxes
   def choices
     teams = Team.order(:name).to_a
     by_id = teams.index_by(&:id)
-    repeated = teams.map(&:name).tally.select { |_, count| count > 1 }.keys
 
-    teams.map do |team|
-      label = repeated.include?(team.name) ? path(team, by_id) : team.name
-      [ label, team.name ]
+    teams.group_by(&:name).map do |name, named|
+      label = named.one? ? name : "#{name} (#{named.map { |team| path(team, by_id) }.sort.join(", ")})"
+      [ label, name ]
     end
   end
 

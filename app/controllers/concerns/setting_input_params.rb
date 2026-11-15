@@ -1,4 +1,6 @@
 # Added to SettingsController (config/initializers/settings_inputs.rb):
+# - drops blank values of the settings named in keep_if_blank (fields that
+#   don't show the saved value, see settings/inputs/_field), so they keep it;
 # - turns what each picker posts (see SettingInput) back into the setting's
 #   text before the settings are saved, so the save itself is unchanged;
 # - after saving, returns to return_to when it is a path on this site, so a
@@ -11,7 +13,7 @@ module SettingInputParams
     after_action :redirect_to_return_path, only: :update
   end
 
-  # A path on this site ("/orders/setup"), or nil for anything else: other
+  # A path on this site ("/teams/setup"), or nil for anything else: other
   # hosts, protocol-relative "//host" and backslash tricks included.
   def self.local_path(path)
     path = path.to_s
@@ -28,6 +30,10 @@ module SettingInputParams
   def convert_setting_inputs
     settings = params[:settings]
     return unless settings.respond_to?(:each_pair)
+
+    Array(params[:keep_if_blank]).each do |key|
+      settings.delete(key) if settings.key?(key) && settings[key].blank?
+    end
 
     settings.each_pair do |key, posted|
       input = SettingInput.for(key)
