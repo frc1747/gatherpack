@@ -8,7 +8,8 @@ DemoDb.guard!
 include Warden::Test::Helpers
 Warden.test_mode!
 
-emails = %w[demo.member@example.invalid demo.lead@example.invalid demo.mentor@example.invalid] +
+emails = %w[demo.member@example.invalid demo.lead@example.invalid demo.mentor@example.invalid
+  demo.student@example.invalid demo.veteran@example.invalid demo.parent@example.invalid] +
   ENV["DEMO_PROTECT_EMAILS"].to_s.split(",").map(&:strip).reject(&:empty?)
 failures = 0
 
