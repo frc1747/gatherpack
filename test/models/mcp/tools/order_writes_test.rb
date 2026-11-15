@@ -110,6 +110,25 @@ class Mcp::Tools::OrderWritesTest < ActionDispatch::IntegrationTest
     assert_equal true, order_request.events.reload.find_by(action: "approved").field_changes["fits_restriction"]
   end
 
+  test "decide_order_request ignores the picker when the request already has a funding source, as the page does" do
+    budget = FundingSource.create!(team: @world.club, name: "Build budget", kind: :general, active: true)
+    other = FundingSource.create!(team: @world.club, name: "Spare", kind: :general, active: true)
+    order_request = submitted_request(@world)
+    order_request.edit!({ funding_source_id: budget.id }, by: @world.mentor)
+
+    result = call_as(@world.mentor, "decide_order_request", order_request_id: order_request.neat_id, decision: "approve",
+      funding_source_id: other.neat_id)
+    assert_nil result.error
+    assert_equal "approved", result.value["status"]
+    assert_equal budget, order_request.reload.funding_source
+
+    page_request = submitted_request(@world)
+    page_request.edit!({ funding_source_id: budget.id }, by: @world.mentor)
+    sign_in @world.mentor.user
+    post orders_request_decisions_path(page_request), params: { decision: "approved", funding_source_id: other.id }
+    assert_equal [ "approved", budget ], page_request.reload.then { |r| [ r.status, r.funding_source ] }, "the page does the same"
+  end
+
   test "record_purchase records a buyer's order for To buy items, as Record purchase does" do
     order_request = approved_request(@world, lines: [ { description: "Bearing", price: 3, quantity: 4, vendor_id: @world.preferred_vendor.id },
       { description: "Belt", price: 9, vendor_id: @world.preferred_vendor.id }, { description: "Mystery", price: 1 } ])
@@ -196,10 +215,41 @@ class Mcp::Tools::OrderWritesTest < ActionDispatch::IntegrationTest
     assert_equal other, line.reload.funding_source
 
     bought = approved_bought.order_lines.first
-    assert_equal "Not allowed", call_as(@world.mentor, "set_funding_source", order_line_id: bought.neat_id, funding_source_id: other.neat_id, reason: "Gift").error
+    assert_equal "Not found", call_as(@world.mentor, "set_funding_source", order_line_id: bought.neat_id, funding_source_id: other.neat_id, reason: "Gift").error
     assert_equal "Give a reason for moving it.", call_as(@world.funding_manager, "set_funding_source", order_line_id: bought.neat_id, funding_source_id: other.neat_id).error
     assert_nil call_as(@world.funding_manager, "set_funding_source", order_line_id: bought.neat_id, funding_source_id: other.neat_id, reason: "Gift").error
     assert_equal other, bought.reload.funding_source
+    moved = call_as(@world.funding_manager, "set_funding_source", order_line_id: bought.neat_id, funding_source_id: nil, reason: "Back")
+    assert_equal [ bought.order_request.neat_id, nil ], [ moved.value["order_request"]["id"], moved.value["line"]["funding_source"] ],
+      "they can open this request, so it comes back; null pays the item from the request's source"
     assert_match "not both", call_as(@world.mentor, "set_funding_source", order_request_id: order_request.neat_id, order_line_id: line.neat_id, funding_source_id: nil).error
+  end
+
+  test "set_funding_source moves a bought item for a funding manager who can't open its request, as reallocation does" do
+    spare = FundingSource.create!(team: @world.club, name: "Spare", kind: :general, active: true, amount_cents: 10_000)
+    treasurer = orders_person("Treasurer", teams: [ @world.club ], badges: [ @world.funder_badge ])
+    order_request = approved_bought
+    line = order_request.order_lines.first
+    line.update_columns(funding_source_id: spare.id)
+
+    assert_equal "Not found", call_as(treasurer, "get_order_request", order_request_id: order_request.neat_id).error
+    report = call_as(treasurer, "funding_source_report", funding_source_id: spare.neat_id).value
+    assert_equal [ line.neat_id ], report["rows"].map { |row| row["order_line_id"] }
+
+    other = FundingSource.create!(team: @world.club, name: "Gift", kind: :general, active: true)
+    result = call_as(treasurer, "set_funding_source", order_line_id: line.neat_id, funding_source_id: other.neat_id, reason: "Grant covers it")
+    assert_nil result.error
+    assert_nil result.value["order_request"], "the request stays out of sight"
+    assert_equal [ line.neat_id, other.neat_id ], [ result.value["line"]["id"], result.value["line"]["funding_source"]["id"] ]
+    assert_equal other, line.reload.funding_source
+
+    assert_equal "Not found", call_as(@world.outsider, "set_funding_source", order_line_id: line.neat_id, funding_source_id: spare.neat_id,
+      reason: "Mine").error, "anyone else can't tell the item exists"
+    assert_equal "Not found", call_as(treasurer, "set_funding_source", order_line_id: approved_request(@world).order_lines.first.neat_id,
+      funding_source_id: spare.neat_id).error, "an item not yet bought is set from its request, which they can't open"
+
+    sign_in treasurer.user
+    post reallocate_orders_request_line_path(order_request, line), params: { funding_source_id: spare.id, reason: "Back" }
+    assert_equal spare, line.reload.funding_source, "the reallocation page allows them the same"
   end
 end

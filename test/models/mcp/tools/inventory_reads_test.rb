@@ -121,4 +121,19 @@ class Mcp::Tools::InventoryReadsTest < ActionDispatch::IntegrationTest
     assert_equal "No part has the code NOPE", call_as(@world.requester, "get_unit", code: "NOPE").error
     assert_equal "No part has the code MOT-2", call_as(@world.outsider, "get_unit", code: "MOT-2").error, "another team's unit is looked for only among those you see"
   end
+
+  test "list_items pages with offset and says where the next page starts" do
+    5.times { |index| Item.create!(team: @world.club, name: "Washer #{index}", reorder_point: 1) }
+    first = call_as(@world.requester, "list_items", query: "Washer", limit: 2).value
+    assert_equal [ [ "Washer 0", "Washer 1" ], true, 2 ], [ first["items"].map { |item| item["name"] }, first["truncated"], first["next_offset"] ]
+
+    second = call_as(@world.requester, "list_items", query: "Washer", limit: 2, offset: first["next_offset"]).value
+    assert_equal [ [ "Washer 2", "Washer 3" ], 4 ], [ second["items"].map { |item| item["name"] }, second["next_offset"] ]
+
+    last = call_as(@world.requester, "list_items", query: "Washer", limit: 2, offset: 4).value
+    assert_equal [ [ "Washer 4" ], false, nil ], [ last["items"].map { |item| item["name"] }, last["truncated"], last["next_offset"] ]
+
+    low = call_as(@world.requester, "list_items", low_only: true, limit: 3, offset: 1).value
+    assert_equal [ [ "Washer 0", "Washer 1", "Washer 2" ], 4 ], [ low["items"].map { |item| item["name"] }, low["next_offset"] ]
+  end
 end

@@ -5,13 +5,15 @@
 # the search leaves them out, unless include_inactive, and then only those the viewer manages
 # (the scope's rule). Total stock is Inventory::Stock's (active places, negatives as zero; a
 # tracked item's available units), and running_low and out_of_stock are the pages' badges.
-# Needs the inventory feature.
+# Pages: offset skips that many items, and next_offset is where the next page starts (null on
+# the last page), alongside truncated. Needs the inventory feature.
 class Mcp::Tools::ListItems < Mcp::Tool
   include Mcp::InventoryRecords
 
   tool_name "list_items"
   description "Inventory items you can see, by name, with part numbers, unit, total stock, reorder point and whether each " \
-    "is running low. Filters: query (name, part number or category), category, team_id, low_only."
+    "is running low. Filters: query (name, part number or category), category, team_id, low_only. When truncated, call " \
+    "again with offset: next_offset for the next page."
   scope :read
   feature :inventory
   input_schema(
@@ -21,27 +23,33 @@ class Mcp::Tools::ListItems < Mcp::Tool
       team_id: { type: "string", description: "Only this team's items (tm_)" },
       low_only: { type: "boolean", description: "Only items running low: at or below their reorder point (default false)" },
       include_inactive: { type: "boolean", description: "Also inactive items you manage (default false)" },
-      limit: limit_property
+      limit: limit_property,
+      offset: { type: "integer", minimum: 0, maximum: 1_000_000, description: "Skip this many items, for the next page (default 0)" }
     }
   )
   output_schema(
     type: "object",
-    properties: { items: { type: "array", items: Mcp::InventoryRecords::ITEM_SCHEMA }, truncated: { type: "boolean" } },
-    required: %w[items truncated]
+    properties: {
+      items: { type: "array", items: Mcp::InventoryRecords::ITEM_SCHEMA },
+      truncated: { type: "boolean" },
+      next_offset: { type: %w[integer null], description: "The offset of the next page, or null on the last page" }
+    },
+    required: %w[items truncated next_offset]
   )
 
-  def call(query: nil, category: nil, team_id: nil, low_only: false, include_inactive: false, limit: DEFAULT_LIMIT)
+  def call(query: nil, category: nil, team_id: nil, low_only: false, include_inactive: false, limit: DEFAULT_LIMIT, offset: 0)
     ctx.authorize!(Item, :index?)
     items = ctx.policy_scope(Item).includes(:team).order(:name, :id)
     items = items.where(active: true) unless include_inactive
     items = matching(items, query) if query.present?
     items = items.where(category: category) if category.present?
     items = items.where(team_id: ctx.find(Team, team_id).id) if team_id
-    return low_items(items, limit) if low_only
+    limit = limit.to_i.clamp(1, MAX_LIMIT)
+    return low_items(items, limit, offset) if low_only
 
-    page = list(items, limit: limit) { |item| item }
+    page = list(items.offset(offset), limit: limit) { |item| item }
     totals = Inventory::Stock.totals(page[:items])
-    page.merge(items: page[:items].map { |item| item_json(item, totals[item.id]) })
+    paged(page[:items].map { |item| item_json(item, totals[item.id]) }, page[:truncated], offset)
   end
 
   private
@@ -54,11 +62,14 @@ class Mcp::Tools::ListItems < Mcp::Tool
   end
 
   # Running low needs each item's total, so these are worked out over every item with a reorder point.
-  def low_items(items, limit)
+  def low_items(items, limit, offset)
     candidates = items.where.not(reorder_point: nil).to_a
     totals = Inventory::Stock.totals(candidates)
-    low = candidates.select { |item| item.low?(totals[item.id]) }
-    limit = limit.to_i.clamp(1, MAX_LIMIT)
-    { items: low.first(limit).map { |item| item_json(item, totals[item.id]) }, truncated: low.size > limit }
+    low = candidates.select { |item| item.low?(totals[item.id]) }.drop(offset)
+    paged(low.first(limit).map { |item| item_json(item, totals[item.id]) }, low.size > limit, offset)
+  end
+
+  def paged(items, truncated, offset)
+    { items: items, truncated: truncated, next_offset: (offset + items.size if truncated) }
   end
 end

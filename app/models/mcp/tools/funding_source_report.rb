@@ -1,8 +1,8 @@
 # One funding source's report (Orders::FundingSourcesController#report: policy_scope(FundingSource),
 # authorize report?, which is FundingSourcePolicy#numbers?): its amount, spent, committed and
-# remaining, and every bought item charged to it (Orders::FundingReport) with date, store,
-# request, approver, cost and its share of shipping and tax, and the purchase's receipts by
-# name. Someone who may see the source but not its numbers is "Not allowed". Needs the orders
+# remaining, and every bought item charged to it (Orders::FundingReport) with its ID (for
+# set_funding_source's reallocation), date, store, request, approver, cost and its share of
+# shipping and tax, and the purchase's receipts by name. Someone who may see the source but not its numbers is "Not allowed". Needs the orders
 # feature.
 class Mcp::Tools::FundingSourceReport < Mcp::Tool
   include Mcp::OrderRecords
@@ -26,12 +26,12 @@ class Mcp::Tools::FundingSourceReport < Mcp::Tool
         items: {
           type: "object",
           properties: {
-            date: { type: %w[string null] }, item: { type: "string" }, quantity: { type: "integer" }, store: { type: "string" },
+            order_line_id: { type: "string" }, date: { type: %w[string null] }, item: { type: "string" }, quantity: { type: "integer" }, store: { type: "string" },
             order_request: Mcp::OrderRecords::REQUEST_REF_SCHEMA, approved_by: { type: %w[string null] },
             cost: Mcp::OrderRecords::MONEY_SCHEMA, shipping_and_tax: Mcp::OrderRecords::MONEY_SCHEMA, total: Mcp::OrderRecords::MONEY_SCHEMA,
             receipts: { type: "array", items: { type: "string" } }
           },
-          required: %w[date item quantity store order_request approved_by cost shipping_and_tax total receipts]
+          required: %w[order_line_id date item quantity store order_request approved_by cost shipping_and_tax total receipts]
         }
       },
       total: Mcp::OrderRecords::MONEY_SCHEMA
@@ -54,6 +54,7 @@ class Mcp::Tools::FundingSourceReport < Mcp::Tool
 
   def row_json(row)
     {
+      order_line_id: row.line.neat_id,
       date: date_json(row.date),
       item: row.item,
       quantity: row.line.quantity,

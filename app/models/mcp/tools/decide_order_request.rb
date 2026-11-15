@@ -4,8 +4,9 @@
 # Mirrors: the request is found in policy_scope(OrderRequest) and asked show?; then
 # OrderRequest#decision_refusal, whose reason (your own request, a relative's, not an approver
 # on this step, nothing waiting) comes back as "Not allowed" with it. A funding_source_id is the
-# page's picker: used only while the request has none, among active sources, set through edit!,
-# and kept even if the decision is then refused, as the page keeps it. Then decide!, which asks
+# page's picker: used only while the request has none (otherwise ignored, as the page ignores
+# it), among active sources, set through edit!, and kept even if the decision is then refused,
+# as the page keeps it. Then decide!, which asks
 # for a comment to ask for changes or decline, fits_restriction to approve a request using a
 # restricted source, a funding source before the final approval where the organization requires
 # one, and sends the same notices. Its refusals come back as invalid-argument errors with the
@@ -18,7 +19,7 @@ class Mcp::Tools::DecideOrderRequest < Mcp::Tool
   description "Approve, ask for changes on, or decline an order request waiting on you, with a comment (required to ask for " \
     "changes or decline), as the request page's decision does. Approving a request paid from a restricted source needs " \
     "fits_restriction: true, after checking get_order_request's restriction. funding_source_id sets the source when the " \
-    "request has none. You can't decide your own or a relative's request. Returns the request."
+    "request has none, and is ignored when it has one. You can't decide your own or a relative's request. Returns the request."
   scope :write
   feature :orders
   input_schema(
@@ -54,9 +55,7 @@ class Mcp::Tools::DecideOrderRequest < Mcp::Tool
 
   # The page's picker, shown only while the request has no source.
   def set_funding_source(order_request, funding_source_id)
-    if order_request.funding_source_id.present?
-      invalid_argument!("This request already has a funding source; change it with set_funding_source")
-    end
+    return if order_request.funding_source_id.present?
 
     source = ctx.find(ctx.policy_scope(FundingSource).active, funding_source_id)
     order_action { order_request.edit!({ funding_source_id: source.id }, by: ctx.person) }
