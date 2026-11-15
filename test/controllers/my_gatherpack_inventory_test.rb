@@ -140,6 +140,18 @@ class MyGatherpackInventoryTest < ActionDispatch::IntegrationTest
     assert_not MyGatherpack::Menu.new(@world.keeper.user).manages_anything?
   end
 
+  test "a grant holder who manages no team gets the four pages in Manage, and not in More" do
+    home do
+      labels = %w[Reorder Items Places Changes]
+      menu = MyGatherpack::Menu.new(@world.keeper.user)
+
+      assert_not @world.keeper.manager?
+      assert_equal labels, menu.manage.map(&:label)
+      assert_empty labels & menu.more.map(&:label)
+      assert_empty MyGatherpack::Menu.new(@world.member.user).manage
+    end
+  end
+
   test "the four manager pages are placed in Manage, in order" do
     assert_equal %i[inventory_reorder_path inventory_items_path inventory_locations_path inventory_movements_path],
       MyGatherpack::InventoryMenuTable::ENTRIES.keys
@@ -155,8 +167,6 @@ class MyGatherpackInventoryTest < ActionDispatch::IntegrationTest
   end
 
   test "where the menu can hide entries per person, Manage lists the pages for managers only" do
-    skip "NavItem has no visible: on this base" unless GatherPack::Feature::NavItem.members.include?(:visible)
-
     home do
       MyGatherpack::Menu.manager_checks.delete(:inventory)
       labels = %w[Reorder Items Places Changes]
