@@ -172,7 +172,9 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
 
   test "Your orders lists the five most recent active requests and leaves the heading's count alone" do
     home do
-      7.times { |index| submitted_request(@world, title: "Request #{index}") }
+      7.times do |index|
+        submitted_request(@world, title: "Request #{index}").update_columns(updated_at: (10 - index).hours.ago)
+      end
       draft_request(@world, title: "A draft")
       sign_in @world.requester.user
 
@@ -180,6 +182,10 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
 
       assert_select "[data-home-section=orders]" do
         assert_select ".mg-row", count: 5
+        assert_select ".mg-row-title", text: "Request 6"
+        assert_select ".mg-row-title", text: "Request 3"
+        assert_select ".mg-row-title", text: "A draft"
+        %w[ Request\ 2 Request\ 1 Request\ 0 ].each { |title| assert_select ".mg-row-title", text: title, count: 0 }
         assert_select "a[href=?]", orders_requests_path(mine: 1), text: "My requests"
         assert_select "a.btn", text: "New request"
         assert_select ".mg-row-detail", text: "Waiting for approval", minimum: 1
@@ -256,6 +262,36 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
       assert_equal %w[ Orders To\ receive ], menu.(@world.requester).more.map(&:label) & [ "Orders", "To receive" ]
     end
     assert_not MyGatherpack::Menu.new(@world.mentor.user).manages_anything?
+  end
+
+  test "a team manager gets the five orders pages in Manage, in order, and not in More" do
+    home do
+      menu = MyGatherpack::Menu.new(@world.manager.user)
+      labels = [ "To approve", "To buy", "Vendors", "Funding sources", "Reports" ]
+
+      assert_equal labels, menu.manage.map(&:label).select { |label| labels.include?(label) }
+      assert_empty menu.more.map(&:label) & labels
+    end
+  end
+
+  test "an approver sees a re-approval row for a changed item; the requester doesn't" do
+    home do
+      request = approved_request(@world, title: "Kit", lines: [ { description: "Kit", price: 100 } ])
+      request.order_lines.first.change_quantity!(3, by: @world.buyer)
+      sign_in @world.mentor.user
+
+      get root_path
+
+      assert_select "[data-home-column=todo] .mg-row", text: /Kit/ do
+        assert_select "a.btn", text: "Review"
+        assert_select "a[href=?]", orders_request_path(request)
+        assert_select ".mg-row-detail", text: "Needs re-approval"
+      end
+
+      sign_in @world.requester.user
+      get root_path
+      assert_select "[data-home-column=todo]", count: 0
+    end
   end
 
   private
