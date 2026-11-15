@@ -64,7 +64,7 @@ Before building, watch three or four members and a guardian do the §1 tasks on 
 | `feature/my-gatherpack-forms` | `feature/my-gatherpack` + `feature/forms` | Forms sections and the phone form |
 | `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups section and the phone sheet |
 | `feature/my-gatherpack-checklists` | `feature/my-gatherpack` + `feature/checklists` | To-do items, Your Checklists and the family page rows, from checklists |
-| `feature/my-gatherpack-activity` | `feature/my-gatherpack-family` (which carries the forms, sign-ups and checklists connectors) | The activity page (§7a) and My Season's "Also this season" (§6.4) |
+| `feature/my-gatherpack-activity` | `feature/my-gatherpack-family` (which carries the forms, sign-ups and checklists connectors) + `feature/checklists-connectors` (count items) + `feature/event-time-display` (`Event#time_kind`) | The activity page (§7a) and My Season's "Also this season" (§6.4) |
 | `feature/my-gatherpack-orders` | `feature/my-gatherpack` + `feature/orders` | Planned, waits for Orders. To do rows, Your orders and menu placements ([`orders-spec.md`](orders-spec.md) §3.15) |
 | Small `feature/*` branches | `upstream/main` | One per cleanup item (§8), each with its own backlog entry |
 
