@@ -80,7 +80,7 @@ module MyGatherpack
       # page's "Not required" rows both come from here. Meetings are never
       # in it: attendance covers them.
       def uncounted(person, season)
-        new(person, season: season).uncounted
+        new(person, season: season, meetings: false).uncounted
       end
 
       # end_time − start_time for a timed event (Event#hours); nil for
@@ -93,12 +93,14 @@ module MyGatherpack
     attr_reader :person, :viewer, :season
 
     # +viewer_events+ is the viewer's policy_scope(Event); without it no
-    # event is linked.
-    def initialize(person, season: Season.current, viewer: person, viewer_events: nil)
+    # event is linked. meetings: false leaves meetings out without reading
+    # punches or meetings held, for callers that never show them (Home).
+    def initialize(person, season: Season.current, viewer: person, viewer_events: nil, meetings: true)
       @person = person
       @viewer = viewer
       @season = season
       @viewer_events = viewer_events
+      @meetings = meetings
     end
 
     def own?
@@ -131,7 +133,7 @@ module MyGatherpack
 
     # Own only, while time tracking is on.
     def meetings?
-      own? && GatherPack::Features.enabled?(:time_tracking)
+      @meetings && own? && GatherPack::Features.enabled?(:time_tracking)
     end
 
     def meeting_hours

@@ -103,6 +103,15 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     Checklists.singleton_class.define_method(:checklist_for, original)
   end
 
+  test "uncounted reads no punches, meetings or teams" do
+    queries = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| queries << payload[:sql] }
+    MyGatherpack::Activity.uncounted(person(:member), @season)
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+
+    assert_empty queries.grep(/time_clock_punches|time_clock_period_id" IS NOT NULL|FROM "teams"|FROM "memberships"/)
+  end
+
   test "a count item on a checklist that doesn't cover the person counts nothing for them" do
     rows = MyGatherpack::Activity.uncounted(person(:member), @season)
 

@@ -55,6 +55,7 @@ class MyGatherpackActivitySystemTest < ApplicationSystemTestCase
     assert_selector "#history .mg-heading", text: /History · Build/i
 
     click_link "Show all"
+    assert_current_path activity_path
     assert_selector "[data-activity-entry]", count: 5
   end
 end
