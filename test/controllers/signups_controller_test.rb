@@ -374,6 +374,21 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match "Outsider World", response.body
   end
 
+  # Picking a name searches again while the form is often already being
+  # submitted. An answer that set the session cookie could land after the
+  # sign-up's and put back the session from before it, without the flash.
+  test "the picker's search doesn't send the session back" do
+    @sheet.on_behalf_of_anyone!
+    sign_in person(:student).user
+    get signup_sheet_path(@sheet)
+
+    get new_signup_sheet_signup_path(@sheet, slot_id: @slot.id, q: "StudentTwo World"), as: :turbo_stream
+
+    assert_response :success
+    assert_match "StudentTwo World", response.body
+    assert_nil response.headers["Set-Cookie"]
+  end
+
   test "without JavaScript, Find shows matching people to pick from" do
     @sheet.on_behalf_of_anyone!
     sign_in person(:student).user

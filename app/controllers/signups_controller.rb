@@ -17,8 +17,15 @@ class SignupsController < InternalController
 
     respond_to do |format|
       format.html
-      # The on-behalf-of picker's type-to-search results.
-      format.turbo_stream { @on_behalf_of_matches = on_behalf_of_matches(params[:q], @signup.person) }
+      # The on-behalf-of picker's type-to-search results. Picking a name
+      # searches once more, often while the form is being submitted; if that
+      # answer arrived after the sign-up's, its session cookie (from before the
+      # sign-up) would replace the new one and drop "You're signed up". A
+      # search changes nothing in the session, so it doesn't send it back.
+      format.turbo_stream do
+        request.session_options[:skip] = true
+        @on_behalf_of_matches = on_behalf_of_matches(params[:q], @signup.person)
+      end
     end
   end
 
