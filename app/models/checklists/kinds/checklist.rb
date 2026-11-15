@@ -79,7 +79,7 @@ module Checklists
         rows = reader.rows(person_ids)
         counting = reader.items.select(&:counts?).map(&:id)
         pass_progress = passes_progress?(reader)
-        people = ::Person.where(id: person_ids).index_by(&:id)
+        people = pass_progress ? {} : ::Person.where(id: person_ids).index_by(&:id)
 
         person_ids.index_with do |person_id|
           status = rows.dig(person_id, nil)&.status
@@ -87,8 +87,8 @@ module Checklists
 
           counted_rows = rows[person_id].values_at(*counting)
           fix = if status == "met" then nil
-          else (inner_fix(other, reader.items.find(&:counts?), counted_rows.first) if pass_progress) ||
-            card_fix(other, people[person_id], counted_rows.compact)
+          elsif pass_progress then inner_fix(other, reader.items.find(&:counts?), counted_rows.first)
+          else card_fix(other, people[person_id], counted_rows.compact)
           end
           Result.new(status: status, summary: "#{other.title}: #{other.word_for(status)}", fix: fix,
             measures: pass_progress ? progress(counted_rows) : {})
@@ -109,13 +109,11 @@ module Checklists
 
       # The counted item's own fix ("Next: ..."), so the line leads where
       # that item would. A confirm names its item and checklist, since it
-      # posts there. A fix with neither a path nor a confirm ("Ask a
-      # leader") leads nowhere from this line: nil, so the line links to the
-      # other checklist's card instead.
+      # posts there.
       def inner_fix(other, counted, row)
         fix = row&.fix
         return if fix.blank?
-        return (fix if fix["path"].present?) unless fix["action"] == "attest"
+        return fix unless fix["action"] == "attest"
 
         fix.merge("item_id" => fix["item_id"] || counted.id, "checklist_id" => other.id)
       end
