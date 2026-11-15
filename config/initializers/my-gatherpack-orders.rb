@@ -17,4 +17,7 @@ Rails.application.config.to_prepare do
   ]) do |person|
     Orders.enabled? && (access = Orders::Access.for(person)) && (access.approver? || access.buyer?)
   end
+
+  # The share list only exists when the installable app is present.
+  Orders::ShareAction.register
 end
