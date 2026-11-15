@@ -73,7 +73,9 @@ class GuardianshipConfirmTest < ApplicationSystemTestCase
     assert_text "Relationship type was successfully updated."
     assert type.reload.show_contact_details?
 
-    visit edit_relationship_type_path(type)
+    # Follow the page's own link: a full page load right after the dialogs once
+    # hung the browser for over a minute.
+    click_on "Edit"
     uncheck "Show contact details"
     click_on "Update Relationship type"
     assert_text "Relationship type was successfully updated."
