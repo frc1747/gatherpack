@@ -14,7 +14,7 @@ module Orders
 
     # GET /orders/requests/1/lines/2/deliveries/new
     def new
-      @delivery = OrderDelivery.new(order_line: @line, quantity: [ @line.outstanding_quantity, 1 ].max,
+      @delivery = OrderDelivery.new(order_line: @line, quantity: [ @line.to_come_quantity, 1 ].max,
         received_on: Date.current, condition: :good)
     end
 

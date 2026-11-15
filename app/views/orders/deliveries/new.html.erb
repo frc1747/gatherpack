@@ -4,7 +4,7 @@
   <div class="card-header">
     <h1>Receive <%= @line.display_name %></h1>
     <small class="text-muted">
-      <%= @order_request.display_title %> · <%= @line.outstanding_quantity %> of <%= @line.quantity %> still to come
+      <%= @order_request.display_title %> · <%= @line.to_come_quantity %> of <%= @line.quantity %> still to come
     </small>
   </div>
   <%= form_with model: @delivery, scope: :order_delivery, url: orders_request_line_deliveries_path(@order_request, @line, from: params[:from], mine: params[:mine]), class: "card-body" do |f| %>

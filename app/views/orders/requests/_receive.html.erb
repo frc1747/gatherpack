@@ -18,7 +18,7 @@
               <span>
                 <strong><%= line.display_name %></strong>
                 <small class="text-muted d-block">
-                  <%= line.outstanding_quantity %> of <%= line.quantity %> to come · <%= order_line_status_text(line) %>
+                  <%= line.to_come_quantity %> of <%= line.quantity %> to come · <%= order_line_status_text(line) %>
                   <% expected = line.expected_on || line.purchase&.expected_on %>
                   <% if expected %> · Expected <%= l expected, format: :short %><% end %>
                 </small>
@@ -45,15 +45,15 @@
         <% if last %>
           <div><%= last.quantity %> came <%= last.condition.humanize.downcase %><%= ": #{last.note}" if last.note.present? %></div>
         <% end %>
-        <% if can_receive && line.outstanding_quantity.positive? %>
+        <% if can_receive && line.to_come_quantity.positive? %>
           <div class="mt-2">
-            <%= link_to "Receive the rest (#{line.outstanding_quantity} to come)", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-outline-primary btn-lg" %>
+            <%= link_to "Receive the rest (#{line.to_come_quantity} to come)", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-outline-primary btn-lg" %>
           </div>
         <% end %>
         <% if policy(line).buy? %>
           <%= form_with url: resolve_orders_request_line_path(order_request, line), class: "mt-2" do %>
             <%= label_tag "quantity_#{line.id}", "How many to order again?", class: "form-label" %>
-            <%= number_field_tag :quantity, [ line.problem_quantity, line.outstanding_quantity ].min, id: "quantity_#{line.id}", min: 1, max: line.outstanding_quantity,
+            <%= number_field_tag :quantity, line.problem_quantity, id: "quantity_#{line.id}", min: 1, max: line.problem_quantity,
                   class: "form-control form-control-lg mb-2" %>
             <%= text_field_tag :comment, nil, placeholder: "Note (needed to cancel)", class: "form-control form-control-lg mb-2", "aria-label": "Note" %>
             <%= button_tag "Order a replacement", name: "resolution", value: "reorder", class: "btn btn-primary btn-lg" %>

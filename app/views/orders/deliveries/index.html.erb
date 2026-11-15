@@ -25,7 +25,7 @@
             <% if group.expected_on %> · Expected <%= l group.expected_on, format: :short %><% end %>
           </small>
         </div>
-        <% if group.purchase %>
+        <% if group.purchase && group.lines.any? { |line| !line.problem? } %>
           <%= button_to "Mark all received", mark_all_received_orders_purchase_path(group.purchase, from: "list", mine: params[:mine].presence),
                 method: :post, class: "btn btn-primary btn-lg" %>
         <% end %>
@@ -37,7 +37,7 @@
               <strong><%= line.display_name %></strong>
               <small class="text-muted d-block">
                 <%= link_to line.order_request.display_title, orders_request_path(line.order_request) %> ·
-                <%= line.outstanding_quantity %> of <%= line.quantity %> to come ·
+                <%= line.to_come_quantity %> of <%= line.quantity %> to come ·
                 <%= order_line_status_text(line) %>
               </small>
             </span>

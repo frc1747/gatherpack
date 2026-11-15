@@ -238,11 +238,45 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
       assert_equal Orders::WaitingOn.new(@world.requester).lines_to_receive, 2
 
       get orders_request_url(order_request)
-      assert_select "a", text: /Receive the rest \(3 to come\)/
+      assert_select "a", text: /Receive the rest \(2 to come\)/
+      get new_orders_request_line_delivery_url(order_request, line)
+      assert_select "input[name='order_delivery[quantity]'][value='2']"
 
       post orders_request_line_deliveries_url(order_request, line), params: delivery_params(quantity: 2)
       assert line.reload.problem?, "still a problem until the buyer settles the damaged one"
-      assert_equal 1, line.outstanding_quantity
+      assert_not line.open_to_receive?, "the 2 good ones were the 2 coming"
+      get orders_deliveries_url(mine: 1)
+      assert_select "a", text: "Receive", count: 1
+      assert_equal 1, Orders::WaitingOn.new(@world.requester).lines_to_receive
+    end
+  end
+
+  test "an item that all came damaged isn't on To receive or in the count, and has no Mark all button" do
+    with_orders(@world) do
+      order_request = approved_request(@world, lines: [ { description: "Gear", quantity: 3, price: 10 } ])
+      buy(@world, order_request.order_lines.to_a, vendor: @world.preferred_vendor)
+      line = order_request.order_lines.first
+      line.record_delivery!(by: @world.requester, quantity: 3, condition: :damaged)
+      sign_in @world.requester.user
+
+      get orders_deliveries_url(mine: 1)
+      assert_select "a", text: "Receive", count: 0
+      assert_select "button", text: "Mark all received", count: 0
+      assert_equal 0, Orders::WaitingOn.new(@world.requester).lines_to_receive
+
+      get orders_request_url(order_request)
+      assert_select "a", text: /Receive the rest/, count: 0
+    end
+  end
+
+  test "Mark all received shows on an order only when it has an item it can receive" do
+    with_orders(@world) do
+      order_request, = ordered_request
+      order_request.order_lines.find_by(description: "Gear").record_delivery!(by: @world.requester, quantity: 1, condition: :damaged)
+      sign_in @world.requester.user
+
+      get orders_deliveries_url(mine: 1)
+      assert_select "button", text: "Mark all received", count: 1
     end
   end
 
