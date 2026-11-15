@@ -3,10 +3,8 @@
 namespace :inventory do
   root "search#index"
   resources :items do
-    member do
-      post :tracking, action: :start_tracking
-      delete :tracking, action: :stop_tracking
-    end
+    resource :tracking, controller: "item_tracking", only: %i[create destroy]
+    resource :readings, controller: "item_readings", only: %i[edit update]
     resources :sources, controller: "item_sources", except: %i[index show]
   end
   resources :locations, path: "places" do
