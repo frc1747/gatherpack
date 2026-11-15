@@ -149,21 +149,21 @@ season_start = outreach.starts_on.beginning_of_day
 check "Demo Member has two Outreach check-ins this season",
   Checkin.joins(event: :event_type).where(person: member, event_types: { name: "Outreach" }).where(events: { start_time: season_start..Time.current }).count == 2
 check "Demo Member isn't covered by Outreach (a rookie)", overall.(outreach, member).nil?
-check "Demo Student is covered by Outreach and hasn't done it", %w[not_met pending].include?(overall.(outreach, student))
-check "Demo Student's Concessions isn't met", overall.(concessions, student) == "not_met", overall.(concessions, student)
-check "Demo Student has no Concessions credit", Checkin.joins(event: :event_type).where(person: student, event_types: { name: [ "Concessions", "Concessions Stocking" ] }).none? && Signup.where(person: student).none?
-check "Demo Student's travel checklist isn't met", %w[not_met pending].include?(overall.(travel, student)), overall.(travel, student)
+check "Sam Student is covered by Outreach and hasn't done it", %w[not_met pending].include?(overall.(outreach, student))
+check "Sam Student's Concessions isn't met", overall.(concessions, student) == "not_met", overall.(concessions, student)
+check "Sam Student has no Concessions credit", Checkin.joins(event: :event_type).where(person: student, event_types: { name: [ "Concessions", "Concessions Stocking" ] }).none? && Signup.where(person: student).none?
+check "Sam Student's travel checklist isn't met", %w[not_met pending].include?(overall.(travel, student)), overall.(travel, student)
 punches = ->(person) { TimeClockPunch.where(person: person).count }
-check "Demo Student has some meeting punches, fewer than Demo Veteran", punches.(student).positive? && punches.(student) < punches.(veteran), "#{punches.(student)} of #{punches.(veteran)}"
+check "Sam Student has some meeting punches, fewer than Demo Veteran", punches.(student).positive? && punches.(student) < punches.(veteran), "#{punches.(student)} of #{punches.(veteran)}"
 listed_forms = Form.where(id: ChecklistItem.where(kind: "form_complete").flat_map { Array(_1.config["form_ids"]) })
-check "a form a checklist item lists is unsubmitted by Demo Student", listed_forms.any? && listed_forms.all? { |form| FormResponse.where(form: form, subject: student).none? }
+check "a form a checklist item lists is unsubmitted by Sam Student", listed_forms.any? && listed_forms.all? { |form| FormResponse.where(form: form, subject: student).none? }
 Checklist.active.find_each do |list|
   status = overall.(list, veteran)
   check "Demo Veteran has #{list.title} met", status.nil? || %w[met exempt].include?(status), status
 end
 check "Demo Veteran has two upcoming sign-ups",
   Signup.joins(signup_slot: :event).where(person: veteran).where("events.start_time > ?", Time.current).count == 2
-check "Demo Parent guardians Demo Member and Demo Student", parent.wards.map(&:id).sort == [ member.id, student.id ].sort
+check "Demo Parent guardians Demo Member and Sam Student", parent.wards.map(&:id).sort == [ member.id, student.id ].sort
 pooling = ChecklistItem.where(kind: "count").filter_map { _1.config["group_relationship_type_id"].presence }.uniq
 check "Concessions pools through the relationship that links Demo Parent", Relationship.where(parent: parent).pluck(:relationship_type_id).all? { pooling.include?(_1) }
 
@@ -171,7 +171,7 @@ sheet = SignupSheet.find_by(title: "Outreach Booth Helpers")
 rule = sheet&.signup_positions&.flat_map(&:signup_position_rules)&.find(&:checklist?)
 check "the sheet has a position that needs Outreach", rule&.checklist == outreach
 if rule
-  check "Demo Student is covered by the sheet's checklist but hasn't finished it", !overall.(outreach, student).nil? && !rule.passes?(student)
+  check "Sam Student is covered by the sheet's checklist but hasn't finished it", !overall.(outreach, student).nil? && !rule.passes?(student)
   check "Demo Member isn't covered by the sheet's checklist", overall.(outreach, member).nil? && !rule.passes?(member)
   check "Demo Veteran passes the sheet's rule", rule.passes?(veteran)
   # As Checklists::SignupRuleLoop: the sheet, the position or the sheet's event type as a credit source.

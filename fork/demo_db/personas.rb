@@ -22,7 +22,7 @@ PERSONAS = [
     organizes: [ "Concessions Stocking" ] },
   # Behind: some meetings missed, no Outreach or Concessions, and the meal
   # choices form a checklist lists left unsubmitted (so no forms at all).
-  { first: "Demo", last: "Student", email: "demo.student@example.invalid", gender: "M", shirt_size: "M", birthday: "2010-08-19",
+  { first: "Sam", last: "Student", email: "demo.student@example.invalid", gender: "M", shirt_size: "M", birthday: "2010-08-19",
     teams: { "Team 1747 - Class of 2028" => false },
     badges: [ "2027 Season Safety Training Complete", "2027 FIRST Registered", "2027 FIRST Consent Signed" ],
     forms: 0, signups: 0, attends: 3, item_quantities: true },
@@ -31,7 +31,7 @@ PERSONAS = [
     teams: { "Team 1747 - Class of 2027" => false },
     badges: [ "2027 Season Safety Training Complete", "2027 FIRST Registered", "2027 FIRST Consent Signed" ],
     listed_forms: true, item_quantities: true, checkins: { "Outreach" => 2, "Concessions" => 2 }, attends: 1 },
-  # Guardian of Demo Member and Demo Student, through the relationship Concessions pools on.
+  # Guardian of Demo Member and Sam Student, through the relationship Concessions pools on.
   { first: "Demo", last: "Parent", email: "demo.parent@example.invalid", gender: "F", shirt_size: "M", birthday: "1980-02-08",
     teams: {}, badges: [], forms: 0, signups: 0, guardian_of: %w[demo.member@example.invalid demo.student@example.invalid] }
 ].freeze
@@ -175,7 +175,7 @@ PERSONAS.each do |spec|
   end
 end
 
-# A sheet with a position that needs Outreach: Demo Student is covered and hasn't
+# A sheet with a position that needs Outreach: Sam Student is covered and hasn't
 # finished it, Demo Member isn't covered, and nothing on the sheet counts toward it.
 outreach = Checklist.active.find_by("title LIKE ?", "Outreach%")
 event = Event.joins(:event_type).where(event_types: { name: "Outreach" }).where("start_time > ?", Time.current).order(:start_time).first

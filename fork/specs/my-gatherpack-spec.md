@@ -346,11 +346,11 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 | Persona | Email | Shows |
 |---|---|---|
 | Demo Member (exists; holds 2027 Season Rookie) | `demo.member@example.invalid` | The rookie: not on Outreach, two Outreach check-ins, so "Also this season" and "Not required for you" |
-| Demo Student (new, Class of 2028) | `demo.student@example.invalid` | Behind: attendance short with a gap and date, no outreach, no concessions; a form that a checklist item lists, so it shows once |
+| Sam Student (new, Class of 2028) | `demo.student@example.invalid` | Behind: attendance short with a gap and date, no outreach, no concessions; a form that a checklist item lists, so it shows once |
 | Demo Veteran (new, Class of 2027) | `demo.veteran@example.invalid` | All done: every item met, two upcoming sign-ups, "You're all set for now" |
-| Demo Parent (new in `personas.rb`; the hosted demo had one added by hand) | `demo.parent@example.invalid` | Guardian of Demo Member and, new, Demo Student, through the pooling relationship, so the family owes Concessions together |
+| Demo Parent (new in `personas.rb`; the hosted demo had one added by hand) | `demo.parent@example.invalid` | Guardian of Demo Member and, new, Sam Student, through the pooling relationship, so the family owes Concessions together |
 
-Plus, for [BL-045](../backlog/BL-045-checklist-rule-wording.md): one sign-up sheet with a checklist rule that Demo Student is covered by but hasn't finished, and that Demo Member isn't covered by. The rule's checklist mustn't be one the sheet itself counts toward (or its warning shows instead).
+Plus, for [BL-045](../backlog/BL-045-checklist-rule-wording.md): one sign-up sheet with a checklist rule that Sam Student is covered by but hasn't finished, and that Demo Member isn't covered by. The rule's checklist mustn't be one the sheet itself counts toward (or its warning shows instead).
 
 ## 12. Decisions
 

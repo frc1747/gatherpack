@@ -38,15 +38,15 @@
 
 **Audit history:** the versions database is created empty, because PaperTrail keeps every past value.
 
-**Personas:** Demo Member, Demo Lead, Demo Mentor, Demo Student, Demo Veteran and Demo Parent, all with the demo password:
+**Personas:** Demo Member, Demo Lead, Demo Mentor, Sam Student, Demo Veteran and Demo Parent, all with the demo password:
 - `demo.member@example.invalid`: student, Class of 2029, a rookie. Two Outreach check-ins this season.
 - `demo.lead@example.invalid`: Class of 2027, and manager of Student Leadership.
 - `demo.mentor@example.invalid`: manager of Mentors and of Student Leadership. Organizes Concessions Stocking.
 - `demo.student@example.invalid`: Class of 2028, behind. Punched in at some meetings (not enough), no Outreach, no Concessions, and the meal choices form a checklist lists is not submitted.
 - `demo.veteran@example.invalid`: Class of 2027, all done. Every checklist item met (punched in at every past meeting, Outreach and Concessions check-ins) and two upcoming sign-ups.
-- `demo.parent@example.invalid`: guardian of Demo Member and Demo Student, through the relationship type Concessions pools on, so the two owe Concessions together.
+- `demo.parent@example.invalid`: guardian of Demo Member and Sam Student, through the relationship type Concessions pools on, so the two owe Concessions together.
 
-Each persona also has badges, form responses and up to two upcoming sign-ups, all made through the models (punches are added by an admin, as the time clock periods require). The Student and the Parent have no forms or sign-ups. One more record is added: the sign-up sheet "Outreach Booth Helpers", whose position needs the Outreach checklist. Demo Student is covered by it and hasn't finished it, Demo Member isn't covered, and nothing on the sheet counts toward Outreach. Checklist results are refreshed at the end, as the worker would.
+Each persona also has badges, form responses and up to two upcoming sign-ups, all made through the models (punches are added by an admin, as the time clock periods require). The Student and the Parent have no forms or sign-ups. One more record is added: the sign-up sheet "Outreach Booth Helpers", whose position needs the Outreach checklist. Sam Student is covered by it and hasn't finished it, Demo Member isn't covered, and nothing on the sheet counts toward Outreach. Checklist results are refreshed at the end, as the worker would.
 
 ## Safety
 
