@@ -7,6 +7,10 @@ Rails.application.config.to_prepare do
     enabled: -> { Checklists.enabled? }, items: -> { my_gatherpack_checklist_items })
   MyGatherpack.register_section(:checklists_season, partial: "my_gatherpack/checklists_season", column: :side, position: 20,
     enabled: -> { Checklists.enabled? })
+  # A form a checklist item lists shows as that item, not as a form row too.
+  MyGatherpack::Claims.register(:checklists, :form) do |subject|
+    Checklists.enabled? ? my_gatherpack_checklist_form_ids(subject) : []
+  end
 
   # Someone who organizes checklists without managing a team still gets Manage.
   MyGatherpack::Menu.singleton_class.prepend(MyGatherpack::ChecklistsMenuTable)
