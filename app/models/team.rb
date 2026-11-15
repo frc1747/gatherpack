@@ -123,11 +123,12 @@ class Team < ApplicationRecord
   end
 
   def capture_related_team_ids
-    @related_team_ids = all_ancestor_ids + all_descendant_ids
+    @related_team_ids = [ id ] + all_ancestor_ids + all_descendant_ids
   end
 
   # Members of this team and the teams below it may have left the teams
-  # above it; managers above it may have left the teams below it.
+  # above it; managers above it may have left the teams below it. A deleted
+  # team's own badges have no members left.
   def remove_related_badges_outside_team
     team_ids = @related_team_ids || ([ id ] + all_descendant_ids + all_ancestor_ids)
     old_parent = Team.find_by(id: parent_id_before_last_save) if saved_change_to_parent_id?

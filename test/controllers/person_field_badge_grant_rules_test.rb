@@ -144,7 +144,8 @@ class PersonFieldBadgeGrantRulesTest < ActionDispatch::IntegrationTest
     delete team_path(@den_a)
     sign_out :user
     assert_not Team.exists?(@den_a.id)
-    assert BadgeAssignment.exists?(badge: @assistant_badge, person: person(:assistant))
+    assert Badge.exists?(@assistant_badge.id), "the badge stays"
+    assert_not BadgeAssignment.exists?(badge: @assistant_badge, person: person(:assistant)), "its team is gone, so its holders lose it"
   end
 
   def get_birthdays

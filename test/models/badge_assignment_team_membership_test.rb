@@ -108,10 +108,42 @@ class BadgeAssignmentTeamMembershipTest < ActiveSupport::TestCase
     assert Team.exists?(pack_child.id)
   end
 
-  test "deleting the badge's own team leaves the assignment, which reaches nobody" do
+  test "deleting the badge's own team removes the badge from its holders" do
     @den_a.destroy!
 
-    assert BadgeAssignment.exists?(badge: @den_a_badge, person: @person)
+    assert_not BadgeAssignment.exists?(badge: @den_a_badge, person: @person)
+    assert Badge.exists?(@den_a_badge.id)
+  end
+
+  test "a merge that moves the badge to the kept person before commit keeps it" do
+    kept = Person.create!(first_name: "Ann", last_name: "Kept")
+    Membership.create!(person: kept, team: @den_a)
+
+    # A merge removes the duplicate membership, then moves the rest over.
+    ActiveRecord::Base.transaction do
+      @membership.destroy!
+      BadgeAssignment.where(person_id: @person.id).update_all(person_id: kept.id)
+    end
+
+    assert_includes kept.reload.badges, @den_a_badge
+    assert_includes kept.badges, @pack_badge
+  end
+
+  test "moving a badge to another team removes it from holders outside that team" do
+    holder = Person.create!(first_name: "Bo", last_name: "Test")
+    Membership.create!(person: holder, team: @den_b)
+    BadgeAssignment.create!(badge: @pack_badge, person: holder)
+
+    @pack_badge.update!(team: @den_b)
+
+    assert_not_includes held_badges, @pack_badge
+    assert_includes holder.reload.badges, @pack_badge
+  end
+
+  test "giving a team-less badge a team removes it from holders outside that team" do
+    @open_badge.update!(team: @den_b)
+
+    assert_not_includes held_badges, @open_badge
   end
 
   test "deleting a person doesn't fail on their team badges" do
@@ -131,6 +163,17 @@ class BadgeAssignmentTeamMembershipTest < ActiveSupport::TestCase
 
     assert_equal [ @open_badge ], held_badges
     assert BadgeAssignment.exists?(kept.id)
+  end
+
+  test "the cleanup removes the badges of a team that was deleted" do
+    Membership.where(team: @den_a).delete_all
+    Team.where(id: @den_a.id).delete_all
+
+    require Rails.root.join("db/migrate/20261115120000_remove_team_badges_outside_their_team").to_s
+    ActiveRecord::Migration.suppress_messages { RemoveTeamBadgesOutsideTheirTeam.new.migrate(:up) }
+
+    assert_not BadgeAssignment.exists?(badge: @den_a_badge)
+    assert_includes held_badges, @open_badge
     ActiveRecord::Migration.suppress_messages { RemoveTeamBadgesOutsideTheirTeam.new.migrate(:down) }
   end
 end

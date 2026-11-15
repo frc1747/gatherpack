@@ -31,7 +31,10 @@ class Membership < ApplicationRecord
 
   private
 
+  # Checked once the change is done, so a change that moves the badge in the
+  # same transaction (merging two people, say) is seen whole.
   def remove_badges_outside_team
-    BadgeAssignment.remove_outside_team(BadgeAssignment.where(person_id: [ person_id, person_id_before_last_save ].compact.uniq))
+    person_ids = [ person_id, person_id_before_last_save ].compact.uniq
+    self.class.current_transaction.after_commit { BadgeAssignment.remove_outside_team(BadgeAssignment.where(person_id: person_ids)) }
   end
 end
