@@ -3,31 +3,39 @@ module MyGatherpack
   # check-ins, time clock punches, fulfilled sign-ups and submitted forms,
   # and which checklist items covering them count each kind of event.
   #
+  # Whether something counts is the person's own answer, from their stored
+  # checklist results, whoever is looking: an item counts for them unless
+  # they're exempt from it. Which items are named follows the viewer: only
+  # those the viewer's status_for shows. A check-in counts when a count item
+  # counts check-ins at its event type, or counts sign-ups on a sheet (or a
+  # position on it) where the person has a sign-up at that event (§6.4).
+  #
   # The viewer is the person or a guardian of theirs. A guardian gets no
-  # punches (they stay out for guardians, as on the family page), reads the
-  # person's checklists as status_for shows them to the guardian, and a
-  # record's event carries a link only when the viewer's own event scope
-  # already includes it. Each block reads its records in one query.
+  # punches and no meetings (they stay out for guardians), and a record's
+  # event carries a link only when the viewer's own event scope already
+  # includes it. Each block reads its records in one query.
   class Activity
     MEETINGS = "meetings".freeze
     ATTENDANCE = "attendance".freeze
     COUNT = "count".freeze
 
-    # Check-in sources count by event type; sign-up sources by sheet, and
-    # through the sheet's events.
+    # Check-in sources count by event type; sign-up sources by sheet or
+    # position, through the person's own sign-ups.
     TYPE_SOURCES = %w[checkins].freeze
     SHEET_SOURCES = %w[signups signup_positions].freeze
 
     # A row of "By kind of event". key is the event type's neat id, or
     # MEETINGS. hours is nil when none of its events has set times.
-    # counts_toward holds the labels of the covering items that count it.
-    KindRow = Struct.new(:key, :name, :events, :hours, :counts_toward, keyword_init: true) do
+    # item_ids are the checklist items covering the person that count any
+    # of its events; uncounted is the KindRow of its events none counts,
+    # or nil.
+    KindRow = Struct.new(:key, :name, :events, :hours, :item_ids, :uncounted, keyword_init: true) do
       def meetings?
         key == MEETINGS
       end
 
       def counted?
-        counts_toward.any?
+        item_ids.any?
       end
     end
 
@@ -36,16 +44,41 @@ module MyGatherpack
     # may open, a SignupSheet or a FormResponse; nil for no link.
     Entry = Struct.new(:at, :title, :detail, :how, :hours, :kind_key, :record, keyword_init: true)
 
+    # FormAccess for one form of several, sharing one viewer–subject
+    # pair's lookups (AudienceAccess memoizes them per instance), so History
+    # makes them once rather than per form. A submission means a response,
+    # which is all reading needs of the audience, so that isn't asked.
+    class SharedFormAccess < FormAccess
+      def initialize(pair, form)
+        super(pair.viewer, pair.subject, form, in_audience: false, has_response: true)
+        @pair = pair
+      end
+
+      def component?(component)
+        @pair.component?(component)
+      end
+
+      private
+
+      def subject_team_ids
+        @pair.send(:subject_team_ids)
+      end
+
+      def viewer_badge_ids
+        @pair.send(:viewer_badge_ids)
+      end
+    end
+
     class << self
       def enabled?
         MyGatherpack.enabled? && GatherPack::Features.enabled?(:my_gatherpack_activity)
       end
 
-      # The event types the person checked in at in the season that no
-      # checklist item covering them counts, as KindRows (event count and
-      # hours). Home's "Also this season" and the activity page's "Not
-      # required for you" rows both come from here. Meetings are never in
-      # it: attendance covers them.
+      # The event types the person checked in at in the season, with only
+      # the check-ins no checklist item covering them counts, as KindRows
+      # (event count and hours). Home's "Also this season" and the activity
+      # page's "Not required" rows both come from here. Meetings are never
+      # in it: attendance covers them.
       def uncounted(person, season)
         new(person, season: season).uncounted
       end
@@ -73,16 +106,14 @@ module MyGatherpack
     end
 
     def uncounted
-      kind_rows.reject { |row| row.meetings? || row.counted? }
+      kind_rows.filter_map(&:uncounted)
     end
 
     # Meetings first, then event types by name.
     def kind_rows
       @kind_rows ||= begin
         rows = event_checkins.group_by { |checkin| checkin.event.event_type }.map do |type, checkins|
-          events = checkins.map(&:event)
-          counts = (coverage[:event_types][type.id] + events.flat_map { |event| coverage[:events][event.id] }).uniq
-          KindRow.new(key: type.neat_id, name: type.name, events: events.size, hours: total_hours(events), counts_toward: counts)
+          kind_row_for(type, checkins)
         end.sort_by { |row| row.name.to_s.downcase }
         meetings_row ? [ meetings_row ] + rows : rows
       end
@@ -90,6 +121,12 @@ module MyGatherpack
 
     def kind_row(key)
       kind_rows.find { |row| row.key == key }
+    end
+
+    # The labels of the row's counting items that the viewer's status_for
+    # shows; empty when it shows none of them.
+    def counts_toward(row)
+      row.item_ids.filter_map { |id| visible_labels[id] }.uniq
     end
 
     # Own only, while time tracking is on.
@@ -137,6 +174,20 @@ module MyGatherpack
       @checklists ||= Checklists.enabled? ? Checklists.checklist_for(person, viewer: viewer) : []
     end
 
+    # The person's own active sign-ups still to come, soonest first, on
+    # sheets the viewer may see.
+    def upcoming_signups
+      return [] unless GatherPack::Features.enabled?(:signups)
+
+      @upcoming_signups ||= begin
+        signups = Signup.active.joins(signup_slot: :event).merge(Event.upcoming)
+        found = signups.where(person_id: person.id).or(signups.where(on_behalf_of_id: person.id))
+          .includes(signup_slot: [ :event, { signup_position: :signup_sheet } ]).to_a
+        visible = visible_sheet_ids(found.map { |signup| signup.signup_sheet.id })
+        found.select { |signup| visible.include?(signup.signup_sheet.id) }.sort_by { |signup| [ signup.event.start_time, signup.signup_sheet.title ] }
+      end
+    end
+
     # Newest first; with +kind+ (a KindRow key) only that kind's lines.
     def history(kind = nil)
       entries = checkin_entries + punch_entries + signup_entries + form_entries
@@ -146,7 +197,7 @@ module MyGatherpack
 
     # This season and each earlier one holding any of the person's records, newest first.
     def seasons
-      times = Checkin.where(person_id: person.id).joins(:event).pluck("events.start_time")
+      times = shown_checkins_scope.pluck("events.start_time")
       times += own_punches.pluck(:start_time) if meetings?
       times += fulfilled_signups.pluck("events.start_time") if GatherPack::Features.enabled?(:signups)
       times += submissions.pluck(:submitted_at) if GatherPack::Features.enabled?(:forms)
@@ -170,6 +221,16 @@ module MyGatherpack
       checkins.select { |checkin| checkin.event.time_clock_period_id }
     end
 
+    # A guardian sees no meetings at all (§7a.4).
+    def shown_checkins
+      own? ? checkins : event_checkins
+    end
+
+    def shown_checkins_scope
+      scope = Checkin.where(person_id: person.id).joins(:event)
+      own? ? scope : scope.where(events: { time_clock_period_id: nil })
+    end
+
     def punches
       return [] unless meetings?
 
@@ -186,51 +247,73 @@ module MyGatherpack
     def meetings_row
       return unless meetings? && (punches.any? || meetings_held.any? || meeting_checkins.any?)
 
-      KindRow.new(key: MEETINGS, name: "Meetings", events: meetings_attended, hours: meeting_hours, counts_toward: coverage[:meetings])
+      @meetings_row ||= KindRow.new(key: MEETINGS, name: "Meetings", events: meetings_attended, hours: meeting_hours,
+        item_ids: coverage[:meetings])
     end
 
-    # The labels of the items covering the person that count things:
-    # { event_types: { id => labels }, events: { id => labels }, meetings: labels }.
-    # An exempt item doesn't count anything for them.
+    def kind_row_for(type, checkins)
+      by_type = coverage[:event_types][type.id]
+      counting = checkins.index_with { |checkin| (by_type + coverage[:events][checkin.event_id]).uniq }
+      left = checkins.select { |checkin| counting[checkin].empty? }
+      events = checkins.map(&:event)
+      uncounted = if left.any?
+        KindRow.new(key: type.neat_id, name: type.name, events: left.size, hours: total_hours(left.map(&:event)), item_ids: [])
+      end
+      KindRow.new(key: type.neat_id, name: type.name, events: events.size, hours: total_hours(events),
+        item_ids: counting.values.flatten.uniq, uncounted: uncounted)
+    end
+
+    # The person's own answer, from their stored results with no viewer
+    # filter: the ids of the count and attendance items covering them, on
+    # checklists in force, that they aren't exempt from, as
+    # { event_types: { type id => item ids }, events: { event id => item ids }, meetings: item ids }.
     def coverage
       @coverage ||= begin
         found = { event_types: Hash.new { [] }, events: Hash.new { [] }, meetings: [] }
-        entries = checklists.flat_map { |_checklist, status| status.all_items.reject(&:exempt?) }
-        found[:meetings] = entries.select { |entry| entry.item&.kind == ATTENDANCE }.map { |entry| entry.item.label }.uniq
-        add_count_coverage(found, entries.map(&:item).select { |item| item&.kind == COUNT && item.respond_to?(:commitment_id) && item.commitment_id })
+        items = Checklists.enabled? ? covering_items : []
+        found[:meetings] = items.select { |item| item.kind == ATTENDANCE }.map(&:id)
+        add_count_coverage(found, items.select { |item| item.kind == COUNT && item.respond_to?(:commitment_id) && item.commitment_id })
         found
       end
+    end
+
+    def covering_items
+      ChecklistItem.where(kind: [ COUNT, ATTENDANCE ], id: ChecklistResult.joins(:checklist).where(person_id: person.id)
+        .where.not(item_id: nil).where.not(status: :exempt).where(checklists: { status: :active }).select(:item_id)).to_a
     end
 
     def add_count_coverage(found, items)
       return if items.empty?
 
-      labels = items.group_by(&:commitment_id).transform_values { |list| list.map(&:label) }
-      sources = CommitmentSource.where(commitment_id: labels.keys, kind: TYPE_SOURCES + SHEET_SOURCES).to_a
+      ids = items.group_by(&:commitment_id).transform_values { |list| list.map(&:id) }
+      sources = CommitmentSource.where(commitment_id: ids.keys, kind: TYPE_SOURCES + SHEET_SOURCES).to_a
       sources.select { |source| TYPE_SOURCES.include?(source.kind) }.each do |source|
-        found[:event_types][source.subject_id] += labels[source.commitment_id]
+        found[:event_types][source.subject_id] += ids[source.commitment_id]
       end
 
-      sheets = sheet_labels(sources.select { |source| SHEET_SOURCES.include?(source.kind) }, labels)
-      return if sheets.empty?
+      sheet_sources = sources.select { |source| SHEET_SOURCES.include?(source.kind) }
+      return if sheet_sources.empty?
 
-      SignupSheetEvent.where(signup_sheet_id: sheets.keys, event_id: checkins.map(&:event_id)).pluck(:signup_sheet_id, :event_id).each do |sheet_id, event_id|
-        found[:events][event_id] += sheets[sheet_id]
+      # The person's own sign-ups at the events they checked in at.
+      places = Signup.counted.where(on_behalf_of_id: person.id).joins(signup_slot: :signup_position)
+        .where(signup_slots: { event_id: checkins.map(&:event_id) })
+        .pluck("signup_slots.event_id", "signup_positions.signup_sheet_id", "signup_slots.signup_position_id")
+      places.each do |event_id, sheet_id, position_id|
+        sheet_sources.each do |source|
+          found[:events][event_id] += ids[source.commitment_id] if [ sheet_id, position_id ].include?(source.subject_id)
+        end
       end
     end
 
-    # { sheet_id => labels } for sign-up sources, a position's by its sheet.
-    def sheet_labels(sources, labels)
-      positions = SignupPosition.where(id: sources.select { |source| source.subject_type == "SignupPosition" }.map(&:subject_id)).pluck(:id, :signup_sheet_id).to_h
-      sources.each_with_object(Hash.new { [] }) do |source, sheets|
-        sheet_id = source.subject_type == "SignupPosition" ? positions[source.subject_id] : source.subject_id
-        sheets[sheet_id] += labels[source.commitment_id] if sheet_id
-      end
+    # { item id => label } for every item the viewer's status_for shows.
+    def visible_labels
+      @visible_labels ||= checklists.flat_map { |_checklist, status| status.all_items }
+        .select(&:item).to_h { |entry| [ entry.item.id, entry.item.label ] }
     end
 
     def checkin_entries
-      reachable = reachable_event_ids(checkins.map(&:event_id))
-      checkins.map do |checkin|
+      reachable = reachable_event_ids(shown_checkins.map(&:event_id))
+      shown_checkins.map do |checkin|
         event = checkin.event
         Entry.new(at: event.start_time, title: event.name, detail: [ event.event_type.name, event.location.presence ].compact.join(" · "),
           how: "Checked in", hours: self.class.event_hours(event), kind_key: event.time_clock_period_id ? MEETINGS : event.event_type.neat_id,
@@ -253,10 +336,10 @@ module MyGatherpack
       checked = checkins.map(&:event_id).to_set
       signups = fulfilled_signups.where(events: { start_time: season.times })
         .includes(signup_slot: [ { event: :event_type }, { signup_position: :signup_sheet } ]).to_a
-        .reject { |signup| checked.include?(signup.event.id) }
-      visible = signups.map(&:signup_sheet).uniq.select { |sheet| SignupSheetPolicy.new(viewer.user, sheet).show? }.to_set
+        .reject { |signup| checked.include?(signup.event.id) || (!own? && signup.event.time_clock_period_id) }
+      visible = visible_sheet_ids(signups.map { |signup| signup.signup_sheet.id })
 
-      signups.select { |signup| visible.include?(signup.signup_sheet) }.map do |signup|
+      signups.select { |signup| visible.include?(signup.signup_sheet.id) }.map do |signup|
         event = signup.event
         Entry.new(at: event.start_time, title: signup.signup_position.name, detail: [ event.name, signup.signup_sheet.title ].uniq.join(" · "),
           how: "Signed up, marked done", hours: self.class.event_hours(event), kind_key: event.event_type.neat_id, record: signup.signup_sheet)
@@ -268,12 +351,22 @@ module MyGatherpack
       signups.where(person_id: person.id).or(signups.where(on_behalf_of_id: person.id))
     end
 
-    # Submitted forms the viewer may read, by FormAccess as on the forms pages.
+    # The ids among these sheets the viewer may see, in one pass of
+    # SignupSheetPolicy::Scope narrowed to them.
+    def visible_sheet_ids(ids)
+      return Set.new if ids.empty? || viewer.user.nil?
+
+      SignupSheetPolicy::Scope.new(viewer.user, SignupSheet.where(id: ids.uniq)).resolve.pluck(:id).to_set
+    end
+
+    # Submitted forms the viewer may read, by FormAccess as on the forms
+    # pages, with the viewer–subject lookups made once for every form.
     def form_entries
       return [] unless GatherPack::Features.enabled?(:forms)
 
-      found = submissions.where(submitted_at: season.times).includes(form_response: :form).to_a
-      readable = found.map { |submission| submission.form_response.form }.uniq.select { |form| FormAccess.new(viewer, person, form).can_read? }.to_set
+      found = submissions.where(submitted_at: season.times).includes(form_response: { form: :form_badge_grants }).to_a
+      pair = AudienceAccess.new(viewer, person)
+      readable = found.map { |submission| submission.form_response.form }.uniq.select { |form| SharedFormAccess.new(pair, form).can_read? }.to_set
       found.select { |submission| readable.include?(submission.form_response.form) }.map do |submission|
         Entry.new(at: submission.submitted_at, title: submission.form_response.form.title, how: "Form submitted", record: submission.form_response)
       end

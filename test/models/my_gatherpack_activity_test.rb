@@ -59,9 +59,11 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
 
     assert_equal [ "Meetings", "Build", "Outreach" ], rows.map(&:name)
     meetings, build, outreach = rows
+    activity = activity_for(:member)
     assert_equal [ 1, 2.0 ], [ meetings.events, meetings.hours ]
-    assert_equal [ 1, nil, [] ], [ build.events, build.hours, build.counts_toward ]
-    assert_equal [ 2, 6.0, [ "Outreach events" ] ], [ outreach.events, outreach.hours, outreach.counts_toward ]
+    assert_equal [ 1, nil, [] ], [ build.events, build.hours, activity.counts_toward(build) ]
+    assert_equal [ 2, 6.0, [ "Outreach events" ] ], [ outreach.events, outreach.hours, activity.counts_toward(outreach) ]
+    assert_nil outreach.uncounted
   end
 
   test "an event's hours are its length only when it's timed" do
@@ -87,11 +89,26 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_equal [ @build.neat_id ], rows.map(&:key)
   end
 
+  test "uncounted reads the person's stored results, not each checklist's status" do
+    calls = 0
+    original = Checklists.method(:checklist_for)
+    Checklists.singleton_class.define_method(:checklist_for) do |*args, **options|
+      calls += 1
+      original.call(*args, **options)
+    end
+
+    assert_equal [ "Build" ], MyGatherpack::Activity.uncounted(person(:member), @season).map(&:name)
+    assert_equal 0, calls, "Home's My Season already reads checklist_for; Also this season doesn't again"
+  ensure
+    Checklists.singleton_class.define_method(:checklist_for, original)
+  end
+
   test "a count item on a checklist that doesn't cover the person counts nothing for them" do
     rows = MyGatherpack::Activity.uncounted(person(:member), @season)
 
     assert_includes rows.map(&:name), "Build"
-    assert_not_includes activity_for(:member).kind_rows.flat_map(&:counts_toward), "Build shifts"
+    activity = activity_for(:member)
+    assert_not_includes activity.kind_rows.flat_map { |row| activity.counts_toward(row) }, "Build shifts"
   end
 
   test "a count item the person is exempt from counts nothing for them" do
@@ -101,17 +118,55 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_equal [ "Build", "Outreach" ], MyGatherpack::Activity.uncounted(person(:member), @season).map(&:name)
   end
 
-  test "a sign-up source counts check-ins at its sheet's events" do
+  test "a sign-up source counts only check-ins where the person has a sign-up on its sheet" do
+    second = Event.create!(name: "Second build day", time_kind: "all_day", event_date: Date.new(2026, 9, 19), event_type: @build, team: @members)
+    Checkin.create!(person: person(:member), event: second)
     sheet = SignupSheet.create!(title: "Build crew", team: @members, status: :open, created_by: person(:admin))
     sheet.events << @build_day
+    sheet.events << second
+    position = SignupPosition.create!(signup_sheet: sheet, name: "Builder", kind: :people, position: 0)
+    sheet.sync_slots!
     item = @requirements.checklist_items.new(kind: "count", label: "Build crew shifts")
     item.config_params = { base_amount: 1, unit: "shifts" }
     item.save!
     item.commitment.commitment_sources.create!(kind: "signups", subject: sheet)
     refresh(@requirements)
 
-    assert_empty MyGatherpack::Activity.uncounted(person(:member), @season)
-    assert_equal [ "Build crew shifts" ], activity_for(:member).kind_row(@build.neat_id).counts_toward
+    rows = MyGatherpack::Activity.uncounted(person(:member), @season)
+    assert_equal [ [ "Build", 2 ] ], rows.map { |row| [ row.name, row.events ] }, "a check-in with no sign-up there isn't counted"
+
+    Signup.create!(signup_slot: position.signup_slots.find_by!(event: @build_day), person: person(:member), signed_up_by: person(:member), status: :fulfilled)
+    activity = activity_for(:member)
+    build = activity.kind_row(@build.neat_id)
+
+    assert_equal [ "Build crew shifts" ], activity.counts_toward(build)
+    assert_equal [ [ "Build", 1 ] ], activity.uncounted.map { |row| [ row.name, row.events ] }, "the event with no sign-up stays uncounted"
+    assert_equal [ [ "Build", 1 ] ], MyGatherpack::Activity.uncounted(person(:member), @season).map { |row| [ row.name, row.events ] }
+  end
+
+  test "whether a type counts is the person's own answer, whoever looks" do
+    @outreach1.checkins.create!(person: person(:kid))
+    @build_day.checkins.create!(person: person(:kid))
+    refresh(@requirements)
+    guardian = activity_for(:kid, viewer: :parent)
+    outreach = guardian.kind_row(@outreach.neat_id)
+
+    assert_equal "self_and_leaders", @outreach_item.effective_read_level, "a count item is at leaders level by default"
+    assert outreach.counted?
+    assert_empty guardian.counts_toward(outreach), "the guardian can't see the item, so it isn't named"
+    assert_equal [ "Build" ], guardian.uncounted.map(&:name)
+    assert_equal MyGatherpack::Activity.uncounted(person(:kid), @season).map(&:key), guardian.uncounted.map(&:key)
+  end
+
+  test "a checklist hidden from the guardian still counts for the ward, unnamed" do
+    @requirements.update!(read_level: "self_and_leaders")
+    @outreach1.checkins.create!(person: person(:kid))
+    refresh(@requirements)
+    guardian = activity_for(:kid, viewer: :parent)
+
+    assert_empty guardian.checklists
+    assert guardian.kind_row(@outreach.neat_id).counted?
+    assert_empty guardian.uncounted
   end
 
   test "last season's records stay in last season" do
@@ -142,7 +197,7 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_not activity.meetings?
     assert_not activity.own?
     assert_empty activity.kind_rows
-    assert_equal [ "Tuesday meeting" ], activity.history.map(&:title)
+    assert_empty activity.history, "no punches and no meeting check-ins"
     assert_equal 0, activity.meeting_hours
   end
 end

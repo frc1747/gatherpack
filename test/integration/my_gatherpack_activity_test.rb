@@ -98,8 +98,10 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
 
     blocks = css_select("[data-activity-block]").map { |block| block["data-activity-block"] }
     assert_equal %w[totals kinds history checklists], blocks
-    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-counts]", text: "Not required for you"
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-not-required]", text: "Not required for you"
     assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-counts]", text: "Counts toward Outreach events"
+    # No attendance item: meetings say nothing.
+    assert_select "[data-activity-kind=meetings] [data-activity-counts]", count: 0
     assert_select "[data-activity-kind=#{@build.neat_id}]", text: /1 event · —/
     assert_select "[data-activity-block=checklists] a", text: "Fall Requirements"
   end
@@ -133,10 +135,37 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
 
     assert_select "[data-activity-tile=meetings]", count: 0
     assert_select "[data-activity-kind=meetings]", count: 0
-    assert_select "[data-activity-entry]", count: 2
+    assert_select "[data-activity-entry]", count: 1
     assert_select "[data-activity-entry]", text: /Fall meetings/, count: 0
+    assert_select "[data-activity-entry]", text: /Tuesday meeting/, count: 0
     assert_select "[data-activity-entry]", text: /Food drive\s+Outreach · Town Hall/
     assert_select "[data-activity-entry] a[href='#{event_path(@outreach1)}']", count: 0
+  end
+
+  test "a ward's counted kind the guardian can't see the item for says nothing; an uncounted one says 'for them'" do
+    @outreach1.checkins.create!(person: person(:kid))
+    @build_day.checkins.create!(person: person(:kid))
+    refresh(@requirements)
+    sign_in person(:parent).user
+    get activity_path(person: person(:kid).neat_id)
+
+    assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-counts]", count: 0
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-not-required]", text: "Not required for them"
+    assert_no_match "Outreach events", response.body
+  end
+
+  test "a ward's checklist hidden from the guardian is never named, and what it counts isn't 'not required'" do
+    @requirements.update!(read_level: "self_and_leaders")
+    @outreach1.checkins.create!(person: person(:kid))
+    refresh(@requirements)
+    sign_in person(:parent).user
+    get activity_path(person: person(:kid).neat_id)
+
+    assert_response :success
+    assert_no_match "Fall Requirements", response.body
+    assert_no_match "Outreach events", response.body
+    assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-counts]", count: 0
+    assert_select "[data-activity-block=checklists]", count: 0
   end
 
   test "the member's own events link when they can open them" do
@@ -156,8 +185,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-activity-link]", text: "See all your activity →"
 
     get activity_path
-    page = css_select("[data-activity-kind]").select { |row| row.at_css("[data-activity-counts]")&.text == "Not required for you" }
-      .map { |row| row["data-activity-kind"] }
+    page = css_select("[data-activity-not-required]").map { |row| row["data-activity-not-required"] }
 
     assert_equal [ @build.neat_id ], home
     assert_equal home, page

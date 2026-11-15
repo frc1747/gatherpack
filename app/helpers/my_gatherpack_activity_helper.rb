@@ -1,7 +1,5 @@
 # Words and links for the activity page and Home's "Also this season".
 module MyGatherpackActivityHelper
-  SIGNUP_LIMIT = 20
-
   # "6 h", "3.5 h", or "—" when nothing had set times.
   def activity_hours(hours)
     return "—" if hours.nil?
@@ -20,13 +18,24 @@ module MyGatherpackActivityHelper
     [ count, activity_hours(row.hours) ].compact.join(" · ")
   end
 
-  # The covering items that count it, or "Not required for you" for the rows
-  # Activity#uncounted gives Home's "Also this season" too. A checklist that
-  # doesn't cover the person is never named. Meetings no item counts say nothing.
+  # "Counts toward ..." with the covering items the viewer may see that
+  # count the row; nil when it shows none (a row counted only by items
+  # hidden from the viewer says nothing). A checklist that doesn't cover
+  # the person is never named.
   def activity_counts_toward(activity, row)
-    if row.counted? then "Counts toward #{row.counts_toward.to_sentence}"
-    elsif activity.uncounted.include?(row) then "Not required for you"
-    end
+    labels = activity.counts_toward(row)
+    "Counts toward #{labels.to_sentence}" if labels.any?
+  end
+
+  # How much of a row no item covering the person counts, from
+  # Activity#uncounted as Home's "Also this season"; nil when all of it
+  # counts, and always for meetings.
+  def activity_not_required(activity, row)
+    rest = row.uncounted
+    return if rest.nil?
+
+    whom = activity.own? ? "you" : "them"
+    rest.events == row.events ? "Not required for #{whom}" : "#{pluralize(rest.events, "event")} not required for #{whom}"
   end
 
   # The page for this person, keeping the viewer's own page free of a person id.
@@ -48,18 +57,9 @@ module MyGatherpackActivityHelper
     [ entry.at.strftime("%a %b %-d"), (activity_hours(entry.hours) if entry.hours) ].compact.join(" · ")
   end
 
-  # Upcoming sign-ups that are the person's own (taken by them or on their
-  # behalf), as the family page and Home find them.
+  # The person's own upcoming sign-ups (Activity#upcoming_signups) as rows.
   def activity_signup_items(activity)
-    return [] unless GatherPack::Features.enabled?(:signups)
-
-    person = activity.person
-    signups = if activity.own?
-      SignupsSummary.new(current_user, limit: SIGNUP_LIMIT).signups.select { |signup| [ signup.person_id, signup.on_behalf_of_id ].include?(person.id) }
-    else
-      family_signups([ person ]).fetch(person.id, []).first(SIGNUP_LIMIT)
-    end
-    signups.map { |signup| family_signup_item(signup) }
+    activity.upcoming_signups.map { |signup| family_signup_item(signup) }
   end
 
   # The checklist's own page for the viewer, the person's checklists tab for a ward.

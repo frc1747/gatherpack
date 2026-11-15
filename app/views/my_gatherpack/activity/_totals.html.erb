@@ -26,7 +26,7 @@
     </div>
     <% if GatherPack::Features.enabled?(:signups) %>
       <div class="card mg-activity-tile" data-activity-tile="signups">
-        <div class="mg-activity-tile-value"><%= activity_signup_items(activity).size %></div>
+        <div class="mg-activity-tile-value"><%= activity.upcoming_signups.size %></div>
         <div class="mg-row-detail">Places signed up for</div>
       </div>
     <% end %>

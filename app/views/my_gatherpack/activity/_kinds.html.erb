@@ -13,8 +13,13 @@
             <div class="mg-row-title"><%= row.name %></div>
             <div class="mg-row-detail"><%= activity_kind_detail(row) %></div>
           </div>
-          <% if (counts = activity_counts_toward(activity, row)) %>
-            <div class="mg-activity-counts text-end" data-activity-counts><%= counts %></div>
+          <% counts = activity_counts_toward(activity, row) %>
+          <% rest = activity_not_required(activity, row) %>
+          <% if counts || rest %>
+            <div class="mg-activity-counts text-end" data-activity-counts>
+              <% if counts %><div><%= counts %></div><% end %>
+              <% if rest %><div data-activity-not-required="<%= row.key %>"><%= rest %></div><% end %>
+            </div>
           <% end %>
         <% end %>
       <% end %>
