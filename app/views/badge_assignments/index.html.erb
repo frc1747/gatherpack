@@ -1,37 +1,40 @@
 <% breadcrumb :badge_assignments, @badge %>
 
-<%= search_form_for [ @badge, @q ], data: { "controller": "turbo_search", "turbo-frame": "results" } do |f| %>
-<div class="card">
+<div class="card mb-3">
   <div class="card-header">
-    <h1>Badge assignments</h1>
-  </div>
-  <div class="card-body">
-  </div>
-  <div class="card-footer">
-    <%= link_to "New badge assignment", new_badge_badge_assignment_path(@badge), class: "btn btn-success" %>
-    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
-    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+    <h1><%= as_badge @badge %> <%= @badge.name %></h1>
   </div>
 </div>
-<% end %>
 
-<%= turbo_frame_tag "results" do %>
-  <div class="dropdown">
-    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        Sort By
-    </button>
-    <ul class="dropdown-menu">
-      <li><%= sort_link @q, :updated_at, "Last Updated", class: "dropdown-item" %></li>
-    </ul>
-  </div>
+<div class="row g-3">
+  <% if @can_assign %>
+    <div class="col-12 col-lg-6">
+      <%= render layout: "shared/add_panel", locals: {
+            title: "Add people",
+            url: candidates_badge_badge_assignments_path(@badge),
+            placeholder: @badge.team ? "Search members of #{@badge.team.name}…" : "Search people…"
+          } do %>
+        <%= render "candidates" %>
+      <% end %>
+    </div>
+  <% end %>
 
-  <div id="badge_assignments" class="row">
-    <% @badge_assignments.each do |badge_assignment| %>
-      <div class="col-md-3">
-        <%= render badge_assignment %>
+  <div class="col-12 <%= "col-lg-6" if @can_assign %>">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="h5 mb-0">Current holders (<span id="badge_assignments_count"><%= @badge_assignments.total_count %></span>)</h2>
       </div>
-    <% end %>
+      <div class="list-group list-group-flush" id="badge_assignments">
+        <% @badge_assignments.each do |badge_assignment| %>
+          <%= render "holder", badge_assignment: badge_assignment, can_remove: policy(badge_assignment).destroy? %>
+        <% end %>
+      </div>
+      <% if @badge_assignments.empty? %>
+        <p class="text-body-secondary p-3 mb-0" id="no_holders">No one has this badge yet.</p>
+      <% end %>
+      <div class="card-footer">
+        <%= paginate @badge_assignments %>
+      </div>
+    </div>
   </div>
-
-  <%= paginate @badge_assignments %>
-<% end %>
+</div>
