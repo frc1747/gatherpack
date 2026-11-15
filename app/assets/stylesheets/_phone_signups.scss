@@ -1,0 +1,45 @@
+// Claiming a shift on a phone, with My GatherPack on (the tab bar only exists
+// then). Everything sits in application.css under body:has(.phone-tabs), so
+// it beats Bootstrap's utilities whatever the load order.
+@include media-breakpoint-down(md) {
+  body:has(.phone-tabs) {
+    // Each position: places left above its row, Sign up as a full-width button.
+    .mg-slot > .mg-places-left {
+      padding: 0.5rem 1rem 0;
+      font-size: 0.875rem;
+      color: var(--bs-secondary-color);
+    }
+
+    .mg-slot > .d-flex {
+      flex-direction: column !important;
+      flex-wrap: nowrap !important;
+      align-items: stretch !important;
+      overflow-wrap: anywhere;
+
+      > div:last-child {
+        text-align: start !important;
+
+        .btn {
+          display: block;
+          width: 100%;
+          min-height: 44px;
+          padding-block: 0.625rem;
+          font-size: 1rem;
+        }
+      }
+    }
+
+    // Change and Cancel on a claimed place, and the sign-up form's buttons.
+    #my_signups .btn,
+    form[action*="/signups"] .card-footer .btn {
+      min-height: 44px;
+      padding-block: 0.625rem;
+      font-size: 1rem;
+    }
+
+    #my_signups .btn + form,
+    #my_signups form + .btn {
+      margin-inline-start: 0.5rem;
+    }
+  }
+}
