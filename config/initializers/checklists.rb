@@ -61,4 +61,9 @@ Rails.application.config.to_prepare do
   # block it too).
   Checklists::ProtectsReferences.install_model(Team)
   Checklists::ProtectsReferences.install_model(Badge)
+
+  # The kiosk's "You still need" lines (the partial checks Checklists.enabled?),
+  # and the organizer's choice of which items they list.
+  ChecklistItemsController.prepend(Checklists::KioskItemParams)
+  TimeKiosk::ScanPanels.register(:checklists, partial: "checklists/kiosk_still_need")
 end
