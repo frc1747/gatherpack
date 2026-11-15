@@ -8,6 +8,11 @@ class Event < ApplicationRecord
 
   has_many :checkins
   has_many :checkin_field_responses, through: :checkins
+  # Removing an event from its sheets removes its slots, which fails while
+  # any has sign-ups that aren't cancelled.
+  has_many :signup_sheet_events, dependent: :destroy
+  has_many :signup_sheets, through: :signup_sheet_events
+  has_many :signup_slots
 
   validates :name, presence: true
   validates :start_time, presence: true

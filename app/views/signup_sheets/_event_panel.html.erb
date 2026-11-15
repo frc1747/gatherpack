@@ -1,0 +1,55 @@
+<%# The Sign-ups panel on an event page: each sheet at the event the viewer
+    may see, its positions, how full they are, and names to people allowed
+    to see them. Rendered from events/show. %>
+<% viewer = current_user&.person %>
+<% sheets = GatherPack::Features.enabled?(:signups) && viewer ? event.signup_sheets.visible.includes(:team).order(:title).select { |sheet| policy(sheet).show? } : [] %>
+<% if sheets.any? %>
+  <div class="card mt-3" id="event_signups">
+    <div class="card-header">
+      <h2 class="h5 mb-0">Sign-ups</h2>
+    </div>
+    <div class="card-body p-0">
+      <% sheets.each do |sheet| %>
+        <% names_visible = sheet.names_visible_to?(viewer) %>
+        <% slots = sheet.signup_slots.where(event_id: event.id, disabled: false).includes(:signup_position, signups: :person)
+             .sort_by { |slot| [ slot.signup_position.position, slot.signup_position.created_at ] } %>
+        <div class="px-3 py-2 border-bottom" id="<%= dom_id sheet, :event_panel %>">
+          <div class="d-flex justify-content-between align-items-center gap-2">
+            <h3 class="h6 mb-1">
+              <%= link_to sheet.title, signup_sheet_path(sheet, anchor: dom_id(event)) %>
+              <% unless sheet.open? %>
+                <span class="badge text-bg-secondary"><%= sheet.status.humanize %></span>
+              <% end %>
+            </h3>
+            <%= link_to "Sign up", signup_sheet_path(sheet, anchor: dom_id(event)), class: "btn btn-sm btn-primary" if sheet.open? %>
+          </div>
+          <% if slots.any? %>
+            <ul class="list-unstyled mb-0">
+              <% slots.each do |slot| %>
+                <% position = slot.signup_position %>
+                <% counted = slot.signups.select { |signup| signup.active? || signup.fulfilled? } %>
+                <% used = counted.sum(&:usage) %>
+                <% cap = slot.capacity_value %>
+                <li id="<%= dom_id slot, :event_panel %>">
+                  <strong><%= position.name %></strong>
+                  <span class="text-body-secondary">
+                    <% if position.items? %>
+                      <%= cap ? "#{used} of #{cap} #{position.unit_label}" : "#{used} #{position.unit_label}, no limit" %>
+                    <% else %>
+                      <%= cap ? "#{used} of #{cap} filled" : "#{used} signed up, no limit" %>
+                    <% end %>
+                  </span>
+                  <% if names_visible && counted.any? %>
+                    <span class="small">: <%= counted.map { |signup| signup.person.identifier_name }.join(", ") %></span>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+          <% else %>
+            <p class="text-body-secondary mb-0">Nothing needed at this event yet.</p>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

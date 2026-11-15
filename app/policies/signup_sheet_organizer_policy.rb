@@ -1,0 +1,2 @@
+class SignupSheetOrganizerPolicy < SignupSheetPartPolicy
+end
