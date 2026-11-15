@@ -14,7 +14,7 @@ Three layers, each useful without the next:
 - **Inventory** (`feature/inventory`, its own spec). Items, locations and stock counts.
 - **Order receiving into inventory** (`feature/order-inventory`). Received lines become stock. The only place that knows both layers.
 
-`feature/orders` branches from `feature/extension-registries`, `feature/inventory` from upstream, and `feature/order-inventory` depends on both.
+`feature/orders` and `feature/inventory` each branch from `feature/extension-registries` merged with `feature/recurring-routes-seams` (settings, hook catalog, routes and recurring-job seams; neither has the other's code), and `feature/order-inventory` depends on both.
 
 Ledgers and Budgets are optional. Orders works with both turned off. Where the money comes from is tracked by orders itself, as funding sources (§3.13), so it works when the budgets are kept outside GatherPack. When Ledger and Budgets are on, a funding source can point at a Budget and a purchase can be recorded in a ledger (§6).
 
@@ -163,7 +163,7 @@ Registered through `Settings.register` (from `feature/extension-registries`):
 
 | Setting | Meaning | Default |
 |---|---|---|
-| `orders_enabled` | Feature flag | off |
+| `feature_orders` | Feature flag, the setting `GatherPack::Features.register` creates | off |
 | `orders_requesters` | Who can create requests: list of teams (members and below) | everyone signed in |
 | `orders_approval_steps` | §3.3 | one step |
 | `orders_buyers` | List of badge → highest team pairs, as `signups_organizers` | none (admins only) |
@@ -295,7 +295,7 @@ Approval steps are keyed by a stable `step_key` in the setting so renaming a ste
 
 Status changes and deliveries take a row lock on the request, so two buyers can't put the same line on two purchases.
 
-Upstream files touched (estimate): `config/routes.rb` (or the plugin routes seam), the classic dashboard view (one `render` line for the card, as forms' Forms to Complete), `db/schema.rb`. The Home connector (§3.15) touches no upstream file. Settings, hook events and the feature registration go in `config/initializers/orders.rb` through `feature/extension-registries`, so `app/models/hook.rb` and `lib/settings.rb` aren't edited.
+Upstream files touched (estimate): the classic dashboard view (one `render` line for the card, as forms' Forms to Complete), `db/schema.rb`. Routes go in `config/routes/orders.rb` and jobs in `config/recurring.d/` through `feature/recurring-routes-seams`. The Home connector (§3.15) touches no upstream file. Settings, hook events and the feature registration go in `config/initializers/orders.rb` through `feature/extension-registries`, so `app/models/hook.rb` and `lib/settings.rb` aren't edited.
 
 ### 3.15 Home page and the My Orders card
 
