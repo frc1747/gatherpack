@@ -120,8 +120,37 @@ class OrderLine < ApplicationRecord
     funding_source || order_request&.funding_source
   end
 
+  # Still waiting for some of its quantity. A problem item is too while
+  # some of it is yet to come (the rest of a box that arrived damaged).
   def open_to_receive?
-    status.in?(OPEN_TO_RECEIVE)
+    status.in?(OPEN_TO_RECEIVE) || (problem? && to_come_quantity.positive?)
+  end
+
+  # Quantity that arrived damaged or wrong, settled or not.
+  def nongood_quantity
+    order_deliveries.reject(&:good?).sum(&:quantity)
+  end
+
+  # Damaged or wrong pieces the buyer has settled (reordered or given up
+  # on). Kept in the resolution rows of the timeline, never in quantity, so
+  # settling a problem leaves what was bought and paid for alone. No query
+  # unless something arrived damaged.
+  def settled_quantity
+    return 0 if order_deliveries.all?(&:good?)
+
+    OrderRequestEvent.where(order_line_id: id).where("field_changes ->> 'settled' IS NOT NULL")
+      .sum(Arel.sql("(field_changes ->> 'settled')::integer"))
+  end
+
+  # What a replacement can be for: damaged or wrong pieces not yet settled.
+  def problem_quantity
+    [ nongood_quantity - settled_quantity, 0 ].max
+  end
+
+  # Quantity still on its way: what was ordered, less what arrived (good, or
+  # damaged and not coming again).
+  def to_come_quantity
+    [ quantity - received_quantity - nongood_quantity, 0 ].max
   end
 
   # Quantity that arrived in good condition.
@@ -232,7 +261,8 @@ class OrderLine < ApplicationRecord
       from = status
       status_now =
         if !delivery.good? then :problem
-        elsif received_quantity >= self.quantity then :received
+        elsif received_quantity + settled_quantity >= self.quantity then :received
+        elsif problem? then :problem
         else :partly_received
         end
       update!(status: status_now)
@@ -259,12 +289,14 @@ class OrderLine < ApplicationRecord
     end
   end
 
-  # The buyer settles a problem. :reorder adds a like-for-like line for
-  # what didn't arrive in good condition, ready to buy with no new
-  # approval; :cancel gives up on it. Either way this line is finished:
-  # received if some of it arrived good, otherwise cancelled. Returns the
-  # new line for :reorder.
-  def resolve_problem!(resolution, by:, comment: nil)
+  # The buyer settles a problem, the pieces that arrived damaged or wrong.
+  # :reorder adds a like-for-like line, ready to buy with no new approval,
+  # for quantity of them (default: all); :cancel gives up on them. Pieces
+  # still on their way stay on this item, which goes back to ordered or
+  # partly here; with none coming it's finished: received if some arrived
+  # good, otherwise cancelled. The item's quantity never changes (it was
+  # bought and paid for); the settled count goes on the timeline. Returns the new line for :reorder.
+  def resolve_problem!(resolution, by:, comment: nil, quantity: nil)
     resolution = resolution.to_s
     raise Orders::Refused, "Choose reorder or cancel." unless %w[reorder cancel].include?(resolution)
     raise Orders::Refused, "Give a reason for cancelling." if resolution == "cancel" && comment.blank?
@@ -272,8 +304,18 @@ class OrderLine < ApplicationRecord
     within_lock do
       raise Orders::Refused, "This item has no problem to resolve." unless problem?
 
-      missing = outstanding_quantity
-      finished = received_quantity.positive? ? :received : :cancelled
+      damaged = problem_quantity
+      missing = quantity.present? ? quantity.to_i : damaged
+      if resolution == "reorder" && !missing.between?(1, damaged)
+        raise Orders::Refused, "Order between 1 and #{damaged} to replace."
+      end
+
+      carries_on = to_come_quantity.positive?
+      finished =
+        if carries_on then received_quantity.positive? ? :partly_received : :ordered
+        elsif received_quantity.positive? then :received
+        else :cancelled
+        end
       replacement = nil
       if resolution == "reorder"
         replacement = order_request.order_lines.create!(
@@ -281,10 +323,12 @@ class OrderLine < ApplicationRecord
             "funding_source_id" => funding_source_id, "position" => (order_request.order_lines.maximum(:position) || 0) + 1)
         )
       end
+      changes = { "status" => [ "problem", finished.to_s ], "resolution" => resolution }
+      changes["reordered"] = missing if replacement
+      changes["settled"] = damaged
       update!(status: finished)
-      order_request.log!(finished == :received ? :received : :cancelled, by: by, line: self, comment: comment,
-        changes: { "status" => [ "problem", finished.to_s ], "resolution" => resolution }
-          .merge(replacement ? { "reordered" => missing } : {}))
+      action = carries_on ? :edited : (finished == :received ? :received : :cancelled)
+      order_request.log!(action, by: by, line: self, comment: comment, changes: changes)
       order_request.refresh_status_from_lines
       replacement
     end

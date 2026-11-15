@@ -203,15 +203,16 @@ module Orders
     end
 
     # Records every open line on the request (or, with purchase:, only that
-    # purchase's lines) as fully received.
+    # purchase's lines) as fully received. A line with a problem is left for
+    # its own Receive and the buyer.
     def mark_all_received!(by:, purchase: nil, received_on: Date.current)
       locked do
-        lines = order_lines.select(&:open_to_receive?)
+        lines = order_lines.select { |line| line.open_to_receive? && !line.problem? }
         lines = lines.select { |line| line.purchase_id == purchase.id } if purchase
         raise Orders::Refused, "Nothing here is waiting to be received." if lines.empty?
 
         lines.each do |line|
-          line.record_delivery!(by: by, quantity: line.outstanding_quantity, received_on: received_on)
+          line.record_delivery!(by: by, quantity: line.to_come_quantity, received_on: received_on)
         end
       end
     end

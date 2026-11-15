@@ -25,3 +25,6 @@
     <%= order_request_slot :timeline, order_request: @order_request %>
   </div>
 </div>
+<% if content_for?(:fixed_bottom_bar) %>
+  <div class="pb-5 mb-4"></div>
+<% end %>
