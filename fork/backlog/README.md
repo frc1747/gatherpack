@@ -53,6 +53,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-044](BL-044-home-my-season-and-activity.md) | Home shows checklist math instead of answers; add a "My activity" page | fork-only (UX) | high | shipped hbr.41 | 2026-11-15 |
 | [BL-045](BL-045-checklist-rule-wording.md) | "Finishes a checklist" reads as a reward, not a requirement; no warning for a catch-22 | fork-only (UX) | high | shipped hbr.41 | 2026-11-15 |
 | [BL-046](BL-046-wrapped-checklist-exempt-people.md) | Checklists made from commitments treat an exempt badge as "not on the checklist" | fork-only (bug) | medium | blocked | 2026-11-15 |
+| [BL-047](BL-047-orders-approval-fixes.md) | Order approval: repeated field ids, declined items say waiting, re-approval shows $0.00, plus three spec gaps | fork-only (bug) | medium | open | 2026-11-15 |
 
 ## Fields
 
