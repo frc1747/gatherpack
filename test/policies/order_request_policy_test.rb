@@ -66,6 +66,26 @@ class OrderRequestPolicyTest < ActiveSupport::TestCase
     end
   end
 
+  test "adding and listing items follow the request" do
+    with_orders(@world) do
+      order_request = submitted_request(@world)
+      line = order_request.order_lines.build
+
+      Orders::Current.reset
+      assert_not OrderLinePolicy.new(@world.outsider.user, line).create?
+      assert_not OrderLinePolicy.new(@world.outsider.user, line).index?
+      assert_not OrderLinePolicy.new(@world.teammate.user, line).create?
+      assert OrderLinePolicy.new(@world.teammate.user, line).index?
+      assert OrderLinePolicy.new(@world.requester.user, line).create?
+      assert OrderLinePolicy.new(@world.mentor.user, line).create?, "an approver deciding it"
+
+      order_request.decide!(:approved, by: @world.mentor)
+      approved_line = order_request.reload.order_lines.build
+      Orders::Current.reset
+      assert_not OrderLinePolicy.new(@world.requester.user, approved_line).create?
+    end
+  end
+
   test "deciding follows the approval engine" do
     with_orders(@world) do
       order_request = submitted_request(@world)

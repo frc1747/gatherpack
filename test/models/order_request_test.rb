@@ -143,6 +143,42 @@ class OrderRequestTest < ActiveSupport::TestCase
     end
   end
 
+  test "once approved, estimated shipping and the team are fixed and approvals stand" do
+    with_orders(@world) do
+      order_request = approved_request(@world)
+
+      assert_raises(Orders::Refused) { order_request.edit!({ estimated_shipping_cents: 50_000 }, by: @world.manager) }
+      order_request.reload.edit!({ purpose: "For the spring build" }, by: @world.manager)
+      order_request.reload
+
+      assert order_request.approved?
+      assert_equal 0, order_request.estimated_shipping_cents
+      assert_equal 1, order_request.active_approvals.size
+      assert_not order_request.events.last.field_changes.key?("approvals_cleared")
+    end
+  end
+
+  test "a requester can't set the funding source or estimated shipping unless allowed" do
+    with_orders(@world) do
+      source = FundingSource.create!(team: @world.robotics, name: "Build budget")
+      order_request = submitted_request(@world)
+
+      assert_raises(Orders::Refused) { order_request.edit!({ funding_source_id: source.id }, by: @world.requester) }
+      assert_raises(Orders::Refused) { order_request.reload.edit!({ estimated_shipping_cents: 0 + 900 }, by: @world.requester) }
+      assert_nil order_request.reload.funding_source_id
+
+      order_request.edit!({ funding_source_id: source.id, estimated_shipping_cents: 900 }, by: @world.mentor)
+      assert_equal [ source.id, 900 ], order_request.reload.values_at(:funding_source_id, :estimated_shipping_cents)
+    end
+    with_orders(@world, orders_requesters_pick_funding: "true") do
+      source = FundingSource.create!(team: @world.robotics, name: "Other budget")
+      order_request = submitted_request(@world)
+      order_request.edit!({ funding_source_id: source.id }, by: @world.requester)
+
+      assert_equal source.id, order_request.reload.funding_source_id
+    end
+  end
+
   test "following and unfollowing" do
     with_orders(@world) do
       order_request = submitted_request(@world)

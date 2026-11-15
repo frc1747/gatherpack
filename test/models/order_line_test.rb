@@ -183,6 +183,26 @@ class OrderLineTest < ActiveSupport::TestCase
     end
   end
 
+  test "the ordered hook fires once for a purchase past the tolerance and its re-approval" do
+    with_orders(@world, orders_price_tolerance: "10%, 25") do
+      order_request = approved_request(@world, lines: [ { description: "Kit", price: 100 } ])
+      line = order_request.order_lines.first
+      fired = []
+      original = Orders.method(:run_hooks)
+      Orders.define_singleton_method(:run_hooks) { |event, record| fired << event }
+      begin
+        buy(@world, [ line ], prices: { line.id => 20_000 })
+        assert line.reload.needs_reapproval?
+        order_request.reload.decide!(:approved, by: @world.mentor)
+        assert line.reload.ordered?
+      ensure
+        Orders.define_singleton_method(:run_hooks, original)
+      end
+
+      assert_equal [ "order_lines - ordered" ], fired
+    end
+  end
+
   test "line status hooks fire for ordered and received" do
     with_orders(@world) do
       order_request = approved_request(@world)

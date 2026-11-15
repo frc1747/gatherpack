@@ -36,7 +36,11 @@ class FundingSource < ApplicationRecord
 
   # Usable by requests from its team and the teams below.
   def usable_by?(team)
-    team.present? && ([ team_id ] + self.team.all_descendant_ids).include?(team.id)
+    team.present? && usable_team_ids.include?(team.id)
+  end
+
+  def usable_team_ids
+    [ team_id ] + team.all_descendant_ids
   end
 
   def spendable_on?(date)

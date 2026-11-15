@@ -35,11 +35,21 @@ module Orders
     end
 
     # The first needed step without a standing approval, while submitted.
+    # When every needed step already has one (an edit lowered the total
+    # under a later step's minimum), the final needed step, so an approver
+    # confirms it with the final checks rather than it approving itself.
     def current_step(steps = approval_steps)
       return nil unless submitted?
 
       keys = approved_step_keys
-      needed_steps(steps).find { |step| keys.exclude?(step.key) }
+      needed = needed_steps(steps)
+      needed.find { |step| keys.exclude?(step.key) } || needed.last
+    end
+
+    # Every step the total needs has a standing approval.
+    def all_steps_approved?(steps = approval_steps)
+      keys = approved_step_keys
+      needed_steps(steps).all? { |step| keys.include?(step.key) }
     end
 
     # The step a decision now would be on: the current step, or the final
@@ -125,7 +135,7 @@ module Orders
       case decision
       when "approved"
         self.approved_total_cents = total_cents
-        if current_step(steps).nil?
+        if all_steps_approved?(steps)
           live_lines.each { |line| line.update!(status: :approved) if line.pending? }
           update!(status: :approved, approved_at: Time.current)
           changes["status"] = %w[submitted approved]

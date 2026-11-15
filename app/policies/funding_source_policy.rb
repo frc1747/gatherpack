@@ -1,6 +1,7 @@
 # Funding sources (spec §3.13). Anyone signed in may see a source's name;
 # its numbers and restricted fields (giver, reference, documents, report
-# due) are for funding managers, approvers and admins. Funding managers
+# due) are for funding managers, admins, and approvers of a team that can
+# use the source. Funding managers
 # (orders_funding_managers, plus admins and team managers) create and edit
 # sources for teams within reach.
 class FundingSourcePolicy < ApplicationPolicy
@@ -38,7 +39,8 @@ class FundingSourcePolicy < ApplicationPolicy
   def restricted_fields?
     return false if person.nil?
 
-    access.funding_manager_for?(record.team_id) || access.approver?
+    access.funding_manager_for?(record.team_id) ||
+      access.admin? || access.any_approver_team_ids.intersect?(record.usable_team_ids.to_set)
   end
 
   def reallocate?

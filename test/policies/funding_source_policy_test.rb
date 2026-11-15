@@ -27,6 +27,19 @@ class FundingSourcePolicyTest < ActiveSupport::TestCase
     end
   end
 
+  test "an approver only sees restricted fields of a source their teams can use" do
+    with_orders(@world) do
+      art_grant = FundingSource.create!(team: @world.art, name: "Art grant", kind: :restricted, restriction: "Paint", giver: "A gallery")
+      art_approver = orders_person("Curator", teams: [ @world.art ], badges: [ @world.approver_badge ])
+      with_settings(orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0,
+        "approvers" => [ @world.approver_badge.name ] } ])) do
+        assert_not policy(@world.mentor, art_grant).restricted_fields?
+        assert_not policy(@world.mentor, art_grant).numbers?
+        assert policy(art_approver, art_grant).restricted_fields?
+      end
+    end
+  end
+
   test "restricted fields are for funding managers, approvers and admins" do
     with_orders(@world) do
       grant = FundingSource.create!(team: @world.robotics, name: "Grant", kind: :restricted, restriction: "Parts", giver: "A foundation")

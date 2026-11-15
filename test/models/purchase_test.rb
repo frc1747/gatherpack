@@ -45,6 +45,44 @@ class PurchaseTest < ActiveSupport::TestCase
     end
   end
 
+  test "a buyer can't buy for a team outside their reach" do
+    with_orders(@world) do
+      art = approved_request(@world, by: @world.outsider, team: @world.art)
+
+      error = assert_raises(Orders::Refused) { buy(@world, art.order_lines.to_a) }
+      assert_match "don't buy for", error.message
+      assert art.order_lines.first.reload.approved?
+      assert_equal 0, Purchase.count
+    end
+  end
+
+  test "a line bought at its estimate isn't sent for re-approval because another line was" do
+    with_orders(@world, orders_price_tolerance: "10%, 25") do
+      order_request = approved_request(@world, lines: [ { description: "A", price: 100 }, { description: "B", price: 100 } ])
+      a, b = order_request.order_lines.to_a
+      buy(@world, [ a ], prices: { a.id => 20_000 })
+      buy(@world, [ b ], prices: { b.id => 10_000 })
+
+      assert a.reload.needs_reapproval?
+      assert b.reload.ordered?
+      assert_equal 1, order_request.events.where(action: "reapproval_needed").count
+    end
+  end
+
+  test "a line cancelled after purchase still counts in the purchase's total and share of extras" do
+    with_orders(@world) do
+      order_request = approved_request(@world, lines: [ { description: "A", price: 100 } ])
+      purchase = buy(@world, order_request.order_lines.to_a, shipping_cents: 1000)
+      line = order_request.order_lines.first.reload
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged)
+      line.reload.resolve_problem!(:reorder, by: @world.buyer)
+
+      assert line.reload.cancelled?
+      assert_equal 11_000, purchase.reload.total_cents
+      assert_equal({ line.id => 1000 }, purchase.extras_shares)
+    end
+  end
+
   test "a line from another vendor is refused" do
     with_orders(@world) do
       order_request = approved_request(@world, lines: [ { description: "A", price: 1, vendor_id: @world.other_vendor.id } ])

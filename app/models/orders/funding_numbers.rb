@@ -1,5 +1,6 @@
 # A funding source's numbers (spec §3.13): what orders has spent on it
-# (purchased lines at actual prices plus their share of shipping and tax),
+# (purchased lines at actual prices plus their share of shipping and tax,
+# including lines cancelled after purchase: returns aren't tracked),
 # what's committed (approved lines not yet bought, at estimated prices),
 # and what remains of its amount after both and anything spent outside
 # orders. Lines naming no source count against their request's.
@@ -13,7 +14,8 @@ module Orders
 
     def spent_cents
       @spent_cents ||= begin
-        lines = source.order_lines.where.not(purchase_id: nil).where.not(status: :cancelled).to_a
+        # A line cancelled after it was bought was still paid for.
+        lines = source.order_lines.where.not(purchase_id: nil).to_a
         shares = Purchase.where(id: lines.map(&:purchase_id).uniq).includes(:order_lines).to_a
           .reduce({}) { |all, purchase| all.merge(purchase.extras_shares) }
         lines.sum { |line| line.cost_cents + shares.fetch(line.id, 0) }

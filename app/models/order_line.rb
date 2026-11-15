@@ -43,6 +43,7 @@ class OrderLine < ApplicationRecord
   before_validation :tidy_vendor
   after_save :remember_status_change
   after_commit :announce_status_changes
+  after_rollback :forget_status_changes
 
   def self.ransackable_attributes(auth_object = nil)
     %w[description status vendor_id purchase_id expected_on created_at]
@@ -322,18 +323,31 @@ class OrderLine < ApplicationRecord
     errors.add(:funding_source, "can't be used by #{order_request.team&.name}") unless funding_source.usable_by?(order_request.team)
   end
 
+  # Keeps the status the line had when the transaction started, and whether
+  # it joined a purchase, for the hooks at commit.
   def remember_status_change
-    return unless saved_change_to_status?
-
-    (@status_changes ||= []) << saved_change_to_status.last
+    @status_at_start = saved_change_to_status.first if saved_change_to_status? && !defined?(@status_at_start)
+    @joined_purchase = true if saved_change_to_purchase_id? && purchase_id_before_last_save.nil? && purchase_id.present?
   end
 
+  # Fires once per transaction: "ordered" when the line joined a purchase
+  # (even if a price past the tolerance then sent it for re-approval, and
+  # not again when that's approved), and the other events for the status
+  # the line ends up in.
   def announce_status_changes
-    statuses = @status_changes
-    @status_changes = nil
-    Array(statuses).each do |status|
-      event = Orders::LINE_STATUS_EVENTS[status]
-      Orders.run_hooks(event, self) if event
-    end
+    from = @status_at_start if defined?(@status_at_start)
+    joined = @joined_purchase
+    forget_status_changes
+
+    Orders.run_hooks(Orders::LINE_STATUS_EVENTS["ordered"], self) if joined
+    return if from.nil? || from == status || status == "ordered"
+
+    event = Orders::LINE_STATUS_EVENTS[status]
+    Orders.run_hooks(event, self) if event
+  end
+
+  def forget_status_changes
+    remove_instance_variable(:@status_at_start) if defined?(@status_at_start)
+    @joined_purchase = nil
   end
 end

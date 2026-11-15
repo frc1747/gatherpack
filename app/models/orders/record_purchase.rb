@@ -49,7 +49,11 @@ module Orders
     private
 
     def check(lines)
+      access = Orders::Access.for(buyer)
       lines.each do |line|
+        unless access.buyer_for?(line.order_request.team_id)
+          raise Orders::Refused, "#{line.display_name} is for #{line.order_request.team.name}, which you don't buy for."
+        end
         raise Orders::Refused, "#{line.display_name} is already on an order." if line.purchase_id.present?
         raise Orders::Refused, "#{line.display_name} isn't waiting for a buyer." unless line.approved?
         raise Orders::Refused, "#{line.display_name} is from another vendor." unless same_vendor?(line)

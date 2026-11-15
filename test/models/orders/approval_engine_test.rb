@@ -187,14 +187,62 @@ class Orders::ApprovalEngineTest < ActiveSupport::TestCase
     end
   end
 
-  test "an approver edit lowering the total under a step's minimum finishes the approval" do
-    with_settings(two_step_settings(@world, minimum: 500)) do
+  test "an edit lowering the total under a step's minimum leaves the final step for an approver to confirm" do
+    with_settings(two_step_settings(@world, minimum: 500).merge(orders_require_funding_source: "true")) do
       Orders::Current.reset
       order_request = submitted_request(@world, lines: [ { description: "Kit", price: 300, quantity: 2 } ])
       order_request.decide!(:approved, by: @world.mentor)
       order_request.reload.edit_line!(order_request.order_lines.first, { quantity: 1 }, by: @world.manager)
+      order_request.reload
 
+      assert order_request.submitted?, "nothing approves itself"
+      assert_equal "mentor", order_request.current_step.key
+      assert_not_equal "approved", order_request.events.last.action
+      assert_raises(Orders::Refused, "the final checks still apply") { order_request.decide!(:approved, by: @world.mentor) }
+
+      source = FundingSource.create!(team: @world.robotics, name: "Build budget")
+      order_request.reload.edit!({ funding_source_id: source.id }, by: @world.mentor)
+      order_request.reload.decide!(:approved, by: @world.mentor)
       assert order_request.reload.approved?
+      assert_equal @world.mentor, order_request.events.last.actor
+    end
+  end
+
+  test "changing what an item is, or how it's counted, clears approvals" do
+    with_settings(two_step_settings(@world, minimum: 500)) do
+      Orders::Current.reset
+      { description: "Laptop", unit: "pack", units_per: 50 }.each do |field, value|
+        order_request = submitted_request(@world, lines: [ { description: "Robot kit", price: 600 } ])
+        order_request.decide!(:approved, by: @world.mentor)
+        order_request.reload.edit_line!(order_request.order_lines.first, { field => value }, by: @world.requester)
+
+        assert_empty order_request.reload.active_approvals, field
+      end
+    end
+  end
+
+  test "moving a request to another of the requester's teams clears approvals; a team that isn't theirs is refused" do
+    with_settings(two_step_settings(@world, minimum: 500)) do
+      Orders::Current.reset
+      Membership.create!(person: @world.requester, team: @world.build)
+      order_request = submitted_request(@world, lines: [ { description: "Kit", price: 600 } ])
+      order_request.decide!(:approved, by: @world.mentor)
+
+      assert_raises(ActiveRecord::RecordInvalid) { order_request.reload.edit!({ team_id: @world.art.id }, by: @world.requester) }
+      assert_equal @world.robotics.id, order_request.reload.team_id
+      assert_equal 1, order_request.active_approvals.size
+
+      order_request.edit!({ team_id: @world.build.id }, by: @world.requester)
+      assert_empty order_request.reload.active_approvals
+      assert order_request.events.last.field_changes["approvals_cleared"]
+    end
+  end
+
+  test "a request can only be made for one of the requester's teams" do
+    with_orders(@world) do
+      assert_raises(ActiveRecord::RecordInvalid) { draft_request(@world, team: @world.art) }
+      assert draft_request(@world, by: @world.manager, team: @world.build).persisted?, "managers request for teams they manage"
+      assert draft_request(@world, by: @world.admin, team: @world.art).persisted?
     end
   end
 

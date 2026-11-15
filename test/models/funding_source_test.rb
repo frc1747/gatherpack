@@ -21,6 +21,24 @@ class FundingSourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "spent keeps a bought line that is later cancelled: it was paid for" do
+    with_orders(@world) do
+      source = FundingSource.create!(team: @world.robotics, name: "Build budget")
+      order_request = approved_request(@world, funding_source: source, lines: [ { description: "A", price: 100 } ])
+      buy(@world, order_request.order_lines.to_a, shipping_cents: 1000)
+      assert_equal 11_000, source.reload.spent_cents
+
+      line = order_request.order_lines.first.reload
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged)
+      replacement = line.reload.resolve_problem!(:reorder, by: @world.buyer)
+      assert_equal 11_000, source.reload.spent_cents
+      assert_equal 10_000, source.committed_cents, "the replacement waits for a buyer"
+
+      buy(@world, [ replacement ])
+      assert_equal 21_000, source.reload.spent_cents
+    end
+  end
+
   test "a purchase with lines on two sources shares its extras between them" do
     with_orders(@world) do
       general = FundingSource.create!(team: @world.robotics, name: "General")

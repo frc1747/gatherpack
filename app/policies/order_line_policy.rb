@@ -1,7 +1,16 @@
 # Actions on one line follow its request's policy.
 class OrderLinePolicy < ApplicationPolicy
+  def index?
+    request_policy.show?
+  end
+
   def show?
     request_policy.show?
+  end
+
+  # Adding an item: whoever may edit the request's items now.
+  def create?
+    update?
   end
 
   # Before approval: the requester, approvers deciding it, managers.

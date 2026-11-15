@@ -90,10 +90,7 @@ class OrderRequestPolicy < ApplicationPolicy
   # Setting the request's funding source: approvers who can decide, and
   # requesters when orders_requesters_pick_funding is on.
   def set_funding?
-    return true if manager? && !record.finished?
-    return true if decide?
-
-    requester? && record.editable? && Orders::Config.requesters_pick_funding?
+    access.sets_funding?(record)
   end
 
   def buy?
@@ -113,11 +110,11 @@ class OrderRequestPolicy < ApplicationPolicy
   end
 
   def see_funding?
-    !requester_only? || Orders::Config.requesters_pick_funding?
+    access.staff_for?(record.team_id) || Orders::Config.requesters_pick_funding?
   end
 
   def see_estimated_shipping?
-    !requester_only?
+    access.sees_estimated_shipping?(record)
   end
 
   private
@@ -140,10 +137,5 @@ class OrderRequestPolicy < ApplicationPolicy
 
   def manager?
     access.manages?(record.team_id)
-  end
-
-  # Sees the request only as its requester, follower or team member.
-  def requester_only?
-    !(manager? || access.any_approver_team_ids.include?(record.team_id) || access.buyer_for?(record.team_id))
   end
 end

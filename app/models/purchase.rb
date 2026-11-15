@@ -42,8 +42,14 @@ class Purchase < ApplicationRecord
     order_lines.reject(&:cancelled?)
   end
 
+  # Every line bought on it, including any cancelled since (a problem given
+  # up on): they were paid for, and returns aren't tracked.
+  def bought_lines
+    order_lines.to_a
+  end
+
   def lines_cost_cents
-    live_lines.sum(&:cost_cents)
+    bought_lines.sum(&:cost_cents)
   end
 
   def extras_cents
@@ -58,11 +64,11 @@ class Purchase < ApplicationRecord
     Money.new(total_cents)
   end
 
-  # Shipping and tax shared out over the live lines in proportion to their
+  # Shipping and tax shared out over the bought lines in proportion to their
   # cost (evenly when they cost nothing), as { line id => cents }. The
   # shares add up to the extras exactly.
   def extras_shares
-    lines = live_lines
+    lines = bought_lines
     return {} if lines.empty?
 
     base = lines.sum(&:cost_cents)

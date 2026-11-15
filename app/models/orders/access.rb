@@ -89,6 +89,38 @@ module Orders
       order_request.requested_by_id == person.id || relative_ids.include?(order_request.requested_by_id)
     end
 
+    # Sees a request as more than its requester, follower or team member:
+    # manages its team, or reaches it as an approver or buyer.
+    def staff_for?(team_id)
+      manages?(team_id) || any_approver_team_ids.include?(team_id) || buyer_for?(team_id)
+    end
+
+    # May choose a request's funding source: its team's managers until it's
+    # finished, an approver who can decide it now, and its requester while
+    # it's editable when orders_requesters_pick_funding is on.
+    def sets_funding?(order_request)
+      return false if person.nil?
+      return true if manages?(order_request.team_id) && !order_request.finished?
+      return true if order_request.can_decide?(person)
+
+      order_request.requested_by_id == person.id && order_request.editable? && Orders::Config.requesters_pick_funding?
+    end
+
+    # Estimated shipping is hidden from requesters (spec §3.16).
+    def sees_estimated_shipping?(order_request)
+      person.present? && staff_for?(order_request.team_id)
+    end
+
+    # The teams a person may make a request for: those they're on and those
+    # they manage (all for an admin).
+    def request_team_ids
+      @request_team_ids ||= admin? ? nil : member_team_ids | managed_team_ids
+    end
+
+    def may_request_for?(team_id)
+      !person.nil? && (request_team_ids.nil? || request_team_ids.include?(team_id))
+    end
+
     # May make requests at all (orders_requesters): everyone signed in when
     # the setting is blank, else members of its teams and the teams below.
     def requester?

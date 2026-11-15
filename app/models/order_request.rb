@@ -34,6 +34,7 @@ class OrderRequest < ApplicationRecord
 
   validates :estimated_shipping_cents, numericality: { greater_than_or_equal_to: 0 }
   validate :funding_source_usable
+  validate :team_is_requesters
 
   # Statuses a requester may still edit in, and those that are over.
   EDITABLE_STATUSES = %w[draft submitted changes_requested].freeze
@@ -149,6 +150,15 @@ class OrderRequest < ApplicationRecord
     return if funding_source.nil? || !will_save_change_to_funding_source_id?
 
     errors.add(:funding_source, "can't be used by #{team&.name}") unless funding_source.usable_by?(team)
+  end
+
+  # A request is for one of its requester's teams (or one they manage), so
+  # it can't be steered to another team's approvers.
+  def team_is_requesters
+    return if team.nil? || requested_by.nil? || !will_save_change_to_team_id?
+    return if Orders::Access.new(requested_by).may_request_for?(team_id)
+
+    errors.add(:team, "must be one of #{requested_by.identifier_name}'s teams")
   end
 
   def remember_status_change

@@ -7,10 +7,16 @@ module Orders
   module RequestActions
     extend ActiveSupport::Concern
 
-    # A change to any of these on a line voids standing approvals.
+    # A change to any of these on a line voids standing approvals: what the
+    # item is (for a line with no link the description is the part), where
+    # it comes from, and how it's counted.
     MATERIAL_LINE_FIELDS = %w[
-      vendor_id other_vendor_name vendor_part_number manufacturer manufacturer_part_number url
+      description vendor_id other_vendor_name vendor_part_number manufacturer manufacturer_part_number url unit units_per
     ].freeze
+
+    # Request fields that can't change once it's approved: they would move
+    # the total or who approves it after the decision.
+    FIXED_AFTER_APPROVAL = %w[team_id estimated_shipping_cents].freeze
 
     # Request fields the edit action records.
     EDITABLE_FIELDS = %w[title purpose needed_by team_id funding_source_id estimated_shipping_cents].freeze
@@ -40,20 +46,36 @@ module Orders
       end
     end
 
-    # Changes the request's own fields (EDITABLE_FIELDS). Raising the total
-    # past the tolerance voids standing approvals.
+    # Changes the request's own fields (EDITABLE_FIELDS). Before approval,
+    # moving it to another team, or raising the total past the tolerance,
+    # voids standing approvals. Once approved, the team and estimated
+    # shipping are fixed. Only someone who may set them changes the funding
+    # source and estimated shipping (see Orders::Access#sets_funding? and
+    # #sees_estimated_shipping?).
     def edit!(attributes, by:)
       locked do
         raise Orders::Refused, "This request can't be changed any more." if finished?
 
         before_total = total_cents
         assign_attributes(attributes.to_h.stringify_keys.slice(*EDITABLE_FIELDS))
-        changes = changes_to_record
-        save!
-        next if changes.empty? || draft?
+        changed = changes.keys & EDITABLE_FIELDS
+        access = Orders::Access.for(by)
+        if changed.include?("funding_source_id") && !access.sets_funding?(self)
+          raise Orders::Refused, "You can't choose the funding source for this request."
+        end
+        if changed.include?("estimated_shipping_cents") && !access.sees_estimated_shipping?(self)
+          raise Orders::Refused, "You can't change the estimated shipping."
+        end
+        if (changed & FIXED_AFTER_APPROVAL).any? && !editable?
+          raise Orders::Refused, "The team and estimated shipping can't change once the request is approved."
+        end
 
-        cleared = clear_approvals_if_material(false, before_total)
-        log!(:edited, by: by, changes: changes.merge(cleared ? { "approvals_cleared" => true } : {}))
+        recorded = changes_to_record
+        save!
+        next if recorded.empty? || draft?
+
+        cleared = editable? && clear_approvals_if_material(changed.include?("team_id"), before_total)
+        log!(:edited, by: by, changes: recorded.merge(cleared ? { "approvals_cleared" => true } : {}))
       end
     end
 
@@ -88,7 +110,6 @@ module Orders
         order_lines.reset
         cleared = clear_approvals_if_material((changes.keys & MATERIAL_LINE_FIELDS).any?, before_total)
         log!(:edited, by: by, line: line, changes: changes.merge(cleared ? { "approvals_cleared" => true } : {}))
-        finish_approval_if_complete(by)
         line
       end
     end
@@ -105,8 +126,6 @@ module Orders
         else
           line.update!(status: :cancelled)
           log!(:cancelled, by: by, line: line, comment: reason)
-          order_lines.reset
-          finish_approval_if_complete(by)
         end
       end
     end
@@ -198,16 +217,18 @@ module Orders
     end
 
     # After a buyer's change raises the total past the tolerance over the
-    # approved total, the lines that rose need approving again by the final
-    # step. Within it, nothing waits. Returns whether re-approval is needed.
+    # approved total, the lines whose cost this change raised need approving
+    # again by the final step. Within it, or when none of lines rose,
+    # nothing waits. Returns whether re-approval is needed.
     def check_price_tolerance(lines, by:)
       return false if approved_total_cents.nil?
+
+      raised = lines.select { |line| line.cost_rose? && !line.cancelled? }
+      return false if raised.empty?
 
       rise = total_cents - approved_total_cents
       return false if rise <= Orders::Config.price_tolerance.allowance_cents(approved_total_cents)
 
-      raised = lines.select { |line| line.cost_rose? && !line.cancelled? }
-      raised = lines.reject(&:cancelled?) if raised.empty?
       raised.each { |line| line.update!(status: :needs_reapproval) }
       log!(:reapproval_needed, by: by, changes: {
         "total" => [ Money.new(approved_total_cents).format, total.format ],
@@ -239,16 +260,6 @@ module Orders
       standing.each { |approval| approval.update!(cleared_at: now) }
       order_approvals.reset
       true
-    end
-
-    # A submitted request whose needed steps are all approved (after an
-    # edit lowered the total under a step's minimum) is approved.
-    def finish_approval_if_complete(by)
-      return unless submitted? && approved_step_keys.any? && current_step.nil?
-
-      live_lines.each { |line| line.update!(status: :approved) if line.pending? }
-      update!(status: :approved, approved_at: Time.current, approved_total_cents: total_cents)
-      log!(:approved, by: by, changes: { "status" => %w[submitted approved] }, comment: "Every needed approval is in.")
     end
   end
 end
