@@ -49,17 +49,72 @@ class Orders::RemindersTest < ActiveSupport::TestCase
       start approved_request(@world, needed_by: Date.current + 2)
       Orders::Reminders.needed_soon
 
-      assert_equal addresses(@world.buyer), emailed
+      assert_equal addresses(@world.buyer, @world.manager, @world.admin), emailed
     end
   end
 
-  test "an admin or manager who chose buying notices is reminded as a buyer too" do
+  test "someone who chose no buying notices isn't reminded as a buyer, whatever else they chose" do
     with_notices do
-      OrderNoticePreference.create!(person: @world.manager, buyer_notices: :digest)
+      OrderNoticePreference.create!(person: @world.manager, buyer_notices: :off)
+      OrderNoticePreference.create!(person: @world.admin, buyer_notices: :immediate)
       start approved_request(@world, needed_by: Date.current + 2)
       Orders::Reminders.needed_soon
 
-      assert_equal addresses(@world.buyer, @world.manager), emailed
+      assert_equal addresses(@world.buyer, @world.admin), emailed
+    end
+  end
+
+  test "with no buyer grants, an admin and a team manager hear of what's needed soon and get the digest" do
+    with_notices(orders_buyers: "") do
+      start approved_request(@world, needed_by: Date.current + 2)
+      Orders::Reminders.needed_soon
+      assert_equal addresses(@world.manager, @world.admin), emailed
+
+      clear_enqueued_jobs
+      Orders::Reminders.buyer_digest
+      assert_equal addresses(@world.manager, @world.admin), emailed
+    end
+  end
+
+  test "on a team no grant reaches, its manager and the admin are the buyers" do
+    with_notices do
+      art_manager = orders_person("Artlead", teams: { @world.art => true })
+      start approved_request(@world, team: @world.art, by: @world.outsider, needed_by: Date.current + 2)
+      Orders::Reminders.needed_soon
+      assert_equal addresses(art_manager, @world.admin), emailed
+
+      clear_enqueued_jobs
+      Orders::Reminders.buyer_digest
+      assert_equal addresses(art_manager, @world.admin), emailed
+    end
+  end
+
+  test "a reminder nobody was told of isn't marked, so a later run can send it" do
+    with_notices(orders_buyers: "") do
+      OrderNoticePreference.create!(person: @world.manager, buyer_notices: :off)
+      OrderNoticePreference.create!(person: @world.admin, buyer_notices: :off)
+      request = start(approved_request(@world, needed_by: Date.current + 2))
+
+      assert_equal 0, Orders::Reminders.needed_soon
+      assert_empty emailed
+      assert_equal 0, OrderNoticeMark.where(order_request: request).count
+
+      OrderNoticePreference.find_by(person: @world.admin).update!(buyer_notices: :digest)
+      assert_equal 1, Orders::Reminders.needed_soon
+      assert_equal addresses(@world.admin), emailed
+      assert_equal 1, OrderNoticeMark.where(order_request: request).count
+    end
+  end
+
+  test "an undecided reminder nobody could receive isn't marked either" do
+    with_notices(orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0, "approvers" => [] } ])) do
+      @world.admin.user.update_columns(email: " ")
+      @world.manager.user.update_columns(email: "  ")
+      request = submitted_request(@world)
+      travel_to 6.days.from_now
+
+      assert_equal 0, Orders::Reminders.undecided
+      assert_equal 0, OrderNoticeMark.where(order_request: request).count
     end
   end
 
@@ -72,7 +127,7 @@ class Orders::RemindersTest < ActiveSupport::TestCase
       request.decide!(:approved, by: @world.mentor)
       clear_enqueued_jobs
       Orders::Reminders.needed_soon
-      assert_equal addresses(@world.buyer), emailed
+      assert_equal addresses(@world.buyer, @world.manager, @world.admin), emailed
 
       clear_enqueued_jobs
       Orders::Reminders.needed_soon
@@ -208,7 +263,7 @@ class Orders::RemindersTest < ActiveSupport::TestCase
     end
   end
 
-  test "a buyer who chose each approval or none gets no digest, and a manager who never chose gets none" do
+  test "a buyer who chose each approval or none gets no digest" do
     with_notices do
       OrderNoticePreference.create!(person: @world.buyer, buyer_notices: :immediate)
       OrderNoticePreference.create!(person: @world.manager, buyer_notices: :off)

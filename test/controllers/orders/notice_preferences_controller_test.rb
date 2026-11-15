@@ -23,14 +23,14 @@ class Orders::NoticePreferencesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a manager who doesn't buy sees no emails chosen, and can opt in" do
+  test "a manager who doesn't hold a buyer grant gets the digest too, and can opt out" do
     with_orders(@world) do
       sign_in @world.manager.user
       get edit_orders_notice_preference_url
-      assert_select "input[type=radio][value=off][checked]"
+      assert_select "input[type=radio][value=digest][checked]"
 
-      patch orders_notice_preference_url, params: { order_notice_preference: { buyer_notices: "digest" } }
-      assert_predicate OrderNoticePreference.find_by(person: @world.manager), :buyer_digest?
+      patch orders_notice_preference_url, params: { order_notice_preference: { buyer_notices: "off" } }
+      assert_predicate OrderNoticePreference.find_by(person: @world.manager), :buyer_off?
     end
   end
 

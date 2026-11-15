@@ -25,7 +25,7 @@ module Orders
 
       OrderRequest.where(status: %i[submitted approved], needed_by: today..(today + NEEDED_SOON_DAYS)).count do |order_request|
         holder = order_request.submitted? ? "approvers" : "buyers"
-        OrderNoticeMark.claim(order_request, "needed_soon", "#{order_request.needed_by.iso8601}:#{holder}") && OrderNotices.new.needed_soon(order_request)
+        OrderNoticeMark.once(order_request, "needed_soon", "#{order_request.needed_by.iso8601}:#{holder}") { OrderNotices.new.needed_soon(order_request) }.positive?
       end
     end
 
@@ -35,7 +35,7 @@ module Orders
       return 0 unless Orders.enabled?
 
       OrderRequest.submitted.where(submitted_at: ..(now - UNDECIDED_DAYS.days)).count do |order_request|
-        OrderNoticeMark.claim(order_request, "undecided", order_request.submitted_at.to_i.to_s) && OrderNotices.new.undecided(order_request)
+        OrderNoticeMark.once(order_request, "undecided", order_request.submitted_at.to_i.to_s) { OrderNotices.new.undecided(order_request) }.positive?
       end
     end
 

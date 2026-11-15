@@ -6,19 +6,14 @@ class OrderNoticePreferenceTest < ActiveSupport::TestCase
 
   setup { @world = build_orders_world }
 
-  test "a holder of a buyer grant with no saved choice gets the daily digest" do
+  test "anyone who can buy gets the daily digest until they choose otherwise" do
     with_orders(@world) do
       preference = OrderNoticePreference.for(@world.buyer)
 
       assert_predicate preference, :buyer_digest?
       assert_predicate preference, :new_record?
-    end
-  end
-
-  test "an admin or manager without a buyer grant gets nothing until they choose" do
-    with_orders(@world) do
-      assert_predicate OrderNoticePreference.for(@world.admin), :buyer_off?
-      assert_predicate OrderNoticePreference.for(@world.manager), :buyer_off?
+      assert_predicate OrderNoticePreference.for(@world.admin), :buyer_digest?
+      assert_predicate OrderNoticePreference.for(@world.manager), :buyer_digest?
     end
   end
 
