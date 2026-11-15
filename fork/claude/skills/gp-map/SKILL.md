@@ -66,6 +66,10 @@ Everything goes in `config/initializers/<feature>.rb` inside `Rails.application.
 | widgets | `feature_widgets` | `app/models/widget.rb` (fork-only, never upstream) |
 | kiosk | `:time_tracking` | `app/models/time_kiosk*`, `time_kiosk_controller`, `layouts/kiosk.html.erb` |
 | app-version | none | `version_helper.rb` (`GATHERPACK_VERSION`) |
+| orders | `feature_orders` | `app/models/order*.rb`, `app/models/orders/` (`Orders::Access` who may do what, `Orders::Reach` which teams, `Orders::WaitingOn` to-dos, `OrderRequestEvent` append-only timeline), `app/services/order_notices.rb`, `config/initializers/orders.rb`, `config/routes/orders*.rb`; request page slots `_lines`, `_decision`, `_purchase`, `_receive`, `_timeline` |
+| inventory | `feature_inventory` | `app/models/item*.rb`, `stock_*.rb`, `location.rb` (machines are `kind: machine`), `app/models/inventory/`; every stock change goes through `StockMovement.record!`; tracked parts are `ItemUnit` + `ItemUnitEvent`; reorder actions via `Inventory.extensions.register_reorder_action` (POST unless `method: :get`) |
+| order-inventory | both | `app/models/order_inventory/`; registers "Order these" (Reorder → review page → draft request) and puts received lines on shelves |
+| share target | `feature_installable_app` | `lib/gatherpack/share_actions.rb` (`GatherPack::ShareActions`, local paths only); orders adds "Ask to buy this" guarded by `defined?` |
 
 Manifest order and status: `fork/features.txt`, `FORK.md`.
 
