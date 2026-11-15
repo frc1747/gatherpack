@@ -10,14 +10,18 @@ namespace :inventory do
   resources :locations, path: "places" do
     member do
       get :count
+      post :count, action: :save_count
     end
   end
+  get "labels", to: "labels#show", as: :labels
+  resource :import, only: %i[new create]
   resources :movements, path: "changes", only: %i[index new create] do
     member do
       post :undo
     end
   end
   get "reorder", to: "reorder#index", as: :reorder
+  post "reorder", to: "reorder#run"
   resources :units do
     member do
       post :install
