@@ -11,14 +11,15 @@ namespace :orders do
       post :follow
       delete :follow, action: :unfollow
       post :comment
+      post :mark_all_received, to: "deliveries#mark_all_request"
     end
     resources :lines, only: %i[create update destroy] do
       member do
         post :backorder
         post :split
         post :cancel
-        post :mark_received
-        post :resolve
+        post :mark_received, to: "line_receipts#mark_received"
+        post :resolve, to: "line_receipts#resolve"
         post :reallocate
       end
       resources :deliveries, only: %i[new create]
@@ -32,7 +33,7 @@ namespace :orders do
       get :to_buy
     end
     member do
-      post :mark_all_received
+      post :mark_all_received, to: "deliveries#mark_all_purchase"
     end
   end
   resources :deliveries, only: :index
