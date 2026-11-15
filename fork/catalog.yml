@@ -751,6 +751,14 @@ feature/my-gatherpack-family:
     in one place.
   audience: Everyone
 
+feature/my-gatherpack-activity:
+  title: See all your activity
+  emoji: "📊"
+  description: >-
+    Your events, hours and sign-ups for the season by kind, and what each
+    counts toward. Guardians see each child's.
+  audience: Everyone
+
 feature/forms-auto-reminders:
   title: Automatic reminders before a form is due
   emoji: "⏰"

@@ -66,6 +66,7 @@ feature/my-gatherpack-forms
 feature/my-gatherpack-signups
 feature/my-gatherpack-checklists
 feature/my-gatherpack-family
+feature/my-gatherpack-activity
 feature/forms-auto-reminders
 feature/quiet-root-signin
 feature/phone-notifications-connectors
