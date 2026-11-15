@@ -274,6 +274,13 @@ module Checklists
         {}
       end
 
+      # Whether two configs mean the same, for a kind whose form writes a
+      # saved value another way (an old saved item opened and saved again).
+      # Defaults to equal.
+      def same_config?(saved, config)
+        saved == config
+      end
+
       # The config from form params, keeping only this kind's settings and
       # what its form section gives.
       def normalize_config(params)

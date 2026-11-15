@@ -24,11 +24,11 @@ module Checklists
     # A manager can excuse a person from one meeting (a ChecklistExcuse with
     # an event): it leaves their required and credited hours.
     class Attendance < ItemKind
-      RULE_FIELDS = %w[name starts ends_on share weekly with judge_after].freeze
+      RULE_FIELDS = %w[key name starts ends_on share weekly with judge_after].freeze
 
       # A rule row from the config, its start resolved against the as-of
       # moment, with the pool it's judged in.
-      Rule = Struct.new(:index, :name, :starts, :starts_on, :ends_on, :share, :weekly, :with, :judge_after, :pool, keyword_init: true) do
+      Rule = Struct.new(:index, :key, :name, :starts, :starts_on, :ends_on, :share, :weekly, :with, :with_index, :judge_after, :pool, keyword_init: true) do
         def cover?(date, window)
           from = starts_on || window.starts_on
           to = ends_on || window.ends_on
@@ -61,7 +61,7 @@ module Checklists
         def form_partial = "checklist_items/attendance_rules"
 
         def form_params
-          [ { period_ids: [] }, { rules: [ :name, :ends_on, :share, :weekly, :with, :judge_after, { starts: %i[mode date amount unit] } ] } ]
+          [ { period_ids: [] }, { rules: [ :key, :name, :ends_on, :share, :weekly, :with, :judge_after, { starts: %i[mode date amount unit] } ] } ]
         end
 
         # Rows that are wholly blank are dropped. A share that isn't a whole
@@ -71,6 +71,7 @@ module Checklists
           rows = params["rules"]
           rows = rows.sort_by { |key, _| key.to_s.to_i }.map(&:last) if rows.is_a?(Hash)
           rules = Array(rows).map { |row| cast_rule(row.to_h.stringify_keys) }.select { |rule| rule_filled?(rule) }
+          rules = link_rules(rules)
           { "period_ids" => Array(params["period_ids"]).compact_blank.uniq, "rules" => rules }
         end
 
@@ -160,23 +161,45 @@ module Checklists
 
         # The item's rules, in order, each with its pool; a relative start
         # resolves against as_of. share is nil when it isn't a whole number.
+        # A rule's "with" is the key of the rule it's counted together with
+        # (a saved item may still hold that rule's name); it's read here as
+        # the other rule's current name, or as typed when it names none.
         def rules(item, as_of: Time.current)
-          rules = Array((item.config || {})["rules"]).each_with_index.map do |row, index|
+          rows = Array((item.config || {})["rules"])
+          rules = rows.each_with_index.map do |row, index|
             starts = RelativeDate.from_config(row["starts"])
-            Rule.new(index: index, name: row["name"].presence || "Rule #{index + 1}", starts: starts, starts_on: starts&.resolve(as_of),
+            Rule.new(index: index, key: row["key"].presence, name: row["name"].presence || "Rule #{index + 1}", starts: starts, starts_on: starts&.resolve(as_of),
               ends_on: parse_date(row["ends_on"]), share: whole_number(row["share"]), weekly: row["weekly"] == true,
               with: row["with"].to_s.strip.presence, judge_after: row["judge_after"].to_i)
           end
+          resolve_links(rules)
           assign_pools(rules)
           rules
+        end
+
+        # The same rules, apart from their keys and how a link names its
+        # rule (by key, or by name as saved before keys).
+        def same_config?(saved, config)
+          return false unless saved.except("rules") == config.except("rules")
+
+          canonical = ->(one) { rules(Struct.new(:config).new(one)).zip(Array(one["rules"])).map { |rule, row| row.except("key", "with").merge("with" => rule.with_index) } }
+          canonical.(saved) == canonical.(config)
+        end
+
+        # The item's saved rules as the form draws them: each with a key,
+        # and its "with" as the key of the rule it names. A key is made up
+        # for a rule that has none yet; it's saved with the next save.
+        def keyed_rules(rows)
+          rows = Array(rows).map { |row| row.to_h.stringify_keys }
+          rows.each { |row| row["key"] = row["key"].presence || new_rule_key }
+          link_rules(rows)
         end
 
         def validate(item)
           rules = rules(item)
           return item.errors.add(:base, "Add at least one rule with a share of meeting hours") if rules.empty?
 
-          names = rules.map(&:name)
-          names.tally.each { |name, count| item.errors.add(:base, "Two rules are named #{name}") if count > 1 }
+          rules.map(&:name).tally.each { |name, count| item.errors.add(:base, "Two rules are named #{name}") if count > 1 }
           rows = Array(item.config["rules"])
           rules.each do |rule|
             share = rows[rule.index]["share"]
@@ -190,7 +213,7 @@ module Checklists
             validate_start(item, rule, rows[rule.index]["starts"])
             item.errors.add(:base, "#{rule.name} has an end date that isn't a date") if rows[rule.index]["ends_on"].present? && rule.ends_on.nil?
             item.errors.add(:base, "#{rule.name} ends before it starts") if rule.starts_on && rule.ends_on && rule.ends_on < rule.starts_on
-            item.errors.add(:base, "#{rule.name} is counted together with #{rule.with}, but no other rule has that name") if rule.with && (rule.with == rule.name || names.exclude?(rule.with))
+            item.errors.add(:base, "#{rule.name} is counted together with #{rule.with}, but no other rule has that name") if rule.with && (rule.with_index.nil? || rule.with_index == rule.index)
           end
           rules.map(&:pool).uniq.each do |pool|
             item.errors.add(:base, "Rules counted together must all be weekly, or none of them") if pool.rules.map(&:weekly).uniq.size > 1
@@ -265,6 +288,7 @@ module Checklists
         def cast_rule(row)
           share = row["share"].to_s.strip
           {
+            "key" => row["key"].to_s.strip.presence || new_rule_key,
             "name" => row["name"].to_s.strip.presence,
             "starts" => cast_start(row["starts"]),
             "ends_on" => cast_date(row["ends_on"]),
@@ -297,6 +321,38 @@ module Checklists
           %w[name starts ends_on share with].any? { |field| rule[field].present? } || rule["weekly"] || rule["judge_after"].positive?
         end
 
+        def new_rule_key
+          SecureRandom.alphanumeric(8).downcase
+        end
+
+        # Each rule's "with" as the key of the rule it names: a key stays,
+        # and a name (how it used to be saved) becomes that rule's key.
+        # Anything else is kept as typed, for validate to turn down.
+        def link_rules(rows)
+          rows.each do |row|
+            with = row["with"].to_s.strip
+            next if with.empty?
+
+            name = ->(other) { other["name"].to_s.strip.presence || "Rule #{rows.index(other) + 1}" }
+            target = rows.find { |other| other["key"].present? && other["key"] == with } || rows.find { |other| name.(other) == with }
+            row["with"] = target["key"] if target
+          end
+        end
+
+        # Sets each rule's with_index (the rule it names, if any) and its
+        # with to that rule's name.
+        def resolve_links(rules)
+          rules.each do |rule|
+            next unless rule.with
+
+            target = rules.find { |other| other.key && other.key == rule.with } || rules.find { |other| other.name == rule.with }
+            next unless target
+
+            rule.with_index = target.index
+            rule.with = target.name
+          end
+        end
+
         def whole_number(value)
           value.is_a?(Integer) ? value : Integer(value.to_s, 10)
         rescue ArgumentError
@@ -323,7 +379,6 @@ module Checklists
         # Rules linked by "counted together with", in either direction and
         # through others, share one pool.
         def assign_pools(rules)
-          by_name = rules.index_by(&:name)
           rules.each do |rule|
             next if rule.pool
 
@@ -333,8 +388,8 @@ module Checklists
               next if members.include?(current)
 
               members << current
-              linked = rules.select { |other| other.with == current.name }
-              linked << by_name[current.with] if current.with
+              linked = rules.select { |other| other.with_index == current.index }
+              linked << rules[current.with_index] if current.with_index
               queue.concat(linked.compact)
             end
             members = rules & members

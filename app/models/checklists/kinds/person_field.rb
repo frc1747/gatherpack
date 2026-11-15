@@ -67,12 +67,38 @@ module Checklists
             ItemKind::Setting.new(key: :field_id, type: :choice, label: "Field", options: -> { fields ||= field_options(author, item) }),
             ItemKind::Setting.new(key: :operator, type: :choice, label: "Test", options: OPERATORS.invert.to_a,
               hint: "Which tests fit depends on the field: choices and text use \"is any of\" or \"is none of\", yes/no fields \"is yes\" or \"is no\", dates \"on or after\" or \"on or before\", numbers \"at least\" or \"at most\""),
-            ItemKind::Setting.new(key: :values, type: :text, label: "Values", hint: "For \"is any of\" and \"is none of\": one or more, separated by commas"),
+            ItemKind::Setting.new(key: :values, type: :field_values, label: "Values", list: true,
+              hint: "For \"is any of\" and \"is none of\": tick the choices, or for other fields give one or more, separated by commas"),
             ItemKind::Setting.new(key: :date, type: :relative_date, label: "Date", hint: "For the date tests. \"Within the last\" counts back from today"),
             ItemKind::Setting.new(key: :number, type: :number, label: "Number", hint: "For the number tests"),
             ItemKind::Setting.new(key: :blank, type: :choice, label: "If it's blank", options: [ [ "Not Started", "not_met" ], [ "Counts as Complete", "met" ] ]),
             ItemKind::Setting.new(key: :changed_since, type: :relative_date, label: "Last changed", hint: "Optional. A value not updated since then doesn't count")
           ]
+        end
+
+        # The values: each choice ticked for a choice field, or the typed
+        # text split on commas for any other (the old way, which still works
+        # for a choice field too). Kept as a list, so a choice with a comma
+        # in it stays whole.
+        def normalize_form(params)
+          return {} unless params.key?("values")
+
+          field = ::PersonField.find_by(id: params["field_id"].presence)
+          choices = field && choice_field?(field) ? field.choice_list.map(&:downcase) : []
+          values = Array(params["values"]).flat_map do |value|
+            value = value.to_s.strip
+            choices.include?(value.downcase) ? [ value ] : value.split(",").map(&:strip)
+          end
+          { "values" => values.compact_blank.uniq }
+        end
+
+        # Values arrive as a list, or as one text of the old comma form.
+        def permitted_config
+          super + [ :values ]
+        end
+
+        def choice_field?(field)
+          field.type_select? || field.type_multi_select?
         end
 
         def references = { "field_id" => "PersonField" }
@@ -114,7 +140,7 @@ module Checklists
 
         # The typed values that aren't among a choice field's choices.
         def unknown_choices(item, field)
-          return [] unless field.type_select? || field.type_multi_select?
+          return [] unless choice_field?(field)
           return [] unless %w[ any_of none_of ].include?(item.config["operator"])
 
           choices = field.choice_list.map(&:downcase)
@@ -212,8 +238,24 @@ module Checklists
           (covered - visible_person_ids(item, author, covered)).empty?
         end
 
+        # An item saved before values were a list holds them as one text,
+        # separated by commas.
         def values(item)
-          item.config["values"].to_s.split(",").map(&:strip).compact_blank
+          list_values(item.config["values"])
+        end
+
+        # The same test, apart from how the values are written: a list or
+        # the old comma text, in any order and case.
+        def same_config?(saved, config)
+          return false unless saved.except("values") == config.except("values")
+
+          canonical = ->(one) { list_values(one["values"]).map(&:downcase).sort }
+          canonical.(saved) == canonical.(config)
+        end
+
+        def list_values(saved)
+          saved = saved.to_s.split(",") unless saved.is_a?(Array)
+          saved.map { |value| value.to_s.strip }.compact_blank
         end
 
         def operator_fits?(field, operator)

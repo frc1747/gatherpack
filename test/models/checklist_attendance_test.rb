@@ -301,6 +301,35 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
     assert_includes seen, [ true, "met" ]
   end
 
+  test "rules are linked by key: renaming one keeps the link, and a saved name converts on the next save" do
+    item = @checklist.checklist_items.new(kind: "attendance", label: "Attendance")
+    item.config_params = { rules: { "0" => { key: "sum", name: "Summer", share: "10", with: "fal" }, "1" => { key: "fal", name: "Fall", share: "20" } } }
+    assert item.valid?, item.errors.full_messages.to_sentence
+    assert_equal %w[ sum fal ], item.config["rules"].map { |rule| rule["key"] }
+    assert_equal "fal", item.config["rules"].first["with"]
+
+    item.config_params = { rules: { "0" => { key: "sum", name: "Summer", share: "10", with: "fal" }, "1" => { key: "fal", name: "Autumn", share: "20" } } }
+    assert item.valid?, item.errors.full_messages.to_sentence
+    assert_equal "At least 10% of meeting hours in Summer, counted together with Autumn; 20% of meeting hours in Autumn, counted together with Summer", item.describe
+
+    old = attendance([ { name: "Summer", share: "10" }, { name: "Fall", share: "20" } ])
+    old.update_column(:config, { "rules" => [ { "name" => "Summer", "share" => 10, "with" => "Fall" }, { "name" => "Fall", "share" => 20 } ] })
+    old.reload
+    assert_nil old.config["rules"].first["key"], "saved before rules had keys"
+    assert_equal "Fall", Checklists::Kinds::Attendance.rules(old).first.with
+    assert_equal 1, Checklists::Kinds::Attendance.rules(old).first.pool.rules.index_by(&:name)["Fall"].index
+
+    keyed = Checklists::Kinds::Attendance.keyed_rules(old.config["rules"])
+    assert_equal keyed.last["key"], keyed.first["with"], "the form offers the saved link as a key"
+    old.config_params = { rules: keyed.each_with_index.to_h { |rule, index| [ index.to_s, rule ] } }
+    assert old.valid?, old.errors.full_messages.to_sentence
+    assert_equal old.config["rules"].last["key"], old.config["rules"].first["with"], "converted to a key on the next save"
+
+    item.config_params = { rules: { "0" => { key: "sum", name: "Summer", share: "10", with: "sum" } } }
+    assert_not item.valid?
+    assert_includes item.errors[:base].join, "no other rule has that name"
+  end
+
   test "the rules are checked when saved" do
     item = @checklist.checklist_items.new(kind: "attendance", label: "Attendance")
     check = lambda do |*rules|

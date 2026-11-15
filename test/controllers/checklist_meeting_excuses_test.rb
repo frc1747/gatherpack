@@ -103,10 +103,12 @@ class ChecklistMeetingExcusesTest < ActionDispatch::IntegrationTest
             "1" => { name: "Late", starts: { mode: "within", amount: "2", unit: "months" }, ends_on: "", share: "20", weekly: "0", judge_after: "2" },
             "1700000000000" => { name: "", starts: { mode: "" }, ends_on: "", share: "", weekly: "0", judge_after: "" } } } } }
         item = @checklist.checklist_items.find_by!(label: "Meetings")
+        keys = item.config["rules"].map { |rule| rule["key"] }
+        assert keys.all?(&:present?)
         assert_equal({ "extra_hours_count" => true, "leeway_minutes" => 2, "period_ids" => [ @period.id ], "rules" => [
-          { "name" => "Summer", "starts" => { "mode" => "date", "date" => "2026-09-01" }, "ends_on" => "2026-10-31", "share" => 10,
-            "weekly" => false, "with" => "Late", "judge_after" => 0 },
-          { "name" => "Late", "starts" => { "mode" => "within", "amount" => 2, "unit" => "months" }, "ends_on" => nil, "share" => 20,
+          { "key" => keys[0], "name" => "Summer", "starts" => { "mode" => "date", "date" => "2026-09-01" }, "ends_on" => "2026-10-31", "share" => 10,
+            "weekly" => false, "with" => keys[1], "judge_after" => 0 },
+          { "key" => keys[1], "name" => "Late", "starts" => { "mode" => "within", "amount" => 2, "unit" => "months" }, "ends_on" => nil, "share" => 20,
             "weekly" => false, "with" => nil, "judge_after" => 2 }
         ] }, item.config)
 
