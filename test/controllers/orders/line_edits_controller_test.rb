@@ -80,6 +80,25 @@ class Orders::LineEditsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "outer spaces on a stored value don't count as a change, so fixing the price keeps step 1's approval" do
+    with_settings(two_step_settings(@world, minimum: 5)) do
+      Orders::Current.reset
+      order_request = submitted_request(@world, lines: [ { description: "Wheel ", url: " https://partsdepot.example/p/W-1 ", quantity: 4, price: 10 } ])
+      order_request.decide!(:approved, by: @world.mentor)
+      line = order_request.order_lines.first
+      sign_in @world.manager.user
+
+      patch orders_request_line_edit_url(order_request, line),
+        params: { line: form_values(line, description: "Wheel", url: "https://partsdepot.example/p/W-1", estimated_unit_price: "9.50") }
+
+      line.reload
+      assert_equal 950, line.estimated_unit_price_cents
+      assert_equal "Wheel ", line.description, "an unchanged box isn't written back"
+      assert_equal [ "estimated_unit_price_cents" ], order_request.events.last.field_changes.keys
+      assert_equal 1, order_request.reload.active_approvals.count(&:approved?)
+    end
+  end
+
   test "posting the form unchanged records nothing" do
     with_orders(@world) do
       order_request = submitted_request(@world, lines: [ { description: "Saw", price: 5 } ])

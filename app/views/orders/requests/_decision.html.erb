@@ -6,7 +6,9 @@
 <% person = current_user.person %>
 <% access = Orders::Access.for(person) %>
 <% if step && person && (access.approver_on?(step, order_request.team_id) || access.any_approver_team_ids.include?(order_request.team_id)) %>
-  <% content_for :head, stylesheet_link_tag("orders_decision", "data-turbo-track": "reload") %>
+  <%# Not tracked: Turbo adds it on a visit, where a tracked stylesheet only on
+      this page would force a second, full load and lose the flash. %>
+  <% content_for :head, stylesheet_link_tag("orders_decision") %>
   <% reapproval = !order_request.submitted? %>
   <% can_decide = order_request.can_decide?(person) %>
   <% flags = Orders::ApprovalFlags.new(order_request) %>
@@ -74,7 +76,7 @@
     <% if can_decide %>
       <% if order_request.submitted? && policy(order_request).approver_edit? %>
         <h3 class="h6 mt-3">Fix an item</h3>
-        <p class="small text-muted">Changing an item's store or part number, or raising the total past the tolerance, clears earlier approvals.</p>
+        <p class="small text-muted">Changing what an item is, where it's from, its link, part numbers or unit, or raising the total past the tolerance, clears earlier approvals.</p>
         <% order_request.live_lines.each do |line| %>
           <%= render "orders/decisions/line_edit", order_request: order_request, line: line %>
         <% end %>

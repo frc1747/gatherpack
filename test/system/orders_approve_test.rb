@@ -31,9 +31,13 @@ class OrdersApproveTest < ApplicationSystemTestCase
       sign_in @world.mentor.user
 
       visit orders_approvals_path
+      # Turbo visits keep the window, so the mark survives unless a page
+      # forces a full reload (which also loses the flash).
+      execute_script("window.sameWindow = true")
       click_link "Drive wheels"
 
       assert_text "Robot parts only"
+      assert evaluate_script("window.sameWindow === true"), "opening the request reloaded the page"
       assert_text "Left after this request"
       bar = find(".orders-decision-bar")
       assert_equal "fixed", evaluate_script("getComputedStyle(document.querySelector('.orders-decision-bar')).position")
@@ -53,6 +57,7 @@ class OrdersApproveTest < ApplicationSystemTestCase
       end
 
       assert_text "Approved: Drive wheels"
+      assert evaluate_script("window.sameWindow === true"), "deciding reloaded the page"
       assert_text "Nothing is waiting for you to approve."
       assert order_request.reload.approved?
       assert_equal "Good choice", order_request.events.last.comment

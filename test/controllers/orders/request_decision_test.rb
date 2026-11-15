@@ -28,10 +28,14 @@ class Orders::RequestDecisionTest < ActionDispatch::IntegrationTest
         assert_select ".orders-decision-bar button[value=changes_requested]", "Ask for changes"
         assert_select ".orders-decision-bar button[value=declined]", "Decline"
         assert_select "details.orders-line-edit", 1
+        # Any text a requester typed as a link must not stop the form saving.
+        assert_select "input[name='line[url]'][type=text][inputmode=url]"
+        assert_select "p", /Changing what an item is, where it's from, its link, part numbers or unit/
         assert_select "input[name=fits_restriction]", 0
         assert_select "select[name=funding_source_id]", 0
       end
-      assert_select "link[href*=orders_decision]"
+      # Not tracked, or Turbo would reload the page on every visit.
+      assert_select "link[href*=orders_decision]:not([data-turbo-track])"
     end
   end
 

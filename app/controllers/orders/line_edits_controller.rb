@@ -13,7 +13,7 @@ module Orders
     def update
       @order_request = authorize policy_scope(OrderRequest).find(params[:request_id]), :approver_edit?
       line = @order_request.order_lines.find(params[:id])
-      @order_request.edit_line!(line, line_attributes, by: current_user.person)
+      @order_request.edit_line!(line, line_attributes(line), by: current_user.person)
       redirect_to orders_request_path(@order_request, anchor: "decision"), notice: "Item saved."
     rescue ActiveRecord::RecordInvalid => error
       redirect_to orders_request_path(@order_request, anchor: "decision"), alert: error.record.errors.full_messages.to_sentence
@@ -21,9 +21,10 @@ module Orders
 
     private
 
-    # Blank boxes become nil, so a field left as it was isn't recorded as a
-    # change from nil to "".
-    def line_attributes
+    # Only the fields the approver changed. Values are compared after
+    # trimming and turning blanks into nil, so a box left as it was isn't a
+    # change (nil to "", or "Wheel " to "Wheel") that could clear approvals.
+    def line_attributes(line)
       values = params.require(:line).permit(*TEXT_FIELDS, :quantity, :units_per, :estimated_unit_price, :store, :funding_source_id)
       attributes = TEXT_FIELDS.index_with { |field| values[field].to_s.strip.presence }
       attributes[:quantity] = values[:quantity].presence&.to_i
@@ -33,7 +34,11 @@ module Orders
       if policy(@order_request).set_funding?
         attributes[:funding_source_id] = values[:funding_source_id].presence && policy_scope(FundingSource).find(values[:funding_source_id]).id
       end
-      attributes
+      attributes.reject { |field, value| normalized(value) == normalized(line[field]) }
+    end
+
+    def normalized(value)
+      value.is_a?(String) ? value.strip.presence : value
     end
 
     # "Where from?": a vendor, "other" with a typed name, or blank for not
