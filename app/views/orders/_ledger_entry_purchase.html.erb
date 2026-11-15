@@ -1,0 +1,11 @@
+<%# On a ledger entry's page: the order it was recorded from, for those who
+    can see that order (spec §6). %>
+<% purchase_id = ledger_entry.metadata&.dig("purchase_id") %>
+<% if purchase_id && Orders.enabled? %>
+  <% purchase = policy_scope(Purchase).find_by(id: purchase_id) %>
+  <% if purchase %>
+    <p class="mt-3" id="ledger_entry_purchase">
+      <%= i "truck" %> Recorded from <%= link_to purchase.identifier_name, orders_purchase_path(purchase) %>
+    </p>
+  <% end %>
+<% end %>
