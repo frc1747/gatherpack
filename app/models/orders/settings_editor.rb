@@ -80,10 +80,11 @@ module Orders
       errors << "Price tolerance amount must be a number." unless number?(tolerance_amount)
     end
 
-    # New steps get a key from their name that no other step has. A key
-    # never changes once used, since approvals are stored by it.
+    # New steps get a key from their name that no other step has and no
+    # approval on record uses, so a removed step's approvals never pass to a
+    # new one. A key never changes once used, since approvals are stored by it.
     def assign_keys
-      taken = steps.pluck("key").compact_blank
+      taken = steps.pluck("key").compact_blank | OrderApproval.distinct.pluck(:step_key) | OrderRequestEvent.where.not(step_key: nil).distinct.pluck(:step_key)
       steps.each do |step|
         next if step["key"].present?
 
