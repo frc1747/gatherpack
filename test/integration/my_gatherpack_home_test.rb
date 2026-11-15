@@ -185,6 +185,17 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_operator response.body.index('data-widget-slot="right"'), :<, response.body.index("Team shirts are in")
   end
 
+  test "sections placed at 20 and 20.5 render above the right widgets" do
+    MyGatherpack.register_section(:season_stub, partial: "my_gatherpack_home_test/season", column: :side, position: 20)
+    MyGatherpack.register_section(:activity_stub, partial: "my_gatherpack_home_test/activity", column: :side, position: 20.5)
+
+    get root_path
+
+    body = response.body
+    assert_operator body.index("season-block"), :<, body.index("activity-block")
+    assert_operator body.index("activity-block"), :<, body.index('data-widget-slot="right"')
+  end
+
   test "latest shows the newest announcement first and only what the viewer may see" do
     create_announcement("Older", start: 2.days.ago)
     create_announcement("Newer", start: 1.hour.ago)
