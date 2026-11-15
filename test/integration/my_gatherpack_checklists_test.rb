@@ -90,6 +90,14 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Not met: nothing done yet, some signed up for. remaining is what the
+  # item's counting leaves, given in config.
+  class Behind < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("0 of 3 shifts", measures: { "confirmed" => 0, "planned" => 1, "owed" => 3, "remaining" => config["remaining"] }) }
+    end
+  end
+
   # Met with its own word.
   class Signed < Checklists::ItemKind
     def evaluate(person_ids)
@@ -115,6 +123,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.register_item_kind(:hours, Hours)
     Checklists.register_item_kind(:open_shifts, OpenShifts)
     Checklists.register_item_kind(:signed_up, SignedUp)
+    Checklists.register_item_kind(:behind, Behind)
     Checklists.register_item_kind(:attended, Attended)
     Checklists.register_item_kind(:outreach, Outreach)
     Checklists.register_item_kind(:pooled, Pooled)
@@ -137,6 +146,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.unregister_item_kind(:hours)
     Checklists.unregister_item_kind(:open_shifts)
     Checklists.unregister_item_kind(:signed_up)
+    Checklists.unregister_item_kind(:behind)
     Checklists.unregister_item_kind(:attended)
     Checklists.unregister_item_kind(:outreach)
     Checklists.unregister_item_kind(:pooled)
@@ -341,6 +351,18 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
       assert_equal [ "Concessions · 2 shifts signed up", "Pit crew · 1 more shift" ], season_lines("in-progress")
+    end
+  end
+
+  test "a count not met takes off what's signed up, unless sign-ups already count" do
+    add_item(@checklist, :behind, "Concessions").update_columns(config: { "unit" => "shifts", "remaining" => 3 })
+    add_item(@checklist, :behind, "Pit crew").update_columns(config: { "unit" => "shifts", "remaining" => 2, "counts_when" => "planned" })
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Concessions · 2 more shifts", "Pit crew · 2 more shifts" ], season_lines("in-progress")
     end
   end
 

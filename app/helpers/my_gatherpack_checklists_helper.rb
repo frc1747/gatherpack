@@ -209,9 +209,10 @@ module MyGatherpackChecklistsHelper
 
   # Where an unfinished, measured item stands, with its unit: what's still
   # owed ("3.5 more hours", "1 more shift"), the result's remaining or owed
-  # less confirmed. While pending, what's signed up for (planned) counts
-  # against that, and when it covers the rest: "2 shifts signed up". Nil
-  # when nothing is measured.
+  # less confirmed. What's signed up for (planned) counts against that,
+  # unless the item already counts sign-ups as credit (counts_when
+  # "planned"), and when it covers the rest: "2 shifts signed up". Nil when
+  # nothing is measured.
   def my_gatherpack_season_progress(entry)
     measures = entry.measures || {}
     remaining = measures["remaining"]
@@ -219,7 +220,7 @@ module MyGatherpackChecklistsHelper
     return unless remaining
 
     remaining = remaining.to_f
-    planned = entry.pending? ? measures["planned"].to_f : 0
+    planned = entry.item.config["counts_when"] == "planned" ? 0 : measures["planned"].to_f
     if remaining - planned > 0
       left = remaining - planned
       "#{my_gatherpack_number(left)} more #{my_gatherpack_owed_unit(entry.item, left)}".strip + my_gatherpack_family(entry).to_s
