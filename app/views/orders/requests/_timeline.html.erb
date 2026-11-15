@@ -1,5 +1,5 @@
 <%# Who follows the request, and its timeline, newest last with approvals in bold (spec §3.10). Prints with the request. %>
-<% content_for :head, stylesheet_link_tag("orders", "data-turbo-track": "reload") %>
+<% content_for :head, stylesheet_link_tag("orders") %>
 <% request_policy = policy(order_request) %>
 <section id="following" class="orders-phone mb-4">
   <h2 class="h5">Following</h2>

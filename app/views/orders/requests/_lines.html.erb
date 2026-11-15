@@ -1,5 +1,5 @@
 <%# The request page's items (spec §3.1, §3.16) and the requester's and follower's actions. %>
-<% content_for :head, stylesheet_link_tag("orders", "data-turbo-track": "reload") %>
+<% content_for :head, stylesheet_link_tag("orders") %>
 <% request_policy = policy(order_request) %>
 <section id="items" class="orders-phone mb-4">
   <h2 class="h5">Items</h2>

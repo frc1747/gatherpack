@@ -1,5 +1,5 @@
 <%# New request and Edit request (spec §3.16). A draft saves itself as the requester types (order_form_controller.js). %>
-<% content_for :head, stylesheet_link_tag("orders", "data-turbo-track": "reload") %>
+<% content_for :head, stylesheet_link_tag("orders") %>
 <% lines = local_assigns[:lines].presence ||
      order_request.order_lines.reject(&:cancelled?).each_with_index.map { |line, index| [ index.to_s, line, false ] }.presence ||
      [ [ "0", OrderLine.new(quantity: 1), false ] ] %>

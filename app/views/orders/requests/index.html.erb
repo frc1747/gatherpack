@@ -1,5 +1,5 @@
 <% breadcrumb :orders_requests %>
-<% content_for :head, stylesheet_link_tag("orders", "data-turbo-track": "reload") %>
+<% content_for :head, stylesheet_link_tag("orders") %>
 <% can_request = policy(OrderRequest).create? %>
 
 <div class="card orders-phone <%= "orders-has-bar" if can_request %>">
