@@ -1,5 +1,5 @@
 <div class="card" id="<%= dom_id oauth_application %>">
   <div class="card-header">
-    <%= link_to oauth_application.identifier_name, oauth_application, 'data-turbo': false %>
+    <%= link_to oauth_application.identifier_name, oauth_application, data: { turbo_frame: "_top" } %>
   </div>
 </div>
