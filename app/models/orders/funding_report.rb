@@ -31,7 +31,7 @@ module Orders
 
     def to_csv
       CSV.generate do |csv|
-        csv << [ source.name ]
+        csv << [ Orders::Reports.csv_value(source.name) ]
         csv << HEADERS
         rows.each do |row|
           csv << [ row.date&.iso8601, row.item, row.line.quantity, row.vendor_name, row.request.display_title, row.approver&.display_name,

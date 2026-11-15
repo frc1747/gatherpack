@@ -11,9 +11,9 @@ class Orders::FundingSourcesControllerTest < ActionDispatch::IntegrationTest
       restriction: "Robot parts only", giver: "Local Foundation", reference: "Grant 77", spent_outside: 50)
   end
 
-  def gift_letter
-    file = Tempfile.new([ "gift", ".txt" ])
-    file.write("Thank you")
+  def gift_letter(name = "gift", text = "Thank you")
+    file = Tempfile.new([ name, ".txt" ])
+    file.write(text)
     file.close
     Rack::Test::UploadedFile.new(file.path, "text/plain")
   end
@@ -92,6 +92,45 @@ class Orders::FundingSourcesControllerTest < ActionDispatch::IntegrationTest
       assert_equal 10000, source.spent_outside_cents
       assert_equal Date.new(2027, 1, 31), source.report_due_on
       assert source.documents.attached?
+    end
+  end
+
+  test "saving a source keeps its documents, adds new ones and removes ticked ones" do
+    with_orders(@world) do
+      @source.documents.attach(io: StringIO.new("one"), filename: "one.txt")
+      @source.documents.attach(io: StringIO.new("two"), filename: "two.txt")
+      two = @source.documents.find { |document| document.filename.to_s == "two.txt" }
+      sign_in @world.funding_manager.user
+
+      patch orders_funding_source_url(@source), params: { funding_source: { name: "Typo fixed", documents: [ "" ] } }
+      assert_equal %w[one.txt two.txt], @source.reload.documents.map { |document| document.filename.to_s }.sort
+
+      patch orders_funding_source_url(@source), params: { funding_source: { documents: [ "", gift_letter ] }, remove_document_ids: [ two.id ] }
+      names = @source.reload.documents.map { |document| document.filename.to_s }
+      assert_includes names, "one.txt"
+      assert_not_includes names, "two.txt"
+      assert_equal 2, names.size
+    end
+  end
+
+  test "a document ticked for removal stays when the save is refused" do
+    with_orders(@world) do
+      @source.documents.attach(io: StringIO.new("one"), filename: "one.txt")
+      sign_in @world.funding_manager.user
+
+      patch orders_funding_source_url(@source), params: { funding_source: { restriction: "" }, remove_document_ids: [ @source.documents.first.id ] }
+      assert_response :unprocessable_entity
+      assert_equal 1, @source.reload.documents.count
+    end
+  end
+
+  test "the report CSV quotes a source name that looks like a formula" do
+    with_orders(@world) do
+      @source.update!(name: "=HYPERLINK(\"http://example.test\")")
+      sign_in @world.funding_manager.user
+
+      get report_orders_funding_source_url(@source, format: :csv)
+      assert_equal "'=HYPERLINK(\"http://example.test\")", CSV.parse(response.body).first.first
     end
   end
 
@@ -174,6 +213,15 @@ class Orders::FundingSourcesControllerTest < ActionDispatch::IntegrationTest
       assert_equal Orders::FundingReport::HEADERS, rows.second
       assert_equal [ "Motor", "2", "Parts Depot", request.display_title, "Mentor Example", "60.00", "5.00", "65.00" ], rows.third.values_at(1, 2, 3, 4, 5, 6, 7, 8)
       assert_equal "65.00", rows.last.last
+    end
+  end
+
+  test "the delete refusal points at the In use box" do
+    with_orders(@world) do
+      submitted_request(@world, funding_source: @source)
+      sign_in @world.admin.user
+      delete orders_funding_source_url(@source)
+      assert_match "Untick In use", flash[:alert]
     end
   end
 

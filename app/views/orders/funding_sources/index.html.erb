@@ -21,7 +21,7 @@
                 <%= source.remaining.format %>
               <% end %>
             </td>
-            <td><%= tag.span "Not active", class: "badge text-bg-secondary" unless source.active? %></td>
+            <td><%= tag.span "Not in use", class: "badge text-bg-secondary" unless source.active? %></td>
           </tr>
         <% end %>
       </tbody>

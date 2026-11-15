@@ -16,7 +16,7 @@
       <dd><%= @funding_source.team.name %> and the teams below it</dd>
       <dt>Kind</dt>
       <dd><%= @funding_source.kind.humanize %></dd>
-      <dt>Active</dt>
+      <dt>In use</dt>
       <dd><%= @funding_source.active? ? "Yes" : "No" %></dd>
       <% if @funding_source.starts_on || @funding_source.ends_on %>
         <dt>Can be spent</dt>

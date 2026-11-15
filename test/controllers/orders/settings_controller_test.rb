@@ -69,6 +69,42 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a new step whose numbered key is taken still gets a free key" do
+    with_orders(@world, orders_approval_steps: JSON.generate([
+      { "key" => "approval", "name" => "Approval", "minimum" => 0, "approvers" => [] },
+      { "key" => "approval_2", "name" => "Second", "minimum" => 0, "approvers" => [] },
+      { "key" => "approval_3", "name" => "Third", "minimum" => 0, "approvers" => [] }
+    ])) do
+      sign_in @world.admin.user
+
+      Timeout.timeout(5) do
+        patch orders_settings_url, params: params_for(steps: {
+          "0" => { key: "approval", name: "Approval", minimum: "0", approvers: "" },
+          "1" => { key: "", name: "Approval", minimum: "0", approvers: "" },
+          "2" => { key: "approval_3", name: "Third", minimum: "0", approvers: "" }
+        })
+      end
+      assert_redirected_to orders_settings_url
+      assert_equal %w[approval approval_2 approval_3], Orders::Config.approval_steps.map(&:key)
+    end
+  end
+
+  test "a tolerance of zero and zero is kept, so any rise needs approving again" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+
+      patch orders_settings_url, params: params_for(tolerance_percent: "0", tolerance_amount: "0")
+      assert_redirected_to orders_settings_url
+      tolerance = Orders::Config.price_tolerance
+      assert_equal [ 0, 0 ], [ tolerance.percent, tolerance.amount_cents ]
+      assert_equal 0, tolerance.allowance_cents(10_000)
+
+      get orders_settings_url
+      assert_select "input[name=tolerance_percent][value='0']"
+      assert_select "input[name=tolerance_amount][value='0']"
+    end
+  end
+
   test "bad input is refused and nothing is saved" do
     with_orders(@world) do
       sign_in @world.admin.user

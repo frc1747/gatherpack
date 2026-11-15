@@ -53,6 +53,32 @@ class Orders::ReallocationsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an unknown funding source is refused and the line stays put" do
+    with_orders(@world) do
+      request, line = bought_line
+      sign_in @world.funding_manager.user
+
+      [ "no-such-source", SecureRandom.uuid ].each do |id|
+        post reallocate_orders_request_line_url(request, line), params: { funding_source_id: id, reason: "Typo" }
+        assert_match "wasn't found", flash[:alert]
+      end
+      assert_equal @from, line.reload.effective_funding_source
+      assert_not request.events.exists?(comment: "Typo")
+    end
+  end
+
+  test "a blank source puts the line back on the request's, and says so" do
+    with_orders(@world) do
+      request, line = bought_line
+      line.update!(funding_source: @to)
+      sign_in @world.funding_manager.user
+
+      post reallocate_orders_request_line_url(request, line), params: { funding_source_id: "", reason: "Back to the request" }
+      assert_match "request's funding source", flash[:notice]
+      assert_equal @from, line.reload.effective_funding_source
+    end
+  end
+
   test "approvers, buyers and requesters can't move a line" do
     with_orders(@world) do
       request, line = bought_line

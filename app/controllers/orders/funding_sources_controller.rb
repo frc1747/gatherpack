@@ -25,6 +25,7 @@ module Orders
       @funding_source = authorize FundingSource.new(funding_source_params)
 
       if team_in_reach?(@funding_source) && @funding_source.save
+        attach_new_documents
         redirect_to orders_funding_source_path(@funding_source), notice: "Funding source was successfully created."
       else
         render :new, status: :unprocessable_entity
@@ -34,9 +35,10 @@ module Orders
     # PATCH/PUT /orders/funding_sources/1
     def update
       @funding_source.assign_attributes(funding_source_params)
-      purge_removed_documents
 
       if team_in_reach?(@funding_source) && @funding_source.save
+        attach_new_documents
+        purge_removed_documents
         redirect_to orders_funding_source_path(@funding_source), notice: "Funding source was successfully updated.", status: :see_other
       else
         render :edit, status: :unprocessable_entity
@@ -48,7 +50,7 @@ module Orders
       if @funding_source.destroy
         redirect_to orders_funding_sources_path, notice: "Funding source was successfully deleted.", status: :see_other
       else
-        redirect_to orders_funding_source_path(@funding_source), alert: "#{@funding_source.name} has been used, so it can't be deleted. Mark it not active instead.", status: :see_other
+        redirect_to orders_funding_source_path(@funding_source), alert: "#{@funding_source.name} has been used, so it can't be deleted. Untick In use instead.", status: :see_other
       end
     end
 
@@ -71,7 +73,7 @@ module Orders
 
     def funding_source_params
       params.require(:funding_source).permit(:team_id, :name, :kind, :amount, :starts_on, :ends_on, :restriction, :giver, :reference,
-        :report_due_on, :spent_outside, :spent_outside_as_of, :active, documents: [])
+        :report_due_on, :spent_outside, :spent_outside_as_of, :active)
     end
 
     # A funding manager only sets up sources for teams they reach.
@@ -80,6 +82,13 @@ module Orders
 
       funding_source.errors.add(:team, "isn't one you manage funding for")
       false
+    end
+
+    # Added on top of what's attached: assigning documents= would replace
+    # them all, and the file field also sends a blank entry.
+    def attach_new_documents
+      files = Array(params.dig(:funding_source, :documents)).compact_blank
+      @funding_source.documents.attach(files) if files.any?
     end
 
     def purge_removed_documents

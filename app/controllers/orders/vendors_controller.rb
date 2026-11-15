@@ -59,7 +59,7 @@ module Orders
       if @vendor.destroy
         redirect_to orders_vendors_path, notice: "Vendor was successfully deleted.", status: :see_other
       else
-        redirect_to orders_vendor_path(@vendor), alert: "#{@vendor.name} has been used, so it can't be deleted. Mark it inactive instead.", status: :see_other
+        redirect_to orders_vendor_path(@vendor), alert: "#{@vendor.name} has been used, so it can't be deleted. Untick In use instead.", status: :see_other
       end
     end
 

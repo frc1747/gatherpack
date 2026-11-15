@@ -89,7 +89,8 @@ module Orders
 
         base = step["name"].parameterize(separator: "_").presence || "step"
         key = base
-        key = "#{base}_#{taken.size + 1}" while taken.include?(key)
+        number = 1
+        key = "#{base}_#{number += 1}" while taken.include?(key)
         step["key"] = key
         taken << key
       end
@@ -116,10 +117,12 @@ module Orders
     end
 
     def tolerance_text
-      parts = []
-      parts << "#{tolerance_percent.to_d.to_f.to_s.delete_suffix('.0')}%" if tolerance_percent.to_d.positive?
-      parts << tolerance_amount.to_d.to_f.to_s.delete_suffix(".0") if tolerance_amount.to_d.positive?
-      parts.join(", ")
+      # Zeros are written out: a blank setting means the default.
+      [ "#{plain(tolerance_percent)}%", plain(tolerance_amount) ].join(", ")
+    end
+
+    def plain(text)
+      text.to_d.to_f.to_s.delete_suffix(".0")
     end
   end
 end

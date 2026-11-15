@@ -103,6 +103,7 @@ class Orders::VendorsControllerTest < ActionDispatch::IntegrationTest
       end
       assert_redirected_to orders_vendor_url(@world.preferred_vendor)
       assert_match "can't be deleted", flash[:alert]
+      assert_match "Untick In use", flash[:alert]
     end
   end
 
