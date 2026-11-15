@@ -7,16 +7,24 @@
     <div class="card-header"><h2 class="h5 mb-0">Before you sign up</h2></div>
     <div class="card-body">
       <% entries.each do |entry| %>
-        <p><%= entry.position_names.to_sentence %> <%= entry.position_names.size > 1 ? "need" : "needs" %> <%= entry.checklist.title %> finished first.</p>
-        <% entry.people.each do |person, status, covered| %>
-          <% name = person.id == viewer.id ? "You" : person.display_name %>
-          <% if status %>
-            <% if person.id != viewer.id %><h3 class="h6"><%= person.display_name %></h3><% end %>
-            <%= render "checklists/person_status", checklist: entry.checklist, status: status %>
-          <% elsif !covered %>
-            <p class="text-body-secondary"><%= name %> <%= name == "You" ? "aren't" : "isn't" %> on <%= entry.checklist.title %>, so can't take these places.</p>
-          <% else %>
-            <p class="text-body-secondary"><%= name %> <%= name == "You" ? "haven't" : "hasn't" %> finished <%= entry.checklist.title %>. Ask a leader what's left.</p>
+        <%# A checklist is named only above people it covers. %>
+        <% covered_people, uncovered_people = entry.people.partition { |_, _, covered| covered } %>
+        <% if covered_people.any? %>
+          <p><%= entry.position_names.to_sentence %> <%= entry.position_names.size > 1 ? "need" : "needs" %> <%= entry.checklist.title %> finished first.</p>
+          <% covered_people.each do |person, status, _| %>
+            <% if status %>
+              <% if person.id != viewer.id %><h3 class="h6"><%= person.display_name %></h3><% end %>
+              <%= render "checklists/person_status", checklist: entry.checklist, status: status %>
+            <% else %>
+              <% name = person.id == viewer.id ? "You" : person.display_name %>
+              <p class="text-body-secondary"><%= name %> <%= name == "You" ? "haven't" : "hasn't" %> finished <%= entry.checklist.title %>. Ask a leader what's left.</p>
+            <% end %>
+          <% end %>
+        <% end %>
+        <% if uncovered_people.any? %>
+          <p><%= entry.position_names.to_sentence %></p>
+          <% uncovered_people.each do |person, _, _| %>
+            <p class="text-body-secondary"><%= person.id == viewer.id ? "Not open to you" : "#{person.display_name}: not open to them" %></p>
           <% end %>
         <% end %>
       <% end %>

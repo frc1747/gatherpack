@@ -1,7 +1,7 @@
 <% rules = @signup_position.signup_position_rules.index_by(&:kind) %>
 <% kinds = { "badge" => "Needs a badge", "age" => "Age on the event date", "team" => "In a team" } %>
 <% kinds.delete("badge") unless GatherPack::Features.enabled?(:badges) || rules["badge"] %>
-<% kinds["checklist"] = "Finishes a checklist" if Checklists.enabled? || rules["checklist"] %>
+<% kinds["checklist"] = "Needs a finished checklist" if Checklists.enabled? || rules["checklist"] %>
 <div class="card mt-3" id="rules">
   <div class="card-header">
     <h2 class="h5 mb-0">Who can take this position</h2>

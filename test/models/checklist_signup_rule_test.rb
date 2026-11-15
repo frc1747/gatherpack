@@ -33,7 +33,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     assert_nil rule.check(person(:worker), @event)
     assert_equal "not_met", overall(:student).status
     assert_equal "Needs Trip: Complete", rule.check(person(:student), @event)
-    assert_equal "Needs Trip: Complete", rule.description
+    assert_equal "Must have finished Trip first", rule.description
   end
 
   test "in progress passes only when the rule accepts it" do
@@ -44,7 +44,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
 
     rule.update!(accept_pending: true)
     assert_nil rule.reload.check(person(:student), @event)
-    assert_equal "Needs Trip: Complete or In Progress", rule.description
+    assert_equal "Must have finished Trip or be partway through", rule.description
     assert_equal "Needs Trip: Complete or In Progress", rule.check(person(:student2), @event), "not started still fails"
   end
 
