@@ -13,6 +13,8 @@ class Badge < ApplicationRecord
   validates :short, presence: true
   validates :badge_type, presence: true
   validate :permissions_make_sense
+  # Holders outside the badge's new team lose it, as they couldn't be given it.
+  after_update -> { BadgeAssignment.remove_outside_team(badge_assignments) }, if: :saved_change_to_team_id?
 
   def self.ransackable_attributes(auth_object = nil)
     [ "badge_type_id", "description", "name", "short", "team_id", "updated_at" ]
