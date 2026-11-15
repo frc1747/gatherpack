@@ -155,6 +155,16 @@ feature/extension-registries:
     the shared lists and conflict with each other. Sign-up sheets use it.
   audience: Developers; no one will notice a change
 
+feature/settings-inputs:
+  title: Settings you pick instead of type
+  emoji: "🎛️"
+  description: >-
+    Settings that name badges, teams or fixed choices show dropdowns,
+    checkboxes and rows you add or remove, instead of text boxes with a
+    format to remember. Saved values keep the same form, so nothing needs
+    re-entering. A feature can also show its settings on its own setup page.
+  audience: Admins
+
 feature/signups:
   title: Sign-up sheets
   emoji: "📋"
