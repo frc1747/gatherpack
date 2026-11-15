@@ -193,6 +193,68 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.index ["person_id"], name: "index_checkins_on_person_id"
   end
 
+  create_table "commitment_adjustments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.uuid "person_id", null: false
+    t.integer "credits", null: false
+    t.text "reason", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id"], name: "index_commitment_adjustments_on_commitment_id"
+    t.index ["created_by_id"], name: "index_commitment_adjustments_on_created_by_id"
+    t.index ["person_id"], name: "index_commitment_adjustments_on_person_id"
+  end
+
+  create_table "commitment_organizers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id", "person_id"], name: "index_commitment_organizers_on_commitment_id_and_person_id", unique: true
+    t.index ["person_id"], name: "index_commitment_organizers_on_person_id"
+  end
+
+  create_table "commitment_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "commitment_id", null: false
+    t.string "kind", null: false
+    t.string "subject_type"
+    t.uuid "subject_id"
+    t.integer "per", default: 1, null: false
+    t.integer "credits", default: 1, null: false
+    t.integer "max_credits"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commitment_id"], name: "index_commitment_sources_on_commitment_id"
+    t.index ["subject_type", "subject_id"], name: "index_commitment_sources_on_subject"
+  end
+
+  create_table "commitments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.uuid "owing_team_id", null: false
+    t.uuid "owing_badge_id"
+    t.integer "base_amount", default: 1, null: false
+    t.string "unit", default: "", null: false
+    t.integer "counts_when", default: 0, null: false
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "exempt_badge_id"
+    t.uuid "group_relationship_type_id"
+    t.integer "additional_amount", default: 0, null: false
+    t.index ["created_by_id"], name: "index_commitments_on_created_by_id"
+    t.index ["exempt_badge_id"], name: "index_commitments_on_exempt_badge_id"
+    t.index ["group_relationship_type_id"], name: "index_commitments_on_group_relationship_type_id"
+    t.index ["owing_badge_id"], name: "index_commitments_on_owing_badge_id"
+    t.index ["owing_team_id"], name: "index_commitments_on_owing_team_id"
+    t.index ["team_id"], name: "index_commitments_on_team_id"
+  end
+
   create_table "event_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name"
@@ -212,6 +274,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.uuid "team_id"
     t.uuid "time_clock_period_id"
     t.datetime "updated_at", null: false
+    t.string "time_kind", default: "timed", null: false
     t.index ["event_type_id"], name: "index_events_on_event_type_id"
     t.index ["team_id"], name: "index_events_on_team_id"
     t.index ["time_clock_period_id"], name: "index_events_on_time_clock_period_id"
@@ -370,6 +433,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.boolean "leader_todo", default: false, null: false
     t.text "reminder_message"
     t.text "guardian_reminder_message"
+    t.date "expires_on"
+    t.integer "valid_for_months"
     t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
     t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
     t.index ["created_by_id"], name: "index_forms_on_created_by_id"
@@ -385,6 +450,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.string "name"
     t.string "type"
     t.datetime "updated_at", null: false
+    t.text "secrets"
   end
 
   create_table "hooks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -512,6 +578,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "mcp_tool_calls", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.uuid "oauth_application_id"
+    t.string "tool", null: false
+    t.jsonb "arguments", default: {}, null: false
+    t.string "outcome", null: false
+    t.string "error_message"
+    t.string "changed_type"
+    t.uuid "changed_id"
+    t.integer "duration_ms"
+    t.datetime "created_at", null: false
+    t.jsonb "changed_records", default: [], null: false
+    t.index ["created_at"], name: "index_mcp_tool_calls_on_created_at"
+    t.index ["oauth_application_id"], name: "index_mcp_tool_calls_on_oauth_application_id"
+    t.index ["user_id"], name: "index_mcp_tool_calls_on_user_id"
+  end
+
   create_table "membership_applications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "message"
@@ -548,6 +631,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.datetime "revoked_at"
     t.string "scopes", default: "", null: false
     t.string "token", null: false
+    t.string "code_challenge"
+    t.string "code_challenge_method"
     t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
     t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
     t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
@@ -754,6 +839,124 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.index ["team_id"], name: "index_shortcuts_on_team_id"
   end
 
+  create_table "signup_audience_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_sheet_id", null: false
+    t.integer "effect", default: 0, null: false
+    t.integer "target_type", default: 0, null: false
+    t.uuid "team_id"
+    t.uuid "badge_id"
+    t.uuid "person_id"
+    t.boolean "include_managers", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "created_by_id"
+    t.index ["badge_id"], name: "index_signup_audience_rules_on_badge_id"
+    t.index ["created_by_id"], name: "index_signup_audience_rules_on_created_by_id"
+    t.index ["person_id"], name: "index_signup_audience_rules_on_person_id"
+    t.index ["signup_sheet_id", "effect", "target_type", "team_id", "badge_id", "person_id"], name: "index_signup_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["signup_sheet_id"], name: "index_signup_audience_rules_on_signup_sheet_id"
+    t.index ["team_id"], name: "index_signup_audience_rules_on_team_id"
+  end
+
+  create_table "signup_position_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_position_id", null: false
+    t.integer "kind", default: 0, null: false
+    t.uuid "badge_ids", default: [], null: false, array: true
+    t.integer "min_age"
+    t.integer "max_age"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "team_ids", default: [], null: false, array: true
+    t.index ["signup_position_id"], name: "index_signup_position_rules_on_signup_position_id"
+  end
+
+  create_table "signup_positions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_sheet_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.integer "kind", default: 0, null: false
+    t.string "unit"
+    t.integer "capacity"
+    t.string "question"
+    t.boolean "question_required", default: false, null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["signup_sheet_id"], name: "index_signup_positions_on_signup_sheet_id"
+  end
+
+  create_table "signup_sheet_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_sheet_id", null: false
+    t.uuid "event_id", null: false
+    t.boolean "created_by_sheet", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_id"], name: "index_signup_sheet_events_on_event_id"
+    t.index ["signup_sheet_id", "event_id"], name: "index_signup_sheet_events_on_signup_sheet_id_and_event_id", unique: true
+  end
+
+  create_table "signup_sheet_organizers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_sheet_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_signup_sheet_organizers_on_person_id"
+    t.index ["signup_sheet_id", "person_id"], name: "index_signup_sheet_organizers_on_signup_sheet_id_and_person_id", unique: true
+  end
+
+  create_table "signup_sheets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "title", null: false
+    t.text "description"
+    t.string "contact"
+    t.integer "status", default: 0, null: false
+    t.uuid "event_type_id"
+    t.integer "names_permission", default: 0, null: false
+    t.uuid "others_relationship_type_ids", default: [], null: false, array: true
+    t.integer "on_behalf_of_mode", default: 0, null: false
+    t.integer "cancel_cutoff_hours", default: 0, null: false
+    t.integer "reminder_days", default: 2, null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_signup_sheets_on_created_by_id"
+    t.index ["event_type_id"], name: "index_signup_sheets_on_event_type_id"
+    t.index ["status"], name: "index_signup_sheets_on_status"
+    t.index ["team_id"], name: "index_signup_sheets_on_team_id"
+  end
+
+  create_table "signup_slots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_position_id", null: false
+    t.uuid "event_id", null: false
+    t.integer "capacity"
+    t.boolean "disabled", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_id"], name: "index_signup_slots_on_event_id"
+    t.index ["signup_position_id", "event_id"], name: "index_signup_slots_on_signup_position_id_and_event_id", unique: true
+  end
+
+  create_table "signups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "signup_slot_id", null: false
+    t.uuid "person_id", null: false
+    t.uuid "signed_up_by_id"
+    t.uuid "on_behalf_of_id"
+    t.integer "quantity"
+    t.text "answer"
+    t.text "note"
+    t.integer "status", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "reminded_at"
+    t.uuid "fulfilled_by_checkin_id"
+    t.boolean "placed_by_organizer", default: false, null: false
+    t.index ["fulfilled_by_checkin_id"], name: "index_signups_on_fulfilled_by_checkin_id"
+    t.index ["on_behalf_of_id"], name: "index_signups_on_on_behalf_of_id"
+    t.index ["person_id"], name: "index_signups_on_person_id"
+    t.index ["signed_up_by_id"], name: "index_signups_on_signed_up_by_id"
+    t.index ["signup_slot_id", "status"], name: "index_signups_on_signup_slot_id_and_status"
+  end
+
   create_table "solid_cache_entries", force: :cascade do |t|
     t.integer "byte_size", null: false
     t.datetime "created_at", null: false
@@ -947,6 +1150,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.datetime "updated_at", null: false
     t.string "value"
     t.index ["tokenable_type", "tokenable_id"], name: "index_tokens_on_tokenable"
+    t.index ["value"], name: "index_tokens_on_value", unique: true
   end
 
   create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -973,6 +1177,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.string "reset_password_token"
     t.string "uid"
     t.datetime "updated_at", null: false
+    t.integer "failed_attempts", default: 0, null: false
+    t.datetime "locked_at"
+    t.string "session_token", default: -> { "(gen_random_uuid())::text" }, null: false
+    t.boolean "kiosk", default: false, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
@@ -1001,6 +1209,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
   add_foreign_key "checkin_fields", "person_fields"
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
+  add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
+  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
+  add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
+  add_foreign_key "commitment_organizers", "people", on_delete: :cascade
+  add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
+  add_foreign_key "commitments", "badges", column: "exempt_badge_id"
+  add_foreign_key "commitments", "badges", column: "owing_badge_id"
+  add_foreign_key "commitments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitments", "relationship_types", column: "group_relationship_type_id"
+  add_foreign_key "commitments", "teams"
+  add_foreign_key "commitments", "teams", column: "owing_team_id"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
@@ -1040,6 +1260,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
   add_foreign_key "lego_lottery_drawing_tickets", "people"
   add_foreign_key "mailbox_assignments", "mailboxes"
   add_foreign_key "mailbox_messages", "mailboxes"
+  add_foreign_key "mcp_tool_calls", "oauth_applications", on_delete: :nullify
+  add_foreign_key "mcp_tool_calls", "users"
   add_foreign_key "membership_applications", "people"
   add_foreign_key "membership_applications", "teams"
   add_foreign_key "memberships", "people"
@@ -1067,6 +1289,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
   add_foreign_key "reply_votes", "questions"
   add_foreign_key "reply_votes", "replies"
   add_foreign_key "shortcuts", "teams"
+  add_foreign_key "signup_audience_rules", "badges", on_delete: :cascade
+  add_foreign_key "signup_audience_rules", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "signup_audience_rules", "people", on_delete: :cascade
+  add_foreign_key "signup_audience_rules", "signup_sheets", on_delete: :cascade
+  add_foreign_key "signup_audience_rules", "teams", on_delete: :cascade
+  add_foreign_key "signup_position_rules", "signup_positions", on_delete: :cascade
+  add_foreign_key "signup_positions", "signup_sheets", on_delete: :cascade
+  add_foreign_key "signup_sheet_events", "events"
+  add_foreign_key "signup_sheet_events", "signup_sheets", on_delete: :cascade
+  add_foreign_key "signup_sheet_organizers", "people", on_delete: :cascade
+  add_foreign_key "signup_sheet_organizers", "signup_sheets", on_delete: :cascade
+  add_foreign_key "signup_sheets", "event_types", on_delete: :nullify
+  add_foreign_key "signup_sheets", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "signup_sheets", "teams"
+  add_foreign_key "signup_slots", "events"
+  add_foreign_key "signup_slots", "signup_positions"
+  add_foreign_key "signups", "people", column: "on_behalf_of_id", on_delete: :nullify
+  add_foreign_key "signups", "people", column: "signed_up_by_id", on_delete: :nullify
+  add_foreign_key "signups", "people", on_delete: :cascade
+  add_foreign_key "signups", "signup_slots"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

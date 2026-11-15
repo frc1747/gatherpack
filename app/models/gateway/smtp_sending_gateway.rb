@@ -3,7 +3,7 @@ class Gateway::SmtpSendingGateway < Gateway
   store_accessor :configuration, :host
   store_accessor :configuration, :port
   store_accessor :configuration, :username
-  store_accessor :configuration, :password
+  store_accessor :secrets, :password
   store_accessor :configuration, :sender
   store_accessor :configuration, :authentication
 

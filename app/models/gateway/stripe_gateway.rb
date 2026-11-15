@@ -1,9 +1,9 @@
 class Gateway::StripeGateway < Gateway
   Gateway.register(self, :payment)
-  store_accessor :configuration, :secret_key
+  store_accessor :secrets, :secret_key
   store_accessor :configuration, :public_key
   store_accessor :configuration, :test_mode
-  store_accessor :configuration, :secret
+  store_accessor :secrets, :secret
 
   def fields
     [ :public_key, :secret_key, :test_mode, :secret ]
@@ -44,15 +44,22 @@ class Gateway::StripeGateway < Gateway
     [ "HTTP_STRIPE_SIGNATURE" ]
   end
 
-  def handle_webhook(payload, headers)
-    event = Stripe::Event.construct_from(JSON.parse(payload))
+  def verify_webhook(payload, headers)
+    return refuse_without_secret if secret.blank?
 
-    if secret.present?
-      begin
-        event = Stripe::Webhook.construct_event(payload, headers["HTTP_STRIPE_SIGNATURE"], secret)
-      rescue Stripe::SignatureVerificationError => e
-        raise "Stripe webhook signature verification failed. #{e.message}"
-      end
+    Stripe::Webhook::Signature.verify_header(payload, headers["HTTP_STRIPE_SIGNATURE"], secret, tolerance: Stripe::Webhook::DEFAULT_TOLERANCE)
+    true
+  rescue Stripe::SignatureVerificationError
+    false
+  end
+
+  def handle_webhook(payload, headers)
+    return refuse_without_secret if secret.blank?
+
+    begin
+      event = Stripe::Webhook.construct_event(payload, headers["HTTP_STRIPE_SIGNATURE"], secret)
+    rescue Stripe::SignatureVerificationError => e
+      raise "Stripe webhook signature verification failed. #{e.message}"
     end
 
     case event.type
@@ -78,7 +85,17 @@ class Gateway::StripeGateway < Gateway
     update(secret: endpoint.secret)
   end
 
+  def webhook_problem
+    "not ready: no webhook signing secret" if secret.blank?
+  end
+
   def entry_handler_url_for(entry)
     entry.metadata&.dig("stripe_checkout_session", "url")
   end
+
+  private
+    def refuse_without_secret
+      Rails.logger.error("Gateway::StripeGateway##{id} (#{name}) refused a Stripe event: this gateway has no webhook signing secret. Copy the endpoint's signing secret from the Stripe dashboard into this gateway's Secret field.")
+      false
+    end
 end

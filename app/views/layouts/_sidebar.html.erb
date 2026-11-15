@@ -1,4 +1,11 @@
 <div class="sidebar border border-right col-md-3 col-lg-2 p-0 no-print">
+  <% if current_user != true_user %>
+    <%# Below md the sidebar is an off-canvas menu, so say it here too. %>
+    <div class="alert alert-danger d-md-none d-flex align-items-center justify-content-between rounded-0 mb-0 impersonation-banner" role="alert">
+      <span><%= true_user.person.identifier_name %> is impersonating <%= current_user.person.identifier_name %></span>
+      <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: {turbo: false}, class: "btn btn-danger btn-sm" %>
+    </div>
+  <% end %>
   <div class="offcanvas-md offcanvas-end" tabindex="-1" id="sidebarMenu" aria-labelledby="sidebarMenuLabel">
     <div class="offcanvas-header">
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
@@ -51,6 +58,10 @@
 
           <%= nav_link "Setup", setup_path, "cogs" %>
           <%= nav_link "Audit Log", audit_logs_path, "file-circle-check" %>
+          <%# The route exists only while oauth_provider was on at boot. %>
+          <% if GatherPack::Features.enabled?(:mcp) && respond_to?(:mcp_calls_path) %>
+            <%= nav_link "MCP Calls", mcp_calls_path, "robot" %>
+          <% end %>
         <% end %>
       </div>
 

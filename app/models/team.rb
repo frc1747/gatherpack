@@ -27,6 +27,7 @@ class Team < ApplicationRecord
 
   validates :name, presence: true
   validates :join_permission, inclusion: { in: join_permissions.keys }
+  validate :parent_not_below_itself, if: :parent_id_changed?
 
   scope :top_level, -> { where(parent_id: nil) }
 
@@ -42,6 +43,40 @@ class Team < ApplicationRecord
     [ "team_type", "parent" ]
   end
 
+  # Ids of the given teams and every team below them, in one recursive query.
+  # UNION (not UNION ALL) drops rows already seen, so a cycle in parent_id
+  # cannot loop forever.
+  def self.subtree_ids(ids)
+    ids = Array(ids).compact
+    return [] if ids.empty?
+
+    sql = sanitize_sql_array([ <<~SQL.squish, ids ])
+      WITH RECURSIVE subtree(id) AS (
+        SELECT teams.id FROM teams WHERE teams.id IN (?)
+        UNION
+        SELECT teams.id FROM teams INNER JOIN subtree ON teams.parent_id = subtree.id
+      )
+      SELECT id FROM subtree
+    SQL
+    connection.select_values(sql)
+  end
+
+  # Ids of the given teams and every team above them, in one recursive query.
+  def self.ancestor_ids(ids)
+    ids = Array(ids).compact
+    return [] if ids.empty?
+
+    sql = sanitize_sql_array([ <<~SQL.squish, ids ])
+      WITH RECURSIVE ancestry(id, parent_id) AS (
+        SELECT teams.id, teams.parent_id FROM teams WHERE teams.id IN (?)
+        UNION
+        SELECT teams.id, teams.parent_id FROM teams INNER JOIN ancestry ON teams.id = ancestry.parent_id
+      )
+      SELECT id FROM ancestry
+    SQL
+    connection.select_values(sql)
+  end
+
   def siblings
     if parent
       Team.where(parent_id: parent_id).where.not(id: id)
@@ -51,7 +86,7 @@ class Team < ApplicationRecord
   end
 
   def all_descendant_ids
-    children.flat_map { |child| [ child.id ] + child.all_descendant_ids }
+    self.class.subtree_ids(id) - [ id ]
   end
 
   def all_descendants
@@ -134,5 +169,20 @@ class Team < ApplicationRecord
     old_parent = Team.find_by(id: parent_id_before_last_save) if saved_change_to_parent_id?
     team_ids += [ old_parent.id ] + old_parent.all_ancestor_ids if old_parent
     BadgeAssignment.remove_outside_team(BadgeAssignment.joins(:badge).where(badges: { team_id: team_ids }))
+  end
+
+  # A team under itself makes all_ancestors and all_descendants recurse
+  # forever. Walk up from the new parent, remembering where we've been, so
+  # the check itself stops even if the teams above already loop.
+  def parent_not_below_itself
+    seen = Set.new
+    team = parent
+    while team && seen.add?(team.id)
+      if team.id == id
+        errors.add(:parent_id, :not_below_itself, message: "can't be this team or one under it")
+        return
+      end
+      team = team.parent
+    end
   end
 end

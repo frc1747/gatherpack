@@ -11,7 +11,7 @@ class TimeClockPeriodsController < InternalController
 
   # GET /time_clock_periods/1
   def show
-    @q = policy_scope(TimeClockPunch).where(time_clock_period: @time_clock_period).ransack(params[:q])
+    @q = policy_scope(TimeClockPunch).where(time_clock_period: @time_clock_period).ransack(params[:q], auth_object: current_user)
     @time_clock_punches = @q.result(distinct: true).includes(:person).order(start_time: :desc, end_time: :desc).page(params[:page])
     @time_clock_punches.each do |punch|
       if policy(punch).edit?
@@ -98,7 +98,12 @@ class TimeClockPeriodsController < InternalController
 
   # PATCH/PUT /time_clock_periods/1
   def update
-    if @time_clock_period.update(time_clock_period_params)
+    # set_time_clock_period checked it as stored; check it as it will be saved too, so
+    # it can't be moved somewhere the user doesn't manage.
+    @time_clock_period.assign_attributes(time_clock_period_params)
+    authorize @time_clock_period
+
+    if @time_clock_period.save
       redirect_to @time_clock_period, notice: "Time clock period was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
