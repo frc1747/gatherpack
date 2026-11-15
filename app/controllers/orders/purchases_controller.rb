@@ -45,14 +45,21 @@ module Orders
       @group = Orders::ToBuy.new(current_user.person).selection(params[:line_ids])
       @purchase = Purchase.new(purchase_attributes)
       vendor, other_vendor_name = chosen_vendor
-      purchase = Purchase.transaction do
-        recorded = Orders::RecordPurchase.new(buyer: current_user.person, lines: @group.lines, vendor: vendor,
-          other_vendor_name: other_vendor_name, prices: line_prices, attributes: purchase_attributes,
-          receipts: params.dig(:purchase, :receipts)).call
-        record_in_ledger(recorded)
-        recorded
+      ledger = ledger_choice
+      purchase = Orders::RecordPurchase.new(buyer: current_user.person, lines: @group.lines, vendor: vendor,
+        other_vendor_name: other_vendor_name, prices: line_prices, attributes: purchase_attributes,
+        receipts: params.dig(:purchase, :receipts)).call
+      notice = recorded_notice(purchase)
+      if ledger
+        # After the purchase commits, so its receipts are stored and can be
+        # copied to the entry.
+        begin
+          Orders::RecordInLedger.new(purchase, ledger: ledger, by: current_user.person).call
+        rescue Orders::Refused => e
+          return redirect_to orders_purchase_path(purchase), notice: notice, alert: e.message
+        end
       end
-      redirect_to orders_purchase_path(purchase), notice: recorded_notice(purchase)
+      redirect_to orders_purchase_path(purchase), notice: notice
     rescue ActiveRecord::RecordInvalid => e
       prefix = e.record.is_a?(OrderLine) ? "#{e.record.display_name}: " : ""
       @errors = e.record.errors.full_messages.map { |message| prefix + message }
@@ -121,12 +128,15 @@ module Orders
       end.to_h
     end
 
-    # Record in ledger, when ticked on the purchase form (spec §6). A refusal
-    # rolls the purchase back with it.
-    def record_in_ledger(purchase)
+    # The ledger to record the purchase in, when Record in ledger is ticked
+    # (spec §6). Checked before anything is recorded, so a ledger the buyer
+    # can't add to refuses the purchase too.
+    def ledger_choice
       return unless params[:record_in_ledger] == "1" && Orders::LedgerRecording.ledger_on?
 
-      Orders::RecordInLedger.new(purchase, ledger: Ledger.find_by(id: params[:ledger_id]), by: current_user.person).call
+      ledger = Ledger.find_by(id: params[:ledger_id])
+      Orders::RecordInLedger.check!(ledger: ledger, by: current_user.person)
+      ledger
     end
 
     def paid_with_labels

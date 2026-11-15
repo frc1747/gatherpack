@@ -37,6 +37,41 @@ class Orders::LedgerControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "recording in the ledger with the purchase copies the receipt the buyer attached" do
+    with_orders(@world) do
+      line = approved_request(@world, lines: [ { description: "Gear", price: 10, vendor_id: @world.preferred_vendor.id } ]).order_lines.first
+      sign_in @world.manager.user
+
+      receipt = Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4 receipt"), "application/pdf", original_filename: "receipt.pdf")
+      post orders_purchases_url, params: { line_ids: [ line.id ], record_in_ledger: "1", ledger_id: @ledger.id,
+        purchase: { ordered_on: Date.current.iso8601, paid_with: "Team card", receipts: [ receipt ] } }
+
+      purchase = Purchase.order(:created_at).last
+      assert_redirected_to orders_purchase_url(purchase)
+      entry = purchase.ledger_entry
+      assert_equal [ "receipt.pdf" ], entry.receipts.map { |file| file.filename.to_s }
+      assert_equal "%PDF-1.4 receipt", entry.receipts.first.download
+      assert_equal "%PDF-1.4 receipt", purchase.receipts.first.download
+    end
+  end
+
+  test "deleting a purchase's ledger entry puts the purchase back to Not in ledger" do
+    with_orders(@world) do
+      purchase = buy(@world, approved_request(@world).order_lines)
+      entry = Orders::RecordInLedger.new(purchase, ledger: @ledger, by: @world.admin).call
+      sign_in @world.manager.user
+
+      delete ledger_ledger_entry_url(@ledger, entry)
+
+      assert_redirected_to ledger_url(@ledger)
+      assert_not LedgerEntry.exists?(entry.id)
+      assert_nil purchase.reload.ledger_entry_id
+      get orders_purchase_url(purchase)
+      assert_select "#purchase_ledger", /Not in ledger/
+      assert_select "#purchase_ledger form", 1
+    end
+  end
+
   test "a buyer without ledger permission gets no choice, and a forged one is refused without recording the purchase" do
     with_orders(@world) do
       line = approved_request(@world, lines: [ { description: "Gear", price: 10, vendor_id: @world.preferred_vendor.id } ]).order_lines.first
@@ -197,6 +232,28 @@ class Orders::LedgerControllerTest < ActionDispatch::IntegrationTest
 
       patch orders_funding_source_budget_url(source), params: { funding_source: { budget_id: "" } }
       assert_nil source.reload.budget
+    end
+  end
+
+  test "a funding manager can keep a Budget they can't list themselves" do
+    with_orders(@world) do
+      club_manager = orders_person("Leader", teams: { @world.club => true })
+      budget = orders_budget(@world, "Build")
+      source = FundingSource.create!(team: @world.robotics, name: "Build budget", budget: budget)
+      sign_in club_manager.user
+
+      get edit_orders_funding_source_budget_url(source)
+      assert_select "select[name='funding_source[budget_id]'] option[selected][value='#{budget.id}']"
+
+      patch orders_funding_source_budget_url(source), params: { funding_source: { budget_id: budget.id } }
+      assert_redirected_to edit_orders_funding_source_budget_url(source)
+      assert_nil flash[:alert]
+      assert_equal budget, source.reload.budget
+
+      other = orders_budget(@world, "Other")
+      patch orders_funding_source_budget_url(source), params: { funding_source: { budget_id: other.id } }
+      assert_equal "Choose one of the budgets listed.", flash[:alert]
+      assert_equal budget, source.reload.budget
     end
   end
 

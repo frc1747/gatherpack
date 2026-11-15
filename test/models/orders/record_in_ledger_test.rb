@@ -143,4 +143,26 @@ class Orders::RecordInLedgerTest < ActiveSupport::TestCase
       assert_equal budget, source.reload.budget
     end
   end
+
+  test "deleting the ledger leaves its purchases Not in ledger" do
+    with_orders(@world) do
+      purchase = buy(@world, approved_request(@world).order_lines)
+      Orders::RecordInLedger.new(purchase, ledger: @ledger, by: @world.admin).call
+
+      @ledger.destroy!
+
+      assert_nil purchase.reload.ledger_entry_id
+    end
+  end
+
+  test "deleting a Budget unlinks the funding sources linked to it" do
+    with_orders(@world) do
+      budget = orders_budget(@world, "Build")
+      source = FundingSource.create!(team: @world.robotics, name: "Build", budget: budget)
+
+      Budget.find(budget.id).destroy!
+
+      assert_nil source.reload.budget_id
+    end
+  end
 end

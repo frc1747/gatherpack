@@ -17,10 +17,15 @@ module Orders
       @by = by
     end
 
-    def call
+    # Refuses a ledger this person can't record in, before anything is written.
+    def self.check!(ledger:, by:)
       raise Orders::Refused, "The ledger is turned off." unless LedgerRecording.ledger_on?
       raise Orders::Refused, "Choose a ledger." if ledger.nil?
       raise Orders::Refused, "You can't add entries to #{ledger.name}." unless LedgerRecording.can_add_to?(by, ledger)
+    end
+
+    def call
+      self.class.check!(ledger: ledger, by: by)
 
       Purchase.transaction do
         purchase.lock!
@@ -66,7 +71,8 @@ module Orders
     end
 
     # Copies, not shared blobs, so removing a receipt from one side leaves
-    # the other's.
+    # the other's. The purchase's receipts must be stored already: record a
+    # new purchase after its transaction commits.
     def copy_receipts(entry)
       purchase.receipts.each do |receipt|
         entry.receipts.attach(io: StringIO.new(receipt.download), filename: receipt.filename.to_s,

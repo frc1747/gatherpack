@@ -14,7 +14,9 @@ module Orders
     # PATCH /orders/funding_sources/1/budget
     def update
       budget_id = params.dig(:funding_source, :budget_id).presence
-      budget = budget_id && budget_choices.find { |choice| choice.id == budget_id }
+      # The current Budget stays a choice even when it's outside the
+      # person's budgets (an admin linked it).
+      budget = budget_id && (budget_id == @funding_source.budget_id ? @funding_source.budget : budget_choices.find { |choice| choice.id == budget_id })
       raise Orders::Refused, "Choose one of the budgets listed." if budget_id && budget.nil?
 
       @funding_source.link_budget!(budget)
