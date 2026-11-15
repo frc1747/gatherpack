@@ -1,0 +1,15 @@
+<%# A form for some settings, for a feature's own settings page:
+      render "settings/form", keys: %i[my_setting other_setting], return_to: request.path
+    Admin only, like the settings page; it saves through the same action and
+    comes back to return_to (a path on this site). Keys not registered are
+    skipped. %>
+<% settings = keys.filter_map { |key| Settings.get(key.to_sym) } %>
+<%= simple_form_for :settings, url: update_settings_path do |f| %>
+  <%= hidden_field_tag :return_to, return_to, id: nil %>
+  <% settings.each do |setting| %>
+    <%= render "settings/inputs/field", f: f, setting: setting %>
+  <% end %>
+  <div class="sticky-bottom bg-body border-top py-2">
+    <%= f.submit "Save", class: "btn btn-lg btn-success" %>
+  </div>
+<% end %>

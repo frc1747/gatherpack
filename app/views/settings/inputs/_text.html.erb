@@ -1,0 +1,11 @@
+<label class="form-label" for="<%= setting_input_id(input) %>"><%= setting.name %></label>
+<%= text_field_tag "settings[#{setting.setting_key}]", input.value,
+                   id: setting_input_id(input), class: "form-control", style: "min-height: 44px",
+                   list: (setting_input_id(input, "suggestions") if input.suggestions.any?) %>
+<% if input.suggestions.any? %>
+  <datalist id="<%= setting_input_id(input, "suggestions") %>">
+    <% input.suggestions.each do |suggestion| %>
+      <option value="<%= suggestion %>"></option>
+    <% end %>
+  </datalist>
+<% end %>

@@ -1,0 +1,22 @@
+<%# One setting on a feature's own settings page (settings/_form): its picker,
+    or the same field the settings page draws for its type. %>
+<div class="row align-items-end">
+  <% if SettingInput.for(setting) %>
+    <%= render "settings/inputs/input", f: f, setting: setting %>
+  <% elsif setting.setting_type == :boolean %>
+    <%= f.input setting.setting_key, as: "select", label: setting.name,
+                                    collection: { "true": true, "false": false },
+                                    selected: setting.value,
+                                    wrapper_html: { class: "col-12 col-md" } %>
+  <% else %>
+    <%= f.input setting.setting_key, as: setting.setting_type, label: setting.name,
+                                    placeholder: setting.default_value,
+                                    input_html: { value: setting.value },
+                                    wrapper_html: { class: "col-12 col-md" } %>
+  <% end %>
+  <div class="col-12 col-md mb-3">
+    <%= setting.description %>
+    <br>
+    Default: <%= setting_default_label(setting) %>
+  </div>
+</div>

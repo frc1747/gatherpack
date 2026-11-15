@@ -1,0 +1,11 @@
+<%# A setting drawn with its picker (Settings.input), in place of the text box. %>
+<% input = SettingInput.for(setting) %>
+<div class="col-12 col-md mb-3">
+  <% if input.readable? %>
+    <%= render partial: input.to_partial_path, locals: { f: f, setting: setting, input: input } %>
+  <% else %>
+    <label class="form-label" for="<%= setting_input_id(input) %>"><%= setting.name %></label>
+    <%= text_field_tag "settings[#{setting.setting_key}]", input.value, id: setting_input_id(input), class: "form-control", style: "min-height: 44px" %>
+    <div class="form-text">The saved value can't be shown in a picker, so it's shown as saved. Correct it or clear it to use the picker.</div>
+  <% end %>
+</div>
