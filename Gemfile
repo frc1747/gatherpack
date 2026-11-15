@@ -145,3 +145,5 @@ gem "redcarpet", "~> 3"
 gem "overmind", "~> 2"
 
 gem "herb", "~> 0.11.0"
+
+gem "rqrcode", "~> 3"
