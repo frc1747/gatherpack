@@ -11,7 +11,7 @@ Rails.application.config.to_prepare do
   merge.register :order_approvals, :approver_id, label: "Order approvals"
   merge.register :order_request_events, :actor_id, label: "Order history"
   merge.register :order_request_watchers, :person_id, unique_by: :order_request_id, model: OrderRequestWatcher,
-    label: "Order requests watched"
+    label: "Order requests followed"
   merge.register :purchases, :buyer_id, label: "Purchases made"
   merge.register :purchases, :reimburse_to_id, label: "Purchases to pay back"
   merge.register :order_deliveries, :received_by_id, label: "Deliveries received"
