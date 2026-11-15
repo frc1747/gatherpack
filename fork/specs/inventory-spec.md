@@ -2,7 +2,7 @@
 
 Status: draft. Nothing is built.
 
-`feature/inventory` is meant for upstream. It doesn't mention any organization, and it knows nothing about orders. The companion spec is [`orders-spec.md`](orders-spec.md); its §4 is the outline this spec fills in, and its §5 is the bridge, `feature/order-inventory`.
+`feature/inventory` knows nothing about orders. The companion spec is [`orders-spec.md`](orders-spec.md); its §4 is the outline this spec fills in, and its §5 is the bridge, `feature/order-inventory`.
 
 ## 1. Purpose
 
@@ -262,7 +262,7 @@ All models use `has_paper_trail versions: { class_name: "AuditLog" }`, as upstre
 
 Migrations are new and reversible. Upstream files touched (estimate): `db/schema.rb`, `Gemfile` and `Gemfile.lock` (`rqrcode`). Routes go in `config/routes/inventory.rb` and the digest job in `config/recurring.d/inventory.yml` (`feature/recurring-routes-seams`). Settings, hook events and the feature registration go in `config/initializers/inventory.rb` (`feature/extension-registries`), so `lib/settings.rb`, `app/models/hook.rb`, `config/routes.rb` and `config/initializers/features.rb` aren't edited.
 
-**Branch base.** `feature/inventory` is based on `feature/extension-registries` and `feature/recurring-routes-seams`, both upstream-intended infrastructure with no orders code, because upstream itself has neither `Settings.register`, `GatherPack::HookCatalog` nor the routes and recurring seams.
+**Branch base.** `feature/inventory` is based on `feature/extension-registries` and `feature/recurring-routes-seams`, which have no orders code, because upstream itself has neither `Settings.register`, `GatherPack::HookCatalog` nor the routes and recurring seams.
 
 ## 4. Hooks
 
