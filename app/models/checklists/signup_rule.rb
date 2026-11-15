@@ -25,9 +25,11 @@ module Checklists
   # open to you" (or "to them"). One that covers them is named, and linked
   # on the page when the viewer may open it. A viewer who may not see the
   # result is refused without the checklist's name, so the reason says
-  # nothing about whether it covers the person. Turned off, a draft or
-  # archived, the rule's reason names the checklist only to the sheet's
-  # organizers and for people it covers.
+  # nothing about whether it covers the person. The sheet's organizers
+  # keep the detailed reason. Turned off, a draft or archived, the rule's
+  # reason names the checklist only to the sheet's organizers and for
+  # people it covers; anyone else who may not see the person's result gets
+  # the fixed reason.
   #
   # Prepended to SignupPositionRule by config/initializers/checklists_signups.rb.
   module SignupRule
@@ -134,7 +136,7 @@ module Checklists
     end
 
     def reload(...)
-      @checklist_statuses = @sees_result = @opens_checklist = @covers = nil
+      @checklist_statuses = @sees_result = @opens_checklist = @covers = @sheet_organizer = nil
       super
     end
 
@@ -152,11 +154,14 @@ module Checklists
 
     # Checklists turned off, or the checklist a draft or archived: the rule
     # fails for everyone, naming the checklist except to someone other than
-    # the sheet's organizers about a person it doesn't cover.
+    # the sheet's organizers about a person it doesn't cover. Whether it
+    # covers them is told only to the person and to whoever may see their
+    # result; anyone else gets the fixed reason either way.
     def unavailable_reason(person)
       viewer = Checklists::SignupViewer.person
-      if viewer && !signup_position.signup_sheet.organizer?(viewer) && !covers?(person)
-        return not_open_reason(person, viewer)
+      if viewer && !sheet_organizer?(viewer)
+        return hidden_reason unless viewer.id == person&.id || sees_result?(viewer, person)
+        return not_open_reason(person, viewer) unless covers?(person)
       end
       return "#{checklist_requirement} (checklists are turned off)" unless Checklists.enabled?
 
@@ -167,12 +172,17 @@ module Checklists
     # checklist doesn't cover isn't told which checklist it is; otherwise
     # the requirement, its title linked when the viewer may open it.
     def sheet_reason(person, viewer)
-      return not_open_reason(person, viewer) if checklist_status(person).nil?
+      return not_open_reason(person, viewer) if checklist_status(person).nil? && !sheet_organizer?(viewer)
       return checklist_requirement if Checklists::SignupViewer.placing || !opens_checklist?(viewer)
 
       helpers = ActionController::Base.helpers
       title = helpers.link_to(checklist.title, Rails.application.routes.url_helpers.checklist_path(checklist))
       helpers.safe_join([ "Needs ", title, ": ", requirement_words ])
+    end
+
+    def sheet_organizer?(viewer)
+      @sheet_organizer ||= {}
+      @sheet_organizer.fetch(viewer.id) { @sheet_organizer[viewer.id] = signup_position.signup_sheet.organizer?(viewer) }
     end
 
     def opens_checklist?(viewer)

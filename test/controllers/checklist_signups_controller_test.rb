@@ -451,6 +451,36 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "turned off, a draft or archived, someone who can't see a relative's result gets the same fixed reason, covered or not" do
+    require_checklist
+    crew = @sheet.signup_positions.create!(name: "Crew", capacity: 4)
+    crew.signup_position_rules.create!(kind: :checklist, checklist: create_checklist("Crew Trip", @concessions))
+    sign_in person(:parent).user
+    hidden = "You can't see their results for this place, so can't sign them up here"
+
+    { "turned off" => -> { }, "draft" => -> { Checklist.update_all(status: :draft) }, "archived" => -> { Checklist.update_all(status: :archived) } }.each do |label, change|
+      change.call
+      with_settings(feature_checklists: label == "turned off" ? "false" : "true") do
+        [ @position, crew ].each do |position|
+          post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(position).id, person_id: person(:student).id } }
+          assert_response :unprocessable_entity
+          assert_match hidden, response.body, "#{label}: #{position.name}"
+          assert_no_match(/Not open|Trip/, response.body, "#{label}: #{position.name}")
+        end
+      end
+    end
+  end
+
+  test "the sheet's organizers keep the detailed reason on the sheet page, about someone the checklist doesn't cover" do
+    @checklist = create_checklist("Crew Trip", @concessions)
+    rule = require_checklist
+    assert @sheet.organizer?(person(:admin))
+
+    reason = ->(viewer) { Checklists::SignupViewer.set(person: person(viewer), sheet: true) { rule.reload.check(person(:student), @event) } }
+    assert_equal %(Needs <a href="#{checklist_path(@checklist)}">Crew Trip</a>: Complete), reason.call(:admin)
+    assert_equal "Not open to you", reason.call(:student)
+  end
+
   test "with checklists off there's no panel, and the rule still holds" do
     require_checklist
     attest(:student)

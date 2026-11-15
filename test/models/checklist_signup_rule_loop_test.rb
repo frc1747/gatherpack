@@ -2,7 +2,8 @@ require "test_helper"
 require_relative "../support/signups_world"
 
 # A checklist rule on a position whose sign-ups, or check-ins at the
-# sheet's event type, count toward that same checklist (BL-045).
+# sheet's event type or its places' events, count toward that same
+# checklist.
 class ChecklistSignupRuleLoopTest < ActiveSupport::TestCase
   include SignupsWorld
 
@@ -72,11 +73,17 @@ class ChecklistSignupRuleLoopTest < ActiveSupport::TestCase
     assert_nil Checklists::SignupRuleLoop.new(@rule).warning
   end
 
-  test "no warning when the sheet has no event type, whatever check-ins count" do
-    @sheet.update!(event_type: nil)
-    add_source("checkins", event_types(:one))
+  test "check-ins at the events the position has places at warn, though the sheet has no event type" do
+    outreach = EventType.create!(name: "Outreach")
+    parade = Event.create!(name: "Parade", start_time: Time.zone.local(2026, 12, 5, 10), end_time: Time.zone.local(2026, 12, 5, 14),
+      event_type: outreach, team: @club)
+    sheet = create_world_sheet("Parade", events: [ parade ])
+    position = sheet.signup_positions.create!(name: "Walker", capacity: 4)
+    rule = position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
+    assert_nil sheet.event_type_id
+    add_source("checkins", outreach)
 
-    assert_not Checklists::SignupRuleLoop.new(@rule.reload).loop?
+    assert_match "Signing up here counts toward Outreach", Checklists::SignupRuleLoop.new(rule).warning
   end
 
   test "no warning once people partway through may take the place" do
