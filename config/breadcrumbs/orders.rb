@@ -6,3 +6,8 @@ crumb :order_request do |order_request|
   link order_request.display_title, orders_request_path(order_request)
   parent :orders_requests
 end
+
+crumb :orders_notice_preference do
+  link "Buying notices", edit_orders_notice_preference_path
+  parent :orders_requests
+end

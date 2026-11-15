@@ -49,7 +49,34 @@ class Orders::RemindersTest < ActiveSupport::TestCase
       start approved_request(@world, needed_by: Date.current + 2)
       Orders::Reminders.needed_soon
 
-      assert_equal addresses(@world.buyer, @world.manager, @world.admin), emailed
+      assert_equal addresses(@world.buyer), emailed
+    end
+  end
+
+  test "an admin or manager who chose buying notices is reminded as a buyer too" do
+    with_notices do
+      OrderNoticePreference.create!(person: @world.manager, buyer_notices: :digest)
+      start approved_request(@world, needed_by: Date.current + 2)
+      Orders::Reminders.needed_soon
+
+      assert_equal addresses(@world.buyer, @world.manager), emailed
+    end
+  end
+
+  test "approvers reminded while it was undecided, the buyers are reminded once it's approved" do
+    with_notices do
+      request = start(submitted_request(@world, needed_by: Date.current + 2))
+      Orders::Reminders.needed_soon
+      assert_equal approvers, emailed
+
+      request.decide!(:approved, by: @world.mentor)
+      clear_enqueued_jobs
+      Orders::Reminders.needed_soon
+      assert_equal addresses(@world.buyer), emailed
+
+      clear_enqueued_jobs
+      Orders::Reminders.needed_soon
+      assert_empty emailed
     end
   end
 
@@ -159,6 +186,8 @@ class Orders::RemindersTest < ActiveSupport::TestCase
 
   test "each buyer in reach gets one digest a day of what's waiting to be bought" do
     with_notices do
+      OrderNoticePreference.create!(person: @world.manager, buyer_notices: :digest)
+      OrderNoticePreference.create!(person: @world.admin, buyer_notices: :digest)
       approved_request(@world, title: "Belts", needed_by: Date.current + 9)
       approved_request(@world, lines: [ { description: "Pinion", price: 8 } ], title: "Pinions")
       start submitted_request(@world)
@@ -179,10 +208,11 @@ class Orders::RemindersTest < ActiveSupport::TestCase
     end
   end
 
-  test "a buyer who chose each approval or none gets no digest" do
+  test "a buyer who chose each approval or none gets no digest, and a manager who never chose gets none" do
     with_notices do
       OrderNoticePreference.create!(person: @world.buyer, buyer_notices: :immediate)
       OrderNoticePreference.create!(person: @world.manager, buyer_notices: :off)
+      OrderNoticePreference.create!(person: @world.admin, buyer_notices: :digest)
       start approved_request(@world)
       Orders::Reminders.buyer_digest
 
@@ -192,6 +222,7 @@ class Orders::RemindersTest < ActiveSupport::TestCase
 
   test "a digest holds only requests within the buyer's reach, and nothing goes when none wait" do
     with_notices do
+      OrderNoticePreference.create!(person: @world.admin, buyer_notices: :digest)
       start approved_request(@world, team: @world.art, by: @world.outsider)
       Orders::Reminders.buyer_digest
 
@@ -222,6 +253,18 @@ class Orders::RemindersTest < ActiveSupport::TestCase
     with_orders(@world, feature_orders: "false") do
       assert_equal 0, Orders::Reminders.buyer_digest
       assert_empty emailed
+    end
+  end
+
+  test "the undecided reminder names the date in the app's time zone" do
+    with_notices(time_zone: "America/Chicago") do
+      travel_to Time.utc(2026, 11, 17, 1, 0) # Monday 7 pm in Chicago
+      submitted_request(@world)
+      travel_to 5.days.from_now
+      clear_enqueued_jobs
+      Orders::Reminders.undecided
+
+      assert_match "since Mon Nov 16", email_to(@world.mentor)
     end
   end
 

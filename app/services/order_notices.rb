@@ -37,7 +37,7 @@ class OrderNotices
     buyers = Orders::Recipients.buyers(order_request.team_id).select { |person| OrderNoticePreference.for(person).buyer_immediate? }
     told + deliver(buyers, "To buy: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} for #{h(order_request.team.name)} was approved and is ready to buy" \
-        "#{h(needed_by_text(order_request))}.</p>#{details(order_request)}"
+        "#{h(needed_by_text(order_request))}.</p>#{details(order_request)}#{preference_link}"
     end
   end
 
@@ -116,7 +116,7 @@ class OrderNotices
   def undecided(order_request)
     deliver(approvers_now(order_request), "Still waiting: #{order_request.display_title}") do
       "<p>#{h(order_request.display_title)} has been waiting for a decision since " \
-        "#{h(order_request.submitted_at.strftime("%a %b %-d"))}.</p>#{details(order_request)}"
+        "#{h(local(order_request.submitted_at).strftime("%a %b %-d"))}.</p>#{details(order_request)}"
     end
   end
 
@@ -126,7 +126,7 @@ class OrderNotices
       rows = order_requests.map do |order_request|
         "<li>#{link_to_request(order_request)}, #{h(order_request.team.name)}#{h(needed_by_text(order_request))}</li>"
       end
-      "<p>Approved and waiting for you to buy:</p><ul>#{rows.join}</ul>"
+      "<p>Approved and waiting for you to buy:</p><ul>#{rows.join}</ul>#{preference_link}"
     end
   end
 
@@ -170,12 +170,22 @@ class OrderNotices
     comment.present? ? "<p>#{h(comment)}</p>" : ""
   end
 
+  # Times shown in the app's time zone, as sign-up notices do.
+  def local(time)
+    time.in_time_zone(Settings[:time_zone].presence || "UTC")
+  end
+
   def needed_by_text(order_request)
     order_request.needed_by ? ", needed by #{order_request.needed_by.strftime("%a %b %-d")}" : ""
   end
 
   def expected_text(date)
     date ? ", expected #{date.strftime("%a %b %-d")}" : ""
+  end
+
+  def preference_link
+    url = Rails.application.routes.url_helpers.edit_orders_notice_preference_url
+    "<p><a href=\"#{h(url)}\">Change how you hear about requests to buy</a></p>"
   end
 
   def link_to_request(order_request, text = nil)

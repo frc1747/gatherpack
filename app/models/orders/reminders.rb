@@ -18,12 +18,14 @@ module Orders
       end
     end
 
-    # Needed in 3 days (or less) with nothing ordered, to whoever holds it.
+    # Needed in 3 days (or less) with nothing ordered, to whoever holds it,
+    # once for each holder: the approvers, then the buyers once approved.
     def needed_soon(today: Date.current)
       return 0 unless Orders.enabled?
 
       OrderRequest.where(status: %i[submitted approved], needed_by: today..(today + NEEDED_SOON_DAYS)).count do |order_request|
-        OrderNoticeMark.claim(order_request, "needed_soon", order_request.needed_by.iso8601) && OrderNotices.new.needed_soon(order_request)
+        holder = order_request.submitted? ? "approvers" : "buyers"
+        OrderNoticeMark.claim(order_request, "needed_soon", "#{order_request.needed_by.iso8601}:#{holder}") && OrderNotices.new.needed_soon(order_request)
       end
     end
 

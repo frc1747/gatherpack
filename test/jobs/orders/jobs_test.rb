@@ -19,6 +19,8 @@ class Orders::JobsTest < ActiveSupport::TestCase
 
   test "the digest job sends the digest, once a day, and nothing with the flag off" do
     world = build_orders_world
+    OrderNoticePreference.create!(person: world.manager, buyer_notices: :digest)
+    OrderNoticePreference.create!(person: world.admin, buyer_notices: :digest)
     with_orders(world) { approved_request(world) }
     clear_enqueued_jobs
 

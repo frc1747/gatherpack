@@ -36,6 +36,7 @@ namespace :orders do
     end
   end
   resources :deliveries, only: :index
+  resource :notice_preference, only: %i[edit update]
   resources :vendors
   resources :funding_sources do
     member do

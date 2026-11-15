@@ -78,6 +78,7 @@ class OrderNoticesTest < ActiveSupport::TestCase
     with_notices do
       OrderNoticePreference.create!(person: @world.buyer, buyer_notices: :immediate)
       OrderNoticePreference.create!(person: @world.manager, buyer_notices: :off)
+      OrderNoticePreference.create!(person: @world.admin, buyer_notices: :digest)
       request = start
       request.decide!(:approved, by: @world.mentor)
 
@@ -162,7 +163,7 @@ class OrderNoticesTest < ActiveSupport::TestCase
 
       request.order_lines.last.record_delivery!(by: @world.teammate, quantity: request.order_lines.last.quantity)
 
-      assert_equal addresses(@requester, @world.teammate, @world.buyer), emailed
+      assert_equal addresses(@requester, @world.buyer), emailed, "not the teammate who received the last item"
     end
   end
 
@@ -171,6 +172,29 @@ class OrderNoticesTest < ActiveSupport::TestCase
       request = start(approved_request(@world, lines: [ { description: "Gear", price: 10 }, { description: "Belt", price: 5 } ]))
       buy(@world, request.order_lines.to_a, vendor: @world.preferred_vendor)
       clear_enqueued_jobs
+      request.mark_all_received!(by: @world.teammate)
+
+      assert_equal addresses(@requester, @world.buyer), emailed
+    end
+  end
+
+  test "the requester who marks everything received isn't told" do
+    with_notices do
+      request = start(approved_request(@world))
+      buy(@world, request.order_lines.to_a, vendor: @world.preferred_vendor)
+      clear_enqueued_jobs
+      request.mark_all_received!(by: @requester)
+
+      assert_equal addresses(@world.buyer), emailed
+    end
+  end
+
+  test "reloading code doesn't make the received notice send twice" do
+    with_notices do
+      request = start(approved_request(@world))
+      buy(@world, request.order_lines.to_a, vendor: @world.preferred_vendor)
+      clear_enqueued_jobs
+      2.times { Rails.application.reloader.prepare! }
       request.mark_all_received!(by: @world.teammate)
 
       assert_equal addresses(@requester, @world.buyer), emailed

@@ -16,9 +16,12 @@ module Orders
       end
     end
 
-    # Buyers whose reach includes the team.
+    # Buyers whose reach includes the team, except those who chose no
+    # buying notices (and, until they choose, those with no buyer grant).
     def buyers(team_id)
-      candidates(Orders::Config.buyers).select { |person| Orders::Access.new(person).buyer_for?(team_id) }
+      candidates(Orders::Config.buyers).select do |person|
+        Orders::Access.new(person).buyer_for?(team_id) && !OrderNoticePreference.for(person).buyer_off?
+      end
     end
 
     # The requester and the people following the request.

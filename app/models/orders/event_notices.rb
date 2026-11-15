@@ -14,16 +14,16 @@ module Orders
       after_create_commit :send_order_notices
     end
 
-    # Subscribes to the status change that has no timeline entry of its own.
-    # Replaces an earlier subscription, so a development reload doesn't send
-    # twice.
-    def self.subscribe!
-      ActiveSupport::Notifications.unsubscribe(@subscription) if @subscription
-      @subscription = ActiveSupport::Notifications.subscribe("order_request_changed.gatherpack") do |*, payload|
-        next unless payload[:to] == "received" && Orders.enabled?
+    # The status change that has no timeline entry of its own. Subscribed
+    # once from config/initializers/orders_notices.rb (a subscription isn't
+    # undone by a code reload, so it looks this up each time it runs). The
+    # person who received the last item isn't told.
+    def self.request_changed(payload)
+      return unless payload[:to] == "received" && Orders.enabled?
 
-        Rails.error.handle(context: { notice: "received" }) { OrderNotices.new.received(payload[:order_request]) }
-      end
+      order_request = payload[:order_request]
+      actor = order_request.events.where(action: "received").reorder(:created_at, :id).last&.actor
+      Rails.error.handle(context: { notice: "received" }) { OrderNotices.new.received(order_request, by: actor) }
     end
 
     private
