@@ -20,7 +20,7 @@ namespace :orders do
         post :cancel, controller: "buyer_lines"
         post :mark_received
         post :resolve
-        post :reallocate
+        post :reallocate, to: "reallocations#create"
       end
       resources :deliveries, only: %i[new create]
     end
@@ -38,11 +38,16 @@ namespace :orders do
     end
   end
   resources :deliveries, only: :index
-  resources :vendors
+  resources :vendors do
+    collection do
+      get :pattern_test
+    end
+  end
   resources :funding_sources do
     member do
       get :report
     end
   end
   resources :reports, only: %i[index show]
+  resource :settings, only: %i[show update]
 end
