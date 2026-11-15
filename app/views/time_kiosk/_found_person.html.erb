@@ -9,9 +9,10 @@
       </div>
       <div class="col-6">
         <h3 class="display-3"><%= @person.identifier_name %></h3>
+        <% manager_clock_out = TimeKiosk::ManagerClockOut.new(@person) %>
         <% if @person.manager? && @person.user %>
           <div class="toolbox justify-content-around">
-            <%= tool_modal_button "triangle-exclamation", "Manager", "btn-info", "managerModal" if @time_kiosk.managed_periods.any? %>
+            <%= tool_modal_button "triangle-exclamation", "Manager", "btn-info", "managerModal" if manager_clock_out.anything? %>
           </div>
 
         <div class="modal modal-xl fade" id="managerModal" tabindex="-1" aria-labelledby="managerModalLabel" aria-hidden="true" data-controller="modal-form" data-modal-form-target="modal">
@@ -22,27 +23,28 @@
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                  <% @time_kiosk.managed_periods.each do |period| %>
+                  <% groups = manager_clock_out.groups %>
+                  <% groups.each do |group| %>
                     <div class="row align-items-center my-1">
                       <div class="col-3">
-                        <%= period.name %> [<%= period.open_punches.count %>]
+                        <%= group.period&.name || "No period" %> [<%= group.punches.size %>]
                       </div>
                       <div class="col-7">
                         <div class="d-flex flex-row flex-wrap">
-                          <% period.open_punches.includes(:person).each do |punch| %>
-                            <%= image_tag get_avatar_url_512(punch.person.avatar), class: "person-img p-1", style: "width: 3rem; height: 3rem;" %>
+                          <% group.punches.each do |punch| %>
+                            <%= image_tag get_avatar_url_512(punch.person.avatar), class: "person-img p-1", style: "width: 3rem; height: 3rem;", title: punch.person.identifier_name %>
                           <% end %>
                         </div>
                       </div>
                       <div class="col-2">
-                        <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_period", time_clock_period_id: period.id, person_ref: @time_kiosk.person_ref }), method: :post %>
+                        <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_period", time_clock_period_id: group.period&.id, person_ref: @time_kiosk.person_ref }), method: :post %>
                       </div>
                     </div>
                   <% end %>
-                  <% if @time_kiosk.managed_periods.many? %>
+                  <% if groups.many? %>
                   <div class="row align-items-center my-1">
                       <div class="col-10 text-end fs-4 fw-bold">
-                        All Periods [<%= @time_kiosk.managed_periods.sum { |p| p.open_punches.count } %>]
+                        All Periods [<%= groups.sum { |group| group.punches.size } %>]
                       </div>
                       <div class="col-2">
                         <%= tool_button "clock", "Clock Out", "btn-warning", time_kiosk_path(time_kiosk: { tool: "punch_out_all", person_ref: @time_kiosk.person_ref }), method: :post %>
