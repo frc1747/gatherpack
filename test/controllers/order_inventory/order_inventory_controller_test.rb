@@ -85,7 +85,7 @@ class OrderInventory::OrderInventoryControllerTest < ActionDispatch::Integration
       line = ordered_line(@world, { description: "Motor", quantity: 3, item: @stock.motor })
       sign_in @world.requester.user
       get new_orders_request_line_delivery_url(line.order_request, line)
-      assert_match "Adds 3 Motor as units; label them later.", response.body
+      assert_match "Adds 3 units of Motor; label them later.", response.body
     end
   end
 
@@ -95,12 +95,12 @@ class OrderInventory::OrderInventoryControllerTest < ActionDispatch::Integration
       sign_in @world.requester.user
       get new_orders_request_line_delivery_url(line.order_request, line)
       assert_select "input[type=checkbox][name='order_inventory[put_away]']:not([checked])"
-      assert_select "label", text: "Which item is it?"
+      assert_select "label", text: "Which inventory item is it?"
       assert_select "input[name='order_inventory[create_item]']", count: 0
 
       sign_in @world.buyer.user
       get new_orders_request_line_delivery_url(line.order_request, line)
-      assert_select "label", text: "Create item from this line"
+      assert_select "label", text: "Create an inventory item from this"
     end
   end
 
@@ -117,17 +117,74 @@ class OrderInventory::OrderInventoryControllerTest < ActionDispatch::Integration
     end
   end
 
-  test "a refused put-away shows as a message and records nothing" do
+  test "a put-away that can't be done still records the delivery, and says why" do
     with_both(@world, @stock) do
       line = ordered_line(@world, { description: "M4 screw", quantity: 2, item: @stock.screws })
       sign_in @world.requester.user
+      assert_no_difference -> { StockMovement.count } do
+        post orders_request_line_deliveries_url(line.order_request, line), params: {
+          order_delivery: { quantity: 2, received_on: Date.current.to_s, condition: "good", note: "Box was wet" },
+          order_inventory: { put_away: "1", location_id: "" }
+        }
+      end
+      assert_redirected_to orders_request_url(line.order_request)
+      assert_equal "Recorded: M4 screw", flash[:notice]
+      assert_equal "M4 screw was recorded but not put away: pick where to put it away", flash[:alert]
+      assert_equal [ "Box was wet" ], line.reload.order_deliveries.map(&:note)
+
+      follow_redirect!
+      assert_match "was recorded but not put away", response.body
+      get orders_request_url(line.order_request)
+      assert_no_match "was recorded but not put away", response.body, "the problem shows once"
+    end
+  end
+
+  test "Track this item isn't offered to a receiver who can't see the inventory item" do
+    with_both(@world, @stock) do
+      # A buyer for the club and the teams below, who isn't on robotics:
+      # orders lets them receive robotics' request; inventory doesn't show
+      # them robotics' item.
+      purchaser = orders_person("Purchaser", teams: [ @world.club ], badges: [ @world.buyer_badge ])
+      robotics_item = Item.create!(team: @world.robotics, name: "Robotics gear", home_location: @stock.bin)
+      line = ordered_line(@world, { description: "Robotics gear", quantity: 2, item: robotics_item })
+      assert_not Inventory::Access.for(purchaser).sees?(robotics_item)
+
+      sign_in purchaser.user
+      get new_orders_request_line_delivery_url(line.order_request, line)
+      assert_response :success
+      assert_select "[name='order_inventory[put_away]']", count: 0
+
       post orders_request_line_deliveries_url(line.order_request, line), params: {
         order_delivery: { quantity: 2, received_on: Date.current.to_s, condition: "good" },
-        order_inventory: { put_away: "1", location_id: "" }
+        order_inventory: { put_away: "1", location_id: @stock.bin.id }
       }
-      assert_response :redirect
-      assert_equal "Pick where to put it away", flash[:alert]
-      assert_equal 0, line.reload.order_deliveries.count
+      assert_equal 1, line.reload.order_deliveries.count
+      assert_equal 0, robotics_item.total_stock
+      assert_match "that inventory item isn't one you can see", flash[:alert]
+    end
+  end
+
+  test "Track this item is offered unticked when the item's place isn't one the receiver can pick" do
+    with_both(@world, @stock) do
+      loose = Item.create!(team: @world.club, name: "Loose part")
+      line = ordered_line(@world, { description: "Loose part", quantity: 1, item: loose })
+      sign_in @world.requester.user
+      get new_orders_request_line_delivery_url(line.order_request, line)
+      assert_select "input[type=checkbox][name='order_inventory[put_away]']:not([checked])"
+      assert_select "select[name='order_inventory[location_id]'] option[selected]", count: 0
+    end
+  end
+
+  test "only someone inventory lets record received may change the number going into stock" do
+    with_both(@world, @stock) do
+      line = ordered_line(@world, { description: "M4 screw", quantity: 2, item: @stock.screws })
+      sign_in @world.requester.user
+      get new_orders_request_line_delivery_url(line.order_request, line)
+      assert_select "input[name='order_inventory[quantity]'][readonly]"
+
+      sign_in @world.buyer.user
+      get new_orders_request_line_delivery_url(line.order_request, line)
+      assert_select "input[name='order_inventory[quantity]']:not([readonly])"
     end
   end
 

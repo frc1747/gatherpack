@@ -33,15 +33,56 @@ module OrderInventory
     # Bought lines still to come keep their items off the reorder list.
     Inventory.extensions.register_on_order(method(:on_order))
 
-    # Order these: a draft request with a line for each ticked item.
+    # Order these: the reorder list runs it (a POST) and goes to a page to
+    # check the items; only that page's own POST makes the draft.
     routes = Rails.application.routes.url_helpers
     Inventory.extensions.register_reorder_action(:order_these, label: "Order these",
       path: ->(rows) { routes.new_order_inventory_reorder_draft_path(items: rows.to_h { |item, quantity| [ item.id, quantity ] }) },
       visible: ->(person) { enabled? && Orders::Access.for(person).requester? })
 
+    # Recent orders on the inventory item's page.
+    Inventory.extensions.register_item_panel(:recent_orders, partial: "order_inventory/recent_orders",
+      visible: ->(_item, person) { enabled? && !person.nil? })
+
+    # A put-away that couldn't be done shows with the delivery's notice.
+    Orders::DeliveriesController.include(OrderInventory::DeliveryNotices)
+
     # The orders vendor on the Where to buy form.
     Inventory.extensions.register_source_fields(:order_inventory, partial: "order_inventory/source_fields",
       permit: [ :vendor_id ])
+  end
+
+  # The note on a movement or units received from a delivery. The request's
+  # path in it is linked where the note is shown (OrderInventoryHelper).
+  def self.movement_note(order_request)
+    path = Rails.application.routes.url_helpers.orders_request_path(order_request)
+    "Order request: #{order_request.display_title} (#{path})"
+  end
+
+  # The newest order items for an inventory item, on requests the person
+  # sees.
+  def self.recent_lines(item, person, limit: 5)
+    return OrderLine.none if person&.user.nil?
+
+    requests = OrderRequestPolicy::Scope.new(person.user, OrderRequest).resolve
+    OrderLine.where(item_type: "Item", item_id: item.id, order_request_id: requests.select(:id))
+      .includes(:order_request).order(created_at: :desc).limit(limit)
+  end
+
+  # May the person put things away at all, and this item: they see it,
+  # and there's a place they can put it.
+  def self.puts_away_item?(person, item)
+    puts_away?(person) && (item.nil? || Inventory::Access.for(person).sees?(item)) && places_for(person).any?
+  end
+
+  # May the person change how many pieces go into stock (record Received
+  # of their own count): inventory lets them record Received for the item.
+  def self.sets_stock_quantity?(person, item)
+    access = Inventory::Access.for(person)
+    member_may = access.user? && access.member_kinds.include?("received")
+    return access.manager? || member_may if item.nil?
+
+    access.manages?(item.team_id) || (access.sees?(item) && member_may)
   end
 
   # OrderLine attributes for an item: what it is, its maker and part
@@ -100,6 +141,11 @@ module OrderInventory
   # The line's item, when it's an inventory item.
   def self.item_for(line)
     line.item if line.item_type == "Item"
+  end
+
+  # "Adds 4 units of Motor; label them later."
+  def self.units_text(item, pieces)
+    "Adds #{pieces} #{'unit'.pluralize(pieces)} of #{item.name}; label them later."
   end
 
   # "2 packs = 200 each", or "3 each" when a unit holds one piece.

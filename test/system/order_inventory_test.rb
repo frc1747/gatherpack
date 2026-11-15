@@ -43,7 +43,7 @@ class OrderInventorySystemTest < ApplicationSystemTestCase
       assert_text "Recorded: M4 screw"
       assert_equal 200, @stock.screws.stock_at(@stock.bin)
       assert line.reload.partly_received?
-      movement = StockMovement.last
+      movement = StockMovement.newest_first.first
       assert_equal [ "received", "Parts Depot" ], [ movement.kind, movement.reason ]
     end
   end
@@ -55,7 +55,7 @@ class OrderInventorySystemTest < ApplicationSystemTestCase
 
       visit new_orders_request_line_delivery_path(line.order_request, line)
       check "Track this item"
-      fill_in "Which item is it?", with: "M4"
+      fill_in "Which inventory item is it?", with: "M4"
       click_on "M4 screw"
       assert_text "This is M4 screw."
       select "Shop › Cabinet › Bin", from: "Put away in"

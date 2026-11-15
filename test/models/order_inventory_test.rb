@@ -104,7 +104,7 @@ class OrderInventoryTest < ActiveSupport::TestCase
       line = ordered_line(@world, { description: "M4 screw", quantity: 2, unit: "box", units_per: 100, item: @stock.screws })
       receive(line, params: put_away_params(@stock.bin))
 
-      movement = StockMovement.last
+      movement = StockMovement.newest_first.first
       assert movement.received?
       assert_equal 200, movement.quantity
       assert_equal @stock.bin, movement.location
@@ -115,16 +115,40 @@ class OrderInventoryTest < ActiveSupport::TestCase
     end
   end
 
-  test "blank units_per means 1, and the number put away can be changed in the dialog" do
+  test "blank units_per means 1, and an inventory manager can change the number put away" do
     with_both(@world, @stock) do
       line = ordered_line(@world, { description: "M4 screw", quantity: 3, item: @stock.screws })
       receive(line, quantity: 2, params: put_away_params(@stock.bin))
-      assert_equal 2, StockMovement.last.quantity
+      assert_equal 2, StockMovement.newest_first.first.quantity
 
-      receive(line.reload, quantity: 1, params: put_away_params(@stock.bin, quantity: "4"))
-      assert_equal 4, StockMovement.last.quantity
+      receive(line.reload, quantity: 1, by: @world.buyer, params: put_away_params(@stock.bin, quantity: "4"))
+      assert_equal 4, StockMovement.newest_first.first.quantity
       assert_equal 6, @stock.screws.total_stock
     end
+  end
+
+  test "a member's own number isn't recorded: the delivery only vouches for what came" do
+    with_both(@world, @stock) do
+      line = ordered_line(@world, { description: "M4 screw", quantity: 1, unit: "box", units_per: 10, item: @stock.screws })
+      assert_not Inventory::Access.for(@world.requester).may_record?("received", @stock.screws, @stock.bin)
+
+      receive(line, params: put_away_params(@stock.bin, quantity: "5000"))
+      assert_equal 10, StockMovement.newest_first.first.quantity
+      assert_equal 10, @stock.screws.total_stock
+    end
+  end
+
+  test "a member may give their own number where inventory lets members record received" do
+    with_both(@world, @stock, inventory_member_kinds: "used, moved, counted, received") do
+      line = ordered_line(@world, { description: "M4 screw", quantity: 1, item: @stock.screws })
+      receive(line, params: put_away_params(@stock.bin, quantity: "3"))
+      assert_equal 3, StockMovement.newest_first.first.quantity
+    end
+  end
+
+  test "the dialog's words count units for a tracked item" do
+    assert_equal "Adds 4 units of Motor; label them later.", OrderInventory.units_text(@stock.motor, 4)
+    assert_equal "Adds 1 unit of Motor; label them later.", OrderInventory.units_text(@stock.motor, 1)
   end
 
   test "the dialog's words convert packs to pieces" do
@@ -185,13 +209,27 @@ class OrderInventoryTest < ActiveSupport::TestCase
     end
   end
 
-  test "a line without an item and nothing picked is refused, and the delivery isn't recorded" do
+  test "an order item with no inventory item and nothing picked isn't put away, but the delivery is recorded" do
     with_both(@world, @stock) do
       line = ordered_line(@world, { description: "small screws", quantity: 5 })
-      error = assert_raises(Orders::Refused) { receive(line, params: put_away_params(@stock.bin)) }
-      assert_match "Pick the item", error.message
-      assert_equal 0, line.reload.order_deliveries.count
-      assert line.ordered?
+      assert_no_difference -> { StockMovement.count } do
+        receive(line, params: put_away_params(@stock.bin))
+      end
+      assert_equal 1, line.reload.order_deliveries.count
+      assert line.received?
+      assert_equal [ "small screws was recorded but not put away: pick the inventory item it is, or create one from it" ],
+        OrderInventory::Current.problems
+    end
+  end
+
+  test "a put-away that fails part way leaves nothing of it behind" do
+    with_both(@world, @stock) do
+      line = ordered_line(@world, { description: "small screws", quantity: 5 })
+      receive(line, params: put_away_params(@stock.art_room, item_id: @stock.screws.id))
+
+      assert_nil line.reload.item, "the link to the inventory item is undone with the rest"
+      assert_not line.order_request.events.where(action: "edited", order_line: line).exists?
+      assert line.received?
     end
   end
 
@@ -221,27 +259,31 @@ class OrderInventoryTest < ActiveSupport::TestCase
     end
   end
 
-  test "only an inventory manager may create an item from a line" do
+  test "only an inventory manager may create an inventory item from an order item" do
     with_both(@world, @stock) do
       line = ordered_line(@world, { description: "Hex key set", quantity: 1 })
       assert_no_difference -> { Item.count } do
-        error = assert_raises(Orders::Refused) { receive(line, params: put_away_params(@stock.bin, create_item: "1")) }
-        assert_match "inventory manager", error.message
+        receive(line, params: put_away_params(@stock.bin, create_item: "1"))
       end
-      assert_equal 0, line.reload.order_deliveries.count
+      assert_match "only an inventory manager can create", OrderInventory::Current.problems.join
+      assert_equal 1, line.reload.order_deliveries.count
     end
   end
 
-  test "a place or item the receiver can't see is refused" do
+  test "a place or inventory item the receiver can't see isn't put away" do
     with_both(@world, @stock) do
       line = ordered_line(@world, { description: "M4 screw", quantity: 1, item: @stock.screws })
-      error = assert_raises(Orders::Refused) { receive(line, params: put_away_params(@stock.art_room)) }
-      assert_match "isn't a place you can see", error.message
-
       art_item = Item.create!(team: @world.art, name: "Paint")
       other = ordered_line(@world, { description: "Paint?", quantity: 1 })
-      assert_raises(Orders::Refused) { receive(other, params: put_away_params(@stock.bin, item_id: art_item.id)) }
+
+      assert_no_difference -> { StockMovement.count } do
+        receive(line, params: put_away_params(@stock.art_room))
+        receive(other, params: put_away_params(@stock.bin, item_id: art_item.id))
+      end
+      assert_match "Art room isn't a place you can see", OrderInventory::Current.problems.first
+      assert_match "that inventory item isn't one you can see", OrderInventory::Current.problems.second
       assert_nil other.reload.item
+      assert [ line.reload, other ].all?(&:received?)
     end
   end
 
@@ -251,6 +293,42 @@ class OrderInventoryTest < ActiveSupport::TestCase
       assert_not Inventory::Access.for(@world.requester).may_record?("received", @stock.screws, @stock.bin)
       receive(line, params: put_away_params(@stock.bin))
       assert_equal 1, @stock.screws.total_stock
+    end
+  end
+
+  # -- Recent orders and the note ----------------------------------------------
+
+  test "Recent orders lists the newest order items for the inventory item, on requests the viewer sees" do
+    with_both(@world, @stock) do
+      mine = ordered_line(@world, { description: "M4 screw", quantity: 2, item: @stock.screws })
+      draft_request(@world, by: @world.teammate, lines: [ { description: "M4 screw", item: @stock.screws } ])
+      ordered_line(@world, { description: "Gear", quantity: 1 })
+
+      assert_equal [ mine ], OrderInventory.recent_lines(@stock.screws, @world.requester).to_a
+      assert_empty OrderInventory.recent_lines(@stock.screws, @world.outsider).to_a
+
+      panel = Inventory.extensions.item_panels(@stock.screws, @world.requester).find { |entry| entry.key == :recent_orders }
+      html = ApplicationController.render(partial: panel.partial, locals: { item: @stock.screws, viewer: @world.requester })
+      assert_includes html, "Recent orders"
+      assert_includes html, "/orders/requests/#{mine.order_request.to_param}"
+      assert_includes html, "Ordered"
+    end
+    with_settings(feature_inventory: "true") do
+      assert_empty Inventory.extensions.item_panels(@stock.screws, @world.requester).select { |entry| entry.key == :recent_orders }
+    end
+  end
+
+  test "the movement's note names the request with its path, which the note helper links" do
+    with_both(@world, @stock) do
+      line = ordered_line(@world, { description: "M4 screw", quantity: 1, item: @stock.screws })
+      receive(line, params: put_away_params(@stock.bin))
+      note = StockMovement.newest_first.first.note
+      path = "/orders/requests/#{line.order_request.to_param}"
+      assert_equal "Order request: #{line.order_request.display_title} (#{path})", note
+
+      html = ApplicationController.helpers.order_inventory_note(note)
+      assert_includes html, %(<a href="#{path}">open the order request</a>)
+      assert_equal "Plain &lt;b&gt;note&lt;/b&gt;", ApplicationController.helpers.order_inventory_note("Plain <b>note</b>")
     end
   end
 end

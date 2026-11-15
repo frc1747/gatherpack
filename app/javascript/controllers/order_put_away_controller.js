@@ -41,7 +41,7 @@ export default class extends Controller {
     const pieces = count * Math.max(this.perValue, 1)
     if (!this.ownNumber && this.hasQuantityTarget) this.quantityTarget.value = pieces
     this.stockBoxTarget.hidden = this.trackedValue
-    this.summaryTarget.textContent = this.trackedValue ? `Adds ${pieces} ${this.itemNameValue} as units; label them later.` : this.conversion(count, pieces)
+    this.summaryTarget.textContent = this.trackedValue ? `Adds ${pieces} ${pieces === 1 ? "unit" : "units"} of ${this.itemNameValue}; label them later.` : this.conversion(count, pieces)
   }
 
   conversion(count, pieces) {
