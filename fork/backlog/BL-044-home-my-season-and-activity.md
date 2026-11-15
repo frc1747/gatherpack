@@ -64,7 +64,7 @@ Settled in `my-gatherpack-spec.md` rev. 5 (decisions 12–16):
 2. Forms stay in Home's To do (already the case on Home); a form a checklist lists shows only as that checklist item.
 3. On a phone the activity page stacks into one column, and History becomes a list.
 
-Task specs (not committed; `~/dev/gatherpack/tasks/`): 270 Home checklist lines, 271 activity page (new `feature/my-gatherpack-activity`), 272 rule wording (BL-045), 273 demo personas.
+Task specs (not committed; `~/dev/gatherpack/tasks/`): 280 Home checklist lines, 281 activity page (new `feature/my-gatherpack-activity`), 282 rule wording (BL-045), 283 demo personas.
 
 ## Done when
 
