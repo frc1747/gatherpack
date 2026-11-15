@@ -43,10 +43,7 @@ class SignupsTest < ApplicationSystemTestCase
     find("[role=option]", text: "StudentTwo World").click
     click_on "Sign up"
 
-    # Not the flash: in CI it was sometimes missing although the sign-up was
-    # saved, likely a picker search answering after the sign-up with the older
-    # session cookie. The place listed under Your places is what matters.
-    within("#my_signups") { assert_text "on behalf of StudentTwo World" }
+    assert_text "You're signed up for Cashier."
     assert_equal person(:student2), Signup.find_by!(person: person(:student)).on_behalf_of
   end
 
