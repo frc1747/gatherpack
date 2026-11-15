@@ -1,6 +1,8 @@
 # Spec: My GatherPack
 
-Status: rev. 4, 2026-11-09. Being built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+Status: rev. 5, 2026-11-15. Being built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+
+Rev. 5 (BL-044): checklist lines on Home say the answer, not the formula, and each fact shows once (§6.4); Your Checklists becomes My Season (§6.2); a new activity page (§7a) with its own branch and flag (§4); demo personas for both (§11). Mock-up: [Home card mock-up](https://claude.ai/artifact/4uzkEM4KVvamz6fwF7JYhg) (private).
 
 Rev. 4: `MyGatherpack::Menu.place` lets a connector add menu placements safely (§5.2); shared queues appear on Home as one row (§6.2); Orders is planned as a connector (§4).
 
@@ -62,12 +64,13 @@ Before building, watch three or four members and a guardian do the §1 tasks on 
 | `feature/my-gatherpack-forms` | `feature/my-gatherpack` + `feature/forms` | Forms sections and the phone form |
 | `feature/my-gatherpack-signups` | `feature/my-gatherpack` + `feature/signups-widget` | Sign-ups section and the phone sheet |
 | `feature/my-gatherpack-checklists` | `feature/my-gatherpack` + `feature/checklists` | To-do items, Your Checklists and the family page rows, from checklists |
+| `feature/my-gatherpack-activity` | `feature/my-gatherpack-family` (which carries the forms, sign-ups and checklists connectors) | The activity page (§7a) and My Season's "Also this season" (§6.4) |
 | `feature/my-gatherpack-orders` | `feature/my-gatherpack` + `feature/orders` | Planned, waits for Orders. To do rows, Your orders and menu placements ([`orders-spec.md`](orders-spec.md) §3.15) |
 | Small `feature/*` branches | `upstream/main` | One per cleanup item (§8), each with its own backlog entry |
 
 A `+` means the second branch is merged in, as a declared dependency. The core branch can't reference forms or sign-ups code, since upstream may not have them. So those sections are connectors, the same pattern as `feature/mcp-forms` and `feature/mcp-signups`.
 
-Flag: `feature_my_gatherpack`, default off. With it off, all of today's screens and the sidebar are unchanged. Registered as `:my_gatherpack` with `position: 20`, so its overrides win over the skin's.
+Flags: `feature_my_gatherpack`, default off; `feature_my_gatherpack_activity` (§7a), default off, which needs `feature_my_gatherpack` on. With it off, all of today's screens and the sidebar are unchanged. Registered as `:my_gatherpack` with `position: 20`, so its overrides win over the skin's.
 
 **Upstream files edited**
 
@@ -150,7 +153,7 @@ Matches the mockups in the pitch.
 | Status | "Clocked in since 4:32 PM", shown only when clocked in | `time_clock_punches.still_clocked_in`, `:time_tracking` enabled |
 | To do | Forms due, checklist items the viewer can fix, waiting on you as a leader | `forms_to_complete`, `leader_todos`, `Checklists.checklist_for` |
 | Coming up | Own sign-ups and events, soonest first, next 5 | `SignupsSummary#signups`, `policy_scope(Event)` |
-| Your Checklists | Each checklist with all its items, unfinished first. Only an item that measures progress (its result carries `confirmed` and `owed`) shows `confirmed of owed` (" h" when its kind measures hours) and a bar; every other item shows its status word as a pill, including one that doesn't apply (e.g. Rookie). A one-item checklist that another of the person's checklists already shows as a line is left out, and that line links to it | `SignupsSummary#checklists` |
+| My Season (was Your Checklists) | Checklist items that aren't in To do, in words (§6.4): **In progress** (unfinished items the viewer can't fix right now, such as attendance), **Done** (collapsed to one line of titles, expandable) and, with the activity flag on, **Also this season** and a "See all your activity →" link (§7a). With nothing to do: "You're all set for now". A one-item checklist that another of the person's checklists already shows as a line is left out, and that line links to it | `SignupsSummary#checklists`, `MyGatherpack::Activity` (§7a) |
 | Latest | Announcements | `@announcements` |
 | Below | Shortcuts, ledgers, as today (no calendar: Coming up links to the full one) | Existing partials and markup |
 
@@ -159,6 +162,33 @@ Order inside To do: past due, then by nearest due date, then those with no date.
 To do counts only what the viewer can act on: `to_do?` already means that for forms, and a checklist item counts only while it's unfinished and has a fix the viewer can use.
 
 Work shared across a queue is one summary row ("12 lines to buy") rather than a row per thing, as leader to-dos roll up by form, so one person's queue doesn't swamp the list and the heading's count. Something active that needs nothing from the viewer isn't a to-do; it belongs in a `:side` section.
+
+### 6.4 Checklist lines in words (rev. 5)
+
+Each checklist item appears **once** on Home: in To do when it's unfinished and has a fix the viewer can use, otherwise in My Season. Its text answers "am I OK?":
+
+| Result | Text | Example |
+|---|---|---|
+| Met | Title, a check, and what the person did, from the result's `confirmed` measure with its unit | "Attendance ✓ 44 h this fall", "Outreach ✓ 5 events" |
+| Met, nothing measured | Title, a check, and the status word | "FIRST consent ✓ Signed" |
+| Pending or not met, measured | The gap and, if the item has one, the due date | "3.5 more hours by Dec 31", "1 more shift" |
+| Pending or not met, not measured | The status word | "Not started" |
+| Exempt | Title and its exempt label, in Done | "Outreach · Rookie" |
+| Pooled count (`group_relationship_type_id`) | The gap for the group | "1 more shift for your family" |
+
+- No `x of y` text and no bars on Home. The full formula (for attendance: the share of hours held, the hours held so far, the person's hours, meetings left) moves to the item's detail, shown when the line is tapped. That's the detail the checklist page already renders (`instance.explain`).
+- "This fall" and similar names come from the attendance rule group in force; with no named group, "this season".
+- A ward's line is tagged with the ward's first name, as To do rows are.
+- The wording lives in `MyGatherpackChecklistsHelper` (`feature/my-gatherpack-checklists`), replacing `my_gatherpack_season_count` and `my_gatherpack_season_percent` (the `x of y` text and the bar). The checklist page and the profile tab keep `x of y` and bars: they're for people reading the detail.
+
+**What shows once, and where.** Sources are matched by reference, never by comparing numbers:
+
+1. Checklist items first. They already carry forms (`form_complete` items), commitments (count items), sign-ups and check-ins (count sources) and attendance.
+2. A form due appears in To do as a form row unless a checklist item of the viewer's (or the ward's) lists its id. Then only the checklist item shows.
+3. Coming up lists places and events, not requirements. A to-do's action ("Sign up: Sat Nov 21") links to the sheet.
+4. "Also this season" (§7a) lists the person's own check-ins by event type, only for event types and sheets that **no** count item covering the person counts. Meeting hours are never in it: attendance covers meetings.
+
+**The leak rule.** Home, My Season and the activity page never name or link a checklist that doesn't cover the person they're about. A person the checklist leaves out sees "Not required for you", never its title.
 
 ### 6.3 Performance
 
@@ -197,6 +227,45 @@ A ward's per-person counts aren't a separate addition any more. Each checklist i
    - This depends only on `feature_my_gatherpack`, because the family page is the only thing it changes.
 
 Time clock punches stay out. `TimeClockPunchPolicy::Scope` is unchanged, so hours on the family page are what a commitment counts. The mockup's meeting hours are that kind.
+
+## 7a. Activity page (rev. 5)
+
+"What have I done this season?", next to Home's "am I OK?". Own records only, so nothing about anyone else's records or any checklist the person isn't on can leak.
+
+### 7a.1 Route, access and flag
+
+- `GET /activity` for yourself and `GET /activity?person=<neat id>` for a ward. `MyGatherpack::ActivityController < InternalController`, `ActivityPolicy#show?`: the person themselves, or a current guardian of theirs (`Person#wards`). Anyone else, including admins (who have the profile), is redirected to their own page. It isn't a reporting tool.
+- Flag `feature_my_gatherpack_activity`, default off. With it off the route redirects home and Home shows no link or "Also this season". Linked from My Season's footer and, for guardians, from each ward's card on the family page.
+
+### 7a.2 Season
+
+The season runs from `Settings[:my_gatherpack_season_start]` (month and day, default May 1, registered with `Settings.register`) for one year. The page shows the current season, with a select for earlier seasons that hold records. A ward's season is the same as the viewer's.
+
+### 7a.3 Content
+
+| Block | Content | Source |
+|---|---|---|
+| Totals | Meeting hours, with meetings attended of held; events by type; hours at events outside meetings; places signed up for | Punches in the season (`TimeClockPunch`, own); check-ins (`Checkin`) on events in the season; `Signup.active` upcoming |
+| By kind of event | One row per event type with a check-in in the season, plus Meetings: events and hours, and what it counts toward. Tapping a row filters History | Check-ins grouped by `event.event_type`; event hours are `end_time − start_time` for `time_kind: timed` events, otherwise "—" |
+| Counts toward | The checklist count item or attendance item covering the person that counts that event type or sheet, by title; else "Not required for you" | Count item sources and attendance items of the checklists that cover the person (`Checklists.checklist_for`) |
+| History | Newest first: check-ins, punches, fulfilled sign-ups, submitted forms, each with how it was recorded and hours | The same records |
+| Coming up | Upcoming sign-ups | `SignupsSummary#signups` |
+| Your checklists | Each covering checklist, its overall in words, linked | `Checklists.checklist_for` with `viewer:` |
+
+At phone width the blocks stack in one column in the order above. History becomes a list (date and hours on one line, event and how below), and By kind of event rows stay full-width 44 px targets.
+
+### 7a.4 A ward's page
+
+Each row goes through the policy that already governs it, and §7.3 doesn't widen anything:
+
+- Check-ins and events: the event's title, date, type and place only, the same fields the family page shows for a ward's upcoming events (§7.3), and no link unless `policy_scope(Event)` already includes the event. Past events are new here: the guardian learns which events the ward checked in at, nothing about anyone else.
+- Sign-ups and forms: as the family page.
+- **Punches stay out** (decision 7). The Meetings row and meeting hours are replaced by the ward's attendance item from their checklists, at its "who sees it" level, or left out.
+- Your checklists: `Checklists.status_for(checklist, [ward], viewer: guardian)`.
+
+### 7a.5 "Also this season" on Home
+
+`MyGatherpack::Activity.uncounted(person, season)` returns event types (with event count and hours) that have a check-in by the person in the season and that no count item covering the person counts (§6.4, point 4). My Season shows them as "Outreach: 2 events · 6 h". The activity page uses the same object, so the two always agree.
 
 ## 8. Phone screens and cleanup
 
@@ -259,6 +328,10 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 - **Query budget** (§6.3), as a measured check with the demo database, not a unit test.
 - **Phone:** system tests at 390 px for each of the top four tasks, completing the task through to saved data, with the flag on and with the skin on and off.
 - **Rollback:** flag off renders today's dashboard and sidebar.
+- **Checklist lines (§6.4):** met with a measure shows what the person did and no threshold; unmet shows the gap and due date; exempt sits in Done with its label; a pooled count says "for your family"; no `x of y` or bar on Home, while the checklist page keeps them; each item appears once (To do or My Season, never both).
+- **Shows once (§6.4):** a form listed by a checklist item isn't also a form row; an event type counted by a count item covering the person isn't in "Also this season"; meeting hours never are.
+- **Leak rule:** a person a checklist doesn't cover never sees its title or a link to it on Home, My Season or the activity page ("Not required for you").
+- **Activity page (§7a):** own page; a guardian's ward page; a non-guardian, a former guardian and an admin are redirected; a ward's page has no punches; season boundaries (a record on the start date belongs to the new season); flag off redirects and hides the link and "Also this season"; Home and the activity page agree on "Also this season".
 
 ## 11. Hooks and sample data
 
@@ -266,7 +339,18 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 
 **MCP.** Tools match the app. `get_person` gains the ward's upcoming events for a guardian, with the same three fields, in a connector branch once the family page ships.
 
-**Sample data.** `fork/sample_data/features/my-gatherpack.rb` makes one Northwind guardian with two wards: one child with a form due and a shift to claim, one all caught up. It also adds a member clocked in with a commitment partly met, and a Forms creator who manages no team, so each state in §10 can be viewed. Connector branches add their records to their own files.
+**Sample data.** `fork/sample_data/features/my-gatherpack.rb` makes one Northwind guardian with two wards: one child with a form due and a shift to claim, one all caught up. It also adds a member clocked in with a commitment partly met, and a Forms creator who manages no team, so each state in §10 can be viewed. Connector branches add their records to their own files. `feature/my-gatherpack-activity` adds, in its own file, check-ins across three event types and punches across two seasons for one member, so §7a's totals, filter and season select all show something.
+
+**Demo personas** (rev. 5, `fork/demo_db/personas.rb` on `hbr/platform`; the help site's captures use these):
+
+| Persona | Email | Shows |
+|---|---|---|
+| Demo Member (exists; holds 2027 Season Rookie) | `demo.member@example.invalid` | The rookie: not on Outreach, two Outreach check-ins, so "Also this season" and "Not required for you" |
+| Demo Student (new, Class of 2028) | `demo.student@example.invalid` | Behind: attendance short with a gap and date, no outreach, no concessions; a form that a checklist item lists, so it shows once |
+| Demo Veteran (new, Class of 2027) | `demo.veteran@example.invalid` | All done: every item met, two upcoming sign-ups, "You're all set for now" |
+| Demo Parent (exists) | `demo.parent@example.invalid` | Guardian of Demo Member and, new, Demo Student, through the pooling relationship, so the family owes Concessions together |
+
+Plus, for [BL-045](../backlog/BL-045-checklist-rule-wording.md): one sign-up sheet with a checklist rule that Demo Student is covered by but hasn't finished, and that Demo Member isn't covered by. The rule's checklist mustn't be one the sheet itself counts toward (or its warning shows instead).
 
 ## 12. Decisions
 
@@ -281,3 +365,8 @@ Others come from Phase 0. Duplicated screens are removed only with a list of wha
 9. **The page says the site's title, not "My GatherPack"** (§5.2a). Decided 2026-11-08.
 10. **Announcements on phones** are under More and on Home.
 11. **People stays in More** for members.
+12. **Home answers, the activity page explains** (rev. 5, Corey 2026-11-15). Home says whether you're OK in words; numbers that need the formula live in the item's detail and on the activity page. One card, not a second stats section.
+13. **Each fact shows once, matched by reference** (§6.4). Checklists first, then loose forms, then sign-ups as the calendar, then activity no checklist counts.
+14. **Attendance covers meetings; everything else is activity** (rev. 5). Meeting hours are never in "Also this season".
+15. **Forms stay in To do on Home** (rev. 5). The separate Forms to Complete card is already replaced on Home (§6.2); a form a checklist lists shows only as that checklist item.
+16. **The activity page is own records only** (rev. 5). A ward's page adds one thing to §7.3: which past events the ward checked in at (title, date, type, place). Punches stay out for guardians.

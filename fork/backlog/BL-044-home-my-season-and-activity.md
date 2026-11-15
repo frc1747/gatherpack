@@ -56,11 +56,15 @@ The person's own records only, for a season (May 1 – Apr 30, switchable to ear
 
 Neither screen names or links a checklist the viewer isn't on. "Counts toward" names only checklists that cover the person; otherwise it reads "Not required for you".
 
-## Open decisions
+## Decisions (Corey, 2026-11-15)
 
-1. Attendance counts meetings, not an event type. Proposed: attendance covers meetings, and everything else is activity. Then "Meeting hours" on the activity page and "Attendance" on the card are the same hours, shown as a total on one and a verdict on the other.
-2. Whether Home's To do absorbs `feature/forms`' separate "Forms to Complete" card (one card instead of two).
-3. Phone layout of the activity page (the mock-up is desktop width; Home's phone frame is spec §8.1).
+Settled in `my-gatherpack-spec.md` rev. 5 (decisions 12–16):
+
+1. Attendance covers meetings; everything else is activity. Meeting hours are never in "Also this season".
+2. Forms stay in Home's To do (already the case on Home); a form a checklist lists shows only as that checklist item.
+3. On a phone the activity page stacks into one column, and History becomes a list.
+
+Task specs (not committed; `~/dev/gatherpack/tasks/`): 270 Home checklist lines, 271 activity page (new `feature/my-gatherpack-activity`), 272 rule wording (BL-045), 273 demo personas.
 
 ## Done when
 
