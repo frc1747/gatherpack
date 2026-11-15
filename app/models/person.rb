@@ -6,7 +6,7 @@ class Person < ApplicationRecord
   belongs_to :user, optional: true
   has_many :memberships, dependent: :destroy
   has_many :membership_applications, dependent: :destroy
-  has_many :teams, through: :memberships
+  has_many :teams, through: :memberships, after_remove: :remove_badges_outside_team
   has_many :badge_assignments, dependent: :destroy
   has_many :badges, through: :badge_assignments
   has_many :checkins, dependent: :destroy
@@ -274,6 +274,13 @@ class Person < ApplicationRecord
   end
 
   private
+
+  # Removing teams through team_ids= deletes memberships without their
+  # callbacks. It removes teams before adding the new ones, so check once the
+  # change is done.
+  def remove_badges_outside_team(_team)
+    self.class.current_transaction.after_commit { BadgeAssignment.remove_outside_team(badge_assignments) }
+  end
 
   def person_fields_for_access
     PersonField.in_use.applicable_to(self).ordered.includes(:person_field_group, person_field_badge_grants: :badge).to_a

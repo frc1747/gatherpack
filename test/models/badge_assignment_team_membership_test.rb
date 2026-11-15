@@ -1,0 +1,136 @@
+require "test_helper"
+
+# A team badge needs its holder in the badge's team. Every way of leaving the
+# team takes the badge away; badges the holder still qualifies for stay.
+class BadgeAssignmentTeamMembershipTest < ActiveSupport::TestCase
+  setup do
+    @pack = Team.create!(name: "Pack", team_type: team_types(:one))
+    @den_a = Team.create!(name: "Den A", team_type: team_types(:one), parent: @pack)
+    @den_b = Team.create!(name: "Den B", team_type: team_types(:one), parent: @pack)
+    @person = Person.create!(first_name: "Ann", last_name: "Test")
+    @membership = Membership.create!(person: @person, team: @den_a)
+    @den_a_badge = create_badge("Den A Helper", @den_a)
+    @pack_badge = create_badge("Pack Helper", @pack)
+    @open_badge = create_badge("First Aid", nil)
+    [ @den_a_badge, @pack_badge, @open_badge ].each { |badge| BadgeAssignment.create!(badge: badge, person: @person) }
+  end
+
+  def create_badge(name, team)
+    Badge.create!(name: name, short: name.first(2), color: "#336699", badge_type: badge_types(:one), team: team)
+  end
+
+  def held_badges
+    @person.reload.badges.to_a
+  end
+
+  test "leaving the team removes its badges and keeps the rest" do
+    Membership.create!(person: @person, team: @den_b)
+    @membership.destroy!
+
+    assert_equal [ @open_badge, @pack_badge ].sort_by(&:name), held_badges.sort_by(&:name)
+  end
+
+  test "leaving every team removes the badges of the teams above it too" do
+    @membership.destroy!
+
+    assert_equal [ @open_badge ], held_badges
+  end
+
+  test "the removal is in the audit log" do
+    @membership.destroy!
+
+    assert AuditLog.where(item_type: "BadgeAssignment", event: "destroy").exists?
+  end
+
+  test "moving a membership to another team removes the old team's badges" do
+    @membership.update!(team: @den_b)
+
+    assert_not_includes held_badges, @den_a_badge
+    assert_includes held_badges, @pack_badge
+  end
+
+  test "moving a membership to another person removes the first person's team badges" do
+    other = Person.create!(first_name: "Bo", last_name: "Test")
+    @membership.update!(person: other)
+
+    assert_equal [ @open_badge ], held_badges
+  end
+
+  test "a manager who steps down loses the badges of the teams below" do
+    leader = Person.create!(first_name: "Lee", last_name: "Test")
+    Membership.create!(person: leader, team: @pack, manager: true)
+    BadgeAssignment.create!(badge: @den_a_badge, person: leader)
+
+    leader.memberships.first.update!(manager: false)
+
+    assert_not_includes leader.reload.badges, @den_a_badge
+  end
+
+  test "removing a team from a person's teams removes its badges" do
+    @person.team_ids = [ @den_b.id ]
+
+    assert_not_includes held_badges, @den_a_badge
+    assert_includes held_badges, @pack_badge
+  end
+
+  test "removing a person from a team's people removes its badges" do
+    @den_a.person_ids = []
+
+    assert_equal [ @open_badge ], held_badges
+  end
+
+  test "moving a team out from under another removes the other team's badges" do
+    @den_a.update!(parent: nil)
+
+    assert_equal [ @den_a_badge, @open_badge ].sort_by(&:name), held_badges.sort_by(&:name)
+  end
+
+  test "moving a team away from a manager above it removes its badges from that manager" do
+    leader = Person.create!(first_name: "Lee", last_name: "Test")
+    Membership.create!(person: leader, team: @pack, manager: true)
+    BadgeAssignment.create!(badge: @den_a_badge, person: leader)
+
+    @den_a.update!(parent: nil)
+
+    assert_not_includes leader.reload.badges, @den_a_badge
+  end
+
+  test "deleting a team above removes its badges from the members below" do
+    org = Team.create!(name: "Org", team_type: team_types(:one))
+    @pack.update!(parent: org)
+    org_badge = create_badge("Org Helper", org)
+    BadgeAssignment.create!(badge: org_badge, person: @person)
+    pack_child = Team.create!(name: "Pack Committee", team_type: team_types(:one), parent: @pack)
+
+    @pack.destroy!
+
+    assert_not_includes held_badges, org_badge
+    assert Team.exists?(pack_child.id)
+  end
+
+  test "deleting the badge's own team leaves the assignment, which reaches nobody" do
+    @den_a.destroy!
+
+    assert BadgeAssignment.exists?(badge: @den_a_badge, person: @person)
+  end
+
+  test "deleting a person doesn't fail on their team badges" do
+    assert_difference -> { BadgeAssignment.count }, -3 do
+      @person.destroy!
+    end
+  end
+
+  test "the cleanup removes team badges already held outside the team" do
+    Membership.where(id: @membership.id).delete_all
+    other = Person.create!(first_name: "Bo", last_name: "Test")
+    Membership.create!(person: other, team: @den_a)
+    kept = BadgeAssignment.create!(badge: @den_a_badge, person: other)
+
+    require Rails.root.join("db/migrate/20261115120000_remove_team_badges_outside_their_team").to_s
+    ActiveRecord::Migration.suppress_messages { RemoveTeamBadgesOutsideTheirTeam.new.migrate(:up) }
+
+    assert_equal [ @open_badge ], held_badges
+    assert BadgeAssignment.exists?(kept.id)
+    ActiveRecord::Migration.suppress_messages { RemoveTeamBadgesOutsideTheirTeam.new.migrate(:down) }
+  end
+end
