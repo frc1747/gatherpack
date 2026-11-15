@@ -14,7 +14,8 @@ class InstallableAppTest < ActionDispatch::IntegrationTest
     host! "localhost"
     @settings_store = Settings.instance.store
     @settings_file = Tempfile.new([ "settings", ".pstore" ])
-    Settings.instance.store = PStore.new(@settings_file.path)
+    # Thread safe like the real store.
+    Settings.instance.store = PStore.new(@settings_file.path, true)
     @settings_originals = {}
   end
 

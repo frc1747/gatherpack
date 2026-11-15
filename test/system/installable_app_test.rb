@@ -10,7 +10,9 @@ class InstallableAppSystemTest < ApplicationSystemTestCase
     sign_in users(:one)
     @settings_store = Settings.instance.store
     @settings_file = Tempfile.new([ "settings", ".pstore" ])
-    Settings.instance.store = PStore.new(@settings_file.path)
+    # Thread safe like the real store: the test server answers several
+    # requests at once, which would otherwise raise "nested transaction".
+    Settings.instance.store = PStore.new(@settings_file.path, true)
     @original = Settings.get(:feature_installable_app).instance_variable_get(:@value)
   end
 
