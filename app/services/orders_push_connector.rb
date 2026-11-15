@@ -19,20 +19,26 @@ module OrdersPushConnector
   end
 
   private
+    # Returns how many people the notice reached by email, push or both, so
+    # a reminder is marked as sent when only a push went out.
     def deliver(people, subject, by: nil)
-      result = super
-      push(people, subject, by)
-      result
+      emailed = super
+      recipients = people.compact.uniq.reject { |person| person == by }
+      pushed = push(recipients, subject)
+      reached = pushed | (emailed.positive? ? recipients.select { |person| person.user&.email.present? } : [])
+      reached.size
     end
 
-    def push(people, subject, by)
-      return unless Orders.enabled? && GatherPack::PushChannel.available? && @push_path
+    # The people a push was queued for.
+    def push(recipients, subject)
+      return [] unless Orders.enabled? && GatherPack::PushChannel.available? && @push_path
 
-      people.compact.uniq.reject { |person| person == by }.each do |person|
-        GatherPack::PushChannel.deliver(person, topic: :orders, title: subject, path: @push_path)
+      recipients.select do |person|
+        GatherPack::PushChannel.deliver(person, topic: :orders, title: subject, path: @push_path).to_i.positive?
       end
     rescue StandardError => e
       Rails.logger.error("Orders phone notifications failed: #{e.class}: #{e.message}")
+      []
     end
 
     # The request, or one of its lines, opens the request; the digest opens To buy.
