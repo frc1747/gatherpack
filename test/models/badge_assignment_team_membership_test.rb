@@ -129,6 +129,24 @@ class BadgeAssignmentTeamMembershipTest < ActiveSupport::TestCase
     assert_includes kept.badges, @pack_badge
   end
 
+  test "a failed badge removal keeps the person in the team" do
+    Hook.create!(name: "Fails", event: "badge_assignments - destroy", code: "raise 'hook failed'")
+
+    assert_raises(RuntimeError) { @membership.destroy! }
+
+    assert Membership.exists?(@membership.id)
+    assert_includes held_badges, @den_a_badge
+  end
+
+  test "a failed badge removal keeps the team on the person" do
+    Hook.create!(name: "Fails", event: "badge_assignments - destroy", code: "raise 'hook failed'")
+
+    assert_raises(RuntimeError) { @person.team_ids = [ @den_b.id ] }
+
+    assert_equal [ @den_a ], @person.reload.teams.to_a
+    assert_includes held_badges, @den_a_badge
+  end
+
   test "moving a badge to another team removes it from holders outside that team" do
     holder = Person.create!(first_name: "Bo", last_name: "Test")
     Membership.create!(person: holder, team: @den_b)
