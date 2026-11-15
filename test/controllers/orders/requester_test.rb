@@ -424,4 +424,130 @@ class Orders::RequesterTest < ActionDispatch::IntegrationTest
       assert_nil draft.reload.purpose
     end
   end
+
+  # 1×1 PNG.
+  PNG = Base64.decode64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+
+  test "a link that isn't a web page is refused, and a link without a scheme is taken as https" do
+    with_orders(@world) do
+      assert_no_difference -> { OrderRequest.count } do
+        post orders_requests_url, params: { submit_request: "1",
+          order_request: { lines: line_params(url: "javascript:alert(document.cookie)") } }
+      end
+      assert_response :unprocessable_entity
+      assert_match "Item 1: The link must be a web page", response.body
+
+      order_request = create_request(lines: line_params(url: "shop.example/p/9"))
+      assert_equal "https://shop.example/p/9", order_request.order_lines.sole.url
+    end
+  end
+
+  test "?url= with a link that isn't a web page fills nothing" do
+    with_orders(@world) do
+      get new_orders_request_url(url: "javascript:alert(1)")
+
+      assert_response :success
+      assert_select "input[name='order_request[lines][0][url]']:not([value])"
+      assert_no_match "javascript:alert", response.body
+    end
+  end
+
+  test "a stored link that isn't a web page shows as text, never as a link" do
+    with_orders(@world) do
+      order_request = submitted_request(@world, lines: [ { description: "Gear", url: "https://shop.example/g" } ])
+      order_request.order_lines.sole.update_column(:url, "javascript:alert(1)")
+      sign_in @world.manager.user
+
+      get orders_request_url(order_request)
+      assert_select "#items", /javascript:alert\(1\)/
+      assert_select "a[href^='javascript']", count: 0
+    end
+  end
+
+  test "saving the edit form keeps a funding source that is no longer active" do
+    with_orders(@world) do
+      source = FundingSource.create!(name: "Old budget", team: @world.robotics)
+      order_request = submitted_request(@world)
+      order_request.edit!({ funding_source_id: source.id }, by: @world.manager)
+      source.update!(active: false)
+      sign_in @world.manager.user
+
+      get edit_orders_request_url(order_request)
+      assert_select "select[name='order_request[funding_source_id]'] option[selected][value=?]", source.id
+
+      line = order_request.order_lines.sole
+      patch orders_request_url(order_request), params: { order_request: { purpose: "Fixed a typo", funding_source_id: source.id,
+        lines: { "0" => { id: line.id, description: "Gear" } } } }
+      assert_equal source, order_request.reload.funding_source
+      assert_equal "Fixed a typo", order_request.purpose
+    end
+  end
+
+  test "a draft takes no comments, and deleting it never fails with an error page" do
+    with_orders(@world) do
+      draft = draft_request(@world)
+
+      post comment_orders_request_url(draft), params: { comment: "Note to self" }
+      assert_empty draft.events.reload
+
+      delete orders_request_url(draft)
+      assert_redirected_to orders_requests_url(mine: 1)
+      assert_not OrderRequest.exists?(draft.id)
+    end
+  end
+
+  test "a draft with a timeline is refused deletion with a message" do
+    with_orders(@world) do
+      draft = draft_request(@world)
+      draft.log!(:edited, by: @world.requester)
+
+      delete orders_request_url(draft), headers: { "HTTP_REFERER" => orders_request_url(draft) }
+      assert_redirected_to orders_request_url(draft)
+      assert_equal "This draft has a timeline, so cancel it instead.", flash[:alert]
+      assert OrderRequest.exists?(draft.id)
+    end
+  end
+
+  test "a line entry extension links the item it picked, and only a type it registered" do
+    with_orders(@world) do
+      Orders.line_entry_extensions.register(:test_picker, partial: nil, item_types: [ "Team" ])
+      get new_orders_request_url
+      assert_select "[data-order-line] input[type=hidden][data-field=item_type][name='order_request[lines][0][item_type]']"
+      assert_select "[data-order-line] input[type=hidden][data-field=item_id][name='order_request[lines][0][item_id]']"
+
+      order_request = create_request(submit: false,
+        lines: line_params(description: "Gear", item_type: "Team", item_id: @world.robotics.id))
+      line = order_request.order_lines.sole
+      assert_equal @world.robotics, line.item
+
+      # Posted back unchanged with the form, the link stays.
+      patch orders_request_url(order_request), params: { order_request: { lines: {
+        "0" => { id: line.id, description: "Gear", item_type: "Team", item_id: @world.robotics.id } } } }
+      assert_equal @world.robotics, line.reload.item
+
+      assert_no_difference -> { OrderRequest.count } do
+        post orders_requests_url, params: { order_request: {
+          lines: line_params(description: "Gear", item_type: "User", item_id: @world.requester.user.id) } }
+      end
+      assert_response :unprocessable_entity
+      assert_match "Item 1: that item can&#39;t be linked here", response.body
+    ensure
+      Orders.line_entry_extensions.unregister(:test_picker)
+    end
+  end
+
+  test "photos show as resized thumbnails, not the camera original" do
+    with_orders(@world) do
+      order_request = draft_request(@world)
+      line = order_request.order_lines.sole
+      line.photo.attach(io: StringIO.new(PNG), filename: "part.png", content_type: "image/png")
+
+      get orders_request_url(order_request)
+      assert_select "#items img.orders-line-photo[src*='/representations/']"
+      assert_select "#items img[src*='/blobs/redirect/']", count: 0
+
+      get edit_orders_request_url(order_request)
+      assert_select "img.orders-line-photo[src*='/representations/']"
+    end
+  end
 end

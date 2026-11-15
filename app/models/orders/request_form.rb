@@ -8,7 +8,9 @@
 # and lines, a hash of item fields keyed by a number the form chose. An
 # item's store comes as vendor_choice: a vendor id, "other" (with
 # other_vendor_name) or "not_sure". Its price comes in currency units as
-# estimated_unit_price.
+# estimated_unit_price. A link without a scheme ("shop.example/part") is
+# taken as https. item_type and item_id link the item to what a line entry
+# extension picked; item_type must be one of Orders.line_item_types.
 module Orders
   class RequestForm
     REQUEST_FIELDS = %w[purpose needed_by team_id funding_source_id].freeze
@@ -28,6 +30,15 @@ module Orders
     Entry = Struct.new(:key, :line, :attributes, :photo, :remove, keyword_init: true)
 
     attr_reader :order_request, :errors, :entries, :line_ids, :removed_keys
+
+    # "shop.example/part" → "https://shop.example/part". Anything with a
+    # scheme is left for OrderLine to accept or refuse.
+    def self.normalize_url(url)
+      return url if url.blank? || url.match?(%r{\A[a-z][a-z0-9+.-]*:}i)
+
+      host = url.split("/", 2).first
+      host.include?(".") ? "https://#{url}" : url
+    end
 
     def initialize(order_request, by:, params:)
       @order_request = order_request
@@ -129,7 +140,12 @@ module Orders
         next if values["id"].blank? && (remove || (photo.nil? && values.slice(*CONTENT_FIELDS).values.all?(&:blank?)))
 
         line = values["id"].present? ? order_request.order_lines.find(values["id"]) : OrderLine.new
-        Entry.new(key: key.to_s, line: line, attributes: line_attributes(values), photo: photo, remove: remove)
+        attributes = line_attributes(values)
+        # An item already linked comes back unchanged with the form.
+        if line.persisted? && values["item_type"].to_s == line.item_type.to_s && values["item_id"].to_s == line.item_id.to_s
+          attributes.except!("item_type", "item_id")
+        end
+        Entry.new(key: key.to_s, line: line, attributes: attributes, photo: photo, remove: remove)
       end
     end
 
@@ -139,6 +155,11 @@ module Orders
         if entry.attributes.key?("estimated_unit_price_cents") && entry.attributes["estimated_unit_price_cents"] == :invalid
           errors << "Item #{index + 1}: the price isn't a number"
           entry.attributes.delete("estimated_unit_price_cents")
+        end
+        if entry.attributes["item_type"] == :invalid
+          errors << "Item #{index + 1}: that item can't be linked here"
+          entry.attributes.delete("item_type")
+          entry.attributes.delete("item_id")
         end
         entry.line.assign_attributes(entry.attributes)
         entry.line.valid?
@@ -153,9 +174,22 @@ module Orders
     def line_attributes(values)
       attributes = values.slice(*LINE_FIELDS).transform_values { |value| value.to_s.strip.presence }
       attributes["quantity"] ||= 1 if values.key?("quantity")
+      attributes["url"] = self.class.normalize_url(attributes["url"]) if attributes["url"]
       attributes.merge!(vendor_attributes(values)) if values.key?("vendor_choice")
       attributes["estimated_unit_price_cents"] = price_cents(values["estimated_unit_price"]) if values.key?("estimated_unit_price")
+      attributes.merge!(item_attributes(values)) if values.key?("item_type")
       attributes
+    end
+
+    # A blank item_type unlinks the item; a type no extension registered is
+    # refused, so a posted class name is never looked up.
+    def item_attributes(values)
+      type = values["item_type"].to_s.strip
+      return { "item_type" => nil, "item_id" => nil } if type.empty? || values["item_id"].blank?
+      return { "item_type" => :invalid } unless Orders.line_item_types.include?(type)
+
+      item = type.safe_constantize&.find_by(id: values["item_id"])
+      item ? { "item_type" => item.class.polymorphic_name, "item_id" => item.id } : { "item_type" => :invalid }
     end
 
     def vendor_attributes(values)

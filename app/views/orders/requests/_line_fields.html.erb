@@ -10,6 +10,9 @@
     <%= fields_for name, line do |lf| %>
       <%= hidden_field_tag "#{name}[id]", line.persisted? ? line.id : "", id: nil, data: { field: "id" } %>
       <%= hidden_field_tag "#{name}[_destroy]", removed ? "1" : "", id: nil, data: { field: "destroy" } %>
+      <%# Set by a line entry extension's picker (Orders.line_entry_extensions). %>
+      <%= hidden_field_tag "#{name}[item_type]", line.item_type, id: nil, data: { field: "item_type" } %>
+      <%= hidden_field_tag "#{name}[item_id]", line.item_id, id: nil, data: { field: "item_id" } %>
 
       <div class="mb-3">
         <%= lf.label :url, "Link", class: "form-label" %>
@@ -85,7 +88,7 @@
           <div class="mb-3">
             <%= lf.label :photo, "Photo", class: "form-label" %>
             <% if line.persisted? && line.photo.attached? %>
-              <div class="mb-2"><%= image_tag line.photo, class: "orders-line-photo", alt: "Photo of #{line.display_name}" %></div>
+              <div class="mb-2"><%= order_line_photo_thumbnail(line) %></div>
             <% end %>
             <%= lf.file_field :photo, accept: "image/*", capture: "environment", class: "form-control",
                   data: { field: "photo", action: "change->order-form#photoChosen" } %>

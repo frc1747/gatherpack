@@ -30,7 +30,7 @@ module OrderRequestsHelper
     "units_per" => "Pieces per unit", "estimated_unit_price_cents" => "Price each",
     "actual_unit_price_cents" => "Price paid each", "note" => "Note", "expected_on" => "Expected",
     "photo" => "Photo", "added" => "Added item", "total" => "Total", "lines" => "Items",
-    "condition" => "Condition", "resolution" => "Resolved by", "reordered" => "Reordered"
+    "condition" => "Condition", "item_id" => "Item from the list", "resolution" => "Resolved by", "reordered" => "Reordered"
   }.freeze
 
   FUNDING_FIELDS = %w[funding_source_id funding_source line_funding_source_ids].freeze
@@ -114,6 +114,32 @@ module OrderRequestsHelper
     end
   end
 
+  # The line's link, or its text when it isn't a web link (so a stored
+  # javascript: or data: URL is never clickable).
+  def order_line_link(line)
+    return line.url unless line.web_link?
+
+    link_to line.url, line.url, target: "_blank", rel: "noopener noreferrer"
+  end
+
+  # A small copy of the line's photo, so a phone doesn't download camera
+  # originals. A photo that can't be resized is linked instead.
+  def order_line_photo_thumbnail(line)
+    photo = line.photo
+    return link_to("Photo of #{line.display_name}", rails_blob_path(photo), target: "_blank", rel: "noopener") unless photo.variable?
+
+    image_tag photo.variant(resize_to_limit: [ 400, 400 ]), class: "orders-line-photo", alt: "Photo of #{line.display_name}"
+  end
+
+  # Funding sources the form offers: active ones the team can use, plus the
+  # request's current one even if it no longer is, so saving the form
+  # doesn't clear it.
+  def order_funding_source_options(order_request)
+    sources = FundingSource.active.order(:name).select { |source| order_request.team.nil? || source.usable_by?(order_request.team) }
+    sources.unshift(order_request.funding_source) if order_request.funding_source && sources.exclude?(order_request.funding_source)
+    sources.map { |source| [ source.name, source.id ] }
+  end
+
   # The record a line was made from (an inventory item, say): its name,
   # linked when it has a page.
   def order_line_item_link(item)
@@ -141,6 +167,7 @@ module OrderRequestsHelper
     changes = event.field_changes.to_h
     changes = changes.except(*FUNDING_FIELDS) unless policy(order_request).see_funding?
     changes = changes.except("estimated_shipping_cents") unless policy(order_request).see_estimated_shipping?
+    changes = changes.except("item_type")
     changes.filter_map do |field, value|
       next "Approvals need to be given again" if field == "approvals_cleared"
       next "Funding source cleared on #{pluralize(value.size, 'item')}" if field == "line_funding_source_ids"
@@ -168,6 +195,7 @@ module OrderRequestsHelper
     when "needed_by", "expected_on" then l(Date.parse(value.to_s), format: :long)
     when "lines" then Array(value).to_sentence
     when "condition" then value.to_s.humanize
+    when "item_id" then "linked"
     else value.to_s
     end
   rescue Date::Error

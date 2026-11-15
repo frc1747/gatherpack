@@ -65,8 +65,9 @@ class OrderRequestPolicy < ApplicationPolicy
     record.received? && (requester? || manager? || access.buyer_for?(record.team_id))
   end
 
+  # Not on a draft: nobody else sees it yet.
   def comment?
-    show?
+    show? && !record.draft?
   end
 
   def follow?

@@ -70,7 +70,7 @@ module Orders
     # DELETE /orders/requests/1
     # Only a draft; anything else is cancelled.
     def destroy
-      @order_request.destroy!
+      @order_request.discard_draft!(by: current_person)
       redirect_to orders_requests_path(mine: 1), notice: "Draft deleted"
     end
 
@@ -145,13 +145,13 @@ module Orders
 
     def request_params
       line_fields = Orders::RequestForm::LINE_FIELDS +
-        %w[id _destroy vendor_choice other_vendor_name estimated_unit_price photo]
+        %w[id _destroy vendor_choice other_vendor_name estimated_unit_price photo item_type item_id]
       params.fetch(:order_request, {}).permit(*Orders::RequestForm::REQUEST_FIELDS, lines: line_fields)
     end
 
     def prefilled_line_attributes
-      url = params[:url].to_s.strip
-      return { quantity: 1 } if url.blank?
+      url = Orders::RequestForm.normalize_url(params[:url].to_s.strip)
+      return { quantity: 1 } unless OrderLine.web_link?(url)
 
       vendor = Vendor.for_url(url)
       { url: url, quantity: 1, vendor: vendor, vendor_part_number: vendor&.part_number_from(url),

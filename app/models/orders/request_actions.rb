@@ -157,8 +157,21 @@ module Orders
       end
     end
 
+    # Deletes a draft. Only a draft can go; anything else is cancelled, so
+    # its timeline stays.
+    def discard_draft!(by:)
+      locked do
+        raise Orders::Refused, "Only a draft can be deleted. Cancel the request instead." unless draft?
+        raise Orders::Refused, "This draft has a timeline, so cancel it instead." if events.exists?
+
+        destroy!
+      end
+    end
+
+    # Comments are for a request others can see, so not for a draft.
     def comment!(text, by:)
       raise Orders::Refused, "Write a comment first." if text.blank?
+      raise Orders::Refused, "Comments can be added once the request is sent." if draft?
 
       locked { log!(:commented, by: by, comment: text) }
     end

@@ -29,7 +29,7 @@
           <% if line.expected_on && line.backordered? %>· expected <%= l line.expected_on, format: :long %><% end %>
         </div>
         <% if line.url.present? %>
-          <div class="small text-truncate"><%= link_to line.url, line.url, target: "_blank", rel: "noopener noreferrer" %></div>
+          <div class="small text-truncate"><%= order_line_link(line) %></div>
         <% end %>
         <% if line.item %>
           <div class="small"><%= order_line_item_link(line.item) %></div>
@@ -39,7 +39,7 @@
         <% end %>
         <% if line.note.present? %><div class="small"><%= line.note %></div><% end %>
         <% if line.photo.attached? %>
-          <%= image_tag line.photo, class: "orders-line-photo mt-2", alt: "Photo of #{line.display_name}" %>
+          <div class="mt-2"><%= order_line_photo_thumbnail(line) %></div>
         <% end %>
       </div>
     <% end %>

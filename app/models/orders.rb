@@ -15,10 +15,15 @@
 #
 #     # A picker above the line form on New request (rendered with the
 #     # locals order_request: and viewer:). The picker fills the line's
-#     # fields itself; attributes: turns a picked record into line
-#     # attributes for code that starts a request (OrderRequest.draft_for).
+#     # fields itself: each item on the form is a [data-order-line] element
+#     # whose fields are named order_request[lines][KEY][field] and carry
+#     # data-field="field" (url, description, quantity, vendor_choice,
+#     # vendor_part_number, item_type, item_id, ...). item_types: lists the
+#     # classes the picker links (item_type is refused for any other), and
+#     # attributes: turns a picked record into line attributes for code that
+#     # starts a request (OrderRequest.draft_for).
 #     Orders.line_entry_extensions.register(:my_feature, partial: "my_feature/line_picker",
-#       attributes: ->(record) { { description: record.name, item: record } })
+#       item_types: [ "MyItem" ], attributes: ->(record) { { description: record.name, item: record } })
 #   end
 #
 # Registering the same key again replaces the earlier entry.
@@ -50,7 +55,7 @@ module Orders
   HOOK_EVENTS = (STATUS_CHANGED_EVENTS.values + LINE_STATUS_EVENTS.values).freeze
 
   class Extensions
-    Entry = Struct.new(:key, :partial, :callback, keyword_init: true)
+    Entry = Struct.new(:key, :partial, :callback, :item_types, keyword_init: true)
 
     def initialize(callback_name)
       @callback_name = callback_name
@@ -58,7 +63,12 @@ module Orders
     end
 
     def register(key, partial: nil, **options)
-      @entries[key.to_sym] = Entry.new(key: key.to_sym, partial: partial, callback: options[@callback_name])
+      @entries[key.to_sym] = Entry.new(key: key.to_sym, partial: partial, callback: options[@callback_name],
+        item_types: Array(options[:item_types]).map(&:to_s))
+    end
+
+    def unregister(key)
+      @entries.delete(key.to_sym)
     end
 
     def all
@@ -80,6 +90,11 @@ module Orders
 
   def self.line_entry_extensions
     @line_entry_extensions ||= Extensions.new(:attributes)
+  end
+
+  # The classes a line entry extension may link a line to (item_type).
+  def self.line_item_types
+    line_entry_extensions.all.flat_map(&:item_types).uniq
   end
 
   def self.enabled?

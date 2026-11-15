@@ -19,7 +19,7 @@
         order_form_events_value: events.to_json,
         action: "input->order-form#changed change->order-form#changed submit->order-form#submit"
       } do |f| %>
-  <% Orders.line_entry_extensions.all.each do |extension| %>
+  <% Orders.line_entry_extensions.all.select(&:partial).each do |extension| %>
     <%= render extension.partial, order_request: order_request, viewer: current_user.person %>
   <% end %>
 
@@ -74,8 +74,7 @@
       <% if show_funding %>
         <div class="mb-3">
           <%= f.label :funding_source_id, "Paid from", class: "form-label" %>
-          <%= f.select :funding_source_id,
-                FundingSource.active.order(:name).select { |source| order_request.team.nil? || source.usable_by?(order_request.team) }.map { |source| [ source.name, source.id ] },
+          <%= f.select :funding_source_id, order_funding_source_options(order_request),
                 { include_blank: "Leave it to the approver" }, class: "form-select" %>
         </div>
       <% end %>
