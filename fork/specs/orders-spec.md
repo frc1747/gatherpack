@@ -129,7 +129,7 @@ Approvers can also edit lines themselves (fix a part number, lower a quantity) b
 
 **No approving yourself.** An approver can't approve, ask for changes on, or decline a request they made or one made by a relative (any relationship type). Another approver has to. The page says why the buttons are missing. Same rule as sign-ups §3.6. Watching a request doesn't count: students will add their mentor as a watcher, and on a team with one or two approvers that would leave nobody able to decide.
 
-**Flags for approvers.** The approve screen marks lines from a non-preferred vendor, lines with vendor "Not sure", lines without a link or part number, lines without a price, a request with no purpose given, a `needed_by` that's already past or within the vendor's usual lead time, and the funding source's picture: its restriction, if any, and what would remain after this request (§3.13). A request with no funding source shows a picker for the approver.
+**Flags for approvers.** The approve screen marks lines from a non-preferred vendor, lines with vendor "Not sure", lines without a link or part number, lines without a price, a request with no purpose given, a `needed_by` that's already past or within 3 days (the same window as the needed-by notice, §3.11; stores carry no lead time), and the funding source's picture: its restriction, if any, and what would remain after this request (§3.13). A request with no funding source shows a picker for the approver.
 
 ### 3.4 Buying
 
@@ -138,6 +138,8 @@ Approvers can also edit lines themselves (fix a part number, lower a quantity) b
 3. A buyer can mark lines `backordered` (with an expected date), change a quantity, split a line (part now, rest later), or cancel a line with a reason.
 
 **Price tolerance.** A setting, `orders_price_tolerance`: a percentage and an amount (default 10% or $25, whichever is larger). If a buyer's changes raise a request's total by more than that over the approved total, the affected lines become `needs_reapproval` and go back to the final step's approvers. Within it, the change is recorded in the timeline and nothing waits.
+
+**Re-approval.** The final step's approvers see "Approved $X, now $Y (+$Z)" and choose Approve or Decline (a comment is needed to decline). There's no Ask for changes: the request's status doesn't change and the requester can't edit an approved request. The items are already counted as committed or spent, so the funding source's amount left isn't reduced again. The requester alone is told the decision, with the same Approved or Declined notice as a first decision.
 
 A buyer may buy a request they approved or made; the approval is the control. Small organizations often have one person who approves and buys, so there's no setting to separate the two. An approver still can't approve their own request.
 
@@ -371,6 +373,8 @@ There's always a way to ask without a link or a known vendor. A description plus
 | `problem` | Problem with delivery |
 | Other vendor | Other store |
 | Purchase | Order (on buyer screens only) |
+
+An item still waiting on a declined, cancelled or sent-back request shows the request's word (Declined, Cancelled, Needs changes), not "Waiting for approval".
 
 **Phone-first screens.** New request, My requests, a request's page, To receive, and To approve must work one-handed on a phone: one column, buttons at least 44 px tall, the main action in a bar fixed to the bottom. To buy, Vendors, Funding sources and Reports are built for a desktop and only need to be readable on a phone.
 

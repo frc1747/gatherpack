@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | medium |
-| Status | open |
+| Status | shipped on feature/orders (060d3aa5), next release |
 | Added | 2026-11-15 |
 | Commit checked | `feature/orders` @ `b7518138` (in `v0.0.0-hbr.41`) |
 | Planned branch | `feature/orders` |
