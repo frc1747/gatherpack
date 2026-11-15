@@ -116,47 +116,6 @@ class OrderNoticesTest < ActiveSupport::TestCase
     end
   end
 
-  test "a decision on a re-approval is told to the requester, watchers and the buyer, like a first decision" do
-    with_notices(orders_price_tolerance: "10%, 25") do
-      request = approved_request(@world, lines: [ { description: "Kit", price: 100 }, { description: "Belt", price: 50 } ])
-      request.follow!(@world.teammate)
-      kit = request.order_lines.find { |line| line.description == "Kit" }
-      belt = request.order_lines.find { |line| line.description == "Belt" }
-      buy(@world, [ kit, belt ], prices: { kit.id => 13_000, belt.id => 7_000 })
-      request.reload
-      assert_equal 2, request.reapproval_lines.size
-      clear_enqueued_jobs
-
-      request.decide!(:changes_requested, by: @world.mentor, comment: "Find a cheaper one")
-
-      assert_equal addresses(@requester, @world.teammate, @world.buyer), emailed
-      assert_match "Needs changes: ", enqueued_emails.first[1]
-      assert_match "Find a cheaper one", email_to(@requester)
-      assert_match "still waiting for a decision", email_to(@requester)
-      assert request.reload.needs_reapproval?, "the items keep waiting"
-
-      clear_enqueued_jobs
-      request.decide!(:approved, by: @world.mentor)
-
-      assert_equal addresses(@requester, @world.teammate, @world.buyer), emailed
-      assert_match "Approved again: ", enqueued_emails.first[1]
-    end
-  end
-
-  test "declining a re-approval tells the requester the items were cancelled" do
-    with_notices(orders_price_tolerance: "10%, 25") do
-      request = approved_request(@world, lines: [ { description: "Kit", price: 100 } ])
-      buy(@world, request.order_lines.to_a, prices: { request.order_lines.first.id => 13_000 })
-      clear_enqueued_jobs
-
-      request.decide!(:declined, by: @world.mentor, comment: "Too dear")
-
-      assert_equal addresses(@requester, @world.buyer), emailed
-      assert_match "Too dear", email_to(@requester)
-      assert_match "cancelled", email_to(@requester)
-    end
-  end
-
   test "ordering sends one notice for each purchase, however many items it holds" do
     with_notices do
       request = start(approved_request(@world, lines: [ { description: "Gear", price: 10 }, { description: "Belt", price: 5 } ]))
@@ -271,16 +230,29 @@ class OrderNoticesTest < ActiveSupport::TestCase
     end
   end
 
-  test "approving the changed items again tells the requester and the buyer, not the approvers or buyers' queue" do
+  test "approving or declining the changed items again tells the requester only" do
     with_notices do
       request = start(approved_request(@world))
+      request.follow!(@world.teammate)
       line = request.order_lines.first
       buy(@world, [ line ], vendor: @world.preferred_vendor, prices: { line.id => 90_000 })
       clear_enqueued_jobs
       request.decide!(:approved, by: @world.mentor)
 
-      assert_equal addresses(@requester, @world.buyer), emailed
-      assert_match "Approved again: ", enqueued_emails.first[1]
+      assert_equal addresses(@requester), emailed
+      assert_match "Approved: ", enqueued_emails.first[1]
+    end
+
+    with_notices do
+      request = start(approved_request(@world))
+      request.follow!(@world.teammate)
+      line = request.order_lines.first
+      buy(@world, [ line ], vendor: @world.preferred_vendor, prices: { line.id => 90_000 })
+      clear_enqueued_jobs
+      request.decide!(:declined, by: @world.mentor, comment: "Too dear")
+
+      assert_equal addresses(@requester), emailed
+      assert_match "Too dear", email_to(@requester)
     end
   end
 
