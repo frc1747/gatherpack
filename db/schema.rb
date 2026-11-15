@@ -1123,8 +1123,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_170000) do
   add_foreign_key "item_unit_events", "item_units", column: "via_unit_id"
   add_foreign_key "item_unit_events", "locations", column: "from_location_id"
   add_foreign_key "item_unit_events", "locations", column: "to_location_id"
-  add_foreign_key "item_unit_events", "people", on_delete: :nullify
   add_foreign_key "item_unit_events", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "item_unit_events", "people", on_delete: :nullify
   add_foreign_key "item_units", "item_units", column: "installed_in_id"
   add_foreign_key "item_units", "items"
   add_foreign_key "item_units", "locations"
