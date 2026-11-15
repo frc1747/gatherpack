@@ -1,0 +1,243 @@
+.card {
+  --bs-card-border-radius: var(--gp-radius);
+  --bs-card-inner-border-radius: calc(var(--gp-radius) - 1px);
+  --bs-card-border-color: var(--gp-border);
+  --bs-card-cap-bg: var(--gp-surface);
+  border: 1px solid var(--gp-border);
+  box-shadow: var(--gp-shadow);
+}
+
+.card-body .card {
+  border: 1px solid var(--gp-border);
+}
+
+.card-header {
+  background-color: var(--gp-surface);
+  border-bottom: 1px solid var(--gp-border);
+  color: var(--gp-text);
+  padding: .85rem 1.1rem;
+
+  h2, h3 {
+    font-size: 1.05rem;
+  }
+}
+
+.card-body {
+  padding: 1.1rem;
+}
+
+.alert {
+  --bs-alert-bg: var(--gp-surface);
+  --bs-alert-color: var(--gp-text);
+  --bs-alert-border-color: var(--gp-border);
+  --bs-alert-border-radius: var(--gp-radius);
+}
+
+.alert-danger {
+  border-left: 3px solid var(--bs-danger);
+}
+
+.alert-warning {
+  border-left: 3px solid var(--bs-warning);
+}
+
+.alert-success, .alert-info, .alert-primary {
+  border-left: 3px solid var(--gp-brand);
+}
+
+.btn {
+  --bs-btn-border-radius: var(--gp-radius-sm);
+  --bs-btn-font-weight: 500;
+}
+
+.btn-primary, .btn-success {
+  --bs-btn-color: var(--gp-on-brand);
+  --bs-btn-bg: var(--gp-brand);
+  --bs-btn-border-color: var(--gp-brand);
+  --bs-btn-hover-color: var(--gp-on-brand);
+  --bs-btn-hover-bg: var(--gp-brand-hover);
+  --bs-btn-hover-border-color: var(--gp-brand-hover);
+  --bs-btn-focus-shadow-rgb: var(--gp-brand-rgb);
+  --bs-btn-active-color: var(--gp-on-brand);
+  --bs-btn-active-bg: var(--gp-brand-hover);
+  --bs-btn-active-border-color: var(--gp-brand-hover);
+  --bs-btn-disabled-color: var(--gp-on-brand);
+  --bs-btn-disabled-bg: var(--gp-brand);
+  --bs-btn-disabled-border-color: var(--gp-brand);
+}
+
+.btn-outline-primary, .btn-outline-success {
+  --bs-btn-color: var(--gp-accent);
+  --bs-btn-border-color: var(--gp-accent);
+  --bs-btn-hover-color: var(--gp-on-brand);
+  --bs-btn-hover-bg: var(--gp-brand);
+  --bs-btn-hover-border-color: var(--gp-brand);
+  --bs-btn-focus-shadow-rgb: var(--gp-brand-rgb);
+  --bs-btn-active-color: var(--gp-on-brand);
+  --bs-btn-active-bg: var(--gp-brand);
+  --bs-btn-active-border-color: var(--gp-brand);
+  --bs-btn-disabled-color: var(--gp-accent);
+  --bs-btn-disabled-border-color: var(--gp-accent);
+}
+
+.btn-outline-secondary, .btn-outline-dark {
+  --bs-btn-color: var(--gp-text-soft);
+  --bs-btn-border-color: var(--gp-input-border);
+  --bs-btn-hover-color: var(--gp-text);
+  --bs-btn-hover-bg: var(--gp-raised);
+  --bs-btn-hover-border-color: var(--gp-input-border);
+  --bs-btn-active-color: var(--gp-text);
+  --bs-btn-active-bg: var(--gp-raised);
+  --bs-btn-active-border-color: var(--gp-input-border);
+  --bs-btn-disabled-color: var(--gp-muted);
+  --bs-btn-disabled-border-color: var(--gp-border);
+}
+
+// !important: beats Bootstrap's utility, which sets a literal white.
+.text-bg-primary, .text-bg-success {
+  color: var(--gp-on-brand) !important;
+}
+
+// "Light" fills are the raised surface (--bs-light-rgb), which is dark in dark
+// mode; Bootstrap's utility keeps literal black text on them.
+.text-bg-light {
+  color: var(--gp-text) !important;
+}
+
+.dropdown-menu {
+  --bs-dropdown-bg: var(--gp-surface);
+  --bs-dropdown-color: var(--gp-text);
+  --bs-dropdown-border-color: var(--gp-border);
+  --bs-dropdown-divider-bg: var(--gp-border);
+  --bs-dropdown-link-color: var(--gp-text);
+  --bs-dropdown-link-hover-color: var(--gp-text);
+  --bs-dropdown-link-hover-bg: var(--gp-raised);
+  --bs-dropdown-link-active-color: var(--gp-on-brand);
+  --bs-dropdown-link-active-bg: var(--gp-brand);
+  --bs-dropdown-header-color: var(--gp-muted);
+}
+
+.dropdown-menu-dark {
+  --bs-dropdown-link-active-bg: var(--gp-brand);
+}
+
+.nav-link {
+  &:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+  }
+}
+
+.nav-pills {
+  --bs-nav-pills-link-active-bg: var(--gp-brand);
+  --bs-nav-pills-link-active-color: var(--gp-on-brand);
+}
+
+.nav-tabs {
+  --bs-nav-tabs-border-color: var(--gp-border);
+  --bs-nav-tabs-link-active-bg: var(--gp-surface);
+  --bs-nav-tabs-link-active-color: var(--gp-text);
+  --bs-nav-tabs-link-active-border-color: var(--gp-border);
+  --bs-nav-tabs-link-hover-border-color: var(--gp-border);
+}
+
+.navtab {
+  background-color: var(--gp-subtle);
+}
+
+.accordion {
+  --bs-accordion-bg: var(--gp-surface);
+  --bs-accordion-color: var(--gp-text);
+  --bs-accordion-border-color: var(--gp-border);
+  --bs-accordion-btn-bg: var(--gp-surface);
+  --bs-accordion-btn-color: var(--gp-text);
+  --bs-accordion-active-bg: var(--gp-brand-soft);
+  --bs-accordion-active-color: var(--gp-text);
+  --bs-accordion-btn-focus-box-shadow: 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+}
+
+.pagination {
+  --bs-pagination-color: var(--gp-brand);
+  --bs-pagination-bg: var(--gp-surface);
+  --bs-pagination-border-color: var(--gp-border);
+  --bs-pagination-hover-color: var(--gp-brand-hover);
+  --bs-pagination-hover-bg: var(--gp-raised);
+  --bs-pagination-hover-border-color: var(--gp-border);
+  --bs-pagination-focus-color: var(--gp-brand-hover);
+  --bs-pagination-focus-bg: var(--gp-raised);
+  --bs-pagination-focus-box-shadow: 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+  --bs-pagination-active-color: var(--gp-on-brand);
+  --bs-pagination-active-bg: var(--gp-brand);
+  --bs-pagination-active-border-color: var(--gp-brand);
+  --bs-pagination-disabled-color: var(--gp-muted);
+  --bs-pagination-disabled-bg: var(--gp-subtle);
+  --bs-pagination-disabled-border-color: var(--gp-border);
+}
+
+.progress, .progress-stacked {
+  --bs-progress-bg: var(--gp-raised);
+  --bs-progress-bar-bg: var(--gp-brand);
+  --bs-progress-bar-color: var(--gp-on-brand);
+}
+
+.list-group {
+  --bs-list-group-bg: var(--gp-surface);
+  --bs-list-group-color: var(--gp-text);
+  --bs-list-group-border-color: var(--gp-border);
+  --bs-list-group-action-color: var(--gp-text);
+  --bs-list-group-action-hover-color: var(--gp-text);
+  --bs-list-group-action-hover-bg: var(--gp-raised);
+  --bs-list-group-action-active-color: var(--gp-text);
+  --bs-list-group-action-active-bg: var(--gp-raised);
+  --bs-list-group-active-color: var(--gp-on-brand);
+  --bs-list-group-active-bg: var(--gp-brand);
+  --bs-list-group-active-border-color: var(--gp-brand);
+}
+
+.btn-close {
+  --bs-btn-close-focus-shadow: 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
+}
+
+table.table th {
+  background-color: var(--gp-subtle);
+  color: var(--gp-muted);
+  font-weight: 600;
+}
+
+.table {
+  --bs-table-bg: var(--gp-surface);
+  --bs-table-color: var(--gp-text);
+  --bs-table-border-color: var(--gp-border);
+  --bs-table-striped-bg: var(--gp-subtle);
+  --bs-table-striped-color: var(--gp-text);
+  --bs-table-hover-bg: var(--gp-raised);
+  --bs-table-hover-color: var(--gp-text);
+  --bs-table-active-bg: var(--gp-raised);
+  --bs-table-active-color: var(--gp-text);
+}
+
+.modal {
+  --bs-modal-bg: var(--gp-surface);
+  --bs-modal-color: var(--gp-text);
+  --bs-modal-border-color: var(--gp-border);
+  --bs-modal-header-border-color: var(--gp-border);
+  --bs-modal-footer-border-color: var(--gp-border);
+  --bs-modal-border-radius: var(--gp-radius);
+}
+
+.modal-content {
+  background-color: var(--gp-surface);
+  color: var(--gp-text);
+}
+
+.offcanvas, .offcanvas-md, .offcanvas-lg {
+  --bs-offcanvas-bg: var(--gp-surface);
+  --bs-offcanvas-color: var(--gp-text);
+}
+
+.popover {
+  --bs-popover-bg: var(--gp-surface);
+  --bs-popover-border-color: var(--gp-border);
+  --bs-popover-header-bg: var(--gp-subtle);
+  --bs-popover-header-color: var(--gp-text);
+  --bs-popover-body-color: var(--gp-text);
+}
