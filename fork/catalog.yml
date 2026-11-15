@@ -915,3 +915,13 @@ feature/calendar-note-badge:
     The calendar notes list no longer shows an error when a note is linked
     to a team or a person.
   audience: Everyone who uses calendar notes
+
+feature/team-badge-membership:
+  title: Team badges end when someone leaves the team
+  emoji: "🏷️"
+  description: >-
+    A badge that belongs to a team is taken off a person when they are no
+    longer in that team, whether they leave it, the team moves or is
+    deleted, or the badge moves to another team. Anything the badge allowed,
+    such as seeing profile fields or form answers, ends with it.
+  audience: Admins and team managers

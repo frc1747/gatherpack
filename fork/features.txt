@@ -82,3 +82,4 @@ feature/my-gatherpack-orders
 feature/my-gatherpack-inventory
 feature/mcp-orders
 feature/calendar-note-badge
+feature/team-badge-membership
