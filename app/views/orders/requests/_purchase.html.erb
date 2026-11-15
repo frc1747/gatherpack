@@ -31,7 +31,7 @@
 
     <% if buyer && lines.any? %>
       <details class="mb-2" id="buyer_line_actions">
-        <summary>Buyer: change items</summary>
+        <summary class="btn btn-lg btn-outline-secondary mb-2">Buyer: change items</summary>
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
             <tbody>
@@ -40,7 +40,7 @@
                   <td><%= line.display_name %></td>
                   <td class="text-end"><%= line.quantity %></td>
                   <td><%= order_line_status_text(line) %></td>
-                  <td class="text-end"><%= render "orders/purchases/line_actions", line: line %></td>
+                  <td class="text-end"><%= render "orders/purchases/line_actions", line: line, large: true %></td>
                 </tr>
               <% end %>
             </tbody>
@@ -48,7 +48,7 @@
         </div>
       </details>
       <% if lines.any? { |line| line.approved? && line.purchase_id.nil? } %>
-        <%= link_to "Open To buy", to_buy_orders_purchases_path, class: "btn btn-outline-primary" %>
+        <%= link_to "Open To buy", to_buy_orders_purchases_path, class: "btn btn-lg btn-outline-primary" %>
       <% end %>
     <% end %>
   </section>

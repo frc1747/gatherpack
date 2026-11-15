@@ -87,4 +87,24 @@ class OrdersPurchasesTest < ApplicationSystemTestCase
     visit orders_request_path(order_request)
     assert_text "1 needs re-approval"
   end
+
+  test "on a phone, the buyer's controls on the request page are at least 44 px tall" do
+    order_request = approved_request(@world, title: "Gears", lines: [ { description: "Gear", price: 10, quantity: 3 } ])
+
+    sign_in @world.buyer.user
+    page.driver.browser.manage.window.resize_to(390, 844)
+    visit orders_request_path(order_request)
+    find("#buyer_line_actions > summary").click
+    find("#buyer_line_actions .orders-line-actions > summary").click
+
+    heights = page.evaluate_script(<<~JS)
+      Array.from(document.querySelectorAll("#order_request_purchases summary, #order_request_purchases .btn, #order_request_purchases input"))
+        .filter((el) => el.offsetParent !== null)
+        .map((el) => el.getBoundingClientRect().height)
+    JS
+    assert_operator heights.size, :>=, 6
+    assert heights.all? { |height| height >= 44 }, "controls shorter than 44 px: #{heights.inspect}"
+  ensure
+    page.driver.browser.manage.window.resize_to(1400, 1400)
+  end
 end

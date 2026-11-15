@@ -88,8 +88,11 @@ module Orders
       attributes = params.fetch(:purchase, {}).permit(*PURCHASE_FIELDS).to_h
       %w[shipping tax].each { |field| attributes[field] = "0" if attributes.key?(field) && attributes[field].blank? }
       attributes.delete("paid_with") if attributes.key?("paid_with") && !attributes["paid_with"].in?(paid_with_labels)
-      choice = Orders::Config.paid_with.find { |option| option.label == attributes["paid_with"] }
-      attributes["reimburse_to_id"] = (@purchase&.reimburse_to_id || current_user.person.id) if choice&.reimburse
+      if attributes.key?("paid_with")
+        choice = Orders::Config.paid_with.find { |option| option.label == attributes["paid_with"] }
+        # Whoever paid with their own card is the buyer, not whoever edits it later.
+        attributes["reimburse_to_id"] = choice.reimburse ? (@purchase&.buyer_id || current_user.person.id) : nil
+      end
       attributes
     end
 

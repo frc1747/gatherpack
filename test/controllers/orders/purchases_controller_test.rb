@@ -262,4 +262,48 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
       assert_redirected_to root_url
     end
   end
+
+  test "an admin who switches an order to a card to reimburse records the buyer to pay back, not themselves" do
+    with_orders(@world) do
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, paid_with: "Team card")
+      sign_in @world.admin.user
+
+      patch orders_purchase_url(purchase), params: { purchase: { paid_with: "Personal card — reimburse" } }
+
+      assert_equal @world.buyer, purchase.reload.reimburse_to
+    end
+  end
+
+  test "switching an order away from a card to reimburse clears who to pay back" do
+    with_orders(@world) do
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, paid_with: "Personal card — reimburse",
+        reimburse_to: @world.buyer)
+      sign_in @world.buyer.user
+
+      patch orders_purchase_url(purchase), params: { purchase: { paid_with: "Team card" } }
+
+      assert_equal "Team card", purchase.reload.paid_with
+      assert_nil purchase.reimburse_to
+    end
+  end
+
+  test "editing an order keeps a Paid with choice that has since been renamed" do
+    with_orders(@world) do
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, paid_with: "Team card")
+      sign_in @world.buyer.user
+
+      with_settings(orders_paid_with: JSON.generate([ { "label" => "Personal card — reimburse", "reimburse" => true },
+                                                      { "label" => "Team debit card", "reimburse" => false } ])) do
+        get edit_orders_purchase_url(purchase)
+        assert_select "select[name='purchase[paid_with]'] option[selected]", text: "Team card"
+
+        patch orders_purchase_url(purchase), params: { purchase: { paid_with: "Team card", tracking_url: "https://track.example/3" } }
+      end
+
+      purchase.reload
+      assert_equal "Team card", purchase.paid_with
+      assert_nil purchase.reimburse_to
+      assert_equal "https://track.example/3", purchase.tracking_url
+    end
+  end
 end

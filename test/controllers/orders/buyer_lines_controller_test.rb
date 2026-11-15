@@ -111,4 +111,21 @@ class Orders::BuyerLinesControllerTest < ActionDispatch::IntegrationTest
       assert line.reload.approved?
     end
   end
+
+  test "an empty quantity or split is refused with a message, not an error page" do
+    with_orders(@world) do
+      order_request = approved_request(@world, lines: [ { description: "Bolt", price: 1, quantity: 10 } ])
+      line = order_request.order_lines.first
+      sign_in @world.buyer.user
+
+      post change_quantity_orders_request_line_url(order_request, line), params: { quantity: "" }
+      assert_redirected_to orders_request_url(order_request)
+      assert_match "Quantity must be greater than 0", flash[:alert]
+
+      post split_orders_request_line_url(order_request, line), params: { quantity_now: "" }
+      assert_redirected_to orders_request_url(order_request)
+      assert_equal "Split off fewer than 10.", flash[:alert]
+      assert_equal 10, line.reload.quantity
+    end
+  end
 end

@@ -10,6 +10,12 @@ module Orders
         alert: error.record.errors.full_messages.to_sentence
     end
 
+    # Back to the item's request, not the request list, when nothing to go back to.
+    rescue_from Orders::Refused do |error|
+      fallback = @line ? orders_request_path(@line.order_request) : orders_requests_path
+      redirect_back fallback_location: fallback, alert: error.message
+    end
+
     # POST /orders/requests/1/lines/2/backorder
     def backorder
       @line.backorder!(by: current_user.person, expected_on: date_param(:expected_on), comment: params[:comment])
@@ -18,7 +24,7 @@ module Orders
 
     # POST /orders/requests/1/lines/2/change_quantity
     def change_quantity
-      @line.change_quantity!(params.require(:quantity).to_i, by: current_user.person, comment: params[:comment])
+      @line.change_quantity!(params[:quantity].to_i, by: current_user.person, comment: params[:comment])
       if @line.reload.needs_reapproval?
         done "#{@line.display_name} now costs more than was approved, so it needs re-approval."
       else
@@ -28,7 +34,7 @@ module Orders
 
     # POST /orders/requests/1/lines/2/split
     def split
-      rest = @line.split!(params.require(:quantity_now), by: current_user.person)
+      rest = @line.split!(params[:quantity_now].to_i, by: current_user.person)
       done "#{@line.display_name} is split: #{@line.reload.quantity} now, #{rest.quantity} later."
     end
 
