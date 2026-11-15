@@ -20,6 +20,10 @@ module Checklists
   # still tells them the person doesn't pass). With no viewer set the rule
   # gives its real answer.
   #
+  # On the sheet page (SignupViewer.sheet), the reason never names a
+  # checklist that doesn't cover the person: it's "Not open to you". One
+  # that covers them is named, and linked when the viewer may open it.
+  #
   # Prepended to SignupPositionRule by config/initializers/checklists_signups.rb.
   module SignupRule
     extend ActiveSupport::Concern
@@ -31,10 +35,15 @@ module Checklists
       before_validation :clear_checklist_settings
     end
 
+    NOT_OPEN_REASON = "Not open to you".freeze
+
+    # "Must have finished Trip Eligibility first", as the rules card and
+    # its flashes put it.
     def description
       return super unless checklist?
+      return "Must have finished a checklist that no longer exists" if checklist.nil?
 
-      checklist_requirement
+      "Must have finished #{checklist.title} #{accept_pending? ? "or be partway through" : "first"}"
     end
 
     def check(person, event)
@@ -45,6 +54,7 @@ module Checklists
       return if passes?(person)
 
       viewer = Checklists::SignupViewer.person
+      return sheet_reason(person, viewer) if viewer && Checklists::SignupViewer.sheet && sees_result?(viewer, person)
       return checklist_requirement if viewer.nil? || sees_result?(viewer, person)
 
       hidden_reason if Checklists::SignupViewer.placing
@@ -102,7 +112,7 @@ module Checklists
     end
 
     def reload(...)
-      @checklist_statuses = @sees_result = nil
+      @checklist_statuses = @sees_result = @opens_checklist = nil
       super
     end
 
@@ -112,14 +122,37 @@ module Checklists
       "You can't see their #{checklist.title} results, so can't sign them up here"
     end
 
+    # Why the person can't take the place, for the sheet page: someone the
+    # checklist doesn't cover isn't told which checklist it is; otherwise
+    # the requirement, its title linked when the viewer may open it.
+    def sheet_reason(person, viewer)
+      return NOT_OPEN_REASON if checklist_status(person).nil?
+      return checklist_requirement if Checklists::SignupViewer.placing || !opens_checklist?(viewer)
+
+      helpers = ActionController::Base.helpers
+      title = helpers.link_to(checklist.title, Rails.application.routes.url_helpers.checklist_path(checklist))
+      helpers.safe_join([ "Needs ", title, ": ", requirement_words ])
+    end
+
+    def opens_checklist?(viewer)
+      @opens_checklist ||= {}
+      @opens_checklist.fetch(viewer.id) do
+        @opens_checklist[viewer.id] = viewer.user.present? && ChecklistPolicy.new(viewer.user, checklist).show?
+      end
+    end
+
     # "Needs Trip Eligibility: Complete" or
     # "Needs Trip Eligibility: Complete or In Progress", in the checklist's words.
     def checklist_requirement
       return "Needs a checklist that no longer exists" if checklist.nil?
 
+      "Needs #{checklist.title}: #{requirement_words}"
+    end
+
+    def requirement_words
       words = [ checklist.word_for("met") ]
       words << checklist.word_for("pending") if accept_pending?
-      "Needs #{checklist.title}: #{words.join(" or ")}"
+      words.join(" or ")
     end
 
     def checklist_chosen

@@ -17,6 +17,7 @@ Rails.application.config.to_prepare do
   Signup.prepend(Checklists::SignupPlacement)
   # The sheet page and roster show rules' answers as each viewer may see them.
   SignupSheetsController.before_action(only: %i[show roster]) { Checklists::SignupViewer.person = current_user&.person }
+  SignupSheetsController.before_action(only: :show) { Checklists::SignupViewer.sheet = true }
   RosterSignupsController.before_action do
     Checklists::SignupViewer.person = current_user&.person
     Checklists::SignupViewer.placing = true

@@ -32,6 +32,15 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Closes every checklist's page while closed is set.
+  module ClosedChecklists
+    mattr_accessor :closed, default: false
+
+    def show?
+      !ClosedChecklists.closed && super
+    end
+  end
+
   def create_checklist(title, team, status: :active)
     Checklist.create!(title: title, team: team, status: status, starts_on: Date.new(2026, 9, 1), ends_on: Date.new(2099, 12, 31),
       created_by: person(:admin))
@@ -70,14 +79,75 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to edit_signup_sheet_signup_position_path(@sheet, @position, anchor: "rules")
     rule = @position.signup_position_rules.sole
     assert_equal [ @checklist, true ], [ rule.checklist, rule.accept_pending ]
-    assert_equal "Rule added: Needs Trip: Complete or In Progress.", flash[:notice]
+    assert_equal "Rule added: Must have finished Trip or be partway through.", flash[:notice]
+    assert_nil flash[:warning]
+  end
+
+  test "the rules card reads the checklist rule as a requirement" do
+    sign_in person(:admin).user
+
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "#new_checklist_rule" do
+      assert_select "h3", text: "Needs a finished checklist"
+      assert_select "label", text: "Checklist they must finish first"
+      assert_select ".form-text", text: "Only people who have already finished this checklist can take this position. " \
+        "People the checklist leaves out can never take it."
+      assert_select "label", text: "Also allow people partway through"
+      assert_select ".form-text", text: "Use this when signing up here is how people finish the checklist."
+    end
+    [ "Finishes a checklist", "In Progress is enough", "For when signing up is how people finish it.",
+      "Active checklists whose results you can see for everyone." ].each { |old| assert_no_match old, response.body }
+
+    require_checklist
+    get edit_signup_sheet_signup_position_path(@sheet, @position)
+    assert_select "#new_checklist_rule", count: 0
+    assert_select "p", text: "Now: Must have finished Trip first"
+    assert_no_match "Now: Needs Trip", response.body
+  end
+
+  test "saving a rule that signing up here counts toward warns, but saves" do
+    @sheet.update!(event_type: event_types(:one))
+    count = add_item(@checklist, :count, "Outreach events", { base_amount: 1, unit: "events" })
+    count.commitment.commitment_sources.create!(kind: "checkins", subject: event_types(:one))
+    sign_in person(:admin).user
+    warning = "Signing up here counts toward Trip, so requiring it first means only people who already finished can sign up. " \
+      "Turn on 'Also allow people partway through' or drop the rule."
+
+    post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: @checklist.id } }
+    rule = @position.signup_position_rules.sole
+    assert_equal "Rule added: Must have finished Trip first.", flash[:notice]
+    assert_equal warning, flash[:warning]
+    follow_redirect!
+    assert_select ".alert-warning", text: /#{Regexp.escape(warning)}/
+
+    patch signup_sheet_signup_position_signup_position_rule_path(@sheet, @position, rule),
+      params: { signup_position_rule: { checklist_id: @checklist.id, accept_pending: "0" } }
+    assert_equal warning, flash[:warning]
+    follow_redirect!
+
+    patch signup_sheet_signup_position_signup_position_rule_path(@sheet, @position, rule),
+      params: { signup_position_rule: { checklist_id: @checklist.id, accept_pending: "1" } }
+    assert_equal "Rule saved: Must have finished Trip or be partway through.", flash[:notice]
+    assert_nil flash[:warning]
+  end
+
+  test "saving a rule nothing here counts toward doesn't warn" do
+    @sheet.update!(event_type: event_types(:one))
+    count = add_item(@checklist, :count, "Build days", { base_amount: 1, unit: "days" })
+    count.commitment.commitment_sources.create!(kind: "checkins", subject: event_types(:two))
+    sign_in person(:admin).user
+
+    post @rules_path, params: { signup_position_rule: { kind: "checklist", checklist_id: @checklist.id } }
+    assert_equal "Rule added: Must have finished Trip first.", flash[:notice]
+    assert_nil flash[:warning]
   end
 
   test "a rule names the checklist's own words" do
     @checklist.update!(met_word: "Eligible", pending_word: "Pending")
     rule = @position.signup_position_rules.create!(kind: "checklist", checklist: @checklist, accept_pending: true)
 
-    assert_equal "Needs Trip: Eligible or Pending", rule.description
+    assert_equal "Must have finished Trip or be partway through", rule.description
+    assert_equal "Needs Trip: Eligible or Pending", rule.check(person(:student), nil)
   end
 
   test "someone who runs the checklist can choose it" do
@@ -174,7 +244,9 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     sign_in person(:student).user
 
     get signup_sheet_path(@sheet)
-    assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Needs Trip: Complete/
+    assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Needs Trip: Complete/ do
+      assert_select "a[href=?]", checklist_path(@checklist), text: "Trip"
+    end
     assert_select "#checklist_signup_panel" do
       assert_select "p", text: "Driver needs Trip finished first."
       assert_select "li", text: /Handbook/
@@ -307,12 +379,32 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_match "Needs Trip: Complete", response.body
   end
 
+  # Anyone who sees a covered person's result can open the checklist today,
+  # so this closes the checklist's page to check the link follows it.
+  test "the sheet names a checklist that covers them, unlinked when they can't open it" do
+    require_checklist
+    sign_in person(:student).user
+    ChecklistPolicy.prepend(ClosedChecklists) unless ChecklistPolicy < ClosedChecklists
+    ClosedChecklists.closed = true
+
+    get signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Needs Trip: Complete/ do
+      assert_select "a[href=?]", checklist_path(@checklist), count: 0
+    end
+  ensure
+    ClosedChecklists.closed = false
+  end
+
   test "someone the checklist doesn't cover is told so" do
     @checklist = create_checklist("Crew Trip", @concessions)
     require_checklist
     sign_in person(:student).user
 
     get signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(slot_for(@position))}", text: /Not open to you/ do |slot|
+      assert_no_match "Crew Trip", slot.text
+      assert_select "a[href=?]", checklist_path(@checklist), count: 0
+    end
     assert_select "#checklist_signup_panel p", text: "You aren't on Crew Trip, so can't take these places."
   end
 
@@ -388,6 +480,17 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
       assert_no_match "Needs Trip: Complete", response.body
       assert_equal helper, moving.reload.signup_slot
     end
+  end
+
+  test "the roster still names a checklist the person isn't on, for an organizer who sees it" do
+    @checklist = create_checklist("Crew Trip", @concessions)
+    signup = Signup.place!(slot: slot_for(@position), person: person(:student), signed_up_by: person(:student))
+    require_checklist
+    sign_in person(:admin).user
+
+    get roster_signup_sheet_path(@sheet)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(signup)}", text: /Doesn't meet: Needs Crew Trip: Complete/
+    assert_no_match "Not open to you", response.body
   end
 
   test "an organizer who sees the results places as before" do
