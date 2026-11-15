@@ -1,0 +1,34 @@
+<% if GatherPack::Features.enabled?(:forms) %>
+  <% entries = forms_to_complete(current_user.person) %>
+  <% if entries.any? %>
+    <div class="card">
+      <div class="card-header">
+        <h2>Forms to Complete</h2>
+      </div>
+      <div class="card-body">
+        <%= render "forms/entries", entries: entries %>
+      </div>
+    </div>
+  <% end %>
+  <% todos = leader_todos(current_user.person) %>
+  <% if todos.any? %>
+    <div class="card">
+      <div class="card-header">
+        <h2>Waiting on You as a Leader</h2>
+      </div>
+      <div class="card-body">
+        <div class="list-group">
+          <% todos.each do |todo| %>
+            <%= link_to form_path(todo.form, status: "waiting"), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+              <span>
+                <strong><%= todo.form.title %></strong><br>
+                <small class="text-muted"><%= todo.people.map(&:identifier_name).first(4).to_sentence %><%= " and #{todo.people.size - 4} more" if todo.people.size > 4 %></small>
+              </span>
+              <span class="badge text-bg-warning"><%= todo.people.size %></span>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+<% end %>
