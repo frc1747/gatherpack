@@ -10,13 +10,14 @@ class ShareTargetTest < ActionDispatch::IntegrationTest
     @settings_file = Tempfile.new([ "settings", ".pstore" ])
     Settings.instance.store = PStore.new(@settings_file.path, true)
     Settings.set(:feature_installable_app, "true")
-    GatherPack::ShareActions.reset!
+    @registrations = GatherPack::ShareActions.snapshot
+    GatherPack::ShareActions.restore({})
     @user = User.create!(email: "sharer@example.com", password: "Password1!")
     Person.create!(user: @user, first_name: "Sam", last_name: "Sharer")
   end
 
   teardown do
-    GatherPack::ShareActions.reset!
+    GatherPack::ShareActions.restore(@registrations)
     Settings.instance.store = @settings_store
     @settings_file.close!
   end
