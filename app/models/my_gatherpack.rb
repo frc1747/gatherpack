@@ -9,15 +9,25 @@ module MyGatherpack
     end
   end
 
+  DUE_SOON_DAYS = 3
+
   # One row in a home page list. +at+ orders the list; +ward+ is the first name
   # of the person it's for, when that isn't the viewer.
   Item = Struct.new(:title, :detail, :at, :path, :action, :icon, :ward, keyword_init: true) do
     def past_due?
       at.present? && at.past?
     end
+
+    def due_soon?
+      at.present? && at.to_date <= DUE_SOON_DAYS.days.from_now.to_date
+    end
   end
 
+  # A link to one of a person's own settings, beside Sign Out in the sidebar.
+  AccountLink = Struct.new(:key, :label, :path, :visible, keyword_init: true)
+
   @sections = {}
+  @account_links = {}
 
   class << self
     attr_reader :sections
@@ -44,6 +54,16 @@ module MyGatherpack
         .each_with_index
         .sort_by { |section, index| [ section.position, index ] }
         .map(&:first)
+    end
+
+    # +path+ names a route helper. +visible+ runs in the view context.
+    # Registering the same key again replaces it, so reloading code is safe.
+    def register_account_link(key, label:, path:, visible: nil)
+      @account_links[key] = AccountLink.new(key: key, label: label, path: path, visible: visible)
+    end
+
+    def account_links_for(view)
+      @account_links.values.select { |link| link.visible.nil? || view.instance_exec(&link.visible) }
     end
   end
 end

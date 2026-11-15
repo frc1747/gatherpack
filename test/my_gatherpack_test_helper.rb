@@ -9,7 +9,7 @@ module MyGatherpackTestHelper
     @saved_flag = Settings.get(:feature_my_gatherpack).instance_variable_get(:@value)
     @saved_title = Settings.get(:title).instance_variable_get(:@value)
     @settings_dir = Dir.mktmpdir
-    Settings.instance.store = PStore.new(File.join(@settings_dir, "settings.pstore"))
+    Settings.instance.store = PStore.new(File.join(@settings_dir, "settings.pstore"), true)
     Settings[:feature_my_gatherpack] = "true"
     Settings[:title] = title
   end

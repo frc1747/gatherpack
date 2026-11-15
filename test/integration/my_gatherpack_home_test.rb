@@ -10,8 +10,8 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   setup do
     host! "localhost"
     @original_sections = MyGatherpack.sections.dup
-    @original_view_paths = ApplicationController.view_paths
-    ApplicationController.prepend_view_path(Rails.root.join("test/fixtures/views"))
+    @original_view_paths = ActionController::Base.view_paths
+    ActionController::Base.prepend_view_path(Rails.root.join("test/fixtures/views"))
     @saved_feature_values = FEATURE_SETTINGS.to_h { |key| [ key, Settings.get(key).instance_variable_get(:@value) ] }
     turn_on_my_gatherpack
     @member = create_login("Morgan")
@@ -22,7 +22,7 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
   teardown do
     restore_my_gatherpack
     @saved_feature_values.each { |key, value| Settings.get(key).instance_variable_set(:@value, value) }
-    ApplicationController.view_paths = @original_view_paths
+    ActionController::Base.view_paths = @original_view_paths
     MyGatherpack.sections.replace(@original_sections)
   end
 
@@ -36,12 +36,14 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: "Calendar"
   end
 
-  test "with nothing to do the heading says so and empty sections stay out" do
+  test "with nothing to do the heading says so and empty sections stay out, except Coming up" do
     get root_path
 
     assert_response :success
     assert_select "h1", text: "Hi Morgan. You're all caught up."
-    assert_select ".mg-heading", false
+    assert_select ".mg-heading", text: /To do|Latest|Your season/i, count: 0
+    assert_select ".mg-heading", text: /Coming up/i, count: 1
+    assert_select "[data-home-column='coming_up'] .mg-list", false
     assert_select ".mg-status", false
   end
 
@@ -122,6 +124,51 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_select ".mg-status", false
   end
 
+  test "the person sits at the foot of the sidebar, shown by initials without a photo" do
+    get root_path
+
+    assert_select ".mg-sidebar-foot .mg-sidebar-person a[href=?]", person_path(@member.person)
+    assert_select ".mg-sidebar-foot .mg-sidebar-person a[href=?][data-turbo-method=delete]", destroy_user_session_path, text: "Sign Out"
+    assert_select ".mg-sidebar-foot span.mg-avatar", text: @member.person.first_name.first.upcase + @member.person.last_name.first.upcase
+  end
+
+  test "a feature's account link sits beside Sign Out while it's visible" do
+    MyGatherpack.register_account_link(:example, label: "Example", path: :root_path, visible: -> { true })
+
+    get root_path
+    assert_select ".mg-sidebar-person .mg-sidebar-account a[href=?]", root_path, text: "Example"
+  ensure
+    MyGatherpack.instance_variable_get(:@account_links).delete(:example)
+  end
+
+  test "an account link that isn't visible is left out" do
+    MyGatherpack.register_account_link(:example, label: "Example", path: :root_path, visible: -> { false })
+
+    get root_path
+    assert_select ".mg-sidebar-account a", text: "Example", count: 0
+  ensure
+    MyGatherpack.instance_variable_get(:@account_links).delete(:example)
+  end
+
+  test "home has search at the top and hides the sidebar's" do
+    get root_path
+
+    assert_select ".mg-home-tools form[role=search][action=?] input[name=q]", search_path
+  end
+
+  test "a to-do row is marked when it's due soon, and carries one link with its label" do
+    item = MyGatherpack::Item.new(title: "Soon", detail: "Due Friday", at: 2.days.from_now, path: "/x", action: "Fill out", icon: "file")
+    later = MyGatherpack::Item.new(title: "Later", detail: "Due next month", at: 30.days.from_now, path: "/y", action: "Open", icon: "file")
+    assert item.due_soon?
+    assert_not later.due_soon?
+
+    html = ApplicationController.render(partial: "my_gatherpack/todo_row", locals: { item: item, first: true })
+    fragment = Nokogiri::HTML.fragment(html)
+    assert fragment.at_css(".mg-row-icon-soon")
+    assert_equal "Fill out", fragment.at_css("a.mg-row-action .mg-row-action-label").text
+    assert fragment.at_css("a.mg-row-action .mg-row-chevron")
+  end
+
   test "widget slots still render in their placements" do
     get root_path
 
@@ -138,6 +185,17 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_operator response.body.index('data-widget-slot="right"'), :<, response.body.index("Team shirts are in")
   end
 
+  test "sections placed at 20 and 20.5 render above the right widgets" do
+    MyGatherpack.register_section(:season_stub, partial: "my_gatherpack_home_test/season", column: :side, position: 20)
+    MyGatherpack.register_section(:activity_stub, partial: "my_gatherpack_home_test/activity", column: :side, position: 20.5)
+
+    get root_path
+
+    body = response.body
+    assert_operator body.index("season-block"), :<, body.index("activity-block")
+    assert_operator body.index("activity-block"), :<, body.index('data-widget-slot="right"')
+  end
+
   test "latest shows the newest announcement first and only what the viewer may see" do
     create_announcement("Older", start: 2.days.ago)
     create_announcement("Newer", start: 1.hour.ago)
@@ -149,12 +207,22 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_no_match "Other team&#39;s news", response.body
   end
 
-  test "the calendar, shortcuts and ledgers stay below" do
-    Shortcut.create!(name: "Handbook", icon: "book", color: "#336699", target: "/handbook", team: teams(:one))
-
+  test "with nothing coming up, Coming up still links to the full calendar" do
     get root_path
 
-    assert_select "h2", text: "Calendar"
+    assert_select "[data-home-column='coming_up'] a[href='#{calendar_index_path}']", text: "Full calendar"
+  end
+
+  test "Coming up links to the full calendar instead of drawing one, beside shortcuts and any ledgers" do
+    Shortcut.create!(name: "Handbook", icon: "book", color: "#336699", target: "/handbook", team: teams(:one))
+    get root_path
+    assert_select "h2", text: "Ledgers", count: 0
+
+    LedgerOwnership.create!(ledger: Ledger.create!(name: "Trip fund", team: teams(:one)), owner: @member.person)
+    get root_path
+
+    assert_select "#calendar", false
+    assert_select "[data-home-column='coming_up'] a[href='#{calendar_index_path}']", text: "Full calendar"
     assert_select "h2", text: "Your Shortcuts"
     assert_select "h2", text: "Ledgers"
     assert_select "a[href='/handbook'][style*='#336699']", text: /Handbook/
