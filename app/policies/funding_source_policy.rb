@@ -36,6 +36,11 @@ class FundingSourcePolicy < ApplicationPolicy
     restricted_fields?
   end
 
+  # The report page: numbers and every line charged.
+  def report?
+    numbers?
+  end
+
   def restricted_fields?
     return false if person.nil?
 

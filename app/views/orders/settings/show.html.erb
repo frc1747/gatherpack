@@ -1,0 +1,70 @@
+<% breadcrumb :orders_settings %>
+
+<%= form_with url: orders_settings_path, method: :patch do |f| %>
+  <div class="card">
+    <div class="card-header"><h1>Orders settings</h1></div>
+    <div class="card-body">
+      <% if @editor.errors.any? %>
+        <div class="alert alert-danger">
+          <ul class="mb-0"><% @editor.errors.each do |message| %><li><%= message %></li><% end %></ul>
+        </div>
+      <% end %>
+
+      <h2 class="h5">Approval steps</h2>
+      <p class="text-muted">
+        A request needs every step whose minimum total it meets, in this order. Approvers are one per line, as
+        Badge name &gt; Highest team name. Admins and the team's managers can always approve. Clear a step's name to remove it.
+      </p>
+      <% @editor.step_rows.each_with_index do |step, index| %>
+        <div class="row g-2 mb-3">
+          <%= hidden_field_tag "steps[#{index}][key]", step["key"] %>
+          <div class="col-md-4">
+            <%= label_tag "steps_#{index}_name", "Name", class: "form-label" %>
+            <%= text_field_tag "steps[#{index}][name]", step["name"], id: "steps_#{index}_name", class: "form-control" %>
+          </div>
+          <div class="col-md-2">
+            <%= label_tag "steps_#{index}_minimum", "Minimum total ($)", class: "form-label" %>
+            <%= text_field_tag "steps[#{index}][minimum]", step["minimum"], id: "steps_#{index}_minimum", class: "form-control", inputmode: "decimal" %>
+          </div>
+          <div class="col-md-6">
+            <%= label_tag "steps_#{index}_approvers", "Approvers", class: "form-label" %>
+            <%= text_area_tag "steps[#{index}][approvers]", step["approvers"], id: "steps_#{index}_approvers", class: "form-control", rows: 2 %>
+          </div>
+        </div>
+      <% end %>
+
+      <h2 class="h5 mt-4">How a purchase can be paid</h2>
+      <% @editor.paid_with_rows.each_with_index do |choice, index| %>
+        <div class="row g-2 mb-2 align-items-center">
+          <div class="col-md-6">
+            <%= text_field_tag "paid_with[#{index}][label]", choice["label"], class: "form-control", "aria-label": "Choice #{index + 1}" %>
+          </div>
+          <div class="col-md-6">
+            <div class="form-check">
+              <%= hidden_field_tag "paid_with[#{index}][reimburse]", "0", id: nil %>
+              <%= check_box_tag "paid_with[#{index}][reimburse]", "1", choice["reimburse"], id: "paid_with_#{index}_reimburse", class: "form-check-input" %>
+              <%= label_tag "paid_with_#{index}_reimburse", "Needs reimbursing", class: "form-check-label" %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <h2 class="h5 mt-4">Price tolerance</h2>
+      <p class="text-muted">How far a buyer's prices may raise an approved total before it needs approving again. Whichever is larger applies.</p>
+      <div class="row g-2">
+        <div class="col-md-3">
+          <%= label_tag :tolerance_percent, "Percent", class: "form-label" %>
+          <%= text_field_tag :tolerance_percent, @editor.tolerance_percent, class: "form-control", inputmode: "decimal" %>
+        </div>
+        <div class="col-md-3">
+          <%= label_tag :tolerance_amount, "Amount ($)", class: "form-label" %>
+          <%= text_field_tag :tolerance_amount, @editor.tolerance_amount, class: "form-control", inputmode: "decimal" %>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", orders_requests_path, class: "btn btn-warning" %>
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
