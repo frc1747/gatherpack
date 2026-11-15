@@ -107,17 +107,31 @@ class OrderLine < ApplicationRecord
     status.in?(OPEN_TO_RECEIVE) || (problem? && to_come_quantity.positive?)
   end
 
-  # Quantity that arrived damaged or wrong and the buyer hasn't settled yet:
-  # the most a replacement can be for.
-  def problem_quantity
-    unsettled_deliveries.reject(&:good?).sum(&:quantity)
+  # Quantity that arrived damaged or wrong, settled or not.
+  def nongood_quantity
+    order_deliveries.reject(&:good?).sum(&:quantity)
   end
 
-  # Quantity still on its way: what was ordered, less what arrived good and
-  # what arrived damaged or wrong and is waiting on the buyer. (A settled
-  # problem has already come off the item's quantity.)
+  # Damaged or wrong pieces the buyer has settled (reordered or given up
+  # on). Kept in the resolution rows of the timeline, never in quantity, so
+  # settling a problem leaves what was bought and paid for alone. No query
+  # unless something arrived damaged.
+  def settled_quantity
+    return 0 if order_deliveries.all?(&:good?)
+
+    OrderRequestEvent.where(order_line_id: id).where("field_changes ->> 'settled' IS NOT NULL")
+      .sum(Arel.sql("(field_changes ->> 'settled')::integer"))
+  end
+
+  # What a replacement can be for: damaged or wrong pieces not yet settled.
+  def problem_quantity
+    [ nongood_quantity - settled_quantity, 0 ].max
+  end
+
+  # Quantity still on its way: what was ordered, less what arrived (good, or
+  # damaged and not coming again).
   def to_come_quantity
-    [ quantity - received_quantity - problem_quantity, 0 ].max
+    [ quantity - received_quantity - nongood_quantity, 0 ].max
   end
 
   # Quantity that arrived in good condition.
@@ -228,7 +242,7 @@ class OrderLine < ApplicationRecord
       from = status
       status_now =
         if !delivery.good? then :problem
-        elsif received_quantity >= self.quantity then :received
+        elsif received_quantity + settled_quantity >= self.quantity then :received
         elsif problem? then :problem
         else :partly_received
         end
@@ -261,7 +275,8 @@ class OrderLine < ApplicationRecord
   # for quantity of them (default: all); :cancel gives up on them. Pieces
   # still on their way stay on this item, which goes back to ordered or
   # partly here; with none coming it's finished: received if some arrived
-  # good, otherwise cancelled. Returns the new line for :reorder.
+  # good, otherwise cancelled. The item's quantity never changes (it was
+  # bought and paid for); the settled count goes on the timeline. Returns the new line for :reorder.
   def resolve_problem!(resolution, by:, comment: nil, quantity: nil)
     resolution = resolution.to_s
     raise Orders::Refused, "Choose reorder or cancel." unless %w[reorder cancel].include?(resolution)
@@ -291,15 +306,10 @@ class OrderLine < ApplicationRecord
       end
       changes = { "status" => [ "problem", finished.to_s ], "resolution" => resolution }
       changes["reordered"] = missing if replacement
-      if carries_on
-        from = self.quantity
-        update!(status: finished, quantity: from - damaged)
-        changes["quantity"] = [ from, self.quantity ]
-        order_request.log!(:edited, by: by, line: self, comment: comment, changes: changes)
-      else
-        update!(status: finished)
-        order_request.log!(finished == :received ? :received : :cancelled, by: by, line: self, comment: comment, changes: changes)
-      end
+      changes["settled"] = damaged
+      update!(status: finished)
+      action = carries_on ? :edited : (finished == :received ? :received : :cancelled)
+      order_request.log!(action, by: by, line: self, comment: comment, changes: changes)
       order_request.refresh_status_from_lines
       replacement
     end
@@ -326,12 +336,6 @@ class OrderLine < ApplicationRecord
   end
 
   private
-
-  # Deliveries since the buyer last settled a problem on this item.
-  def unsettled_deliveries
-    settled_at = OrderRequestEvent.where(order_line_id: id).where("field_changes ->> 'resolution' IS NOT NULL").maximum(:created_at)
-    order_deliveries.select { |delivery| settled_at.nil? || delivery.created_at > settled_at }
-  end
 
   # Runs the block holding the request's row lock, with this line read
   # again under it.

@@ -199,7 +199,7 @@ module Orders
         raise Orders::Refused, "Nothing here is waiting to be received." if lines.empty?
 
         lines.each do |line|
-          line.record_delivery!(by: by, quantity: line.outstanding_quantity, received_on: received_on)
+          line.record_delivery!(by: by, quantity: line.to_come_quantity, received_on: received_on)
         end
       end
     end

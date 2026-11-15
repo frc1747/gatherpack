@@ -69,7 +69,8 @@ class Orders::LineReceiptsControllerTest < ActionDispatch::IntegrationTest
       assert replacement.approved?
       assert_equal 1, replacement.quantity, "only the damaged piece is replaced"
       assert_equal line.description, replacement.description
-      assert_equal 1, line.reload.quantity, "the piece still on its way stays on the item"
+      assert_equal 2, line.reload.quantity, "what was bought stays as it was"
+      assert_equal 1, line.to_come_quantity, "the piece still on its way can be received"
       assert line.ordered?
       assert_not order_request.reload.received?
     end
@@ -97,7 +98,7 @@ class Orders::LineReceiptsControllerTest < ActionDispatch::IntegrationTest
       end
       assert_equal "Not needed now", order_request.events.last.comment
       assert line.reload.ordered?
-      assert_equal 1, line.quantity
+      assert_equal 2, line.quantity
       assert line.open_to_receive?
 
       line.record_delivery!(by: @world.requester, quantity: 1, condition: :good)
@@ -121,12 +122,78 @@ class Orders::LineReceiptsControllerTest < ActionDispatch::IntegrationTest
       order_request, line = ordered_line(quantity: 4)
       line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged)
       line.resolve_problem!(:cancel, by: @world.buyer, comment: "Skip it")
-      assert_equal 3, line.reload.quantity
+      assert_equal 4, line.reload.quantity
 
       line.record_delivery!(by: @world.requester, quantity: 1, condition: :wrong_item)
       assert line.reload.problem?
       assert_equal 1, line.problem_quantity
       assert_equal 2, line.to_come_quantity
+    end
+  end
+
+  test "a replacement for part of the damaged pieces leaves the item's quantity and the rest to arrive" do
+    with_orders(@world) do
+      order_request, line = ordered_line(quantity: 3)
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged, note: "Cracked")
+      sign_in @world.buyer.user
+
+      post resolve_orders_request_line_url(order_request, line), params: { resolution: "reorder", quantity: 1 }
+      assert_redirected_to orders_request_url(order_request)
+      assert_equal 3, line.reload.quantity
+      assert line.ordered?
+      assert_equal 1, order_request.order_lines.reload.order(:position).last.quantity
+
+      line.record_delivery!(by: @world.requester, quantity: 2, condition: :good)
+      assert line.reload.received?, "2 good and 1 settled account for all 3"
+    end
+  end
+
+  test "settling a problem leaves the purchase total and what was spent alone" do
+    with_orders(@world) do
+      source = FundingSource.create!(team: @world.robotics, name: "Build budget")
+      order_request = approved_request(@world, funding_source: source, lines: [ { description: "Gear", quantity: 3, price: 10 } ])
+      purchase = buy(@world, order_request.order_lines.to_a, vendor: @world.preferred_vendor)
+      line = order_request.order_lines.first
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :damaged)
+      total = purchase.reload.total_cents
+      spent = source.reload.spent_cents
+      assert_equal 3000, total
+
+      line.reload.resolve_problem!(:cancel, by: @world.buyer, comment: "Not worth it")
+      assert_equal total, purchase.reload.total_cents
+      assert_equal spent, source.reload.spent_cents
+      assert_equal 3, line.reload.quantity
+
+      line.record_delivery!(by: @world.requester, quantity: 2, condition: :good)
+      assert line.reload.received?
+      assert_equal total, purchase.reload.total_cents
+    end
+  end
+
+  test "a replacement above the damaged count is refused" do
+    with_orders(@world) do
+      order_request, line = problem_line
+      sign_in @world.buyer.user
+
+      assert_no_difference -> { order_request.order_lines.count } do
+        post resolve_orders_request_line_url(order_request, line), params: { resolution: "reorder", quantity: 2 }
+        post resolve_orders_request_line_url(order_request, line), params: { resolution: "reorder", quantity: 0 }
+      end
+      assert line.reload.problem?
+    end
+  end
+
+  test "settling a problem where some came good and nothing more is coming leaves the item received, replacing only the damaged" do
+    with_orders(@world) do
+      order_request, line = ordered_line(quantity: 3)
+      line.record_delivery!(by: @world.requester, quantity: 2, condition: :good)
+      line.record_delivery!(by: @world.requester, quantity: 1, condition: :wrong_item, note: "Wrong size")
+      sign_in @world.buyer.user
+
+      post resolve_orders_request_line_url(order_request, line), params: { resolution: "reorder" }
+      assert line.reload.received?
+      assert_equal 3, line.quantity
+      assert_equal 1, order_request.order_lines.reload.order(:position).last.quantity
     end
   end
 

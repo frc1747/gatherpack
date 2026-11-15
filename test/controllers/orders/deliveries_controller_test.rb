@@ -51,6 +51,27 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "To receive runs the same queries however many items it lists" do
+    with_orders(@world) do
+      2.times { ordered_request }
+      sign_in @world.requester.user
+      get orders_deliveries_url(mine: 1)
+
+      # The orders tables are what grows with the list; the layout's own
+      # lookups (theme, logo) aren't counted.
+      count = lambda do
+        queries = 0
+        counter = ->(*, payload) { queries += 1 if payload[:sql].match?(/FROM "(order_\w+|purchases|vendors|teams)"/) && !payload[:cached] }
+        ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { get orders_deliveries_url(mine: 1) }
+        queries
+      end
+      before = count.call
+      3.times { ordered_request }
+      assert_equal before, count.call
+      assert_select "a", text: "Receive", count: 10
+    end
+  end
+
   test "someone who can't receive doesn't see the items" do
     with_orders(@world) do
       ordered_request
