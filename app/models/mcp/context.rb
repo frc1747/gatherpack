@@ -14,7 +14,6 @@ class Mcp::Context
     LedgerPaymentPolicy::Scope
     LedgerTransferPolicy::Scope
     OauthApplicationPolicy::Scope
-    OrderReportPolicy::Scope
     UserPolicy::Scope
   ].freeze
 
