@@ -33,7 +33,7 @@ module MyGatherpackChecklistsHelper
       next_up = action.delete_prefix("Next: ") if action.start_with?("Next: ")
       action = "Sign up" if next_up
 
-      MyGatherpack::Item.new(title: entry.item.label, detail: [ (checklist.title unless checklist.title == entry.item.label), entry.summary, next_up, my_gatherpack_checklist_due(checklist, entry) ].compact_blank.join(" · "),
+      MyGatherpack::Item.new(title: entry.item.label, detail: [ (checklist.title unless checklist.title == entry.item.label), my_gatherpack_todo_summary(entry), next_up, my_gatherpack_checklist_due(checklist, entry) ].compact_blank.join(" · "),
         at: entry.item.due_on || entry.item.ends_on || checklist.ends_on, path: path, action: action, icon: "list-check", ward: todo[:ward])
     end
   end
@@ -69,26 +69,25 @@ module MyGatherpackChecklistsHelper
 
   # What a My Season line says after the item's title, in words: what the
   # person did once met ("44 h this fall", "5 events"), the gap while not
-  # ("3.5 more hours by Dec 31"), or the status word when nothing is
-  # measured. An exempt item gives its label ("Rookie"). A count owed
+  # ("3.5 more hours by Dec 31", "1 more shift, was due Oct 1" once past
+  # due), what's signed up for when that covers it ("2 shifts signed up"),
+  # or the status word when nothing is measured. An exempt item gives its label ("Rookie"). A count owed
   # together says "for your family". An item standing for a checklist that
   # doesn't cover the subject says "Not required for you", never its title.
   def my_gatherpack_season_answer(entry, subject: current_user.person)
     return "Not required for you" if my_gatherpack_uncovered_checklist?(entry, subject)
     return entry.text if entry.exempt?
 
-    family = " for your family" if entry.item.config["group_relationship_type_id"].present?
     if entry.met?
       done = my_gatherpack_season_done(entry)
       return entry.text unless done
 
-      [ "#{done}#{family}", my_gatherpack_season_name(entry.item) ].compact.join(" ")
+      [ "#{done}#{my_gatherpack_family(entry)}", my_gatherpack_season_name(entry.item) ].compact.join(" ")
     else
-      gap = my_gatherpack_season_gap(entry)
-      return entry.text unless gap
+      progress = my_gatherpack_season_progress(entry)
+      return entry.text unless progress
 
-      due = " by #{entry.item.due_on.strftime("%b %-d")}" if entry.item.due_on
-      "#{gap}#{family}#{due}"
+      "#{progress}#{my_gatherpack_season_due(entry)}"
     end
   end
 
@@ -134,9 +133,44 @@ module MyGatherpackChecklistsHelper
 
   # Whether the item stands for another checklist that doesn't cover the
   # subject: its result names that checklist ("Not on ..."), which Home
-  # mustn't.
+  # mustn't. Covered means having a result there, as Checklists.checklist_for
+  # asks, even when that checklist has ended or shows them nothing, so a
+  # finished one still reads as finished. (Linking is narrower:
+  # my_gatherpack_season_item_path.)
   def my_gatherpack_uncovered_checklist?(entry, subject)
-    entry.item.kind == "checklist" && !my_gatherpack_checklist_ids_for(subject).include?(entry.item.config["checklist_id"])
+    entry.item.kind == "checklist" && !my_gatherpack_covering_ids(subject).include?(entry.item.config["checklist_id"])
+  end
+
+  # The checklists lines point to that cover the subject, in one query for
+  # the viewer and their wards.
+  def my_gatherpack_covering_ids(subject)
+    @my_gatherpack_covering_ids ||= begin
+      people = my_gatherpack_checklist_results.map { |row| row.first.id }.uniq
+      ChecklistResult.where(person_id: people, item_id: nil, checklist_id: my_gatherpack_season_others.keys)
+        .pluck(:person_id, :checklist_id).group_by(&:first).transform_values { |rows| rows.map(&:last).to_set }
+    end
+    @my_gatherpack_covering_ids.fetch(subject.id, Set.new)
+  end
+
+  # A to-do row's progress in words, as My Season says it, so no "x of y"
+  # reaches Home. An item with nothing measured keeps its summary.
+  def my_gatherpack_todo_summary(entry)
+    measures = entry.measures || {}
+    return entry.summary unless measures["owed"] || measures["remaining"]
+
+    my_gatherpack_season_progress(entry)
+  end
+
+  def my_gatherpack_family(entry)
+    " for your family" if entry.item.config["group_relationship_type_id"].present?
+  end
+
+  # " by Dec 31" for an item due ahead, ", was due Oct 1" once that's passed.
+  def my_gatherpack_season_due(entry)
+    date = entry.item.due_on
+    return unless date
+
+    date < Date.current ? ", was due #{date.strftime("%b %-d")}" : " by #{date.strftime("%b %-d")}"
   end
 
   # The unfinished items the viewer can fix, as { subject:, checklist:,
@@ -173,17 +207,31 @@ module MyGatherpackChecklistsHelper
     end
   end
 
-  # How much is still owed, with its unit ("3.5 more hours", "1 more
-  # shift"): the result's remaining, or owed less confirmed. Nil when there's
-  # nothing measured or nothing left (pending on what's planned).
-  def my_gatherpack_season_gap(entry)
+  # Where an unfinished, measured item stands, with its unit: what's still
+  # owed ("3.5 more hours", "1 more shift"), the result's remaining or owed
+  # less confirmed. While pending, what's signed up for (planned) counts
+  # against that, and when it covers the rest: "2 shifts signed up". Nil
+  # when nothing is measured.
+  def my_gatherpack_season_progress(entry)
     measures = entry.measures || {}
     remaining = measures["remaining"]
     remaining ||= measures["owed"].to_f - measures["confirmed"].to_f if measures["owed"] && measures["confirmed"]
-    return unless remaining && remaining.to_f.positive?
+    return unless remaining
 
-    unit = my_gatherpack_measure_hours?(entry.item, "owed") ? (remaining.to_f == 1 ? "hour" : "hours") : my_gatherpack_unit(entry.item, remaining)
-    [ my_gatherpack_number(remaining), "more", unit ].compact.join(" ")
+    remaining = remaining.to_f
+    planned = entry.pending? ? measures["planned"].to_f : 0
+    if remaining - planned > 0
+      left = remaining - planned
+      "#{my_gatherpack_number(left)} more #{my_gatherpack_owed_unit(entry.item, left)}".strip + my_gatherpack_family(entry).to_s
+    elsif planned.positive?
+      "#{my_gatherpack_number(planned)} #{my_gatherpack_owed_unit(entry.item, planned)}".strip + " signed up" + my_gatherpack_family(entry).to_s
+    end
+  end
+
+  def my_gatherpack_owed_unit(item, value)
+    return value.to_f == 1 ? "hour" : "hours" if my_gatherpack_measure_hours?(item, "owed")
+
+    my_gatherpack_unit(item, value).to_s
   end
 
   # "this fall": the name of the item's rule group in force today (an
@@ -198,7 +246,7 @@ module MyGatherpackChecklistsHelper
     name = Array(item.config["rules"])[rule.index]["name"].to_s.strip if rule
     return "this season" if name.blank?
 
-    # "Fall" reads "this fall"; a name with capitals inside ("FRC season") keeps them.
+    # "Fall" reads "this fall"; a name with capitals inside ("AP season") keeps them.
     "this #{name.split.all? { |word| word == word.capitalize } ? name.downcase : name}"
   end
 

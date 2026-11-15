@@ -73,6 +73,23 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Not met, counted, with a sign-up as its fix: a to-do row.
+  class OpenShifts < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with do
+        Checklists::Result.not_met("1 of 3 shifts", measures: { "confirmed" => 1, "owed" => 3, "remaining" => 2 },
+          fix: { "label" => "Next: Sat shift", "path" => "/signups", "by" => "person" })
+      end
+    end
+  end
+
+  # Pending: some of what's owed is signed up for, not yet done.
+  class SignedUp < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.pending("1 of 3 shifts", measures: { "confirmed" => 1, "planned" => config["planned"], "owed" => 3, "remaining" => 2 }) }
+    end
+  end
+
   # Met with its own word.
   class Signed < Checklists::ItemKind
     def evaluate(person_ids)
@@ -96,6 +113,8 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.register_item_kind(:shifts, Shifts)
     Checklists.register_item_kind(:plain, Plain)
     Checklists.register_item_kind(:hours, Hours)
+    Checklists.register_item_kind(:open_shifts, OpenShifts)
+    Checklists.register_item_kind(:signed_up, SignedUp)
     Checklists.register_item_kind(:attended, Attended)
     Checklists.register_item_kind(:outreach, Outreach)
     Checklists.register_item_kind(:pooled, Pooled)
@@ -116,6 +135,8 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.unregister_item_kind(:shifts)
     Checklists.unregister_item_kind(:plain)
     Checklists.unregister_item_kind(:hours)
+    Checklists.unregister_item_kind(:open_shifts)
+    Checklists.unregister_item_kind(:signed_up)
     Checklists.unregister_item_kind(:attended)
     Checklists.unregister_item_kind(:outreach)
     Checklists.unregister_item_kind(:pooled)
@@ -311,6 +332,30 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a pending count takes off what's signed up, and says so when that covers it" do
+    add_item(@checklist, :signed_up, "Concessions").update_columns(config: { "unit" => "shifts", "planned" => 2 })
+    add_item(@checklist, :signed_up, "Pit crew").update_columns(config: { "unit" => "shifts", "planned" => 1 })
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Concessions · 2 shifts signed up", "Pit crew · 1 more shift" ], season_lines("in-progress")
+    end
+  end
+
+  test "an item past its due date says when it was due" do
+    due = 1.week.ago.to_date
+    add_item(@checklist, :hours, "Attendance", {}, due_on: due)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Attendance · 1.5 more hours, was due #{due.strftime("%b %-d")}" ], season_lines("in-progress")
+    end
+  end
+
   test "an unfinished item without a measure says its status word" do
     add_item(@checklist, :waiting, "Paperwork")
     refresh(@checklist)
@@ -347,6 +392,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
   end
 
   test "Home has no x of y and no bar, while the checklists page keeps the count" do
+    add_item(@checklist, :open_shifts, "Concessions").update_columns(config: { "unit" => "shifts" })
     add_item(@checklist, :shifts, "Shifts")
     add_item(@checklist, :hours, "Attendance")
     add_item(@checklist, :has_login, "Login")
@@ -357,6 +403,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       get root_path
       lines = css_select("[data-home-section=checklists-season] summary, [data-home-column=todo] .mg-row").map(&:text)
       assert_equal 3, css_select("[data-home-section=checklists-season] summary").size
+      assert_select "[data-home-column=todo] .mg-row-detail", text: /2 more shifts/
       assert_no_match(/\d+(\.\d+)? of \d+/, lines.join(" "), "the formula is only in a line's detail, shown when it's tapped")
       assert_select ".progress, .progress-bar, [role=progressbar]", false
 
@@ -448,6 +495,45 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       assert MyGatherpack::Claims.claimed?(view, :form, person(:member), form_id)
       assert_not MyGatherpack::Claims.claimed?(view, :form, person(:member), SecureRandom.uuid)
       assert_not MyGatherpack::Claims.claimed?(view, :form, person(:admin), form_id), "a checklist that doesn't cover them claims nothing"
+    end
+  end
+
+  test "a line for a checklist that has ended still reads as finished for someone it covered" do
+    prereq = create_world_checklist("Prereq")
+    add_rule(prereq, :include, :person, person_id: person(:member).id)
+    add_item(prereq, :signed, "Letter")
+    add_item(@checklist, :checklist, "Prereq done", { checklist_id: prereq.id })
+    refresh(prereq)
+    refresh(@checklist)
+    prereq.update_columns(ends_on: 1.day.ago.to_date)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      line = season_lines("done").find { |text| text.start_with?("Prereq done") }
+      assert_equal "Prereq done ✓ Complete", line
+      assert_select "a[href=?]", checklist_path(prereq), false, "an ended checklist isn't one to open from Home"
+    end
+  end
+
+  test "a ward's line for a checklist that covers the guardian but not the ward names nothing" do
+    other = create_world_checklist("Varsity Only")
+    add_rule(other, :include, :person, person_id: person(:parent).id)
+    add_item(other, :signed, "Letter")
+    add_item(@checklist, :checklist, "Varsity", { checklist_id: other.id })
+    refresh(other)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:parent).user
+      get root_path
+      line = css_select("[data-home-section=checklists-season] details.mg-season-item").find do |item|
+        item.at_css(".mg-season-title")&.text == "Varsity" && item.at_css(".mg-row-ward")
+      end
+      assert line, "the ward's line is there"
+      assert_match "Not required for you", line.at_css("summary").text
+      assert_no_match "Varsity Only", line.to_html
+      assert_empty line.css("a[href='#{checklist_path(other)}']")
     end
   end
 
