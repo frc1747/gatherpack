@@ -6,7 +6,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 
 ## Items
 
-**Up next** (in order): [BL-044](BL-044-home-my-season-and-activity.md), [BL-045](BL-045-checklist-rule-wording.md), then [BL-046](BL-046-wrapped-checklist-exempt-people.md) once its decisions are made.
+**Up next**: [BL-046](BL-046-wrapped-checklist-exempt-people.md) once its decisions are made.
 
 | ID | Title | Kind | Priority | Status | Added |
 |---|---|---|---|---|---|
@@ -50,8 +50,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-041](BL-041-count-done-hides-group-records.md) | A family member's credit counts toward a count item but isn't listed under Done | fork-only | medium | started | 2026-11-11 |
 | [BL-042](BL-042-relationship-type-delete-breaks-count-item.md) | Deleting a relationship type that a count item pools through breaks the item | fork-only | low | started | 2026-11-11 |
 | [BL-043](BL-043-checkin-answers-block-deletes.md) | Check-in fields and event types with stored answers can never be deleted | upstream bug | low | started | 2026-11-11 |
-| [BL-044](BL-044-home-my-season-and-activity.md) | Home shows checklist math instead of answers; add a "My activity" page | fork-only (UX) | high | waiting | 2026-11-15 |
-| [BL-045](BL-045-checklist-rule-wording.md) | "Finishes a checklist" reads as a reward, not a requirement; no warning for a catch-22 | fork-only (UX) | high | waiting | 2026-11-15 |
+| [BL-044](BL-044-home-my-season-and-activity.md) | Home shows checklist math instead of answers; add a "My activity" page | fork-only (UX) | high | shipped hbr.41 | 2026-11-15 |
+| [BL-045](BL-045-checklist-rule-wording.md) | "Finishes a checklist" reads as a reward, not a requirement; no warning for a catch-22 | fork-only (UX) | high | shipped hbr.41 | 2026-11-15 |
 | [BL-046](BL-046-wrapped-checklist-exempt-people.md) | Checklists made from commitments treat an exempt badge as "not on the checklist" | fork-only (bug) | medium | blocked | 2026-11-15 |
 
 ## Fields

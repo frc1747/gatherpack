@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (UX) |
 | Priority | high (top of the queue, Corey 2026-11-15) |
-| Status | waiting |
+| Status | shipped hbr.41 |
 | Added | 2026-11-15 |
 | Commit checked | `hbr/integration` @ `2d28c89f` (`v0.0.0-hbr.40`); `feature/my-gatherpack-checklists` @ `9d1e264c` |
 | Planned branches | `feature/my-gatherpack-checklists` (Home wording and grouping), new `feature/my-gatherpack-activity` (activity page) |

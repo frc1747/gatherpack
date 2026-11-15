@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (UX) |
 | Priority | high |
-| Status | waiting |
+| Status | shipped hbr.41 |
 | Added | 2026-11-15 |
 | Commit checked | `feature/checklists-connectors` (as merged in `hbr/integration` @ `2d28c89f`, `v0.0.0-hbr.40`) |
 | Planned branch | `feature/checklists-connectors` |
