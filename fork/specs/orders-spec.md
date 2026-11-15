@@ -389,7 +389,7 @@ A separate spec. What orders needs from it, so the seams above are enough:
 Depends on `feature/orders` and `feature/inventory`. Small:
 
 - A line entry extension (§3.9): **Pick from what we stock**, a search over items by name and part number at the top of the line form. Picking one fills the line from the item (description, manufacturer, part numbers, the preferred vendor and its link, unit) and sets `item`. This is the easy path for reorders and gives inventory clean lines without asking students for part numbers.
-- A receiving extension: "Put away in: [location]" and "Track this item" (ticked when the line has an item). Saving a delivery records a `received` stock movement for quantity × `units_per` (blank `units_per` means 1), shown in the dialog before saving ("2 packs = 200 each") and editable there. Untracked lines stay acknowledgement only.
+- A receiving extension: "Put away in: [location]" and "Track this item" (ticked when the line has an item). Saving a delivery records a `received` stock movement for quantity × `units_per` (blank `units_per` means 1), shown in the dialog before saving ("2 packs = 200 each") and editable there. Untracked lines stay acknowledgement only. When the line's item is a tracked item (inventory spec §3.15), receiving creates one unit per piece instead of a stock movement, and the dialog says so ("Adds 4 motors as units; label them later").
 - A line without an item can be linked to an existing item, or **Create item from this line** (description, manufacturer, part numbers and vendor filled in). Free-text descriptions from students are expected; the buyer or whoever receives cleans them up at this point, not the requester at request time.
 - "Order these" from inventory, through `draft_for`.
 

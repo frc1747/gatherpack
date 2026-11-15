@@ -35,8 +35,12 @@ Three layers, as in the orders spec:
 | Know which vendor sells an item and its part number there | Fits | Item sources: free-text vendor name, part number and link (§3.1). With orders, the bridge links a source to a vendor record. |
 | Print bin labels | Fits | Label sheet with name, code and a QR code that opens the location's page (§3.10) |
 | Two teams share one shop | Fits | Items and locations belong to a team; an item on a parent team is shared by its subteams (§3.6) |
-| Track one specific tool (serial number, who has it) | Not built; fits the model | A later "tracked units" table under an item. Checkout and return is a different flow from consumable stock. |
-| Lending tools to members (check out, due back) | Non-goal here | A separate feature; it would use items and locations |
+| A motor goes on the robot, comes off for a rebuild, sits in a bin, and goes onto the practice robot | Fits | Tracked item: each piece is a **unit** with its own label; installing and taking off are unit moves between a bin and a **machine** (§3.15) |
+| Know what's on a robot right now | Fits | The machine's page lists its installed units, with condition (§3.15) |
+| Know the condition and history of one part (a battery's age and resistance, a gearbox that's been rebuilt twice) | Fits | Unit condition, checks with readings, and a unit history (§3.15) |
+| A swerve module, with its motors, moves from one robot to another | Fits | A unit can be installed in another unit; its parts go with it (§3.15) |
+| Don't put a broken part on the competition robot | Fits | Installing a unit marked Needs repair or Broken asks for a confirm and is flagged on the machine page; it's not blocked (§3.15) |
+| Lending tools to members (check out, due back) | Non-goal here | A separate feature; tracked units and their history are what it would build on |
 | Value of stock, cost accounting | Non-goal | Inventory counts things. Prices live in orders and the ledger. |
 | Fractional quantities (3.5 ft of wire) | Non-goal | Whole numbers in one stock unit; pick a smaller unit (inches) when it matters (§3.1) |
 | Barcode scanning of manufacturer barcodes | Non-goal | Our own QR labels open pages with the phone's camera app; no in-app scanner |
@@ -53,6 +57,9 @@ Three layers, as in the orders spec:
 | Stock | The quantity of an item at a location: the sum of its movements. An item's total stock is the sum over all locations. |
 | Reorder point | When total stock is at or below this, the item is on the reorder list |
 | Reorder quantity | How many to buy when it is |
+| Tracked item | An item whose pieces are kept apart, each as a unit, because they're reused and worth following (motors, controllers, batteries, modules) |
+| Unit | One piece of a tracked item, with its own label, condition and history |
+| Machine | A location that is something built and run, not a shelf: a robot, a practice base, a demo board. Units are installed on it. |
 | Inventory manager | A person allowed to manage items and locations for teams within their reach, granted by badge (§3.6) |
 
 ## 3. Inventory (`feature/inventory`)
@@ -250,13 +257,15 @@ Nav items: Inventory (search), Reorder, Items, Places, Changes. Reorder, Items, 
 
 | Table | Columns |
 |---|---|
-| `items` | `team_id`, `name`, `description`, `category`, `manufacturer`, `manufacturer_part_number`, `unit`, `home_location_id`, `reorder_point`, `reorder_quantity`, `url`, `note`, `active`; photo attachment |
+| `items` | `team_id`, `name`, `description`, `category`, `manufacturer`, `manufacturer_part_number`, `unit`, `tracked` (boolean), `reading_fields` (jsonb: name and unit of each reading a check asks for), `home_location_id`, `reorder_point`, `reorder_quantity`, `url`, `note`, `active`; photo attachment |
 | `item_sources` | `item_id`, `vendor_name`, `vendor_part_number`, `url`, `preferred`, `note`, `position` |
-| `locations` | `team_id`, `parent_id`, `name`, `code`, `note`, `position`, `active` |
+| `locations` | `team_id`, `parent_id`, `name`, `code`, `kind` (`storage`, `machine`), `note`, `position`, `active` |
+| `item_units` | `item_id`, `code`, `serial_number`, `name`, `location_id`, `installed_in_id` (nullable, another unit), `condition`, `condition_note`, `in_service_on`, `active`; photo attachment |
+| `item_unit_events` | `item_unit_id`, `action`, `from_location_id`, `to_location_id`, `from_unit_id`, `to_unit_id`, `condition_before`, `condition_after`, `readings` (jsonb), `person_id`, `recorded_by_id`, `note`, `created_at`; photo attachment |
 | `stock_movements` | `item_id`, `location_id`, `kind`, `quantity`, `counted_quantity`, `person_id`, `recorded_by_id`, `reason`, `note`, `move_group_id`, `reverses_id`, `created_at` |
 | `stock_levels` | `item_id`, `location_id`, `quantity`; unique index on the pair |
 
-UUID primary keys and `neat_id` prefixes `itm_`, `isrc_`, `loc_`, `smv_` (confirm these prefixes are free when building). Indexes: `stock_movements (item_id, location_id, created_at)`, `stock_movements (location_id, created_at)`, `items (team_id, active)`, a trigram or `ILIKE` index on `items.name` only if search measures slow. `locations.code` is unique within its top-level place, checked in the model (the top-level place is derived).
+UUID primary keys and `neat_id` prefixes `itm_`, `isrc_`, `loc_`, `smv_`, `unt_`, `uev_` (confirm these prefixes are free when building). Indexes: `stock_movements (item_id, location_id, created_at)`, `stock_movements (location_id, created_at)`, `items (team_id, active)`, a trigram or `ILIKE` index on `items.name` only if search measures slow. `locations.code` is unique within its top-level place, checked in the model (the top-level place is derived).
 
 All models use `has_paper_trail versions: { class_name: "AuditLog" }`, as upstream models do. Stock movements are their own history and are insert-only; paper_trail on them records the create only.
 
@@ -264,22 +273,66 @@ Migrations are new and reversible. Upstream files touched (estimate): `db/schema
 
 **Branch base.** `feature/inventory` is based on `feature/extension-registries` and `feature/recurring-routes-seams`, which have no orders code, because upstream itself has neither `Settings.register`, `GatherPack::HookCatalog` nor the routes and recurring seams.
 
+### 3.15 Tracked parts and machines
+
+Some parts aren't used up. A motor goes onto a robot, comes off for a rebuild, waits in a bin, and goes onto the practice robot. People want to know which one is where, what shape it's in, and what's on each robot. Counting them as stock loses all of that, so these items are **tracked**: each piece is a **unit**.
+
+**Tracked items.** An item has `tracked` (default off; an inventory manager turns it on, and it can't be turned off while the item has units). A tracked item has no stock movements of its own. Its stock is worked out from its units:
+- **Available** = active units in a storage location, not installed, and not Needs repair or Broken. This is the number the reorder list uses (§3.4), so "2 spare motors left" puts motors on the list.
+- The item page shows units by place: available, on each machine, in repair, retired.
+
+Turning tracking on for an item that has stock asks for that many units to be created (with codes to fill in later), so nothing is lost.
+
+**Units.** A unit has a `code` (its label, unique within the item's team: "NEO-07", "BAT-2026-03"), an optional `serial_number` and `name` ("Left front module"), where it is, its `condition`, a `condition_note`, `in_service_on` (when it was first used; defaults to when it was created), `active` and a photo. A unit is in exactly one place: a location, or installed in another unit.
+
+**Machines.** A location has a `kind`: `storage` (the default: shelves, bins, carts) or `machine` (a robot, a practice base, a demo board). A machine is a top-level location or sits under a storage place (the robot cart). Machines get their own list, **Machines**, and a page that lists every installed unit, nested by sub-assembly, with condition. Only units go on a machine; counted stock (screws, zip ties) on a robot is used, not tracked.
+
+**Sub-assemblies.** A unit can be installed in another unit: motors in a swerve module, a module on a robot. Moving the outer unit moves everything in it; each inner unit's history records the move with the outer unit's code. Taking an inner unit out puts it in a location or another unit.
+
+**Conditions.** One fixed list, in plain words: `new` (New), `good` (Good), `worn` (Worn), `needs_repair` (Needs repair), `broken` (Broken), `retired` (Retired). A unit is created as New. Retired units keep their history, drop out of every count and list except the item's "Retired" group, and can't be installed.
+
+**Actions on a unit.** Each writes an `item_unit_events` row in the same transaction, with who, when and a note; events are never edited or deleted.
+
+| Action | What it does | Who (default) |
+|---|---|---|
+| **Install** | Put the unit on a machine or in another unit | Members |
+| **Take off** | Back to a storage location (defaults to the item's home location) | Members |
+| **Move** | From one storage location to another | Members |
+| **Check** | Record the condition, a note, an optional photo, and the item's readings | Members |
+| **Mark for repair** | Condition to Needs repair, with what's wrong | Members |
+| **Repaired** | Condition back to Good or Worn, with what was done | Inventory managers |
+| **Retire** | Condition to Retired, with why | Inventory managers |
+
+Members' unit actions are a setting, `inventory_member_unit_actions` (default Install, Take off, Move, Check, Mark for repair), on the same pattern as `inventory_member_kinds` (§3.2). Undo works as for movements (§3.3): the person who recorded it, for 10 minutes; managers any time; undo writes a reversing event.
+
+**Readings.** A tracked item can list the readings a check asks for, each with a name and a unit: a battery's "Internal resistance (mΩ)" and "Charge cycles", a motor's "Hours". A check records any of them; none are required. The unit page shows the latest of each and the history as a small table, so a battery whose resistance is climbing is easy to spot.
+
+**Installing something that isn't right.** Installing a unit marked Needs repair or Broken asks "This unit is marked Needs repair: install anyway?" and records the answer in the event. It's flagged, not blocked, as with going below zero (§3.3). The machine page marks such units at the top.
+
+**Labels and phones.** Units get small labels (code, item name, a QR code that opens the unit page) from the same label sheet as locations (§3.10). The unit page on a phone leads with the actions above as large buttons. A machine's page has its own label, and from it **Install a part** asks for the unit by scanning its label or typing its code.
+
+**Notices.** A unit marked Needs repair or Broken goes into the inventory managers' daily digest (§3.12).
+
+
 ## 4. Hooks
 
 Every new model includes `CanBeHooked`. Register through `GatherPack::HookCatalog` (`feature/extension-registries`):
 
-- Targets: `items`, `item_sources`, `locations`, `stock_movements`. `stock_levels` isn't a target: it's derived, and `stock_movements - create` covers every change.
+- Targets: `items`, `item_sources`, `locations`, `stock_movements`, `item_units`, `item_unit_events`. `stock_levels` isn't a target: it's derived, and `stock_movements - create` covers every change.
 - Events, fired with `Hook.where(event: …).each { |h| h.run(item) }` as `Signup#run_status_hooks` does, after the movement commits:
   - `items - running_low`: total stock plus on order dropped to or below the reorder point.
   - `items - out_of_stock`: total stock reached zero.
   - `items - restocked`: total stock rose back above the reorder point.
   - `stock_movements - count_differs`: a count's difference wasn't zero; `model` is the movement.
 
-Each event fires only on the crossing, not on every movement while low.
+  - `item_units - needs_repair`: a unit's condition became Needs repair or Broken.
+  - `item_units - installed`, `item_units - removed`: a unit went onto or came off a machine.
+
+Each stock event fires only on the crossing, not on every movement while low.
 
 ## 5. Order receiving into inventory (`feature/order-inventory`)
 
-Specified in [`orders-spec.md`](orders-spec.md) §5. From inventory's side it uses only the seams in §3.8: `register_reorder_action` for **Order these**, `register_on_order`, `register_item_panel`, `register_source_fields` plus its own migration adding `item_sources.vendor_id`, `StockMovement.record!` for received deliveries, `Item.search` and `Item#line_attributes` for **Pick from what we stock**. When orders is present, a `received` movement made through a delivery carries the purchase's vendor name as its "From" and a link back in its note.
+Specified in [`orders-spec.md`](orders-spec.md) §5. From inventory's side it uses only the seams in §3.8: `register_reorder_action` for **Order these**, `register_on_order`, `register_item_panel`, `register_source_fields` plus its own migration adding `item_sources.vendor_id`, `StockMovement.record!` for received deliveries, `Item.search` and `Item#line_attributes` for **Pick from what we stock**. When orders is present, a `received` movement made through a delivery carries the purchase's vendor name as its "From" and a link back in its note. For a tracked item, receiving creates one unit per piece instead (`ItemUnit.receive!(item:, location:, count:, person:, note:)`), with codes to fill in when they're labelled.
 
 ## 6. MCP tools (`feature/mcp-orders`)
 
@@ -292,6 +345,9 @@ Inventory's MCP tools don't live in `feature/inventory`. They're in `feature/mcp
 | `list_locations` | parent (optional), team | Places visible to the person, with path, code and item count | Places |
 | `reorder_list` | team, category | Items on the reorder list within the person's reach, with stock, on order, suggested quantity and preferred source | Reorder |
 | `record_stock_movement` | kind, item id, location id, quantity (or counted quantity for `counted`), to location (for `moved`), reason, note | Records through `StockMovement.record!`; returns the movement and stock after | Used, Count, Move and the manager kinds |
+| `list_machines` | team | Machines within reach, with installed units and any flagged condition | Machines page |
+| `get_unit` | unit id or code | The unit: place, condition, latest readings, history | Unit page |
+| `record_unit_event` | unit id, action (§3.15), to location or unit, condition, readings, note | Records through the same model method as the unit page; refused where the page would refuse | Unit page actions |
 
 Rules:
 
@@ -301,7 +357,7 @@ Rules:
 
 ## 7. Sample data and tests
 
-**Sample data:** `fork/sample_data/features/inventory.rb`, Northwind. Places: "Build shop" (Northwind's top-level team) with "Cabinet A" (bins A-1 to A-6), "Electrical cart" (drawers E-1 to E-4) and "Wire shelf"; an "Outreach closet" belonging to a subteam. About 25 items across categories (fasteners, electrical, bearings, pneumatics, tools, consumables) with generic manufacturers and part numbers, sources with free-text vendor names, home places and reorder points. History covering every kind: a starting import, used by several sample members, a move between cabinets, a count that matched, a count that found fewer, a removed item with a reason, a received box, a donated box, an undone used. States: two items running low, one out of stock, one with negative stock at a bin ("Needs a count"), one with no source, one inactive, one subteam item stored in the parent team's shop. One sample member holds the inventory manager badge capped at a subteam. Sample people use made-up names from the existing sample set; never real names.
+**Sample data:** `fork/sample_data/features/inventory.rb`, Northwind. Places: "Build shop" (Northwind's top-level team) with "Cabinet A" (bins A-1 to A-6), "Electrical cart" (drawers E-1 to E-4) and "Wire shelf"; an "Outreach closet" belonging to a subteam. About 25 items across categories (fasteners, electrical, bearings, pneumatics, tools, consumables) with generic manufacturers and part numbers, sources with free-text vendor names, home places and reorder points. History covering every kind: a starting import, used by several sample members, a move between cabinets, a count that matched, a count that found fewer, a removed item with a reason, a received box, a donated box, an undone used. States: two items running low, one out of stock, one with negative stock at a bin ("Needs a count"), one with no source, one inactive, one subteam item stored in the parent team's shop. One sample member holds the inventory manager badge capped at a subteam. Sample people use made-up names from the existing sample set; never real names. Tracked: "NEO brushless motor" (12 units: 8 on two machines, 2 in a bin, 1 Needs repair, 1 Retired), "Swerve module" (4 units with 2 motors each, on "Competition robot"), "12V battery" (10 units, readings "Internal resistance (mΩ)" and "Charge cycles", with a history of checks, one Worn). Machines: "Competition robot" and "Practice robot" on the robot cart, "Demo board".
 
 **Model tests:**
 - Stock is the sum of movements; `stock_levels` matches after every kind; the rebuild task finds and fixes a tampered level.
@@ -319,6 +375,10 @@ Rules:
 - Location code unique within its top-level place; a place with stock can't be deactivated.
 - Menu: `Inventory::Feature#nav_section` is "Inventory" alone and "Purchasing" when a stub feature with Purchasing items is enabled, and "Inventory" again when that feature is off.
 - Import: preview, create, update by part number, unknown place code reported, `added` movements written.
+
+**Tracked units (model tests):** available count excludes installed, Needs repair, Broken and Retired units, and drives the reorder list; installing an outer unit carries its inner units and writes an event for each; a retired unit can't be installed; installing a Needs repair unit needs the confirm and records it; members can't do actions outside `inventory_member_unit_actions`; undo writes a reversing event; turning tracking on creates units for existing stock and turning it off is refused while units exist; codes are unique within a team; the `needs_repair`, `installed` and `removed` hooks fire once.
+
+**Tracked units (system tests, phone-sized):** open a unit from its label link, take it off a machine into a bin, check it with a reading; install a module with motors on a machine and see the machine page list all three.
 
 **System tests (phone-sized screen where marked):**
 - Search finds an item by part number and shows its places (phone).
