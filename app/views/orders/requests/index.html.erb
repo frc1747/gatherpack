@@ -1,0 +1,26 @@
+<% breadcrumb :orders_requests %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h1><%= params[:mine].present? ? "My requests" : "Orders" %></h1>
+    <% if policy(OrderRequest).create? %>
+      <%= link_to "New request", new_orders_request_path, class: "btn btn-primary" %>
+    <% end %>
+  </div>
+  <div class="list-group list-group-flush">
+    <% @order_requests.each do |order_request| %>
+      <%= link_to orders_request_path(order_request), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+        <span>
+          <strong><%= order_request.display_title %></strong><br>
+          <small class="text-muted"><%= order_request.team.name %></small>
+        </span>
+        <small><%= order_request_status_text(order_request) %></small>
+      <% end %>
+    <% end %>
+  </div>
+  <% if @order_requests.empty? %>
+    <div class="card-body text-muted">Nothing here yet.</div>
+  <% end %>
+</div>
+
+<%= paginate @order_requests %>
