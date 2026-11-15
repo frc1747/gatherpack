@@ -26,6 +26,25 @@ class Inventory::ItemsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a member gets Used, Count and Move when the item's home is a place they can't see" do
+    with_inventory(@world) do
+      closet = Location.create!(team: @world.outreach, name: "Outreach closet")
+      @world.screws.update!(home_location: closet)
+      stock!(@world, 5, location: closet)
+      stock!(@world, 14)
+      sign_in @world.member.user
+
+      get inventory_item_path(@world.screws)
+      assert_response :success
+      assert_select "#stock-by-place", text: /Bin 1/
+      assert_select "#stock-by-place", text: /Outreach closet/, count: 0
+      assert_select ".inventory-bar a", text: "Used"
+      assert_select ".inventory-bar a", text: "Count"
+      assert_select ".inventory-bar a", text: "Move"
+      assert_select ".inventory-bar a[href*=?]", @world.bin1.id, text: "Used"
+    end
+  end
+
   test "an inventory manager also gets the manager kinds and editing" do
     with_inventory(@world) do
       sign_in @world.keeper.user

@@ -9,9 +9,11 @@
 #   Rails.application.config.to_prepare do
 #     # A button on the reorder list. path is called with the ticked rows,
 #     # [[item, quantity], ...], and returns where to go; visible with the
-#     # viewing person.
+#     # viewing person. The list submits as a POST with a CSRF token; only an
+#     # action that changes nothing (a printout, a download) may declare
+#     # method: :get, which also lets it run from a GET.
 #     Inventory.extensions.register_reorder_action(:my_feature, label: "Do it",
-#       path: ->(items_with_quantities) { ... }, visible: ->(person) { true })
+#       path: ->(items_with_quantities) { ... }, visible: ->(person) { true }, method: :post)
 #
 #     # Quantities on order: called with a list of items, returns
 #     # { item_id => quantity }. Summed when several are registered.
@@ -71,9 +73,14 @@ module Inventory
   HOOK_EVENTS = (ITEM_EVENTS.values + [ COUNT_DIFFERS_EVENT ] + UNIT_EVENTS.values).freeze
 
   class Extensions
-    ReorderAction = Struct.new(:key, :label, :path, :visible, keyword_init: true) do
+    ReorderAction = Struct.new(:key, :label, :path, :visible, :method, keyword_init: true) do
       def visible?(person)
         visible.nil? || visible.call(person)
+      end
+
+      # Changes nothing, so it may run from a GET.
+      def get?
+        method == :get
       end
     end
     ItemPanel = Struct.new(:key, :partial, :visible, keyword_init: true) do
@@ -87,8 +94,12 @@ module Inventory
       reset!
     end
 
-    def register_reorder_action(key, label:, path:, visible: nil)
-      @reorder_actions[key.to_sym] = ReorderAction.new(key: key.to_sym, label: label, path: path, visible: visible)
+    def register_reorder_action(key, label:, path:, visible: nil, method: :post)
+      method = method.to_s.downcase.to_sym
+      raise ArgumentError, "method must be :get or :post" unless %i[get post].include?(method)
+
+      @reorder_actions[key.to_sym] = ReorderAction.new(key: key.to_sym, label: label, path: path, visible: visible,
+        method: method)
     end
 
     def register_on_order(callable)

@@ -27,7 +27,7 @@
 <% if @reorder.rows.empty? %>
   <p class="text-body-secondary">Nothing is running low.</p>
 <% else %>
-  <%= form_with url: inventory_reorder_path, method: :get, id: "reorder-form", data: { turbo: false } do %>
+  <%= form_with url: inventory_reorder_path, method: :post, id: "reorder-form", data: { turbo: false } do %>
     <%= hidden_field_tag :team_id, params[:team_id] if params[:team_id].present? %>
     <%= hidden_field_tag :category, params[:category] if params[:category].present? %>
     <% @reorder.groups.each do |vendor, rows| %>

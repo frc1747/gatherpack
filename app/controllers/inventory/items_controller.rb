@@ -17,6 +17,7 @@ module Inventory
 
     # GET /inventory/items/1
     def show
+      @home = visible_default_location(@item)
       @total = @item.total_stock
       @levels = @item.stock_levels.where.not(quantity: 0)
         .where(location_id: policy_scope(Location).select(:id)).includes(:location).to_a

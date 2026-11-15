@@ -71,16 +71,60 @@ class Inventory::ReorderControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a registered action appears" do
+  test "a registered action appears and runs from the list's POST" do
     with_inventory(@world) do
       Inventory.extensions.register_reorder_action(:stub, label: "Do the thing", path: ->(rows) { "/inventory?q=#{rows.size}" })
       sign_in @world.keeper.user
       get inventory_reorder_path
+      assert_select "form#reorder-form[method=post]"
       assert_select "#reorder-actions button", text: "Do the thing"
-      get inventory_reorder_path(run: "stub", ticked: [ @world.screws.id, @wire.id ])
+      post inventory_reorder_path, params: { run: "stub", ticked: [ @world.screws.id, @wire.id ] }
       assert_redirected_to "/inventory?q=2"
     ensure
       Inventory.extensions.instance_variable_get(:@reorder_actions).delete(:stub)
     end
+  end
+
+  test "a GET doesn't run an action that isn't declared method: :get" do
+    with_inventory(@world) do
+      calls = []
+      Inventory.extensions.register_reorder_action(:stub, label: "Order these", path: ->(rows) { calls << rows; "/inventory" })
+      sign_in @world.keeper.user
+      get inventory_reorder_path(run: "stub", ticked: [ @world.screws.id ])
+      assert_response :not_found
+      assert_empty calls
+    ensure
+      Inventory.extensions.instance_variable_get(:@reorder_actions).delete(:stub)
+    end
+  end
+
+  test "the POST needs a CSRF token" do
+    with_inventory(@world) do
+      calls = []
+      Inventory.extensions.register_reorder_action(:stub, label: "Order these", path: ->(rows) { calls << rows; "/inventory" })
+      sign_in @world.keeper.user
+      ActionController::Base.allow_forgery_protection = true
+      begin
+        post inventory_reorder_path, params: { run: "stub", ticked: [ @world.screws.id ] }
+      rescue ActionController::InvalidAuthenticityToken
+        nil
+      end
+      assert_empty calls
+    ensure
+      ActionController::Base.allow_forgery_protection = false
+      Inventory.extensions.instance_variable_get(:@reorder_actions).delete(:stub)
+    end
+  end
+
+  test "a member can't run an action" do
+    with_inventory(@world) do
+      sign_in @world.member.user
+      post inventory_reorder_path, params: { run: "csv", ticked: [ @world.screws.id ] }
+      assert_redirected_to root_path
+    end
+  end
+
+  test "register_reorder_action refuses a method other than get or post" do
+    assert_raises(ArgumentError) { Inventory::Extensions.new.register_reorder_action(:x, label: "X", path: ->(_rows) { "/" }, method: :delete) }
   end
 end

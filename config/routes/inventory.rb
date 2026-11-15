@@ -23,6 +23,7 @@ namespace :inventory do
     end
   end
   get "reorder", to: "reorder#index", as: :reorder
+  post "reorder", to: "reorder#run"
   resources :units do
     member do
       post :install

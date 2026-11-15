@@ -45,6 +45,14 @@ module Inventory
         .transform_values { |rows| rows.index_by(&:id) }
     end
 
+    # The item's default place (home, or the only place with stock) when the
+    # person can see it, else nil: a member may not see the home place of an
+    # item shared from a team above.
+    def visible_default_location(item)
+      place = item.default_location
+      place if place && policy_scope(Location).exists?(id: place.id)
+    end
+
     # Remembers a change just recorded, so the next page offers Undo.
     def offer_undo(movement)
       session[:inventory_undo] = movement.id

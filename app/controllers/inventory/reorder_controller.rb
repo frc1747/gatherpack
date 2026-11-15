@@ -12,8 +12,10 @@ module Inventory
     def index
       authorize :inventory, :reorder?
       skip_policy_scope
-      @reorder = Inventory::Reorder.new(current_person, team_id: params[:team_id], category: params[:category])
-      return run_action if params[:run].present?
+      @reorder = reorder
+      # Only an action that changes nothing runs from a GET (a link or a
+      # prefetch); anything else needs the list's POST.
+      return run_action(only_get: true) if params[:run].present?
 
       respond_to do |format|
         format.html do
@@ -32,19 +34,30 @@ module Inventory
       end
     end
 
+    # POST /inventory/reorder: runs a registered action on the ticked rows.
+    def run
+      authorize :inventory, :reorder?
+      @reorder = reorder
+      run_action(only_get: false)
+    end
+
     private
 
+    def reorder
+      Inventory::Reorder.new(current_person, team_id: params[:team_id], category: params[:category])
+    end
+
     # Hands the ticked rows to a registered action and goes where it says.
-    def run_action
-      action = Inventory.extensions.reorder_actions(current_person).find { |entry| entry.key.to_s == params[:run] }
-      raise ActiveRecord::RecordNotFound if action.nil?
+    def run_action(only_get:)
+      action = Inventory.extensions.reorder_actions(current_person).find { |entry| entry.key.to_s == params[:run].to_s }
+      raise ActiveRecord::RecordNotFound if action.nil? || (only_get && !action.get?)
 
       rows = ticked_rows
       if rows.empty?
-        redirect_to inventory_reorder_path(team_id: params[:team_id], category: params[:category]),
-          alert: "Tick the items first."
+        redirect_to inventory_reorder_path(team_id: params[:team_id].presence, category: params[:category].presence),
+          alert: "Tick the items first.", status: :see_other
       else
-        redirect_to action.path.call(rows)
+        redirect_to action.path.call(rows), status: :see_other
       end
     end
 

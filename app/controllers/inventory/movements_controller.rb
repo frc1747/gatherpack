@@ -12,9 +12,10 @@ module Inventory
     # GET /inventory/changes
     def index
       authorize :inventory, :changes?
-      @movements = filtered(policy_scope(StockMovement)).newest_first.includes(:item, :location, :person, :recorded_by, :reverses)
+      within_reach = in_reach(policy_scope(StockMovement))
+      @movements = filtered(within_reach).newest_first.includes(:item, :location, :person, :recorded_by, :reverses)
       @places = policy_scope(Location).ordered
-      @people = Person.where(id: policy_scope(StockMovement).select(:person_id)).order(:display_name)
+      @people = Person.where(id: within_reach.select(:person_id)).order(:display_name)
 
       respond_to do |format|
         format.html do
@@ -65,13 +66,19 @@ module Inventory
       places = policy_scope(Location).active.storage
       @stocked = places.where(id: @item.stock_levels.where.not(quantity: 0).select(:location_id)).ordered.to_a
       @choices = places.ordered.to_a
-      @location = find_place(params[:location_id]) || (@item.default_location if @kind.in?(%w[used received added])) ||
+      @location = find_place(params[:location_id]) || (visible_default_location(@item) if @kind.in?(%w[used received added])) ||
         (@stocked.first if @kind.in?(%w[used moved counted removed]) && @stocked.one?)
       @to_location = find_place(params[:to_location_id])
       @places = policy_scope(Location).index_by(&:id)
       @cancel_path = return_path(inventory_item_path(@item))
 
-      authorize StockMovement.new(kind: @kind, item: @item, location: @location || @choices.first)
+      authorize StockMovement.new(kind: @kind, item: @item, location: @location || @stocked.first || @choices.first)
+    end
+
+    # Changes lists movements within the manager's reach (spec §3.9): items
+    # of the teams whose inventory they manage, not everything they can see.
+    def in_reach(scope)
+      access.admin? ? scope : scope.where(item_id: Item.where(team_id: access.managed_team_ids.to_a).select(:id))
     end
 
     def find_place(id)

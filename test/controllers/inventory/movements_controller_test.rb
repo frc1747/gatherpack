@@ -25,6 +25,25 @@ class Inventory::MovementsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the form falls back to a place the member can see when the home is hidden" do
+    with_inventory(@world) do
+      closet = Location.create!(team: @world.outreach, name: "Outreach closet")
+      @world.screws.update!(home_location: closet)
+      stock!(@world, 5, location: closet)
+      stock!(@world, 14)
+      sign_in @world.member.user
+
+      get new_inventory_movement_path(kind: "used", item_id: @world.screws.id)
+      assert_response :success
+      assert_select "input[type=hidden][name=location_id][value=?]", @world.bin1.id
+      assert_select "body", text: /Outreach closet/, count: 0
+
+      post inventory_movements_path, params: { kind: "used", item_id: @world.screws.id, location_id: @world.bin1.id, quantity: "2" }
+      assert_equal 12, @world.screws.stock_at(@world.bin1)
+      assert_equal 5, @world.screws.stock_at(closet)
+    end
+  end
+
   test "a member moves stock between places" do
     with_inventory(@world) do
       stock!(@world, 10)
@@ -84,6 +103,27 @@ class Inventory::MovementsControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.teammate.user
       post undo_inventory_movement_path(used)
       assert_not used.undone?
+    end
+  end
+
+  test "Changes lists only items of the teams the manager manages" do
+    with_inventory(@world) do
+      gears = Item.create!(team: @world.robotics, name: "Gear", home_location: @world.bin2)
+      stock!(@world, 10)
+      record(@world, :used, 1, person: @world.outreacher)
+      stock!(@world, 4, item: gears, location: @world.bin2)
+      record(@world, :used, 1, item: gears, location: @world.bin2, person: @world.member)
+
+      sign_in @world.manager.user
+      get inventory_movements_path
+      assert_response :success
+      assert_select ".inventory-history", text: /Gear/
+      assert_select ".inventory-history", text: /M4 screw/, count: 0
+      assert_select "select#person_id option", text: "Member Example"
+      assert_select "select#person_id option", text: "Outreacher Example", count: 0
+
+      get inventory_movements_path(format: :csv)
+      assert_equal [ "Gear" ], CSV.parse(response.body, headers: true).map { |row| row["Item"] }.uniq
     end
   end
 
