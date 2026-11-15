@@ -1,0 +1,6 @@
+<%# Link a budget / Change budget for a funding source, for those who
+    manage it while Budgets is on (spec §6). %>
+<% if Orders::LedgerRecording.budgets_on? && policy(funding_source).update? %>
+  <%= link_to funding_source.budget ? "Change budget" : "Link a budget",
+        edit_orders_funding_source_budget_path(funding_source), class: local_assigns.fetch(:link_class, "small") %>
+<% end %>
