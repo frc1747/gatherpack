@@ -1,0 +1,53 @@
+<% breadcrumb :person_field_preview %>
+
+<%= simple_form_for @preview, as: :preview, url: preview_person_fields_path, method: :get do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>Preview as…</h1>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">See exactly which fields one person can see and edit on another person's profile, and why.</p>
+      <div class="row">
+        <div class="col-md-6"><%= f.input :viewer_id, as: :searching_combobox, scope: "people", label: "Viewer" %></div>
+        <div class="col-md-6"><%= f.input :subject_id, as: :searching_combobox, scope: "people", label: "Profile of" %></div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= f.button :submit, "Preview", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
+
+<% if @rows %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <h2><%= @viewer.identifier_name %> viewing <%= @subject.identifier_name %></h2>
+    </div>
+    <div class="card-body">
+      <% if @rows.empty? %>
+        <p class="text-muted">No fields apply to <%= @subject.identifier_name %>.</p>
+      <% else %>
+        <table class="table table-striped">
+          <thead>
+            <tr><th>Field</th><th>Can see</th><th>Can edit</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <% @rows.each do |row| %>
+              <tr>
+                <td><%= row[:field].name %></td>
+                <td><%= row[:read] ? "✓" : "—" %></td>
+                <td><%= row[:write] ? "✓" : "—" %></td>
+                <td><%= person_field_access_reason(row[:write] || row[:read], row[:field], @viewer, @subject) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+
+      <h3 class="mt-4">Profile as <%= @viewer.identifier_name %> sees it</h3>
+      <div class="border rounded p-3">
+        <%= render "people/fields", person: @subject, viewer: @viewer %>
+      </div>
+    </div>
+  </div>
+<% end %>
