@@ -37,6 +37,24 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     nil # The page is mid-dialog or gone, which the session reset handles.
   end
 
+  # When a browser test ends in an error (a page load that never finishes
+  # surfaces as Net::ReadTimeout), record which requests the test server is
+  # still answering and where every thread is, next to the failure screenshot
+  # that CI keeps. Runs before the teardown above, which can stall too.
+  teardown do
+    next unless failures.any? { |failure| failure.is_a?(Minitest::UnexpectedError) }
+
+    dir = Rails.root.join("tmp/screenshots")
+    FileUtils.mkdir_p(dir)
+    File.open(dir.join("diagnostics_#{method_name.parameterize(separator: "_")}.txt"), "w") do |file|
+      file.puts "Requests the test server is still answering: #{Capybara.current_session.server&.send(:middleware)&.pending_requests.inspect}"
+      Thread.list.each do |thread|
+        file.puts "", "#{thread.inspect} (#{thread.status})"
+        Array(thread.backtrace).first(60).each { |line| file.puts "  #{line}" }
+      end
+    end
+  end
+
   if ENV["CAPYBARA_SERVER_PORT"]
     served_by host: "rails-app", port: ENV["CAPYBARA_SERVER_PORT"]
 
