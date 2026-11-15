@@ -56,4 +56,41 @@ class ChecklistItemPickersTest < ActionDispatch::IntegrationTest
       end
     end
   end
+
+  test "an item saved the old way can still be renamed by someone who can't set it up" do
+    with_settings(feature_person_fields: "true", checklists_organizers: "Checklist Organizer > Club") do
+      with_feature do
+        secret = PersonField.create!(name: "Diet", data_type: :select, choices: %w[ Vegan Kosher None ], read_permission: "admin", write_permission: "admin")
+        item = @checklist.checklist_items.create!(kind: "person_field", label: "Diet", config: { "field_id" => secret.id, "operator" => "any_of", "values" => "vegan" })
+        item.update_column(:config, item.config.merge("values" => "vegan"))
+        organizer = person(:organizer)
+        @checklist.checklist_organizers.create!(person: organizer)
+        sign_in organizer.user
+        get edit_checklist_checklist_item_path(@checklist, item)
+        assert_no_match "Kosher", response.body, "the field's other choices aren't shown to someone who can't read it"
+        assert_select "input[type=checkbox][value=vegan][checked]"
+
+        patch checklist_checklist_item_path(@checklist, item), params: { confirmed: "1", checklist_item: { label: "Renamed", config: { field_id: secret.id, operator: "any_of", values: [ "vegan" ] } } }
+        assert_response :redirect
+        assert_equal "Renamed", item.reload.label
+      end
+    end
+  end
+
+  test "old attendance links, by name or by an unnamed rule's default name, survive the form" do
+    with_feature do
+      sign_in person(:admin).user
+      item = @checklist.checklist_items.create!(kind: "attendance", label: "Attendance", config: { "rules" => [ { "name" => "Summer", "share" => 10 }, { "name" => "Fall", "share" => 20 } ] })
+      old = { "period_ids" => [], "rules" => [ { "name" => "Summer", "starts" => nil, "ends_on" => nil, "share" => 10, "weekly" => false, "with" => "Rule 2", "judge_after" => 0 },
+        { "name" => nil, "starts" => nil, "ends_on" => nil, "share" => 20, "weekly" => false, "with" => nil, "judge_after" => 0 } ] }
+      item.update_column(:config, old)
+      kind = Checklists::Kinds::Attendance
+      keyed = kind.keyed_rules(item.config["rules"])
+      assert_equal keyed.last["key"], keyed.first["with"]
+
+      item.config_params = { rules: keyed.each_with_index.to_h { |rule, index| [ index.to_s, rule ] } }
+      assert kind.same_config?(old, item.config)
+      assert_equal item.config["rules"].last["key"], item.config["rules"].first["with"]
+    end
+  end
 end

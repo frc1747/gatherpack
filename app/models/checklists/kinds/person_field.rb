@@ -241,7 +241,19 @@ module Checklists
         # An item saved before values were a list holds them as one text,
         # separated by commas.
         def values(item)
-          saved = item.config["values"]
+          list_values(item.config["values"])
+        end
+
+        # The same test, apart from how the values are written: a list or
+        # the old comma text, in any order and case.
+        def same_config?(saved, config)
+          return false unless saved.except("values") == config.except("values")
+
+          canonical = ->(one) { list_values(one["values"]).map(&:downcase).sort }
+          canonical.(saved) == canonical.(config)
+        end
+
+        def list_values(saved)
           saved = saved.to_s.split(",") unless saved.is_a?(Array)
           saved.map { |value| value.to_s.strip }.compact_blank
         end

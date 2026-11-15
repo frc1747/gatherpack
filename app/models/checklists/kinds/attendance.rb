@@ -177,6 +177,15 @@ module Checklists
           rules
         end
 
+        # The same rules, apart from their keys and how a link names its
+        # rule (by key, or by name as saved before keys).
+        def same_config?(saved, config)
+          return false unless saved.except("rules") == config.except("rules")
+
+          canonical = ->(one) { rules(Struct.new(:config).new(one)).zip(Array(one["rules"])).map { |rule, row| row.except("key", "with").merge("with" => rule.with_index) } }
+          canonical.(saved) == canonical.(config)
+        end
+
         # The item's saved rules as the form draws them: each with a key,
         # and its "with" as the key of the rule it names. A key is made up
         # for a rule that has none yet; it's saved with the next save.
@@ -324,7 +333,8 @@ module Checklists
             with = row["with"].to_s.strip
             next if with.empty?
 
-            target = rows.find { |other| other["key"].present? && other["key"] == with } || rows.find { |other| other["name"].to_s.strip == with }
+            name = ->(other) { other["name"].to_s.strip.presence || "Rule #{rows.index(other) + 1}" }
+            target = rows.find { |other| other["key"].present? && other["key"] == with } || rows.find { |other| name.(other) == with }
             row["with"] = target["key"] if target
           end
         end

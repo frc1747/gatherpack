@@ -10,8 +10,10 @@
 <% joined = saved.join(", ") %>
 <div data-controller="checklist-field-values" data-checklist-field-values-field-value="checklist_item_config_field_id">
   <% choice_fields.each do |field| %>
-    <% choices = field.choice_list %>
-    <% extra = saved.reject { |one| choices.any? { |choice| choice.casecmp?(one) } } %>
+    <%# Someone who can't read the field sees only the values already saved, not its other choices. %>
+    <% readable = current_user.person.admin? || field.readable_subjects_for(current_user.person).exists? %>
+    <% choices = readable ? field.choice_list : [] %>
+    <% extra = field.id == item.config["field_id"] ? saved.reject { |one| choices.any? { |choice| choice.casecmp?(one) } } : [] %>
     <fieldset data-checklist-field-values-target="choices" data-field-id="<%= field.id %>" class="d-none" disabled>
       <legend class="form-label fs-6"><%= setting.label %></legend>
       <% (choices + extra).each_with_index do |choice, index| %>
