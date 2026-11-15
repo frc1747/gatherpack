@@ -309,8 +309,9 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
       post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
     end
     assert_response :unprocessable_entity
-    assert_match "You can't see their Trip results, so can't sign them up here", response.body
+    assert_match "You can't see their results for this place, so can't sign them up here", response.body
     assert_no_match "Needs Trip: Complete", response.body
+    assert_no_match "Trip results", response.body
     assert_no_match "Handbook", response.body
   end
 
@@ -330,7 +331,7 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to signup_sheet_path(@sheet)
   end
 
-  test "a guardian whose ward the checklist doesn't cover is told so, with the real reason" do
+  test "a guardian whose ward the checklist doesn't cover is told so, without its name" do
     guardian_of = RelationshipType.create!(parent_label: "Guardian of", child_label: "Ward of", permission: :added_by_admin, guardianship: :minor)
     @people[:guardian] = create_world_person("Guardian")
     relate(:guardian, :student, guardian_of)
@@ -340,23 +341,29 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
     sign_in person(:guardian).user
 
     get signup_sheet_path(@sheet)
-    assert_select "#checklist_signup_panel p", text: "#{person(:student).display_name} isn't on Crew Trip, so can't take these places."
+    assert_select "#checklist_signup_panel" do |panel|
+      assert_select "p", text: "#{person(:student).display_name}: not open to them"
+      assert_no_match "Crew Trip", panel.text
+    end
+    assert_no_match "isn't on", response.body
 
     post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
     assert_response :unprocessable_entity
-    assert_match "Needs Crew Trip: Complete", response.body
+    assert_match "Not open to them", response.body
+    assert_no_match "Crew Trip", response.body
     assert_no_match "You can't see", response.body
   end
 
-  test "someone who can't see whether a relative is covered gets the fixed reason" do
+  test "someone who can't see whether a relative is covered gets the fixed reason, without the checklist's name" do
     @checklist = create_checklist("Crew Trip", @concessions)
     require_checklist
     sign_in person(:parent).user
 
     post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id, person_id: person(:student).id } }
     assert_response :unprocessable_entity
-    assert_match "You can't see their Crew Trip results, so can't sign them up here", response.body
-    assert_no_match "Needs Crew Trip", response.body
+    assert_match "You can't see their results for this place, so can't sign them up here", response.body
+    assert_no_match "Crew Trip", response.body
+    assert_no_match "Not open", response.body
   end
 
   test "a guardian who can sign their ward up sees the ward's need, with its items" do
@@ -405,7 +412,43 @@ class ChecklistSignupsControllerTest < ActionDispatch::IntegrationTest
       assert_no_match "Crew Trip", slot.text
       assert_select "a[href=?]", checklist_path(@checklist), count: 0
     end
-    assert_select "#checklist_signup_panel p", text: "You aren't on Crew Trip, so can't take these places."
+    assert_select "#checklist_signup_panel" do |panel|
+      assert_select "p", text: "Not open to you"
+      assert_no_match "Crew Trip", panel.text
+    end
+    assert_no_match "aren't on", response.body
+
+    assert_no_difference "Signup.count" do
+      post signup_sheet_signups_path(@sheet), params: { signup: { signup_slot_id: slot_for(@position).id } }
+    end
+    assert_response :unprocessable_entity
+    assert_match "Not open to you", response.body
+    assert_no_match "Crew Trip", response.body
+  end
+
+  test "turned off, a draft or archived, a rule names the checklist to the sheet's organizers, but not to someone it doesn't cover" do
+    @checklist = create_checklist("Crew Trip", @concessions)
+    require_checklist
+    slot_id = ActionView::RecordIdentifier.dom_id(slot_for(@position))
+    cases = { "turned off" => -> { }, "draft" => -> { @checklist.update!(status: :draft) }, "archived" => -> { @checklist.update!(status: :archived) } }
+    detail = { "turned off" => "checklists are turned off", "draft" => "Crew Trip is a draft", "archived" => "Crew Trip is archived" }
+
+    cases.each do |label, change|
+      change.call
+      with_settings(feature_checklists: label == "turned off" ? "false" : "true") do
+        sign_in person(:student).user
+        get signup_sheet_path(@sheet)
+        assert_select "##{slot_id}", text: /Not open to you/, message: label
+        assert_no_match "Crew Trip", response.body, label
+        sign_out :user
+
+        sign_in person(:worker).user
+        assert @sheet.organizer?(person(:worker))
+        get signup_sheet_path(@sheet)
+        assert_select "##{slot_id}", text: /Needs Crew Trip: Complete \(#{detail[label]}\)/, message: label
+        sign_out :user
+      end
+    end
   end
 
   test "with checklists off there's no panel, and the rule still holds" do
