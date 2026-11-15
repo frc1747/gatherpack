@@ -2,7 +2,7 @@ require "test_helper"
 require_relative "../support/checklists_world"
 require_relative "../support/checklists_test_kinds"
 
-# Checklists on the home page and menu: to-do rows, Your Checklists and Manage.
+# Checklists on the home page and menu: to-do rows, My Season and Manage.
 class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include ChecklistsWorld
@@ -33,6 +33,60 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Met, with what the person did measured in hours, against rule groups
+  # by date, like attendance: credited hours are the person's own, confirmed
+  # stops at the minimum.
+  class Attended < Checklists::ItemKind
+    def self.measures
+      [ Checklists::ItemKind::Measure.new(key: :credited, label: "Hours at meetings", type: :hours),
+        Checklists::ItemKind::Measure.new(key: :confirmed, label: "Hours toward the minimum", type: :hours),
+        Checklists::ItemKind::Measure.new(key: :owed, label: "Hours needed", type: :hours) ]
+    end
+
+    def self.rules(item) = Checklists::Kinds::Attendance.rules(item)
+
+    def evaluate(person_ids)
+      person_ids.index_with do
+        Checklists::Result.met("93% of 8.7 h", detail: "✓ Fall: 8.1 h of 8.7 h (needs 8.1 h)", measures: { "credited" => 44, "confirmed" => 8.1, "owed" => 8.1 })
+      end
+    end
+  end
+
+  # Met, counting events past what's owed.
+  class Outreach < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("5 of 3 events", measures: { "confirmed" => 5, "owed" => 3, "remaining" => 0 }) }
+    end
+  end
+
+  # Not met, with what's left counted for a group, like a pooled commitment.
+  class Pooled < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("2 of 3 shifts", measures: { "confirmed" => 2, "owed" => 3, "remaining" => 1 }) }
+    end
+  end
+
+  # Not met, nothing measured and no fix: in progress, not a to-do.
+  class Waiting < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.not_met("Not yet", detail: "Waiting on the team's paperwork") }
+    end
+  end
+
+  # Met with its own word.
+  class Signed < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("Signed", label: "Signed") }
+    end
+  end
+
+  # Doesn't apply to anyone, with its label.
+  class Rookie < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.exempt("Rookie") }
+    end
+  end
+
   setup do
     host! "localhost"
     @original_sections = MyGatherpack.sections.dup
@@ -42,6 +96,12 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.register_item_kind(:shifts, Shifts)
     Checklists.register_item_kind(:plain, Plain)
     Checklists.register_item_kind(:hours, Hours)
+    Checklists.register_item_kind(:attended, Attended)
+    Checklists.register_item_kind(:outreach, Outreach)
+    Checklists.register_item_kind(:pooled, Pooled)
+    Checklists.register_item_kind(:waiting, Waiting)
+    Checklists.register_item_kind(:signed, Signed)
+    Checklists.register_item_kind(:rookie, Rookie)
     build_checklists_world
     @checklist = create_world_checklist("Trip")
     add_rule(@checklist, :include, :person, person_id: person(:member).id)
@@ -56,6 +116,12 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     Checklists.unregister_item_kind(:shifts)
     Checklists.unregister_item_kind(:plain)
     Checklists.unregister_item_kind(:hours)
+    Checklists.unregister_item_kind(:attended)
+    Checklists.unregister_item_kind(:outreach)
+    Checklists.unregister_item_kind(:pooled)
+    Checklists.unregister_item_kind(:waiting)
+    Checklists.unregister_item_kind(:signed)
+    Checklists.unregister_item_kind(:rookie)
     MyGatherpack.sections.replace(@original_sections)
     MyGatherpack::Menu.table = @original_table
     MyGatherpack::Menu.manager_checks.replace(@original_checks)
@@ -69,6 +135,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
 
   test "the sections show with the feature flag and hide without it, and with nothing to show" do
     badge_item = add_item(@checklist, :plain, "Form")
+    signed_item = add_item(@checklist, :signed, "Consent")
     refresh(@checklist)
 
     with_settings(feature_my_gatherpack: "true", feature_checklists: "false") do
@@ -82,9 +149,9 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
       assert_select "h1", text: "Hi Member. You have 1 thing to do."
-      assert_select "[data-home-section=checklists-season] h2", text: "Your Checklists"
+      assert_select "[data-home-section=checklists-season] h2", text: "My Season"
 
-      badge_item.destroy
+      [ badge_item, signed_item ].each(&:destroy)
       refresh(@checklist)
       get root_path
       assert_select "h1", text: "Hi Member. You're all caught up."
@@ -192,56 +259,220 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "Your Checklists shows a progress bar, and a count item reads confirmed of owed" do
-    add_item(@checklist, :shifts, "Shifts")
-    add_item(@checklist, :has_login, "Login")
+  test "a met item with a measure says what the person did, not the threshold" do
+    add_item(@checklist, :attended, "Attendance").update_columns(config: { "rules" => [
+      { "name" => "Fall", "starts" => { "mode" => "date", "date" => 1.month.ago.to_date.iso8601 }, "ends_on" => 1.month.from_now.to_date.iso8601, "share" => 50 },
+      { "name" => "Spring", "starts" => { "mode" => "date", "date" => 2.months.from_now.to_date.iso8601 }, "share" => 50 }
+    ] })
+    add_item(@checklist, :outreach, "Outreach").update_columns(config: { "unit" => "events" })
     refresh(@checklist)
 
     with_feature_on do
       sign_in person(:member).user
       get root_path
 
-      assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Shifts"
-      assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "1 of 3"
-      assert_select "[data-home-section=checklists-season] .progress-bar.bg-danger[style*='width: 33%']", true, "a shortfall shows in the not-met pill color"
+      assert_equal [ "Attendance ✓ 44 h this fall", "Outreach ✓ 5 events" ], season_lines("done")
+      assert_no_match(/8\.1|of 3/, season_lines("done").join(" "), "never the threshold")
     end
   end
 
-  test "Your Checklists shows a finished yes/no item as a status pill, not a bar or a percentage" do
-    add_item(@checklist, :shifts, "Shifts")
+  test "an item's rule group with no name of its own is this season" do
+    add_item(@checklist, :attended, "Attendance").update_columns(config: { "rules" => [ { "share" => 50 } ] })
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Attendance ✓ 44 h this season" ], season_lines("done")
+    end
+  end
+
+  test "a met item without a measure says its status word" do
+    add_item(@checklist, :signed, "Consent")
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
 
     with_feature_on do
       sign_in person(:member).user
       get root_path
-
-      assert_equal %w[Shifts Login], css_select("[data-home-section=checklists-season] .mg-season-item a").map { |link| link.text.strip }
-      login = css_select("[data-home-section=checklists-season] .mg-season-item").find { |item| item.text.include?("Login") }
-      assert_equal "Complete", login.css(".badge").text.strip
-      assert_empty login.css(".progress"), "a yes/no item has nothing to measure"
-      assert_select "[data-home-section=checklists-season] .mg-row-detail", false, "the pill says it all: no status sentence under an item"
-      assert_no_match "100%", css_select("[data-home-section=checklists-season]").text
+      assert_equal [ "Consent ✓ Signed", "Login ✓ Complete" ], season_lines("done")
     end
   end
 
-  test "an item measured in hours reads confirmed of owed h" do
+  test "an unfinished item with a measure says the gap, and the due date when it has one" do
+    add_item(@checklist, :hours, "Attendance", {}, due_on: Date.new(Date.current.year, 12, 31))
+    add_item(@checklist, :shifts, "Concessions").update_columns(config: { "unit" => "shifts" })
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Attendance · 1.5 more hours by Dec 31", "Concessions · 2 more shifts" ], season_lines("in-progress")
+    end
+  end
+
+  test "an unfinished item without a measure says its status word" do
+    add_item(@checklist, :waiting, "Paperwork")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Paperwork · Not Started" ], season_lines("in-progress")
+    end
+  end
+
+  test "an exempt item is in Done with its label" do
+    add_item(@checklist, :rookie, "Outreach")
+    add_item(@checklist, :waiting, "Paperwork")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Outreach · Rookie" ], season_lines("done")
+      assert_equal [ "Paperwork · Not Started" ], season_lines("in-progress")
+    end
+  end
+
+  test "a count owed together gives the gap for the family" do
+    add_item(@checklist, :pooled, "Concessions").update_columns(config: { "unit" => "shifts", "group_relationship_type_id" => SecureRandom.uuid })
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_equal [ "Concessions · 1 more shift for your family" ], season_lines("in-progress")
+    end
+  end
+
+  test "Home has no x of y and no bar, while the checklists page keeps the count" do
+    add_item(@checklist, :shifts, "Shifts")
     add_item(@checklist, :hours, "Attendance")
+    add_item(@checklist, :has_login, "Login")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      lines = css_select("[data-home-section=checklists-season] summary, [data-home-column=todo] .mg-row").map(&:text)
+      assert_equal 3, css_select("[data-home-section=checklists-season] summary").size
+      assert_no_match(/\d+(\.\d+)? of \d+/, lines.join(" "), "the formula is only in a line's detail, shown when it's tapped")
+      assert_select ".progress, .progress-bar, [role=progressbar]", false
+
+      get person_checklists_path(person(:member))
+      assert_match "1 of 3 shifts", response.body
+    end
+  end
+
+  test "tapping a line shows the detail the checklists page shows" do
+    add_item(@checklist, :attended, "Attendance").update_columns(config: { "rules" => [ { "name" => "Fall", "share" => 50 } ] })
+    add_item(@checklist, :waiting, "Paperwork")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      line = css_select("[data-home-section=checklists-season] details.mg-season-item").find { |item| item.at_css("summary").text.include?("Attendance") }
+      assert_match "✓ Fall: 8.1 h of 8.7 h (needs 8.1 h)", line.at_css(".mg-season-detail").text
+      assert_equal checklist_path(@checklist), line.at_css(".mg-season-detail a")["href"]
+      paperwork = css_select("[data-home-section=checklists-season] details.mg-season-item").find { |item| item.text.include?("Paperwork") }
+      assert_match "Waiting on the team's paperwork", paperwork.at_css(".mg-season-detail").text
+
+      get person_checklists_path(person(:member))
+      assert_match "✓ Fall: 8.1 h of 8.7 h (needs 8.1 h)", response.body
+    end
+  end
+
+  test "Done is one line of titles that a button expands" do
+    add_item(@checklist, :signed, "Consent")
+    add_item(@checklist, :has_login, "Login")
+    add_item(@checklist, :waiting, "Paperwork")
     refresh(@checklist)
 
     with_feature_on do
       sign_in person(:member).user
       get root_path
 
-      assert_select "[data-home-section=checklists-season] .mg-season-item span", text: "2.5 of 4 h"
-      assert_select "[data-home-section=checklists-season] .progress-bar[style*='width: 62%']"
+      button = css_select("[data-season-group=done] button.mg-season-done").first
+      assert button, "Done is a button"
+      assert_equal "false", button["aria-expanded"]
+      assert_equal "Consent, Login", button.at_css(".mg-season-done-titles").text.strip
+      assert_select "[data-season-group=done] ##{button["aria-controls"]}.collapse details", 2
+      assert_select "[data-season-group=in-progress] details", 1
+      assert_select ".mg-season-all-set", false, "something is still in progress"
     end
   end
 
-  test "a one-item checklist another checklist already shows as a line has no card of its own" do
+  test "with nothing to do or in progress, My Season says you're all set" do
+    add_item(@checklist, :signed, "Consent")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_select "[data-home-section=checklists-season] .mg-season-all-set", text: "You're all set for now"
+
+      add_item(@checklist, :plain, "Form")
+      refresh(@checklist)
+      get root_path
+      assert_select ".mg-season-all-set", false, "a to-do is something to do"
+    end
+  end
+
+  test "an item that is a to-do row isn't in My Season too" do
+    add_item(@checklist, :plain, "Form")
+    add_item(@checklist, :waiting, "Paperwork")
+    add_item(@checklist, :signed, "Consent")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_select "[data-home-column=todo] .mg-row-title", text: "Form"
+      season = css_select("[data-home-section=checklists-season] .mg-season-title").map { |title| title.text.strip }
+      assert_equal %w[Paperwork Consent], season
+    end
+  end
+
+  test "a form a checklist item lists is claimed, so the forms section can leave its row out" do
+    form_id = SecureRandom.uuid
+    add_item(@checklist, :plain, "Permission form").update_columns(config: { "form_ids" => [ form_id ] })
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      view = controller.view_context
+      assert MyGatherpack::Claims.claimed?(view, :form, person(:member), form_id)
+      assert_not MyGatherpack::Claims.claimed?(view, :form, person(:member), SecureRandom.uuid)
+      assert_not MyGatherpack::Claims.claimed?(view, :form, person(:admin), form_id), "a checklist that doesn't cover them claims nothing"
+    end
+  end
+
+  test "Home never names or links a checklist that doesn't cover the person" do
+    other = create_world_checklist("Varsity Only")
+    add_rule(other, :include, :person, person_id: person(:admin).id)
+    add_item(other, :signed, "Letter")
+    add_item(@checklist, :checklist, "Varsity", { checklist_id: other.id })
+    add_item(@checklist, :signed, "Consent")
+    refresh(other)
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+      assert_no_match "Varsity Only", response.body
+      assert_select "a[href=?]", checklist_path(other), false
+      assert_includes season_lines("done"), "Varsity · Not required for you"
+    end
+  end
+
+  test "a one-item checklist another checklist already shows as a line has no lines of its own" do
     concessions = create_world_checklist("Concessions")
     add_rule(concessions, :include, :person, person_id: person(:member).id)
-    add_item(concessions, :shifts, "Concessions")
+    add_item(concessions, :shifts, "Concession shifts")
     workshops = create_world_checklist("Workshops")
     add_rule(workshops, :include, :person, person_id: person(:member).id)
     add_item(workshops, :shifts, "Build")
@@ -254,11 +485,11 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
 
-      titles = css_select("[data-home-section=checklists-season] .mg-row-title a").map { |link| link.text.strip }
-      assert_includes titles, "Trip"
-      assert_not_includes titles, "Concessions", "the Trip line says it all"
-      assert_includes titles, "Workshops", "two items can't fit on one line"
-      assert_select "[data-home-section=checklists-season] .mg-season-item a[href=?]", checklist_path(concessions), text: "Concessions"
+      titles = css_select("[data-home-section=checklists-season] .mg-season-title").map { |title| title.text.strip }
+      assert_includes titles, "Concessions"
+      assert_not_includes titles, "Concession shifts", "the Trip line says it all"
+      assert_includes titles, "Build", "two items can't fit on one line"
+      assert_select "[data-home-section=checklists-season] .mg-season-item a[href=?]", checklist_path(concessions)
     end
   end
 
@@ -279,7 +510,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a checklist with everything finished stays in Your Checklists" do
+  test "a checklist with everything finished stays in My Season" do
     add_item(@checklist, :has_login, "Login")
     refresh(@checklist)
 
@@ -288,11 +519,11 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       get root_path
 
       assert_select "[data-home-column=todo]", false
-      assert_select "[data-home-section=checklists-season] .mg-season-item a", text: "Login"
+      assert_equal [ "Login ✓ Complete" ], season_lines("done")
     end
   end
 
-  test "an ended checklist is no to-do and not in Your Checklists" do
+  test "an ended checklist is no to-do and not in My Season" do
     ended = create_world_checklist("Last season", ends_on: 1.week.ago.to_date)
     add_rule(ended, :include, :person, person_id: person(:member).id)
     add_item(ended, :plain, "Old form")
@@ -310,6 +541,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
   test "a ward with no first name still gets a label, a ward link and guardian wording" do
     person(:kid).update_columns(first_name: nil)
     add_item(@checklist, :attested, "Permission", { statement: "Permission given", attested_by: "guardian" })
+    add_item(@checklist, :signed, "Consent")
     add_rule(@checklist, :include, :person, person_id: person(:parent).id)
     refresh(@checklist)
 
@@ -320,6 +552,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       label = "for #{person(:kid).identifier_name}"
       assert_select "[data-home-column=todo] .mg-row-ward", text: label
       assert_select "[data-home-column=todo] a.btn", text: "Confirm for #{person(:kid).identifier_name}"
+      assert_select "[data-home-section=checklists-season] .mg-row-ward", text: label
       assert_select "[data-home-section=checklists-season] a[href=?]", person_checklists_path(person(:kid))
     end
   end
@@ -348,21 +581,6 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "an item without a count shows no bar" do
-    add_item(@checklist, :has_login, "Login")
-    add_item(@checklist, :plain, "Shown only", {}, counts: false)
-    refresh(@checklist)
-
-    with_feature_on do
-      sign_in person(:member).user
-      get root_path
-
-      row = css_select("[data-home-section=checklists-season] .mg-season-item").find { |item| item.text.include?("Shown only") }
-      assert row, "Shown only is listed"
-      assert_empty row.css(".progress-bar")
-    end
-  end
-
   test "an organizer gets Manage with Checklists in it; a plain member doesn't" do
     with_settings(feature_my_gatherpack: "true", feature_checklists: "true", checklists_organizers: "Checklist Organizer > Club") do
       sign_in person(:organizer).user
@@ -383,6 +601,11 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  # A My Season group's lines as they read: title, then the answer.
+  def season_lines(group)
+    css_select("[data-season-group=#{group}] summary").map { |line| line.text.squish }
+  end
 
   def with_feature_on(&block)
     with_settings(feature_my_gatherpack: "true", feature_checklists: "true", &block)

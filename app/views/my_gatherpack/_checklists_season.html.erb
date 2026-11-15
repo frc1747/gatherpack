@@ -1,38 +1,30 @@
-<%# Your Checklists: each checklist with all its items, finished ones included. Renders nothing when there are none. %>
-<% entries = my_gatherpack_season_entries %>
-<% if entries.any? %>
+<%# My Season: checklist items that aren't to-dos, in words. Tapping a line shows its detail. Renders nothing when there are none. %>
+<% season = my_gatherpack_season %>
+<% if season.any? %>
+  <% content_for :head, stylesheet_link_tag("my_gatherpack_checklists") %>
   <section class="mg-section" data-home-section="checklists-season">
-    <h2 class="mg-heading">Your Checklists</h2>
+    <h2 class="mg-heading">My Season</h2>
     <div class="card mg-list">
-      <% entries.each do |entry| %>
-        <% path = entry.ward ? person_checklists_path(entry.subject) : checklist_path(entry.checklist) %>
-        <div class="mg-row d-block" id="<%= dom_id entry.checklist, "season_#{entry.subject.id}" %>">
-          <% if entries.many? || entry.ward %>
-            <div class="mg-row-title mb-2">
-              <%= link_to entry.checklist.title, path %>
-              <% if entry.ward %><span class="mg-row-ward">for <%= entry.ward %></span><% end %>
-            </div>
-          <% end %>
-          <% entry.items.each do |item| %>
-            <% percent = my_gatherpack_season_percent(item) %>
-            <%# A measured item shows its count and a bar; a yes/no item shows its status as a pill. %>
-            <div class="mg-season-item">
-              <div class="d-flex justify-content-between align-items-center gap-2">
-                <%= link_to item.item.label, my_gatherpack_season_item_path(entry, item, path), class: "link-body-emphasis text-decoration-none" %>
-                <% if percent %>
-                  <span class="text-body-secondary flex-shrink-0"><%= my_gatherpack_season_count(item) %></span>
-                <% else %>
-                  <span class="flex-shrink-0"><%= checklist_status_badge(item) %></span>
-                <% end %>
-              </div>
-              <% if percent %>
-                <div class="progress" role="progressbar" aria-label="<%= item.item.label %>" aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
-                  <%# The bar takes its status's pill color, so a shortfall shows red or yellow. %>
-                  <div class="progress-bar <%= checklist_status_class(item.status).sub("text-bg-", "bg-") %>" style="width: <%= percent %>%"></div>
-                </div>
-              <% end %>
-            </div>
-          <% end %>
+      <% if season.in_progress.empty? && my_gatherpack_rows(:todo).empty? %>
+        <div class="mg-row mg-season-all-set">You're all set for now</div>
+      <% end %>
+      <% if season.in_progress.any? %>
+        <div class="mg-season-group" data-season-group="in-progress">
+          <h3 class="mg-season-label">In progress</h3>
+          <%= render partial: "my_gatherpack/checklists_season_line", collection: season.in_progress, as: :line %>
+        </div>
+      <% end %>
+      <% if season.done.any? %>
+        <% done_id = "mg-season-done" %>
+        <div class="mg-season-group" data-season-group="done">
+          <button type="button" class="mg-season-done collapsed" data-bs-toggle="collapse" data-bs-target="#<%= done_id %>" aria-expanded="false" aria-controls="<%= done_id %>">
+            <span class="mg-season-label">Done</span>
+            <span class="mg-season-done-titles"><%= season.done.map { |line| line.entry.item.label }.uniq.join(", ") %></span>
+            <span class="mg-season-chevron"><%= i("chevron-down") %></span>
+          </button>
+          <div class="collapse" id="<%= done_id %>">
+            <%= render partial: "my_gatherpack/checklists_season_line", collection: season.done, as: :line %>
+          </div>
         </div>
       <% end %>
     </div>
