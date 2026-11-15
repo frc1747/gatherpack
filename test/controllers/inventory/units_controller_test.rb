@@ -246,4 +246,21 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
       assert_equal @world.bin2, @unit.reload.location
     end
   end
+
+  test "inside another part by code prefers the unit's own team" do
+    theirs = tracked_item!(@world, name: "Module", team: @world.robotics, units: 1).item_units.first
+    ours = tracked_item!(@world, name: "Module", units: 1).item_units.first
+    as(@world.member) do
+      post install_inventory_unit_path(@unit), params: { unit_code: "MOD-1" }
+      assert_equal ours, @unit.reload.installed_in
+      assert_not_equal theirs, @unit.installed_in
+    end
+  end
+
+  test "inside another part by its scanned label URL" do
+    as(@world.member) do
+      post install_inventory_unit_path(@unit), params: { unit_code: inventory_unit_url(@other, host: "localhost") }
+      assert_equal @other, @unit.reload.installed_in
+    end
+  end
 end

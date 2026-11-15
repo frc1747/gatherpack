@@ -110,4 +110,73 @@ class Inventory::MachinesControllerTest < ActionDispatch::IntegrationTest
       end
     end
   end
+
+  test "a code two teams use installs the machine's team's unit" do
+    theirs = tracked_item!(@world, name: "Motor", team: @world.robotics, units: 1).item_units.first
+    assert_equal "MOT-1", theirs.code
+    as(@world.member) do
+      post install_inventory_machine_path(@world.robot), params: { code: "MOT-1" }
+      assert_redirected_to inventory_machine_path(@world.robot)
+      assert_equal @world.robot, theirs.reload.location
+      assert_equal @world.bin1, @motor1.reload.location
+    end
+  end
+
+  test "a code that still matches more than one part is refused" do
+    # The club's and build's MOT-1, on a robotics machine.
+    tracked_item!(@world, name: "Motor", team: @world.build, units: 1)
+    as(@world.builder) do
+      post install_inventory_machine_path(@world.robot), params: { code: "MOT-1" }
+      assert_equal "2 parts have the code MOT-1: scan the label of the one you mean", flash[:alert]
+      assert_not ItemUnit.where(location: @world.robot).exists?
+    end
+  end
+
+  test "a code matches before a serial number" do
+    @spare.update!(serial_number: "MOT-1")
+    as(@world.member) do
+      post install_inventory_machine_path(@world.robot), params: { code: "MOT-1" }
+      assert_equal @world.robot, @motor1.reload.location
+      assert_equal @world.bin1, @spare.reload.location
+    end
+  end
+
+  test "a scanned label URL installs its unit" do
+    as(@world.member) do
+      post install_inventory_machine_path(@world.robot), params: { code: inventory_unit_url(@spare, host: "localhost") }
+      assert_redirected_to inventory_machine_path(@world.robot)
+      assert_equal @world.robot, @spare.reload.location
+    end
+  end
+
+  test "a scanned label for a part the viewer can't see is refused" do
+    hidden = tracked_item!(@world, name: "Lamp", team: @world.art, units: 1).item_units.first
+    as(@world.member) do
+      post install_inventory_machine_path(@world.robot), params: { code: "https://example.org/inventory/units/#{hidden.to_param}" }
+      assert_equal "That label isn't for a part you can see", flash[:alert]
+      assert_equal @world.bin1, hidden.reload.location
+    end
+  end
+
+  test "units inside a part the viewer can't see are still listed, and the count matches" do
+    build_module = tracked_item!(@world, name: "Bracket", team: @world.build, units: 1).item_units.first
+    @motor1.install!(into: build_module, by: @world.admin)
+    build_module.install!(into: @world.robot, by: @world.admin)
+    as(@world.member) do
+      get inventory_machines_path
+      assert_select "#machines", /1 part\b/
+
+      get inventory_machine_path(@world.robot)
+      assert_select "#installed_units > li", 1
+      assert_select "#installed_units > li", /MOT-1.*inside another part/m
+      assert_select "#installed_units", text: /BRA-1/, count: 0
+    end
+    as(@world.builder) do
+      get inventory_machines_path
+      assert_select "#machines", /2 parts/
+      get inventory_machine_path(@world.robot)
+      assert_select "#installed_units > li", 1
+      assert_select "#installed_units > li li", /MOT-1/
+    end
+  end
 end

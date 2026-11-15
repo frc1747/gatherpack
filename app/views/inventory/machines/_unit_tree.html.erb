@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center gap-2">
       <span>
         <%= link_to unit.identifier_name, inventory_unit_path(unit), class: "fw-semibold" %>
-        <span class="small text-body-secondary"><%= unit.item.name %><%= " · #{unit.name}" if unit.name.present? && unit.code.present? %></span>
+        <span class="small text-body-secondary"><%= unit.item.name %><%= " · #{unit.name}" if unit.name.present? && unit.code.present? %><%= " · inside another part" if parent_id.nil? && unit.installed_in_id %></span>
       </span>
       <%= unit_condition_badge(unit) %>
     </div>

@@ -4,6 +4,8 @@
 # check permission again and raise Inventory::Refused.
 module Inventory
   class UnitsController < BaseController
+    include Inventory::UnitLookup
+
     ACTIONS = Inventory::Config::UNIT_ACTIONS
 
     before_action :set_unit, only: %i[show edit update action_form] + ACTIONS.map(&:to_sym)
@@ -115,12 +117,13 @@ module Inventory
     end
 
     # A machine (location_id) or another unit, by id (unit_id) or by its
-    # code, typed or scanned (unit_code).
+    # code or label URL, typed or scanned (unit_code). A code more than one
+    # team uses prefers this unit's team.
     def install_target
       if params[:unit_id].present?
         policy_scope(ItemUnit).find(params[:unit_id])
       elsif params[:unit_code].present?
-        exact_units(params[:unit_code]).first || raise(Inventory::Refused, "No part has the code #{params[:unit_code].strip}")
+        unit_from_code(params[:unit_code], team_id: @unit.item.team_id)
       elsif params[:location_id].present?
         policy_scope(Location).find(params[:location_id])
       else

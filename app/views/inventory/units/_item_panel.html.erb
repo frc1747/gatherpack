@@ -1,6 +1,7 @@
 <%# The units section of a tracked item's page (inventory spec §3.15),
     registered with Inventory.extensions.register_item_panel. Units by
-    place: available, on each machine, in repair, retired. Managers turn
+    place: available, inside other parts kept in storage, on each machine,
+    in repair, retired. Managers turn
     tracking on and off and edit the readings a check asks for. Locals:
     item:, viewer:. %>
 <% item_policy = ItemPolicy.new(viewer.user, item) %>
@@ -16,9 +17,11 @@
       <% units = ItemUnitPolicy::Scope.new(viewer.user, item.item_units).resolve.includes(:location, :installed_in).order(:code).to_a %>
       <% retired, current = units.partition(&:condition_retired?) %>
       <% repair, working = current.partition(&:flagged?) %>
-      <% on_machines, spare = working.partition(&:installed?) %>
+      <% on_machines, stored = working.partition(&:on_machine?) %>
+      <% inside, spare = stored.partition(&:installed_in_id?) %>
       <% groups = [] %>
       <% groups << [ "Available", spare.group_by(&:location) ] if spare.any? %>
+      <% groups << [ "Inside other parts", inside.group_by(&:location) ] if inside.any? %>
       <% on_machines.group_by(&:location).sort_by { |machine, _| machine.name }.each do |machine, list| %>
         <% groups << [ "On #{machine.name}", { machine => list } ] %>
       <% end %>

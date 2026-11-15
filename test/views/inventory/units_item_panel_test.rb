@@ -46,4 +46,17 @@ class Inventory::UnitsItemPanelTest < ActiveSupport::TestCase
     end
     assert panel(@world.screws, @world.keeper).at_css("button", text: "Track each piece")
   end
+
+  test "units inside a stored part show under it, not as on a machine or available" do
+    one, two = @motor.item_units.order(:code).to_a
+    holder = tracked_item!(@world, name: "Module", units: 1).item_units.first
+    one.install!(into: holder, by: @world.admin)
+    two.install!(into: @world.robot, by: @world.admin)
+
+    view = panel(@motor, @world.member)
+    headings = view.css("h3").map { |h| h.text.squish }
+    assert_equal [ "Available 2", "Inside other parts 1", "On Robot 1" ], headings
+    assert_includes view.text.squish, "MOT-1 New in MOD-1"
+    assert_not headings.any? { |heading| heading.start_with?("On Bin") }
+  end
 end
