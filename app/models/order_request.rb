@@ -147,7 +147,7 @@ class OrderRequest < ApplicationRecord
   private
 
   def funding_source_usable
-    return if funding_source.nil? || !will_save_change_to_funding_source_id?
+    return if funding_source.nil? || !(will_save_change_to_funding_source_id? || will_save_change_to_team_id?)
 
     errors.add(:funding_source, "can't be used by #{team&.name}") unless funding_source.usable_by?(team)
   end

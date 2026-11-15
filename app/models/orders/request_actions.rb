@@ -70,7 +70,9 @@ module Orders
           raise Orders::Refused, "The team and estimated shipping can't change once the request is approved."
         end
 
+        line_sources = changed.include?("team_id") ? drop_funding_unusable_by_team : {}
         recorded = changes_to_record
+        recorded["line_funding_source_ids"] = line_sources if line_sources.any?
         save!
         next if recorded.empty? || draft?
 
@@ -235,6 +237,20 @@ module Orders
         "lines" => raised.map(&:display_name)
       })
       true
+    end
+
+    # After a move to another team, clears the request's funding source and
+    # any line's own source the new team can't use (they're for another
+    # team's budget or gift). Returns the lines' cleared sources as
+    # { line id => [before, nil] }; the request's shows in its own changes.
+    def drop_funding_unusable_by_team
+      self.funding_source = nil if funding_source && !funding_source.usable_by?(team)
+      order_lines.reject(&:cancelled?).each_with_object({}) do |line, cleared|
+        next if line.funding_source.nil? || line.funding_source.usable_by?(team)
+
+        cleared[line.id] = [ line.funding_source_id, nil ]
+        line.update!(funding_source: nil)
+      end
     end
 
     # The request fields changed in memory, as name => [before, after].

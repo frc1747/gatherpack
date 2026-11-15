@@ -238,6 +238,48 @@ class Orders::ApprovalEngineTest < ActiveSupport::TestCase
     end
   end
 
+  test "moving a request to another team clears funding sources the new team can't use" do
+    with_orders(@world) do
+      Membership.create!(person: @world.requester, team: @world.art)
+      Membership.create!(person: @world.requester, team: @world.build)
+      grant = FundingSource.create!(team: @world.robotics, name: "Robotics grant", kind: :restricted, restriction: "Robot parts")
+      tools = FundingSource.create!(team: @world.robotics, name: "Robotics tools")
+      shared = FundingSource.create!(team: @world.club, name: "Club fund")
+      order_request = submitted_request(@world, funding_source: grant,
+        lines: [ { description: "Motor", price: 20, funding_source_id: tools.id }, { description: "Glue", price: 2 } ])
+      motor = order_request.order_lines.first
+
+      order_request.edit!({ team_id: @world.art.id }, by: @world.requester)
+      order_request.reload
+
+      assert_equal @world.art.id, order_request.team_id
+      assert_nil order_request.funding_source_id
+      assert_nil motor.reload.funding_source_id
+      changes = order_request.events.last.field_changes
+      assert_equal "edited", order_request.events.last.action
+      assert_equal [ grant.id, nil ], changes["funding_source_id"]
+      assert_equal({ motor.id => [ tools.id, nil ] }, changes["line_funding_source_ids"])
+      assert_empty order_request.restricted_sources
+
+      # A source the new team can still use stays.
+      order_request.edit!({ team_id: @world.robotics.id }, by: @world.requester)
+      order_request.reload.edit!({ funding_source_id: shared.id }, by: @world.manager)
+      order_request.reload.edit!({ team_id: @world.build.id }, by: @world.requester)
+      assert_equal shared.id, order_request.reload.funding_source_id
+      assert_not order_request.events.last.field_changes.key?("funding_source_id")
+    end
+  end
+
+  test "a request's funding source must suit its team when the team changes by any route" do
+    with_orders(@world) do
+      Membership.create!(person: @world.requester, team: @world.art)
+      grant = FundingSource.create!(team: @world.robotics, name: "Robotics grant")
+      order_request = draft_request(@world, funding_source: grant)
+
+      assert_raises(ActiveRecord::RecordInvalid) { order_request.update!(team: @world.art) }
+    end
+  end
+
   test "a request can only be made for one of the requester's teams" do
     with_orders(@world) do
       assert_raises(ActiveRecord::RecordInvalid) { draft_request(@world, team: @world.art) }
