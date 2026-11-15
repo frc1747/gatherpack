@@ -374,6 +374,25 @@ There's always a way to ask without a link or a known vendor. A description plus
 
 **Phone-first screens.** New request, My requests, a request's page, To receive, and To approve must work one-handed on a phone: one column, buttons at least 44 px tall, the main action in a bar fixed to the bottom. To buy, Vendors, Funding sources and Reports are built for a desktop and only need to be readable on a phone.
 
+### 3.17 MCP tools (`feature/mcp-orders`)
+
+The orders tools live in `feature/mcp-orders`, with inventory's (inventory spec §6), and appear only while `feature_orders` is on. They allow exactly what the pages allow: the same policies, scopes, domain actions and notices, with no limit or override of their own. Writes also need `mcp_write_enabled` and the `mcp_write` scope, as every MCP write does.
+
+| Tool | Does | Mirrors |
+|---|---|---|
+| `list_order_requests` | Requests the person can see; filters: status, team, mine, waiting on me | Orders, My requests |
+| `get_order_request` | One request: items, approvals, timeline, and purchase details as the page shows them to this person | Request page |
+| `orders_waiting_on_me` | The person's next steps, from `Orders::WaitingOn` | Home To do, To approve |
+| `list_to_buy` | Approved items within the person's buyer reach, by vendor | To buy |
+| `list_purchases`, `get_purchase` | Purchases, with what a non-buyer may see limited as on the page | Purchases |
+| `list_vendors`, `list_funding_sources`, `funding_source_report` | Vendors; funding sources with spent, committed and remaining; one source's report | Vendors, Funding sources |
+| `create_order_request` | Makes a request through `draft_for` and submits it | New request |
+| `decide_order_request` | Approve, ask for changes or decline, with a comment and the restriction tick where needed | Request page decision |
+| `record_purchase` | Records a vendor order for chosen items | Record purchase |
+| `update_order_line` | Backorder, change quantity or cancel an item | Buyer item actions |
+| `record_delivery` | Records a delivery on an item | Receive |
+| `set_funding_source` | Sets a request's or an item's funding source | Approve screen, reallocation |
+
 ## 4. Inventory (`feature/inventory`) — outline only
 
 A separate spec. What orders needs from it, so the seams above are enough:
