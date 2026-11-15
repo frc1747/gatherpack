@@ -1,0 +1,76 @@
+<%# Put away in inventory (orders spec §5), on the receive dialog. Fields go in params[:order_inventory]; OrderInventory::PutAway records them. %>
+<% person = current_user.person %>
+<% item = OrderInventory.item_for(line) %>
+<% if OrderInventory.puts_away_item?(person, item) %>
+  <% places = OrderInventory.places_for(person) %>
+  <% default_place = item&.default_location if places.include?(item&.default_location) %>
+  <% quantity = [ line.to_come_quantity, 1 ].max %>
+  <% per = OrderInventory.stock_units_per(line) %>
+  <% may_create = item.nil? && policy(Item.new(team: line.order_request.team)).create? %>
+  <% may_change = OrderInventory.sets_stock_quantity?(person, item) %>
+  <% ticked = item.present? && default_place.present? %>
+  <fieldset class="card mb-3" data-controller="order-put-away"
+            data-order-put-away-per-value="<%= per %>"
+            data-order-put-away-line-unit-value="<%= line.unit %>"
+            data-order-put-away-stock-unit-value="<%= item&.unit.presence || Inventory::Config.default_unit %>"
+            data-order-put-away-tracked-value="<%= item&.tracked? ? true : false %>"
+            data-order-put-away-item-name-value="<%= item&.name %>"
+            data-action="order-item-search:picked->order-put-away#picked">
+    <div class="card-body">
+      <legend class="h6">Inventory</legend>
+      <div class="form-check mb-3">
+        <%= hidden_field_tag "order_inventory[put_away]", "0", id: nil %>
+        <%= check_box_tag "order_inventory[put_away]", "1", ticked, id: "order_inventory_put_away", class: "form-check-input",
+              data: { action: "change->order-put-away#toggle", order_put_away_target: "putAway" } %>
+        <%= label_tag "order_inventory_put_away", item ? "Track this item: put #{item.name} away" : "Track this item", class: "form-check-label" %>
+      </div>
+
+      <div data-order-put-away-target="fields" <%= "hidden" unless ticked %>>
+        <% if item.nil? %>
+          <div class="mb-3" data-controller="order-item-search" data-order-item-search-mode-value="link"
+               data-order-item-search-url-value="<%= order_inventory_items_path(format: :json) %>">
+            <%= label_tag "order_inventory_item_search", "Which inventory item is it?", class: "form-label" %>
+            <%= search_field_tag "order_inventory_item_search", line.description, class: "form-control form-control-lg", autocomplete: "off",
+                  placeholder: "Search by name or part number", form: "",
+                  data: { order_item_search_target: "query", action: "input->order-item-search#search keydown.enter->order-item-search#ignoreEnter" } %>
+            <%= hidden_field_tag "order_inventory[item_id]", nil, id: "order_inventory_item_id", data: { order_item_search_target: "itemId" } %>
+            <div class="list-group mt-2" data-order-item-search-target="results" role="listbox"></div>
+            <div class="form-text" data-order-item-search-target="status" role="status" aria-live="polite"></div>
+            <% if may_create %>
+              <div class="form-check mt-2">
+                <%= check_box_tag "order_inventory[create_item]", "1", false, id: "order_inventory_create_item", class: "form-check-input",
+                      data: { order_item_search_target: "create" } %>
+                <%= label_tag "order_inventory_create_item", "Create an inventory item from this", class: "form-check-label" %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <div class="mb-3">
+          <%= label_tag "order_inventory_location_id", "Put away in", class: "form-label" %>
+          <%= select_tag "order_inventory[location_id]",
+                options_for_select(places.map { |place| [ place.full_name, place.id ] }, default_place&.id),
+                include_blank: "Pick a place", id: "order_inventory_location_id", class: "form-select form-select-lg" %>
+        </div>
+
+        <div class="mb-3" data-order-put-away-target="stockBox" <%= "hidden" if item&.tracked? %>>
+          <%= label_tag "order_inventory_quantity", "How many go into stock?", class: "form-label" %>
+          <%= number_field_tag "order_inventory[quantity]", quantity * per, min: 1, step: 1, inputmode: "numeric",
+                id: "order_inventory_quantity", class: "form-control form-control-lg", readonly: !may_change,
+                data: { order_put_away_target: "quantity", action: "input->order-put-away#typed" } %>
+          <% unless may_change %>
+            <div class="form-text">What came, in pieces. An inventory manager can change it later with a count.</div>
+          <% end %>
+        </div>
+        <p class="form-text mb-0" data-order-put-away-target="summary">
+          <% if item&.tracked? %>
+            <%= OrderInventory.units_text(item, quantity * per) %>
+          <% else %>
+            <%= OrderInventory.conversion_text(line, quantity, item: item) %>
+          <% end %>
+        </p>
+        <p class="form-text">Only what came in good condition goes into stock. If it can't be put away, the delivery is still recorded.</p>
+      </div>
+    </div>
+  </fieldset>
+<% end %>
