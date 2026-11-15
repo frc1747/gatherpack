@@ -17,6 +17,7 @@ backlog instead. Full specs, where they exist, are separate.
 | 7 | [Theming and a modern skin](07-theming-and-modern-skin.md) | Pick a brand color and logo and get a consistent, modern look and sign-in page, with page markup and logic unchanged | Medium, mostly new files. Two migrations; 6 upstream files; flags off by default | [Modern skin spec](../specs/modern-skin-spec.md) |
 | 8 | [My GatherPack](08-my-gatherpack.md) | Organize the app around what each person needs to do: a to-do home, a menu per person, a family view, and phone versions of the top tasks | Medium to large, in independent parts. No migrations expected; a few upstream files; flag off by default. Follows the modern skin | [My GatherPack spec](../specs/my-gatherpack-spec.md) |
 | 9 | [App feel](09-app-feel.md) | Smooth page changes, saves that keep your place, home-screen install, and phone notifications, all on the existing Hotwire stack | Small to medium, in independent parts. One migration, for notifications; a few upstream files; flags off by default | [App feel spec](../specs/app-feel-spec.md) |
+| 10 | [Purchasing and inventory](10-purchasing.md) | Ask for things to be bought, approve them in steps, record purchases and deliveries, and keep track of stock and reusable parts | Large, mostly new files: 19 migrations, 2 upstream views and a gem; flags off by default. Requires extension registries and the routes and recurring-job seams | [Order requests spec](../specs/orders-spec.md), [inventory spec](../specs/inventory-spec.md) |
 
 ## How they relate
 
