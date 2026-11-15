@@ -266,11 +266,14 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
 
   test "a team manager gets the five orders pages in Manage, in order, and not in More" do
     home do
+      # Without the check, only the table positions can put them in Manage.
+      MyGatherpack::Menu.manager_checks.delete(:orders)
       menu = MyGatherpack::Menu.new(@world.manager.user)
       labels = [ "To approve", "To buy", "Vendors", "Funding sources", "Reports" ]
 
       assert_equal labels, menu.manage.map(&:label).select { |label| labels.include?(label) }
       assert_empty menu.more.map(&:label) & labels
+      assert_equal labels, menu.manage.map(&:label).last(5)
     end
   end
 
