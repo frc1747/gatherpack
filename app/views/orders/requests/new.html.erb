@@ -1,0 +1,11 @@
+<% breadcrumb :orders_requests %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>New request</h1>
+  </div>
+  <div class="card-body">
+    <%# The request form renders here once the part of orders that adds it is in. %>
+    <%= order_request_slot :form, order_request: @order_request %>
+  </div>
+</div>

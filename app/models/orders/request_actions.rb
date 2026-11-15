@@ -1,0 +1,254 @@
+# The requester's and buyer's actions on a whole request (spec §3.2–3.4,
+# §3.10). Each takes the request's row lock and writes its timeline entry
+# in the same transaction. Who may call them is the policies' business;
+# what the request's state allows is checked here and refused with
+# Orders::Refused.
+module Orders
+  module RequestActions
+    extend ActiveSupport::Concern
+
+    # A change to any of these on a line voids standing approvals.
+    MATERIAL_LINE_FIELDS = %w[
+      vendor_id other_vendor_name vendor_part_number manufacturer manufacturer_part_number url
+    ].freeze
+
+    # Request fields the edit action records.
+    EDITABLE_FIELDS = %w[title purpose needed_by team_id funding_source_id estimated_shipping_cents].freeze
+
+    def submit!(by:)
+      locked do
+        raise Orders::Refused, "Only a draft can be submitted." unless draft?
+        lines = live_lines
+        raise Orders::Refused, "Add at least one item." if lines.empty?
+
+        lines.each(&:validate!)
+        self.title = lines.first.display_name if title.blank?
+        update!(status: :submitted, submitted_at: Time.current)
+        log!(:submitted, by: by, changes: { "status" => %w[draft submitted] })
+      end
+    end
+
+    # Sends a request back to its approvers after they asked for changes.
+    # Approvals stand unless a material change has cleared them since.
+    def resubmit!(by:, comment: nil)
+      locked do
+        raise Orders::Refused, "Only a request that needs changes can be resubmitted." unless changes_requested?
+        raise Orders::Refused, "Add at least one item." if live_lines.empty?
+
+        update!(status: :submitted, submitted_at: Time.current)
+        log!(:submitted, by: by, changes: { "status" => %w[changes_requested submitted] }, comment: comment)
+      end
+    end
+
+    # Changes the request's own fields (EDITABLE_FIELDS). Raising the total
+    # past the tolerance voids standing approvals.
+    def edit!(attributes, by:)
+      locked do
+        raise Orders::Refused, "This request can't be changed any more." if finished?
+
+        before_total = total_cents
+        assign_attributes(attributes.to_h.stringify_keys.slice(*EDITABLE_FIELDS))
+        changes = changes_to_record
+        save!
+        next if changes.empty? || draft?
+
+        cleared = clear_approvals_if_material(false, before_total)
+        log!(:edited, by: by, changes: changes.merge(cleared ? { "approvals_cleared" => true } : {}))
+      end
+    end
+
+    # Adds a line. Outside a draft that's a material change.
+    def add_line!(attributes, by:)
+      locked do
+        raise Orders::Refused, "Items can't be added to this request now." unless editable?
+
+        line = order_lines.create!(attributes.to_h.symbolize_keys.merge(position: (order_lines.maximum(:position) || -1) + 1))
+        unless draft?
+          cleared = clear_approvals_if_material(true, nil)
+          log!(:edited, by: by, line: line, changes: { "added" => line.display_name }.merge(cleared ? { "approvals_cleared" => true } : {}))
+        end
+        line
+      end
+    end
+
+    # Changes a line before approval, by the requester or an approver.
+    # Changing its vendor or part, or raising the total past the tolerance,
+    # voids standing approvals; lowering a quantity doesn't.
+    def edit_line!(line, attributes, by:)
+      locked do
+        raise Orders::Refused, "Items can't be changed on this request now." unless editable?
+
+        line = order_lines.find(line.id)
+        before_total = total_cents
+        line.assign_attributes(attributes.to_h.stringify_keys.slice(*OrderLine::EDITABLE_FIELDS))
+        changes = line.changes_to_record
+        line.save!
+        next line if changes.empty? || draft?
+
+        order_lines.reset
+        cleared = clear_approvals_if_material((changes.keys & MATERIAL_LINE_FIELDS).any?, before_total)
+        log!(:edited, by: by, line: line, changes: changes.merge(cleared ? { "approvals_cleared" => true } : {}))
+        finish_approval_if_complete(by)
+        line
+      end
+    end
+
+    # Takes a line off a request that isn't approved yet: a draft's line is
+    # deleted, others are cancelled (which isn't a material change).
+    def remove_line!(line, by:, reason: nil)
+      locked do
+        raise Orders::Refused, "Items can't be removed from this request now." unless editable?
+
+        line = order_lines.find(line.id)
+        if draft?
+          line.destroy!
+        else
+          line.update!(status: :cancelled)
+          log!(:cancelled, by: by, line: line, comment: reason)
+          order_lines.reset
+          finish_approval_if_complete(by)
+        end
+      end
+    end
+
+    # Allowed until anything is on a purchase.
+    def cancel!(by:, reason: nil)
+      locked do
+        unless status.in?(%w[draft submitted changes_requested approved]) && order_lines.none?(&:purchase_id)
+          raise Orders::Refused, "This request can't be cancelled once something is ordered."
+        end
+
+        from = status
+        order_lines.each { |line| line.update!(status: :cancelled) unless line.cancelled? }
+        update!(status: :cancelled)
+        log!(:cancelled, by: by, changes: { "status" => [ from, "cancelled" ] }, comment: reason) unless from == "draft"
+      end
+    end
+
+    # Closes a received request, by hand or (by: nil) after
+    # orders_close_after_days.
+    def close!(by: nil, comment: nil)
+      locked do
+        raise Orders::Refused, "Only a received request can be closed." unless received?
+
+        update!(status: :closed, closed_at: Time.current)
+        log!(:closed, by: by, changes: { "status" => %w[received closed] }, comment: comment)
+      end
+    end
+
+    def comment!(text, by:)
+      raise Orders::Refused, "Write a comment first." if text.blank?
+
+      locked { log!(:commented, by: by, comment: text) }
+    end
+
+    def follow!(person)
+      locked do
+        next if watched_by?(person)
+
+        order_request_watchers.create!(person: person)
+        log!(:followed, by: person) unless draft?
+      end
+    end
+
+    def unfollow!(person)
+      locked do
+        watcher = order_request_watchers.find_by(person_id: person.id)
+        next if watcher.nil?
+
+        watcher.destroy!
+        log!(:unfollowed, by: person) unless draft?
+      end
+    end
+
+    # A new draft for the person with this request's lines (at their last
+    # known price) and its team, title and purpose.
+    def order_again(by:, team: self.team)
+      lines = live_lines.map(&:reorder_attributes)
+      OrderRequest.draft_for(person: by, team: team, lines: lines, title: title, purpose: purpose)
+    end
+
+    # Records every open line on the request (or, with purchase:, only that
+    # purchase's lines) as fully received.
+    def mark_all_received!(by:, purchase: nil, received_on: Date.current)
+      locked do
+        lines = order_lines.select(&:open_to_receive?)
+        lines = lines.select { |line| line.purchase_id == purchase.id } if purchase
+        raise Orders::Refused, "Nothing here is waiting to be received." if lines.empty?
+
+        lines.each do |line|
+          line.record_delivery!(by: by, quantity: line.outstanding_quantity, received_on: received_on)
+        end
+      end
+    end
+
+    # Moves an approved request between approved, ordering and received to
+    # match its lines. Called by the line actions, inside the lock.
+    def refresh_status_from_lines
+      return unless approved? || ordering? || received?
+
+      lines = order_lines.reload.reject(&:cancelled?)
+      status_now =
+        if lines.empty? then :cancelled
+        elsif lines.all?(&:received?) then :received
+        elsif lines.any? { |line| line.purchase_id.present? || line.received? } then :ordering
+        else :approved
+        end
+      update!(status: status_now) unless status == status_now.to_s
+    end
+
+    # After a buyer's change raises the total past the tolerance over the
+    # approved total, the lines that rose need approving again by the final
+    # step. Within it, nothing waits. Returns whether re-approval is needed.
+    def check_price_tolerance(lines, by:)
+      return false if approved_total_cents.nil?
+
+      rise = total_cents - approved_total_cents
+      return false if rise <= Orders::Config.price_tolerance.allowance_cents(approved_total_cents)
+
+      raised = lines.select { |line| line.cost_rose? && !line.cancelled? }
+      raised = lines.reject(&:cancelled?) if raised.empty?
+      raised.each { |line| line.update!(status: :needs_reapproval) }
+      log!(:reapproval_needed, by: by, changes: {
+        "total" => [ Money.new(approved_total_cents).format, total.format ],
+        "lines" => raised.map(&:display_name)
+      })
+      true
+    end
+
+    # The request fields changed in memory, as name => [before, after].
+    def changes_to_record
+      changes.slice(*EDITABLE_FIELDS).transform_values { |pair| pair.map { |value| value.is_a?(Date) ? value.iso8601 : value } }
+    end
+
+    private
+
+    # Voids standing approvals when the change is material: a new line, a
+    # changed vendor or part, or a total raised past the tolerance over the
+    # total last approved. Returns whether any were cleared.
+    def clear_approvals_if_material(material, before_total)
+      standing = order_approvals.reload.select { |approval| approval.cleared_at.nil? && approval.approved? }
+      return false if standing.empty?
+
+      unless material
+        base = approved_total_cents || before_total
+        return false if base.nil? || total_cents - base <= Orders::Config.price_tolerance.allowance_cents(base)
+      end
+
+      now = Time.current
+      standing.each { |approval| approval.update!(cleared_at: now) }
+      order_approvals.reset
+      true
+    end
+
+    # A submitted request whose needed steps are all approved (after an
+    # edit lowered the total under a step's minimum) is approved.
+    def finish_approval_if_complete(by)
+      return unless submitted? && approved_step_keys.any? && current_step.nil?
+
+      live_lines.each { |line| line.update!(status: :approved) if line.pending? }
+      update!(status: :approved, approved_at: Time.current, approved_total_cents: total_cents)
+      log!(:approved, by: by, changes: { "status" => %w[submitted approved] }, comment: "Every needed approval is in.")
+    end
+  end
+end

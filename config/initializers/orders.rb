@@ -1,0 +1,59 @@
+# Order requests: the feature switch, settings, menu section and hook
+# events. Uses config.to_prepare (like features.rb) so the registrations are
+# replayed after each development reload.
+Rails.application.config.to_prepare do
+  GatherPack::Features.register_section("Purchasing", position: 35)
+
+  GatherPack::Features.register(
+    GatherPack::Feature.new(
+      key: :orders,
+      label: "Orders",
+      description: "Members ask for things to be bought; approvers approve, buyers buy, and the people who asked receive",
+      default_enabled: false,
+      nav_section: "Purchasing",
+      nav_position: 10,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Orders", path: :orders_requests_path, icon: "cart-shopping"),
+        GatherPack::Feature::NavItem.new(label: "To approve", path: :orders_approvals_path, icon: "stamp"),
+        GatherPack::Feature::NavItem.new(label: "To buy", path: :to_buy_orders_purchases_path, icon: "credit-card"),
+        GatherPack::Feature::NavItem.new(label: "To receive", path: :orders_deliveries_path, icon: "box-open"),
+        GatherPack::Feature::NavItem.new(label: "Vendors", path: :orders_vendors_path, icon: "store"),
+        GatherPack::Feature::NavItem.new(label: "Funding sources", path: :orders_funding_sources_path, icon: "hand-holding-dollar"),
+        GatherPack::Feature::NavItem.new(label: "Reports", path: :orders_reports_path, icon: "chart-column")
+      ]
+    )
+  )
+
+  Settings.register(:orders_requesters, :text, "Who Can Request", "", "Orders",
+    "Teams whose members (and members of the teams below) may ask for things to be bought, one team name per line. Blank: everyone signed in")
+  Settings.register(:orders_approval_steps, :text, "Approval Steps",
+    JSON.generate(Orders::Config::DEFAULT_STEPS), "Orders",
+    "The approval steps in order, as JSON: [{\"key\": \"approval\", \"name\": \"Approval\", \"minimum\": 0, " \
+    "\"approvers\": [\"Badge name > Highest team name\"]}]. A request needs every step whose minimum total it meets. " \
+    "Keep each key once it's used: approvals are stored by key. Admins and the team's managers can always approve")
+  Settings.register(:orders_buyers, :text, "Buyers", "", "Orders",
+    "Who may buy without managing a team. One per line, as Badge name > Highest team name, as for sign-up organizers. " \
+    "Admins and the team's managers can always buy")
+  Settings.register(:orders_price_tolerance, :string, "Price Tolerance", Orders::Config::DEFAULT_TOLERANCE, "Orders",
+    "How far a buyer's changes may raise an approved total without approving again: a percentage and an amount, " \
+    "whichever is larger (for example \"10%, 25\")")
+  Settings.register(:orders_paid_with, :text, "Paid With Choices",
+    JSON.generate(Orders::Config::DEFAULT_PAID_WITH), "Orders",
+    "The choices for how a purchase was paid, as JSON: [{\"label\": \"Team card\", \"reimburse\": false}]")
+  Settings.register(:orders_team_can_see, :boolean, "Team Members See Requests", "true", "Orders",
+    "Members of a request's team see it, comment on it and receive it")
+  Settings.register(:orders_require_other_vendor_reason, :boolean, "Other Store Needs a Reason", "false", "Orders",
+    "An item from a store that isn't listed needs a reason")
+  Settings.register(:orders_funding_managers, :text, "Funding Managers", "", "Orders",
+    "Who manages funding sources without managing a team. One per line, as Badge name > Highest team name. " \
+    "Admins and team managers always can")
+  Settings.register(:orders_require_funding_source, :boolean, "Require a Funding Source", "false", "Orders",
+    "A request needs a funding source before its final approval")
+  Settings.register(:orders_requesters_pick_funding, :boolean, "Requesters Pick Funding", "false", "Orders",
+    "Requesters see and may choose a funding source. Off: approvers set it")
+  Settings.register(:orders_close_after_days, :integer, "Close Received Requests After (days)", "14", "Orders",
+    "Received requests close after this many days")
+
+  GatherPack::HookCatalog.register_targets(*Orders::HOOK_TARGETS)
+  GatherPack::HookCatalog.register_events(*Orders::HOOK_EVENTS)
+end
