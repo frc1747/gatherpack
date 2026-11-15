@@ -1,0 +1,382 @@
+require "test_helper"
+require_relative "../support/checklists_world"
+
+class HousekeepingControllerTest < ActionDispatch::IntegrationTest
+  include Devise::Test::IntegrationHelpers
+  include ChecklistsWorld
+
+  setup do
+    host! "localhost"
+    build_checklists_world
+    @trip = create_world_checklist("Trip 2026", starts_on: Date.new(2025, 9, 1), ends_on: Date.new(2026, 6, 30))
+    @old_event = Event.create!(name: "Kickoff 2025", event_type: event_types(:one), team: @club,
+      start_time: Time.zone.local(2025, 9, 1, 18), end_time: Time.zone.local(2025, 9, 1, 20))
+    @new_event = Event.create!(name: "Kickoff 2026", event_type: event_types(:one), team: @club,
+      start_time: 2.days.ago, end_time: 2.days.ago + 2.hours)
+    @alumni = create_world_team("Alumni", parent: @club)
+  end
+
+  def with_housekeeping(**settings, &block)
+    with_settings(feature_checklists: "true", feature_housekeeping: "true", feature_events: "true", **settings, &block)
+  end
+
+  test "with the feature off its pages send people away and list pages show no bar" do
+    with_settings(feature_events: "true") do
+      sign_in person(:admin).user
+      [ housekeeping_list_path(:events), housekeeping_purge_path(:denied_applications), team_move_people_path(@members) ].each do |path|
+        get path
+        assert_redirected_to root_path, path
+      end
+      post housekeeping_apply_path(:events), params: { act: "archive", ids: [ @old_event.id ] }
+      assert_redirected_to root_path
+      assert_nil @old_event.reload.archived_at
+
+      get events_path
+      assert_no_match "archive, restore or copy", response.body
+    end
+  end
+
+  test "the list page bar leads to the old ones, filtered by the shared date control" do
+    with_housekeeping do
+      sign_in person(:club_manager).user
+      get events_path
+      assert_match "Old events: archive, restore or copy several at once", response.body
+      assert_select "input[name='older[mode]'][value='within']"
+
+      get housekeeping_list_path(:events, older: { mode: "date", date: "2025-12-31" })
+      assert_response :success
+      assert_select "input[name='ids[]'][value='#{@old_event.id}']"
+      assert_select "input[name='ids[]'][value='#{@new_event.id}']", count: 0
+
+      get housekeeping_list_path(:events, older: { mode: "within", amount: "6", unit: "months" })
+      assert_select "input[name='ids[]'][value='#{@old_event.id}']"
+      assert_select "input[name='ids[]'][value='#{@new_event.id}']", count: 0
+    end
+  end
+
+  test "archive selected previews, then archives, and the list hides them" do
+    with_housekeeping do
+      sign_in person(:club_manager).user
+      post housekeeping_preview_path(:events), params: { act: "archive", ids: [ @old_event.id ] }
+      assert_response :success
+      assert_match "1 event will be archived.", response.body
+      assert_nil @old_event.reload.archived_at
+
+      post housekeeping_apply_path(:events), params: { act: "archive", ids: [ @old_event.id ] }
+      assert_redirected_to housekeeping_list_path(:events, older: { mode: "" })
+      assert @old_event.reload.archived_at
+
+      get events_path
+      assert_no_match "Kickoff 2025", response.body
+      assert_match "Kickoff 2026", response.body
+      get event_path(@old_event)
+      assert_response :success
+
+      get housekeeping_list_path(:events, archived: "1")
+      assert_select "input[name='ids[]'][value='#{@old_event.id}']"
+      post housekeeping_apply_path(:events), params: { act: "restore", ids: [ @old_event.id ], archived: "1" }
+      assert_nil @old_event.reload.archived_at
+    end
+  end
+
+  test "the preview names a checklist skipped because another requires it" do
+    with_housekeeping do
+      prep = create_world_checklist("Gear check")
+      add_item(prep, :checklist, "Trip done", { checklist_id: @trip.id })
+      sign_in person(:club_manager).user
+
+      post housekeeping_preview_path(:checklists), params: { act: "archive", ids: [ @trip.id ] }
+      assert_match "0 checklists will be archived. 1 skipped.", response.body
+      assert_match "Trip 2026: still used by Gear check", response.body
+
+      post housekeeping_apply_path(:checklists), params: { act: "archive", ids: [ @trip.id ] }
+      assert @trip.reload.active?
+    end
+  end
+
+  test "records outside the person's view aren't touched" do
+    with_housekeeping do
+      outside = Event.create!(name: "Elsewhere", event_type: event_types(:one), team: @other_org, start_time: 1.year.ago, end_time: 1.year.ago + 1.hour)
+      sign_in person(:club_manager).user
+      post housekeeping_apply_path(:events), params: { act: "archive", ids: [ outside.id ] }
+      assert_nil outside.reload.archived_at
+    end
+  end
+
+  test "copy selected shows the dates and the Old to New table, then makes drafts" do
+    with_housekeeping do
+      add_item(@trip, :badge, "Safety", { badge_ids: [ @safety.id ] })
+      safety_next = create_world_badge("Safety 2027")
+      sign_in person(:club_manager).user
+
+      post housekeeping_preview_path(:checklists), params: { act: "copy", ids: [ @trip.id ], shift_months: "12" }
+      assert_response :success
+      assert_match "1 checklist will be copied as drafts, dates moved on 1 year.", response.body
+      assert_match I18n.l(Date.new(2027, 6, 30), format: :long), response.body
+      assert_select "select[name='replace[Badge:#{@safety.id}]'] option[selected][value='#{safety_next.id}']"
+
+      post housekeeping_apply_path(:checklists), params: { act: "copy", ids: [ @trip.id ], shift_months: "12", replace: { "Badge:#{@safety.id}" => safety_next.id } }
+      copy = Checklist.find_by!(title: "Trip 2027")
+      assert copy.draft?
+      assert_equal Date.new(2027, 6, 30), copy.ends_on
+      assert_equal [ safety_next.id ], copy.checklist_items.first.config["badge_ids"]
+    end
+  end
+
+  test "copying linked checklists together says so, and reports the rules it leaves out" do
+    with_housekeeping do
+      packing = create_world_checklist("Packing (last year)", starts_on: Date.new(2025, 9, 1), ends_on: Date.new(2026, 6, 30))
+      add_item(packing, :checklist, "Trip done", { checklist_id: @trip.id })
+      gone = Person.create!(first_name: "Gone", last_name: "World")
+      Membership.create!(person: gone, team: @members)
+      add_rule(packing, :exclude, :person, person_id: gone.id)
+      gone.destroy!
+      sign_in person(:admin).user
+
+      post housekeeping_preview_path(:checklists), params: { act: "copy", ids: [ packing.id, @trip.id ], shift_months: "12" }
+      assert_match "The copy of Packing (last year) will use the copy of Trip 2026.", response.body
+      assert_match "Packing (last year): 1 rule naming a deleted person, team or badge will be left out", response.body
+      assert_select "select[name='replace[Checklist:#{@trip.id}]']", count: 0
+
+      post housekeeping_apply_path(:checklists), params: { act: "copy", ids: [ packing.id, @trip.id ], shift_months: "12" }
+      assert_match "1 rule naming something deleted was left out (Packing (last year)).", flash[:notice]
+      new_trip = Checklist.find_by!(title: "Trip 2027")
+      assert_equal new_trip.id, Checklist.find_by!(title: "Packing (last year) (copy)").checklist_items.first.config["checklist_id"]
+    end
+  end
+
+  test "an event with no end time is found by when it started" do
+    with_housekeeping do
+      open_ended = Event.create!(name: "Old social", event_type: event_types(:one), team: @club, start_time: Time.zone.local(2023, 5, 1, 18))
+      sign_in person(:club_manager).user
+      get housekeeping_list_path(:events, older: { mode: "within", amount: "12", unit: "months" })
+      assert_select "input[name='ids[]'][value='#{open_ended.id}']"
+      assert_match I18n.l(Date.new(2023, 5, 1), format: :long), response.body
+    end
+  end
+
+  # Saved default (H2)
+
+  test "a list opens on the person's saved default, which starts as current" do
+    with_housekeeping do
+      @old_event.update!(archived_at: 1.day.ago)
+      sign_in person(:club_manager).user
+
+      get housekeeping_list_path(:events)
+      assert_match "Opens on current ones by default.", response.body
+      assert_select "input[name='ids[]'][value='#{@new_event.id}']"
+      assert_select "input[name='ids[]'][value='#{@old_event.id}']", count: 0
+
+      post housekeeping_default_path(:events), params: { archived: "1", older: { mode: "within", amount: "6", unit: "months" } }
+      assert_redirected_to housekeeping_list_path(:events)
+      preference = HousekeepingPreference.find_by!(person: person(:club_manager), list_key: "events")
+      assert_equal [ "archived", { "mode" => "within", "amount" => 6, "unit" => "months" } ], [ preference.view, preference.older ]
+
+      get housekeeping_list_path(:events)
+      assert_match "Opens on archived ones, ended more than 6 months ago by default.", response.body
+      assert_select "input[name='ids[]'][value='#{@old_event.id}']"
+      assert_select "input[name='ids[]'][value='#{@new_event.id}']", count: 0
+      assert_select "input#archived[checked]"
+
+      get events_path
+      assert_select "input#housekeeping_archived[checked]"
+      assert_select "input#housekeeping_older_amount[value='6']"
+
+      sign_in person(:admin).user
+      get housekeeping_list_path(:events)
+      assert_match "Opens on current ones by default.", response.body, "each person has their own"
+    end
+  end
+
+  test "after archiving or restoring, the list comes back on the view acted on, not the saved default" do
+    with_housekeeping do
+      sign_in person(:club_manager).user
+      HousekeepingPreference.save_for!(person(:club_manager), :events, view: "archived", older: { "mode" => "within", "amount" => 6, "unit" => "months" })
+      older = { mode: "within", amount: "12", unit: "months" }
+
+      get housekeeping_list_path(:events, older: older)
+      assert_select "form[action='#{housekeeping_preview_path(:events)}'] input[type=hidden][name='older[amount]'][value='12']"
+      post housekeeping_preview_path(:events), params: { act: "archive", ids: [ @old_event.id ], older: older }
+      assert_select "input[type=hidden][name='older[amount]'][value='12']"
+
+      post housekeeping_apply_path(:events), params: { act: "archive", ids: [ @old_event.id ], older: older }
+      assert_redirected_to housekeeping_list_path(:events, older: older)
+      follow_redirect!
+      assert_select "input#archived[checked]", count: 0
+      assert_select "input#older_amount[value='12']"
+
+      post housekeeping_apply_path(:events), params: { act: "restore", ids: [ @old_event.id ], archived: "1", older: older }
+      assert_redirected_to housekeeping_list_path(:events, archived: "1", older: older)
+      assert_nil @old_event.reload.archived_at
+    end
+  end
+
+  test "the people filter joins the list's search form, so both go in one request" do
+    with_housekeeping do
+      Person.where(id: @members.memberships.select(:person_id)).update_all(created_at: 3.years.ago)
+      Checkin.create!(event: @new_event, person: person(:member))
+      sign_in person(:admin).user
+
+      get people_path
+      assert_select "form#person_search"
+      assert_select "input[name='no_activity[mode]'][form='person_search']", count: 3
+      assert_select "input[name='no_activity[amount]'][form='person_search']"
+      assert_select "select[name='no_activity[unit]'][form='person_search']"
+      assert_select "button[type=submit][form='person_search']", text: "Find"
+
+      get people_path(q: { display_name_i_cont: "Member" }, no_activity: { mode: "within", amount: "1", unit: "months" })
+      assert_match "MemberTwo World", response.body
+      assert_no_match(/>\s*Member World\s*</, response.body)
+      assert_no_match "Kid World", response.body
+    end
+  end
+
+  test "types without a copier offer no copy" do
+    with_housekeeping do
+      sign_in person(:admin).user
+      get housekeeping_list_path(:events)
+      assert_select "button[value='copy']", count: 0
+      get housekeeping_list_path(:checklists)
+      assert_select "button[value='copy']"
+    end
+  end
+
+  # Purges
+
+  test "purges are for admins only" do
+    with_housekeeping do
+      denied = MembershipApplication.create!(person: person(:member), team: @joiners)
+      denied.update!(status: :denied, reviewed_at: 2.years.ago)
+      sign_in person(:club_manager).user
+
+      get team_membership_applications_path(@joiners)
+      assert_no_match "Clear denied applications", response.body
+      get housekeeping_purge_path(:denied_applications)
+      assert_response :redirect
+      post housekeeping_purge_path(:denied_applications), params: { confirmed: "1", count: "1" }
+      assert_response :redirect
+      assert MembershipApplication.exists?(denied.id)
+    end
+  end
+
+  test "a purge shows what goes, needs confirming, and leaves an audit entry" do
+    with_housekeeping do
+      denied = MembershipApplication.create!(person: person(:member), team: @joiners)
+      denied.update!(status: :denied, reviewed_at: 2.years.ago)
+      sign_in person(:admin).user
+
+      get team_membership_applications_path(@joiners)
+      assert_match "Clear denied applications older than 12 months", response.body
+
+      get housekeeping_purge_path(:denied_applications)
+      assert_response :success
+      assert_match "1 will be cleared", response.body
+      assert_match person(:member).display_name, response.body
+
+      post housekeeping_purge_path(:denied_applications), params: { count: "1" }
+      assert_redirected_to housekeeping_purge_path(:denied_applications)
+      assert MembershipApplication.exists?(denied.id)
+
+      post housekeeping_purge_path(:denied_applications), params: { confirmed: "1", count: "2" }
+      assert MembershipApplication.exists?(denied.id), "a count that changed since the preview asks again"
+
+      post housekeeping_purge_path(:denied_applications), params: { confirmed: "1", count: "1" }
+      assert_not MembershipApplication.exists?(denied.id)
+      log = HousekeepingPurge.find_by!(key: "denied_applications")
+      assert_equal person(:admin), log.person
+      audit = AuditLog.find_by!(item_type: "HousekeepingPurge", item_id: log.id)
+      assert_equal person(:admin).user.id, audit.whodunnit
+    end
+  end
+
+  test "the field answers purge shows people and answers without miscounting" do
+    with_housekeeping(feature_person_fields: "true", housekeeping_purge_fields: "Medical") do
+      group = PersonFieldGroup.create!(name: "Medical")
+      %w[Allergies Medications].each do |name|
+        field = PersonField.create!(name: name, key: name.downcase, person_field_group: group)
+        PersonFieldValue.create!(person: person(:member), person_field: field, value: "Some")
+      end
+      person(:member).update_columns(created_at: 4.years.ago)
+      sign_in person(:admin).user
+
+      get housekeeping_purge_path(:field_answers)
+      assert_match "2 answers from 1 person will be cleared", response.body
+      assert_no_match "more.", response.body
+    end
+  end
+
+  # Move people
+
+  test "a manager moves selected people to another team after a preview" do
+    with_housekeeping do
+      Membership.create!(team: @members, person: person(:club_manager), manager: true)
+      sign_in person(:club_manager).user
+
+      get team_memberships_path(@members)
+      assert_match "Move people to another team", response.body
+
+      get team_move_people_path(@members)
+      assert_response :success
+      assert_select "input[name='ids[]'][value='#{person(:member).id}']"
+      assert_select "input[name='ids[]'][value='#{person(:club_manager).id}']", count: 0
+      assert_select "select[name='to_team_id'] option[value='#{@alumni.id}']"
+
+      post preview_team_move_people_path(@members), params: { to_team_id: @alumni.id, ids: [ person(:member).id ] }
+      assert_response :success
+      assert_match "1 person will move from Members to Alumni.", response.body
+      assert @members.memberships.exists?(person: person(:member))
+
+      post team_move_people_path(@members), params: { to_team_id: @alumni.id, ids: [ person(:member).id ] }
+      assert_redirected_to team_memberships_path(@members)
+      assert_not @members.memberships.exists?(person: person(:member))
+      assert @alumni.memberships.exists?(person: person(:member))
+    end
+  end
+
+  test "the move list narrows to people with no activity since a date" do
+    with_housekeeping do
+      Person.where(id: @members.memberships.select(:person_id)).update_all(created_at: 3.years.ago)
+      Checkin.create!(event: @new_event, person: person(:member))
+      sign_in person(:admin).user
+
+      get team_move_people_path(@members, no_activity: { mode: "within", amount: "1", unit: "months" })
+      assert_select "input[name='ids[]'][value='#{person(:member2).id}']"
+      assert_select "input[name='ids[]'][value='#{person(:member).id}']", count: 0
+    end
+  end
+
+  test "people can only be moved to a team the mover manages" do
+    with_housekeeping do
+      sign_in person(:club_manager).user
+      post team_move_people_path(@members), params: { to_team_id: @other_org.id, ids: [ person(:member).id ] }
+      assert_redirected_to team_move_people_path(@members)
+      assert @members.memberships.exists?(person: person(:member))
+
+      sign_in person(:member).user
+      post team_move_people_path(@members), params: { to_team_id: @alumni.id, ids: [ person(:member2).id ] }
+      assert_response :redirect
+      assert @members.memberships.exists?(person: person(:member2))
+    end
+  end
+
+  test "the people list filters to no activity since a date" do
+    with_housekeeping do
+      Person.where(id: @members.memberships.select(:person_id)).update_all(created_at: 3.years.ago)
+      Checkin.create!(event: @new_event, person: person(:member))
+      sign_in person(:admin).user
+
+      get people_path(no_activity: { mode: "within", amount: "1", unit: "months" })
+      assert_match person(:member2).display_name, response.body
+      assert_no_match person(:member).display_name + "<", response.body
+    end
+  end
+
+  test "an archived announcement leaves the dashboard" do
+    with_housekeeping do
+      announcement = Announcement.create!(title: "Bring snacks", content: "Please", start_time: 1.day.ago, end_time: 1.week.from_now)
+      assert_includes Announcement.visible, announcement
+      Housekeeping.type(:announcements).archive!(announcement)
+      assert_not_includes Announcement.visible, announcement
+    end
+  end
+end

@@ -40,7 +40,8 @@ Rails.application.config.to_prepare do
   Settings.register(:checklists_max_age_hours, :integer, "Checklist Results Max Age (hours)", "24", "Checklists",
     "Stored results older than this are recomputed when read")
   Settings.register(:checklists_archive_after, :string, "Archive Checklists Ended Before", "", "Checklists",
-    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Active checklists that ended before it are archived each night. Blank: never")
+    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Active checklists that ended before it are archived each night. " \
+    "Blank: never. With Housekeeping on, Archive Checklists Automatically (days) there is used instead when it's set")
   Settings.register(:checklists_prune_results_after, :string, "Clear Results of Archived Checklists Ended Before", "", "Checklists",
     "A date (YYYY-MM-DD), or a number of days after a checklist's end. Stored results of archived checklists that ended before it are cleared each night; snapshots stay. Blank: never")
 
