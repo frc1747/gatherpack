@@ -33,11 +33,17 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       form = css_select("form[action='#{update_settings_path}'], form[action='#{inventory_setup_path}']").first
       assert form
       if Settings.respond_to?(:input)
-        patch update_settings_path, params: { return_to: inventory_setup_path, settings: original }
+        # What the pickers post for the saved values (SettingInput).
+        patch update_settings_path, params: { return_to: inventory_setup_path, settings: {
+          inventory_users: { values: [ "", "Alpha", "Beta" ] },
+          inventory_managers: { rows: { "0" => { line: "Keeper > Club" } } },
+          inventory_reorder_notice: "daily"
+        } }
+        assert_redirected_to inventory_setup_path
       else
         patch inventory_setup_path, params: { settings: original }
       end
-      assert_response :see_other
+      assert_response :see_other unless Settings.respond_to?(:input)
       original.each { |key, text| assert_equal text, Settings[key] }
       assert_equal Inventory::Config::DEFAULT_UNDO_MINUTES.to_s, Settings[:inventory_undo_minutes]
     end
