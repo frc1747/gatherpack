@@ -6,5 +6,10 @@
         <i class="fa-solid fa-<%= icon %>"></i> <%= label %>
       <% end %>
     <% end %>
+    <% if current_user&.admin %>
+      <%= link_to inventory_setup_path, class: "btn btn-outline-secondary" do %>
+        <i class="fa-solid fa-gear"></i> Setup
+      <% end %>
+    <% end %>
   </nav>
 <% end %>

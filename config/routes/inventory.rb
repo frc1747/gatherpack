@@ -20,6 +20,8 @@ namespace :inventory do
       post :undo
     end
   end
+  get "setup", to: "setup#show", as: :setup
+  patch "setup", to: "setup#update"
   get "reorder", to: "reorder#index", as: :reorder
   post "reorder", to: "reorder#run"
   resources :units do
