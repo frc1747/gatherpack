@@ -45,7 +45,7 @@ class CommitmentsSettingsTest < ActionDispatch::IntegrationTest
 
   test "only admin-assigned badges are offered" do
     skip unless Settings.respond_to?(:input)
-    Badge.create!(name: "Open Badge", short: "OB", color: "#336699", badge_type: badge_types(:one), permission: :added_by_current_member)
+    Badge.create!(name: "Open Badge", short: "OB", color: "#336699", badge_type: badge_types(:one), permission: :has_account)
 
     get settings_path
 
