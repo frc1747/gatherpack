@@ -29,7 +29,7 @@ module Orders
 
     # The approval steps in order. Each is a JSON object with a stable key,
     # a name, a minimum request total in currency units (0 means always) and
-    # its approver grants, as "Badge name > Highest team name" strings.
+    # its approver grants, as "Badge name > Team name" strings (Orders::Reach).
     def approval_steps
       parsed = parse_json(Settings[:orders_approval_steps], DEFAULT_STEPS)
       steps = Array(parsed).filter_map do |entry|
@@ -95,6 +95,13 @@ module Orders
       return nil if names.empty?
 
       Team.where(name: names).to_a
+    end
+
+    # The teams named in orders_viewers: their members (and members of the
+    # teams below) see every request that isn't a draft. Empty when blank.
+    def viewer_teams
+      names = grant_lines(Settings[:orders_viewers])
+      names.empty? ? [] : Team.where(name: names).to_a
     end
 
     def team_can_see?

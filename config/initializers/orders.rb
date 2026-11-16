@@ -2,6 +2,14 @@
 # events. Uses config.to_prepare (like features.rb) so the registrations are
 # replayed after each development reload.
 Rails.application.config.to_prepare do
+  # Setup, for admins only. Where menu items can't be hidden, the Reports
+  # page links to it instead (Orders::SettingsEditor.in_menu?).
+  orders_setup_item = []
+  if Orders::SettingsEditor.in_menu?
+    orders_setup_item << GatherPack::Feature::NavItem.new(label: "Setup", path: :orders_settings_path, icon: "gear",
+      visible: ->(user) { OrderSettingsPolicy.new(user, :order_settings).show? })
+  end
+
   GatherPack::Features.register_section("Purchasing", position: 35)
 
   GatherPack::Features.register(
@@ -19,21 +27,24 @@ Rails.application.config.to_prepare do
         GatherPack::Feature::NavItem.new(label: "To receive", path: :orders_deliveries_path, icon: "box-open"),
         GatherPack::Feature::NavItem.new(label: "Vendors", path: :orders_vendors_path, icon: "store"),
         GatherPack::Feature::NavItem.new(label: "Funding sources", path: :orders_funding_sources_path, icon: "hand-holding-dollar"),
-        GatherPack::Feature::NavItem.new(label: "Reports", path: :orders_reports_path, icon: "chart-column")
+        GatherPack::Feature::NavItem.new(label: "Reports", path: :orders_reports_path, icon: "chart-column"),
+        *orders_setup_item
       ]
     )
   )
 
   Settings.register(:orders_requesters, :text, "Who Can Request", "", "Orders",
-    "Teams whose members (and members of the teams below) may ask for things to be bought, one team name per line. Blank: everyone signed in")
+    "Teams whose members (and members of the teams below) may ask for things to be bought. Blank: everyone signed in")
+  Settings.register(:orders_viewers, :text, "Who Sees Every Request", "", "Orders",
+    "Teams whose members (and members of the teams below) see every request that isn't a draft, and may comment " \
+    "when team members can. Seeing doesn't let them approve, buy or receive. Blank: nobody extra")
   Settings.register(:orders_approval_steps, :text, "Approval Steps",
     JSON.generate(Orders::Config::DEFAULT_STEPS), "Orders",
     "The approval steps in order, as JSON: [{\"key\": \"approval\", \"name\": \"Approval\", \"minimum\": 0, " \
-    "\"approvers\": [\"Badge name > Highest team name\"]}]. A request needs every step whose minimum total it meets. " \
+    "\"approvers\": [\"Badge name > Team name\"]}]. A request needs every step whose minimum total it meets. " \
     "Keep each key once it's used: approvals are stored by key. Admins and the team's managers can always approve")
   Settings.register(:orders_buyers, :text, "Buyers", "", "Orders",
-    "Who may buy without managing a team. One per line, as Badge name > Highest team name, as for sign-up organizers. " \
-    "Admins and the team's managers can always buy")
+    "Who may buy without managing a team: badge holders, for a team and the teams below it, or for every team. Admins and the team's managers can always buy")
   Settings.register(:orders_price_tolerance, :string, "Price Tolerance", Orders::Config::DEFAULT_TOLERANCE, "Orders",
     "How far a buyer's changes may raise an approved total without approving again: a percentage and an amount, " \
     "whichever is larger (for example \"10%, 25\")")
@@ -45,7 +56,7 @@ Rails.application.config.to_prepare do
   Settings.register(:orders_require_other_vendor_reason, :boolean, "Other Store Needs a Reason", "false", "Orders",
     "An item from a store that isn't listed needs a reason")
   Settings.register(:orders_funding_managers, :text, "Funding Managers", "", "Orders",
-    "Who manages funding sources without managing a team. One per line, as Badge name > Highest team name. " \
+    "Who manages funding sources without managing a team. One per line, as Badge name > Team name (that team and the teams below it; badge name alone: every team). " \
     "Admins and team managers always can")
   Settings.register(:orders_require_funding_source, :boolean, "Require a Funding Source", "false", "Orders",
     "A request needs a funding source before its final approval")
@@ -53,6 +64,16 @@ Rails.application.config.to_prepare do
     "Requesters see and may choose a funding source. Off: approvers set it")
   Settings.register(:orders_close_after_days, :integer, "Close Received Requests After (days)", "14", "Orders",
     "Received requests close after this many days")
+
+  # Orders setup (Orders::SettingsEditor) draws these with the settings
+  # pickers where they exist, and the settings page links there while orders
+  # is on. The settings it doesn't show keep their values and defaults.
+  if Settings.respond_to?(:input)
+    Settings.input(:orders_requesters, :teams)
+    Settings.input(:orders_viewers, :teams)
+    Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin })
+  end
+  Settings.page("Orders", :orders_settings_path, label: "Orders setup", if: -> { GatherPack::Features.enabled?(:orders) }) if Settings.respond_to?(:page)
 
   GatherPack::HookCatalog.register_targets(*Orders::HOOK_TARGETS)
   GatherPack::HookCatalog.register_events(*Orders::HOOK_EVENTS)

@@ -128,8 +128,21 @@ module Orders
       return @requester unless @requester.nil?
 
       teams = Orders::Config.requester_teams
-      @requester = admin? || teams.nil? ||
-        (member_team_ids & teams.flat_map { |team| [ team.id ] + team.all_descendant_ids }.to_set).any?
+      @requester = admin? || teams.nil? || member_of_any?(teams)
+    end
+
+    # Sees every request that isn't a draft (orders_viewers), read only:
+    # members of its teams and the teams below, as for orders_requesters.
+    def sees_every_request?
+      return false if person.nil?
+      return @sees_every_request unless @sees_every_request.nil?
+
+      teams = Orders::Config.viewer_teams
+      @sees_every_request = teams.any? && member_of_any?(teams)
+    end
+
+    def member_of_any?(teams)
+      (member_team_ids & teams.flat_map { |team| [ team.id ] + team.all_descendant_ids }.to_set).any?
     end
 
     def steps
