@@ -10,11 +10,13 @@ Rails.application.config.to_prepare do
       visible: ->(user) { OrderSettingsPolicy.new(user, :order_settings).show? })
   end
 
-  # To buy and Reports are refused to most members, so they're hidden where
+  # To approve is for approvers; to buy and Reports are refused to most members, so they're hidden where
   # menu items take a visible check (the same guard as Setup).
   to_buy_visible = {}
   reports_visible = {}
+  to_approve_visible = {}
   if Orders::SettingsEditor.in_menu?
+    to_approve_visible[:visible] = ->(user) { Orders::Access.for(user&.person).approver? }
     to_buy_visible[:visible] = ->(user) { PurchasePolicy.new(user, Purchase).create? }
     reports_visible[:visible] = ->(user) { OrderReportPolicy.new(user, :order_report).index? }
   end
@@ -31,7 +33,7 @@ Rails.application.config.to_prepare do
       nav_position: 10,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Orders", path: :orders_requests_path, icon: "cart-shopping"),
-        GatherPack::Feature::NavItem.new(label: "To approve", path: :orders_approvals_path, icon: "stamp"),
+        GatherPack::Feature::NavItem.new(label: "To approve", path: :orders_approvals_path, icon: "stamp", **to_approve_visible),
         GatherPack::Feature::NavItem.new(label: "To buy", path: :to_buy_orders_purchases_path, icon: "credit-card", **to_buy_visible),
         GatherPack::Feature::NavItem.new(label: "To receive", path: :orders_deliveries_path, icon: "box-open"),
         GatherPack::Feature::NavItem.new(label: "Vendors", path: :orders_vendors_path, icon: "store"),
