@@ -27,7 +27,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", text: "Your activity"
-    assert_select "[data-activity-tile=meetings]", text: /2 h/
+    assert_select "[data-activity-meetings]", text: "Meetings: 1 of 1 · 2 h"
   end
 
   test "signing in is required" do
@@ -111,27 +111,88 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
 
   # Content
 
-  test "the page's blocks come in order" do
+  test "the page's blocks come in order: what you've done, then requirements" do
     sign_in person(:member).user
     get activity_path
 
     blocks = css_select("[data-activity-block]").map { |block| block["data-activity-block"] }
-    assert_equal %w[totals kinds history checklists], blocks
-    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-not-required]", text: "Not required for you"
-    assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-counts]", text: "Counts toward Outreach events"
-    # No attendance item: meetings say nothing.
-    assert_select "[data-activity-kind=meetings] [data-activity-counts]", count: 0
-    assert_select "[data-activity-kind=#{@build.neat_id}]", text: /1 event · —/
+    assert_equal %w[done checklists], blocks
+    assert_select "[data-activity-block=checklists] .mg-heading", text: "Requirements"
     assert_select "[data-activity-block=checklists] a", text: "Fall Requirements"
+    assert_select "[data-activity-block=history]", count: 0
+    assert_select "[data-activity-tile]", count: 0
   end
 
-  test "a kind of event filters History" do
+  test "an outreach event shows under Outreach with its date, name, place and hours" do
     sign_in person(:member).user
-    get activity_path(kind: @build.neat_id)
+    get activity_path
 
-    assert_select "[data-activity-entry]", count: 1
-    assert_select "[data-activity-entry]", text: /Build day/
-    assert_select "[data-activity-kind=#{@build.neat_id}][aria-current=true]"
+    assert_select "[data-activity-kind=#{@outreach.neat_id}]" do
+      assert_select "[data-activity-kind-total]", text: "Outreach: 2 events · 6 h"
+      assert_select "[data-activity-line]", count: 2
+      assert_select "[data-activity-line]:first-of-type .mg-row-title", text: "Library demo"
+      assert_select "[data-activity-line]", text: /Food drive\s+Sat Oct 3 · Town Hall · 3 h · Checked in/
+      assert_select "[data-activity-line] [data-activity-counts]", text: "Counts toward Outreach events", count: 2
+    end
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-kind-total]", text: "Build: 1 event"
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-line]", text: /Build day\s+Sat Sep 12 · Checked in/
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-not-required]", text: "Not required for you"
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-counts]", count: 0
+  end
+
+  test "each kind's section has an anchor, and the jump links point to them" do
+    sign_in person(:member).user
+    get activity_path
+
+    [ @build, @outreach ].each do |type|
+      assert_select "##{"kind-#{type.neat_id}"}[data-activity-kind=#{type.neat_id}]"
+      assert_select "[data-activity-jump] a[href='#kind-#{type.neat_id}']", text: type.name
+    end
+  end
+
+  test "meetings are one line, not a line per punch or meeting" do
+    TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
+      start_time: Time.zone.parse("2026-10-13 18:00"), end_time: Time.zone.parse("2026-10-13 19:30"))
+    sign_in person(:member).user
+    get activity_path
+
+    assert_select "[data-activity-meetings]", count: 1
+    assert_select "[data-activity-meetings]", text: "Meetings: 1 of 1 · 3.5 h"
+    assert_select "[data-activity-kind=meetings]", count: 0
+    assert_select "[data-activity-line]", text: /Tuesday meeting|Fall meetings/, count: 0
+  end
+
+  test "submitted forms aren't in what you've done" do
+    form = Form.create!(title: "Photo release", team: @members, respond_permission: "family", read_permission: "family", status: :draft)
+    response = FormResponse.create!(form: form, subject: person(:member))
+    FormSubmission.create!(form_response: response, number: 1, form_version: form.content_version, status: :active, submitted_at: Time.zone.parse("2026-10-20 12:00"))
+    sign_in person(:member).user
+    get activity_path
+
+    assert_response :success
+    assert_select "[data-activity-block=done]", text: /Photo release/, count: 0
+    assert_select "[data-activity-line]", count: 3
+  end
+
+  test "a sign-up marked done shows as signed up under its kind" do
+    sheet = SignupSheet.create!(title: "Demo crew", team: @members, status: :open)
+    fair = create_activity_event("Science fair", "2026-11-01 09:00", @outreach, hours: 4)
+    sheet.signup_sheet_events.create!(event: fair)
+    position = sheet.signup_positions.create!(name: "Booth", capacity: 5)
+    Signup.create!(signup_slot: position.signup_slots.find_by!(event: fair), person: person(:member), signed_up_by: person(:member), status: :fulfilled)
+    sign_in person(:member).user
+    get activity_path
+
+    assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-kind-total]", text: "Outreach: 3 events · 10 h"
+    assert_select "[data-activity-line=signed_up]", text: /Science fair\s+Sun Nov 1 · 4 h · Signed up/
+  end
+
+  test "nothing this season says so" do
+    sign_in person(:outsider).user
+    get activity_path
+
+    assert_select "[data-activity-nothing]", text: "Nothing yet this season."
+    assert_select "[data-activity-kind]", count: 0
   end
 
   test "an earlier season shows its records and the select lists it" do
@@ -140,11 +201,11 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
 
     assert_select "select[name=season] option", count: 2
     assert_select "select[name=season] option[selected]", text: "2025–26"
-    assert_select "[data-activity-entry]", count: 1
-    assert_select "[data-activity-entry]", text: /Spring fair/
+    assert_select "[data-activity-line]", count: 1
+    assert_select "[data-activity-line]", text: /Spring fair/
   end
 
-  test "a ward's page has no punches and no meeting hours, and links only events the guardian can open" do
+  test "a ward's page has no punches and no meetings, and links only events the guardian can open" do
     @meeting.checkins.create!(person: person(:kid))
     @outreach1.checkins.create!(person: person(:kid))
     TimeClockPunch.create!(person: person(:kid), time_clock_period: @period, created_by: person(:admin),
@@ -152,13 +213,13 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     sign_in person(:parent).user
     get activity_path(person: person(:kid).neat_id)
 
-    assert_select "[data-activity-tile=meetings]", count: 0
-    assert_select "[data-activity-kind=meetings]", count: 0
-    assert_select "[data-activity-entry]", count: 1
-    assert_select "[data-activity-entry]", text: /Fall meetings/, count: 0
-    assert_select "[data-activity-entry]", text: /Tuesday meeting/, count: 0
-    assert_select "[data-activity-entry]", text: /Food drive\s+Outreach · Town Hall/
-    assert_select "[data-activity-entry] a[href='#{event_path(@outreach1)}']", count: 0
+    assert_select "[data-activity-block=done] .mg-heading", text: "What they've done"
+    assert_select "[data-activity-meetings]", count: 0
+    assert_no_match "Meetings", response.body
+    assert_select "[data-activity-line]", count: 1
+    assert_select "[data-activity-line]", text: /Fall meetings|Tuesday meeting/, count: 0
+    assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-line]", text: /Food drive\s+Sat Oct 3 · Town Hall · 3 h · Checked in/
+    assert_select "[data-activity-line] a[href='#{event_path(@outreach1)}']", count: 0
   end
 
   test "a ward's counted kind the guardian can't see the item for says nothing; an uncounted one says 'for them'" do
@@ -184,6 +245,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_no_match "Fall Requirements", response.body
     assert_no_match "Outreach events", response.body
     assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-counts]", count: 0
+    assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-not-required]", count: 0
     assert_select "[data-activity-block=checklists]", count: 0
   end
 
@@ -191,7 +253,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     sign_in person(:member).user
     get activity_path
 
-    assert_select "[data-activity-entry] a[href='#{event_path(@outreach1)}']", text: "Food drive"
+    assert_select "[data-activity-line] a[href='#{event_path(@outreach1)}']", text: "Food drive"
   end
 
   # Home
@@ -200,7 +262,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     sign_in person(:member).user
     get root_path
     home = css_select("[data-activity-uncounted]").map { |row| row["data-activity-uncounted"] }
-    assert_select "[data-activity-uncounted=#{@build.neat_id}]", text: "Build: 1 event"
+    assert_select "[data-activity-uncounted=#{@build.neat_id}][href='#{activity_path(anchor: "kind-#{@build.neat_id}")}']", text: "Build: 1 event"
     assert_select "[data-activity-link]", text: "See all your activity →"
 
     get activity_path

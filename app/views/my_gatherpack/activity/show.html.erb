@@ -17,13 +17,11 @@
 
   <div class="row">
     <div class="col-12 col-lg-8">
-      <%= render "my_gatherpack/activity/totals", activity: @activity %>
-      <%= render "my_gatherpack/activity/kinds", activity: @activity, kind: @kind %>
-      <%= render "my_gatherpack/activity/history", activity: @activity, kind: @kind %>
+      <%= render "my_gatherpack/activity/done", activity: @activity %>
     </div>
     <div class="col-12 col-lg-4">
-      <%= render "my_gatherpack/activity/coming_up", activity: @activity %>
       <%= render "my_gatherpack/activity/checklists", activity: @activity %>
+      <%= render "my_gatherpack/activity/coming_up", activity: @activity %>
     </div>
   </div>
 </div>

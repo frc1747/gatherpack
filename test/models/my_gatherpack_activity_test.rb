@@ -71,11 +71,9 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_nil MyGatherpack::Activity.event_hours(@build_day)
   end
 
-  test "totals count the season's records only" do
+  test "meetings count the season's records only" do
     activity = activity_for(:member)
 
-    assert_equal 3, activity.event_count
-    assert_equal 6.0, activity.event_hours
     assert_equal 2.0, activity.meeting_hours
     assert_equal [ 1, 1 ], [ activity.meetings_attended, activity.meetings_held.size ]
   end
@@ -182,17 +180,46 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     last = MyGatherpack::Activity.new(person(:member), season: MyGatherpack::Season.starting_in(2025))
 
     assert_equal [ "Outreach" ], last.kind_rows.map(&:name)
-    assert_equal [ "Spring fair" ], last.history.map(&:title)
+    assert_equal [ [ "Spring fair" ] ], last.done_sections.map { |section| section.lines.map { |line| line.event.name } }
   end
 
-  # History
+  # What you've done
 
-  test "history is newest first and filters by kind" do
+  test "done sections are by kind of event name, newest first, without meetings" do
+    sections = activity_for(:member).done_sections
+
+    assert_equal [ "Build", "Outreach" ], sections.map(&:name)
+    build, outreach = sections
+    assert_equal [ "Library demo", "Food drive" ], outreach.lines.map { |line| line.event.name }
+    assert_equal [ 2, 6.0 ], [ outreach.events, outreach.hours ]
+    assert_equal [ 1, nil ], [ build.events, build.hours ]
+    assert_equal [ :checked_in ], outreach.lines.map(&:how).uniq
+    assert_equal outreach.key, outreach.row.key
+  end
+
+  test "each line counts toward what counts its event, named only when the viewer sees it" do
     activity = activity_for(:member)
+    build, outreach = activity.done_sections
 
-    assert_equal [ "Library demo", "Fall meetings", "Tuesday meeting", "Food drive", "Build day" ], activity.history.map(&:title)
-    assert_equal [ "Fall meetings", "Tuesday meeting" ], activity.history(MyGatherpack::Activity::MEETINGS).map(&:title)
-    assert_equal [ "Build day" ], activity.history(@build.neat_id).map(&:title)
+    assert_equal [ "Outreach events" ], activity.counts_toward(outreach.lines.first)
+    assert_empty activity.counts_toward(build.lines.first), "Crew Trip's Build shifts doesn't cover member"
+  end
+
+  test "a sign-up marked done adds its event, once, unless the person checked in there" do
+    sheet = SignupSheet.create!(title: "Demo crew", team: @members, status: :open)
+    fair = create_activity_event("Science fair", "2026-11-01 09:00", @outreach, hours: 4)
+    [ fair, @outreach1 ].each { |event| sheet.signup_sheet_events.create!(event: event) }
+    [ "Setup", "Booth" ].each do |name|
+      position = sheet.signup_positions.create!(name: name, capacity: 5)
+      [ fair, @outreach1 ].each do |event|
+        Signup.create!(signup_slot: position.signup_slots.find_by!(event: event), person: person(:member), signed_up_by: person(:member), status: :fulfilled)
+      end
+    end
+    outreach = activity_for(:member).done_sections.find { |section| section.key == @outreach.neat_id }
+
+    assert_equal [ "Science fair", "Library demo", "Food drive" ], outreach.lines.map { |line| line.event.name }
+    assert_equal [ :signed_up, :checked_in, :checked_in ], outreach.lines.map(&:how)
+    assert_equal [ 3, 10.0 ], [ outreach.events, outreach.hours ]
   end
 
   # A ward
@@ -206,7 +233,8 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_not activity.meetings?
     assert_not activity.own?
     assert_empty activity.kind_rows
-    assert_empty activity.history, "no punches and no meeting check-ins"
+    assert_nil activity.meetings_row
+    assert_empty activity.done_sections, "no punches and no meeting check-ins"
     assert_equal 0, activity.meeting_hours
   end
 end

@@ -27,7 +27,7 @@ class MyGatherpackActivitySystemTest < ApplicationSystemTestCase
     Capybara.always_include_port = @saved_include_port
   end
 
-  test "at 390 px a member opens the page from Home and filters History" do
+  test "at 390 px a member opens the page from Home and jumps to a kind of event" do
     visit root_path
     within("[data-home-section=activity]") do
       assert_text "Build: 1 event"
@@ -36,26 +36,25 @@ class MyGatherpackActivitySystemTest < ApplicationSystemTestCase
 
     assert_current_path activity_path
     assert_selector "h1", text: "Your activity"
-    assert_selector "[data-activity-entry]", count: 5
+    assert_selector "[data-activity-meetings]", count: 1, text: "Meetings: 1 of 1 · 2 h"
+    assert_selector "[data-activity-line]", count: 3
     assert_operator page.evaluate_script("document.documentElement.scrollWidth"), :<=, 390
 
-    # One column, in the spec's order.
+    # One column: what you've done, then requirements.
     tops = page.evaluate_script("Array.from(document.querySelectorAll('[data-activity-block]')).map(b => [b.dataset.activityBlock, b.getBoundingClientRect().top, b.getBoundingClientRect().left])")
-    assert_equal %w[totals kinds history checklists], tops.map(&:first)
+    assert_equal %w[done checklists], tops.map(&:first)
     assert_equal tops.sort_by { |_, top, _| top }, tops
     assert_equal 1, tops.map(&:last).uniq.size
 
-    rows = page.evaluate_script("Array.from(document.querySelectorAll('[data-activity-kind]')).map(r => r.getBoundingClientRect().height)")
-    assert rows.all? { |height| height >= 44 }, "every kind row is a 44 px target: #{rows.inspect}"
+    jumps = page.evaluate_script("Array.from(document.querySelectorAll('[data-activity-jump] a')).map(a => a.getBoundingClientRect().height)")
+    assert jumps.any? && jumps.all? { |height| height >= 44 }, "every jump link is a 44 px target: #{jumps.inspect}"
 
-    find("[data-activity-kind=#{@build.neat_id}]").click
-
-    assert_selector "[data-activity-entry]", count: 1
-    assert_selector "[data-activity-entry]", text: "Build day"
-    assert_selector "#history .mg-heading", text: /History · Build/i
-
-    click_link "Show all"
-    assert_current_path activity_path
-    assert_selector "[data-activity-entry]", count: 5
+    assert_equal 0, page.evaluate_script("window.scrollY")
+    within("[data-activity-jump]") { click_link "Outreach" }
+    page.document.synchronize { raise Capybara::ExpectationNotMet, "didn't scroll" unless page.evaluate_script("window.scrollY").positive? }
+    within("[data-activity-kind=#{@outreach.neat_id}]") do
+      assert_text "Outreach: 2 events · 6 h"
+      assert_text "Food drive"
+    end
   end
 end
