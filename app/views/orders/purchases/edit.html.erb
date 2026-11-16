@@ -12,7 +12,7 @@
       <%= render "orders/purchases/fields", f: f %>
       <div class="d-flex gap-2">
         <%= f.button :submit, "Save", class: "btn btn-primary" %>
-        <%= link_to "Cancel", orders_purchase_path(@purchase), class: "btn btn-outline-secondary" %>
+        <%= link_to "Cancel", orders_purchase_path(@purchase), class: "btn btn-warning" %>
       </div>
     <% end %>
   </div>

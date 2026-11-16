@@ -14,9 +14,9 @@
       <div class="d-flex gap-2">
         <% if @purchase.vendor_id.nil? && @purchase.other_vendor_name.present? && policy(Vendor).create? %>
           <%= button_to "Make #{@purchase.other_vendor_name} a vendor", make_vendor_orders_purchase_path(@purchase),
-                class: "btn btn-outline-secondary" %>
+                class: "btn btn-secondary" %>
         <% end %>
-        <%= link_to "Edit", edit_orders_purchase_path(@purchase), class: "btn btn-primary" %>
+        <%= link_to "Edit", edit_orders_purchase_path(@purchase), class: "btn btn-warning" %>
       </div>
     <% end %>
   </div>

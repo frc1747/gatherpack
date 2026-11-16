@@ -6,14 +6,14 @@
 <% group_class = large ? "input-group input-group-lg" : "input-group input-group-sm" %>
 <% if actions.any? %>
   <details class="orders-line-actions">
-    <summary class="btn <%= large ? "btn-lg" : "btn-sm" %> btn-outline-secondary">Change</summary>
+    <summary class="btn <%= large ? "btn-lg" : "btn-sm" %> btn-secondary">Change</summary>
     <div class="border rounded p-2 mt-1 bg-body" style="min-width: 16rem;">
       <% if actions.include?(:backorder) %>
         <%= form_with url: backorder_orders_request_line_path(line.order_request, line), class: "mb-2" do |f| %>
           <%= f.label :expected_on, "Delayed: expected on", class: "form-label small mb-0", for: "expected_on_#{line.id}" %>
           <div class="<%= group_class %>">
             <%= f.date_field :expected_on, id: "expected_on_#{line.id}", class: "form-control" %>
-            <%= f.submit "Mark delayed", class: "btn btn-outline-warning" %>
+            <%= f.submit "Mark delayed", class: "btn btn-warning" %>
           </div>
         <% end %>
       <% end %>
@@ -22,7 +22,7 @@
           <%= f.label :quantity, "Quantity", class: "form-label small mb-0", for: "quantity_#{line.id}" %>
           <div class="<%= group_class %>">
             <%= f.number_field :quantity, value: line.quantity, min: 1, required: true, id: "quantity_#{line.id}", class: "form-control" %>
-            <%= f.submit "Change quantity", class: "btn btn-outline-secondary" %>
+            <%= f.submit "Change quantity", class: "btn btn-secondary" %>
           </div>
         <% end %>
       <% end %>
@@ -31,7 +31,7 @@
           <%= f.label :quantity_now, "Buy now (the rest later)", class: "form-label small mb-0", for: "quantity_now_#{line.id}" %>
           <div class="<%= group_class %>">
             <%= f.number_field :quantity_now, min: 1, required: true, max: line.quantity - 1, id: "quantity_now_#{line.id}", class: "form-control" %>
-            <%= f.submit "Split", class: "btn btn-outline-secondary" %>
+            <%= f.submit "Split", class: "btn btn-secondary" %>
           </div>
         <% end %>
       <% end %>
@@ -40,7 +40,7 @@
           <%= f.label :reason, "Cancel: why?", class: "form-label small mb-0", for: "reason_#{line.id}" %>
           <div class="<%= group_class %>">
             <%= f.text_field :reason, required: true, id: "reason_#{line.id}", class: "form-control" %>
-            <%= f.submit "Cancel item", class: "btn btn-outline-danger" %>
+            <%= f.submit "Cancel item", class: "btn btn-danger" %>
           </div>
         <% end %>
       <% end %>
