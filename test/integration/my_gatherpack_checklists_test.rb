@@ -549,8 +549,8 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:parent).user
       get root_path
-      line = css_select("[data-home-section=checklists-season] details.mg-season-item").find do |item|
-        item.at_css(".mg-season-title")&.text == "Varsity" && item.at_css(".mg-row-ward")
+      line = css_select("[data-season-person=\"#{person(:kid).id}\"] details.mg-season-item").find do |item|
+        item.at_css(".mg-season-title")&.text == "Varsity"
       end
       assert line, "the ward's line is there"
       assert_match "Not required for you", line.at_css("summary").text
@@ -660,7 +660,8 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       label = "for #{person(:kid).identifier_name}"
       assert_select "[data-home-column=todo] .mg-row-ward", text: label
       assert_select "[data-home-column=todo] a.btn", text: "Confirm for #{person(:kid).identifier_name}"
-      assert_select "[data-home-section=checklists-season] .mg-row-ward", text: label
+      assert_select "[data-home-section=checklists-season] .mg-season-person-name", text: person(:kid).identifier_name
+      assert_select "[data-home-section=checklists-season] .mg-row-ward", false, "the block names the person"
       assert_select "[data-home-section=checklists-season] a[href=?]", person_checklists_path(person(:kid))
     end
   end
@@ -705,6 +706,65 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       menu = MyGatherpack::Menu.new(person(:club_manager).user)
       assert_includes menu.manage.map(&:path), :checklists_path
       assert_not_includes menu.more.map(&:path), :checklists_path
+    end
+  end
+
+  test "a guardian with two wards sees a block per person, each with its own lines" do
+    second = create_world_person("Zed", @members, birthday: Date.new(2015, 5, 1))
+    Relationship.create!(parent: person(:parent), child: second, relationship_type: @parent_of, created_by: person(:admin))
+    add_rule(@checklist, :include, :person, person_id: person(:parent).id)
+    add_rule(@checklist, :include, :person, person_id: second.id)
+    add_item(@checklist, :signed, "Consent")
+    add_item(@checklist, :waiting, "Paperwork")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:parent).user
+      get root_path
+
+      blocks = css_select("[data-season-person]")
+      assert_equal [ "You", "Kid", "Zed" ], blocks.map { |block| block.at_css(".mg-season-person-name").text.strip }
+      assert_equal [ person(:parent).id, person(:kid).id, second.id ], blocks.map { |block| block["data-season-person"] }
+      blocks.each do |block|
+        assert_equal [ "Paperwork · Not Started" ], block.css("[data-season-group=in-progress] summary").map { |line| line.text.squish }
+        assert_equal [ "Consent ✓ Signed" ], block.css("[data-season-group=done] summary").map { |line| line.text.squish }
+      end
+      assert_select "[data-home-section=checklists-season] .mg-row-ward", false
+      assert_select "[data-season-person=?] a[href=?]", second.id, person_checklists_path(second), text: "Zed's checklists"
+      assert_select "[data-season-person=?] a[href=?]", person(:parent).id, checklist_path(@checklist)
+    end
+  end
+
+  test "each person's Done collapses on its own, and each says whether they're all set" do
+    add_rule(@checklist, :include, :person, person_id: person(:parent).id)
+    add_item(@checklist, :signed, "Consent")
+    refresh(@checklist)
+    Membership.where(person: person(:kid)).destroy_all
+
+    with_feature_on do
+      sign_in person(:parent).user
+      get root_path
+
+      targets = css_select("button.mg-season-done").map { |button| button["aria-controls"] }
+      assert_equal 2, targets.size
+      assert_equal targets.uniq, targets
+      targets.each { |id| assert_select "##{id}.collapse details", 1 }
+      assert_equal 2, css_select(".mg-season-all-set").size
+      assert_select "[data-season-person=?] .mg-season-all-set", person(:kid).id, text: "You're all set for now"
+    end
+  end
+
+  test "a viewer with only their own lines sees no person headings" do
+    add_item(@checklist, :signed, "Consent")
+    refresh(@checklist)
+
+    with_feature_on do
+      sign_in person(:member).user
+      get root_path
+
+      assert_select "[data-home-section=checklists-season] details", 1
+      assert_select ".mg-season-person", false
+      assert_select ".mg-season-person-name", false
     end
   end
 

@@ -21,6 +21,9 @@ module MyGatherpackChecklistsHelper
     end
   end
 
+  # One person's part of My Season, for a guardian's Home. ward is nil for the viewer.
+  SeasonBlock = Struct.new(:subject, :ward, :name, :in_progress, :done, keyword_init: true)
+
   UNFINISHED = %w[not_met pending].freeze
 
   # The viewer's to-do rows: each unfinished item they can fix, with its fix as
@@ -64,6 +67,19 @@ module MyGatherpackChecklistsHelper
       lines.reject! { |line| todo.include?(line.key) }
       in_progress, done = lines.partition { |line| UNFINISHED.include?(line.entry.status) }
       Season.new(in_progress: in_progress, done: done.sort_by.with_index { |line, index| [ line.entry.exempt? ? 1 : 0, index ] })
+    end
+  end
+
+  # My Season's lines split by person: the viewer first ("You"), then their
+  # wards by first name. One block when only one person has lines.
+  def my_gatherpack_season_blocks(season)
+    by_person = ->(lines) { lines.group_by { |line| line.subject.id } }
+    in_progress, done = by_person.(season.in_progress), by_person.(season.done)
+    subjects = (season.in_progress + season.done).map(&:subject).uniq(&:id)
+    viewer_id = current_user.person.id
+    subjects.sort_by { |subject| [ subject.id == viewer_id ? 0 : 1, my_gatherpack_ward_name(subject).to_s.downcase ] }.map do |subject|
+      ward = my_gatherpack_ward_name(subject)
+      SeasonBlock.new(subject: subject, ward: ward, name: ward || "You", in_progress: in_progress.fetch(subject.id, []), done: done.fetch(subject.id, []))
     end
   end
 
