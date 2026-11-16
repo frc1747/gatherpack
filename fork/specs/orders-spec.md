@@ -168,7 +168,7 @@ Registered through `Settings.register` (from `feature/extension-registries`):
 | `feature_orders` | Feature flag, the setting `GatherPack::Features.register` creates | off |
 | `orders_requesters` | Who can create requests: list of teams (members and below) | everyone signed in |
 | `orders_approval_steps` | §3.3 | one step |
-| `orders_buyers` | List of badge → highest team pairs, as `signups_organizers` | none (admins only) |
+| `orders_buyers` | Badge → team pairs (who buys), picked on Orders setup | none (admins only) |
 | `orders_price_tolerance` | Percentage and amount, §3.4 | 10%, $25 |
 | `orders_paid_with` | Choices for a purchase: label and whether it needs reimbursing ("Team card", "Purchase order", "Personal card — reimburse") | Team card, Personal card — reimburse |
 | `orders_team_can_see` | Whether members of a request's team see its requests | on |
@@ -178,7 +178,7 @@ Registered through `Settings.register` (from `feature/extension-registries`):
 | `orders_requesters_pick_funding` | Requesters see and choose a funding source on the request form. Off: approvers set it (§3.13) | off |
 | `orders_close_after_days` | Received requests close after this many days | 14 |
 
-Approver and buyer grants use the delegated-grant pattern from forms and sign-ups: a badge, capped at a highest team. A holder acts on requests whose team is within reach (teams they belong to and those above, up to the highest team, plus teams below their own). Several pairs give the union. Admins and managers of a request's team can always approve and buy for it. Approver, buyer and funding-manager grants share one implementation, `Orders::Reach`, shaped like the sign-ups organizer grant so it can later be merged with forms and sign-ups without changing behavior; orders doesn't edit forms or sign-ups to do it. Reach is by team, not by vendor: a buyer grant covers every vendor for its teams, and who holds which supplier account goes in the vendor's account note.
+Approver, buyer and funding-manager grants are badge → team pairs. A holder of the badge reaches the named team and every team below it, whatever teams they're in; with no team named, every team. A pair naming a team that doesn't exist grants nothing. Several pairs give the union. (Simplified in hbr.42; sign-ups, commitments and checklists keep the older "their own teams up to the highest team" rule.) Admins and managers of a request's team can always approve and buy for it. Approver, buyer and funding-manager grants share one implementation, `Orders::Reach`, separate from the sign-ups organizer grant. Reach is by team, not by vendor: a buyer grant covers every vendor for its teams, and who holds which supplier account goes in the vendor's account note.
 
 ### 3.8 Who sees and does what
 
@@ -464,3 +464,6 @@ What the sheet can't do, and where this spec handles it:
 | Status edited by anyone with the sheet | Each action has its own permission (§3.8) |
 
 The sheet's supplier dropdown becomes the preferred vendors (§3.1). Approver and buyer badges and the approval steps are settings (§3.7).
+## Orders setup (hbr.42)
+
+Orders setup (Orders menu, admins only) shows, in order: Who can ask (teams), Who sees every request (`orders_viewers`, teams: members of those teams and the teams below see every submitted request, view only), Who approves (team managers always; plus badge → team rows, saved as step 1), Over $X also needs (an amount and badge → team rows, saved as step 2), Who buys, and Paid with. Other step shapes can still be stored; the page lists them read-only and saving replaces them. The other orders settings keep their values and defaults and are not on any screen.

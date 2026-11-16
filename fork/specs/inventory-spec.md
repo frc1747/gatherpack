@@ -128,7 +128,7 @@ One page, **Reorder**, for inventory managers and admins, listing items within t
 
 A movement needs both the item and the location to be visible to the person.
 
-**Inventory managers.** A setting, `inventory_managers`: a list of badge → highest team pairs, the delegated-grant pattern from forms, sign-ups and orders. A holder manages items and locations whose team is within reach: teams they belong to and those above, up to the highest team, plus teams below their own. Several pairs give the union. Managers of a team and admins can always manage its inventory.
+**Inventory managers.** A setting, `inventory_managers`: a list of badge → team pairs, as for orders. A holder manages items and locations on the named team and every team below it, whatever teams they're in; no team named means every team (since hbr.42). Set on Inventory setup (Inventory menu, admins only) with who can use inventory and running-low notices. Several pairs give the union. Managers of a team and admins can always manage its inventory.
 
 `Inventory::Reach` implements it. It has the same shape as `Orders::Reach` and the sign-ups organizer grant, so the three can later be merged without changing behavior. Inventory doesn't depend on orders or sign-ups to do this; it carries its own copy.
 
