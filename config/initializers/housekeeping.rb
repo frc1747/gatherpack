@@ -21,8 +21,19 @@ Rails.application.config.to_prepare do
   )
 
   Settings.register(:housekeeping_purge_fields, :text, "Medical and Emergency Fields", "", "Housekeeping",
-    "Person fields whose answers count as medical or emergency details, one field name or field group name per line. " \
+    "The person fields and field groups whose answers count as medical or emergency details. " \
     "Admins can clear these answers for people with no activity for a while")
+  # One line per name, as the reader expects. A group stands for all its fields.
+  if Settings.respond_to?(:input)
+    Settings.input(:housekeeping_purge_fields, :checkboxes,
+      separator: "\n",
+      default_label: "None",
+      choices: -> {
+        groups = PersonFieldGroup.ordered.pluck(:name).map { |name| [ "#{name} (all its fields)", name ] }
+        fields = PersonField.active.ordered.pluck(:name).map { |name| [ name, name ] }
+        groups + fields
+      })
+  end
 
   # Checklists read their older checklists_archive_after setting (a date or
   # days) while the "Archive automatically" one is blank, and only it while

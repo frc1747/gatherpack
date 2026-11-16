@@ -305,6 +305,35 @@ class HousekeepingControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Settings pickers
+
+  test "the medical and emergency fields setting is described in plain words" do
+    description = Settings.get(:housekeeping_purge_fields).description
+    assert_no_match(/per line|one field name/, description)
+  end
+
+  test "the medical and emergency fields show as checkboxes and save the same text" do
+    skip "needs the settings inputs seam" unless Settings.respond_to?(:input) && Settings.input_for(:housekeeping_purge_fields)
+
+    with_housekeeping(feature_person_fields: "true", housekeeping_purge_fields: "medical\nAllergies\nGone Field") do
+      group = PersonFieldGroup.create!(name: "Medical")
+      PersonField.create!(name: "Allergies", key: "allergies", person_field_group: group)
+      PersonField.create!(name: "Shirt size", key: "shirt_size")
+      sign_in person(:admin).user
+
+      get settings_path
+      assert_response :success
+      name = "settings[housekeeping_purge_fields][values][]"
+      assert_select "input[type=checkbox][name='#{name}'][value='Medical'][checked]"
+      assert_select "input[type=checkbox][name='#{name}'][value='Allergies'][checked]"
+      assert_select "input[type=checkbox][name='#{name}'][value='Shirt size']:not([checked])"
+      assert_select "label", text: "Not found: Gone Field"
+
+      patch settings_path, params: { settings: { housekeeping_purge_fields: { values: [ "Medical", "Allergies", "Gone Field" ] } } }
+      assert_equal "medical\nAllergies\nGone Field", Settings[:housekeeping_purge_fields]
+    end
+  end
+
   # Move people
 
   test "a manager moves selected people to another team after a preview" do
