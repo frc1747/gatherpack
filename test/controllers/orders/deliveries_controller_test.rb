@@ -58,8 +58,13 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
       get orders_deliveries_url(mine: 1)
 
       # The orders tables are what grows with the list; the layout's own
-      # lookups (theme, logo) aren't counted.
+      # lookups (theme, logo) aren't counted. The query cache lives across
+      # requests in a test, so each count starts from an empty one: otherwise
+      # a lookup that runs once per request (the grants' team by name) counts
+      # or not depending on what the request before it, or a write since,
+      # left in the cache.
       count = lambda do
+        ActiveRecord::Base.clear_query_caches_for_current_thread
         queries = 0
         counter = ->(*, payload) { queries += 1 if payload[:sql].match?(/FROM "(order_\w+|purchases|vendors|teams)"/) && !payload[:cached] }
         ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { get orders_deliveries_url(mine: 1) }
