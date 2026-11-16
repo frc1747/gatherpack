@@ -34,15 +34,22 @@ Rails.application.config.to_prepare do
   )
 
   Settings.register(:checklists_organizers, :text, "Checklist Organizers", "", "Checklists",
-    "Who may make and run checklists without managing a team. One per line, as Badge name > Highest team name. " \
-    "Holders of the badge (one only admins give) can run checklists for the teams they belong to at or below that team, " \
-    "and the teams below their own. Leave out \"> Highest team name\" to allow only the teams they're directly in and the teams below those")
+    "Who may make and run checklists without managing a team. Holders of a badge only admins give can run checklists " \
+    "for the teams they belong to at or below the team picked, and the teams below their own. " \
+    "Leave the team out to allow only the teams they're directly in and the teams below those")
   Settings.register(:checklists_max_age_hours, :integer, "Checklist Results Max Age (hours)", "24", "Checklists",
     "Stored results older than this are recomputed when read")
   Settings.register(:checklists_archive_after, :string, "Archive Checklists Ended Before", "", "Checklists",
-    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Active checklists that ended before it are archived each night. Blank: never")
+    "Active checklists that ended before this are archived each night. Pick a date, or a number of days after a checklist's end. Blank: never")
   Settings.register(:checklists_prune_results_after, :string, "Clear Results of Archived Checklists Ended Before", "", "Checklists",
-    "A date (YYYY-MM-DD), or a number of days after a checklist's end. Stored results of archived checklists that ended before it are cleared each night; snapshots stay. Blank: never")
+    "Stored results of archived checklists that ended before this are cleared each night; snapshots stay. Pick a date, or a number of days after a checklist's end. Blank: never")
+
+  # Pickers, where the settings page has them. The saved text keeps its format.
+  if Settings.respond_to?(:input)
+    Settings.input(:checklists_organizers, :badge_grants, badges: -> { Badge.added_by_admin })
+    Settings.input(:checklists_archive_after, :date_or_days)
+    Settings.input(:checklists_prune_results_after, :date_or_days)
+  end
 
   GatherPack::HookCatalog.register_targets(*Checklists::HOOK_TARGETS)
   GatherPack::HookCatalog.register_events(Checklists::STATUS_CHANGED_EVENT)
