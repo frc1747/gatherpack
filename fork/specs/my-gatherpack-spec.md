@@ -237,7 +237,7 @@ Time clock punches stay out. `TimeClockPunchPolicy::Scope` is unchanged, so hour
 ### 7a.1 Route, access and flag
 
 - `GET /activity` for yourself and `GET /activity?person=<neat id>` for a ward. `MyGatherpack::ActivityController < InternalController`, `ActivityPolicy#show?`: the person themselves, or a current guardian of theirs (`Person#wards`). Anyone else, including admins (who have the profile), is redirected to their own page. It isn't a reporting tool.
-- Flag `feature_my_gatherpack_activity`, default off. With it off the route redirects home and Home shows no link or "Also this season". Linked from My Season's footer and, for guardians, from each ward's card on the family page.
+- Flag `feature_my_gatherpack_activity`, default off. With it off the route redirects home and Home shows no link or "Also this season". Linked from the menu ("My activity", top group, right after Home), from a full-width button under My Season and, for guardians, from each ward's card on the family page.
 
 ### 7a.2 Season
 
