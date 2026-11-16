@@ -27,5 +27,7 @@
     </div>
   </div>
 
+  <%= render "checklists/words_fields", f: f, legend: "Words for each person's overall result" %>
+
   <%= f.button :submit, "Save", class: "btn btn-primary" %>
 <% end %>

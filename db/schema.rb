@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -232,6 +232,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.uuid "created_by_id"
+    t.boolean "overall", default: true, null: false
     t.index ["badge_id"], name: "index_checklist_grants_on_badge_id"
     t.index ["checklist_id"], name: "index_checklist_grants_on_checklist_id"
     t.index ["created_by_id"], name: "index_checklist_grants_on_created_by_id"
@@ -255,6 +256,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.string "exempt_label"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "met_word"
+    t.string "pending_word"
+    t.string "not_met_word"
     t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
     t.index ["kind"], name: "index_checklist_items_on_kind"
     t.index ["parent_id"], name: "index_checklist_items_on_parent_id"
@@ -346,6 +350,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.uuid "created_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "met_word"
+    t.string "pending_word"
+    t.string "not_met_word"
     t.index ["created_by_id"], name: "index_checklists_on_created_by_id"
     t.index ["status", "next_refresh_at"], name: "index_checklists_on_status_and_next_refresh_at"
     t.index ["team_id"], name: "index_checklists_on_team_id"

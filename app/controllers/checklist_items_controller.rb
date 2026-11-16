@@ -39,7 +39,7 @@ class ChecklistItemsController < InternalController
     @item.assign_attributes(item_params)
     # Someone who couldn't have set the item up may still rename it or
     # change its other fields, but not its config.
-    if @item.config != saved_config
+    if !same_config?(saved_config)
       unless saved_authorable
         @item.errors.add(:base, "You can't change how this item is set up; ask someone who can")
         return render(:edit, status: :unprocessable_entity)
@@ -83,6 +83,14 @@ class ChecklistItemsController < InternalController
   end
 
   private
+
+  # Whether the config is what was saved, allowing for how the kind writes
+  # the same thing (ItemKind.same_config?), as opening and saving an item
+  # saved the old way does.
+  def same_config?(saved_config)
+    kind = @item.kind_class
+    kind ? kind.same_config?(saved_config, @item.config) : @item.config == saved_config
+  end
 
   # The kind may refuse a config for this author (ItemKind.authorable_by?).
   def authorable?(item)
@@ -153,7 +161,8 @@ class ChecklistItemsController < InternalController
 
   def item_params
     permitted = params.fetch(:checklist_item, {}).permit(:label, :counts, :starts_on, :starts_within_amount, :starts_within_unit,
-      :ends_on, :due_on, :read_level, :exempt_label, :parent_id, :position, :start_mode)
+      :ends_on, :due_on, :read_level, :exempt_label, :parent_id, :position, :start_mode,
+      :met_word, :pending_word, :not_met_word)
     mode = permitted.delete(:start_mode)
     if mode == "within"
       permitted[:starts_on] = nil

@@ -28,8 +28,8 @@ module Checklists
 
     def sentences
       lines = moves.map do |move|
-        from = move.from ? Checklists.word_for(move.from) : "not covered"
-        to = move.to ? Checklists.word_for(move.to) : "not covered"
+        from = move.from ? @checklist.word_for(move.from) : "not covered"
+        to = move.to ? @checklist.word_for(move.to) : "not covered"
         "#{move.names.size} #{"person".pluralize(move.names.size)} would go from #{from} to #{to}: #{move.names.to_sentence}"
       end
       lines << "#{hidden} more #{"person".pluralize(hidden)} would change, through an item you can't see" if hidden.positive?

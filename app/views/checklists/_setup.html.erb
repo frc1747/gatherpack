@@ -32,12 +32,12 @@
 <div class="card mt-3" id="access">
   <div class="card-header"><h2 class="h4 mb-0">Who else can see everyone's results</h2></div>
   <div class="card-body">
-    <p class="small text-body-secondary">Holders of a badge only admins give, or members of a team, see the overall and the items you pick for everyone it covers.</p>
+    <p class="small text-body-secondary">Holders of a badge only admins give, or members of a team, see what you pick for everyone it covers: the overall, items, or both.</p>
     <ul class="list-unstyled">
       <% checklist.checklist_grants.includes(:badge, :team).each do |grant| %>
         <li class="d-flex justify-content-between">
           <span>
-            <%= grant.holder_name %>: overall<%= ", #{grant.items.pluck(:label).to_sentence}" if grant.item_ids.any? %>
+            <%= grant.holder_name %>: <%= grant.shown_labels.to_sentence %>
             (<%= grant.access_full? ? "full" : "status only" %>)
           </span>
           <%= button_to "Remove", checklist_checklist_grant_path(checklist, grant), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
@@ -48,6 +48,12 @@
       <div class="row g-2">
         <div class="col-md-6"><%= f.select :badge_id, Badge.added_by_admin.order(:name).pluck(:name, :id), { include_blank: "Badge…" }, class: "form-select form-select-sm" %></div>
         <div class="col-md-6"><%= f.select :team_id, Team.where(id: Checklists.team_subtree_ids(checklist.team_id)).order(:name).pluck(:name, :id), { include_blank: "or team…" }, class: "form-select form-select-sm" %></div>
+        <div class="col-12">
+          <div class="form-check">
+            <%= f.check_box :overall, class: "form-check-input" %>
+            <%= f.label :overall, "Overall", class: "form-check-label" %>
+          </div>
+        </div>
         <div class="col-md-8"><%= f.select :item_ids, checklist.checklist_items.order(:position).pluck(:label, :id), {}, multiple: true, class: "form-select form-select-sm", "aria-label": "Items" %></div>
         <div class="col-md-4"><%= f.select :access, [ [ "Status only", "status" ], [ "Full", "full" ] ], {}, class: "form-select form-select-sm" %></div>
       </div>
