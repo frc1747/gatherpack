@@ -22,11 +22,11 @@
     <% end %>
     <% if policy(@location).edit? %>
       <div class="card-footer d-flex flex-wrap gap-2 inventory-no-print">
-        <%= link_to "Edit", edit_inventory_location_path(@location), class: "btn btn-outline-secondary" %>
-        <%= link_to "Add a place inside", new_inventory_location_path(parent_id: @location.id), class: "btn btn-outline-secondary" unless @location.machine? %>
-        <%= link_to "Add an item here", new_inventory_item_path(location_id: @location.id), class: "btn btn-outline-secondary" if policy(Item).new? && @location.storage? %>
-        <%= link_to "Label", inventory_labels_path(places: [ @location.id ]), class: "btn btn-outline-secondary" if policy(@location).labels? %>
-        <%= link_to "Delete", inventory_location_path(@location), class: "btn btn-outline-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@location.name}?" } if policy(@location).destroy? %>
+        <%= link_to "Edit", edit_inventory_location_path(@location), class: "btn btn-warning" %>
+        <%= link_to "Add a place inside", new_inventory_location_path(parent_id: @location.id), class: "btn btn-secondary" unless @location.machine? %>
+        <%= link_to "Add an item here", new_inventory_item_path(location_id: @location.id), class: "btn btn-secondary" if policy(Item).new? && @location.storage? %>
+        <%= link_to "Label", inventory_labels_path(places: [ @location.id ]), class: "btn btn-secondary" if policy(@location).labels? %>
+        <%= link_to "Delete", inventory_location_path(@location), class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@location.name}?" } if policy(@location).destroy? %>
       </div>
     <% end %>
   </div>
@@ -69,11 +69,11 @@
             </div>
             <div class="d-flex gap-2 mt-2">
               <% if inventory_may_record?("used", item, @location) && !level.new_record? %>
-                <%= link_to "Used", new_inventory_movement_path(kind: "used", item_id: item.id, location_id: @location.id, return_to: request.path), class: "btn btn-outline-primary flex-fill" %>
+                <%= link_to "Used", new_inventory_movement_path(kind: "used", item_id: item.id, location_id: @location.id, return_to: request.path), class: "btn btn-primary flex-fill" %>
               <% end %>
               <% if inventory_may_record?("counted", item, @location) %>
                 <%= link_to(level.quantity.negative? ? "Count now" : "Count", new_inventory_movement_path(kind: "counted", item_id: item.id, location_id: @location.id, return_to: request.path),
-                  class: "btn #{level.quantity.negative? ? "btn-warning" : "btn-outline-primary"} flex-fill") %>
+                  class: "btn #{level.quantity.negative? ? "btn-warning" : "btn-secondary"} flex-fill") %>
               <% end %>
             </div>
           </li>

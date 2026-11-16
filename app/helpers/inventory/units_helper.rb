@@ -46,7 +46,7 @@ module Inventory
 
     def unit_action_button(unit, action)
       link_to inventory_unit_action_form_path(unit, act: action),
-        class: "btn btn-lg #{%w[mark_for_repair retire].include?(action) ? "btn-outline-danger" : "btn-primary"} text-start" do
+        class: "btn btn-lg #{%w[mark_for_repair retire].include?(action) ? "btn-danger" : "btn-primary"} text-start" do
         icon_text(UNIT_ACTION_ICONS.fetch(action), unit_action_label(action))
       end
     end

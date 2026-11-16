@@ -104,7 +104,7 @@
     <dt class="col-5">In use since</dt><dd class="col-7"><%= l(@unit.in_service_on) if @unit.in_service_on %></dd>
   </dl>
   <% if policy(@unit).update? %>
-    <%= link_to "Edit code and details", edit_inventory_unit_path(@unit), class: "btn btn-outline-secondary mb-4" %>
+    <%= link_to "Edit code and details", edit_inventory_unit_path(@unit), class: "btn btn-warning mb-4" %>
   <% end %>
 </div>
 </div>

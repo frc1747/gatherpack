@@ -49,11 +49,11 @@
 
   <div class="d-flex flex-wrap gap-2 my-3 inventory-no-print">
     <% if Inventory.manager_pages(current_person).none? %>
-      <%= link_to inventory_locations_path, class: "btn btn-outline-secondary" do %>
+      <%= link_to inventory_locations_path, class: "btn btn-secondary" do %>
         <i class="fa-solid fa-warehouse"></i> Places
       <% end %>
     <% end %>
-    <%= link_to inventory_machines_path, class: "btn btn-outline-secondary" do %>
+    <%= link_to inventory_machines_path, class: "btn btn-secondary" do %>
       <i class="fa-solid fa-robot"></i> Machines
     <% end %>
   </div>

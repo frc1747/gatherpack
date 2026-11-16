@@ -9,7 +9,7 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h2 class="h5 mb-0"><%= item.tracked? ? "Units" : "Tracking" %></h2>
     <% if item.tracked? && ItemUnitPolicy.new(viewer.user, ItemUnit.new(item: item)).create? %>
-      <%= link_to icon_text("plus", "Add units"), new_inventory_unit_path(item_id: item.id), class: "btn btn-sm btn-outline-primary" %>
+      <%= link_to icon_text("plus", "Add units"), new_inventory_unit_path(item_id: item.id), class: "btn btn-sm btn-primary" %>
     <% end %>
   </div>
   <div class="card-body">
@@ -57,12 +57,12 @@
       </div>
       <% if item_policy.stop_tracking? %>
         <%= button_to "Stop tracking each piece", inventory_item_tracking_path(item), method: :delete,
-              class: "btn btn-sm btn-outline-secondary mt-3", form: { data: { turbo_confirm: "Count #{item.name} as stock again?" } } %>
+              class: "btn btn-sm btn-secondary mt-3", form: { data: { turbo_confirm: "Count #{item.name} as stock again?" } } %>
       <% end %>
     <% elsif item_policy.start_tracking? %>
       <% count = item.stock_levels.where("quantity > 0").sum(:quantity) %>
       <p class="mb-2">Track each piece when it's reused and worth following: motors, controllers, batteries. Each gets its own label, condition and history.</p>
-      <%= button_to "Track each piece", inventory_item_tracking_path(item), class: "btn btn-outline-primary",
+      <%= button_to "Track each piece", inventory_item_tracking_path(item), class: "btn btn-primary",
             form: { data: { turbo_confirm: count.positive? ? "This turns the #{count} in stock into #{pluralize(count, "unit")}, with codes to fill in later. Go ahead?" : "Track each piece of #{item.name}?" } } %>
     <% end %>
   </div>
