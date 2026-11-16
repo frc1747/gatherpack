@@ -11,7 +11,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin sees the three settings with their current values" do
-    with_inventory(@world, inventory_users: "Alpha\nBeta", inventory_reorder_notice: "each") do
+    with_inventory(@world, inventory_users: "#{@world.club.name}\n#{@world.art.name}", inventory_reorder_notice: "each") do
       sign_in @world.admin.user
       get inventory_setup_path
       assert_response :success
@@ -20,7 +20,24 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       assert_includes response.body, "Inventory Managers"
       assert_includes response.body, "Running Low Notices"
       assert_not_includes response.body, "Undo Minutes"
-      assert_includes response.body, "An email each time"
+      if Settings.respond_to?(:input)
+        assert_select "option[selected]", text: "An email each time"
+        assert_select "input[type=checkbox][checked][value=?]", @world.club.name
+        assert_select "input[type=checkbox][checked][value=?]", @world.art.name
+        assert_select "input[type=checkbox][checked][value=?]", @world.outreach.name, count: 0
+      else
+        assert_select "option[selected][value=each]"
+        assert_select "textarea", text: /#{@world.club.name}\s+#{@world.art.name}/
+      end
+    end
+  end
+
+  test "a notice setting that isn't one of the three words isn't changed by opening and saving" do
+    skip "plain page only" if Settings.respond_to?(:input)
+    with_inventory(@world, inventory_reorder_notice: "Daily") do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_select "option[selected][value=daily]"
     end
   end
 
@@ -34,7 +51,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       assert form
       if Settings.respond_to?(:input)
         # What the pickers post for the saved values (SettingInput).
-        patch update_settings_path, params: { return_to: inventory_setup_path, settings: {
+        post update_settings_path, params: { return_to: inventory_setup_path, settings: {
           inventory_users: { values: [ "", "Alpha", "Beta" ] },
           inventory_managers: { rows: { "0" => { line: "Keeper > Club" } } },
           inventory_reorder_notice: "daily"
@@ -88,7 +105,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
 
   test "the menu entry is for admins" do
     skip "menu entries can't be hidden per person here" unless GatherPack::Feature::NavItem.members.include?(:visible)
-    item = GatherPack::Features.find(:inventory).nav_items.find { |nav| nav.label == "Setup" }
+    item = GatherPack::Features.all.find { |feature| feature.key == :inventory }.nav_items.find { |nav| nav.label == "Setup" }
     assert_equal "gear", item.icon
     assert item.visible.call(@world.admin.user)
     assert_not item.visible.call(@world.keeper.user)
