@@ -14,7 +14,8 @@ Rails.application.config.to_prepare do
   )
 
   Settings.register(:my_gatherpack_season_start, :string, "Season Start", "05-01", "My GatherPack",
-    "The month and day each season starts, as MM-DD. The activity page shows one season at a time")
+    "The day each season starts. The activity page shows one season at a time")
+  Settings.input(:my_gatherpack_season_start, :month_day) if Settings.respond_to?(:input)
 
   # Right under the checklists' My Season section (20), as its footer.
   MyGatherpack.register_section(:activity, partial: "my_gatherpack/activity_season", column: :side, position: 20.5,

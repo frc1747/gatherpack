@@ -90,6 +90,25 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_equal "05-01", Settings.get(:my_gatherpack_season_start).default_value
   end
 
+  test "the season start's description has no format instructions" do
+    assert_no_match(/MM-DD/, Settings.get(:my_gatherpack_season_start).description)
+  end
+
+  test "the season start shows as a month and day and saves the same text" do
+    skip "needs the settings inputs seam" unless Settings.respond_to?(:input) && Settings.input_for(:my_gatherpack_season_start)
+
+    Settings.set(:my_gatherpack_season_start, "09-15")
+    sign_in person(:admin).user
+
+    get settings_path
+    assert_response :success
+    assert_select "select[name='settings[my_gatherpack_season_start][month]'] option[value='9'][selected]"
+    assert_select "select[name='settings[my_gatherpack_season_start][day]'] option[value='15'][selected]"
+
+    patch settings_path, params: { settings: { my_gatherpack_season_start: { month: "9", day: "15" } } }
+    assert_equal "09-15", Settings[:my_gatherpack_season_start]
+  end
+
   # Content
 
   test "the page's blocks come in order" do
