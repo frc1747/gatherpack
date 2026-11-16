@@ -21,7 +21,7 @@ class Inventory::ImportsControllerTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { Item.count } do
         post inventory_import_path, params: { team_id: @world.robotics.id, file: file }
       end
-      assert_response :success
+      assert_response :unprocessable_entity
       assert_select "#import-summary", text: /1 new item, 0 items to update, 1 row skipped/
       assert_select "#import-problems", text: /Unknown place code Q-1/
 

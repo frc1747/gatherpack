@@ -1,4 +1,5 @@
-<%= simple_form_for item_source, url: item_source.new_record? ? inventory_item_sources_path(item_source.item) : inventory_item_source_path(item_source.item, item_source) do |f| %>
+<% inventory_stylesheet %>
+<%= simple_form_for item_source, url: item_source.new_record? ? inventory_item_sources_path(item_source.item) : inventory_item_source_path(item_source.item, item_source), html: { class: "inventory-form" } do |f| %>
   <%= f.error_notification %>
   <%= f.input :vendor_name, label: "Vendor" %>
   <%= f.input :vendor_part_number, label: "Vendor part number" %>

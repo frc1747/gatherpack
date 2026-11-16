@@ -111,6 +111,16 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
     assert_not item.visible.call(@world.keeper.user)
   end
 
+  test "Machines is in the menu and on the Inventory page for anyone who can use inventory" do
+    nav = GatherPack::Features.all.find { |feature| feature.key == :inventory }.nav_items.find { |item| item.label == "Machines" }
+    assert_equal :inventory_machines_path, nav.path
+    with_inventory(@world) do
+      sign_in @world.member.user
+      get inventory_root_path
+      assert_select "a[href=?]", inventory_machines_path, text: /Machines/
+    end
+  end
+
   test "the settings page points to Setup when pickers are there" do
     skip "needs the settings seam" unless Settings.respond_to?(:page)
     with_inventory(@world) do

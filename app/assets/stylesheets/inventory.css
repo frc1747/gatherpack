@@ -92,8 +92,24 @@
   padding: 0.25rem 0;
 }
 
-.inventory-big-count {
-  background: var(--bs-warning-bg-subtle);
+/* A list row takes its colour from the list's variables, which the theme
+   sets, so a plain background rule loses to it: set the variables. */
+.list-group-item.inventory-big-count {
+  --bs-list-group-bg: var(--bs-warning-bg-subtle);
+  --bs-list-group-color: var(--bs-warning-text-emphasis);
+  border-left: 0.5rem solid var(--bs-warning);
+}
+
+/* The app's checkbox rule colours a ticked box like the page, which hides
+   the tick; use the primary colour on these forms. */
+.inventory-form .form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+/* A note may hold a long word or link: wrap it on a phone. */
+.inventory-note {
+  overflow-wrap: anywhere;
 }
 
 .inventory-undone {
@@ -125,12 +141,9 @@
 }
 
 .inventory-toast {
-  position: fixed;
-  left: 50%;
-  bottom: 5.5rem;
-  transform: translateX(-50%);
+  position: sticky;
+  top: 0.5rem;
   z-index: 1040;
-  width: min(30rem, calc(100% - 2rem));
 }
 
 /* Label sheet: a grid of stickers; sizes are a print stylesheet choice. */

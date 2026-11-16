@@ -1,4 +1,5 @@
-<%= simple_form_for location, url: location.new_record? ? inventory_locations_path : inventory_location_path(location) do |f| %>
+<% inventory_stylesheet %>
+<%= simple_form_for location, url: location.new_record? ? inventory_locations_path : inventory_location_path(location), html: { class: "inventory-form" } do |f| %>
   <%= f.error_notification %>
   <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 

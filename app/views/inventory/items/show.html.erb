@@ -4,6 +4,7 @@
 <% home = @home %>
 
 <div class="inventory-phone inventory-has-bar">
+  <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
       <h1 class="h3 mb-1"><%= @item.name %></h1>
@@ -138,4 +139,3 @@
     <% end %>
   <% end %>
 </div>
-<%= render "inventory/shared/undo_toast" %>
