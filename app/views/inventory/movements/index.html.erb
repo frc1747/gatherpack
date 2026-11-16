@@ -29,8 +29,8 @@
     <div class="col-12 d-flex flex-wrap gap-2">
       <%= submit_tag "Filter", name: nil, class: "btn btn-primary" %>
       <%= link_to "Clear", inventory_movements_path, class: "btn btn-dark" %>
-      <%= link_to "Print", inventory_movements_path(filters.merge(print: 1)), class: "btn btn-outline-secondary" %>
-      <%= link_to "Download CSV", inventory_movements_path(filters.merge(format: :csv)), class: "btn btn-outline-secondary", data: { turbo: false } %>
+      <%= link_to "Print", inventory_movements_path(filters.merge(print: 1)), class: "btn btn-dark" %>
+      <%= link_to "Download CSV", inventory_movements_path(filters.merge(format: :csv)), class: "btn btn-secondary", data: { turbo: false } %>
     </div>
   <% end %>
 </div>
