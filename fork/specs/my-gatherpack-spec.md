@@ -188,6 +188,8 @@ Each checklist item appears **once** on Home: in To do when it's unfinished and 
 3. Coming up lists places and events, not requirements. A to-do's action ("Sign up: Sat Nov 21") links to the sheet.
 4. "Also this season" (§7a) lists the person's own check-ins by event type, only for event types and sheets that **no** count item covering the person counts. Meeting hours are never in it: attendance covers meetings.
 
+**My Season for guardians** (Corey, 2026-11-15). When the viewer is a guardian and more than one person has My Season lines, My Season shows one block per person: the viewer first, headed "You", then each ward by first name. Each block has its own In progress list, its own collapsible Done and its own "You're all set for now". Inside a person's block a line doesn't repeat the person's name; a ward's line links to that ward's checklists page.
+
 **The leak rule.** Home, My Season and the activity page never name or link a checklist that doesn't cover the person they're about. A person the checklist leaves out sees "Not required for you", never its title.
 
 ### 6.3 Performance
