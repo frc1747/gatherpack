@@ -38,7 +38,7 @@ crumb :orders_report do |report|
 end
 
 crumb :orders_settings do
-  link "Orders settings", orders_settings_path
+  link "Orders setup", orders_settings_path
   parent :orders_requests
 end
 

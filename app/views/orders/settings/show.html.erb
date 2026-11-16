@@ -2,7 +2,7 @@
 
 <%= form_with url: orders_settings_path, method: :patch do |f| %>
   <div class="card">
-    <div class="card-header"><h1>Orders settings</h1></div>
+    <div class="card-header"><h1>Orders setup</h1></div>
     <div class="card-body">
       <% if @editor.errors.any? %>
         <div class="alert alert-danger">
@@ -10,61 +10,68 @@
         </div>
       <% end %>
 
-      <h2 class="h5">Approval steps</h2>
-      <p class="text-muted">
-        A request needs every step whose minimum total it meets, in this order. Approvers are one per line, as
-        Badge name &gt; Highest team name. Admins and the team's managers can always approve. Clear a step's name to remove it.
-      </p>
-      <% @editor.step_rows.each_with_index do |step, index| %>
-        <div class="row g-2 mb-3">
-          <%= hidden_field_tag "steps[#{index}][key]", step["key"] %>
-          <div class="col-md-4">
-            <%= label_tag "steps_#{index}_name", "Name", class: "form-label" %>
-            <%= text_field_tag "steps[#{index}][name]", step["name"], id: "steps_#{index}_name", class: "form-control" %>
-          </div>
-          <div class="col-md-2">
-            <%= label_tag "steps_#{index}_minimum", "Minimum total ($)", class: "form-label" %>
-            <%= text_field_tag "steps[#{index}][minimum]", step["minimum"], id: "steps_#{index}_minimum", class: "form-control", inputmode: "decimal" %>
-          </div>
-          <div class="col-md-6">
-            <%= label_tag "steps_#{index}_approvers", "Approvers", class: "form-label" %>
-            <%= text_area_tag "steps[#{index}][approvers]", step["approvers"], id: "steps_#{index}_approvers", class: "form-control", rows: 2 %>
-          </div>
-        </div>
-      <% end %>
+      <section class="mb-4">
+        <h2 class="h5">Who can ask</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :requesters %>
+      </section>
 
-      <h2 class="h5 mt-4">How a purchase can be paid</h2>
-      <% @editor.paid_with_rows.each_with_index do |choice, index| %>
-        <div class="row g-2 mb-2 align-items-center">
-          <div class="col-md-6">
-            <%= text_field_tag "paid_with[#{index}][label]", choice["label"], class: "form-control", "aria-label": "Choice #{index + 1}" %>
+      <section class="mb-4">
+        <h2 class="h5">Who approves</h2>
+        <% unless @editor.steps_fit? %>
+          <div class="alert alert-warning" id="current_steps">
+            <p>The approval steps saved now are:</p>
+            <ul>
+              <% @editor.steps.each do |step| %>
+                <li>
+                  <%= step.name %>:
+                  <%= step.minimum_cents.zero? ? "every request" : "requests of #{number_to_currency(step.minimum_cents / 100.0)} or more" %>,
+                  approved by team managers<%= step.approvers.any? ? ", #{step.approvers.to_sentence}" : "" %>.
+                </li>
+              <% end %>
+            </ul>
+            <p class="mb-0"><strong>Saving this page replaces these steps</strong> with the two below.</p>
           </div>
-          <div class="col-md-6">
-            <div class="form-check">
-              <%= hidden_field_tag "paid_with[#{index}][reimburse]", "0", id: nil %>
-              <%= check_box_tag "paid_with[#{index}][reimburse]", "1", choice["reimburse"], id: "paid_with_#{index}_reimburse", class: "form-check-input" %>
-              <%= label_tag "paid_with_#{index}_reimburse", "Needs reimbursing", class: "form-check-label" %>
-            </div>
-          </div>
-        </div>
-      <% end %>
+        <% end %>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :approvers %>
+      </section>
 
-      <h2 class="h5 mt-4">Price tolerance</h2>
-      <p class="text-muted">How far a buyer's prices may raise an approved total before it needs approving again. Whichever is larger applies.</p>
-      <div class="row g-2">
-        <div class="col-md-3">
-          <%= label_tag :tolerance_percent, "Percent", class: "form-label" %>
-          <%= text_field_tag :tolerance_percent, @editor.tolerance_percent, class: "form-control", inputmode: "decimal" %>
+      <section class="mb-4">
+        <h2 class="h5 d-flex flex-wrap align-items-center gap-2">
+          <%= label_tag :large_amount, "Over" %>
+          <span class="input-group" style="max-width: 10rem">
+            <span class="input-group-text">$</span>
+            <%= text_field_tag :large_amount, @editor.large_amount, class: "form-control", inputmode: "decimal", style: "min-height: 44px" %>
+          </span>
+          <span>, also needs</span>
+        </h2>
+        <div class="form-text mb-2">Leave the amount empty for no second approval.</div>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :large_approvers %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who buys</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :buyers %>
+      </section>
+
+      <section class="mb-4" data-controller="setting-rows">
+        <h2 class="h5">Paid with</h2>
+        <div data-setting-rows-target="list">
+          <% @editor.paid_with.each_with_index do |choice, index| %>
+            <%= render "orders/settings/paid_with_row", index: index, choice: choice %>
+          <% end %>
+          <%= render "orders/settings/paid_with_row", index: @editor.paid_with.size, choice: nil %>
         </div>
-        <div class="col-md-3">
-          <%= label_tag :tolerance_amount, "Amount ($)", class: "form-label" %>
-          <%= text_field_tag :tolerance_amount, @editor.tolerance_amount, class: "form-control", inputmode: "decimal" %>
-        </div>
-      </div>
+        <template data-setting-rows-target="template">
+          <%= render "orders/settings/paid_with_row", index: "NEW_ROW", choice: nil %>
+        </template>
+        <button type="button" class="btn btn-outline-primary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add a way to pay</button>
+      </section>
     </div>
-    <div class="card-footer">
-      <%= link_to "Cancel", orders_requests_path, class: "btn btn-warning" %>
-      <%= f.submit "Save", class: "btn btn-primary" %>
-    </div>
+  </div>
+
+  <div class="pb-5 mb-4"></div>
+  <div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">
+    <%= link_to "Cancel", orders_requests_path, class: "btn btn-outline-secondary btn-lg" %>
+    <%= f.submit "Save", class: "btn btn-primary btn-lg flex-grow-1" %>
   </div>
 <% end %>

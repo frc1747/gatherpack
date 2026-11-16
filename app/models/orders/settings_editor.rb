@@ -1,32 +1,85 @@
-# Reads and writes the structured orders settings (approval steps, paid-with
-# choices and price tolerance) from form fields, so admins don't edit JSON.
-# #save checks what it's given and leaves the settings alone when anything is
-# wrong.
+# Reads and writes the orders settings shown on Orders setup: who can ask,
+# who approves (one step, plus an optional second one over an amount), who
+# buys and how purchases are paid. It writes the same text and JSON the
+# readers in Orders::Config parse, and leaves a setting's saved text as it
+# is when the form says the same thing, so opening the page and saving
+# changes nothing. #save checks what it's given and leaves the settings
+# alone when anything is wrong.
+#
+# Where the settings pickers are available (Settings.input), the page draws
+# teams and badge grants with them; otherwise with one-per-line text boxes.
 module Orders
   class SettingsEditor
-    BLANK_ROWS = 2
+    FIRST_STEP_NAME = "Approval".freeze
+    SECOND_STEP_NAME = "Large purchase".freeze
 
-    attr_reader :steps, :paid_with, :tolerance_percent, :tolerance_amount, :errors
+    # Stands in for a Settings::Setting so a picker can draw a value that
+    # isn't a setting of its own, such as one step's approvers.
+    Field = Struct.new(:setting_key, :name, :value, :default_value, keyword_init: true)
+
+    FIELDS = {
+      requesters: "Teams whose members (and members of the teams below) can ask. Leave empty for everyone signed in.",
+      approvers: "Team managers can always approve. Also:",
+      large_approvers: "Team managers can always approve. Also:",
+      buyers: "Team managers can always buy. Also:"
+    }.freeze
+
+    attr_reader :large_amount, :paid_with, :errors
+
+    def self.pickers?
+      Settings.respond_to?(:input) && defined?(SettingInput::BadgeGrants).present?
+    end
+
+    # Whether the Orders menu has the Setup item. Menu items can only be
+    # hidden from non-admins where NavItem takes a visible check; elsewhere
+    # the Reports page links here instead.
+    def self.in_menu?
+      GatherPack::Feature::NavItem.members.include?(:visible)
+    end
 
     def initialize
       @errors = []
-      load_current
+      @steps = Orders::Config.approval_steps
+      @texts = {
+        requesters: Settings[:orders_requesters].to_s,
+        approvers: @steps.first.approvers.join("\n"),
+        large_approvers: @steps.second&.approvers.to_a.join("\n"),
+        buyers: Settings[:orders_buyers].to_s
+      }
+      @saved_texts = @texts.dup
+      @large_amount = @steps.second ? format("%g", @steps.second.minimum_cents / 100.0) : ""
+      @paid_with = Orders::Config.paid_with.map { |choice| { "label" => choice.label, "reimburse" => choice.reimburse } }
+      @saved_paid_with = @paid_with
     end
 
-    # Rows for the form: the current ones, then blank ones to fill in.
-    def step_rows
-      steps + Array.new(BLANK_ROWS) { { "key" => "", "name" => "", "minimum" => "", "approvers" => "" } }
+    # The saved steps, as Orders::Config reads them.
+    attr_reader :steps
+
+    # Whether the saved steps are ones this page can show: a first step for
+    # every request and at most one more over an amount. Others are listed
+    # read-only, and saving replaces them.
+    def steps_fit?
+      first, second, *rest = steps
+      rest.empty? && first.minimum_cents.zero? && (second.nil? || second.minimum_cents.positive?)
     end
 
-    def paid_with_rows
-      paid_with + Array.new(BLANK_ROWS) { { "label" => "", "reimburse" => false } }
+    def text(name)
+      @texts.fetch(name)
+    end
+
+    # The picker for one of FIELDS, drawn from the text the form holds.
+    def picker(name)
+      field = Field.new(setting_key: name.to_s, name: FIELDS.fetch(name), value: text(name), default_value: "")
+      name == :requesters ? SettingInput::Teams.new(field) : SettingInput::BadgeGrants.new(field, badges: -> { Badge.added_by_admin })
     end
 
     def assign(params)
-      @steps = rows(params[:steps]).filter_map { |row| step_from(row) }
+      posted = params[:settings] || {}
+      FIELDS.each_key do |name|
+        @texts[name] = text_from(name, posted[name]) if posted.key?(name)
+      end
+      @large_amount = params[:large_amount].to_s.strip.delete_prefix("$").delete(",")
       @paid_with = rows(params[:paid_with]).filter_map { |row| paid_with_from(row) }
-      @tolerance_percent = params[:tolerance_percent].to_s.strip
-      @tolerance_amount = params[:tolerance_amount].to_s.strip
       self
     end
 
@@ -34,96 +87,114 @@ module Orders
       validate
       return false if errors.any?
 
-      Settings[:orders_approval_steps] = JSON.generate(steps.map { |step| step.merge("minimum" => step["minimum"].to_d.to_f, "approvers" => approver_lines(step)) })
-      Settings[:orders_paid_with] = JSON.generate(paid_with)
-      Settings[:orders_price_tolerance] = tolerance_text
+      write(:orders_requesters, text(:requesters)) unless same_lines?(text(:requesters), @saved_texts[:requesters])
+      write(:orders_buyers, text(:buyers)) unless same_lines?(text(:buyers), @saved_texts[:buyers])
+      write(:orders_approval_steps, JSON.generate(new_steps)) unless same_steps?(new_steps)
+      write(:orders_paid_with, JSON.generate(paid_with)) unless paid_with == @saved_paid_with
       true
     end
 
     private
 
-    def load_current
-      @steps = Orders::Config.approval_steps.map do |step|
-        { "key" => step.key, "name" => step.name, "minimum" => format("%g", step.minimum_cents / 100.0), "approvers" => step.approvers.join("\n") }
-      end
-      @paid_with = Orders::Config.paid_with.map { |choice| { "label" => choice.label, "reimburse" => choice.reimburse } }
-      tolerance = Orders::Config.price_tolerance
-      @tolerance_percent = format("%g", tolerance.percent)
-      @tolerance_amount = format("%g", tolerance.amount_cents / 100.0)
+    def write(key, value)
+      Settings[key] = value
+    end
+
+    # A picker turns what it posts into the setting's text (and keeps the
+    # saved text when nothing changed); a text box posts the text itself.
+    def text_from(name, posted)
+      self.class.pickers? ? picker(name).text_from(posted, @saved_texts[name]) : posted.to_s
     end
 
     def rows(value)
       (value.respond_to?(:values) ? value.values : Array(value)).map { |row| row.respond_to?(:to_unsafe_h) ? row.to_unsafe_h : row.to_h }
     end
 
-    def step_from(row)
-      name = row["name"].to_s.strip
-      return nil if name.blank?
-
-      { "key" => row["key"].to_s.strip, "name" => name, "minimum" => row["minimum"].to_s.strip.presence || "0", "approvers" => row["approvers"].to_s }
-    end
-
     def paid_with_from(row)
       label = row["label"].to_s.strip
-      return nil if label.blank?
+      return nil if label.blank? || row["remove"] == "1"
 
       { "label" => label, "reimburse" => ActiveModel::Type::Boolean.new.cast(row["reimburse"]) || false }
     end
 
     def validate
       @errors = []
-      errors << "Keep at least one approval step." if steps.empty?
       errors << "Keep at least one way a purchase can be paid." if paid_with.empty?
-      assign_keys
-      steps.each { |step| validate_step(step) }
-      errors << "Price tolerance percentage must be a number." unless number?(tolerance_percent)
-      errors << "Price tolerance amount must be a number." unless number?(tolerance_amount)
-    end
-
-    # New steps get a key from their name that no other step has and no
-    # approval on record uses, so a removed step's approvals never pass to a
-    # new one. A key never changes once used, since approvals are stored by it.
-    def assign_keys
-      taken = steps.pluck("key").compact_blank | OrderApproval.distinct.pluck(:step_key) | OrderRequestEvent.where.not(step_key: nil).distinct.pluck(:step_key)
-      steps.each do |step|
-        next if step["key"].present?
-
-        base = step["name"].parameterize(separator: "_").presence || "step"
-        key = base
-        number = 1
-        key = "#{base}_#{number += 1}" while taken.include?(key)
-        step["key"] = key
-        taken << key
+      if large_amount.present? && !(number?(large_amount) && large_amount.to_d.positive?)
+        errors << "The amount for a second approval must be a number of dollars above zero."
       end
-      dupes = steps.pluck("key").tally.select { |_key, count| count > 1 }.keys
-      errors << "Each approval step needs its own key (#{dupes.to_sentence} is repeated)." if dupes.any?
+      new_lines(:requesters).each do |name|
+        errors << "Who can ask: no team named \"#{name}\"." unless Team.exists?(name: name)
+      end
+      validate_grants(:approvers, "Who approves")
+      validate_grants(:large_approvers, "Over $#{large_amount}") if large_amount.present?
+      validate_grants(:buyers, "Who buys")
     end
 
-    def validate_step(step)
-      errors << "#{step['name']}: the minimum must be a number of dollars, zero or more." unless number?(step["minimum"])
-      approver_lines(step).each do |line|
+    # Only lines that weren't saved before are checked, so a saved line whose
+    # badge or team has since gone doesn't block saving the rest.
+    def validate_grants(name, label)
+      new_lines(name).each do |line|
         badge_name, team_name = line.split(">", 2).map(&:strip)
-        errors << "#{step['name']}: no badge given in \"#{line}\"." if badge_name.blank?
-        errors << "#{step['name']}: no badge named \"#{badge_name}\" that admins assign." if badge_name.present? && !Badge.added_by_admin.exists?([ "LOWER(name) = ?", badge_name.downcase ])
-        errors << "#{step['name']}: no team named \"#{team_name}\"." if team_name.present? && !Team.exists?(name: team_name)
+        errors << "#{label}: no badge given in \"#{line}\"." if badge_name.blank?
+        errors << "#{label}: no badge named \"#{badge_name}\" that admins assign." if badge_name.present? && !Badge.added_by_admin.exists?([ "LOWER(name) = ?", badge_name.downcase ])
+        errors << "#{label}: no team named \"#{team_name}\"." if team_name.present? && !Team.exists?(name: team_name)
       end
     end
 
-    def approver_lines(step)
-      step["approvers"].to_s.lines.map(&:strip).compact_blank
+    def new_lines(name)
+      lines(text(name)) - lines(@saved_texts[name])
+    end
+
+    def lines(text)
+      text.to_s.lines.map(&:strip).compact_blank
+    end
+
+    def same_lines?(text, saved)
+      lines(text) == lines(saved)
+    end
+
+    # The first step keeps its key and name, and so does an existing second
+    # step: approvals are stored by key. A new second step gets a key that
+    # no step has and no approval on record uses, so a removed step's
+    # approvals never pass to it.
+    def new_steps
+      @new_steps ||= begin
+        first = steps.first
+        list = [ step_hash(first.key, first.name.presence || FIRST_STEP_NAME, 0, lines(text(:approvers))) ]
+        if large_amount.present?
+          second = steps.second
+          list << step_hash(second&.key || free_key(list.first["key"]), second&.name.presence || SECOND_STEP_NAME,
+            whole_or_decimal(large_amount.to_d), lines(text(:large_approvers)))
+        end
+        list
+      end
+    end
+
+    def step_hash(key, name, minimum, approvers)
+      { "key" => key, "name" => name, "minimum" => minimum, "approvers" => approvers }
+    end
+
+    def same_steps?(list)
+      steps.map { |step| [ step.key, step.name, step.minimum_cents, step.approvers ] } ==
+        list.map { |step| [ step["key"], step["name"], (step["minimum"].to_d * 100).round, step["approvers"] ] }
+    end
+
+    def free_key(first_key)
+      taken = [ first_key ] | steps.map(&:key) | OrderApproval.distinct.pluck(:step_key) | OrderRequestEvent.where.not(step_key: nil).distinct.pluck(:step_key)
+      base = SECOND_STEP_NAME.parameterize(separator: "_")
+      key = base
+      number = 1
+      key = "#{base}_#{number += 1}" while taken.include?(key)
+      key
+    end
+
+    def whole_or_decimal(amount)
+      amount.frac.zero? ? amount.to_i : amount.to_f
     end
 
     def number?(text)
       text.to_s.strip.match?(/\A\d+(\.\d+)?\z/)
-    end
-
-    def tolerance_text
-      # Zeros are written out: a blank setting means the default.
-      [ "#{plain(tolerance_percent)}%", plain(tolerance_amount) ].join(", ")
-    end
-
-    def plain(text)
-      text.to_d.to_f.to_s.delete_suffix(".0")
     end
   end
 end
