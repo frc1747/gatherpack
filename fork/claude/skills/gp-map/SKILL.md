@@ -77,7 +77,7 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 
 `layouts/application.html.erb` renders `_navbar` and `_sidebar` (the sidebar comes from the Features registry: sections People 10, Time 20, Finance 30, Communication 40, Content 50). Dashboard: `welcome#index` with `welcome/dashboard.html.erb`. Flash alerts: `application_helper#flash_to_class` (`notice` → `alert-info`). Search-and-add UI: `shared/_add_panel`, `_add_candidate(s)`.
 
-**Match upstream's look.** Buttons are solid Bootstrap buttons, as on upstream's own screens (`events/show`, `people/show`): `btn-primary`/`btn-success` for the main action, `btn-secondary` for other actions, `btn-danger` for destructive ones, `btn-warning` for Edit. Outline buttons only for toggle groups (`btn-check` labels, segmented filters). Before inventing a style, find the nearest upstream screen and copy it.
+**Match upstream's look.** Before styling a screen, copy the nearest upstream or pre-existing fork screen. Button convention (from upstream and the fork before 2026-11-15): form submit/main action `btn-primary` (New X on an index `btn-success`); Cancel `btn-warning` (settings pages copy upstream's Save `btn-lg btn-success` / Cancel `btn-lg btn-primary`); Back/other actions `btn-secondary`; Edit `btn-warning`; destructive (Delete, Decline, Cancel request) `btn-danger`; Approve `btn-success`; Print and Clear Search `btn-dark`. Outline only for: small row buttons (`btn-sm btn-outline-*`), toggle groups (`btn-check` labels), and My GatherPack phone cards' secondary action (`btn-outline-secondary`). Full-size buttons are solid.
 
 ## Tests
 
