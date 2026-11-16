@@ -5,5 +5,5 @@
 <% else %>
   <%= label_tag "settings_#{name}", Orders::SettingsEditor::FIELDS.fetch(name), class: "form-label" %>
   <%= text_area_tag "settings[#{name}]", editor.text(name), id: "settings_#{name}", class: "form-control", rows: 3 %>
-  <div class="form-text"><%= name == :requesters ? "One team name per line." : "One per line, as Badge name > Highest team name." %></div>
+  <div class="form-text"><%= Orders::SettingsEditor::TEAM_FIELDS.include?(name) ? "One team name per line." : "One per line, as Badge name > Highest team name." %></div>
 <% end %>

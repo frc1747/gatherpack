@@ -97,6 +97,13 @@ module Orders
       Team.where(name: names).to_a
     end
 
+    # The teams named in orders_viewers: their members (and members of the
+    # teams below) see every request that isn't a draft. Empty when blank.
+    def viewer_teams
+      names = grant_lines(Settings[:orders_viewers])
+      names.empty? ? [] : Team.where(name: names).to_a
+    end
+
     def team_can_see?
       Settings[:orders_team_can_see] != false
     end

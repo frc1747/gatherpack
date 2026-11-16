@@ -1,5 +1,5 @@
 # Reads and writes the orders settings shown on Orders setup: who can ask,
-# who approves (one step, plus an optional second one over an amount), who
+# who sees every request, who approves (one step, plus an optional second one over an amount), who
 # buys and how purchases are paid. It writes the same text and JSON the
 # readers in Orders::Config parse, and leaves a setting's saved text as it
 # is when the form says the same thing, so opening the page and saving
@@ -19,10 +19,13 @@ module Orders
 
     FIELDS = {
       requesters: "Teams whose members (and members of the teams below) can ask. Leave empty for everyone signed in.",
+      viewers: "Teams whose members (and members of the teams below) see every request, without approving or buying. Leave empty for nobody extra.",
       approvers: "Team managers can always approve. Also:",
       large_approvers: "Team managers can always approve. Also:",
       buyers: "Team managers can always buy. Also:"
     }.freeze
+
+    TEAM_FIELDS = %i[requesters viewers].freeze
 
     attr_reader :large_amount, :paid_with, :errors
 
@@ -42,6 +45,7 @@ module Orders
       @steps = Orders::Config.approval_steps
       @texts = {
         requesters: Settings[:orders_requesters].to_s,
+        viewers: Settings[:orders_viewers].to_s,
         approvers: @steps.first.approvers.join("\n"),
         large_approvers: @steps.second&.approvers.to_a.join("\n"),
         buyers: Settings[:orders_buyers].to_s
@@ -70,7 +74,7 @@ module Orders
     # The picker for one of FIELDS, drawn from the text the form holds.
     def picker(name)
       field = Field.new(setting_key: name.to_s, name: FIELDS.fetch(name), value: text(name), default_value: "")
-      name == :requesters ? SettingInput::Teams.new(field) : SettingInput::BadgeGrants.new(field, badges: -> { Badge.added_by_admin })
+      TEAM_FIELDS.include?(name) ? SettingInput::Teams.new(field) : SettingInput::BadgeGrants.new(field, badges: -> { Badge.added_by_admin })
     end
 
     def assign(params)
@@ -88,6 +92,7 @@ module Orders
       return false if errors.any?
 
       write(:orders_requesters, text(:requesters)) unless same_lines?(text(:requesters), @saved_texts[:requesters])
+      write(:orders_viewers, text(:viewers)) unless same_lines?(text(:viewers), @saved_texts[:viewers])
       write(:orders_buyers, text(:buyers)) unless same_lines?(text(:buyers), @saved_texts[:buyers])
       write(:orders_approval_steps, JSON.generate(new_steps)) unless same_steps?(new_steps)
       write(:orders_paid_with, JSON.generate(paid_with)) unless paid_with == @saved_paid_with
@@ -123,8 +128,10 @@ module Orders
       if large_amount.present? && !(number?(large_amount) && large_amount.to_d.positive?)
         errors << "The amount for a second approval must be a number of dollars above zero."
       end
-      new_lines(:requesters).each do |name|
-        errors << "Who can ask: no team named \"#{name}\"." unless Team.exists?(name: name)
+      { requesters: "Who can ask", viewers: "Who sees every request" }.each do |name, label|
+        new_lines(name).each do |team_name|
+          errors << "#{label}: no team named \"#{team_name}\"." unless Team.exists?(name: team_name)
+        end
       end
       validate_grants(:approvers, "Who approves")
       validate_grants(:large_approvers, "Over $#{large_amount}") if large_amount.present?

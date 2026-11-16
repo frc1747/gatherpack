@@ -138,4 +138,51 @@ class OrderRequestPolicyTest < ActiveSupport::TestCase
       assert policy(@world.outsider, OrderRequest).create?
     end
   end
+
+  test "members of an orders_viewers team and the teams below see every request, read only" do
+    with_orders(@world, orders_viewers: @world.robotics.name) do
+      order_request = approved_request(@world, by: @world.outsider, team: @world.art)
+
+      # builder is on build, below robotics; nothing else lets them see art's requests.
+      viewer = policy(@world.builder, order_request)
+      assert viewer.show?
+      assert_includes visible(@world.builder), order_request
+      assert viewer.comment?
+      %i[update? cancel? close? follow? add_watchers? decide? approver_edit? set_funding? buy? receive? see_funding?].each do |action|
+        assert_not viewer.public_send(action), "viewer #{action}"
+      end
+      assert_not OrderLinePolicy.new(@world.builder.user, order_request.order_lines.first).buy?
+
+      club_member = orders_person("Clubber", teams: [ @world.club ])
+      assert_not policy(club_member, order_request).show?, "a team above a listed one doesn't count"
+      assert_not_includes visible(club_member), order_request
+    end
+  end
+
+  test "orders_viewers don't see drafts" do
+    with_orders(@world, orders_viewers: @world.robotics.name) do
+      draft = draft_request(@world, by: @world.outsider, team: @world.art)
+
+      assert_not policy(@world.builder, draft).show?
+      assert_not_includes visible(@world.builder), draft
+    end
+  end
+
+  test "orders_viewers comment only when team members can" do
+    with_orders(@world, orders_viewers: @world.robotics.name, orders_team_can_see: "false") do
+      order_request = submitted_request(@world, by: @world.outsider, team: @world.art)
+
+      assert policy(@world.builder, order_request).show?
+      assert_not policy(@world.builder, order_request).comment?
+    end
+  end
+
+  test "nobody sees every request while orders_viewers is blank" do
+    with_orders(@world) do
+      order_request = submitted_request(@world, by: @world.outsider, team: @world.art)
+
+      assert_not policy(@world.builder, order_request).show?
+      assert_not_includes visible(@world.builder), order_request
+    end
+  end
 end

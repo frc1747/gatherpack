@@ -35,6 +35,9 @@ Rails.application.config.to_prepare do
 
   Settings.register(:orders_requesters, :text, "Who Can Request", "", "Orders",
     "Teams whose members (and members of the teams below) may ask for things to be bought. Blank: everyone signed in")
+  Settings.register(:orders_viewers, :text, "Who Sees Every Request", "", "Orders",
+    "Teams whose members (and members of the teams below) see every request that isn't a draft, and may comment " \
+    "when team members can. Seeing doesn't let them approve, buy or receive. Blank: nobody extra")
   Settings.register(:orders_approval_steps, :text, "Approval Steps",
     JSON.generate(Orders::Config::DEFAULT_STEPS), "Orders",
     "The approval steps in order, as JSON: [{\"key\": \"approval\", \"name\": \"Approval\", \"minimum\": 0, " \
@@ -67,6 +70,7 @@ Rails.application.config.to_prepare do
   # is on. The settings it doesn't show keep their values and defaults.
   if Settings.respond_to?(:input)
     Settings.input(:orders_requesters, :teams)
+    Settings.input(:orders_viewers, :teams)
     Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin })
   end
   Settings.page("Orders", :orders_settings_path, label: "Orders setup", if: -> { GatherPack::Features.enabled?(:orders) }) if Settings.respond_to?(:page)

@@ -71,12 +71,12 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the page shows only who can ask, who approves, the second approval, who buys and paid with" do
+  test "the page shows only who can ask, who sees every request, who approves, the second approval, who buys and paid with" do
     with_orders(@world) do
       sign_in @world.admin.user
       get orders_settings_url
       assert_select "h1", "Orders setup"
-      assert_equal [ "Who can ask", "Who approves", "Over $ , also needs", "Who buys", "Paid with" ],
+      assert_equal [ "Who can ask", "Who sees every request", "Who approves", "Over $ , also needs", "Who buys", "Paid with" ],
         css_select("h2").map { |node| node.text.squish }
       assert_select "input[name*=tolerance]", 0
       assert_select "textarea[name*=approval_steps], input[name*=funding]", 0
@@ -86,7 +86,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
   test "each picker shows the saved values" do
     skip "needs the settings pickers" unless pickers?
 
-    with_orders(@world, orders_requesters: @world.robotics.name,
+    with_orders(@world, orders_requesters: @world.robotics.name, orders_viewers: @world.art.name,
       orders_buyers: grant(@world.buyer_badge, @world.robotics),
       orders_paid_with: JSON.generate([ { "label" => "Team card", "reimburse" => false }, { "label" => "Own money", "reimburse" => true } ]),
       orders_approval_steps: JSON.generate([
@@ -98,6 +98,8 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
 
       assert_select "input[type=checkbox][name='settings[requesters][values][]'][value='#{@world.robotics.name}'][checked]"
       assert_select "input[type=checkbox][name='settings[requesters][values][]'][value='#{@world.art.name}']:not([checked])"
+      assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.art.name}'][checked]"
+      assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.robotics.name}']:not([checked])"
       assert_select "select[name='settings[approvers][rows][0][badge]'] option[selected]", @world.approver_badge.name
       assert_select "select[name='settings[approvers][rows][0][team]'] option[selected][value='#{@world.club.name}']"
       assert_select "input[name=large_amount][value='500']"
@@ -114,10 +116,11 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
   test "without the pickers each field is a text box with the saved lines" do
     skip "the settings pickers draw these" if pickers?
 
-    with_orders(@world, orders_requesters: @world.robotics.name) do
+    with_orders(@world, orders_requesters: @world.robotics.name, orders_viewers: @world.art.name) do
       sign_in @world.admin.user
       get orders_settings_url
       assert_select "textarea[name='settings[requesters]']", text: @world.robotics.name
+      assert_select "textarea[name='settings[viewers]']", text: @world.art.name
       assert_select "textarea[name='settings[approvers]']", text: grant(@world.approver_badge)
       assert_select "textarea[name='settings[buyers]']", text: grant(@world.buyer_badge)
       assert_select "input[name=large_amount][value='']"
@@ -129,10 +132,11 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       "{\"key\":\"treasurer\",\"name\":\"Treasurer\",\"minimum\":250.5,\"approvers\":[]}]"
     paid_with = JSON.generate([ { "label" => "Team card", "reimburse" => false }, { "label" => "Own money", "reimburse" => true } ])
     with_orders(@world, orders_approval_steps: steps, orders_paid_with: paid_with,
-      orders_requesters: "#{@world.robotics.name}\r\n#{@world.art.name}", orders_buyers: "#{@world.buyer_badge.name}>#{@world.club.name}",
+      orders_requesters: "#{@world.robotics.name}\r\n#{@world.art.name}", orders_viewers: "#{@world.club.name}\r\n",
+      orders_buyers: "#{@world.buyer_badge.name}>#{@world.club.name}",
       orders_price_tolerance: "5%, 10") do
       sign_in @world.admin.user
-      before = %i[orders_approval_steps orders_paid_with orders_requesters orders_buyers orders_price_tolerance].index_with { |key| Settings[key] }
+      before = %i[orders_approval_steps orders_paid_with orders_requesters orders_viewers orders_buyers orders_price_tolerance].index_with { |key| Settings[key] }
 
       patch orders_settings_url, params: open_form
       assert_redirected_to orders_settings_url
@@ -144,7 +148,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
   test "saving the default setup unchanged keeps the defaults" do
     with_settings(feature_orders: "true") do
       sign_in @world.admin.user
-      before = %i[orders_approval_steps orders_paid_with orders_requesters orders_buyers].index_with { |key| Settings[key] }
+      before = %i[orders_approval_steps orders_paid_with orders_requesters orders_viewers orders_buyers].index_with { |key| Settings[key] }
 
       patch orders_settings_url, params: open_form
       assert_redirected_to orders_settings_url
@@ -239,15 +243,17 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "who can ask, who buys and paid with are saved in the formats the app reads" do
+  test "who can ask, who sees every request, who buys and paid with are saved in the formats the app reads" do
     with_orders(@world) do
       sign_in @world.admin.user
       params = open_form
       if pickers?
         params["settings"]["requesters"]["values"] = [ "", @world.robotics.name ]
+        params["settings"]["viewers"]["values"] = [ "", @world.club.name, @world.art.name ]
         params["settings"]["buyers"]["rows"]["0"]["remove"] = "1"
       else
         params["settings"]["requesters"] = @world.robotics.name
+        params["settings"]["viewers"] = "#{@world.club.name}\n#{@world.art.name}"
         params["settings"]["buyers"] = ""
       end
       add_grant(params, "buyers", @world.funder_badge, @world.robotics)
@@ -257,6 +263,8 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_redirected_to orders_settings_url
 
       assert_equal [ @world.robotics ], Orders::Config.requester_teams
+      assert_equal [ @world.art, @world.club ].map(&:name).sort, Orders::Config.viewer_teams.map(&:name).sort
+      assert_equal 2, Settings[:orders_viewers].lines.size
       assert_equal grant(@world.funder_badge, @world.robotics), Settings[:orders_buyers]
       assert_equal [ [ "Personal card — reimburse", true ], [ "Cash", true ] ], Orders::Config.paid_with.map { |choice| [ choice.label, choice.reimburse ] }
     end

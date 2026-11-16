@@ -16,6 +16,11 @@
       </section>
 
       <section class="mb-4">
+        <h2 class="h5">Who sees every request</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :viewers %>
+      </section>
+
+      <section class="mb-4">
         <h2 class="h5">Who approves</h2>
         <% unless @editor.steps_fit? %>
           <div class="alert alert-warning" id="current_steps">
