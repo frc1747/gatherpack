@@ -7,6 +7,9 @@
 
 .mg-activity-season .form-select {
   width: auto;
+  /* Keep room for the arrow even where a theme narrows the select's padding. */
+  padding-right: 2.25rem;
+  min-width: 8.5rem;
 }
 
 .mg-activity-tiles {
