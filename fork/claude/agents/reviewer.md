@@ -18,5 +18,6 @@ You review a change you did not write. You do not edit files.
    - Feature gated by its flag in controllers; behavior unchanged with the flag off.
    - Upstream files edited where a seam (initializer, `Settings.register`, `HookCatalog`, registries, `Klass.include`) would do. New models that should `include CanBeHooked`.
    - Fork tooling, "HBR" or team-specific wording leaking into a branch meant for upstream.
+   - Look and feel drifting from upstream: new screens should reuse upstream's components and button styles (solid buttons; outline only for toggles; see gp-map "Views"). Flag a new visual convention as a finding.
 4. Run the relevant tests if a command is known (the branch's own `gp_<name>_test` DBs).
 5. Report findings ranked most-severe first. Each finding: `file:line`, the defect, and a concrete failure scenario. Include scope creep and acceptance criteria the change misses. Skip style nits and speculation. If nothing actionable survives, say "LGTM" and how you verified.
