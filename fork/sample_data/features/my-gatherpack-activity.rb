@@ -1,9 +1,10 @@
 # The activity page (feature/my-gatherpack-activity) for Ella (member@):
 # check-ins at five events of three types this season (two Workdays, two
 # Outreach, one all-day Training), meeting punches this season and last (two
-# of this season's three crew meetings), and one Outreach check-in last season. The page's totals, the By kind of event
-# filter and the season select all show something, and Home's "Also this
-# season" lists the event types (no checklist covering Ella counts them).
+# of this season's three crew meetings), and one Outreach check-in last season. "What you've done" shows the
+# meetings line and a section per kind of event, the season select shows
+# something, and Home's "Also this season" lists the event types (no
+# checklist covering Ella counts them).
 #
 # Dates follow MyGatherpack::Season (Settings[:my_gatherpack_season_start],
 # May 1 by default), so this season's records stay in this season. Events
@@ -59,6 +60,12 @@ Hbr::SampleData.feature "feature/my-gatherpack-activity" do |s|
   s.expect("Ella's season has three kinds of event and meetings") { (%w[Meetings Outreach Training Workday] - activity.kind_rows.map(&:name)).empty? }
   s.expect("Ella came to two of three crew meetings") { [ activity.meetings_attended, activity.meetings_held.size ] == [ 2, 3 ] }
   s.expect("Training is all-day, so it has no hours") { activity.kind_row(training.neat_id)&.hours.nil? }
+  s.expect("What you've done has Outreach, Training and Workday sections") { (%w[Outreach Training Workday] - activity.done_sections.map(&:name)).empty? }
+  s.expect("Workday lists its two events, newest first") do
+    names = activity.done_sections.find { |section| section.key == workday.neat_id }&.lines&.map { |line| line.event.name } || []
+    names & [ "Activity: Tool Shed Workday", "Activity: Fall Cleanup Workday" ] == [ "Activity: Tool Shed Workday", "Activity: Fall Cleanup Workday" ]
+  end
+  s.expect("meetings are one line, not a section") { activity.meetings_row && activity.done_sections.none? { |section| section.name == "Meeting" } }
   s.expect("the season select offers last season too") { activity.seasons.include?(last_season) }
   s.expect("Home lists the event types no checklist counts") { MyGatherpack::Activity.uncounted(ella, season).any? }
 end

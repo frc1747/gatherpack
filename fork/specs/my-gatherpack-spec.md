@@ -243,16 +243,15 @@ The season runs from `Settings[:my_gatherpack_season_start]` (month and day, def
 
 ### 7a.3 Content
 
+Two separate concerns (Corey, 2026-11-15): what the person has done for the team, and what their checklists require. The page shows them apart.
+
 | Block | Content | Source |
 |---|---|---|
-| Totals | Meeting hours, with meetings attended of held; events by type; hours at events outside meetings; places signed up for | Punches in the season (`TimeClockPunch`, own); check-ins (`Checkin`) on events in the season; `Signup.active` upcoming |
-| By kind of event | One row per event type with a check-in in the season, plus Meetings: events and hours, and what it counts toward. Tapping a row filters History | Check-ins grouped by `event.event_type`; event hours are `end_time − start_time` for `time_kind: timed` events, otherwise "—" |
-| Counts toward | The checklist count item or attendance item covering the person that counts that event type or sheet, by title; else "Not required for you" | Count item sources and attendance items of the checklists that cover the person (`Checklists.checklist_for`) |
-| History | Newest first: check-ins, punches, fulfilled sign-ups, submitted forms, each with how it was recorded and hours | The same records |
+| What you've done ("What they've done" on a ward's page) | Jump links to each section when there are two or more. Meetings as one line, own page only, while time tracking is on ("Meetings: 14 of 19 · 42.3 h"). Then one section per event type with an event in the season, with a total ("Outreach: 2 events · 7 h") and its events newest first: date, name, place, hours, "Checked in" or "Signed up". A line may say "Counts toward <item>" for a checklist that covers the person; a section may say "Not required for you". Forms and punches aren't listed. With nothing: "Nothing yet this season." | Non-meeting check-ins (`Checkin`) on events in the season, plus fulfilled sign-ups at events with no check-in, on sheets the viewer can see, one line per event; event hours are `end_time − start_time` for `time_kind: timed` events; punches for the meetings line |
+| Requirements | Each covering checklist, its overall in words, linked (side column) | `Checklists.checklist_for` with `viewer:` |
 | Coming up | Upcoming sign-ups | `SignupsSummary#signups` |
-| Your checklists | Each covering checklist, its overall in words, linked | `Checklists.checklist_for` with `viewer:` |
 
-At phone width the blocks stack in one column in the order above. History becomes a list (date and hours on one line, event and how below), and By kind of event rows stay full-width 44 px targets.
+At phone width the blocks stack in one column: What you've done, Requirements, Coming up. Jump links are 44 px targets.
 
 ### 7a.4 A ward's page
 
@@ -260,8 +259,8 @@ Each row goes through the policy that already governs it, and §7.3 doesn't wide
 
 - Check-ins and events: the event's title, date, type and place only, the same fields the family page shows for a ward's upcoming events (§7.3), and no link unless `policy_scope(Event)` already includes the event. Past events are new here: the guardian learns which events the ward checked in at, nothing about anyone else.
 - Sign-ups and forms: as the family page.
-- **Punches stay out** (decision 7). The Meetings row and meeting hours are replaced by the ward's attendance item from their checklists, at its "who sees it" level, or left out.
-- Your checklists: `Checklists.status_for(checklist, [ward], viewer: guardian)`.
+- **Punches stay out** (decision 7). The meetings line is left out; attendance shows on the Requirements card.
+- Requirements: `Checklists.status_for(checklist, [ward], viewer: guardian)`.
 
 ### 7a.5 "Also this season" on Home
 
@@ -365,7 +364,7 @@ Plus, for [BL-045](../backlog/BL-045-checklist-rule-wording.md): one sign-up she
 9. **The page says the site's title, not "My GatherPack"** (§5.2a). Decided 2026-11-08.
 10. **Announcements on phones** are under More and on Home.
 11. **People stays in More** for members.
-12. **Home answers, the activity page explains** (rev. 5, Corey 2026-11-15). Home says whether you're OK in words; numbers that need the formula live in the item's detail and on the activity page. One card, not a second stats section.
+12. **Home answers, the activity page explains** (rev. 5, Corey 2026-11-15; rev. 6: the activity page shows what was done apart from what's required). Home says whether you're OK in words; numbers that need the formula live in the item's detail and on the activity page. One card, not a second stats section.
 13. **Each fact shows once, matched by reference** (§6.4). Checklists first, then loose forms, then sign-ups as the calendar, then activity no checklist counts.
 14. **Attendance covers meetings; everything else is activity** (rev. 5). Meeting hours are never in "Also this season".
 15. **Forms stay in To do on Home** (rev. 5). The separate Forms to Complete card is already replaced on Home (§6.2); a form a checklist lists shows only as that checklist item.
