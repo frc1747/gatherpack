@@ -256,6 +256,17 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-activity-line] a[href='#{event_path(@outreach1)}']", text: "Food drive"
   end
 
+  # Menu
+
+  test "My activity is in the menu's top group, right after Home, while the page is on" do
+    menu = MyGatherpack::Menu.new(person(:member).user)
+    assert_equal [ "Home", "My activity" ], menu.top.map(&:label).first(2)
+
+    with_settings(feature_my_gatherpack_activity: "false") do
+      assert_not_includes MyGatherpack::Menu.new(person(:member).user).top.map(&:label), "My activity"
+    end
+  end
+
   # Home
 
   test "Home and the activity page agree on what no checklist counts" do
@@ -263,7 +274,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     get root_path
     home = css_select("[data-activity-uncounted]").map { |row| row["data-activity-uncounted"] }
     assert_select "[data-activity-uncounted=#{@build.neat_id}][href='#{activity_path(anchor: "kind-#{@build.neat_id}")}']", text: "Build: 1 event"
-    assert_select "[data-activity-link]", text: "See all your activity →"
+    assert_select "[data-activity-link]", text: "See all your activity"
 
     get activity_path
     page = css_select("[data-activity-not-required]").map { |row| row["data-activity-not-required"] }

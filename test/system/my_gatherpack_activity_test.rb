@@ -31,7 +31,7 @@ class MyGatherpackActivitySystemTest < ApplicationSystemTestCase
     visit root_path
     within("[data-home-section=activity]") do
       assert_text "Build: 1 event"
-      click_link "See all your activity →"
+      click_link "See all your activity"
     end
 
     assert_current_path activity_path
