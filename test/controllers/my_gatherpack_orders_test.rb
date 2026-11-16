@@ -255,25 +255,33 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
       menu = ->(person) { MyGatherpack::Menu.new(person.user) }
 
       assert menu.(@world.mentor).manages_anything?
-      assert_equal [ "To approve", "Vendors", "Funding sources", "Reports" ], menu.(@world.mentor).manage.map(&:label) - [ "To buy" ]
+      assert_equal [ "Vendors", "Funding sources", "Reports" ], menu.(@world.mentor).manage.map(&:label) - [ "To buy" ]
+      assert_equal [ "Orders", "To approve" ], menu.(@world.mentor).top.map(&:label) & [ "Orders", "To approve" ]
       assert_includes menu.(@world.buyer).manage.map(&:label), "To buy"
       assert_not menu.(@world.requester).manages_anything?
       assert_not menu.(@world.outsider).manages_anything?
-      assert_equal %w[ Orders To\ receive ], menu.(@world.requester).more.map(&:label) & [ "Orders", "To receive" ]
+      assert_includes menu.(@world.requester).top.map(&:label), "Orders"
+      assert_includes menu.(@world.requester).more.map(&:label), "To receive"
+      # Hidden from non-approvers where feature/orders gives To approve a visible check.
+      to_approve = GatherPack::Features.nav_sections.flat_map(&:last).find { |item| item.label == "To approve" }
+      if to_approve.respond_to?(:visible) && to_approve.visible
+        assert_not_includes menu.(@world.requester).top.map(&:label), "To approve"
+      end
     end
     assert_not MyGatherpack::Menu.new(@world.mentor.user).manages_anything?
   end
 
-  test "a team manager gets the five orders pages in Manage, in order, and not in More" do
+  test "a team manager gets Orders and To approve on top and the four pages that run orders in Manage" do
     home do
       # Without the check, only the table positions can put them in Manage.
       MyGatherpack::Menu.manager_checks.delete(:orders)
       menu = MyGatherpack::Menu.new(@world.manager.user)
-      labels = [ "To approve", "To buy", "Vendors", "Funding sources", "Reports" ]
+      labels = [ "To buy", "Vendors", "Funding sources", "Reports" ]
 
       assert_equal labels, menu.manage.map(&:label).select { |label| labels.include?(label) }
       assert_empty menu.more.map(&:label) & labels
-      assert_equal labels, menu.manage.map(&:label).last(5)
+      assert_equal labels, menu.manage.map(&:label).last(4)
+      assert_equal [ "Orders", "To approve" ], menu.top.map(&:label) & [ "Orders", "To approve" ]
     end
   end
 

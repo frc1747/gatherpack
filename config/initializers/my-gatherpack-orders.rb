@@ -7,13 +7,13 @@ Rails.application.config.to_prepare do
   MyGatherpack.register_section(:your_orders, partial: "orders/my_gatherpack_orders", column: :side, position: 10,
     enabled: -> { Orders.enabled? })
 
-  # Orders and To receive stay in More; the rest are for the people who run it.
+  # Orders and To approve are in the top group; To receive stays in More; the rest are for the people who run it.
   MyGatherpack::Menu.singleton_class.prepend(MyGatherpack::OrdersMenuTable)
   MyGatherpack::Menu.table = MyGatherpack::Menu.table
 
   # An approver or buyer who manages no team still gets Manage for these.
   MyGatherpack::Menu.register_manager_check(:orders, paths: %i[
-    orders_approvals_path to_buy_orders_purchases_path orders_vendors_path orders_funding_sources_path orders_reports_path
+    to_buy_orders_purchases_path orders_vendors_path orders_funding_sources_path orders_reports_path
   ]) do |person|
     Orders.enabled? && (access = Orders::Access.for(person)) && (access.approver? || access.buyer?)
   end
