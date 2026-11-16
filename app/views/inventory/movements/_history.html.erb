@@ -8,7 +8,7 @@
     <% undone = undone_ids.include?(movement.id) %>
     <li class="list-group-item <%= "inventory-big-count" if inventory_big_count?(movement) %>" id="<%= dom_id(movement) %>">
       <div class="d-flex justify-content-between align-items-start gap-2">
-        <div class="<%= "inventory-undone" if undone %>">
+        <div class="inventory-note <%= "inventory-undone" if undone %>">
           <% if show_item %><strong><%= link_to movement.item.name, inventory_item_path(movement.item) %></strong>: <% end %>
           <%= inventory_change_text(movement, partner: partner) %>
           <% if movement.reason.present? %><span class="text-body-secondary">· <%= movement.reason %></span><% end %>
@@ -21,7 +21,7 @@
       </div>
       <div class="small text-body-secondary">
         <%= inventory_change_who(movement) %> · <%= nice_datetime(movement.created_at) %>
-        <% if movement.note.present? && movement.note != "Undo" %>· <%= movement.note %><% end %>
+        <% if movement.note.present? && movement.note != "Undo" %>· <span class="inventory-note"><%= inventory_note(movement.note) %></span><% end %>
       </div>
     </li>
   <% end %>

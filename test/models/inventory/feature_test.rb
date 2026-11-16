@@ -29,7 +29,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
     with_settings(feature_inventory: "true", feature_stub_purchasing: "true") do
       assert_equal "Purchasing", inventory.nav_section
       items = GatherPack::Features.nav_sections.to_h["Purchasing"].map(&:label)
-      assert_equal [ "Stub", "Inventory" ] + manager_labels, items
+      assert_equal [ "Stub", "Inventory", "Machines" ] + manager_labels, items
       assert_not_includes section_names, "Inventory"
     end
 
@@ -57,7 +57,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
         assert_not menu.find { |item| item.label == "Reorder" }.visible?(world.member.user)
         assert menu.find { |item| item.label == "Reorder" }.visible?(world.keeper.user)
       else
-        assert_equal [ "Inventory" ], menu.map(&:label)
+        assert_equal %w[Inventory Machines], menu.map(&:label)
       end
     end
   ensure

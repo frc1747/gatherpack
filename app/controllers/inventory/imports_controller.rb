@@ -23,7 +23,7 @@ module Inventory
         alert = "Skipped #{helpers.pluralize(result.skipped.size, "row")}: #{result.skipped.to_sentence}" if result.skipped.any?
         redirect_to inventory_items_path, notice: notice, alert: alert, status: :see_other
       else
-        render :preview
+        render :preview, status: :unprocessable_entity
       end
     end
   end

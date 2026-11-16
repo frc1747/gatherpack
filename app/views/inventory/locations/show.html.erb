@@ -3,6 +3,7 @@
 <% inventory_stylesheet %>
 
 <div class="inventory-phone <%= "inventory-has-bar" if @countable %>">
+  <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
       <h1 class="h3 mb-1">
@@ -89,4 +90,3 @@
     </div>
   <% end %>
 </div>
-<%= render "inventory/shared/undo_toast" %>

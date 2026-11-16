@@ -22,6 +22,22 @@ class Inventory::MovementsControllerTest < ActionDispatch::IntegrationTest
       follow_redirect!
       assert_select ".inventory-toast", text: /Used 4 from Bin 1/
       assert_select ".inventory-toast button", text: "Undo"
+      # Before History, where the person sees it.
+      assert_operator response.body.index("inventory-toast"), :<, response.body.index("inventory-history")
+    end
+  end
+
+  test "an order request in a note shows as a short link that wraps" do
+    with_inventory(@world) do
+      path = "/orders/requests/ordr_abc123"
+      record(@world, :received, 5, note: "Order request: Gears for the arm (#{path})")
+      record(@world, :received, 1, note: "https://example.com/#{"a" * 120}")
+      sign_in @world.keeper.user
+      get inventory_item_path(@world.screws)
+      assert_select ".inventory-history a[href=?]", path, text: "Gears for the arm"
+      assert_select ".inventory-history .inventory-note", text: /\Ahttps:/, count: 0
+      assert_select ".inventory-history a[href^='https://example.com']", text: "Link"
+      assert_select ".inventory-history", text: /Order request: Gears.*\(\/orders/, count: 0
     end
   end
 

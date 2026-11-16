@@ -40,7 +40,8 @@ Rails.application.config.to_prepare do
       default_enabled: false,
       nav_position: 50,
       nav_items: [
-        GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked")
+        GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked"),
+        GatherPack::Feature::NavItem.new(label: "Machines", path: :inventory_machines_path, icon: "robot")
       ] + manager_items + setup_items
     )
   )

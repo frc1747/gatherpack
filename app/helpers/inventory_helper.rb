@@ -90,6 +90,28 @@ module InventoryHelper
     text
   end
 
+  ORDER_REQUEST_NOTE = %r{Order request: (?<title>.*?) \((?<path>/orders/requests/[^\s)]+)\)}
+  NOTE_LINK = %r{https?://\S+|/orders/requests/[^\s)]+}
+
+  # A change's note as text, with an order request or web address in it as a
+  # short link ("Order request: Title (/orders/requests/...)" becomes a link
+  # named by the title) rather than the address itself.
+  def inventory_note(note)
+    return "".html_safe if note.blank?
+
+    note = note.to_s
+    if (match = ORDER_REQUEST_NOTE.match(note))
+      return safe_join([ match.pre_match, link_to(match[:title].presence || "Order request", match[:path]), match.post_match ])
+    end
+
+    parts = note.split(/(#{NOTE_LINK})/o)
+    safe_join(parts.map do |part|
+      next part unless part.match?(/\A#{NOTE_LINK}\z/o)
+
+      link_to(part.start_with?("/orders/") ? "Order request" : "Link", part, target: ("_blank" unless part.start_with?("/")), rel: "noopener")
+    end)
+  end
+
   # Who did it, and who entered it when that was someone else.
   def inventory_change_who(movement)
     who = movement.person&.identifier_name || "Someone no longer here"
