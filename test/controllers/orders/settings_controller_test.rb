@@ -101,7 +101,10 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.art.name}'][checked]"
       assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.robotics.name}']:not([checked])"
       assert_select "select[name='settings[approvers][rows][0][badge]'] option[selected]", @world.approver_badge.name
-      assert_select "select[name='settings[approvers][rows][0][team]'] option[selected][value='#{@world.club.name}']"
+      assert_select "select[name='settings[approvers][rows][0][team]'] option[selected][value='#{@world.club.name}']",
+        "For #{@world.club.name} and the teams below it"
+      assert_select "select[name='settings[approvers][rows][1][team]'] option[value='']", "For every team"
+      assert_select "fieldset .form-text", /team picked and the teams below it\. No team: every team\./
       assert_select "input[name=large_amount][value='500']"
       assert_select "select[name='settings[large_approvers][rows][0][badge]'] option[selected]", @world.funder_badge.name
       assert_select "select[name='settings[large_approvers][rows][0][team]'] option[selected][value='#{@world.robotics.name}']"
@@ -124,6 +127,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_select "textarea[name='settings[approvers]']", text: grant(@world.approver_badge)
       assert_select "textarea[name='settings[buyers]']", text: grant(@world.buyer_badge)
       assert_select "input[name=large_amount][value='']"
+      assert_select ".form-text", /the badge works for that team and the teams below it\. Badge name alone: every team\./
     end
   end
 

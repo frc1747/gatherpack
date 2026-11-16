@@ -29,7 +29,7 @@ module Orders
 
     # The approval steps in order. Each is a JSON object with a stable key,
     # a name, a minimum request total in currency units (0 means always) and
-    # its approver grants, as "Badge name > Highest team name" strings.
+    # its approver grants, as "Badge name > Team name" strings (Orders::Reach).
     def approval_steps
       parsed = parse_json(Settings[:orders_approval_steps], DEFAULT_STEPS)
       steps = Array(parsed).filter_map do |entry|

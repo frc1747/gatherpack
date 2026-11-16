@@ -185,4 +185,23 @@ class OrderRequestPolicyTest < ActiveSupport::TestCase
       assert_not_includes visible(@world.builder), order_request
     end
   end
+
+  test "an approver in Mentors decides a request from a team under a sibling Students team" do
+    team_type = @world.club.team_type
+    program = Team.create!(name: "Program #{SecureRandom.hex(3)}", team_type: team_type)
+    mentors = Team.create!(name: "Mentors #{SecureRandom.hex(3)}", team_type: team_type, parent: program)
+    students = Team.create!(name: "Students #{SecureRandom.hex(3)}", team_type: team_type, parent: program)
+    drivetrain = Team.create!(name: "Drivetrain #{SecureRandom.hex(3)}", team_type: team_type, parent: students)
+    coach = orders_person("Coach", teams: [ mentors ], badges: [ @world.approver_badge ])
+    student = orders_person("Student", teams: [ drivetrain ])
+
+    with_orders(@world, orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0,
+      "approvers" => [ "#{@world.approver_badge.name} > #{program.name}" ] } ])) do
+      order_request = submitted_request(@world, by: student, team: drivetrain)
+
+      assert policy(coach, order_request).show?
+      assert_includes visible(coach), order_request
+      assert policy(coach, order_request).decide?
+    end
+  end
 end
