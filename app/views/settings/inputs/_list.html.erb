@@ -10,6 +10,6 @@
   <template data-setting-rows-target="template">
     <%= text_field_tag setting_input_name(input, "items", ""), "", id: nil, "aria-label": setting.name, class: "form-control mb-2", style: "min-height: 44px" %>
   </template>
-  <button type="button" class="btn btn-outline-primary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add another</button>
+  <button type="button" class="btn btn-secondary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add another</button>
   <div class="form-text">Clear a box to remove it.</div>
 </fieldset>
