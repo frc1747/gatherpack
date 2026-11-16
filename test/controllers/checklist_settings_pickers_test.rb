@@ -39,7 +39,8 @@ class ChecklistSettingsPickersTest < ActionDispatch::IntegrationTest
       assert_select "select[name='settings[checklists_organizers][rows][0][team]'] option[selected]", text: "Club"
       assert_select "input[type=radio][name='settings[checklists_archive_after][mode]'][value='days'][checked]"
       assert_select "input[name='settings[checklists_archive_after][days]'][value='30']"
-      assert_select "input[type=date][name='settings[checklists_prune_results_after]'][value='2026-03-01']"
+      assert_select "input[type=radio][name='settings[checklists_prune_results_after][mode]'][value='date'][checked]"
+      assert_select "input[type=date][name='settings[checklists_prune_results_after][date]'][value='2026-03-01']"
     end
   end
 
