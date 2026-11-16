@@ -45,7 +45,7 @@ class SignupsSettingsTest < ActionDispatch::IntegrationTest
 
   test "only admin-assigned badges are offered" do
     skip unless Settings.respond_to?(:input)
-    create_world_badge("Open Badge").update!(permission: :added_by_current_member)
+    create_world_badge("Open Badge").update!(permission: :has_account)
 
     get settings_path
 
