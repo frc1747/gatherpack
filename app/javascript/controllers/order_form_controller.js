@@ -47,7 +47,7 @@ export default class extends Controller {
     this.saving = fetch(this.element.action, {
       method: "POST",
       body,
-      headers: { Accept: "application/json" },
+      headers: { Accept: "application/json", ...this.csrfHeader() },
       credentials: "same-origin"
     })
       .then(async response => {
@@ -66,6 +66,15 @@ export default class extends Controller {
     return this.saving
   }
 
+  csrfToken() {
+    return document.querySelector("meta[name=csrf-token]")?.content
+  }
+
+  csrfHeader() {
+    const token = this.csrfToken()
+    return token ? { "X-CSRF-Token": token } : {}
+  }
+
   saved(data, files) {
     if (data.skipped) {
       this.setStatus("")
@@ -77,6 +86,11 @@ export default class extends Controller {
       const method = document.createElement("input")
       Object.assign(method, { type: "hidden", name: "_method", value: "patch" })
       this.element.prepend(method)
+      // The page's token was made for creating; use the session's token so
+      // later saves and Submit aren't refused as forgeries.
+      const token = this.csrfToken()
+      const field = this.element.querySelector("input[name=authenticity_token]")
+      if (token && field) field.value = token
       if (data.edit_url) history.replaceState(history.state, "", data.edit_url)
     }
     Object.entries(data.lines || {}).forEach(([key, id]) => {
