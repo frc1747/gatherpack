@@ -7,19 +7,20 @@ module MyGatherpackActivityHelper
     "#{number_with_precision(hours, precision: 1, strip_insignificant_zeros: true)} h"
   end
 
-  # "Outreach: 2 events · 6 h"
+  # "Outreach: 2 events · 6 h", for a KindRow or a DoneSection.
   def activity_uncounted_line(row)
     [ "#{row.name}: #{pluralize(row.events, "event")}", (activity_hours(row.hours) if row.hours) ].compact.join(" · ")
   end
 
-  # "2 events · 6 h"; meetings without meeting events held say only their hours.
-  def activity_kind_detail(row)
-    count = pluralize(row.events, row.meetings? ? "meeting" : "event") unless row.meetings? && row.events.zero?
-    [ count, activity_hours(row.hours) ].compact.join(" · ")
+  # "Meetings: 14 of 19 · 42.3 h"; "Meetings: 4 h" when no meeting was held on the person's teams.
+  def activity_meetings_line(activity)
+    held = activity.meetings_held.size
+    attended = "#{activity.meetings_attended} of #{held}" if held.positive?
+    "Meetings: #{[ attended, activity_hours(activity.meeting_hours) ].compact.join(" · ")}"
   end
 
   # "Counts toward ..." with the covering items the viewer may see that
-  # count the row; nil when it shows none (a row counted only by items
+  # count the row or line; nil when it shows none (one counted only by items
   # hidden from the viewer says nothing). A checklist that doesn't cover
   # the person is never named.
   def activity_counts_toward(activity, row)
@@ -44,17 +45,22 @@ module MyGatherpackActivityHelper
     activity_path(params.compact_blank)
   end
 
-  def activity_entry_path(entry)
-    case entry.record
-    when Event then event_path(entry.record)
-    when SignupSheet then signup_sheet_path(entry.record)
-    when FormResponse then form_response_path(entry.record.form, entry.record.subject)
+  def activity_line_path(line)
+    case line.record
+    when Event then event_path(line.record)
+    when SignupSheet then signup_sheet_path(line.record)
     end
   end
 
-  # "Mon Oct 5 · 2 h"
-  def activity_entry_when(entry)
-    [ entry.at.strftime("%a %b %-d"), (activity_hours(entry.hours) if entry.hours) ].compact.join(" · ")
+  # "Sat Oct 3 · Town Hall · 3 h · Checked in"
+  def activity_line_detail(line)
+    [ line.event.start_time.strftime("%a %b %-d"), line.event.location.presence, (activity_hours(line.hours) if line.hours),
+      (line.how == :signed_up ? "Signed up" : "Checked in") ].compact.join(" · ")
+  end
+
+  # The anchor of a kind's section on the page; Home's "Also this season" links to it.
+  def activity_section_anchor(key)
+    "kind-#{key}"
   end
 
   # The person's own upcoming sign-ups (Activity#upcoming_signups) as rows.

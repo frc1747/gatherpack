@@ -1,4 +1,4 @@
-/* The activity page: totals as tiles, kinds of event as full-width rows that filter History. */
+/* The activity page: what the person has done, a section per kind of event, beside their requirements. */
 .mg-activity-season {
   display: flex;
   gap: 0.5rem;
@@ -12,36 +12,32 @@
   min-width: 8.5rem;
 }
 
-.mg-activity-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.75rem;
+.mg-activity-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
-.mg-activity-tile {
-  margin: 0;
-  padding: 1rem 1.25rem;
-}
-
-.mg-activity-tile-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1.2;
+.mg-activity-jump .btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 .mg-activity-kind {
-  min-height: 44px;
-  color: inherit;
-  text-decoration: none;
+  margin-bottom: 1rem;
+  scroll-margin-top: 1rem;
 }
 
-.mg-activity-kind:hover,
-.mg-activity-kind-selected {
-  background-color: var(--bs-tertiary-bg);
+.mg-activity-kind-total {
+  margin: 0 0 0.25rem;
+  font-family: var(--bs-body-font-family);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .mg-activity-counts {
-  flex: 0 1 45%;
   color: var(--bs-secondary-color);
   font-size: 0.875rem;
 }

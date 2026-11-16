@@ -15,7 +15,6 @@ module MyGatherpack
       authorize @person, :show?, policy_class: ActivityPolicy
       @season = requested_season
       @activity = MyGatherpack::Activity.new(@person, season: @season, viewer: current_user.person, viewer_events: policy_scope(Event))
-      @kind = @activity.kind_row(params[:kind])&.key
     end
 
     private

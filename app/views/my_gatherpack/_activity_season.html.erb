@@ -6,7 +6,7 @@
       <h2 class="mg-heading">Also this season</h2>
       <div class="card mg-list mb-2">
         <% rows.each do |row| %>
-          <%= link_to activity_uncounted_line(row), activity_path(kind: row.key, anchor: "history"), class: "mg-row link-body-emphasis text-decoration-none", data: { activity_uncounted: row.key } %>
+          <%= link_to activity_uncounted_line(row), activity_path(anchor: activity_section_anchor(row.key)), class: "mg-row link-body-emphasis text-decoration-none", data: { activity_uncounted: row.key } %>
         <% end %>
       </div>
     <% end %>
