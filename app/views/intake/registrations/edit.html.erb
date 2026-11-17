@@ -1,0 +1,10 @@
+<div class="card">
+  <div class="card-header"><h1 class="mb-0">Edit <%= @registration.title %></h1></div>
+  <div class="card-body">
+    <%= simple_form_for @registration, url: intake_registration_path(@registration) do |f| %>
+      <%= render "form", f: f %>
+      <%= f.button :submit, "Save", class: "btn-primary" %>
+      <%= link_to "Cancel", intake_registration_path(@registration), class: "btn btn-outline-secondary" %>
+    <% end %>
+  </div>
+</div>
