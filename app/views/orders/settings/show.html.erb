@@ -1,0 +1,96 @@
+<% breadcrumb :orders_settings %>
+
+<%= form_with url: orders_settings_path, method: :patch do |f| %>
+  <div class="card">
+    <div class="card-header"><h1>Orders setup</h1></div>
+    <div class="card-body">
+      <% if @editor.errors.any? %>
+        <div class="alert alert-danger">
+          <ul class="mb-0"><% @editor.errors.each do |message| %><li><%= message %></li><% end %></ul>
+        </div>
+      <% end %>
+
+      <section class="mb-4">
+        <h2 class="h5">Who can ask</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :requesters %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who sees every request</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :viewers %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who approves</h2>
+        <% unless @editor.steps_fit? %>
+          <div class="alert alert-warning" id="current_steps">
+            <p>The approval steps saved now are:</p>
+            <ul>
+              <% @editor.steps.each do |step| %>
+                <li>
+                  <%= step.name %>:
+                  <%= step.minimum_cents.zero? ? "every request" : "requests of #{number_to_currency(step.minimum_cents / 100.0)} or more" %>,
+                  approved by team managers<%= step.approvers.any? ? ", #{step.approvers.to_sentence}" : "" %>.
+                </li>
+              <% end %>
+            </ul>
+            <p class="mb-0"><strong>Saving this page replaces these steps</strong> with the two below.</p>
+          </div>
+        <% end %>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :approvers %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5 d-flex flex-wrap align-items-center gap-2">
+          <%= label_tag :large_amount, "Over" %>
+          <span class="input-group" style="max-width: 10rem">
+            <span class="input-group-text">$</span>
+            <%= text_field_tag :large_amount, @editor.large_amount, class: "form-control", inputmode: "decimal", style: "min-height: 44px" %>
+          </span>
+          <span>, also needs</span>
+        </h2>
+        <div class="form-text mb-2">Leave the amount empty for no second approval.</div>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :large_approvers %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who buys</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :buyers %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who manages funding sources</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :funding_managers %>
+      </section>
+
+      <section class="mb-4" data-controller="setting-rows">
+        <h2 class="h5">Paid with</h2>
+        <div data-setting-rows-target="list">
+          <% @editor.paid_with.each_with_index do |choice, index| %>
+            <%= render "orders/settings/paid_with_row", index: index, choice: choice %>
+          <% end %>
+          <%= render "orders/settings/paid_with_row", index: @editor.paid_with.size, choice: nil %>
+        </div>
+        <template data-setting-rows-target="template">
+          <%= render "orders/settings/paid_with_row", index: "NEW_ROW", choice: nil %>
+        </template>
+        <button type="button" class="btn btn-secondary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add a way to pay</button>
+      </section>
+
+      <% Orders::SettingsEditor.sections.each do |heading, settings| %>
+        <section class="mb-4">
+          <h2 class="h5"><%= heading %></h2>
+          <% settings.each do |setting| %>
+            <%= render "orders/settings/value", setting: setting, value: @editor.values.fetch(setting.setting_key) %>
+          <% end %>
+        </section>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="pb-5 mb-4"></div>
+  <div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">
+    <%= link_to "Cancel", orders_requests_path, class: "btn btn-primary btn-lg" %>
+    <%= f.submit "Save", class: "btn btn-success btn-lg flex-grow-1" %>
+  </div>
+<% end %>

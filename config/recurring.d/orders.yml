@@ -1,0 +1,12 @@
+orders_buyer_digest:
+  class: Orders::BuyerDigestJob
+  queue: default
+  schedule: at 7am every day
+orders_reminders:
+  class: Orders::ReminderJob
+  queue: default
+  schedule: at 8am every day
+orders_auto_close:
+  class: Orders::AutoCloseJob
+  queue: default
+  schedule: at 3am every day

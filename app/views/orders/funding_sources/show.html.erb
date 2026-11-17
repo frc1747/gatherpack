@@ -1,0 +1,62 @@
+<% breadcrumb :orders_funding_source, @funding_source %>
+<% numbers = policy(@funding_source).numbers? %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h1><%= @funding_source.name %></h1>
+    <span>
+      <%= link_to "Report", report_orders_funding_source_path(@funding_source), class: "btn btn-secondary" if numbers %>
+      <%= link_to "Edit", edit_orders_funding_source_path(@funding_source), class: "btn btn-warning" if policy(@funding_source).update? %>
+      <%= button_to "Delete", orders_funding_source_path(@funding_source), method: :delete, class: "btn btn-danger", form: { class: "d-inline", data: { controller: "confirm-delete" } } if policy(@funding_source).destroy? %>
+    </span>
+  </div>
+  <div class="card-body">
+    <dl>
+      <dt>Team</dt>
+      <dd><%= @funding_source.team.name %> and the teams below it</dd>
+      <dt>Kind</dt>
+      <dd><%= @funding_source.kind.humanize %></dd>
+      <dt>In use</dt>
+      <dd><%= @funding_source.active? ? "Yes" : "No" %></dd>
+      <% if @funding_source.starts_on || @funding_source.ends_on %>
+        <dt>Can be spent</dt>
+        <dd><%= [ @funding_source.starts_on, @funding_source.ends_on ].map { |date| date ? l(date, format: :long) : "…" }.join(" to ") %></dd>
+      <% end %>
+      <% if @funding_source.restricted? %>
+        <dt>Restriction</dt>
+        <dd><%= simple_format(@funding_source.restriction) %></dd>
+      <% end %>
+      <% if numbers %>
+        <dt>Amount</dt>
+        <dd><%= @funding_source.amount ? @funding_source.amount.format : "No limit" %></dd>
+        <dt>Spent</dt>
+        <dd><%= @funding_source.spent.format %></dd>
+        <dt>Committed</dt>
+        <dd><%= @funding_source.committed.format %></dd>
+        <dt>Remaining</dt>
+        <dd><%= @funding_source.remaining ? @funding_source.remaining.format : "No limit set" %></dd>
+        <% if @funding_source.spent_outside_cents.positive? %>
+          <dt>Spent outside orders</dt>
+          <dd><%= @funding_source.spent_outside.format %><%= " as of #{l(@funding_source.spent_outside_as_of, format: :long)}" if @funding_source.spent_outside_as_of %></dd>
+        <% end %>
+      <% end %>
+      <% if policy(@funding_source).restricted_fields? && @funding_source.restricted? %>
+        <dt>Giver</dt>
+        <dd><%= @funding_source.giver.presence || "None" %></dd>
+        <dt>Reference</dt>
+        <dd><%= @funding_source.reference.presence || "None" %></dd>
+        <% if @funding_source.report_due_on %>
+          <dt>Report due</dt>
+          <dd><%= l(@funding_source.report_due_on, format: :long) %></dd>
+        <% end %>
+        <dt>Documents</dt>
+        <dd>
+          <% @funding_source.documents.each do |document| %>
+            <%= link_to document.filename.to_s, rails_blob_path(document, disposition: "attachment") %><br>
+          <% end %>
+          <%= "None" unless @funding_source.documents.attached? %>
+        </dd>
+      <% end %>
+    </dl>
+  </div>
+</div>

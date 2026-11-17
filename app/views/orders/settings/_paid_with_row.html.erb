@@ -1,0 +1,21 @@
+<%# One way a purchase can be paid. A row with no choice is blank, for adding one. %>
+<div class="row g-2 align-items-center mb-2 border-bottom pb-2">
+  <div class="col-12 col-sm">
+    <label class="visually-hidden" for="paid_with_<%= index %>_label">Paid with</label>
+    <%= text_field_tag "paid_with[#{index}][label]", choice&.dig("label"), id: "paid_with_#{index}_label", class: "form-control",
+                       style: "min-height: 44px", placeholder: ("For example: Team card" unless choice) %>
+  </div>
+  <div class="col-12 col-sm-auto">
+    <div class="form-check d-flex align-items-center gap-2 mb-0" style="min-height: 44px">
+      <%= hidden_field_tag "paid_with[#{index}][reimburse]", "0", id: nil %>
+      <%= check_box_tag "paid_with[#{index}][reimburse]", "1", choice&.dig("reimburse"), id: "paid_with_#{index}_reimburse", class: "form-check-input mt-0" %>
+      <%= label_tag "paid_with_#{index}_reimburse", "Needs paying back", class: "form-check-label" %>
+    </div>
+  </div>
+  <% if choice %>
+    <div class="col-12 col-sm-auto">
+      <%= check_box_tag "paid_with[#{index}][remove]", "1", false, id: "paid_with_#{index}_remove", class: "btn-check", autocomplete: "off" %>
+      <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center" style="min-height: 44px" for="paid_with_<%= index %>_remove">Remove</label>
+    </div>
+  <% end %>
+</div>
