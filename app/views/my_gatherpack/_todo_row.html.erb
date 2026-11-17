@@ -1,0 +1,17 @@
+<%# A to-do row with one button. Connector sections register this as their partial. %>
+<div class="mg-row">
+  <span class="mg-row-icon<%= " mg-row-icon-soon" if item.due_soon? %>"><%= i(item.icon || "circle-check") %></span>
+  <div class="mg-row-body">
+    <div class="mg-row-title">
+      <%= item.title %>
+      <% if item.ward %><span class="mg-row-ward">for <%= item.ward %></span><% end %>
+    </div>
+    <% if item.detail.present? %>
+      <div class="mg-row-detail<%= " mg-row-detail-late" if item.due_soon? %>"><%= item.detail %></div>
+    <% end %>
+  </div>
+  <%= link_to item.path, class: "btn mg-row-action #{first ? "btn-primary" : "btn-outline-secondary"}" do %>
+    <span class="mg-row-action-label"><%= item.action %></span>
+    <span class="mg-row-chevron" aria-hidden="true"><%= i "chevron-right" %></span>
+  <% end %>
+</div>
