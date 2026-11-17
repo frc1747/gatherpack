@@ -39,6 +39,27 @@ class Person < ApplicationRecord
     [ "user", "tokens" ]
   end
 
+  # People with a membership on any of the given teams. Pass Team.subtree_ids(ids)
+  # to include their descendants. managers: true limits to managers, false to
+  # non-managers, nil (default) to any membership.
+  def self.on_teams(ids, managers: nil)
+    memberships = Membership.where(team_id: ids)
+    memberships = memberships.where(manager: managers) unless managers.nil?
+    where(id: memberships.select(:person_id))
+  end
+
+  # People the viewer may see in the people list, as PersonPolicy::Scope does:
+  # everyone for an admin, otherwise the viewer plus the members of their teams,
+  # of those teams' ancestors and of everything below those. Looks the teams up
+  # in two recursive queries (one for ancestors, one for descendants) and
+  # returns a relation, so the cost does not grow with the number of teams.
+  def self.visible_to(viewer)
+    return all if viewer.admin?
+
+    team_ids = Team.subtree_ids(Team.ancestor_ids(viewer.memberships.pluck(:team_id)))
+    on_teams(team_ids).or(where(id: viewer.id))
+  end
+
   def admin?
     user&.admin
   end
