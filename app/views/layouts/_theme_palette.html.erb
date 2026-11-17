@@ -1,0 +1,7 @@
+<% css = theme_palette_css %>
+<% if css.present? %>
+  <%# Tracked, so a saved change reaches open tabs on their next Turbo visit. %>
+  <style id="theme-palette" data-turbo-track="reload">
+<%= css %>
+  </style>
+<% end %>
