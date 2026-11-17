@@ -60,7 +60,7 @@
           <dl>
             <% @time_clocks.each do |period, hours| %>
               <dt class="fs-4">
-                <%= period.name %>
+                <%= period&.name || "No period" %>
               </dt>
               <dd class="fs-3 ms-3">
                 <%= hours.round(2) %>
@@ -91,7 +91,7 @@
               <div class="col">
                 <dl>
                   <dt class="fs-4">
-                    <%= punch.time_clock_period.name %>
+                    <%= punch.time_clock_period&.name || "No period" %>
                   </dt>
                   <dd class="fs-3 ms-3">
                     <%= punch.hours_so_far.round(2) %>
