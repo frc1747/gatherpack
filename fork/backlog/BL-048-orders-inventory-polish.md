@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | high (1 is blocking) |
-| Status | started |
+| Status | shipped hbr.42 |
 | Added | 2026-11-15 |
 | Commit checked | `v0.0.0-hbr.41` |
 | Planned branch | `feature/orders`, `feature/inventory`, `feature/my-gatherpack-activity` |
