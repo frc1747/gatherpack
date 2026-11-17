@@ -1,0 +1,29 @@
+<% breadcrumb :checklist_list, @list %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @list.configuration["title"] %></h1>
+    <div class="text-body-secondary">Taken <%= l(@list.recorded_at, format: :long) %> by <%= @list.recorded_by&.display_name || "someone" %>. This list doesn't change.</div>
+    <% if @list.note.present? %><div><%= @list.note %></div><% end %>
+  </div>
+  <div class="card-body table-responsive">
+    <% items = Array(@list.configuration["items"]) %>
+    <table class="table table-sm">
+      <thead>
+        <tr><th>Name</th><th>Overall</th><% items.each do |item| %><th><%= item["label"] %></th><% end %></tr>
+      </thead>
+      <tbody>
+        <% @rows.each do |row| %>
+          <tr>
+            <td><%= row["name"] %></td>
+            <td><% if row["overall"] %><span class="badge <%= checklist_status_class(row["overall"]) %>"><%= row["overall_text"] %></span><% end %></td>
+            <% items.each do |item| %>
+              <% entry = row.dig("items", item["id"]) %>
+              <td><% if entry %><span class="badge <%= checklist_status_class(entry["status"]) %>"><%= entry["text"] %></span> <small><%= entry["summary"] %></small><% end %></td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>
