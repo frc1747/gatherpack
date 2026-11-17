@@ -1,0 +1,86 @@
+<%= render "people/show_shared" %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @person.identifier_name %>: Forms</h1>
+  </div>
+  <div class="card-body">
+    <% if @entries.empty? && @ward_entries.empty? %>
+      <p class="text-muted">No forms to show.</p>
+    <% end %>
+    <% if @ward_entries.any? %>
+      <h2 class="h5">For <%= @person.id == current_user.person.id ? "your" : "their" %> children</h2>
+      <div class="list-group mb-3">
+        <% @ward_entries.each do |entry| %>
+          <% response = entry.response %>
+          <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2" id="<%= dom_id entry.form %>_<%= dom_id entry.subject %>">
+            <span>
+              <%= link_to entry.form.title, form_entry_path(entry) %> for <strong><%= entry.subject.identifier_name %></strong>
+              <% if entry.needs_viewer_signature? %>
+                <span class="badge text-bg-primary">Needs your signature</span>
+              <% else %>
+                <%= form_status_badge(entry.access.in_audience? ? entry.status : "no_longer_asked") %>
+              <% end %>
+              <br>
+              <small class="text-muted">
+                <%= form_due(entry.form) %>
+                <% if entry.waiting_on_others? %>· Waiting for <%= response.open_submission.waiting_for.to_sentence %><% end %>
+              </small>
+            </span>
+            <span>
+              <% if entry.needs_viewer_signature? %>
+                <%= link_to "Sign", form_response_path(entry.form, entry.subject), class: "btn btn-sm btn-primary" %>
+              <% elsif entry.to_do? %>
+                <% label = response&.needs_reconfirmation? ? "Review" : (response&.open_submission ? "Continue" : "Fill in") %>
+                <%= link_to label, edit_form_response_path(entry.form, entry.subject), class: "btn btn-sm btn-primary" %>
+              <% end %>
+            </span>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+    <% unless @entries.empty? %>
+      <% { to_do: "To do", waiting: "Waiting on someone else", complete: "Complete", earlier: "Closed and earlier" }.each do |section, heading| %>
+        <% entries = @entries[section] %>
+        <% next if entries.empty? %>
+        <h2 class="h5 mt-3"><%= heading %></h2>
+        <div class="list-group mb-2">
+          <% entries.each do |entry| %>
+            <% response = entry.response %>
+            <% active = response&.active_submission %>
+            <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2" id="<%= dom_id entry.form %>">
+              <span>
+                <%= link_to entry.form.title, form_entry_path(entry) %>
+                <%= form_status_badge(entry.access.in_audience? ? entry.status : "no_longer_asked") %>
+                <% if response&.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
+                <br>
+                <small class="text-muted">
+                  <%= form_due(entry.form) %>
+                  <% if active %>
+                    · Version <%= active.number %>, submitted <%= nice_date(active.submitted_at) %><%= " by #{active.submitted_by.identifier_name}" if active.submitted_by %>
+                    <% if (signed = active.standing_signatures.map { |signature| signature.signer&.identifier_name }.compact).any? %>· Signed by <%= signed.to_sentence %><% end %>
+                  <% end %>
+                  <% if section == :waiting %>
+                    <% if response&.open_submission %>
+                      · Waiting for <%= response.open_submission.waiting_for.to_sentence %>
+                    <% else %>
+                      · For <%= form_left_for(entry) %> to fill in
+                    <% end %>
+                  <% end %>
+                </small>
+              </span>
+              <span>
+                <% if entry.needs_viewer_signature? %>
+                  <%= link_to "Sign", form_response_path(entry.form, @person), class: "btn btn-sm btn-primary" %>
+                <% elsif section == :to_do && entry.access.can_respond? %>
+                  <% label = response&.needs_reconfirmation? ? "Review" : (response&.open_submission ? "Continue" : "Fill in") %>
+                  <%= link_to label, edit_form_response_path(entry.form, @person), class: "btn btn-sm btn-primary" %>
+                <% end %>
+              </span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,16 @@
+<%# Shown by the Save button on pages that change what respondents read. %>
+<% if form.answered? %>
+  <div class="alert alert-warning py-2 mb-2" id="change_choice">
+    <p class="mb-1">
+      <%= i "triangle-exclamation" %> People have already answered this form. If you change what they read or sign, what about their responses?
+    </p>
+    <div class="form-check form-check-inline">
+      <%= radio_button_tag :reconfirm, "0", true, class: "form-check-input" %>
+      <%= label_tag :reconfirm_0, "Keep them complete (for small fixes, such as typos)", class: "form-check-label" %>
+    </div>
+    <div class="form-check form-check-inline">
+      <%= radio_button_tag :reconfirm, "1", false, class: "form-check-input" %>
+      <%= label_tag :reconfirm_1, "Ask them to review and sign again#{" (they lose the #{form.completion_badge.name} badge until they do)" if form.completion_badge}", class: "form-check-label" %>
+    </div>
+  </div>
+<% end %>
