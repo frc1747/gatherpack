@@ -8,7 +8,7 @@
 # the rest is the buyer's business and stays in the audit log.
 module Orders
   class UpdatePurchase
-    FIELDS = %w[vendor_order_number ordered_on expected_on tracking_url shipping_cents tax_cents paid_with note].freeze
+    FIELDS = %w[vendor_order_number ordered_on expected_on tracking_url shipping_cents tax_cents payment_method_id note].freeze
     TIMELINE_FIELDS = %w[ordered_on expected_on].freeze
 
     attr_reader :purchase, :attributes, :by, :receipts

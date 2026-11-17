@@ -2,12 +2,6 @@
 # team managers, approvers, buyers and funding managers. Orders::Reports
 # limits what each sees to the teams they reach.
 class OrderReportPolicy < ApplicationPolicy
-  class Scope < ApplicationPolicy::Scope
-    def resolve
-      scope
-    end
-  end
-
   def index?
     return false if person.nil?
 

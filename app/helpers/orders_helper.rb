@@ -25,6 +25,9 @@ module OrdersHelper
     "needs_reapproval" => "Needs re-approval"
   }.freeze
 
+  # Request statuses in which a pending item isn't waiting for approval.
+  UNDECIDED_LINE_REQUEST_STATUSES = %w[changes_requested declined cancelled].freeze
+
   # The request's status as lists show it: "Ordered: 2 of 3 here", plus
   # "1 needs re-approval" when a buyer's change is waiting.
   def order_request_status_text(order_request)
@@ -38,7 +41,12 @@ module OrdersHelper
     text
   end
 
+  # Items nobody decided on take the request's outcome: once a request is
+  # declined, an item isn't waiting for approval any more.
   def order_line_status_text(line)
+    request_status = line.order_request.status
+    return REQUEST_STATUS_WORDS.fetch(request_status) if line.pending? && request_status.in?(UNDECIDED_LINE_REQUEST_STATUSES)
+
     LINE_STATUS_WORDS.fetch(line.status, line.status.humanize)
   end
 

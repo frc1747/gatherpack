@@ -1,28 +1,29 @@
 require "test_helper"
-require "support/settings_test_helper"
+require "support/orders_world"
 
 class Orders::ConfigTest < ActiveSupport::TestCase
-  include SettingsTestHelper
+  include OrdersWorld
 
-  test "the default is one step for everyone" do
-    with_settings(orders_approval_steps: "") do
-      steps = Orders::Config.approval_steps
+  test "with no steps, one step for everyone stands in" do
+    steps = Orders::Config.approval_steps
 
-      assert_equal [ "approval" ], steps.map(&:key)
-      assert_equal 0, steps.first.minimum_cents
-    end
+    assert_equal [ "approval" ], steps.map(&:key)
+    assert_equal 0, steps.first.minimum_cents
+    assert_equal "Approval", Orders::Config.step("approval").name
   end
 
-  test "steps parse with minimums in cents, and bad JSON falls back to the default" do
-    json = JSON.generate([ { "key" => "mentor", "name" => "Mentor", "minimum" => 0 },
-      { "key" => "treasurer", "name" => "Treasurer", "minimum" => 500.5, "approvers" => [ "Badge > Team" ] } ])
-    with_settings(orders_approval_steps: json) do
-      assert_equal [ 0, 50050 ], Orders::Config.approval_steps.map(&:minimum_cents)
-      assert_equal [ "Badge > Team" ], Orders::Config.step("treasurer").approvers
-    end
-    with_settings(orders_approval_steps: "{not json") do
-      assert_equal [ "approval" ], Orders::Config.approval_steps.map(&:key)
-    end
+  test "steps are the active rows in position order, with minimums in cents" do
+    badge = Badge.create!(name: "Treasurer badge", short: "TB", color: "#000000", badge_type: BadgeType.first || BadgeType.create!(name: "Role"),
+      permission: :added_by_admin)
+    ApprovalStep.create!(key: "old", name: "Old step", minimum_cents: 0, position: 1, active: false)
+    ApprovalStep.create!(key: "mentor", name: "Mentor", minimum_cents: 0, position: 3)
+    treasurer = ApprovalStep.create!(key: "treasurer", name: "Treasurer", minimum: "500.50", position: 4)
+    treasurer.approvers.create!(badge: badge)
+
+    assert_equal %w[mentor treasurer], Orders::Config.approval_steps.map(&:key)
+    assert_equal [ 0, 50050 ], Orders::Config.approval_steps.map(&:minimum_cents)
+    assert_equal [ [ badge, nil ] ], Orders::Config.step("treasurer").reach.grants
+    assert_equal "Old step", Orders::Config.step("old").name
   end
 
   test "price tolerance takes the larger of the percentage and the amount" do
@@ -37,11 +38,8 @@ class Orders::ConfigTest < ActiveSupport::TestCase
     end
   end
 
-  test "paid with choices say which need reimbursing" do
-    with_settings(orders_paid_with: "") do
-      choices = Orders::Config.paid_with
-
-      assert_equal [ false, true ], choices.map(&:reimburse)
-    end
+  test "approval steps and paid with are no longer settings" do
+    assert_nil Settings.get(:orders_approval_steps)
+    assert_nil Settings.get(:orders_paid_with)
   end
 end

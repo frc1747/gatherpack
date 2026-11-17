@@ -24,13 +24,13 @@
                 </small>
               </span>
               <% if can_receive %>
-                <%= link_to "Receive", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-outline-primary btn-lg" %>
+                <%= link_to "Receive", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-primary btn-lg" %>
               <% end %>
             </div>
             <% if policy(line).mark_received? %>
               <%= form_with url: mark_received_orders_request_line_path(order_request, line), class: "d-flex gap-2 mt-2" do %>
                 <%= text_field_tag :note, nil, placeholder: "Went straight to… (needed)", required: true, class: "form-control form-control-lg", "aria-label": "Where it went" %>
-                <%= submit_tag "Already got it", class: "btn btn-outline-secondary btn-lg text-nowrap" %>
+                <%= submit_tag "Already got it", class: "btn btn-secondary btn-lg text-nowrap" %>
               <% end %>
             <% end %>
           </div>
@@ -43,11 +43,11 @@
         <strong><%= line.display_name %>: <%= order_line_status_text(line) %></strong>
         <% last = line.order_deliveries.reject(&:good?).last %>
         <% if last %>
-          <div><%= last.quantity %> came <%= last.condition.humanize.downcase %><%= ": #{last.note}" if last.note.present? %></div>
+          <div><%= last.quantity %> came <%= last.condition_name.downcase %><%= ": #{last.note}" if last.note.present? %></div>
         <% end %>
         <% if can_receive && line.to_come_quantity.positive? %>
           <div class="mt-2">
-            <%= link_to "Receive the rest (#{line.to_come_quantity} to come)", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-outline-primary btn-lg" %>
+            <%= link_to "Receive the rest (#{line.to_come_quantity} to come)", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-primary btn-lg" %>
           </div>
         <% end %>
         <% if policy(line).buy? %>
@@ -57,7 +57,7 @@
                   class: "form-control form-control-lg mb-2" %>
             <%= text_field_tag :comment, nil, placeholder: "Note (needed to cancel)", class: "form-control form-control-lg mb-2", "aria-label": "Note" %>
             <%= button_tag "Order a replacement", name: "resolution", value: "reorder", class: "btn btn-primary btn-lg" %>
-            <%= button_tag "Cancel it", name: "resolution", value: "cancel", class: "btn btn-outline-danger btn-lg" %>
+            <%= button_tag "Cancel it", name: "resolution", value: "cancel", class: "btn btn-danger btn-lg" %>
           <% end %>
         <% end %>
       </div>
@@ -69,7 +69,7 @@
           <% line.order_deliveries.each do |delivery| %>
             <li>
               <%= delivery.quantity %> × <%= line.display_name %> on <%= l delivery.received_on, format: :short %>,
-              <%= delivery.condition.humanize.downcase %>, by <%= delivery.received_by.identifier_name %><%= ": #{delivery.note}" if delivery.note.present? %>
+              <%= delivery.condition_name.downcase %>, by <%= delivery.received_by.identifier_name %><%= ": #{delivery.note}" if delivery.note.present? %>
             </li>
           <% end %>
         <% end %>

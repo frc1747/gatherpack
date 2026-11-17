@@ -10,7 +10,7 @@ class OrdersPurchasesTest < ApplicationSystemTestCase
     Capybara.app_host = "http://localhost"
     Capybara.always_include_port = true
     @world = build_orders_world
-    @restore = SettingsTestHelper.apply(orders_settings(@world, orders_price_tolerance: "10%, 25"))
+    @restore = apply_orders_settings(orders_settings(@world, orders_price_tolerance: "10%, 25"))
     Orders::Current.reset
   end
 
