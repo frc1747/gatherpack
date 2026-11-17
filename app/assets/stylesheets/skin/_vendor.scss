@@ -1,0 +1,68 @@
+// FullCalendar, the combobox, Trix and CodeMirror.
+
+.fc .fc-button {
+  border-radius: 7px;
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  color: var(--gp-accent);
+}
+
+.fc-list-day-cushion {
+  background-color: var(--gp-subtle);
+}
+
+.fc .fc-list-event td, .fc-list-table td {
+  background-color: var(--gp-surface);
+  color: var(--gp-text);
+}
+
+.fc-popover-header {
+  background-color: var(--gp-subtle);
+  border-bottom-color: var(--gp-border);
+  color: var(--gp-text);
+}
+
+.hw-combobox__input {
+  background-color: transparent;
+  color: inherit;
+}
+
+.hw-combobox__listbox {
+  color: var(--gp-text);
+}
+
+.hw-combobox__dialog {
+  background-color: var(--gp-surface);
+  color: var(--gp-text);
+}
+
+.hw-combobox__dialog__input {
+  background-color: var(--gp-surface);
+  color: var(--gp-text);
+}
+
+trix-editor {
+  border-color: var(--gp-input-border);
+  border-radius: var(--gp-radius-sm);
+}
+
+trix-toolbar .trix-button-group {
+  border-color: var(--gp-input-border);
+}
+
+trix-toolbar .trix-button {
+  border-color: var(--gp-input-border);
+  filter: invert(var(--gp-icon-invert));
+}
+
+.cm-editor .cm-content {
+  color: var(--gp-text);
+}
+
+.cm-editor .cm-gutters {
+  border-color: var(--gp-border);
+  color: var(--gp-muted);
+}
