@@ -1,5 +1,5 @@
 crumb :inventory do
-  link "Inventory", inventory_root_path
+  link "Inventory", inventory_stock_path
 end
 
 crumb :inventory_items do
