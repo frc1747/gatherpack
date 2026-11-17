@@ -1,0 +1,64 @@
+.signin-page {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.signin-column {
+  max-width: 400px;
+  width: 100%;
+
+  // The other Devise pages bring their own row, column and old heading.
+  .logoline {
+    display: none;
+  }
+
+  .row {
+    --bs-gutter-x: 0;
+    height: auto;
+  }
+
+  .col-md-6 {
+    width: 100%;
+  }
+
+  .card {
+    box-shadow: var(--gp-shadow-raised);
+  }
+
+  .card-header {
+    border-bottom: 0;
+    padding-bottom: 0;
+
+    h2 {
+      font-size: 1.35rem;
+    }
+  }
+}
+
+.signin-brand {
+  align-items: center;
+  display: flex;
+  font-size: 1.25rem;
+  font-weight: 600;
+  gap: .6rem;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.signin-logo {
+  background-color: var(--gp-logo-tile);
+  border-radius: var(--gp-radius-sm);
+  height: 2.25rem;
+  object-fit: contain;
+  padding: 2px;
+  width: 2.25rem;
+}
+
+.signin-column .footer-ad {
+  margin-top: 1.25rem;
+  text-align: center;
+}

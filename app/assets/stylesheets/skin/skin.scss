@@ -1,0 +1,13 @@
+// The modern skin. Compiled on its own and linked after the application
+// stylesheet only while the skin is active, so turning it off is a full
+// rollback. Imports no Bootstrap source.
+//
+// Colors live in _tokens.scss; every other rule reads a token, so the same
+// rules serve light and dark.
+@import "tokens";
+@import "base";
+@import "chrome";
+@import "components";
+@import "forms";
+@import "vendor";
+@import "signin";
