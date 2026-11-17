@@ -1,0 +1,22 @@
+<%# Giving or taking credit on a count item (CountItemCommitmentPages). %>
+<% breadcrumb :checklist_count_part, count_item, "Give or take credit" %>
+
+<%= simple_form_for([ @commitment, @adjustment ]) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Give or take credit on <%= count_item.label %></h1>
+  </div>
+  <div class="card-body">
+    <%= f.error_notification %>
+    <%= f.input :person_id, as: :select, label: "Person", collection: @people, label_method: :display_name, value_method: :id,
+          prompt: "Pick someone…", error: f.object.errors[:person].first,
+          hint: "You can't give credit to yourself or your relatives; another organizer has to." %>
+    <%= f.input :credits, label: @commitment.unit.capitalize, hint: "Use a negative number to take credit away." %>
+    <%= f.input :reason, input_html: { rows: 2 } %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", edit_checklist_checklist_item_path(count_item.checklist, count_item, anchor: "adjustments"), class: "btn btn-warning" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
