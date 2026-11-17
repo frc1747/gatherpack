@@ -275,6 +275,8 @@ Migrations are new and reversible. Upstream files touched (estimate): `db/schema
 
 ### 3.15 Tracked parts and machines
 
+**Machines are the group's word, not ours (hbr.46).** Inventory setup names them (singular and plural; blank = Machine/Machines) and can turn them off (`inventory_machines`, `inventory_machine_name`, `inventory_machine_name_plural`). Every screen, message and MCP tool says the word through `Inventory.machine_word`. Off: no menu item or Machines page, no machine kind for new places; a place already made a machine keeps `kind: machine`, shows as an ordinary place listing its parts, and its edit form offers only Storage; Install only puts a part inside another part; Take off stays so parts can come back to storage. Turning them on again restores everything.
+
 Some parts aren't used up. A motor goes onto a robot, comes off for a rebuild, waits in a bin, and goes onto the practice robot. People want to know which one is where, what shape it's in, and what's on each robot. Counting them as stock loses all of that, so these items are **tracked**: each piece is a **unit**.
 
 **Tracked items.** An item has `tracked` (default off; an inventory manager turns it on, and it can't be turned off while the item has units). A tracked item has no stock movements of its own. Its stock is worked out from its units:
