@@ -6,6 +6,9 @@
   </div>
 <% end %>
 
+<% if ThemePalette.active?(controller) %>
+  <%= render "theme/palette_form", theme: @theme %>
+<% else %>
 <%= simple_form_for @theme, url: theme_path, method: :patch, html: { multipart: true } do |f| %>
   <%= f.error_notification %>
 
@@ -106,6 +109,7 @@
       <%= link_to "Cancel", theme_path, class: "btn btn-lg btn-primary" %>
     </div>
   </div>
+<% end %>
 <% end %>
 
 <div class="modal fade" id="css-vars-modal" tabindex="-1" aria-labelledby="css-vars-modal-label" aria-hidden="true">

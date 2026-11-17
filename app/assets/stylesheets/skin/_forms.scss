@@ -18,6 +18,11 @@ input.form-control[type=color] {
   padding: .25rem;
 }
 
+// .input-group shrinks its controls to fit; a swatch needs its own width.
+.input-group > input.form-control[type=color] {
+  flex: 0 0 3.5rem;
+}
+
 .form-control, .form-select {
   &:focus {
     box-shadow: 0 0 0 3px rgba(var(--gp-brand-rgb), .18);
