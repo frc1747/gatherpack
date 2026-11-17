@@ -32,7 +32,7 @@ class ThemeController < InternalController
   def theme_params
     params.require(:theme).permit(
       :css_variables, :custom_css, :pwa_theme_color, :pwa_background_color,
-      :logo, :pwa_icon
+      :logo, :pwa_icon, *ThemePalette.permitted_fields(self)
     )
   end
 end
