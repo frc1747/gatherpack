@@ -1,0 +1,16 @@
+<% breadcrumb :form, @form %>
+
+<%= simple_form_for(@form) do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>New Form</h1>
+    </div>
+    <div class="card-body">
+      <%= render "form", f: f %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", forms_path, class: "btn btn-warning" %>
+      <%= f.button :submit, "Create form and add questions", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
