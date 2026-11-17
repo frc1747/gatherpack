@@ -1,6 +1,10 @@
 module GatherPack
   class Feature
-    NavItem = Struct.new(:label, :path, :icon, keyword_init: true)
+    NavItem = Struct.new(:label, :path, :icon, :visible, keyword_init: true) do
+      def visible?(user)
+        visible.nil? || visible.call(user)
+      end
+    end
     SetupItem = Struct.new(:label, :path, :policy_check, keyword_init: true)
     ProfileTab = Struct.new(:label, :path, :visible, keyword_init: true) do
       def visible?(user, person)
