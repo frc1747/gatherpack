@@ -48,4 +48,10 @@ html.kiosk-layout {
   #kiosk-content {
     @extend .full-height;
   }
+
+  // The app gives main the full window height, but here it sits below the
+  // header, so the page would always scroll by the header's height.
+  main {
+    min-height: 0;
+  }
 }
