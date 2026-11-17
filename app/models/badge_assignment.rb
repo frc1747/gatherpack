@@ -8,6 +8,18 @@ class BadgeAssignment < ApplicationRecord
   validates :person, uniqueness: { scope: :badge, message: "already has this badge" }
   validate :team_membership
 
+  # Removes the team badges among assignments whose holders are no longer
+  # in the badge's team (the rule team_membership checks on save), so the
+  # badge stops granting anything. Membership, team and badge changes call
+  # this for the assignments they may affect. A badge whose team was deleted
+  # has no members left, so its assignments go too.
+  def self.remove_outside_team(assignments = all)
+    assignments.joins(:badge).where.not(badges: { team_id: nil }).includes(:badge, :person).group_by(&:person).flat_map do |person, held|
+      team_ids = person.all_teams.where(id: held.map { |assignment| assignment.badge.team_id }).ids
+      held.reject { |assignment| team_ids.include?(assignment.badge.team_id) }.each(&:destroy!)
+    end
+  end
+
   def identifier_name
     "#{person.display_name} => #{badge.name}"
   end

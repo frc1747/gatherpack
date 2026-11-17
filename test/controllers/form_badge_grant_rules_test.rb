@@ -29,7 +29,8 @@ class FormBadgeGrantRulesTest < ActionDispatch::IntegrationTest
     delete team_path(@den_a)
     sign_out :user
     assert_not Team.exists?(@den_a.id)
-    assert BadgeAssignment.exists?(badge: @assistant_badge, person: person(:assistant)), "the badge and its assignment stay"
+    assert Badge.exists?(@assistant_badge.id), "the badge stays"
+    assert_not BadgeAssignment.exists?(badge: @assistant_badge, person: person(:assistant)), "its team is gone, so its holders lose it"
   end
 
   test "a badge that grants form access can't be made self-assignable while the grant stands" do
