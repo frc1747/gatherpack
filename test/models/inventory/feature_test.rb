@@ -20,21 +20,14 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
     GatherPack::Features.nav_sections.map(&:first)
   end
 
-  test "Inventory alone, Purchasing beside another enabled feature with Purchasing items, Inventory again when it's off" do
-    with_settings(feature_inventory: "true", feature_stub_purchasing: "false") do
-      assert_equal "Inventory", inventory.nav_section
-      assert_includes section_names, "Inventory"
-    end
-
-    with_settings(feature_inventory: "true", feature_stub_purchasing: "true") do
-      assert_equal "Purchasing", inventory.nav_section
-      items = GatherPack::Features.nav_sections.to_h["Purchasing"].map(&:label)
-      assert_equal [ "Stub", "Inventory", "Machines" ] + manager_labels, items
-      assert_not_includes section_names, "Inventory"
-    end
-
-    with_settings(feature_inventory: "true", feature_stub_purchasing: "false") do
-      assert_equal "Inventory", inventory.nav_section
+  test "the section is Inventory with another feature in Purchasing on or off" do
+    [ "true", "false" ].each do |stub_on|
+      with_settings(feature_inventory: "true", feature_stub_purchasing: stub_on) do
+        assert_equal "Inventory", inventory.nav_section
+        sections = GatherPack::Features.nav_sections.to_h
+        assert_equal [ "Stock", "Machines" ] + manager_labels, sections["Inventory"].map(&:label)
+        assert_equal [ "Stub" ], sections["Purchasing"].map(&:label) if stub_on == "true"
+      end
     end
   end
 
@@ -57,7 +50,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
         assert_not menu.find { |item| item.label == "Reorder" }.visible?(world.member.user)
         assert menu.find { |item| item.label == "Reorder" }.visible?(world.keeper.user)
       else
-        assert_equal %w[Inventory Machines], menu.map(&:label)
+        assert_equal %w[Stock Machines], menu.map(&:label)
       end
     end
   ensure

@@ -3,10 +3,6 @@
 # features.rb) so the registrations are replayed after each development
 # reload.
 Rails.application.config.to_prepare do
-  # A shared section for anything that buys or keeps things; registering it
-  # again from another feature is harmless. Inventory::Feature uses it when
-  # another enabled feature has entries there, and its own section otherwise.
-  GatherPack::Features.register_section("Purchasing", position: 35)
   GatherPack::Features.register_section("Inventory", position: 35)
 
   # Reorder, Items, Places and Changes are for inventory managers. They go
@@ -34,11 +30,11 @@ Rails.application.config.to_prepare do
       default_enabled: false,
       nav_position: 50,
       nav_items: [
-        GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked"),
+        GatherPack::Feature::NavItem.new(label: "Stock", path: :inventory_stock_path, icon: "boxes-stacked"),
         # Named and shown as Inventory setup says (Inventory::Feature#nav_items).
         GatherPack::Feature::NavItem.new(label: "Machines", path: :inventory_machines_path, icon: Inventory::MACHINE_ICON)
       ] + manager_items,
-      setup_section: "Purchasing",
+      setup_section: "Inventory",
       setup_items: [ setup_item ]
     )
   )

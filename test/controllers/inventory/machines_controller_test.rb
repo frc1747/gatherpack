@@ -21,6 +21,20 @@ class Inventory::MachinesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "on the Machines page only Machines is highlighted, and /inventory still shows the stock page" do
+    as(@world.keeper) do
+      get inventory_machines_path
+      assert_select ".sidebar a.active", count: 1
+      assert_select ".sidebar a.active[href=?]", inventory_machines_path
+      get inventory_stock_path
+      assert_select ".sidebar a.active[href=?]", inventory_stock_path, count: 1
+      assert_select ".sidebar a.active", count: 1
+      get inventory_root_path
+      assert_response :success
+      assert_select "form[role=search]"
+    end
+  end
+
   test "turns requests away while the feature is off" do
     with_settings(feature_inventory: "false") do
       sign_in @world.member.user

@@ -96,6 +96,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.admin.user
       get setup_path
       assert_select "a.btn[href=?]", inventory_setup_path, text: "Inventory"
+      assert_select "h6, h5, h4, h3, h2", text: "Inventory"
       get inventory_root_path
       assert_select ".nav-item a[href=?]", inventory_setup_path, count: 0
       sign_out @world.admin.user

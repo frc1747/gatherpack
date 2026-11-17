@@ -1,11 +1,11 @@
 <% breadcrumb :inventory %>
-<% content_for :title, "Inventory" %>
+<% content_for :title, "Stock" %>
 <% inventory_stylesheet %>
 
 <div class="inventory-phone">
   <%= render "inventory/shared/undo_toast" %>
-  <%= form_with url: inventory_root_path, method: :get, data: { controller: "inventory-search", turbo_frame: "inventory_results", turbo_action: "replace" }, role: "search" do |f| %>
-    <label for="q" class="form-label h1">Inventory</label>
+  <%= form_with url: inventory_stock_path, method: :get, data: { controller: "inventory-search", turbo_frame: "inventory_results", turbo_action: "replace" }, role: "search" do |f| %>
+    <label for="q" class="form-label h1">Stock</label>
     <div class="input-group input-group-lg">
       <%= f.search_field :q, value: @query, id: "q", class: "form-control inventory-search", placeholder: "Name, part number or category",
         autocomplete: "off", autofocus: true, data: { inventory_search_target: "input", action: "input->inventory-search#search" } %>
