@@ -194,7 +194,7 @@ module OrderRequestsHelper
     when "funding_source_id" then order_timeline_name(FundingSource, value)
     when "needed_by", "expected_on" then l(Date.parse(value.to_s), format: :long)
     when "lines" then Array(value).to_sentence
-    when "condition" then value.to_s.humanize
+    when "condition" then order_timeline_condition(value)
     when "item_id" then "linked"
     else value.to_s
     end
@@ -203,6 +203,19 @@ module OrderRequestsHelper
   end
 
   private
+
+  # How a delivery came: "Good", or the problem kind's current name. Kinds
+  # are logged by key when they have one ("damaged"), else by id.
+  def order_timeline_condition(value)
+    value = value.to_s
+    return "Good" if value == "good"
+
+    @order_timeline_names ||= {}
+    @order_timeline_names[[ DeliveryProblemKind, value ]] ||=
+      DeliveryProblemKind.find_by(key: value)&.name ||
+      (DeliveryProblemKind.find_by(id: value)&.name if value.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)) ||
+      value.humanize
+  end
 
   def order_timeline_name(klass, id)
     @order_timeline_names ||= {}

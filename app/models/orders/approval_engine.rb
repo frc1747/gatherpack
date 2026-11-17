@@ -1,5 +1,5 @@
-# Approval of an order request (spec §3.3). The steps come from the
-# orders_approval_steps setting, keyed by a stable step_key; a request needs
+# Approval of an order request (spec §3.3). The steps are ApprovalStep
+# rows, matched by their stable key (step_key); a request needs
 # every step whose minimum its total meets, in order, and at least the
 # first. Approvals a material change voids keep their row with cleared_at
 # set, so the timeline still shows them.

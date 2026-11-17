@@ -24,7 +24,7 @@ class Orders::LedgerControllerTest < ActionDispatch::IntegrationTest
       assert_select "#ledger_choice select[name=ledger_id] option", "Robotics account"
 
       post orders_purchases_url, params: { line_ids: [ line.id ], record_in_ledger: "1", ledger_id: @ledger.id,
-        purchase: { ordered_on: Date.current.iso8601, paid_with: "Team card", shipping: "2.00" } }
+        purchase: { ordered_on: Date.current.iso8601, payment_method_id: payment_method("Team card").id, shipping: "2.00" } }
 
       purchase = Purchase.order(:created_at).last
       assert_redirected_to orders_purchase_url(purchase)
@@ -44,7 +44,7 @@ class Orders::LedgerControllerTest < ActionDispatch::IntegrationTest
 
       receipt = Rack::Test::UploadedFile.new(StringIO.new("%PDF-1.4 receipt"), "application/pdf", original_filename: "receipt.pdf")
       post orders_purchases_url, params: { line_ids: [ line.id ], record_in_ledger: "1", ledger_id: @ledger.id,
-        purchase: { ordered_on: Date.current.iso8601, paid_with: "Team card", receipts: [ receipt ] } }
+        purchase: { ordered_on: Date.current.iso8601, payment_method_id: payment_method("Team card").id, receipts: [ receipt ] } }
 
       purchase = Purchase.order(:created_at).last
       assert_redirected_to orders_purchase_url(purchase)
@@ -81,7 +81,7 @@ class Orders::LedgerControllerTest < ActionDispatch::IntegrationTest
       assert_select "#ledger_choice", false
 
       post orders_purchases_url, params: { line_ids: [ line.id ], record_in_ledger: "1", ledger_id: @ledger.id,
-        purchase: { ordered_on: Date.current.iso8601, paid_with: "Team card" } }
+        purchase: { ordered_on: Date.current.iso8601, payment_method_id: payment_method("Team card").id } }
 
       assert_equal "You can't add entries to Robotics account.", flash[:alert]
       assert_nil line.reload.purchase_id
@@ -161,7 +161,7 @@ class Orders::LedgerControllerTest < ActionDispatch::IntegrationTest
       assert_nil purchase.reload.ledger_entry_id
 
       post orders_purchases_url, params: { line_ids: [ line.id ], record_in_ledger: "1", ledger_id: @ledger.id,
-        purchase: { ordered_on: Date.current.iso8601, paid_with: "Team card" } }
+        purchase: { ordered_on: Date.current.iso8601, payment_method_id: payment_method("Team card").id } }
       assert line.reload.ordered?
       assert_equal 0, @ledger.ledger_entries.count
     end

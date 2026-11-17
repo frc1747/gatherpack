@@ -1,0 +1,16 @@
+<% breadcrumb :orders_approval_step, @step %>
+
+<%= simple_form_for(@step, url: orders_approval_step_path(@step), method: :patch) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Editing <%= @step.name_was %></h1>
+  </div>
+  <div class="card-body">
+    <%= render "orders/approval_steps/form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", orders_approval_steps_path, class: "btn btn-warning" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>

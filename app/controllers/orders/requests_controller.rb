@@ -127,7 +127,7 @@ module Orders
     def set_order_request
       @order_request = policy_scope(OrderRequest)
         .includes(:team, :requested_by, :order_approvals, :funding_source, order_request_watchers: :person,
-          order_lines: [ :vendor, :purchase, :item, { photo_attachment: :blob } ])
+          order_lines: [ :vendor, :purchase, :item, { photo_attachment: :blob, order_deliveries: :delivery_problem_kind } ])
         .find(params[:id])
       authorize @order_request, POLICY_FOR.fetch(action_name, :"#{action_name}?")
     end

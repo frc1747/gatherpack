@@ -33,8 +33,8 @@ class FundingSourcePolicyTest < ActiveSupport::TestCase
       curator_badge = Badge.create!(name: "Curator #{SecureRandom.hex(3)}", short: "CU", color: "#000000",
         badge_type: @world.approver_badge.badge_type, permission: :added_by_admin)
       art_approver = orders_person("Curator", teams: [ @world.art ], badges: [ curator_badge ])
-      with_settings(orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0,
-        "approvers" => [ "#{curator_badge.name} > #{@world.art.name}" ] } ])) do
+      with_settings(approval_steps: [ { key: "approval", name: "Approval", minimum: 0,
+        approvers: [ [ curator_badge, @world.art ] ] } ]) do
         assert_not policy(@world.mentor, art_grant).restricted_fields?
         assert_not policy(@world.mentor, art_grant).numbers?
         assert policy(art_approver, art_grant).restricted_fields?

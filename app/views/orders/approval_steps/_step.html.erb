@@ -1,0 +1,26 @@
+<% style = ManagedListsHelper::MANAGED_LIST_BUTTON_STYLE %>
+<li class="list-group-item d-flex flex-wrap align-items-center gap-2" id="<%= dom_id step %>">
+  <div class="flex-grow-1">
+    <strong><%= step.name %></strong>
+    <div class="small text-muted">
+      <%= step.minimum_cents.zero? ? "Every request" : "Requests of #{step.minimum.format} or more" %>.
+      Approved by team managers<%= step.approvers.any? ? ", #{step.approvers.map { |approver| approver.team ? "#{approver.badge.name} (up to #{approver.team.name})" : "#{approver.badge.name} (every team)" }.to_sentence}" : "" %>.
+    </div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <% if step.active? %>
+      <%= button_to move_orders_approval_step_path(step, direction: "up"), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style, disabled: first, title: "Move up", aria: { label: "Move #{step.name} up" } do %>
+        <%= i "arrow-up" %>
+      <% end %>
+      <%= button_to move_orders_approval_step_path(step, direction: "down"), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style, disabled: last, title: "Move down", aria: { label: "Move #{step.name} down" } do %>
+        <%= i "arrow-down" %>
+      <% end %>
+    <% end %>
+    <%= link_to "Edit", edit_orders_approval_step_path(step), class: "btn btn-sm btn-outline-warning d-inline-flex align-items-center", style: style %>
+    <% if step.active? %>
+      <%= button_to "Retire", retire_orders_approval_step_path(step), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style %>
+    <% else %>
+      <%= button_to "Restore", restore_orders_approval_step_path(step), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style %>
+    <% end %>
+  </div>
+</li>

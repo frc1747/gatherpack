@@ -195,8 +195,8 @@ class OrderRequestPolicyTest < ActiveSupport::TestCase
     coach = orders_person("Coach", teams: [ mentors ], badges: [ @world.approver_badge ])
     student = orders_person("Student", teams: [ drivetrain ])
 
-    with_orders(@world, orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0,
-      "approvers" => [ "#{@world.approver_badge.name} > #{program.name}" ] } ])) do
+    with_orders(@world, approval_steps: [ { key: "approval", name: "Approval", minimum: 0,
+      approvers: [ [ @world.approver_badge, program ] ] } ]) do
       order_request = submitted_request(@world, by: student, team: drivetrain)
 
       assert policy(coach, order_request).show?

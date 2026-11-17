@@ -10,6 +10,7 @@ class Purchase < ApplicationRecord
 
   belongs_to :vendor, optional: true
   belongs_to :buyer, class_name: "Person"
+  belongs_to :payment_method, optional: true
   belongs_to :reimburse_to, class_name: "Person", optional: true
   belongs_to :ledger_entry, optional: true
   has_many :order_lines, dependent: :restrict_with_error
@@ -80,12 +81,9 @@ class Purchase < ApplicationRecord
     shares
   end
 
-  def paid_with_choice
-    Orders::Config.paid_with.find { |choice| choice.label == paid_with }
-  end
-
+  # Paid with a method that pays the buyer back.
   def reimburse?
-    paid_with_choice&.reimburse || false
+    payment_method&.reimburse || false
   end
 
   # Records the remaining quantity of every open line as received. With

@@ -1,0 +1,47 @@
+<% breadcrumb :orders_approval_steps %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Approval Steps</h1>
+  </div>
+  <div class="card-body">
+    <p>
+      The approvals a request needs, in order. A request needs every step whose minimum its total reaches.
+      Admins and the managers of a request's team can always approve.
+    </p>
+    <p class="text-muted mb-0">
+      Retired steps aren't needed for new requests; approvals already given keep their step's name.
+      Steps can't be deleted, since approvals are kept by step.
+    </p>
+  </div>
+  <div class="card-footer">
+    <%= link_to "New Approval Step", new_orders_approval_step_path, class: "btn btn-success" %>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">
+    <h2 class="h5 mb-0">Active</h2>
+  </div>
+  <ul class="list-group list-group-flush" id="approval_steps_active">
+    <% @steps.each_with_index do |step, index| %>
+      <%= render "orders/approval_steps/step", step: step, first: index.zero?, last: index == @steps.size - 1 %>
+    <% end %>
+    <% if @steps.empty? %>
+      <li class="list-group-item text-muted">No approval steps: admins and team managers approve every request.</li>
+    <% end %>
+  </ul>
+</div>
+
+<% if @retired_steps.any? %>
+  <div class="card mt-3">
+    <div class="card-header">
+      <h2 class="h5 mb-0">Retired</h2>
+    </div>
+    <ul class="list-group list-group-flush" id="approval_steps_retired">
+      <% @retired_steps.each do |step| %>
+        <%= render "orders/approval_steps/step", step: step, first: true, last: true %>
+      <% end %>
+    </ul>
+  </div>
+<% end %>

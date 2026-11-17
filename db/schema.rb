@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_17_100200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -89,6 +89,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
     t.string "title"
     t.datetime "updated_at", null: false
     t.index ["team_id"], name: "index_announcements_on_team_id"
+  end
+
+  create_table "approval_step_approvers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "approval_step_id", null: false
+    t.uuid "badge_id", null: false
+    t.uuid "team_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["approval_step_id", "badge_id", "team_id"], name: "index_approval_step_approvers_uniqueness", unique: true
+    t.index ["approval_step_id"], name: "index_approval_step_approvers_on_approval_step_id"
+    t.index ["badge_id"], name: "index_approval_step_approvers_on_badge_id"
+    t.index ["team_id"], name: "index_approval_step_approvers_on_team_id"
+  end
+
+  create_table "approval_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.integer "minimum_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_approval_steps_on_lower_name", unique: true
+    t.index ["key"], name: "index_approval_steps_on_key", unique: true
   end
 
   create_table "badge_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -188,6 +213,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
     t.index ["event_id", "person_id"], name: "index_checkins_on_event_id_and_person_id", unique: true
     t.index ["event_id"], name: "index_checkins_on_event_id"
     t.index ["person_id"], name: "index_checkins_on_person_id"
+  end
+
+  create_table "delivery_problem_kinds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_delivery_problem_kinds_on_lower_name", unique: true
+    t.index ["key"], name: "index_delivery_problem_kinds_on_key", unique: true
   end
 
   create_table "event_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -468,10 +505,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
     t.integer "quantity", null: false
     t.uuid "received_by_id", null: false
     t.date "received_on", null: false
-    t.integer "condition", default: 0, null: false
     t.text "note"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "delivery_problem_kind_id"
+    t.index ["delivery_problem_kind_id"], name: "index_order_deliveries_on_delivery_problem_kind_id"
     t.index ["order_line_id"], name: "index_order_deliveries_on_order_line_id"
     t.index ["received_by_id"], name: "index_order_deliveries_on_received_by_id"
   end
@@ -587,6 +625,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
     t.index ["team_id"], name: "index_pages_on_team_id"
   end
 
+  create_table "payment_methods", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.boolean "reimburse", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_payment_methods_on_lower_name", unique: true
+    t.index ["key"], name: "index_payment_methods_on_key", unique: true
+  end
+
   create_table "people", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "address"
     t.text "bio"
@@ -612,7 +663,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
     t.date "ordered_on"
     t.integer "shipping_cents", default: 0, null: false
     t.integer "tax_cents", default: 0, null: false
-    t.string "paid_with"
     t.uuid "reimburse_to_id"
     t.string "tracking_url"
     t.date "expected_on"
@@ -620,8 +670,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
     t.text "note"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "payment_method_id"
     t.index ["buyer_id"], name: "index_purchases_on_buyer_id"
     t.index ["ledger_entry_id"], name: "index_purchases_on_ledger_entry_id"
+    t.index ["payment_method_id"], name: "index_purchases_on_payment_method_id"
     t.index ["reimburse_to_id"], name: "index_purchases_on_reimburse_to_id"
     t.index ["vendor_id"], name: "index_purchases_on_vendor_id"
   end
@@ -948,6 +1000,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
   add_foreign_key "account_relationships", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "approval_step_approvers", "approval_steps", on_delete: :cascade
+  add_foreign_key "approval_step_approvers", "badges", on_delete: :cascade
+  add_foreign_key "approval_step_approvers", "teams", on_delete: :cascade
   add_foreign_key "badge_assignments", "badges"
   add_foreign_key "badge_assignments", "people"
   add_foreign_key "badges", "badge_types"
@@ -986,6 +1041,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
   add_foreign_key "oauth_access_tokens", "users", column: "resource_owner_id"
   add_foreign_key "order_approvals", "order_requests"
   add_foreign_key "order_approvals", "people", column: "approver_id"
+  add_foreign_key "order_deliveries", "delivery_problem_kinds"
   add_foreign_key "order_deliveries", "order_lines"
   add_foreign_key "order_deliveries", "people", column: "received_by_id"
   add_foreign_key "order_lines", "funding_sources"
@@ -1003,6 +1059,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_110100) do
   add_foreign_key "order_requests", "people", column: "requested_by_id"
   add_foreign_key "order_requests", "teams"
   add_foreign_key "purchases", "ledger_entries"
+  add_foreign_key "purchases", "payment_methods"
   add_foreign_key "purchases", "people", column: "buyer_id"
   add_foreign_key "purchases", "people", column: "reimburse_to_id"
   add_foreign_key "purchases", "vendors"

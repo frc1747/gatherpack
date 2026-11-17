@@ -32,8 +32,13 @@
 #
 #   order_request_changed.gatherpack  order_request:, from:, to: (status names)
 #   order_line_received.gatherpack    order_line:, delivery:, quantity:,
-#                                     condition:, person:
+#                                     condition: ("good" or the problem
+#                                     kind's key), problem_kind: (nil when
+#                                     good), person:
 module Orders
+  # The Setup page heading orders' buttons go under, shared with inventory.
+  SETUP_SECTION = "Orders and Inventory".freeze
+
   # A domain action that isn't allowed in the request's current state, or
   # by this person. The message is fit to show.
   class Refused < StandardError; end
@@ -113,7 +118,7 @@ module Orders
   def self.line_received(delivery)
     ActiveSupport::Notifications.instrument("order_line_received.gatherpack",
       order_line: delivery.order_line, delivery: delivery, quantity: delivery.quantity,
-      condition: delivery.condition, person: delivery.received_by)
+      condition: delivery.condition, problem_kind: delivery.delivery_problem_kind, person: delivery.received_by)
   end
 
   def self.run_hooks(event, record)
