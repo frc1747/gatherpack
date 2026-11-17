@@ -1,0 +1,190 @@
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/inter-latin-wght-normal.woff2") format("woff2");
+}
+
+@mixin light-tokens {
+  // GatherPack's own greige ($greige-* in application.bootstrap.scss), with the
+  // page lightened so text and links on it reach 4.5:1.
+  --gp-brand: #6d6753;
+  --gp-brand-rgb: 109, 103, 83;
+  --gp-brand-hover: #57523f;
+  --gp-brand-hover-rgb: 87, 82, 63;
+  --gp-brand-soft: #ece7d7;
+  --gp-on-brand: #fff;
+  --gp-accent: #6d6753;
+  --gp-accent-rgb: 109, 103, 83;
+  --gp-accent-hover: #57523f;
+  --gp-accent-hover-rgb: 87, 82, 63;
+  --gp-success: #146c43;
+  --gp-success-rgb: 20, 108, 67;
+  --gp-success-soft: #dcebe0;
+
+  --gp-page: #ebe6d8;
+  --gp-page-rgb: 235, 230, 216;
+  --gp-surface: #fffdf6;
+  --gp-surface-rgb: 255, 253, 246;
+  --gp-raised: #f3efe3;
+  --gp-raised-rgb: 243, 239, 227;
+  --gp-subtle: #f6f3e9;
+
+  --gp-border: #ddd7c2;
+  --gp-input-border: #958e76;
+  --gp-text: #2b2716;
+  --gp-text-rgb: 43, 39, 22;
+  --gp-text-soft: #403a22;
+  --gp-muted: #635d49;
+  --gp-muted-rgb: 99, 93, 73;
+
+  --gp-shadow: 0 1px 2px rgba(64, 58, 34, .06);
+  --gp-shadow-raised: 0 8px 24px rgba(64, 58, 34, .12);
+  --gp-logo-tile: transparent;
+  --gp-icon-invert: 0;
+}
+
+@mixin dark-tokens {
+  // Fills stay dark enough for white text, which a site's own widgets assume on
+  // --bs-primary. Text on dark surfaces uses the lighter accent.
+  --gp-brand: #7a745f;
+  --gp-brand-rgb: 122, 116, 95;
+  --gp-brand-hover: #6d6753;
+  --gp-brand-hover-rgb: 109, 103, 83;
+  --gp-brand-soft: #3a3528;
+  --gp-on-brand: #fff;
+  --gp-accent: #c2baa1;
+  --gp-accent-rgb: 194, 186, 161;
+  --gp-accent-hover: #d6cfb8;
+  --gp-accent-hover-rgb: 214, 207, 184;
+  --gp-success: #4cc38a;
+  --gp-success-rgb: 76, 195, 138;
+  --gp-success-soft: #17382a;
+
+  --gp-page: #1c1a12;
+  --gp-page-rgb: 28, 26, 18;
+  --gp-surface: #27241a;
+  --gp-surface-rgb: 39, 36, 26;
+  --gp-raised: #322e22;
+  --gp-raised-rgb: 50, 46, 34;
+  --gp-subtle: #322e22;
+
+  --gp-border: #454032;
+  --gp-input-border: #7f7963;
+  --gp-text: #f3efe3;
+  --gp-text-rgb: 243, 239, 227;
+  --gp-text-soft: #ddd7c2;
+  --gp-muted: #b5ae97;
+  --gp-muted-rgb: 181, 174, 151;
+
+  --gp-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  --gp-shadow-raised: 0 8px 24px rgba(0, 0, 0, .5);
+  --gp-logo-tile: #f3efe3;
+  --gp-icon-invert: 1;
+}
+
+// Everything Bootstrap, FullCalendar, the combobox and the application
+// stylesheet read, written once in terms of the tokens.
+@mixin token-map {
+  --gp-radius: 10px;
+  --gp-radius-sm: 8px;
+  --gp-font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --bs-primary: var(--gp-brand);
+  --bs-primary-rgb: var(--gp-brand-rgb);
+  --bs-primary-bg-subtle: var(--gp-brand-soft);
+  --bs-primary-text-emphasis: var(--gp-accent-hover);
+  --bs-success: var(--gp-success);
+  --bs-success-rgb: var(--gp-success-rgb);
+  --bs-success-bg-subtle: var(--gp-success-soft);
+  --bs-success-text-emphasis: var(--gp-success);
+  --bs-secondary-rgb: var(--gp-muted-rgb);
+  --bs-link-color: var(--gp-accent);
+  --bs-link-color-rgb: var(--gp-accent-rgb);
+  --bs-link-hover-color: var(--gp-accent-hover);
+  --bs-link-hover-color-rgb: var(--gp-accent-hover-rgb);
+  --bs-focus-ring-color: rgba(var(--gp-brand-rgb), .25);
+
+  --bs-body-font-family: var(--gp-font);
+  --bs-body-bg: var(--gp-page);
+  --bs-body-bg-rgb: var(--gp-page-rgb);
+  --bs-body-color: var(--gp-text);
+  --bs-body-color-rgb: var(--gp-text-rgb);
+  --bs-emphasis-color: var(--gp-text);
+  --bs-emphasis-color-rgb: var(--gp-text-rgb);
+  --bs-heading-color: var(--gp-text);
+  --bs-secondary-color: var(--gp-muted);
+  --bs-secondary-color-rgb: var(--gp-muted-rgb);
+  --bs-tertiary-color: var(--gp-muted);
+  --bs-tertiary-color-rgb: var(--gp-muted-rgb);
+  --bs-secondary-bg: var(--gp-raised);
+  --bs-secondary-bg-rgb: var(--gp-raised-rgb);
+  --bs-tertiary-bg: var(--gp-subtle);
+  --bs-tertiary-bg-rgb: var(--gp-raised-rgb);
+  --bs-border-color: var(--gp-border);
+  --bs-border-color-translucent: var(--gp-border);
+  --bs-form-valid-border-color: var(--gp-input-border);
+  --bs-light-rgb: var(--gp-raised-rgb);
+  --bs-card-bg: var(--gp-surface);
+  --bs-card-color: var(--gp-text);
+
+  --card-bg: var(--gp-surface);
+  --card-fg: var(--gp-text);
+  --pair-a-bg: var(--gp-surface);
+  --pair-a-fg: var(--gp-text);
+  --pair-b-bg: var(--gp-raised);
+  --pair-b-fg: var(--gp-text);
+  --pair-c-bg: var(--gp-surface);
+  --pair-c-fg: var(--gp-text);
+  --app-input-disabled-bg: var(--gp-raised);
+  --app-code-active-line-bg: var(--gp-brand-soft);
+  --app-code-selection-bg: rgba(var(--gp-brand-rgb), .2);
+  --app-code-focused-selection-bg: rgba(var(--gp-brand-rgb), .3);
+
+  --fc-border-color: var(--gp-border);
+  --fc-page-bg-color: var(--gp-surface);
+  --fc-neutral-bg-color: var(--gp-subtle);
+  --fc-list-event-hover-bg-color: var(--gp-raised);
+  --fc-button-text-color: var(--gp-text);
+  --fc-button-bg-color: var(--gp-surface);
+  --fc-button-border-color: var(--gp-border);
+  --fc-button-hover-bg-color: var(--gp-raised);
+  --fc-button-hover-border-color: var(--gp-border);
+  --fc-button-active-bg-color: var(--gp-brand-soft);
+  --fc-button-active-border-color: var(--gp-brand);
+
+  --hw-active-bg-color: var(--gp-raised);
+  --hw-border-color: var(--gp-input-border);
+  --hw-component-bg-color: var(--gp-surface);
+  --hw-group-color: var(--gp-muted);
+  --hw-group-bg-color: var(--gp-surface);
+  --hw-invalid-color: var(--bs-danger);
+  --hw-dialog-label-color: var(--gp-text);
+  --hw-focus-color: var(--gp-accent);
+  --hw-option-bg-color: var(--gp-surface);
+}
+
+:root {
+  @include light-tokens;
+  color-scheme: light;
+}
+
+:root[data-bs-theme=dark] {
+  @include dark-tokens;
+  color-scheme: dark;
+}
+
+// Both selectors, so the map beats Bootstrap's own [data-bs-theme=dark] block
+// and the application's :root by source order, and stored :root variables
+// from the theme page can't undo the dark palette.
+:root, :root[data-bs-theme=dark] {
+  @include token-map;
+}
+
+@media print {
+  :root, :root[data-bs-theme=dark] {
+    @include light-tokens;
+    color-scheme: light;
+  }
+}
