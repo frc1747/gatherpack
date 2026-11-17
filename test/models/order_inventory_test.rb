@@ -259,6 +259,20 @@ class OrderInventoryTest < ActiveSupport::TestCase
     end
   end
 
+  test "Create item from this line uses a stock unit the line names and adds none for one it doesn't" do
+    with_both(@world, @stock) do
+      stock_units = StockUnit.count
+      box = ordered_line(@world, { description: "Washers", unit: "box", quantity: 1 })
+      receive(box, by: @world.buyer, params: put_away_params(@stock.bin, create_item: "1"))
+      assert_equal "box", box.reload.item.stock_unit.name
+
+      pair = ordered_line(@world, { description: "Gloves", unit: "pair", quantity: 1 })
+      receive(pair, by: @world.buyer, params: put_away_params(@stock.bin, create_item: "1"))
+      assert_equal StockUnit.default_unit, pair.reload.item.stock_unit
+      assert_equal stock_units, StockUnit.count
+    end
+  end
+
   test "only an inventory manager may create an inventory item from an order item" do
     with_both(@world, @stock) do
       line = ordered_line(@world, { description: "Hex key set", quantity: 1 })
