@@ -1,0 +1,26 @@
+<% conditions = ItemUnit::CONDITIONS - [ "retired" ] %>
+<%= render layout: "action", locals: { unit: @unit, title: "Check", submit: "Save check", url: check_inventory_unit_path(@unit),
+      multipart: true } do |form| %>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">Condition</legend>
+    <div class="d-grid gap-2">
+      <% conditions.each do |condition| %>
+        <div>
+          <%= radio_button_tag :condition, condition, @unit.condition == condition, class: "btn-check", autocomplete: "off" %>
+          <%= label_tag "condition_#{condition}", ItemUnit::CONDITION_LABELS.fetch(condition), class: "btn btn-lg btn-outline-secondary w-100 text-start" %>
+        </div>
+      <% end %>
+    </div>
+  </fieldset>
+  <% Array(@unit.item.reading_fields).each_with_index do |field, index| %>
+    <div class="mb-3">
+      <%= label_tag "reading_#{index}", reading_heading(field), class: "form-label" %>
+      <%= number_field_tag "readings[#{field["name"]}]", nil, id: "reading_#{index}", step: "any", inputmode: "decimal",
+            class: "form-control form-control-lg" %>
+    </div>
+  <% end %>
+  <div class="mb-3">
+    <%= label_tag :photo, "Photo (optional)", class: "form-label" %>
+    <%= file_field_tag :photo, accept: "image/*", capture: "environment", class: "form-control" %>
+  </div>
+<% end %>

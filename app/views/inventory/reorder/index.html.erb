@@ -1,0 +1,86 @@
+<% breadcrumb :inventory_reorder %>
+<% content_for :title, "Reorder" %>
+<% inventory_stylesheet %>
+<% show_on_order = Inventory.extensions.on_order? %>
+
+<div class="card mb-3">
+  <div class="card-header"><h1 class="mb-0">Reorder</h1></div>
+  <div class="card-body">
+    <%= form_with url: inventory_reorder_path, method: :get, class: "row g-2 align-items-end" do %>
+      <% if @teams.size > 1 || params[:team_id].present? %>
+        <div class="col-md">
+          <%= label_tag :team_id, "Team", class: "form-label" %>
+          <%= select_tag :team_id, options_from_collection_for_select(@teams, :id, :name, params[:team_id]), include_blank: "All teams", class: "form-select" %>
+        </div>
+      <% end %>
+      <div class="col-md">
+        <%= label_tag :category, "Category", class: "form-label" %>
+        <%= select_tag :category, options_for_select(@categories, params[:category]), include_blank: "All categories", class: "form-select" %>
+      </div>
+      <div class="col-md-auto">
+        <%= submit_tag "Filter", name: nil, class: "btn btn-primary" %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<% if @reorder.rows.empty? %>
+  <p class="text-body-secondary">Nothing is running low.</p>
+<% else %>
+  <%= form_with url: inventory_reorder_path, method: :post, id: "reorder-form", data: { turbo: false } do %>
+    <%= hidden_field_tag :team_id, params[:team_id] if params[:team_id].present? %>
+    <%= hidden_field_tag :category, params[:category] if params[:category].present? %>
+    <% @reorder.groups.each do |vendor, rows| %>
+      <h2 class="h4 mt-3"><%= vendor %></h2>
+      <div class="table-responsive">
+        <table class="table align-middle reorder-group">
+          <thead>
+            <tr>
+              <th class="text-center">Order</th>
+              <th>Item</th>
+              <th class="text-end">In stock</th>
+              <th class="text-end">Order more at</th>
+              <% if show_on_order %><th class="text-end">On order</th><% end %>
+              <th>Where to buy</th>
+              <th style="width: 8rem">How many</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |row| %>
+              <% item = row.item %>
+              <tr id="<%= dom_id(item, :reorder) %>">
+                <td class="text-center">
+                  <%= check_box_tag "ticked[]", item.id, true, id: "tick_#{item.id}", class: "form-check-input", "aria-label": "Order #{item.name}" %>
+                </td>
+                <td>
+                  <%= link_to item.name, inventory_item_path(item) %>
+                  <% if row.out_of_stock? %><span class="badge text-bg-danger">Out of stock</span><% end %>
+                </td>
+                <td class="text-end"><%= inventory_quantity(row.total, item) %></td>
+                <td class="text-end"><%= item.reorder_point %></td>
+                <% if show_on_order %><td class="text-end"><%= row.on_order %></td><% end %>
+                <td>
+                  <% if row.source %>
+                    <%= row.source.vendor_part_number %>
+                    <% if row.source.url.present? %><%= link_to "Link", row.source.url, target: "_blank", rel: "noopener" %><% end %>
+                  <% end %>
+                </td>
+                <td>
+                  <%= number_field_tag "quantities[#{item.id}]", row.suggested_quantity, min: 1, step: 1, class: "form-control",
+                    "aria-label": "How many #{item.name}" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <div class="d-flex flex-wrap gap-2 my-3" id="reorder-actions">
+      <% @actions.each do |action| %>
+        <%= button_tag action.label, type: "submit", name: "run", value: action.key, class: "btn btn-primary" %>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>
+<%= render "inventory/shared/manager_links" %>

@@ -1,0 +1,95 @@
+<% breadcrumb :inventory_movement_new, @item %>
+<% content_for :title, "#{inventory_kind_label(@kind)}: #{@item.name}" %>
+<% inventory_stylesheet %>
+<% words = InventoryHelper::KIND_FORMS.fetch(@kind) %>
+<% from_choices = @kind.in?(%w[used moved removed]) && @stocked.any? ? @stocked : @choices %>
+<% from_choices = ([ @location ] + from_choices).uniq if @location %>
+<% reason_required = @kind.in?(StockMovement::NEEDS_REASON) || (@kind == "used" && Inventory::Config.used_needs_reason?) %>
+
+<div class="inventory-phone inventory-has-bar">
+  <h1 class="h3"><%= inventory_kind_label(@kind) %>: <%= @item.name %></h1>
+
+  <%= form_with url: inventory_movements_path, method: :post, id: "movement-form" do |f| %>
+    <%= hidden_field_tag :kind, @kind %>
+    <%= hidden_field_tag :item_id, @item.id %>
+    <%= hidden_field_tag :return_to, params[:return_to] if params[:return_to].present? %>
+
+    <% if @error %>
+      <div class="alert alert-danger" role="alert"><%= @error %></div>
+    <% end %>
+
+    <div class="mb-3">
+      <% if from_choices.one? && @location %>
+        <span class="form-label d-block"><%= words[:place] %></span>
+        <p class="fs-5 mb-0"><%= inventory_place_name(@location, @places) %>
+          <% unless @kind.in?(%w[counted received added]) %>
+            <span class="text-body-secondary">(<%= inventory_quantity(@item.stock_at(@location), @item) %> here)</span>
+          <% end %>
+        </p>
+        <%= hidden_field_tag :location_id, @location.id %>
+      <% else %>
+        <%= label_tag :location_id, words[:place], class: "form-label" %>
+        <%= select_tag :location_id,
+          options_for_select(from_choices.map { |place| [ "#{inventory_place_name(place, @places)}#{" (#{@item.stock_at(place)})" if @stocked.include?(place)}", place.id ] }, @location&.id),
+          include_blank: @location.nil? ? "Pick a place" : false, class: "form-select form-select-lg" %>
+      <% end %>
+    </div>
+
+    <% if @kind == "moved" %>
+      <div class="mb-3">
+        <%= label_tag :to_location_id, "To", class: "form-label" %>
+        <%= select_tag :to_location_id,
+          options_for_select(@choices.reject { |place| place == @location }.map { |place| [ inventory_place_name(place, @places), place.id ] }, @to_location&.id),
+          include_blank: "Pick where it's going", class: "form-select form-select-lg" %>
+      </div>
+    <% end %>
+
+    <div class="mb-3">
+      <%= label_tag :quantity, @kind == "counted" ? "How many do you see?" : "How many?", class: "form-label" %>
+      <div class="inventory-stepper" data-controller="inventory-stepper" data-inventory-stepper-min-value="<%= @kind == "counted" ? 0 : 1 %>">
+        <button type="button" class="btn btn-secondary" data-action="inventory-stepper#decrement" aria-label="One fewer">−</button>
+        <%= number_field_tag :quantity, @quantity || (@kind == "used" ? 1 : nil), min: (@kind == "counted" ? 0 : 1), step: 1,
+          inputmode: "numeric", pattern: "[0-9]*", class: "form-control", required: @kind != "moved",
+          placeholder: (@kind == "moved" ? "All of it" : nil), data: { inventory_stepper_target: "input" } %>
+        <button type="button" class="btn btn-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
+      </div>
+      <div class="form-text"><%= @item.unit %></div>
+    </div>
+
+    <% unless @kind == "counted" %>
+      <% if reason_required %>
+        <div class="mb-3">
+          <%= label_tag :reason, @kind == "used" ? "What for?" : "Reason", class: "form-label" %>
+          <%= text_field_tag :reason, @reason || (@kind == "added" && @item.stock_movements.none? ? "Starting count" : nil), class: "form-control", required: true,
+            list: "inventory-reasons" %>
+        </div>
+      <% else %>
+        <details class="inventory-more mb-3" <%= "open" if @reason.present? %>>
+          <summary><%= @kind == "used" ? "What for?" : (@kind == "received" ? "From" : "Reason") %></summary>
+          <%= text_field_tag :reason, @reason, class: "form-control", "aria-label": (@kind == "used" ? "What for?" : (@kind == "received" ? "From" : "Reason")),
+            list: ("inventory-sources" if @kind == "received") %>
+        </details>
+      <% end %>
+    <% end %>
+    <% if @kind == "received" %>
+      <datalist id="inventory-sources">
+        <% @item.item_sources.each do |source| %><option value="<%= source.vendor_name %>"></option><% end %>
+      </datalist>
+    <% end %>
+    <datalist id="inventory-reasons">
+      <% (@kind == "removed" ? [ "Broken", "Lost", "Thrown out", "Given away" ] : [ "Starting count", "Donated", "Found" ]).each do |reason| %>
+        <option value="<%= reason %>"></option>
+      <% end %>
+    </datalist>
+
+    <details class="inventory-more mb-3" <%= "open" if @note.present? %>>
+      <summary>Note</summary>
+      <%= text_area_tag :note, @note, rows: 2, class: "form-control", "aria-label": "Note" %>
+    </details>
+
+    <div class="inventory-bar">
+      <%= link_to "Cancel", @cancel_path, class: "btn btn-warning btn-lg" %>
+      <%= f.submit words[:action], class: "btn btn-primary btn-lg" %>
+    </div>
+  <% end %>
+</div>

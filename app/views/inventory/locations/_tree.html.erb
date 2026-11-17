@@ -1,0 +1,18 @@
+<ul>
+  <% locations.each do |location| %>
+    <li>
+      <% if labels %>
+        <%= check_box_tag "places[]", location.id, false, id: "label_#{location.id}", class: "form-check-input me-1", "aria-label": "Label for #{location.name}" %>
+      <% end %>
+      <i class="fa-solid fa-<%= location.identifier_icon %> text-body-secondary"></i>
+      <%= link_to location.name, inventory_location_path(location) %>
+      <% if location.code.present? %><span class="badge text-bg-light border font-monospace"><%= location.code %></span><% end %>
+      <% if location.machine? && Inventory.machines? %><span class="badge text-bg-info"><%= Inventory.machine_word(capitalize: true) %></span><% end %>
+      <% unless location.active? %><span class="badge text-bg-light border">Inactive</span><% end %>
+      <% if @needs_count.include?(location.id) %><span class="badge text-bg-secondary">Needs a count</span><% end %>
+      <% if (inside = children[location.id]).present? %>
+        <%= render "tree", locations: inside, children: children, labels: labels %>
+      <% end %>
+    </li>
+  <% end %>
+</ul>
