@@ -1,0 +1,50 @@
+<% breadcrumb :orders_purchases %>
+
+<div class="card">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h1><%= params[:mine].present? ? "Orders I placed" : "Vendor orders" %><%= " not in ledger" if params[:not_in_ledger].present? && Orders::LedgerRecording.ledger_on? %></h1>
+    <% if policy(Purchase).create? %>
+      <div class="d-flex gap-2">
+        <% if params[:mine].present? %>
+          <%= link_to "All orders", orders_purchases_path, class: "btn btn-secondary" %>
+        <% else %>
+          <%= link_to "Orders I placed", orders_purchases_path(mine: 1), class: "btn btn-secondary" %>
+        <% end %>
+        <%= link_to "To buy", to_buy_orders_purchases_path, class: "btn btn-primary" %>
+      </div>
+    <% end %>
+    <% if Orders::LedgerRecording.ledger_on? %>
+      <% if params[:not_in_ledger].present? %>
+        <%= link_to "All orders", orders_purchases_path, class: "btn btn-secondary" %>
+      <% else %>
+        <%= link_to "Not in ledger", orders_purchases_path(not_in_ledger: 1), class: "btn btn-secondary" %>
+      <% end %>
+    <% end %>
+  </div>
+  <div class="list-group list-group-flush">
+    <% @purchases.each do |purchase| %>
+      <% purchase_policy = policy(purchase) %>
+      <% full = purchase_policy.full? %>
+      <%= link_to orders_purchase_path(purchase), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2" do %>
+        <span>
+          <strong><%= purchase.vendor_name %></strong>
+          <% if full && purchase.vendor_order_number.present? %><small class="text-muted">#<%= purchase.vendor_order_number %></small><% end %>
+          <br>
+          <small class="text-muted">
+            <%= purchase.ordered_on ? l(purchase.ordered_on, format: :long) : "No order date" %>
+            <% if full %>· <%= purchase.buyer.identifier_name %> · <%= orders_money(purchase.total_cents) %><% end %>
+          </small>
+        </span>
+        <span class="text-end">
+          <small><%= purchase_status_text(purchase_policy.visible_lines) %></small>
+          <% if full %><br><%= render "orders/purchases/ledger_badge", purchase: purchase %><% end %>
+        </span>
+      <% end %>
+    <% end %>
+  </div>
+  <% if @purchases.empty? %>
+    <div class="card-body text-muted">No orders yet.</div>
+  <% end %>
+</div>
+
+<%= paginate @purchases %>
