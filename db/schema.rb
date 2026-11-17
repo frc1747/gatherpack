@@ -769,6 +769,90 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
     t.index ["team_id"], name: "index_intake_registrations_on_team_id"
   end
 
+  create_table "item_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_id", null: false
+    t.string "vendor_name", null: false
+    t.string "vendor_part_number"
+    t.string "url"
+    t.boolean "preferred", default: false, null: false
+    t.text "note"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["item_id"], name: "index_item_sources_on_item_id"
+  end
+
+  create_table "item_unit_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_unit_id", null: false
+    t.string "action", null: false
+    t.uuid "from_location_id"
+    t.uuid "to_location_id"
+    t.uuid "from_unit_id"
+    t.uuid "to_unit_id"
+    t.uuid "via_unit_id"
+    t.string "condition_before"
+    t.string "condition_after"
+    t.jsonb "readings", default: {}, null: false
+    t.boolean "confirmed", default: false, null: false
+    t.uuid "person_id"
+    t.uuid "recorded_by_id"
+    t.uuid "reverses_id"
+    t.text "note"
+    t.datetime "created_at", null: false
+    t.index ["action", "created_at"], name: "index_item_unit_events_on_action_and_created_at"
+    t.index ["from_location_id"], name: "index_item_unit_events_on_from_location_id"
+    t.index ["from_unit_id"], name: "index_item_unit_events_on_from_unit_id"
+    t.index ["item_unit_id", "created_at"], name: "index_item_unit_events_on_item_unit_id_and_created_at"
+    t.index ["person_id"], name: "index_item_unit_events_on_person_id"
+    t.index ["recorded_by_id"], name: "index_item_unit_events_on_recorded_by_id"
+    t.index ["reverses_id"], name: "index_item_unit_events_on_reverses_id", unique: true
+    t.index ["to_location_id"], name: "index_item_unit_events_on_to_location_id"
+    t.index ["to_unit_id"], name: "index_item_unit_events_on_to_unit_id"
+    t.index ["via_unit_id"], name: "index_item_unit_events_on_via_unit_id"
+  end
+
+  create_table "item_units", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_id", null: false
+    t.string "code"
+    t.string "serial_number"
+    t.string "name"
+    t.uuid "location_id", null: false
+    t.uuid "installed_in_id"
+    t.string "condition", default: "new", null: false
+    t.text "condition_note"
+    t.date "in_service_on"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["code"], name: "index_item_units_on_code"
+    t.index ["installed_in_id"], name: "index_item_units_on_installed_in_id"
+    t.index ["item_id"], name: "index_item_units_on_item_id"
+    t.index ["location_id"], name: "index_item_units_on_location_id"
+  end
+
+  create_table "items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.string "category"
+    t.string "manufacturer"
+    t.string "manufacturer_part_number"
+    t.string "unit", default: "each", null: false
+    t.boolean "tracked", default: false, null: false
+    t.jsonb "reading_fields", default: [], null: false
+    t.uuid "home_location_id"
+    t.integer "reorder_point"
+    t.integer "reorder_quantity"
+    t.string "url"
+    t.text "note"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["home_location_id"], name: "index_items_on_home_location_id"
+    t.index ["manufacturer_part_number"], name: "index_items_on_manufacturer_part_number"
+    t.index ["team_id", "active"], name: "index_items_on_team_id_and_active"
+  end
+
   create_table "ledger_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.integer "amount_cents", default: 0
     t.boolean "approved"
@@ -858,6 +942,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
     t.boolean "open", default: false
     t.uuid "target_team_ids", default: [], array: true
     t.datetime "updated_at", null: false
+  end
+
+  create_table "locations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.uuid "parent_id"
+    t.string "name", null: false
+    t.string "code"
+    t.string "kind", default: "storage", null: false
+    t.text "note"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["parent_id"], name: "index_locations_on_parent_id"
+    t.index ["team_id", "active"], name: "index_locations_on_team_id_and_active"
+    t.index ["team_id"], name: "index_locations_on_team_id"
   end
 
   create_table "mailbox_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1571,6 +1671,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "stock_levels", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_id", null: false
+    t.uuid "location_id", null: false
+    t.integer "quantity", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["item_id", "location_id"], name: "index_stock_levels_on_item_id_and_location_id", unique: true
+    t.index ["location_id"], name: "index_stock_levels_on_location_id"
+  end
+
+  create_table "stock_movements", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_id", null: false
+    t.uuid "location_id", null: false
+    t.string "kind", null: false
+    t.integer "quantity", null: false
+    t.integer "counted_quantity"
+    t.uuid "person_id"
+    t.uuid "recorded_by_id"
+    t.string "reason"
+    t.text "note"
+    t.uuid "move_group_id"
+    t.uuid "reverses_id"
+    t.datetime "created_at", null: false
+    t.index ["item_id", "location_id", "created_at"], name: "idx_on_item_id_location_id_created_at_9e6101443e"
+    t.index ["location_id", "created_at"], name: "index_stock_movements_on_location_id_and_created_at"
+    t.index ["move_group_id"], name: "index_stock_movements_on_move_group_id"
+    t.index ["person_id"], name: "index_stock_movements_on_person_id"
+    t.index ["recorded_by_id"], name: "index_stock_movements_on_recorded_by_id"
+    t.index ["reverses_id"], name: "index_stock_movements_on_reverses_id", unique: true
+  end
+
   create_table "team_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "icon"
@@ -1813,6 +1944,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
   add_foreign_key "intake_registrations", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "intake_registrations", "relationship_types", column: "guardian_relationship_type_id", on_delete: :nullify
   add_foreign_key "intake_registrations", "teams", on_delete: :cascade
+  add_foreign_key "item_sources", "items"
+  add_foreign_key "item_unit_events", "item_unit_events", column: "reverses_id"
+  add_foreign_key "item_unit_events", "item_units"
+  add_foreign_key "item_unit_events", "item_units", column: "from_unit_id"
+  add_foreign_key "item_unit_events", "item_units", column: "to_unit_id"
+  add_foreign_key "item_unit_events", "item_units", column: "via_unit_id"
+  add_foreign_key "item_unit_events", "locations", column: "from_location_id"
+  add_foreign_key "item_unit_events", "locations", column: "to_location_id"
+  add_foreign_key "item_unit_events", "people", on_delete: :nullify
+  add_foreign_key "item_unit_events", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "item_units", "item_units", column: "installed_in_id"
+  add_foreign_key "item_units", "items"
+  add_foreign_key "item_units", "locations"
+  add_foreign_key "items", "locations", column: "home_location_id"
+  add_foreign_key "items", "teams"
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
   add_foreign_key "ledger_entry_linkings", "ledger_entry_links"
@@ -1822,6 +1968,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
   add_foreign_key "ledgers", "teams"
   add_foreign_key "lego_lottery_drawing_tickets", "lego_lottery_drawings"
   add_foreign_key "lego_lottery_drawing_tickets", "people"
+  add_foreign_key "locations", "locations", column: "parent_id"
+  add_foreign_key "locations", "teams"
   add_foreign_key "mailbox_assignments", "mailboxes"
   add_foreign_key "mailbox_messages", "mailboxes"
   add_foreign_key "mcp_tool_calls", "oauth_applications", on_delete: :nullify
@@ -1905,6 +2053,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
+  add_foreign_key "stock_levels", "items"
+  add_foreign_key "stock_levels", "locations"
+  add_foreign_key "stock_movements", "items"
+  add_foreign_key "stock_movements", "locations"
+  add_foreign_key "stock_movements", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "stock_movements", "people", on_delete: :nullify
+  add_foreign_key "stock_movements", "stock_movements", column: "reverses_id"
   add_foreign_key "teams", "team_types"
   add_foreign_key "teams", "teams", column: "parent_id"
   add_foreign_key "teams", "teams", column: "parent_team_id"

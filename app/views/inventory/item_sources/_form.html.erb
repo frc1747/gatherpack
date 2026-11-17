@@ -1,0 +1,16 @@
+<% inventory_stylesheet %>
+<%= simple_form_for item_source, url: item_source.new_record? ? inventory_item_sources_path(item_source.item) : inventory_item_source_path(item_source.item, item_source), html: { class: "inventory-form" } do |f| %>
+  <%= f.error_notification %>
+  <%= f.input :vendor_name, label: "Vendor" %>
+  <%= f.input :vendor_part_number, label: "Vendor part number" %>
+  <%= f.input :url, label: "Link" %>
+  <%= f.input :preferred, hint: "The one the reorder list uses" %>
+  <%= f.input :note %>
+  <% Inventory.extensions.source_fields.each do |fields| %>
+    <%= render fields.partial, item_source: item_source, form: f %>
+  <% end %>
+  <div class="d-flex gap-2">
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+    <%= link_to "Cancel", inventory_item_path(item_source.item), class: "btn btn-warning" %>
+  </div>
+<% end %>

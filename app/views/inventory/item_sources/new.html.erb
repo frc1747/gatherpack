@@ -1,0 +1,7 @@
+<% breadcrumb :inventory_item_source, @item_source %>
+<% content_for :title, "Where to buy #{@item.name}" %>
+
+<div class="card">
+  <div class="card-header"><h1>Where to buy <%= @item.name %></h1></div>
+  <div class="card-body"><%= render "form", item_source: @item_source %></div>
+</div>

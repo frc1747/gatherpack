@@ -1,0 +1,7 @@
+<% breadcrumb :inventory_item, @item %>
+<% content_for :title, "Edit #{@item.name}" %>
+
+<div class="card">
+  <div class="card-header"><h1>Edit <%= @item.name %></h1></div>
+  <div class="card-body"><%= render "form", item: @item %></div>
+</div>

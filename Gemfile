@@ -100,6 +100,8 @@ gem "kaminari", "~> 1"
 
 gem "color", "~> 2"
 
+gem "rqrcode", "~> 3"
+
 gem "pundit", "~> 2"
 
 gem "gretel", github: "wobschalli/gretel" # change to main gem once it has support for rails 8

@@ -1,0 +1,7 @@
+<%# The change just recorded, with Undo, while the person can still undo it. %>
+<% if (movement = inventory_pending_undo) %>
+  <div class="inventory-toast alert alert-success d-flex align-items-center gap-2 shadow" role="status">
+    <span class="flex-grow-1"><%= inventory_change_text(movement) %>.</span>
+    <%= button_to "Undo", undo_inventory_movement_path(movement, return_to: request.fullpath), class: "btn btn-dark" %>
+  </div>
+<% end %>

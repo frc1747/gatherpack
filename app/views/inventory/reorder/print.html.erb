@@ -1,0 +1,35 @@
+<% breadcrumb :inventory_reorder %>
+<% content_for :title, "Reorder list" %>
+<% inventory_stylesheet %>
+
+<div class="d-flex gap-2 mb-3 inventory-no-print" data-controller="inventory-print">
+  <button type="button" class="btn btn-primary" data-action="inventory-print#print">Print</button>
+  <%= link_to "Back to the list", inventory_reorder_path, class: "btn btn-secondary" %>
+</div>
+
+<h1>Reorder list</h1>
+<p class="text-body-secondary"><%= nice_date(Date.current) %></p>
+<% if @rows.empty? %>
+  <p>Nothing to order.</p>
+<% else %>
+  <% @rows.group_by { |item, _quantity| item.preferred_source&.vendor_name.presence || Inventory::Reorder::NO_SOURCE }.each do |vendor, rows| %>
+    <h2 class="h4"><%= vendor %></h2>
+    <table class="table table-sm">
+      <thead>
+        <tr><th>Item</th><th>Part number</th><th>Vendor part number</th><th>Link</th><th class="text-end">Quantity</th></tr>
+      </thead>
+      <tbody>
+        <% rows.each do |item, quantity| %>
+          <% source = item.preferred_source %>
+          <tr>
+            <td><%= item.name %></td>
+            <td><%= item.manufacturer_part_number %></td>
+            <td><%= source&.vendor_part_number %></td>
+            <td class="text-break"><%= source&.url.presence || item.url %></td>
+            <td class="text-end"><%= inventory_quantity(quantity, item) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+<% end %>
