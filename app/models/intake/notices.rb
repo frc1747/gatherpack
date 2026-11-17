@@ -46,9 +46,19 @@ module Intake::Notices
       url: Rails.application.routes.url_helpers.intake_registrations_url)
   end
 
+  # "You're in. Next: <anything still unmet>" on the registration's checklist.
   def approved(application)
     to_person(application.person, "You're in: #{application.team.name}", "approved",
-      first_name: application.person.first_name, team_name: application.team.name)
+      first_name: application.person.first_name, team_name: application.team.name,
+      still_to_do: Intake::ApplicationChecklists.still_to_do(application))
+  end
+
+  # When everything on the registration's checklist is done and a manager
+  # still has to decide.
+  def checklist_done(person, teams)
+    team_names = teams.map(&:name).to_sentence
+    to_person(person, "Everything's in for #{team_names}", "checklist_done",
+      first_name: person.first_name, team_names: team_names)
   end
 
   def denied(application)
