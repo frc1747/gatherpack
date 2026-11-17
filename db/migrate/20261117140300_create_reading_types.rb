@@ -19,9 +19,9 @@ class CreateReadingTypes < ActiveRecord::Migration[8.1]
   end
 
   DEFAULTS = [
-    { name: "Hours", plural: "Hours", unit_label: "h" },
-    { name: "Cycles", plural: "Cycles" },
-    { name: "Volts", plural: "Volts", unit_label: "V" }
+    { name: "Hours", plural: "Hours", key: "hours", unit_label: "h" },
+    { name: "Cycles", plural: "Cycles", key: "cycles" },
+    { name: "Volts", plural: "Volts", key: "volts", unit_label: "V" }
   ].freeze
 
   def change

@@ -1,8 +1,11 @@
 # The lists inventory groups manage on Setup (managed lists): place types,
 # stock units, part conditions and reading types. Their starting rows come
-# from the migrations; seed_defaults! puts them into a database made from
-# the schema instead (a fresh install, tests), and does nothing to a list
-# that has rows.
+# from the migrations. In a database made from the schema (a fresh install,
+# tests) the code that first needs a list fills it (seed!: the default
+# place type, stock unit or condition, the menu, the readings screen).
+# Every default row has a key, so it can be retired but not deleted or
+# merged away, and a list once filled never empties again: a deleted
+# default can't come back.
 module Inventory
   module Lists
     module_function
@@ -30,15 +33,20 @@ module Inventory
           { name: "Retired", key: "retired", out_of_service: true }
         ],
         ReadingType => [
-          { name: "Hours", plural: "Hours", unit_label: "h" },
-          { name: "Cycles", plural: "Cycles" },
-          { name: "Volts", plural: "Volts", unit_label: "V" }
+          { name: "Hours", plural: "Hours", key: "hours", unit_label: "h" },
+          { name: "Cycles", plural: "Cycles", key: "cycles" },
+          { name: "Volts", plural: "Volts", key: "volts", unit_label: "V" }
         ]
       }
     end
 
     def seed_defaults!
       defaults.each { |model, rows| model.seed_defaults!(rows) }
+    end
+
+    # Fills one list with its defaults when it's empty.
+    def seed!(model)
+      model.seed_defaults!(defaults.fetch(model))
     end
   end
 end

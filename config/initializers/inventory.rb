@@ -116,6 +116,16 @@ Rails.application.config.to_prepare do
       setup_section: Inventory::SETUP_SECTION, feature: :inventory,
       description: "What a check can record on a tracked part, such as hours of use. Each item picks the ones its checks ask for.",
       fields: [ { name: :unit_label, label: "Unit", hint: "Shown after the name, such as h or V. Optional." } ])
+
+    # Inventory's lists refuse some retires and merges (the default stock
+    # unit, place types that do different things) by raising RecordInvalid
+    # with a message; the list screen shows it instead of an error page.
+    if defined?(ManagedListsController)
+      ManagedListsController.rescue_from(ActiveRecord::RecordInvalid) do |error|
+        flash[:danger] = error.record.errors.full_messages.to_sentence
+        redirect_to managed_list_path(params[:list]), status: :see_other
+      end
+    end
   end
 
   # Pickers and the Setup page come with the settings inputs seam; without

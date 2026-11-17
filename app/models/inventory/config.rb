@@ -50,6 +50,12 @@ module Inventory
       REORDER_NOTICES.include?(value) ? value : "daily"
     end
 
+    # The default stock unit's name. Kept for features written against the
+    # old inventory_default_unit setting; new code uses StockUnit.default_unit.
+    def default_unit
+      StockUnit.default_unit&.name || "each"
+    end
+
     # The known names in a comma- or line-separated setting, in the
     # setting's order. Words with spaces ("take off") match their key.
     def list(value, known)

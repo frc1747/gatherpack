@@ -42,6 +42,7 @@ class UnitCondition < ApplicationRecord
   # The condition an action sets: the row with the key while it's active,
   # else the first active row of the scope.
   def self.pick(key, scope)
+    Inventory::Lists.seed!(UnitCondition)
     active.find_by(key: key) || scope.first
   end
 

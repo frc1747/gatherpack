@@ -170,4 +170,68 @@ class Inventory::ListsTest < ActiveSupport::TestCase
     assert_equal [ "Cycles" ], battery.reload.reading_types.map(&:name)
     assert_not_includes ReadingType.active, cycles
   end
+
+  test "place types: a type keeps stock or takes installed parts, not both" do
+    both = LocationType.new(name: "Workbench", holds_stock: true, holds_installed_parts: true)
+    assert_not both.valid?
+    assert_includes both.errors.full_messages, "A type either keeps stock or has parts installed on it, not both"
+    assert LocationType.new(name: "Building", holds_stock: false, holds_installed_parts: false).valid?
+  end
+
+  test "place types: a type in use can't drop a flag its places rely on" do
+    storage = location_type("storage")
+    with_inventory(@world) { stock!(@world, 5) }
+    assert_not storage.update(holds_stock: false)
+    assert_not storage.reload.update(holds_stock: false, holds_installed_parts: true)
+    assert_equal [ "Counted stock is kept in storage places: move or remove it first" ], storage.errors.full_messages
+
+    machine = location_type("machine")
+    motor = tracked_item!(@world, name: "Motor", units: 1).item_units.first
+    with_inventory(@world) { motor.install!(into: @world.robot, by: @world.admin) }
+    assert_not machine.update(holds_installed_parts: false)
+    assert_equal [ "Parts are installed on machines: take them off first" ], machine.errors.full_messages
+
+    with_inventory(@world) { motor.reload.take_off!(by: @world.admin) }
+    assert machine.reload.update(holds_installed_parts: false)
+    with_inventory(@world) { record(@world, :used, 5) }
+    assert storage.reload.update(holds_stock: false)
+  end
+
+  test "place types: merging is only into a type that does the same" do
+    cart = LocationType.create!(name: "Cart")
+    error = assert_raises(ActiveRecord::RecordInvalid) { location_type("machine").merge_into!(cart) }
+    assert_match(/same way/, error.message)
+    shelf = LocationType.create!(name: "Shelf")
+    Location.create!(team: @world.club, name: "Top shelf", location_type: shelf)
+    shelf.merge_into!(cart)
+    assert_equal cart, Location.find_by!(name: "Top shelf").location_type
+  end
+
+  test "every default row has a key, so a list can't be emptied and defaults don't come back" do
+    Inventory::Lists.defaults.each do |model, rows|
+      assert rows.all? { |row| row[:key].present? } || model == StockUnit, model.name
+    end
+    hours = ReadingType.find_by!(key: "hours")
+    assert_not hours.destroy
+    assert ReadingType.exists?(hours.id)
+    assert StockUnit.where(key: "each").exists?
+  end
+
+  test "shims for features written against the old columns and settings" do
+    assert_equal "each", Inventory::Config.default_unit
+    stock_unit("pack").update!(default: true)
+    assert_equal "pack", Inventory::Config.default_unit
+
+    item = Item.new(team: @world.club, name: "Gloves")
+    item.unit = "Boxes"
+    assert_equal "box", item.unit
+    item.unit = "pair"
+    item.save!
+    assert_equal "pair", item.reload.unit
+    assert StockUnit.exists?(name: "pair")
+    item.unit = ""
+    assert_equal "pair", item.unit
+    assert_includes Location.storage, @world.bin1
+    assert_not_includes Location.storage, @world.robot
+  end
 end

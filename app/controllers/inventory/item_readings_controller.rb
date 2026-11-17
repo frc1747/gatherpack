@@ -3,6 +3,7 @@
 module Inventory
   class ItemReadingsController < BaseController
     before_action :set_item
+    before_action(only: :edit) { Inventory::Lists.seed!(ReadingType) }
 
     def edit
     end

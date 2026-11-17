@@ -45,6 +45,15 @@ class Item < ApplicationRecord
     stock_unit&.name
   end
 
+  # Sets the stock unit by name or plural, adding a unit to the list when
+  # none matches. Kept for features that set the unit as text; blank keeps
+  # the current one.
+  def unit=(text)
+    return if text.to_s.strip.empty?
+
+    self.stock_unit = StockUnit.named(text) || StockUnit.new(name: text.to_s.strip)
+  end
+
   def identifier_icon
     tracked? ? "microchip" : "box"
   end

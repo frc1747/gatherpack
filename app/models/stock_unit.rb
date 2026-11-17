@@ -15,6 +15,7 @@ class StockUnit < ApplicationRecord
 
   # The unit new items start with.
   def self.default_unit
+    Inventory::Lists.seed!(StockUnit)
     find_by(default: true) || active.ordered.first
   end
 
@@ -34,7 +35,26 @@ class StockUnit < ApplicationRecord
     "#{quantity} #{quantity.to_i.abs == 1 ? name : plural_name}"
   end
 
+  # The default can't be retired or merged away: another unit has to be
+  # made the default first.
+  def retire!
+    refuse_while_default!("retiring it")
+    super
+  end
+
+  def merge_into!(other)
+    refuse_while_default!("merging it away")
+    super
+  end
+
   private
+
+  def refuse_while_default!(doing)
+    return unless default?
+
+    errors.add(:base, "#{name} is the default unit: make another unit the default before #{doing}")
+    raise ActiveRecord::RecordInvalid, self
+  end
 
   def take_default
     StockUnit.where.not(id: id).where(default: true).update_all(default: false, updated_at: Time.current)
@@ -43,10 +63,10 @@ class StockUnit < ApplicationRecord
   def default_stays_somewhere
     return unless persisted? && will_save_change_to_default? && !default?
 
-    errors.add(:default, "can't be turned off here: make another unit the default instead")
+    errors.add(:base, "#{name} is the default unit: make another unit the default instead")
   end
 
   def default_is_active
-    errors.add(:active, "can't be turned off for the default unit: make another unit the default first") if default? && !active?
+    errors.add(:base, "#{name} is the default unit: make another unit the default first") if default? && !active?
   end
 end
