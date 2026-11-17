@@ -701,11 +701,11 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a team manager sees Checklists in Manage, not More" do
+  test "a team manager sees Checklists in Manage, not under a section heading" do
     with_feature_on do
       menu = MyGatherpack::Menu.new(person(:club_manager).user)
       assert_includes menu.manage.map(&:path), :checklists_path
-      assert_not_includes menu.more.map(&:path), :checklists_path
+      assert_not_includes menu.sections.flat_map(&:last).map(&:path), :checklists_path
     end
   end
 
