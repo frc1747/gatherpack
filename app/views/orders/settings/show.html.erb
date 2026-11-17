@@ -58,6 +58,11 @@
         <%= render "orders/settings/field", f: f, editor: @editor, name: :buyers %>
       </section>
 
+      <section class="mb-4">
+        <h2 class="h5">Who manages funding sources</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :funding_managers %>
+      </section>
+
       <section class="mb-4" data-controller="setting-rows">
         <h2 class="h5">Paid with</h2>
         <div data-setting-rows-target="list">
@@ -71,6 +76,15 @@
         </template>
         <button type="button" class="btn btn-secondary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add a way to pay</button>
       </section>
+
+      <% Orders::SettingsEditor.sections.each do |heading, settings| %>
+        <section class="mb-4">
+          <h2 class="h5"><%= heading %></h2>
+          <% settings.each do |setting| %>
+            <%= render "orders/settings/value", setting: setting, value: @editor.values.fetch(setting.setting_key) %>
+          <% end %>
+        </section>
+      <% end %>
     </div>
   </div>
 

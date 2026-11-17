@@ -14,8 +14,8 @@
     <div class="col-12 col-sm">
       <label class="visually-hidden" for="<%= setting_input_id(input, index, "team") %>">For team</label>
       <%= select_tag setting_input_name(input, "rows", index, "team"),
-                     options_for_select(teams.map { |label, name| [ "For #{label} and the teams below it", name ] }, row&.team_name),
-                     include_blank: "For every team",
+                     options_for_select(teams.map { |label, name| [ "Up to: #{label}", name ] }, row&.team_name),
+                     include_blank: Orders::SettingsEditor::BLANK_TEAM_LABEL,
                      id: setting_input_id(input, index, "team"), class: "form-select", style: "min-height: 44px" %>
     </div>
   <% end %>

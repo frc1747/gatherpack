@@ -71,15 +71,141 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the page shows only who can ask, who sees every request, who approves, the second approval, who buys and paid with" do
+  test "the page shows every orders setting, in groups" do
     with_orders(@world) do
       sign_in @world.admin.user
       get orders_settings_url
       assert_select "h1", "Orders setup"
-      assert_equal [ "Who can ask", "Who sees every request", "Who approves", "Over $ , also needs", "Who buys", "Paid with" ],
-        css_select("h2").map { |node| node.text.squish }
-      assert_select "input[name*=tolerance]", 0
-      assert_select "textarea[name*=approval_steps], input[name*=funding]", 0
+      assert_equal [ "Who can ask", "Who sees every request", "Who approves", "Over $ , also needs", "Who buys", "Who manages funding sources",
+        "Paid with", "Seeing requests", "Buying", "Funding", "Closing" ], css_select("h2").map { |node| node.text.squish }
+      assert_select "select[name='values[orders_team_can_see]'] option[selected][value=true]", "Yes"
+      assert_select "input[type=number][name='values[orders_price_tolerance][percent]'][value='10']"
+      assert_select "input[type=number][name='values[orders_price_tolerance][amount]'][value='25']"
+      assert_select "label[for=values_orders_price_tolerance_percent]", "Up to"
+      assert_select "label[for=values_orders_price_tolerance_amount]", "or up to $"
+      assert_select "input[type=text][name*=tolerance]", 0
+      assert_select "input[type=number][name='values[orders_close_after_days]'][value='14']"
+      assert_select "select[name='values[orders_require_funding_source]'] option[selected][value=false]", "No"
+      assert_select ".form-text", /Received requests close after this many days/
+    end
+  end
+
+  test "every setting registered in the Orders group is on the page and saves" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      get orders_settings_url
+      shown = Orders::SettingsEditor.section_keys + Orders::SettingsEditor::FIELD_SETTINGS
+      assert_equal Settings.settings("Orders").map(&:setting_key).sort, shown.sort
+      Orders::SettingsEditor.section_keys.each { |key| assert_select "[name^='values[#{key}]']", minimum: 1, message: "#{key} isn't on the page" }
+
+      params = open_form
+      params["values"].merge!("orders_team_can_see" => "false", "orders_price_tolerance" => { "percent" => "5", "amount" => "40" }, "orders_require_other_vendor_reason" => "true",
+        "orders_require_funding_source" => "true", "orders_requesters_pick_funding" => "true", "orders_close_after_days" => "30")
+      patch orders_settings_url, params: params
+      assert_redirected_to orders_settings_url
+
+      assert_not Orders::Config.team_can_see?
+      assert_equal "5%, 40", Settings[:orders_price_tolerance]
+      assert_equal [ BigDecimal("5"), 4000 ], [ Orders::Config.price_tolerance.percent, Orders::Config.price_tolerance.amount_cents ]
+      assert_equal 30, Orders::Config.close_after_days
+      assert Settings[:orders_require_other_vendor_reason]
+      assert Settings[:orders_require_funding_source]
+      assert Settings[:orders_requesters_pick_funding]
+    end
+  end
+
+  test "an orders setting that isn't listed is drawn under more settings" do
+    with_orders(@world) do
+      Settings.register(:orders_test_extra, :integer, "Extra Limit", "3", "Orders", "A made-up setting")
+      sign_in @world.admin.user
+      get orders_settings_url
+      assert_select "h2", "More settings"
+      assert_select "input[type=number][name='values[orders_test_extra]'][value='3']"
+
+      params = open_form
+      params["values"]["orders_test_extra"] = "9"
+      patch orders_settings_url, params: params
+      assert_equal "9", Settings.get(:orders_test_extra).value
+    ensure
+      Settings.instance.settings.delete(:orders_test_extra)
+    end
+  end
+
+  test "price tolerance round trips as the text the app parses, with either number blank" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      { [ "10", "25" ] => "10%, 25", [ "10", "" ] => "10%", [ "", "25" ] => "25", [ "2.5", "0" ] => "2.5%, 0", [ "", "" ] => "" }.each do |(percent, amount), text|
+        params = open_form
+        params["values"]["orders_price_tolerance"] = { "percent" => percent, "amount" => amount }
+        patch orders_settings_url, params: params
+        assert_redirected_to orders_settings_url
+        assert_equal text, Settings[:orders_price_tolerance]
+
+        get orders_settings_url
+        field = Orders::PriceToleranceField.new(text)
+        assert_select "input[name='values[orders_price_tolerance][percent]'][value='#{field.percent}']", field.percent ? 1 : 0
+        assert_select "input[name='values[orders_price_tolerance][amount]'][value='#{field.amount}']", field.amount ? 1 : 0
+      end
+    end
+  end
+
+  test "a saved tolerance that isn't a percentage and an amount shows as not found and is kept" do
+    with_orders(@world, orders_price_tolerance: "about ten percent") do
+      sign_in @world.admin.user
+      get orders_settings_url
+      assert_select "fieldset .text-danger", "Not found: about ten percent"
+
+      patch orders_settings_url, params: open_form
+      assert_redirected_to orders_settings_url
+      assert_equal "about ten percent", Settings[:orders_price_tolerance]
+
+      params = open_form
+      params["values"]["orders_price_tolerance"].merge!("percent" => "8")
+      patch orders_settings_url, params: params
+      assert_equal "8%", Settings[:orders_price_tolerance]
+    end
+  end
+
+  test "who manages funding sources is saved in the format the app reads" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      params = open_form
+      if pickers?
+        params["settings"]["funding_managers"]["rows"]["0"]["remove"] = "1"
+      else
+        params["settings"]["funding_managers"] = ""
+      end
+      add_grant(params, "funding_managers", @world.buyer_badge, @world.robotics)
+      patch orders_settings_url, params: params
+      assert_redirected_to orders_settings_url
+      assert_equal grant(@world.buyer_badge, @world.robotics), Settings[:orders_funding_managers]
+    end
+  end
+
+  test "the setup page works without JavaScript: every field is a plain form control" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      get orders_settings_url
+      assert_select "form[action='#{orders_settings_path}'] input[type=submit][value=Save]"
+      assert_select "template", minimum: 1
+      assert_select "[hidden]", minimum: 1 # only the add buttons, shown by script
+      assert_select "section:not([data-controller]) select[name^='values'], section:not([data-controller]) input[name^='values']", minimum: 6
+    end
+  end
+
+  test "bad yes-no, number and tolerance values are refused and nothing is saved" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      params = open_form
+      params["values"].merge!("orders_team_can_see" => "maybe", "orders_close_after_days" => "soon", "orders_price_tolerance" => { "percent" => "ten", "amount" => "" })
+      params["large_amount"] = "100"
+      patch orders_settings_url, params: params
+      assert_response :unprocessable_entity
+      assert_match "choose yes or no", response.body
+      assert_match "must be a whole number", response.body
+      assert_match "use numbers for the percentage and the amount", response.body
+      assert_equal "10%, 25", Settings[:orders_price_tolerance]
+      assert_equal 1, Orders::Config.approval_steps.size
     end
   end
 
@@ -102,9 +228,10 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.robotics.name}']:not([checked])"
       assert_select "select[name='settings[approvers][rows][0][badge]'] option[selected]", @world.approver_badge.name
       assert_select "select[name='settings[approvers][rows][0][team]'] option[selected][value='#{@world.club.name}']",
-        "For #{@world.club.name} and the teams below it"
-      assert_select "select[name='settings[approvers][rows][1][team]'] option[value='']", "For every team"
-      assert_select "fieldset .form-text", /team picked and the teams below it\. No team: every team\./
+        "Up to: #{@world.club.name}"
+      assert_select "select[name='settings[approvers][rows][1][team]'] option[value='']", "Up to: every team"
+      assert_select "select[name$='[team]'] option[value='']", text: "Up to: every team", minimum: 3
+      assert_select "fieldset .form-text", /works up to the team picked, and the teams below it\. No team: every team\./
       assert_select "input[name=large_amount][value='500']"
       assert_select "select[name='settings[large_approvers][rows][0][badge]'] option[selected]", @world.funder_badge.name
       assert_select "select[name='settings[large_approvers][rows][0][team]'] option[selected][value='#{@world.robotics.name}']"
@@ -274,12 +401,10 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "settings not on the page keep their values" do
+  test "saving the page unchanged keeps settings that differ from the defaults" do
     with_orders(@world, orders_price_tolerance: "3%, 7", orders_close_after_days: "30", orders_team_can_see: "false") do
       sign_in @world.admin.user
-      params = open_form
-      params["large_amount"] = "100"
-      patch orders_settings_url, params: params
+      patch orders_settings_url, params: open_form
 
       assert_equal "3%, 7", Settings[:orders_price_tolerance]
       assert_equal 30, Orders::Config.close_after_days

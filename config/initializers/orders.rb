@@ -73,13 +73,16 @@ Rails.application.config.to_prepare do
   Settings.register(:orders_close_after_days, :integer, "Close Received Requests After (days)", "14", "Orders",
     "Received requests close after this many days")
 
-  # Orders setup (Orders::SettingsEditor) draws these with the settings
-  # pickers where they exist, and the settings page links there while orders
-  # is on. The settings it doesn't show keep their values and defaults.
+  # Orders setup (Orders::SettingsEditor) draws every orders setting, with
+  # the settings pickers where they exist, and the settings page links there
+  # while orders is on.
   if Settings.respond_to?(:input)
     Settings.input(:orders_requesters, :teams)
     Settings.input(:orders_viewers, :teams)
-    Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin })
+    Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
+    Settings.input(:orders_funding_managers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
+    Settings.input(:orders_price_tolerance, :partial, partial: "orders/settings/price_tolerance",
+      to_text: ->(posted, current) { Orders::PriceToleranceField.text_from(posted, current) }, default_label: Orders::Config::DEFAULT_TOLERANCE)
   end
   Settings.page("Orders", :orders_settings_path, label: "Orders setup", if: -> { GatherPack::Features.enabled?(:orders) }) if Settings.respond_to?(:page)
 
