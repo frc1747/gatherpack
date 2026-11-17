@@ -18,6 +18,7 @@ module OrderInventoryWorld
     # Some orders tests reset the extension registries; put the bridge back.
     OrderInventory.register!
     world = build_orders_world
+    Inventory::Lists.seed_defaults!
     shop = Location.create!(team: world.club, name: "Shop")
     cabinet = Location.create!(parent: shop, name: "Cabinet", code: "A")
     bin = Location.create!(parent: cabinet, name: "Bin", code: "A-1")

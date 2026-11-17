@@ -74,6 +74,9 @@ class InventoryStockTest < ApplicationSystemTestCase
 
       within ".inventory-toast" do
         assert_text "Used 4 from Bin 1"
+        assert_operator evaluate_script("document.querySelector('.inventory-toast').getBoundingClientRect().top"), :<, 200
+        assert_operator evaluate_script("document.querySelector('.inventory-toast').getBoundingClientRect().top"), :<,
+          evaluate_script("document.querySelector('.inventory-history').getBoundingClientRect().top")
         click_on "Undo"
       end
       assert_text "Undone: Used 4 from Bin 1"
@@ -171,7 +174,7 @@ class InventoryStockTest < ApplicationSystemTestCase
 
       click_on "Add an item here"
       fill_in "Name", with: "Red wire"
-      fill_in "Stock unit", with: "ft"
+      select "foot", from: "Stock unit"
       fill_in "Order more at", with: "20"
       select @world.club.name, from: "Team"
       click_on "Save item"
@@ -230,6 +233,49 @@ class InventoryStockTest < ApplicationSystemTestCase
       assert_current_path "/inventory?q=M4%20screw,Red%20wire"
     ensure
       Inventory.extensions.instance_variable_get(:@reorder_actions).delete(:stub)
+    end
+  end
+
+  test "import Preview shows the preview in the browser" do
+    with_inventory(@world) do
+      csv = Tempfile.new([ "items", ".csv" ])
+      csv.write("Name,Place code,Quantity\nZip tie,A-2,6\n")
+      csv.close
+      login_as(@world.keeper.user, scope: :user)
+
+      visit new_inventory_import_path
+      attach_file "file", csv.path
+      click_on "Preview"
+      assert_selector "h1", text: "Import preview"
+      assert_text "1 new item"
+      assert_button "Import 1 row"
+    end
+  end
+
+  test "the Changes page marks a big count where the theme colours rows" do
+    with_inventory(@world) do
+      stock!(@world, 10)
+      record(@world, :counted, 3, person: @world.member)
+      login_as(@world.keeper.user, scope: :user)
+
+      visit inventory_movements_path
+      assert_selector ".inventory-history .inventory-big-count"
+      assert_equal "8px", evaluate_script("getComputedStyle(document.querySelector('.inventory-big-count')).borderLeftWidth")
+      refute_equal evaluate_script("getComputedStyle(document.querySelector('.inventory-big-count')).backgroundColor"),
+        evaluate_script("getComputedStyle(document.querySelector('.inventory-history')).backgroundColor")
+    end
+  end
+
+  test "a ticked checkbox on the item form shows a tick" do
+    with_inventory(@world) do
+      login_as(@world.keeper.user, scope: :user)
+
+      visit new_inventory_item_path
+      box = first("input.form-check-input", minimum: 1, visible: :all)
+      box.check unless box.checked?
+      assert_includes evaluate_script("getComputedStyle(document.querySelector('input.form-check-input:checked')).backgroundImage"), "svg"
+      assert_not_equal evaluate_script("getComputedStyle(document.querySelector('input.form-check-input:checked')).backgroundColor"),
+        evaluate_script("getComputedStyle(document.body).backgroundColor")
     end
   end
 end

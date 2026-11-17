@@ -194,7 +194,7 @@ module OrderRequestsHelper
     when "funding_source_id" then order_timeline_name(FundingSource, value)
     when "needed_by", "expected_on" then l(Date.parse(value.to_s), format: :long)
     when "lines" then Array(value).to_sentence
-    when "condition" then value.to_s.humanize
+    when "condition" then order_timeline_condition(value)
     when "item_id" then "linked"
     else value.to_s
     end
@@ -203,6 +203,22 @@ module OrderRequestsHelper
   end
 
   private
+
+  # How a delivery came: "Good", or the problem kind's current name. Kinds
+  # are logged as { "id", "name" }, and the logged name stands in once the
+  # kind is gone (merged away). Entries from before problem kinds were a
+  # list hold "damaged" or "wrong_item", the built-in kinds' keys.
+  def order_timeline_condition(value)
+    return "Good" if value.to_s == "good"
+
+    @order_timeline_names ||= {}
+    if value.is_a?(Hash)
+      @order_timeline_names[[ DeliveryProblemKind, value["id"] ]] ||=
+        DeliveryProblemKind.find_by(id: value["id"])&.name || value["name"].presence || "removed"
+    else
+      @order_timeline_names[[ DeliveryProblemKind, value.to_s ]] ||= DeliveryProblemKind.find_by(key: value.to_s)&.name || value.to_s.humanize
+    end
+  end
 
   def order_timeline_name(klass, id)
     @order_timeline_names ||= {}

@@ -1,10 +1,11 @@
 <% breadcrumb :inventory %>
-<% content_for :title, "Inventory" %>
+<% content_for :title, "Stock" %>
 <% inventory_stylesheet %>
 
 <div class="inventory-phone">
-  <%= form_with url: inventory_root_path, method: :get, data: { controller: "inventory-search", turbo_frame: "inventory_results", turbo_action: "replace" }, role: "search" do |f| %>
-    <label for="q" class="form-label h1">Inventory</label>
+  <%= render "inventory/shared/undo_toast" %>
+  <%= form_with url: inventory_stock_path, method: :get, data: { controller: "inventory-search", turbo_frame: "inventory_results", turbo_action: "replace" }, role: "search" do |f| %>
+    <label for="q" class="form-label h1">Stock</label>
     <div class="input-group input-group-lg">
       <%= f.search_field :q, value: @query, id: "q", class: "form-control inventory-search", placeholder: "Name, part number or category",
         autocomplete: "off", autofocus: true, data: { inventory_search_target: "input", action: "input->inventory-search#search" } %>
@@ -46,13 +47,17 @@
     <% end %>
   <% end %>
 
-  <% if Inventory.manager_pages(current_person).none? %>
-    <div class="d-flex flex-wrap gap-2 my-3">
-      <%= link_to inventory_locations_path, class: "btn btn-outline-secondary" do %>
+  <div class="d-flex flex-wrap gap-2 my-3 inventory-no-print">
+    <% if Inventory.manager_pages(current_person).none? %>
+      <%= link_to inventory_locations_path, class: "btn btn-secondary" do %>
         <i class="fa-solid fa-warehouse"></i> Places
       <% end %>
-    </div>
-  <% end %>
+    <% end %>
+    <% LocationType.installable.each do |type| %>
+      <%= link_to inventory_machine_type_path(type), class: "btn btn-secondary" do %>
+        <i class="fa-solid fa-<%= Inventory::MACHINE_ICON %>"></i> <%= type.plural_name %>
+      <% end %>
+    <% end %>
+  </div>
   <%= render "inventory/shared/manager_links" %>
 </div>
-<%= render "inventory/shared/undo_toast" %>

@@ -3,7 +3,12 @@
 <div class="card mb-4">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h1>To buy</h1>
-    <%= link_to "Orders placed", orders_purchases_path(mine: 1), class: "btn btn-outline-secondary" %>
+    <div class="d-flex flex-wrap gap-2">
+      <% if Orders::Access.for(current_user.person).buyer? %>
+        <%= link_to "Buying notices", edit_orders_notice_preference_path, class: "btn btn-secondary" %>
+      <% end %>
+      <%= link_to "Orders placed", orders_purchases_path(mine: 1), class: "btn btn-secondary" %>
+    </div>
   </div>
   <% if @groups.empty? %>
     <div class="card-body text-muted">Nothing is waiting to be bought.</div>

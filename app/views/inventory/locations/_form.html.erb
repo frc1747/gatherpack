@@ -1,4 +1,5 @@
-<%= simple_form_for location, url: location.new_record? ? inventory_locations_path : inventory_location_path(location) do |f| %>
+<% inventory_stylesheet %>
+<%= simple_form_for location, url: location.new_record? ? inventory_locations_path : inventory_location_path(location), html: { class: "inventory-form" } do |f| %>
   <%= f.error_notification %>
   <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
 
@@ -6,7 +7,7 @@
     <div class="col-md-6">
       <%= f.input :name, hint: "Shop, cabinet, shelf or bin" %>
       <%= f.input :code, hint: "Short label text, such as A-3. Unique within the top-level place" %>
-      <%= f.input :kind, collection: [ [ "Storage (shelf, bin, cart)", "storage" ], [ "Machine (robot, demo board)", "machine" ] ], include_blank: false %>
+      <%= managed_list_select f, :location_type_id, list: :location_types, label: "Type", include_blank: false %>
       <%= f.input :note, as: :text, input_html: { rows: 2 } %>
     </div>
     <div class="col-md-6">

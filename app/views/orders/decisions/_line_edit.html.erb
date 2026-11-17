@@ -4,7 +4,7 @@
 <% vendors |= [ line.vendor ] if line.vendor %>
 <details class="border rounded mb-2 orders-line-edit">
   <summary class="p-2"><%= line.display_name %> × <%= line.quantity %></summary>
-  <%= form_with model: line, scope: :line, url: orders_request_line_edit_path(order_request, line), method: :patch, class: "p-2 pt-0" do |form| %>
+  <%= form_with model: line, scope: :line, url: orders_request_line_edit_path(order_request, line), method: :patch, namespace: dom_id(line), class: "p-2 pt-0" do |form| %>
     <div class="mb-2">
       <%= form.label :description, "What is it?", class: "form-label" %>
       <%= form.text_field :description, class: "form-control" %>

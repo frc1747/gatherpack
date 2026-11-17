@@ -83,9 +83,10 @@ class Orders::RecordInLedgerTest < ActiveSupport::TestCase
   end
 
   test "a reimbursed purchase's entry names who to pay back" do
-    with_orders(@world, orders_paid_with: JSON.generate([ { "label" => "Own card", "reimburse" => true } ])) do
+    with_orders(@world) do
+      own_card = PaymentMethod.create!(name: "Own card", reimburse: true)
       order_request = approved_request(@world)
-      purchase = buy(@world, order_request.order_lines, paid_with: "Own card", reimburse_to_id: @world.buyer.id)
+      purchase = buy(@world, order_request.order_lines, payment_method: own_card, reimburse_to_id: @world.buyer.id)
 
       entry = Orders::RecordInLedger.new(purchase, ledger: @ledger, by: @world.admin).call
 

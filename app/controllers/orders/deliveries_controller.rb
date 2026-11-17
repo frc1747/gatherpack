@@ -14,16 +14,18 @@ module Orders
 
     # GET /orders/requests/1/lines/2/deliveries/new
     def new
+      Orders::Lists.seed_delivery_problem_kinds!
       @delivery = OrderDelivery.new(order_line: @line, quantity: [ @line.to_come_quantity, 1 ].max,
-        received_on: Date.current, condition: :good)
+        received_on: Date.current)
     end
 
     # POST /orders/requests/1/lines/2/deliveries
     def create
+      problem_kind = chosen_problem_kind
       @delivery = OrderDelivery.new(order_line: @line, quantity: delivery_params[:quantity], received_on: delivery_params[:received_on],
-        condition: delivery_params[:condition].presence || :good, note: delivery_params[:note])
+        delivery_problem_kind: problem_kind, note: delivery_params[:note])
       @line.record_delivery!(by: current_user.person, quantity: delivery_params[:quantity].to_i,
-        received_on: delivery_params[:received_on].presence&.to_date, condition: delivery_params[:condition].presence || :good,
+        received_on: delivery_params[:received_on].presence&.to_date, problem_kind: problem_kind,
         note: delivery_params[:note].presence, photo: delivery_params[:photo].presence, params: params)
       redirect_to after_path, notice: "Recorded: #{@line.display_name}"
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
@@ -57,7 +59,13 @@ module Orders
     end
 
     def delivery_params
-      params.fetch(:order_delivery, {}).permit(:quantity, :received_on, :condition, :note, :photo)
+      params.fetch(:order_delivery, {}).permit(:quantity, :received_on, :delivery_problem_kind_id, :note, :photo)
+    end
+
+    # The problem picked, if any: only an active one can be picked.
+    def chosen_problem_kind
+      id = delivery_params[:delivery_problem_kind_id].presence
+      id && DeliveryProblemKind.active.find(id)
     end
 
     # Back to the list when the person came from it, else to the request.

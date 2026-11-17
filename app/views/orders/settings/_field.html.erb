@@ -1,0 +1,13 @@
+<%# One of Orders::SettingsEditor::FIELDS: the settings picker where there is one, else a text box with one entry per line. %>
+<% if Orders::SettingsEditor.pickers? %>
+  <% input = editor.picker(name) %>
+  <% if Orders::SettingsEditor::TEAM_FIELDS.include?(name) %>
+    <%= render partial: input.to_partial_path, locals: { f: f, setting: input.setting, input: input } %>
+  <% else %>
+    <%= render "orders/settings/grants", input: input %>
+  <% end %>
+<% else %>
+  <%= label_tag "settings_#{name}", Orders::SettingsEditor::FIELDS.fetch(name), class: "form-label" %>
+  <%= text_area_tag "settings[#{name}]", editor.text(name), id: "settings_#{name}", class: "form-control", rows: 3 %>
+  <div class="form-text"><%= Orders::SettingsEditor::TEAM_FIELDS.include?(name) ? "One team name per line." : "One per line, as Badge name > Team name: the badge works for that team and the teams below it. Badge name alone: every team." %></div>
+<% end %>

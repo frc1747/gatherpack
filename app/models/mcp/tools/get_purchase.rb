@@ -19,7 +19,7 @@ class Mcp::Tools::GetPurchase < Mcp::Tool
   output_schema(
     type: "object",
     properties: Mcp::OrderRecords::PURCHASE_SCHEMA[:properties].merge(
-      paid_with: { type: %w[string null] },
+      payment_method: { anyOf: [ Mcp::OrderRecords::PAYMENT_METHOD_SCHEMA, { type: "null" } ] },
       reimburse_to: Mcp::OrderRecords::NULLABLE_REF,
       tracking_url: { type: %w[string null] },
       note: { type: %w[string null] },
@@ -74,7 +74,7 @@ class Mcp::Tools::GetPurchase < Mcp::Tool
     return json unless full
 
     json.merge(
-      paid_with: purchase.paid_with.presence,
+      payment_method: (payment_method_json(purchase.payment_method) if purchase.payment_method),
       reimburse_to: (person_json(purchase.reimburse_to) if purchase.reimburse? && purchase.reimburse_to),
       tracking_url: purchase.tracking_url.presence,
       note: purchase.note.presence,

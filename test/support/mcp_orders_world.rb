@@ -18,7 +18,7 @@ module McpOrdersWorld
     base.setup do
       host! "localhost" if respond_to?(:host!)
       @world, @stock = build_order_inventory_world
-      @restore_orders = apply_settings(mcp_orders_settings)
+      @restore_orders = apply_orders_settings(mcp_orders_settings)
       reset_orders_caches
     end
     base.teardown do
@@ -34,12 +34,12 @@ module McpOrdersWorld
 
   # Settings for the block on top of the world's, with the per-request caches cleared.
   def with_orders_settings(**overrides, &block)
-    with_settings(overrides) do
-      reset_orders_caches
-      block.call
-    ensure
-      reset_orders_caches
-    end
+    restore = apply_orders_settings(overrides)
+    reset_orders_caches
+    block.call
+  ensure
+    restore&.call
+    reset_orders_caches
   end
 
   def reset_orders_caches

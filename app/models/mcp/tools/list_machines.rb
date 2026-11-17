@@ -1,27 +1,28 @@
-# Machines (places parts get installed on; the group names them on Inventory setup), as the
-# Machines page lists them
-# (Inventory::MachinesController#index: authorize :inventory, :use?; policy_scope(Location).machine,
-# active first, by full name), each with the units installed on it as its page lists them
+# Machines (places whose type holds installed parts: the group's Robots, Practice bases, whatever its
+# place types are), as the machine pages list them
+# (Inventory::MachinesController#index: authorize :inventory, :use?; policy_scope(Location) of the
+# type, active first, by full name), each with the units installed on it as its page lists them
 # (policy_scope(ItemUnit), active, by code; a unit inside one the viewer can't see is listed at the
-# top) and those whose condition is flagged (Needs repair or Broken). Needs the inventory feature.
+# top) and those whose condition is flagged (a condition that needs attention). Needs the inventory feature.
 class Mcp::Tools::ListMachines < Mcp::Tool
   include Mcp::InventoryRecords
 
   tool_name "list_machines"
-  description "Places parts get installed on (kind machine; the group may call them something else, given in called), " \
+  description "Places parts get installed on: every place whose type holds installed parts (the types are listed in types), " \
     "with the parts installed on each (by code, with condition and what each is inside) and how many need repair. " \
-    "Refused when the group has turned them off. Filter: team_id."
+    "Filters: type_id (a place type's ID or name), team_id."
   scope :read
   feature :inventory
   input_schema(
     properties: {
+      type_id: { type: "string", description: "Only places of this type (plty_, or its name)" },
       team_id: { type: "string", description: "Only this team's (tm_)" }
     }
   )
   output_schema(
     type: "object",
     properties: {
-      called: { type: "object", properties: { one: { type: "string" }, many: { type: "string" } } },
+      types: { type: "array", items: Mcp::InventoryRecords::TYPE_SCHEMA },
       machines: {
         type: "array",
         items: {
@@ -34,20 +35,21 @@ class Mcp::Tools::ListMachines < Mcp::Tool
         }
       }
     },
-    required: %w[machines]
+    required: %w[types machines]
   )
 
-  def call(team_id: nil)
+  def call(type_id: nil, team_id: nil)
     ctx.authorize!(:inventory, :use?)
-    words = Inventory.respond_to?(:machine_word)
-    invalid_argument!("#{Inventory.machine_word(count: :many, capitalize: true)} are turned off") if words && !Inventory.machines?
-    machines = ctx.policy_scope(Location).machine.includes(:parent, :team)
+    types = LocationType.installable.to_a
+    only = type_id && types.find { |type| type.id == list_row(LocationType, type_id, "place type").id }
+    invalid_argument!("#{type_id} isn't a type parts get installed on") if type_id && only.nil?
+    machines = ctx.policy_scope(Location).where(location_type_id: (only ? [ only ] : types).map(&:id)).includes(:parent, :team, :location_type)
     machines = machines.where(team_id: ctx.find(Team, team_id).id) if team_id
     machines = machines.sort_by { |machine| [ machine.active? ? 0 : 1, machine.full_name ] }
-    units = ctx.policy_scope(ItemUnit).active.where(location_id: machines.map(&:id)).includes(:item, :installed_in).order(:code).to_a
+    units = ctx.policy_scope(ItemUnit).active.where(location_id: machines.map(&:id)).includes(:item, :installed_in, :unit_condition).order(:code).to_a
     by_machine = units.group_by(&:location_id)
     {
-      called: { one: words ? Inventory.machine_word(capitalize: true) : "Machine", many: words ? Inventory.machine_word(count: :many, capitalize: true) : "Machines" },
+      types: types.map { |type| type_json(type) },
       machines: machines.map do |machine|
         installed = by_machine.fetch(machine.id, [])
         seen = installed.to_set(&:id)

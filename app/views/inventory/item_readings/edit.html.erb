@@ -1,31 +1,38 @@
 <% breadcrumb :inventory_item_readings, @item %>
 <% content_for :title, "Readings: #{@item.name}" %>
+<% list = defined?(GatherPack::ManagedLists) && GatherPack::ManagedLists.find(:reading_types) %>
+<% picked = @item.reading_type_ids %>
+<% types = ReadingType.active.ordered.to_a %>
+<% types += ReadingType.where(id: picked).where(active: false).ordered.to_a %>
 
 <div class="row"><div class="col-lg-8 col-xl-6">
   <h1 class="h3">Readings for <%= @item.name %></h1>
-  <p class="text-body-secondary">What a check can record for each unit, such as a battery's internal resistance or a motor's hours. None are required. Clear a name to remove a reading; past checks keep their values.</p>
+  <p class="text-body-secondary">What a check can record for each unit, such as hours of use or a measured voltage. None are required. Untick one to stop asking for it; past checks keep their values.</p>
   <% if @item.errors.any? %>
     <div class="alert alert-danger"><%= @item.errors.full_messages.to_sentence %></div>
   <% end %>
   <%= form_with model: @item, url: inventory_item_readings_path(@item), method: :patch, scope: :item do |form| %>
-    <% rows = Array(@item.reading_fields) + Array.new(Inventory::ItemReadingsController::BLANK_ROWS) { {} } %>
-    <div class="row g-2 mb-1 small fw-semibold">
-      <div class="col-8">Name</div>
-      <div class="col-4">Unit</div>
-    </div>
-    <% rows.each_with_index do |field, index| %>
-      <div class="row g-2 mb-2">
-        <div class="col-8">
-          <%= text_field_tag "item[reading_fields][][name]", field["name"], class: "form-control", id: "reading_name_#{index}",
-                aria: { label: "Reading #{index + 1} name" } %>
-        </div>
-        <div class="col-4">
-          <%= text_field_tag "item[reading_fields][][unit]", field["unit"], class: "form-control", id: "reading_unit_#{index}",
-                aria: { label: "Reading #{index + 1} unit" }, placeholder: "mΩ, h" %>
-        </div>
+    <%= hidden_field_tag "item[reading_type_ids][]", "", id: nil %>
+    <fieldset class="mb-3" id="reading_types">
+      <legend class="form-label fs-6">Readings a check asks for</legend>
+      <% if types.empty? %>
+        <p class="text-body-secondary">No reading types yet.</p>
+      <% end %>
+      <div class="d-grid gap-2">
+        <% types.each do |type| %>
+          <div>
+            <%= check_box_tag "item[reading_type_ids][]", type.id, picked.include?(type.id), id: "reading_type_#{type.id}",
+                  class: "btn-check", autocomplete: "off" %>
+            <%= label_tag "reading_type_#{type.id}", type.retired? ? "#{type.heading} (retired)" : type.heading,
+                  class: "btn btn-lg btn-outline-secondary w-100 text-start" %>
+          </div>
+        <% end %>
       </div>
-    <% end %>
+      <% if list && list.allowed?(current_user) %>
+        <div class="form-text"><%= link_to "Manage #{list.plural_label.downcase}", managed_list_path(list.key) %></div>
+      <% end %>
+    </fieldset>
     <%= form.submit "Save readings", class: "btn btn-primary" %>
-    <%= link_to "Cancel", inventory_item_path(@item), class: "btn btn-outline-secondary" %>
+    <%= link_to "Cancel", inventory_item_path(@item), class: "btn btn-warning" %>
   <% end %>
 </div></div>

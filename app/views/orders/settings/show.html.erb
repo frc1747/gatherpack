@@ -2,7 +2,7 @@
 
 <%= form_with url: orders_settings_path, method: :patch do |f| %>
   <div class="card">
-    <div class="card-header"><h1>Orders settings</h1></div>
+    <div class="card-header"><h1>Orders setup</h1></div>
     <div class="card-body">
       <% if @editor.errors.any? %>
         <div class="alert alert-danger">
@@ -10,61 +10,59 @@
         </div>
       <% end %>
 
-      <h2 class="h5">Approval steps</h2>
-      <p class="text-muted">
-        A request needs every step whose minimum total it meets, in this order. Approvers are one per line, as
-        Badge name &gt; Highest team name. Admins and the team's managers can always approve. Clear a step's name to remove it.
-      </p>
-      <% @editor.step_rows.each_with_index do |step, index| %>
-        <div class="row g-2 mb-3">
-          <%= hidden_field_tag "steps[#{index}][key]", step["key"] %>
-          <div class="col-md-4">
-            <%= label_tag "steps_#{index}_name", "Name", class: "form-label" %>
-            <%= text_field_tag "steps[#{index}][name]", step["name"], id: "steps_#{index}_name", class: "form-control" %>
-          </div>
-          <div class="col-md-2">
-            <%= label_tag "steps_#{index}_minimum", "Minimum total ($)", class: "form-label" %>
-            <%= text_field_tag "steps[#{index}][minimum]", step["minimum"], id: "steps_#{index}_minimum", class: "form-control", inputmode: "decimal" %>
-          </div>
-          <div class="col-md-6">
-            <%= label_tag "steps_#{index}_approvers", "Approvers", class: "form-label" %>
-            <%= text_area_tag "steps[#{index}][approvers]", step["approvers"], id: "steps_#{index}_approvers", class: "form-control", rows: 2 %>
-          </div>
-        </div>
-      <% end %>
+      <section class="mb-4">
+        <h2 class="h5">Who can ask</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :requesters %>
+      </section>
 
-      <h2 class="h5 mt-4">How a purchase can be paid</h2>
-      <% @editor.paid_with_rows.each_with_index do |choice, index| %>
-        <div class="row g-2 mb-2 align-items-center">
-          <div class="col-md-6">
-            <%= text_field_tag "paid_with[#{index}][label]", choice["label"], class: "form-control", "aria-label": "Choice #{index + 1}" %>
-          </div>
-          <div class="col-md-6">
-            <div class="form-check">
-              <%= hidden_field_tag "paid_with[#{index}][reimburse]", "0", id: nil %>
-              <%= check_box_tag "paid_with[#{index}][reimburse]", "1", choice["reimburse"], id: "paid_with_#{index}_reimburse", class: "form-check-input" %>
-              <%= label_tag "paid_with_#{index}_reimburse", "Needs reimbursing", class: "form-check-label" %>
-            </div>
-          </div>
-        </div>
-      <% end %>
+      <section class="mb-4">
+        <h2 class="h5">Who sees every request</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :viewers %>
+      </section>
 
-      <h2 class="h5 mt-4">Price tolerance</h2>
-      <p class="text-muted">How far a buyer's prices may raise an approved total before it needs approving again. Whichever is larger applies.</p>
-      <div class="row g-2">
-        <div class="col-md-3">
-          <%= label_tag :tolerance_percent, "Percent", class: "form-label" %>
-          <%= text_field_tag :tolerance_percent, @editor.tolerance_percent, class: "form-control", inputmode: "decimal" %>
+      <section class="mb-4" id="orders_lists">
+        <h2 class="h5">Lists</h2>
+        <p class="form-text">Each has a screen of its own, also on the Setup page under <%= Orders::SETUP_SECTION %>.</p>
+        <div class="list-group">
+          <%= link_to orders_approval_steps_path, class: "list-group-item list-group-item-action" do %>
+            <strong>Approval steps</strong>
+            <div class="small text-muted">Who approves, and from which total. Team managers can always approve.</div>
+          <% end %>
+          <%= link_to managed_list_path(:payment_methods), class: "list-group-item list-group-item-action" do %>
+            <strong>Payment methods</strong>
+            <div class="small text-muted">How a purchase can be paid, and which need paying back.</div>
+          <% end %>
+          <%= link_to managed_list_path(:delivery_problem_kinds), class: "list-group-item list-group-item-action" do %>
+            <strong>Delivery problems</strong>
+            <div class="small text-muted">What can be wrong with something that arrives.</div>
+          <% end %>
         </div>
-        <div class="col-md-3">
-          <%= label_tag :tolerance_amount, "Amount ($)", class: "form-label" %>
-          <%= text_field_tag :tolerance_amount, @editor.tolerance_amount, class: "form-control", inputmode: "decimal" %>
-        </div>
-      </div>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who buys</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :buyers %>
+      </section>
+
+      <section class="mb-4">
+        <h2 class="h5">Who manages funding sources</h2>
+        <%= render "orders/settings/field", f: f, editor: @editor, name: :funding_managers %>
+      </section>
+
+      <% Orders::SettingsEditor.sections.each do |heading, settings| %>
+        <section class="mb-4">
+          <h2 class="h5"><%= heading %></h2>
+          <% settings.each do |setting| %>
+            <%= render "orders/settings/value", setting: setting, value: @editor.values.fetch(setting.setting_key) %>
+          <% end %>
+        </section>
+      <% end %>
     </div>
-    <div class="card-footer">
-      <%= link_to "Cancel", orders_requests_path, class: "btn btn-warning" %>
-      <%= f.submit "Save", class: "btn btn-primary" %>
-    </div>
+  </div>
+
+  <div class="pb-5 mb-4"></div>
+  <div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">
+    <%= link_to "Cancel", orders_requests_path, class: "btn btn-primary btn-lg" %>
+    <%= f.submit "Save", class: "btn btn-success btn-lg flex-grow-1" %>
   </div>
 <% end %>
