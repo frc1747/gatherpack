@@ -1,0 +1,27 @@
+<%# Tick boxes that don't scroll on forever. groups: [ [ heading or nil, [ { name:, value:, id:, label:, checked:, data: } ] ] ].
+    A long list flows into columns and opens on its ticked boxes plus the first few; tick-list hides the rest
+    (still in the form, so they submit), so without JavaScript everything shows. Short lists stay as they are. %>
+<% items = groups.flat_map(&:last) %>
+<% long = form_tick_list_long?(items) %>
+<% extras = form_tick_list_extras(items) %>
+<%= tag.div data: (extras.any? ? { controller: "tick-list" } : nil) do %>
+  <%= tag.div style: ("columns: 3 11rem; column-gap: 1rem;" if long) do %>
+    <% groups.each_with_index do |(heading, group_items), index| %>
+      <%= tag.div data: (extras.any? ? { tick_list_target: "group" } : nil) do %>
+        <% if heading %>
+          <%= tag.div heading, class: [ "small fw-bold text-muted", ("mt-2" if index.positive?) ], style: ("break-after: avoid;" if long) %>
+        <% end %>
+        <% group_items.each do |item| %>
+          <%= tag.div class: [ "form-check", ("form-check-inline" if local_assigns[:inline] && !long) ], style: ("display: flex; break-inside: avoid;" if long),
+                data: (extras.include?(item) ? { tick_list_target: "extra" } : nil) do %>
+            <%= check_box_tag item[:name], item[:value], item[:checked], id: item[:id], class: [ "form-check-input", ("flex-shrink-0" if long) ], data: item[:data] %>
+            <%= label_tag item[:id], item[:label], class: [ "form-check-label", ("text-break" if long) ] %>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+  <% if extras.any? %>
+    <button type="button" class="btn btn-link btn-sm p-0" hidden data-tick-list-target="showAll" data-action="tick-list#showAll">Show all <%= items.size %></button>
+  <% end %>
+<% end %>
