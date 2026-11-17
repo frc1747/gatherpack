@@ -13,7 +13,10 @@ class NotificationSettingsController < InternalController
 
   # PATCH /notifications
   def update
-    chosen = Array(params[:topics]).map(&:to_s) & GatherPack::PushTopics.keys.map(&:to_s)
+    offered = GatherPack::PushTopics.keys.map(&:to_s)
+    # Topics whose feature is off aren't on the page, so saving keeps what was stored for them.
+    kept = Array(current_user.push_preference&.enabled_topics).map(&:to_s) - offered
+    chosen = (Array(params[:topics]).map(&:to_s) & offered) | kept
     PushPreference.find_or_create_by!(user: current_user).update!(enabled_topics: chosen)
     redirect_to notifications_path, notice: "Saved.", status: :see_other
   end
