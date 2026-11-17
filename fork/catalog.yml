@@ -187,6 +187,15 @@ feature/announcement-search:
     read, not by hidden formatting or link addresses.
   audience: Everyone
 
+feature/managed-lists:
+  title: Lists you define
+  emoji: "🗂️"
+  description: >-
+    Things your group names for itself, like units, types and conditions,
+    are lists you manage from Setup: add, rename, reorder, retire or merge
+    them. Retired ones stay on old records but can't be picked for new ones.
+  audience: Admins
+
 feature/signups:
   title: Sign-up sheets
   emoji: "📋"
