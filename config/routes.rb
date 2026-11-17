@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   resources :announcements
   resources :calendar_notes
   get "family", to: "family#show", as: :family
+  get "activity", to: "my_gatherpack/activity#show", as: :activity
 
   resources :gateways do
     member do
