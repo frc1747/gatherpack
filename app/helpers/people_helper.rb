@@ -1,4 +1,15 @@
 module PeopleHelper
+  # Profile tabs registered by enabled features that this user may see. A
+  # visible: check that raises hides its tab instead of breaking the profile.
+  def feature_profile_tabs(person)
+    GatherPack::Features.profile_tabs.select do |tab|
+      tab.visible?(current_user, person)
+    rescue => e
+      Rails.logger.error("Profile tab #{tab.label.inspect} visibility check failed: #{e.class}: #{e.message}")
+      false
+    end
+  end
+
   def get_avatar_url(avatar)
     avatar.attached? ? url_for(avatar) : asset_path("default_profile.png")
   end
