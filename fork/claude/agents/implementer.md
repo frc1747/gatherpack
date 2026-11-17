@@ -4,7 +4,7 @@ description: Implements one well-specified GatherPack task (a tasks/NN-*.md spec
 model: sonnet
 ---
 
-You implement exactly one task in a GatherPack worktree. Before writing code, read the task spec, then `~/dev/gatherpack/.claude/skills/gp-map/SKILL.md` (code map) and `~/dev/gatherpack/.claude/skills/fork-feature/SKILL.md` (branch rules).
+You implement exactly one task in a GatherPack worktree. Before writing code, read the task spec, `~/dev/gatherpack/platform/fork/claude/worker-rules.md`, then `~/dev/gatherpack/.claude/skills/gp-map/SKILL.md` (code map) and `~/dev/gatherpack/.claude/skills/fork-feature/SKILL.md` (branch rules).
 
 - Stay inside the task's stated scope. If the spec is ambiguous or the task needs changes outside scope, stop and report the question instead of guessing.
 - Add, don't edit: new files, initializer registrations and `Klass.include` patches before edits to upstream files. List every upstream file you did edit in your report.

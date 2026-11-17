@@ -1,6 +1,6 @@
 # GatherPack Fork Strategy (HBR)
 
-This document defines how the HBR fork of GatherPack is structured, synced, and released. Follow it exactly. When a situation isn't covered here, stop and ask rather than improvising a branch or history change.
+This document explains how the HBR fork of GatherPack is structured, synced, and released, and why. The rules themselves are in [`fork/AGENT.md`](AGENT.md); step-by-step procedures are the skills in `fork/claude/skills/`. When a situation isn't covered, stop and ask rather than improvising a branch or history change.
 
 ## Goals
 
@@ -83,28 +83,11 @@ Every line we change in an upstream file is a line that can conflict forever. Ru
 
 ## Sync Procedure (weekly, and before every release)
 
-1. `git fetch --multiple upstream origin`
-2. Fast-forward `main` to `upstream/main` and push. If it can't fast-forward, someone committed to `main`. Stop and report.
-3. Rebase `hbr/platform` onto `upstream/main`.
-4. For each branch in the manifest, in order, rebase onto its base (`upstream/main` or its declared dependency). Resolve conflicts *on the feature branch*, where the context is clearest, not later during integration. Run that branch's tests and RuboCop after each rebase. **Skip any branch behind an open upstream PR** (`gh pr list -R GatherPack/gatherpack --author @me --state open`): leave it on its old base and let the rebuild merge it as-is. Pushing a rebase updates the public PR with a force-push notice, which is noise for maintainers even when the code is unchanged. If such a branch starts to conflict in the rebuild, stop and ask before rebasing it.
-5. Check each `proposed` feature for upstream acceptance and update the lifecycle.
-6. Force-push rebased feature branches with `--force-with-lease`. Never push a branch behind an open upstream PR as part of a sync (see step 4).
-7. Run `bin/fork-rebuild` to regenerate `hbr/integration`.
-8. Run the full test suite and RuboCop on `hbr/integration`.
-9. Update `FORK.md` with anything that changed.
-
-Enable `git rerere` (`git config rerere.enabled true`) so repeated conflict resolutions are recorded and replayed.
+Fast-forward `main`, rebase `hbr/platform`, rebase each manifest branch in order onto its base (resolving conflicts on the feature branch and testing it there), skip branches behind an open upstream PR, check proposed features for acceptance, push with `--force-with-lease`, rebuild, run the full suite on `hbr/integration`, and update `FORK.md`. The exact steps are the `fork-sync` skill. Branches behind an open PR stay on their old base because a force-push puts noise on the public PR even when the code is unchanged. Enable `git rerere` so repeated resolutions replay.
 
 ### When upstream is broken
 
-Don't assume `upstream/main` works. Before step 3, check upstream's own CI on the commit being taken (`gh run list -R GatherPack/gatherpack --branch main --event push`). `bin/fork-rebuild` always builds on `upstream/main`, so a red upstream can't be skipped by syncing to an older commit without changing the script (ask first). Instead:
-
-1. Reproduce each failure on plain `upstream/main` in a detached worktree, so upstream's breakage is never mistaken for ours.
-2. Fix each one on its own small branch from `upstream/main`, written for upstream, and append it to the manifest with a catalog entry, sample data file and `FORK.md` row naming the upstream commit that broke it. Retire it when upstream fixes the problem. Keep these fixes out of feature branches (a feature branch may carry a one-line workaround in its own tests so it passes alone, as `feature/signup-link-guard` does).
-3. A feature branch passes step 4 when its only failures are the upstream ones recorded in `FORK.md`; anything else is ours to fix on that branch.
-4. Upstream CI covers less than ours: it has no system tests and builds the image only after its tests pass. Run the system tests, and treat the tag's image build for every platform (amd64 and arm64) as part of the release check.
-
-Example: the 2026-10-23 sync took a red `upstream/main` (ransack 6 and a bundle update) and carried `feature/test-hosts`, `feature/ransack-test-style` and `feature/lockfile-ffi-platforms`.
+Don't assume `upstream/main` works. `bin/fork-rebuild` always builds on it, so a red upstream can't be skipped by syncing to an older commit. Each upstream failure is reproduced on plain `upstream/main` (so it's never mistaken for ours) and fixed on its own small upstream-ready branch in the manifest, retired when upstream fixes it; a feature branch passes when its only failures are those recorded ones. Upstream CI has no system tests and builds images only after tests pass, so our release check covers both. Procedure: `fork-sync` skill. Example: the 2026-10-23 sync took a red `upstream/main` (ransack 6 and a bundle update) and carried `feature/test-hosts`, `feature/ransack-test-style` and `feature/lockfile-ffi-platforms`.
 
 ### Recurring conflict hotspots
 
@@ -158,21 +141,17 @@ The workflows should cover:
 1. Tag releases on `hbr/integration` as `v<upstream-version>-hbr.<n>` (for example `v1.8.0-hbr.3`), so it's always obvious which upstream version a release is based on.
 2. Generate release notes listing the upstream base commit and every feature branch and head commit included. `HBR-CHANGELOG.md` on the tagged commit has all of these (see "The HBR changelog"); its "What's new" section is the starting point for the notes. Cut the release with `bin/fork-rebuild --release v<upstream-version>-hbr.<n>`, push it, let CI pass, then tag the rebuild's last commit, the changelog commit, with exactly that name, so the file in the release names itself and its own image. The script refuses a tag that already exists on another build or doesn't come after the latest release.
 3. Deploy only from tags. Rollback means redeploying the previous tag.
-
-The private release flow used for `hbr.24` to `hbr.33` (local `sec/release-*` branches, unpushed tags, a locally built image) ended with `hbr.34`. Security work now ships like any other feature: `feature/security-series` is in the manifest, and every release is a public tag and ghcr image.
 4. Before tagging, confirm migrations run cleanly from the previous release's database state, not just from empty.
+
+Procedure: `fork-release` skill. The private release flow used for `hbr.24` to `hbr.33` ended with `hbr.34`; every release is now a public tag and ghcr image.
 
 ## Contributing Upstream
 
-Fork tooling (`FORK.md`, `fork/`, `bin/fork-*`, `.github/workflows/hbr-*.yml`) exists only on `hbr/platform` and never appears in a feature branch, so upstream PRs contain only the feature itself.
+Fork tooling (`FORK.md`, `fork/`, `bin/fork-*`, `.github/workflows/hbr-*.yml`) exists only on `hbr/platform` and never appears in a feature branch, so upstream PRs contain only the feature itself. The steps (issue first, rebase, cross-fork PR, review changes as new commits) are the `upstream-pr` skill; nothing goes upstream without the fork owner's yes.
 
-1. Open an issue upstream describing the need before the PR. Keep it brief and framed as a general capability, not an HBR-specific requirement. Wait for a signal that maintainers want it before polishing.
-2. Rebase the feature branch onto the latest `upstream/main`, run tests and RuboCop, and push.
-3. Open a cross-fork PR from `origin:feature/<name>` into `upstream:main`. Check "Allow edits by maintainers." Before submitting, confirm the "Files changed" tab contains no fork tooling and no references to HBR or our deployment.
-4. Make all review changes on the same feature branch. The PR and the next rebuild both pick them up. Add them as new commits; never force-push while a PR is open unless the maintainers ask for a rebase.
-5. If a feature is too large to be accepted, split it: propose the seam first, keep the HBR-specific behavior as a carried feature on top of it.
-6. Offer in this order: fixes for upstream bugs and security issues, then small general seams (extension registries, profile tabs, the Ransack `auth_object`), then features. A large feature stays portable as long as the seams it needs are upstream; the dependent stacks (person-fields, then forms; extension-registries, then sign-ups) have to be accepted in order.
-7. Upstream doesn't always stop on a red `main`. If it's red when a PR is opened, say so in the PR and name the failures that aren't ours. After a merge, check that upstream's version matches what we run before retiring the branch, and expect to find later breakage on our next sync rather than from upstream.
+1. If a feature is too large to be accepted, split it: propose the seam first, keep the HBR-specific behavior as a carried feature on top of it.
+2. Offer in this order: fixes for upstream bugs and security issues, then small general seams (extension registries, profile tabs, the Ransack `auth_object`), then features. A large feature stays portable as long as the seams it needs are upstream; the dependent stacks (person-fields, then forms; extension-registries, then sign-ups) have to be accepted in order.
+3. Upstream doesn't always stop on a red `main`. If it's red when a PR is opened, say so in the PR and name the failures that aren't ours. After a merge, check that upstream's version matches what we run before retiring the branch.
 
 ### After upstream merges
 
@@ -182,69 +161,31 @@ Upstream will likely squash-merge, producing a commit Git can't match to our bra
 
 If a feature ran in production before upstream merged it, our migration is already recorded in `schema_migrations`. Ask maintainers to keep the migration filename unchanged. If they rename it or change the schema during review, add a one-time reconciliation migration in the fork that aligns our schema with theirs and marks their version as applied. Where timing allows, keep upstream-bound features out of production until upstream decides.
 
-## Rules for Claude Code
+## Agent setup
 
-1. Never commit to `main` or `hbr/integration`.
-2. Never branch a feature from `hbr/integration` or `hbr/platform`.
-3. One feature per branch. If a change serves two features, it's a third branch. The one exception is `feature/checklists-connectors` and `feature/mcp-checklists-intake`, which group thin connector code.
-4. Resolve conflicts on feature branches, never during the integration merge. Don't merge a core branch into every dependent after each change to it: fix dependents once at sync and test the combined build.
-5. Use `--force-with-lease`, never plain `--force`. Never rebase or force-push a branch behind an open upstream PR unless maintainers ask for it.
-6. Keep `FORK.md` current in the same work session as any feature status change.
-7. Before modifying any existing upstream file, check whether a seam, hook, new file, or engine could achieve the same result. If you still need to edit it, record the file in `FORK.md`.
-8. Confirm behavior against actual GatherPack source before assuming a Rails convention or API.
-9. Ask before deleting any branch, rewriting any tag, or changing the manifest order.
-10. Keep `fork/AGENT.md` and `fork/claude/` in step with this document.
+The rules for Claude Code are in [`fork/AGENT.md`](AGENT.md), which the workspace `CLAUDE.md` imports so every session starts small. Procedures are skills and agents in `fork/claude/`, linked into the workspace's `.claude/` and loaded only when a task needs them; parallel workers follow `fork/claude/worker-rules.md`. Skills that hold deployment details (hosts, containers, credentials, production data) stay in the workspace's `.claude/skills/` only and are never committed, because this repository is public.
 
 ## Local Workspace Layout
 
-This document lives at `fork/STRATEGY.md` on `hbr/platform` only, so it is absent from feature branch checkouts. Use one parent folder containing a worktree per branch, with a `CLAUDE.md` in the parent folder (not in any repository). Claude Code reads `CLAUDE.md` files from parent directories, so this applies regardless of which branch is being worked on.
+One parent folder holds a worktree per branch and a `CLAUDE.md` that isn't in any repository (Claude Code reads `CLAUDE.md` from parent directories, so it applies to every branch):
 
 ```text
 gatherpack/
-  CLAUDE.md
-  .claude/
-    skills/      # one symlink per fork/claude/skills/<name>, plus local-only skills
-    agents/      # one symlink per fork/claude/agents/<name>.md
-  platform/
+  CLAUDE.md      # imports platform/fork/AGENT.md
+  .claude/       # skills/ and agents/: symlinks to platform/fork/claude/*, plus local-only skills
+  platform/      # hbr/platform, the primary clone
   integration/
-  feature-field-permissions/
-  feature-resend/
-  tasks/         # specs for dispatched work; never committed to a feature branch
+  feature-<name>/
+  tasks/         # briefs for dispatched work; never committed
 ```
 
-`gatherpack/CLAUDE.md` imports the agent digest, not this whole document, so every session starts small:
-
-```markdown
-@platform/fork/AGENT.md
-```
-
-[`fork/AGENT.md`](AGENT.md) is a short digest of the rules here and an index of the procedures. The procedures live as Claude Code skills and agents in `fork/claude/`, which load only when a task needs them. This document stays the authority: when you change a rule or procedure here, update `fork/AGENT.md` and the matching skill in the same commit. Link them into the workspace once, from the parent folder:
+Link the skills once from the parent folder, and into each new worktree (Claude Code finds skills at the git root):
 
 ```bash
 mkdir -p .claude/skills .claude/agents
 for d in platform/fork/claude/skills/*/; do ln -sfn "../../${d%/}" .claude/skills/; done
 for f in platform/fork/claude/agents/*.md; do ln -sfn "../../$f" .claude/agents/; done
 printf '/.claude/skills\n/.claude/agents\n' >> "$(git -C platform rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+# per worktree:
+mkdir -p <worktree>/.claude && ln -sfn ../../.claude/skills <worktree>/.claude/skills && ln -sfn ../../.claude/agents <worktree>/.claude/agents
 ```
-
-Claude Code finds skills and agents at the git root of the session's checkout, not in parent folders, so each worktree also links to the workspace copies: `mkdir -p <worktree>/.claude && ln -sfn ../../.claude/skills <worktree>/.claude/skills && ln -sfn ../../.claude/agents <worktree>/.claude/agents`.
-
-Skills that hold deployment details (hosts, containers, credentials, production data) stay in the workspace's `.claude/skills/` only and are never committed, because this repository is public.
-
-`platform/` is the primary clone, permanently checked out on `hbr/platform`. Each feature gets its own worktree, created from inside `platform/`:
-
-```bash
-git worktree add ../feature-resend feature/resend
-```
-
-Do all feature work in that feature's worktree. Remove a worktree with `git worktree remove` once its feature is retired. Worktrees for dispatched tasks also go in the parent folder, so they pick up `CLAUDE.md` and the skills.
-
-## Initial Setup Tasks
-
-1. Add the `upstream` remote and verify `main` matches `upstream/main` exactly. If the fork's `main` already has our commits on it, move them to feature branches and reset `main` to upstream.
-2. Create `hbr/platform` from `upstream/main` with this document saved as `fork/STRATEGY.md`, plus `FORK.md`, an empty `fork/features.txt`, and `bin/fork-rebuild`.
-3. Set up the local workspace layout described in "Local Workspace Layout."
-4. Inventory existing fork work (for example the Resend email gateway and field-level permissions) and split it into `feature/*` branches based on `upstream/main`, recording each in `FORK.md`.
-5. Add the CI workflows described above.
-6. Run the first rebuild, run the suite, and cut the first `-hbr.1` tag once it's green.
-7. Set the fork's default branch to `hbr/platform`, and enable branch protection on `main` (no direct pushes). Documentation and bookkeeping on `hbr/platform` (specs, pitches, backlog, `FORK.md`, catalog, sample data) is pushed directly, without a PR. Ask first for scripts, CI and the manifest order.

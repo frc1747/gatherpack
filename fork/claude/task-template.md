@@ -1,5 +1,7 @@
 # NN: <title>
 
+<!-- Workers also read fork/claude/worker-rules.md; don't repeat those rules here. Decide everything: no open questions, no dates. -->
+
 Goal: <one sentence: the behavior that should exist when this is done>
 
 Branch: base `feature/<name>`; work branch `task/NN-slug`; worktree `~/dev/gatherpack/task-NN-slug`

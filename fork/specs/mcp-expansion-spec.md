@@ -248,3 +248,14 @@ Each phase ships with writes still behind `mcp_write_enabled`, so a build can ca
 
 1. **Builders** (§3): after the trial, is there demand for creating sign-up sheets or form copies ("copy last year's sheet with new dates")? If so, copying an existing record is a much smaller tool than a builder.
 2. **Which account connects.** Tools act as the connected member. A connector signed in as a member who isn't an admin can make few of these changes, and that is by design. Organizations that want an AI client to do admin work should connect it with an admin's account and keep the allowed badge narrow.
+
+## 12. Owner decisions
+
+Settled; don't reopen without cause.
+
+1. **Audience.** The AI integration is mainly for mentors, admins and adults who manage events. Organizer, manager and admin workflows come first; gaps that only affect members or guardians are noted and parked. Access stays gated by `mcp_allowed_badge`, given to non-students. Parity (§2.1) still holds for everyone who has access.
+2. **The MCP Calls log stays as locked down as possible.** No badge or self-view option; any change may only make it tighter.
+3. **Punch tools are admins and managers only.** Members don't self-report punches, so `record_punch`, `update_punch`, `remove_punch` and `clock_out` are stricter than the page (whose gap is BL-028); the kiosk stays open to everyone by badge.
+4. **Dynamic pages** stay behind `mcp_dynamic_pages_enabled` (default off), because rendered ERB can show minors' contact details.
+5. **Token values** are masked with a clue: length plus the first two and last two characters.
+6. **Minors' contact details** stay out (§2.4); this may become configuration later.
