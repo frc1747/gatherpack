@@ -77,4 +77,30 @@ class InventoryDigestJobTest < ActiveJob::TestCase
       assert_empty emails
     end
   end
+
+  test "Running Low Notices offers the Weekly Infodump" do
+    assert_includes Inventory::Config::REORDER_NOTICE_CHOICES, [ "In the Weekly Infodump", "weekly" ]
+    with_settings(inventory_reorder_notice: "weekly") { assert_equal "weekly", Inventory::Config.reorder_notice }
+  end
+
+  test "with summaries on, the job sends nothing and the summary carries the managers' section" do
+    skip "needs feature/digests" unless defined?(GatherPack::Digests) && GatherPack::Digests[:inventory]
+
+    with_inventory(@world, feature_digests: "true", inventory_reorder_notice: "weekly") do
+      travel_to 10.days.ago do # before the weekly window, so the drop is new
+        stock!(@world, 30)
+      end
+      record(@world, :used, 21, person: @world.member) # 9: running low
+      clear_enqueued_jobs
+
+      InventoryDigestJob.perform_now
+      assert_empty emails, "the summaries feature sends it instead"
+
+      entry = GatherPack::Digests[:inventory]
+      assert_equal :weekly, entry.delivery
+      section = entry.build.call(@world.keeper, since: 7.days.ago)
+      assert_match "M4 screw", section.body
+      assert_nil entry.build.call(@world.member, since: 7.days.ago), "not a manager"
+    end
+  end
 end

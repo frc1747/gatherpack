@@ -96,7 +96,7 @@ class ItemTest < ActiveSupport::TestCase
   end
 
   test "line attributes describe the item and its preferred source" do
-    @world.screws.update!(description: "Socket head", manufacturer: "Acme", unit: "pack", url: "https://acme.example/m4")
+    @world.screws.update!(description: "Socket head", manufacturer: "Acme", stock_unit: stock_unit("pack"), url: "https://acme.example/m4")
     @world.screws.item_sources.create!(vendor_name: "Hardware Barn", vendor_part_number: "HB-1")
     @world.screws.item_sources.create!(vendor_name: "Parts Depot", vendor_part_number: "PD-1", url: "https://pd.example/1", preferred: true)
 
@@ -114,16 +114,21 @@ class ItemTest < ActiveSupport::TestCase
   end
 
   test "a new item takes the default stock unit" do
-    with_inventory(@world, inventory_default_unit: "pack") do
-      assert_equal "pack", Item.create!(team: @world.club, name: "Zip ties").unit
-    end
+    assert_equal "each", Item.create!(team: @world.club, name: "Zip ties").unit
+    stock_unit("pack").update!(default: true)
+    assert_equal "pack", Item.create!(team: @world.club, name: "Cable ties").unit
+    assert_equal [ "pack" ], StockUnit.where(default: true).pluck(:name)
   end
 
-  test "reading fields are a list of names and units" do
-    item = Item.create!(team: @world.club, name: "Battery", reading_fields: [ { name: " Charge cycles " }, { "name" => "Resistance", "unit" => "mΩ" }, { name: "" } ])
+  test "an item tracks the reading types picked, in order, and unpicking keeps saved readings" do
+    cycles = reading_type("Charge cycles")
+    resistance = reading_type("name" => "Resistance", "unit" => "mΩ")
+    item = Item.create!(team: @world.club, name: "Battery", reading_type_ids: [ resistance.id, "", cycles.id ])
 
-    assert_equal [ { "name" => "Charge cycles" }, { "name" => "Resistance", "unit" => "mΩ" } ], item.reading_fields
-    assert_equal [ "Charge cycles", "Resistance" ], item.reading_names
+    assert_equal [ "Resistance (mΩ)", "Charge cycles" ], item.reload.reading_types.map(&:heading)
+    item.update!(reading_type_ids: [ cycles.id ])
+    assert_equal [ cycles ], item.reload.reading_types
+    assert ReadingType.exists?(resistance.id)
   end
 
   test "the home location can't be a machine" do

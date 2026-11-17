@@ -5,12 +5,12 @@
   <h1 class="h3">Edit <%= @unit.identifier_name %></h1>
   <%= simple_form_for @unit, url: inventory_unit_path(@unit) do |f| %>
     <%= f.error_notification %>
-    <%= f.input :code, hint: "The text on its label, unique in the team: NEO-07", input_html: { autocapitalize: "characters" } %>
+    <%= f.input :code, hint: "The text on its label, unique in the team: A-07", input_html: { autocapitalize: "characters" } %>
     <%= f.input :serial_number %>
-    <%= f.input :name, hint: "Optional: Left front module" %>
+    <%= f.input :name, hint: "Optional: Left side" %>
     <%= f.input :in_service_on, as: :date, html5: true, label: "In use since" %>
     <%= f.input :photo, as: :file, input_html: { accept: "image/*" } %>
     <%= f.button :submit, "Save", class: "btn-primary btn-lg" %>
-    <%= link_to "Cancel", inventory_unit_path(@unit), class: "btn btn-lg btn-outline-secondary" %>
+    <%= link_to "Cancel", inventory_unit_path(@unit), class: "btn btn-lg btn-warning" %>
   <% end %>
 </div></div>

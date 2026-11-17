@@ -47,13 +47,13 @@
     <div class="mb-3">
       <%= label_tag :quantity, @kind == "counted" ? "How many do you see?" : "How many?", class: "form-label" %>
       <div class="inventory-stepper" data-controller="inventory-stepper" data-inventory-stepper-min-value="<%= @kind == "counted" ? 0 : 1 %>">
-        <button type="button" class="btn btn-outline-secondary" data-action="inventory-stepper#decrement" aria-label="One fewer">−</button>
+        <button type="button" class="btn btn-secondary" data-action="inventory-stepper#decrement" aria-label="One fewer">−</button>
         <%= number_field_tag :quantity, @quantity || (@kind == "used" ? 1 : nil), min: (@kind == "counted" ? 0 : 1), step: 1,
           inputmode: "numeric", pattern: "[0-9]*", class: "form-control", required: @kind != "moved",
           placeholder: (@kind == "moved" ? "All of it" : nil), data: { inventory_stepper_target: "input" } %>
-        <button type="button" class="btn btn-outline-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
+        <button type="button" class="btn btn-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
       </div>
-      <div class="form-text"><%= @item.unit %></div>
+      <div class="form-text"><%= @item.stock_unit&.plural_name %></div>
     </div>
 
     <% unless @kind == "counted" %>
@@ -88,7 +88,7 @@
     </details>
 
     <div class="inventory-bar">
-      <%= link_to "Cancel", @cancel_path, class: "btn btn-outline-secondary btn-lg" %>
+      <%= link_to "Cancel", @cancel_path, class: "btn btn-warning btn-lg" %>
       <%= f.submit words[:action], class: "btn btn-primary btn-lg" %>
     </div>
   <% end %>

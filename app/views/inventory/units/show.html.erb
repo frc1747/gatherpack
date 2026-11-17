@@ -31,7 +31,7 @@
     </ul>
   <% end %>
 
-  <% fields = Array(@unit.item.reading_fields) %>
+  <% fields = @unit.item.reading_types.to_a %>
   <% rows = unit_readings_rows(@unit) %>
   <% if fields.any? %>
     <h2 class="h5">Readings</h2>
@@ -42,7 +42,7 @@
       <dl class="row mb-2" id="latest_readings">
         <% fields.each do |field| %>
           <dt class="col-7"><%= reading_heading(field) %></dt>
-          <dd class="col-5"><%= latest.fetch(field["name"], "—") %></dd>
+          <dd class="col-5"><%= latest.fetch(field.id, "—") %></dd>
         <% end %>
       </dl>
       <div class="table-responsive mb-4">
@@ -60,7 +60,7 @@
               <tr>
                 <td><%= l(event.created_at.to_date, format: :short) %></td>
                 <% fields.each do |field| %>
-                  <td><%= event.readings.fetch(field["name"], "") %></td>
+                  <td><%= event.readings.fetch(field.id, "") %></td>
                 <% end %>
               </tr>
             <% end %>
@@ -104,7 +104,7 @@
     <dt class="col-5">In use since</dt><dd class="col-7"><%= l(@unit.in_service_on) if @unit.in_service_on %></dd>
   </dl>
   <% if policy(@unit).update? %>
-    <%= link_to "Edit code and details", edit_inventory_unit_path(@unit), class: "btn btn-outline-secondary mb-4" %>
+    <%= link_to "Edit code and details", edit_inventory_unit_path(@unit), class: "btn btn-warning mb-4" %>
   <% end %>
 </div>
 </div>

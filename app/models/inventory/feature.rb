@@ -1,19 +1,24 @@
-# Inventory's feature registration, with its menu section decided when the
-# menu is drawn (inventory spec §3.13): "Purchasing" when another enabled
-# feature has menu entries there (a shared section name for anything that
-# buys or keeps things), "Inventory" otherwise. Inventory never names any
-# other feature; it only looks for the shared section.
+# Inventory's feature registration. Its menu section is always "Inventory"
+# (inventory spec §3.13). The Machines entry becomes one entry per active
+# place type that parts get installed on, named by the type's plural
+# ("Robots", "Practice bases"), when the menu is drawn.
 module Inventory
   class Feature < GatherPack::Feature
-    SHARED_SECTION = "Purchasing"
-    OWN_SECTION = "Inventory"
-
     def nav_section
-      shared = GatherPack::Features.all.any? do |feature|
-        !feature.is_a?(Inventory::Feature) && feature.enabled? && feature.nav_items.any? &&
-          feature.nav_section == SHARED_SECTION
+      "Inventory"
+    end
+
+    def nav_items
+      super.flat_map do |item|
+        next [ item ] unless item.path == :inventory_machines_path
+
+        LocationType.installable.map do |type|
+          item.dup.tap do |entry|
+            entry.label = type.plural_name
+            entry.path = -> { inventory_machine_type_path(type) }
+          end
+        end
       end
-      shared ? SHARED_SECTION : OWN_SECTION
     end
   end
 end

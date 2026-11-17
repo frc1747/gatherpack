@@ -69,6 +69,12 @@ module Inventory
     [ "Changes", :inventory_movements_path, "right-left" ]
   ].freeze
 
+  # The Setup page heading inventory's buttons go under, shared with orders.
+  SETUP_SECTION = "Orders and Inventory"
+
+  # The icon of a machine (a place parts get installed on) and its pages.
+  MACHINE_ICON = "gears"
+
   HOOK_TARGETS = %w[items item_sources locations stock_movements item_units item_unit_events].freeze
   HOOK_EVENTS = (ITEM_EVENTS.values + [ COUNT_DIFFERS_EVENT ] + UNIT_EVENTS.values).freeze
 

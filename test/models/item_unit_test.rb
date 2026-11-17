@@ -103,7 +103,7 @@ class ItemUnitTest < ActiveSupport::TestCase
       assert_raises(Inventory::Refused) { @units[1].retire!(by: @world.member, note: "Old") }
       assert_raises(Inventory::Refused) { @units[0].check!(by: @world.member, condition: "good") }
       assert @units[0].repaired!(by: @world.keeper, note: "New bearing")
-      assert_equal "good", @units[0].reload.condition
+      assert_equal "good", @units[0].reload.unit_condition.key
     end
 
     with_inventory(@world, inventory_member_unit_actions: "check") do
@@ -131,7 +131,7 @@ class ItemUnitTest < ActiveSupport::TestCase
 
       check = @units[1].mark_for_repair!(by: @world.member, note: "Loose wire")
       check.undo!(by: @world.keeper)
-      assert_equal "new", @units[1].reload.condition
+      assert_equal "new", @units[1].reload.unit_condition.key
       assert ItemUnitEvent.exists?(check.id)
     end
   end
@@ -206,9 +206,10 @@ class ItemUnitTest < ActiveSupport::TestCase
       unit.check!(by: @world.member, condition: "good", readings: { "Internal resistance" => "14.5", "Charge cycles" => "" })
       unit.check!(by: @world.member, condition: "worn", readings: { "Charge cycles" => "212" }, note: "Getting tired")
 
-      assert_equal "worn", unit.reload.condition
+      assert_equal "worn", unit.reload.unit_condition.key
       assert_equal "Getting tired", unit.condition_note
-      assert_equal({ "Internal resistance" => 14.5, "Charge cycles" => 212 }, unit.latest_readings)
+      resistance, cycles = battery.reading_types.to_a
+      assert_equal({ resistance.id => 14.5, cycles.id => 212 }, unit.latest_readings)
       assert_raises(Inventory::Refused) { unit.check!(by: @world.member, readings: { "Voltage" => "12" }) }
       assert_raises(Inventory::Refused) { unit.check!(by: @world.member, readings: { "Charge cycles" => "lots" }) }
       assert_raises(Inventory::Refused) { unit.check!(by: @world.member, condition: "retired") }
@@ -290,7 +291,7 @@ class ItemUnitTest < ActiveSupport::TestCase
       unit.mark_for_repair!(by: @world.member, note: "Now broken", condition: "broken")
       unit.install!(into: @world.robot, by: @world.member, confirm: true)
       cart = Location.create!(team: @world.robotics, name: "Cart")
-      other_robot = Location.create!(team: @world.robotics, parent: cart, name: "Practice robot", kind: "machine")
+      other_robot = Location.create!(team: @world.robotics, parent: cart, name: "Practice robot", location_type: location_type("machine"))
       unit.reload.install!(into: other_robot, by: @world.member, confirm: true)
       unit.reload.take_off!(by: @world.member)
 
