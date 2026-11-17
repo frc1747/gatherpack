@@ -41,7 +41,7 @@ module Orders
       when "submitted" then notices.submitted(request, by: actor)
       when "approved" then notify_approved(request, notices)
       when "changes_requested" then notices.changes_requested(request, comment: comment, by: actor)
-      when "declined" then notices.declined(request, comment: comment, by: actor) unless reapproval?
+      when "declined" then notices.declined(request, comment: comment, by: actor, reapproval: reapproval?)
       when "purchased" then notify_purchased(request, notices)
       when "backordered" then notices.backordered(order_line, by: actor)
       when "problem" then notices.problem(order_line, by: actor)
@@ -49,14 +49,14 @@ module Orders
       end
     end
 
-    # An approval of lines a buyer's change put back, rather than of the
-    # request, isn't a step or a final approval.
+    # A decision on lines a buyer's change put back, rather than on the
+    # request, isn't a step or a final approval: only the requester hears.
     def reapproval?
       field_changes.key?("lines")
     end
 
     def notify_approved(request, notices)
-      return if reapproval?
+      return notices.approved(request, by: actor, reapproval: true) if reapproval?
 
       if field_changes.dig("status", 1) == "approved"
         notices.approved(request, by: actor)

@@ -44,6 +44,9 @@
 
     <% if reapproval %>
       <p>A buyer's change raised the cost past what was approved. Approve keeps these items; Decline cancels them.</p>
+      <% if order_request.approved_total_cents %>
+        <p class="fw-bold">Approved <%= order_request.approved_total.format %>, now <%= order_request.total.format %> (+<%= Money.new(order_request.total_cents - order_request.approved_total_cents).format %>)</p>
+      <% end %>
       <ul class="list-group mb-3">
         <% order_request.reapproval_lines.each do |line| %>
           <li class="list-group-item d-flex justify-content-between gap-2">
@@ -108,13 +111,13 @@
           <% end %>
           <%= form.label :comment, "Comment", class: "visually-hidden" %>
           <%= form.text_area :comment, rows: 2, class: "form-control mb-2",
-                placeholder: reapproval ? "Comment (optional)" : "Comment (needed to ask for changes or decline)" %>
+                placeholder: "Comment (needed to ask for changes or decline)" %>
           <div class="d-flex flex-wrap gap-2">
             <%= form.button "Approve", name: "decision", value: "approved", class: "btn btn-success flex-fill" %>
             <% unless reapproval %>
-              <%= form.button "Ask for changes", name: "decision", value: "changes_requested", formnovalidate: true, class: "btn btn-outline-warning flex-fill" %>
+              <%= form.button "Ask for changes", name: "decision", value: "changes_requested", formnovalidate: true, class: "btn btn-warning flex-fill" %>
             <% end %>
-            <%= form.button "Decline", name: "decision", value: "declined", formnovalidate: true, class: "btn btn-outline-danger flex-fill" %>
+            <%= form.button "Decline", name: "decision", value: "declined", formnovalidate: true, class: "btn btn-danger flex-fill" %>
           </div>
         </div>
       <% end %>

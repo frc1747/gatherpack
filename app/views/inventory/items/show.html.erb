@@ -4,6 +4,7 @@
 <% home = @home %>
 
 <div class="inventory-phone inventory-has-bar">
+  <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
       <h1 class="h3 mb-1"><%= @item.name %></h1>
@@ -40,9 +41,9 @@
     </div>
     <% if policy(@item).edit? %>
       <div class="card-footer d-flex flex-wrap gap-2 inventory-no-print">
-        <%= link_to "Edit", edit_inventory_item_path(@item), class: "btn btn-outline-secondary" %>
-        <%= link_to "Label", inventory_labels_path(items: [ @item.id ]), class: "btn btn-outline-secondary" if policy(:inventory).labels? %>
-        <%= link_to "Delete", inventory_item_path(@item), class: "btn btn-outline-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@item.name}?" } if policy(@item).destroy? %>
+        <%= link_to "Edit", edit_inventory_item_path(@item), class: "btn btn-warning" %>
+        <%= link_to "Label", inventory_labels_path(items: [ @item.id ]), class: "btn btn-secondary" if policy(:inventory).labels? %>
+        <%= link_to "Delete", inventory_item_path(@item), class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@item.name}?" } if policy(@item).destroy? %>
       </div>
     <% end %>
   </div>
@@ -97,13 +98,13 @@
             <% if source.url.present? %><div class="small text-truncate"><%= link_to "Open link", source.url, target: "_blank", rel: "noopener" %></div><% end %>
             <% if source.note.present? %><div class="small text-body-secondary"><%= source.note %></div><% end %>
           </div>
-          <%= link_to "Edit", edit_inventory_item_source_path(@item, source), class: "btn btn-sm btn-outline-secondary" if policy(source).edit? %>
+          <%= link_to "Edit", edit_inventory_item_source_path(@item, source), class: "btn btn-sm btn-warning" if policy(source).edit? %>
         </li>
       <% end %>
     </ul>
   <% end %>
   <% if policy(@item).update? %>
-    <%= link_to "Add where to buy", new_inventory_item_source_path(@item), class: "btn btn-outline-secondary mb-3" %>
+    <%= link_to "Add where to buy", new_inventory_item_source_path(@item), class: "btn btn-secondary mb-3" %>
   <% end %>
 
   <% unless @item.tracked? %>
@@ -111,7 +112,7 @@
     <% if manager_kinds.any? %>
       <div class="d-flex flex-wrap gap-2 mb-3">
         <% manager_kinds.each do |kind| %>
-          <%= link_to inventory_kind_label(kind), new_inventory_movement_path(kind: kind, item_id: @item.id, return_to: request.path), class: "btn btn-outline-primary" %>
+          <%= link_to inventory_kind_label(kind), new_inventory_movement_path(kind: kind, item_id: @item.id, return_to: request.path), class: "btn btn-primary" %>
         <% end %>
       </div>
     <% end %>
@@ -132,10 +133,9 @@
         <% bar.each do |kind| %>
           <%= link_to({ "used" => "Used", "counted" => "Count", "moved" => "Move" }[kind],
             new_inventory_movement_path(kind: kind, item_id: @item.id, location_id: (place&.id unless kind == "moved" && @levels.count { |level| level.quantity.positive? } > 1), return_to: request.path),
-            class: "btn #{kind == "used" ? "btn-primary" : "btn-outline-primary"} btn-lg") %>
+            class: "btn #{kind == "used" ? "btn-primary" : "btn-secondary"} btn-lg") %>
         <% end %>
       </div>
     <% end %>
   <% end %>
 </div>
-<%= render "inventory/shared/undo_toast" %>

@@ -3,6 +3,7 @@
 <% inventory_stylesheet %>
 
 <div class="inventory-phone <%= "inventory-has-bar" if @countable %>">
+  <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
       <h1 class="h3 mb-1">
@@ -21,17 +22,32 @@
     <% end %>
     <% if policy(@location).edit? %>
       <div class="card-footer d-flex flex-wrap gap-2 inventory-no-print">
-        <%= link_to "Edit", edit_inventory_location_path(@location), class: "btn btn-outline-secondary" %>
-        <%= link_to "Add a place inside", new_inventory_location_path(parent_id: @location.id), class: "btn btn-outline-secondary" unless @location.machine? %>
-        <%= link_to "Add an item here", new_inventory_item_path(location_id: @location.id), class: "btn btn-outline-secondary" if policy(Item).new? && @location.storage? %>
-        <%= link_to "Label", inventory_labels_path(places: [ @location.id ]), class: "btn btn-outline-secondary" if policy(@location).labels? %>
-        <%= link_to "Delete", inventory_location_path(@location), class: "btn btn-outline-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@location.name}?" } if policy(@location).destroy? %>
+        <%= link_to "Edit", edit_inventory_location_path(@location), class: "btn btn-warning" %>
+        <%= link_to "Add a place inside", new_inventory_location_path(parent_id: @location.id), class: "btn btn-secondary" unless @location.machine? %>
+        <%= link_to "Add an item here", new_inventory_item_path(location_id: @location.id), class: "btn btn-secondary" if policy(Item).new? && @location.storage? %>
+        <%= link_to "Label", inventory_labels_path(places: [ @location.id ]), class: "btn btn-secondary" if policy(@location).labels? %>
+        <%= link_to "Delete", inventory_location_path(@location), class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@location.name}?" } if policy(@location).destroy? %>
       </div>
     <% end %>
   </div>
 
-  <% if @location.machine? %>
-    <p>This is a machine: parts on it are tracked units. <%= link_to "Open its page", inventory_machine_path(@location) %>.</p>
+  <% if @location.takes_installs? %>
+    <p>This is <%= @location.type_word(article: true) %>: parts on it are tracked units. <%= link_to "Open its page", inventory_machine_path(@location) %>.</p>
+  <% elsif @location.machine? %>
+    <% units = policy_scope(ItemUnit).active.where(location: @location).includes(:item).order(:code) %>
+    <h2 class="h4">Parts here</h2>
+    <% if units.empty? %>
+      <p class="text-body-secondary">Nothing is kept here.</p>
+    <% else %>
+      <ul class="list-group mb-3" id="units_here">
+        <% units.each do |unit| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><%= link_to unit.identifier_name, inventory_unit_path(unit) %> <span class="text-body-secondary small"><%= unit.item.name %></span></span>
+            <%= unit_condition_badge(unit) %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
   <% end %>
 
   <% if @children.any? %>
@@ -68,11 +84,11 @@
             </div>
             <div class="d-flex gap-2 mt-2">
               <% if inventory_may_record?("used", item, @location) && !level.new_record? %>
-                <%= link_to "Used", new_inventory_movement_path(kind: "used", item_id: item.id, location_id: @location.id, return_to: request.path), class: "btn btn-outline-primary flex-fill" %>
+                <%= link_to "Used", new_inventory_movement_path(kind: "used", item_id: item.id, location_id: @location.id, return_to: request.path), class: "btn btn-primary flex-fill" %>
               <% end %>
               <% if inventory_may_record?("counted", item, @location) %>
                 <%= link_to(level.quantity.negative? ? "Count now" : "Count", new_inventory_movement_path(kind: "counted", item_id: item.id, location_id: @location.id, return_to: request.path),
-                  class: "btn #{level.quantity.negative? ? "btn-warning" : "btn-outline-primary"} flex-fill") %>
+                  class: "btn #{level.quantity.negative? ? "btn-warning" : "btn-secondary"} flex-fill") %>
               <% end %>
             </div>
           </li>
@@ -89,4 +105,3 @@
     </div>
   <% end %>
 </div>
-<%= render "inventory/shared/undo_toast" %>

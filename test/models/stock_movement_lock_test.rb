@@ -7,6 +7,9 @@ class StockMovementLockTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
 
   setup do
+    # Lists this test fills are emptied again afterwards.
+    @seeded_lists = Inventory::Lists.defaults.keys.reject(&:exists?)
+    Inventory::Lists.seed_defaults!
     @team = Team.create!(name: "Lock test #{SecureRandom.hex(3)}", team_type: TeamType.first || TeamType.create!(name: "Group"))
     user = User.create!(email: "lock-#{SecureRandom.hex(4)}@example.com", password: "password123", admin: true)
     @person = Person.create!(first_name: "Lock", last_name: "Example", display_name: "Lock Example", user: user)
@@ -26,6 +29,7 @@ class StockMovementLockTest < ActiveSupport::TestCase
     @person.delete
     user.delete
     @team.delete
+    @seeded_lists.each(&:delete_all)
   end
 
   def record(kind, quantity, **options)

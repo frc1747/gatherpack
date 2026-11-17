@@ -4,7 +4,7 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h1><%= @vendor.name %></h1>
     <span>
-      <%= link_to "Edit", edit_orders_vendor_path(@vendor), class: "btn btn-primary" if policy(@vendor).update? %>
+      <%= link_to "Edit", edit_orders_vendor_path(@vendor), class: "btn btn-warning" if policy(@vendor).update? %>
       <%= button_to "Delete", orders_vendor_path(@vendor), method: :delete, class: "btn btn-danger d-inline", form: { class: "d-inline", data: { controller: "confirm-delete" } } if policy(@vendor).destroy? %>
     </span>
   </div>

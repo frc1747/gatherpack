@@ -12,7 +12,7 @@
   <fieldset class="card mb-3" data-controller="order-put-away"
             data-order-put-away-per-value="<%= per %>"
             data-order-put-away-line-unit-value="<%= line.unit %>"
-            data-order-put-away-stock-unit-value="<%= item&.unit.presence || Inventory::Config.default_unit %>"
+            data-order-put-away-stock-unit-value="<%= (item&.stock_unit || StockUnit.default_unit)&.name %>"
             data-order-put-away-tracked-value="<%= item&.tracked? ? true : false %>"
             data-order-put-away-item-name-value="<%= item&.name %>"
             data-action="order-item-search:picked->order-put-away#picked">

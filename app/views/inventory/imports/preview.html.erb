@@ -49,5 +49,5 @@
   <%= hidden_field_tag :confirm, "1" %>
   <%= submit_tag "Import #{pluralize(@import.creating + @import.updating, "row")}", class: "btn btn-primary",
     disabled: (@import.creating + @import.updating).zero? %>
-  <%= link_to "Start again", new_inventory_import_path, class: "btn btn-outline-secondary" %>
+  <%= link_to "Start again", new_inventory_import_path, class: "btn btn-secondary" %>
 <% end %>

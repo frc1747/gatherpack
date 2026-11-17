@@ -25,10 +25,9 @@ module InventoryHelper
     content_for :head, stylesheet_link_tag("inventory")
   end
 
-  # "14", or "14 ft" when the item isn't counted in each.
+  # "14", or "14 feet" when the item isn't counted in each.
   def inventory_quantity(quantity, item)
-    unit = item.unit.to_s
-    unit.blank? || unit == "each" ? quantity.to_s : "#{quantity} #{unit}"
+    item.stock_unit ? item.stock_unit.quantity_text(quantity) : quantity.to_s
   end
 
   # Running low, Out of stock and Needs a count, as badges.
@@ -88,6 +87,28 @@ module InventoryHelper
       end
     text = "Undo: #{text}" if movement.reversal? && movement.kind != "counted"
     text
+  end
+
+  ORDER_REQUEST_NOTE = %r{Order request: (?<title>.*?) \((?<path>/orders/requests/[^\s)]+)\)}
+  NOTE_LINK = %r{https?://\S+|/orders/requests/[^\s)]+}
+
+  # A change's note as text, with an order request or web address in it as a
+  # short link ("Order request: Title (/orders/requests/...)" becomes a link
+  # named by the title) rather than the address itself.
+  def inventory_note(note)
+    return "".html_safe if note.blank?
+
+    note = note.to_s
+    if (match = ORDER_REQUEST_NOTE.match(note))
+      return safe_join([ match.pre_match, link_to(match[:title].presence || "Order request", match[:path]), match.post_match ])
+    end
+
+    parts = note.split(/(#{NOTE_LINK})/o)
+    safe_join(parts.map do |part|
+      next part unless part.match?(/\A#{NOTE_LINK}\z/o)
+
+      link_to(part.start_with?("/orders/") ? "Order request" : "Link", part, target: ("_blank" unless part.start_with?("/")), rel: "noopener")
+    end)
   end
 
   # Who did it, and who entered it when that was someone else.

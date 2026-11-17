@@ -8,7 +8,7 @@ module Inventory
     # GET /inventory/places
     def index
       authorize Location
-      @locations = policy_scope(Location).ordered.to_a
+      @locations = policy_scope(Location).includes(:location_type).ordered.to_a
       @children = @locations.group_by(&:parent_id)
       ids = @locations.to_set(&:id)
       @roots = @locations.select { |location| location.parent_id.nil? || !ids.include?(location.parent_id) }
@@ -119,7 +119,7 @@ module Inventory
     end
 
     def location_params
-      permitted = params.require(:location).permit(:team_id, :parent_id, :name, :code, :kind, :note, :position, :active)
+      permitted = params.require(:location).permit(:team_id, :parent_id, :name, :code, :location_type_id, :note, :position, :active)
       if permitted[:parent_id].present? && !policy_scope(Location).exists?(id: permitted[:parent_id])
         permitted[:parent_id] = nil
       end

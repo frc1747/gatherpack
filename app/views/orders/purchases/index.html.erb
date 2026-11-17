@@ -6,18 +6,18 @@
     <% if policy(Purchase).create? %>
       <div class="d-flex gap-2">
         <% if params[:mine].present? %>
-          <%= link_to "All orders", orders_purchases_path, class: "btn btn-outline-secondary" %>
+          <%= link_to "All orders", orders_purchases_path, class: "btn btn-secondary" %>
         <% else %>
-          <%= link_to "Orders I placed", orders_purchases_path(mine: 1), class: "btn btn-outline-secondary" %>
+          <%= link_to "Orders I placed", orders_purchases_path(mine: 1), class: "btn btn-secondary" %>
         <% end %>
         <%= link_to "To buy", to_buy_orders_purchases_path, class: "btn btn-primary" %>
       </div>
     <% end %>
     <% if Orders::LedgerRecording.ledger_on? %>
       <% if params[:not_in_ledger].present? %>
-        <%= link_to "All orders", orders_purchases_path, class: "btn btn-outline-secondary" %>
+        <%= link_to "All orders", orders_purchases_path, class: "btn btn-secondary" %>
       <% else %>
-        <%= link_to "Not in ledger", orders_purchases_path(not_in_ledger: 1), class: "btn btn-outline-secondary" %>
+        <%= link_to "Not in ledger", orders_purchases_path(not_in_ledger: 1), class: "btn btn-secondary" %>
       <% end %>
     <% end %>
   </div>

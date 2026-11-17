@@ -4,8 +4,8 @@ require "csv"
 # row names an item; a row matching an existing item by manufacturer part
 # number (or by name when it has none) updates it rather than adding
 # another. A row with a quantity records an "added" change, reason
-# "Imported", at the place its code names. The only bulk write in
-# inventory.
+# "Imported", at the place its code names. A unit must name a row of the
+# stock units list (by name or plural). The only bulk write in inventory.
 #
 #   import = Inventory::Import.new(person:, team_id:, text: csv)
 #   import.valid?          # the file and team
@@ -171,6 +171,9 @@ module Inventory
       elsif row.quantity.to_i.positive? && !row.item&.default_location
         row.problems << "A quantity needs a place code"
       end
+      if values[:unit].present? && StockUnit.active.named(values[:unit]).nil?
+        row.problems << "Unknown unit #{values[:unit]}: add it to the stock units first"
+      end
       row.problems << "#{row.item.name} is tracked: add its units instead" if row.item&.tracked? && row.quantity.to_i.positive?
       row.problems << "You don't manage #{row.item.name}" if row.item && !access.manages?(row.item.team_id)
     end
@@ -201,10 +204,10 @@ module Inventory
       item.lock! if item.persisted?
       {
         category: values[:category], manufacturer: values[:manufacturer],
-        manufacturer_part_number: values[:manufacturer_part_number], unit: values[:unit],
+        manufacturer_part_number: values[:manufacturer_part_number], stock_unit: StockUnit.active.named(values[:unit]),
         url: (values[:link] if values[:vendor].blank?),
         reorder_point: values[:reorder_point], reorder_quantity: values[:reorder_quantity]
-      }.each { |attribute, value| item[attribute] = value if value.present? }
+      }.each { |attribute, value| item.public_send(:"#{attribute}=", value) if value.present? }
       item.home_location ||= row.location
       item.save!
 

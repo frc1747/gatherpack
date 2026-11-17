@@ -7,7 +7,7 @@
       <i class="fa-solid fa-<%= location.identifier_icon %> text-body-secondary"></i>
       <%= link_to location.name, inventory_location_path(location) %>
       <% if location.code.present? %><span class="badge text-bg-light border font-monospace"><%= location.code %></span><% end %>
-      <% if location.machine? %><span class="badge text-bg-info">Machine</span><% end %>
+      <% if location.machine? && location.takes_installs? %><span class="badge text-bg-info"><%= location.location_type.name %></span><% end %>
       <% unless location.active? %><span class="badge text-bg-light border">Inactive</span><% end %>
       <% if @needs_count.include?(location.id) %><span class="badge text-bg-secondary">Needs a count</span><% end %>
       <% if (inside = children[location.id]).present? %>

@@ -1,5 +1,5 @@
 crumb :inventory do
-  link "Inventory", inventory_root_path
+  link "Inventory", inventory_stock_path
 end
 
 crumb :inventory_items do
@@ -60,4 +60,9 @@ end
 crumb :inventory_import do
   link "Import", new_inventory_import_path
   parent :inventory_items
+end
+
+crumb :inventory_setup do
+  link "Setup", inventory_setup_path
+  parent :inventory
 end

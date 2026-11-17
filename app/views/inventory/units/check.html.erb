@@ -1,21 +1,13 @@
-<% conditions = ItemUnit::CONDITIONS - [ "retired" ] %>
+<% conditions = UnitCondition.for_check.to_a %>
+<% conditions << @unit.unit_condition if @unit.unit_condition && !conditions.include?(@unit.unit_condition) %>
 <%= render layout: "action", locals: { unit: @unit, title: "Check", submit: "Save check", url: check_inventory_unit_path(@unit),
       multipart: true } do |form| %>
-  <fieldset class="mb-3">
-    <legend class="form-label fs-6">Condition</legend>
-    <div class="d-grid gap-2">
-      <% conditions.each do |condition| %>
-        <div>
-          <%= radio_button_tag :condition, condition, @unit.condition == condition, class: "btn-check", autocomplete: "off" %>
-          <%= label_tag "condition_#{condition}", ItemUnit::CONDITION_LABELS.fetch(condition), class: "btn btn-lg btn-outline-secondary w-100 text-start" %>
-        </div>
-      <% end %>
-    </div>
-  </fieldset>
-  <% Array(@unit.item.reading_fields).each_with_index do |field, index| %>
+  <%= render "inventory/units/condition_choices", conditions: conditions, selected: @unit.unit_condition,
+        style: "btn-outline-secondary", legend: "Condition" %>
+  <% @unit.item.reading_types.each do |type| %>
     <div class="mb-3">
-      <%= label_tag "reading_#{index}", reading_heading(field), class: "form-label" %>
-      <%= number_field_tag "readings[#{field["name"]}]", nil, id: "reading_#{index}", step: "any", inputmode: "decimal",
+      <%= label_tag "reading_#{type.id}", reading_heading(type), class: "form-label" %>
+      <%= number_field_tag "readings[#{type.id}]", nil, id: "reading_#{type.id}", step: "any", inputmode: "decimal",
             class: "form-control form-control-lg" %>
     </div>
   <% end %>

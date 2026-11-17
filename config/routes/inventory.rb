@@ -2,6 +2,7 @@
 # inventory controller turns requests away while feature_inventory is off.
 namespace :inventory do
   root "search#index"
+  get "stock", to: "search#index", as: :stock
   resources :items do
     resource :tracking, controller: "item_tracking", only: %i[create destroy]
     resource :readings, controller: "item_readings", only: %i[edit update]
@@ -20,6 +21,8 @@ namespace :inventory do
       post :undo
     end
   end
+  get "setup", to: "setup#show", as: :setup
+  patch "setup", to: "setup#update"
   get "reorder", to: "reorder#index", as: :reorder
   post "reorder", to: "reorder#run"
   resources :units do

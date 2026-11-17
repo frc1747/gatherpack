@@ -34,7 +34,7 @@
   <datalist id="order_units">
     <% %w[each pack box roll pair set].each do |unit| %><option value="<%= unit %>"><% end %>
   </datalist>
-  <button type="button" class="btn btn-outline-primary w-100 mb-3" data-action="order-form#addLine">
+  <button type="button" class="btn btn-secondary w-100 mb-3" data-action="order-form#addLine">
     <i class="fa fa-plus"></i> Add another item
   </button>
 
@@ -86,7 +86,7 @@
     <% if order_request.new_record? || order_request.draft? %>
       <%= f.button "Submit for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>
     <% elsif order_request.changes_requested? %>
-      <%= f.button "Save", type: "submit", class: "btn btn-outline-secondary" %>
+      <%= f.button "Save", type: "submit", class: "btn btn-secondary" %>
       <%= f.button "Send back for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>
     <% else %>
       <%= f.button "Save changes", type: "submit", class: "btn btn-primary" %>

@@ -23,6 +23,8 @@ class ItemUnitEvent < ApplicationRecord
   belongs_to :person, optional: true
   belongs_to :recorded_by, class_name: "Person", optional: true
   belongs_to :reverses, class_name: "ItemUnitEvent", optional: true
+  belongs_to :condition_before, class_name: "UnitCondition", optional: true
+  belongs_to :condition_after, class_name: "UnitCondition", optional: true
   has_one :reversal, class_name: "ItemUnitEvent", foreign_key: :reverses_id, inverse_of: :reverses, dependent: nil
   has_one_attached :photo
 
@@ -111,7 +113,7 @@ class ItemUnitEvent < ApplicationRecord
 
   def reverse!(unit, by, recorded_by)
     if RELOCATIONS.include?(action)
-      outer = from_unit if from_unit&.active? && !from_unit.condition_retired?
+      outer = from_unit if from_unit&.active? && !from_unit.out_of_service?
       unit.relocate!(action, outer ? outer.location : from_location, outer, person: by, recorded_by: recorded_by,
         note: "Undo", reverses: self)
     else
