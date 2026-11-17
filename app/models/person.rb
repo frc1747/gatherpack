@@ -6,7 +6,7 @@ class Person < ApplicationRecord
   belongs_to :user, optional: true
   has_many :memberships, dependent: :destroy
   has_many :membership_applications, dependent: :destroy
-  has_many :teams, through: :memberships
+  has_many :teams, through: :memberships, after_remove: :recheck_badges
   has_many :badge_assignments, dependent: :destroy
   has_many :badges, through: :badge_assignments
   has_many :checkins, dependent: :destroy
@@ -19,6 +19,7 @@ class Person < ApplicationRecord
   before_save :check_display_name
   validate :person_field_errors
   after_save :run_person_field_hooks
+  before_commit :remove_badges_outside_team, if: -> { @recheck_badges }
   after_destroy :destroy_unshared_login
   accepts_nested_attributes_for :user
   has_one_attached :avatar
@@ -303,6 +304,19 @@ class Person < ApplicationRecord
   end
 
   private
+
+  # Removing teams through team_ids= deletes memberships without their
+  # callbacks. It removes teams before adding the new ones, so check just
+  # before the change commits; a failed removal rolls it back.
+  def recheck_badges(_team)
+    @recheck_badges = true
+    self.class.connection.add_transaction_record(self)
+  end
+
+  def remove_badges_outside_team
+    @recheck_badges = false
+    BadgeAssignment.remove_outside_team(badge_assignments)
+  end
 
   def person_fields_for_access
     PersonField.in_use.applicable_to(self).ordered.includes(:person_field_group, person_field_badge_grants: :badge).to_a
