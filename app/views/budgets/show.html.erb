@@ -9,7 +9,7 @@
       <div class="col">
         <div>
           <%= as_badge @budget.budget_period.team, small: true %>
-          <%= link_to @budget.budget_period.identifier_name, @budget.budget_period, 'data-turbo': false %>
+          <%= link_to @budget.budget_period.identifier_name, @budget.budget_period, data: { turbo_frame: "_top" } %>
         </div>
         <div><%= safe_join(@budget.ledger_tags.map { |tag| as_badge tag }, " ") %></div>
       </div>
