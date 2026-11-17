@@ -2,7 +2,8 @@
 # (inventory spec §3.15). location is where the unit physically is; a unit
 # installed in another unit (a motor in a swerve module) also has
 # installed_in, and moves with it. A unit is installed when it's in another
-# unit or on a machine.
+# unit or on a machine (a place of kind machine, named as Inventory setup
+# says: Inventory.machine_word).
 #
 # Every change goes through an action method here (install!, take_off!,
 # move!, check!, mark_for_repair!, repaired!, retire!, ItemUnit.receive!,
@@ -108,7 +109,7 @@ class ItemUnit < ApplicationRecord
       raise Inventory::Refused, "You can't receive #{item.name} here"
     end
     raise Inventory::Refused, "#{item.name} isn't tracked" unless item.tracked?
-    raise Inventory::Refused, "Receive into a storage place, not a machine" if location.machine?
+    raise Inventory::Refused, "Receive into a storage place, not #{Inventory.machine_word(article: true)}" if location.machine?
     raise Inventory::Refused, "#{location.name} isn't active" unless location.active?
 
     count = Integer(count.to_s, 10, exception: false)
@@ -148,7 +149,12 @@ class ItemUnit < ApplicationRecord
 
       to_location, to_unit = into.location, into
     else
-      raise Inventory::Refused, "Install it on a machine, or use Move for a storage place" unless into.machine?
+      unless into.machine?
+        raise Inventory::Refused, "Use Move for a storage place" unless Inventory.machines?
+
+        raise Inventory::Refused, "Install it on #{Inventory.machine_word(article: true)}, or use Move for a storage place"
+      end
+      raise Inventory::Refused, "#{Inventory.machine_word(count: :many, capitalize: true)} are turned off" unless Inventory.machines?
       raise Inventory::Refused, "#{into.name} isn't active" unless into.active?
 
       to_location, to_unit = into, nil
@@ -178,7 +184,11 @@ class ItemUnit < ApplicationRecord
   def move!(to:, by:, note: nil, recorded_by: nil, authorized_by: nil)
     authorize_action!(:move, by, recorded_by, authorized_by, to)
     raise Inventory::Refused, "It's installed: take it off first" if installed?
-    raise Inventory::Refused, "Use Install to put it on a machine" if to.machine?
+    if to.machine?
+      raise Inventory::Refused, "#{to.name} isn't a storage place" unless Inventory.machines?
+
+      raise Inventory::Refused, "Use Install to put it on #{Inventory.machine_word(article: true)}"
+    end
     raise Inventory::Refused, "It's already there" if to.id == location_id
     raise Inventory::Refused, "#{to.name} isn't active" unless to.active?
 

@@ -1,10 +1,12 @@
-# Machines (inventory spec §3.15): robots, practice bases and demo boards,
-# each with the units installed on it, nested by sub-assembly. Install a
-# part takes a unit's code, typed or scanned from its label.
+# Machines (inventory spec §3.15): things built and run, under the name
+# Inventory setup gives them, each with the units installed on it, nested
+# by sub-assembly. Install a part takes a unit's code, typed or scanned from
+# its label. Gone while Inventory setup turns them off.
 module Inventory
   class MachinesController < BaseController
     include Inventory::UnitLookup
 
+    before_action :require_machines
     before_action :set_machine, only: %i[show install]
 
     def index
@@ -41,6 +43,12 @@ module Inventory
     end
 
     private
+
+    def require_machines
+      return if Inventory.machines?
+
+      redirect_to inventory_root_path, notice: "#{Inventory.machine_word(count: :many, capitalize: true)} are turned off"
+    end
 
     def set_machine
       @machine = policy_scope(Location).machine.find(params[:id])

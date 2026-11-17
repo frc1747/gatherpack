@@ -14,9 +14,9 @@
     <%= hidden_field_tag :unit_id, target.id %>
   <% else %>
     <div class="mb-3">
-      <%= label_tag :location_id, "On a machine", class: "form-label" %>
+      <%= label_tag :location_id, "On #{Inventory.machine_word(article: true)}", class: "form-label" %>
       <%= select_tag :location_id, options_for_select(inventory_place_options(machines), target&.id),
-            include_blank: "Pick a machine", class: "form-select form-select-lg" %>
+            include_blank: "Pick #{Inventory.machine_word(article: true)}", class: "form-select form-select-lg" %>
     </div>
     <div class="mb-3">
       <%= label_tag :unit_code, "Or inside another part: its code", class: "form-label" %>

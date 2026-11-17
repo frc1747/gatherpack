@@ -127,7 +127,7 @@ module Inventory
       elsif params[:location_id].present?
         policy_scope(Location).find(params[:location_id])
       else
-        raise Inventory::Refused, "Pick a machine, or type the code of the part to put it in"
+        raise Inventory::Refused, "Pick #{Inventory.machine_word(article: true)}, or type the code of the part to put it in"
       end
     end
 

@@ -1,7 +1,8 @@
-# Tracked units and machines (inventory spec §3.15).
+# Tracked units and machines (inventory spec §3.15), named as Inventory
+# setup says.
 crumb :inventory_machines do
   link "Inventory", inventory_root_path
-  link "Machines", inventory_machines_path
+  link Inventory.machine_word(count: :many, capitalize: true), inventory_machines_path
 end
 
 crumb :inventory_machine do |machine|

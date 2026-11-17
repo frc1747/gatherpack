@@ -53,8 +53,10 @@
         <i class="fa-solid fa-warehouse"></i> Places
       <% end %>
     <% end %>
-    <%= link_to inventory_machines_path, class: "btn btn-secondary" do %>
-      <i class="fa-solid fa-robot"></i> Machines
+    <% if Inventory.machines? %>
+      <%= link_to inventory_machines_path, class: "btn btn-secondary" do %>
+        <i class="fa-solid fa-<%= Inventory::MACHINE_ICON %>"></i> <%= Inventory.machine_word(count: :many, capitalize: true) %>
+      <% end %>
     <% end %>
   </div>
   <%= render "inventory/shared/manager_links" %>

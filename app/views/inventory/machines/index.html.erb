@@ -1,17 +1,17 @@
 <% breadcrumb :inventory_machines %>
-<% content_for :title, "Machines" %>
+<% content_for :title, Inventory.machine_word(count: :many, capitalize: true) %>
 
 <div class="row"><div class="col-lg-8 col-xl-6">
-  <h1 class="h3">Machines</h1>
+  <h1 class="h3"><%= Inventory.machine_word(count: :many, capitalize: true) %></h1>
   <% if @machines.empty? %>
-    <p class="text-body-secondary">No machines yet. A place becomes a machine when its kind is set to Machine.</p>
+    <p class="text-body-secondary">No <%= Inventory.machine_word(count: :many) %> yet. A place becomes <%= Inventory.machine_word(article: true) %> when its kind is set to <%= Inventory.machine_word(capitalize: true) %>.</p>
   <% else %>
     <% names = inventory_full_names(@machines) %>
     <div class="list-group" id="machines">
       <% @machines.each do |machine| %>
         <%= link_to inventory_machine_path(machine), class: "list-group-item list-group-item-action py-3" do %>
           <div class="d-flex justify-content-between align-items-center">
-            <span class="fw-semibold"><%= i("robot") %> <%= machine.name %></span>
+            <span class="fw-semibold"><%= i(Inventory::MACHINE_ICON) %> <%= machine.name %></span>
             <span>
               <% if (flagged = @flagged_counts[machine.id].to_i).positive? %>
                 <span class="badge text-bg-danger"><%= flagged %> need repair</span>

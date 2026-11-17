@@ -1,5 +1,5 @@
 # Words and small pieces for the unit and machine pages (inventory spec
-# §3.15).
+# §3.15). The word for a machine is Inventory.machine_word.
 module Inventory
   module UnitsHelper
     UNIT_ACTION_LABELS = {
@@ -51,7 +51,7 @@ module Inventory
       end
     end
 
-    # Where the unit is: "Robot, in LF module" or "Shop › Cabinet › Bin 1".
+    # Where the unit is: "Rover, in Left module" or "Shop › Cabinet › Bin 1".
     def unit_whereabouts(unit)
       place = unit.location.machine? ? unit.location.name : unit.location.full_name
       return place if unit.installed_in.nil?

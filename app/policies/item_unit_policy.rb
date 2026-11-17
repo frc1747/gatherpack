@@ -1,7 +1,8 @@
 # Units of tracked items: seen with their item, edited (code, serial, name,
 # photo) by those who manage it. Each action follows
 # Inventory::Access#may_unit_action? (inventory_member_unit_actions for
-# members, every action for managers). Units aren't deleted: retire them.
+# members, every action for managers). Install is off while Inventory setup
+# turns machines off. Units aren't deleted: retire them.
 class ItemUnitPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
@@ -35,7 +36,9 @@ class ItemUnitPolicy < ApplicationPolicy
   end
 
   Inventory::Config::UNIT_ACTIONS.each do |action|
-    define_method(:"#{action}?") { person.present? && access.may_unit_action?(action, record) }
+    define_method(:"#{action}?") do
+      person.present? && (action != "install" || Inventory.machines?) && access.may_unit_action?(action, record)
+    end
   end
 
   private

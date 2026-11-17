@@ -214,6 +214,6 @@ class Item < ApplicationRecord
   end
 
   def home_location_is_storage
-    errors.add(:home_location, "must be a storage place, not a machine") if home_location&.machine?
+    errors.add(:home_location, "must be a storage place, not #{Inventory.machine_word(article: true)}") if home_location&.machine?
   end
 end
