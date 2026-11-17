@@ -1,6 +1,6 @@
 <div class="card" id="<%= dom_id variable %>">
   <div class="card-header">
-    <%= link_to variable.identifier_name, variable, "data-turbo": "false" %>
+    <%= link_to variable.identifier_name, variable, data: { turbo_frame: "_top" } %>
   </div>
   <div class="card-body">
     <%= variable.value.to_s %>
