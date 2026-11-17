@@ -64,7 +64,9 @@ class BadgeAssignmentPolicyTest < ActiveSupport::TestCase
   test "managers see every holder of a badge they manage, including those who left the team" do
     badge = build_badge("added_by_manager", team: @team).tap(&:save!)
     departed = BadgeAssignment.create!(badge: badge, person: @member)
-    @member.memberships.destroy_all
+    # Leaving a team now removes its badges, so delete the membership without
+    # callbacks to get an assignment left over from before that rule.
+    Membership.where(person: @member).delete_all
 
     assert BadgeAssignmentPolicy.new(@manager.user, departed).show?
     assert_not BadgeAssignmentPolicy.new(@teammate.user, departed).show?
