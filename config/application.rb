@@ -5,6 +5,7 @@ require "rails/all"
 require_relative "../lib/settings"
 require_relative "../lib/gatherpack/feature"
 require_relative "../lib/gatherpack/features"
+require_relative "../lib/gatherpack/hook_catalog"
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
