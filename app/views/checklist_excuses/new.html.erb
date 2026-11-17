@@ -1,0 +1,17 @@
+<% breadcrumb @checklist %>
+
+<div class="card">
+  <div class="card-header"><h1>Excuse <%= @excuse.person.display_name %> from <%= @excuse.item.label %></h1></div>
+  <div class="card-body">
+    <p class="text-body-secondary">The item won't count for them, and shows as Excused. Others who see the item see who excused it and when; only managers and admins see the reason.</p>
+    <%= simple_form_for [ @checklist, @excuse ], url: checklist_checklist_excuses_path(@checklist) do |f| %>
+      <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+      <%= f.hidden_field :item_id %>
+      <%= f.hidden_field :person_id %>
+      <%= f.input :reason, as: :text, input_html: { rows: 3 } %>
+      <%= f.input :expires_on, as: :date, html5: true, label: "Until", hint: "Optional. Blank: for as long as the checklist runs" %>
+      <%= f.button :submit, "Excuse", class: "btn btn-primary" %>
+      <%= link_to "Cancel", checklist_path(@checklist), class: "btn btn-link" %>
+    <% end %>
+  </div>
+</div>

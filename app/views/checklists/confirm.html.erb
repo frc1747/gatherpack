@@ -1,0 +1,19 @@
+<% breadcrumb @checklist %>
+
+<div class="card">
+  <div class="card-header"><h1>Check this change</h1></div>
+  <div class="card-body">
+    <p class="fw-semibold">This changes people's results on <%= @checklist.title %>:</p>
+    <ul><% impact.sentences.each do |sentence| %><li><%= sentence %></li><% end %></ul>
+    <%= form_with url: url, method: method do %>
+      <%= hidden_field_tag :confirmed, "1" %>
+      <% fields.each do |scope, values| %>
+        <% values.each do |key, value| %>
+          <%= hidden_field_tag "#{scope}[#{key}]", value %>
+        <% end %>
+      <% end %>
+      <%= submit_tag "Go ahead", class: "btn btn-warning" %>
+      <%= link_to "Cancel", cancel, class: "btn btn-link" %>
+    <% end %>
+  </div>
+</div>
