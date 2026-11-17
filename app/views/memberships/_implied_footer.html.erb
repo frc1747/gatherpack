@@ -1,0 +1,12 @@
+<%# locals: (via_child_teams:, via_parent_teams:) %>
+<div class="small text-body-secondary">
+  <% if via_parent_teams.present? %>
+    Manager of
+    <%= safe_join(via_parent_teams.map { |m| link_to m.team.name, team_memberships_path(m.team), data: { turbo_frame: "_top" } }, ", ") %>
+  <% end %>
+  <% if via_child_teams.present? %>
+    <%= tag.br if via_parent_teams.present? %>
+    Via
+    <%= safe_join(via_child_teams.map { |m| link_to m.team.name, team_memberships_path(m.team), data: { turbo_frame: "_top" } }, ", ") %>
+  <% end %>
+</div>
