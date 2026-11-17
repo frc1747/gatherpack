@@ -42,9 +42,11 @@ module Mcp::FormResponses
           title: { type: "string" },
           description: { type: [ "string", "null" ] },
           status: { type: "string" },
-          closes_at: { type: [ "string", "null" ] }
+          closes_at: { type: [ "string", "null" ] },
+          expires_on: { type: [ "string", "null" ], description: "Responses stop counting from this date (YYYY-MM-DD); only for those who may edit the form's details" },
+          valid_for_months: { type: [ "integer", "null" ], description: "Responses stop counting this many months after each is signed; only for those who may edit the form's details" }
         },
-        required: %w[id title description status closes_at]
+        required: %w[id title description status closes_at expires_on valid_for_months]
       },
       questions: { type: "array", items: QUESTION_SCHEMA },
       response: {
@@ -52,7 +54,8 @@ module Mcp::FormResponses
         description: "The person's response; null without person_id",
         properties: {
           person: Mcp::Tool::REF_SCHEMA,
-          status: { type: "string", description: "not_started, draft, waiting (submitted, waiting for an answer or a signature), complete, needs_reconfirmation or withdrawn" },
+          status: { type: "string", description: "not_started, draft, waiting (submitted, waiting for an answer or a signature), complete, needs_reconfirmation (also once its expiry has passed) or withdrawn" },
+          expires_at: { type: [ "string", "null" ], description: "When the response in effect stops counting; null if the form's responses don't expire or none is in effect" },
           asked: { type: "boolean", description: "False when the form no longer asks this person" },
           update_in_progress: { type: "boolean", description: "An unsubmitted update exists while earlier answers stay in effect" },
           submitted_at: { type: [ "string", "null" ] },
@@ -62,7 +65,7 @@ module Mcp::FormResponses
           can_withdraw: { type: "boolean" },
           can_sign: { type: "boolean" }
         },
-        required: %w[person status asked update_in_progress submitted_at waiting_for not_copied_to_profile can_update can_withdraw can_sign]
+        required: %w[person status expires_at asked update_in_progress submitted_at waiting_for not_copied_to_profile can_update can_withdraw can_sign]
       }
     },
     required: %w[form questions response]
@@ -114,6 +117,15 @@ module Mcp::FormResponses
 
   def form_details_json(form)
     { id: form.neat_id, title: form.title, description: form.description, status: form.status, closes_at: time_json(form.closes_at) }
+      .merge(expiry_json(form))
+  end
+
+  # The expiry rule is on the form's details screen (forms/_details_fields), which
+  # FormPolicy#update? opens; others see its effect on their response (expires_at).
+  def expiry_json(form)
+    return { expires_on: nil, valid_for_months: nil } unless ctx.allowed?(form, :update?)
+
+    { expires_on: date_json(form.expires_on), valid_for_months: form.valid_for_months }
   end
 
   # With a response, the questions the fill page shows (edit.html.erb): those that
@@ -173,6 +185,7 @@ module Mcp::FormResponses
     {
       person: person_json(response.subject),
       status: response.persisted? ? response.status : "not_started",
+      expires_at: time_json(response.expires_at),
       asked: response.form.in_audience?(response.subject),
       update_in_progress: response.update_in_progress?,
       submitted_at: time_json(open&.pending? ? open.submitted_at : active&.submitted_at),

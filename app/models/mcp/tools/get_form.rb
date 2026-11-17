@@ -22,6 +22,8 @@ class Mcp::Tools::GetForm < Mcp::Tool
 
   tool_name "get_form"
   description "A form's questions in order, with each one's type, options and whether it is required, as its pages show them. " \
+    "Those who may edit the form's details also get when its responses expire (expires_on, or valid_for_months after signing); " \
+    "a person's response says when it stops counting (expires_at), and reads needs_reconfirmation once it has. " \
     "Give person_id (your own, or someone you may answer for) for the questions shown to that person, their answers you may read, and where their response stands; " \
     "it's needed unless you can see the form's results. " \
     "Questions linked to the built-in email, phone, address or birthday fields, questions of phone or email type, and questions that were either of those earlier " \
