@@ -26,6 +26,7 @@ class ApplicationController < ActionController::Base
   helper_method :admin?, :architect?, :manager?, :kiosk_page?
 
   rescue_from Pundit::NotAuthorizedError, with: :pundit_not_authorized
+  rescue_from ActiveRecord::RecordNotDestroyed, ActiveRecord::InvalidForeignKey, with: :delete_blocked
 
   private
 
@@ -60,6 +61,18 @@ class ApplicationController < ActionController::Base
 
   def pundit_not_authorized
     redirect_back_or_to root_path, notice: "You are not allowed to do that"
+  end
+
+  # A delete refused by a restrict_with_error association, a callback or a
+  # foreign key. Only DELETE requests are handled: an InvalidForeignKey from a
+  # create or update is a real bug and keeps raising.
+  def delete_blocked(exception)
+    raise exception unless request.delete?
+
+    record = exception.try(:record)
+    message = record&.errors&.full_messages&.to_sentence.presence ||
+      "This can't be deleted while other records still use it."
+    redirect_back_or_to root_path, alert: message, status: :see_other
   end
 
   def set_time_zone(&block)
