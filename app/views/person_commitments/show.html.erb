@@ -1,0 +1,11 @@
+<% breadcrumb :person_commitments, @person %>
+
+<h1 class="mb-3"><%= @person.display_name %>'s commitments</h1>
+
+<% if @progress.any? %>
+  <% @progress.each do |progress| %>
+    <%= render "commitments/progress", progress: progress %>
+  <% end %>
+<% else %>
+  <p>Nothing owed right now.</p>
+<% end %>

@@ -1,0 +1,67 @@
+<%# One person's or group's progress on a commitment, with the breakdown and how to earn more. %>
+<% commitment = progress.commitment %>
+<% names = progress.members.to_h { |member| [ member.id, member.display_name ] } %>
+<% relative_names = progress.relatives.to_h { |relative| [ relative.id, "#{relative.display_name} (relative)" ] } %>
+<div class="card mb-3" id="<%= dom_id commitment, :progress %>">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h3 class="h5 mb-0"><%= link_to commitment.title, commitment %></h3>
+    <%= commitment_status_badge(progress) %>
+  </div>
+  <div class="card-body">
+    <% if progress.members.size > 1 || progress.members.exclude?(current_user.person) %>
+      <p class="mb-2">Owed by <%= progress.members.map(&:display_name).to_sentence %><%= " together" if progress.members.size > 1 %>.</p>
+    <% end %>
+    <p class="mb-2"><%= commitment_summary(progress) %>. <strong><%= progress.remaining %> remaining.</strong></p>
+    <p class="small text-body-secondary">
+      <%= commitment_period(commitment) %>.
+      <%= commitment.counts_planned? ? "Planned credit counts toward it." : "Only confirmed credit counts toward it." %>
+    </p>
+
+    <ul class="list-group mb-3">
+      <% progress.lines.each do |line| %>
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between flex-wrap gap-2">
+            <span><%= line.source.label %></span>
+            <span class="text-body-secondary"><%= line.available? ? commitment_line_summary(line) : "Not counted" %></span>
+          </div>
+          <% if line.records.any? %>
+            <ul class="small mb-0">
+              <% line.records.each do |record| %>
+                <li>
+                  <%= record.date.strftime("%b %-d") %>: <%= record.label %><%= " (planned)" unless record.confirmed? %><% name = relative_names[record.person_id] || (names[record.person_id] if names.size > 1) %><%= " · #{name}" if name %>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
+        </li>
+      <% end %>
+      <% progress.adjustments.each do |adjustment| %>
+        <li class="list-group-item d-flex justify-content-between flex-wrap gap-2">
+          <span>Adjustment: <%= adjustment.reason %><%= " · #{names[adjustment.person_id]}" if names.size > 1 %></span>
+          <span class="text-body-secondary"><%= format("%+d", adjustment.credits) %></span>
+        </li>
+      <% end %>
+    </ul>
+
+    <% unless progress.met? %>
+      <% earn = progress.lines.select(&:available?).map { |line| line.source.kind_instance.how_to_earn } %>
+      <% if earn.any? %>
+        <h4 class="h6">How to earn credit</h4>
+        <ul class="mb-0">
+          <% earn.each do |how| %>
+            <li>
+              <%= how.text %>
+              <% if how.links.any? %>
+                <ul class="small">
+                  <% how.links.each do |label, target| %>
+                    <li><%= link_to label, target %></li>
+                  <% end %>
+                </ul>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    <% end %>
+  </div>
+</div>
