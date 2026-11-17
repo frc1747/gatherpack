@@ -19,3 +19,4 @@ Reported by the help-guide session; the guides leave these out.
 5. **Family page:** an event starting at midnight shows "Time not set yet" (the BL-049 all-day handling doesn't reach it).
 6. **Home Coming up** shows midnight-to-midnight events as "12:00 AM - 11:59 PM" (same cause; only My activity was fixed).
 7. **Demo setting:** "Kiosk: Managers Clock Out the People They Manage" is on in the demo (default off), so the kiosk shows a Manager button. Unknown who changed it.
+8. **Registrations in members' menu.** Members see Registrations under People; opening it (or hover prefetch) shows "You are not allowed to do that". Hidden where menu items take a visible check (feature/intake).
