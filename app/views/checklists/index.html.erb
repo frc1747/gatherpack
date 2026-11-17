@@ -27,6 +27,7 @@
   </div>
 </div>
 
+<%= render "housekeeping/bar", type: :checklists %>
 <div class="list-group mt-3">
   <% @checklists.each do |checklist| %>
     <%= link_to checklist, class: "list-group-item list-group-item-action d-flex justify-content-between align-items-start" do %>
