@@ -1,0 +1,4 @@
+form_auto_reminder_job:
+  class: FormAutoReminderJob
+  queue: default
+  schedule: every hour
