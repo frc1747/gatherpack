@@ -105,12 +105,15 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
   end
 
   test "a guardian sees no Family tab while the route is missing" do
+    # The route exists on this branch, so the guard has to be shown it doesn't.
+    NavHelper.define_method(:respond_to?) { |name, include_all = false| name != :family_path && super(name, include_all) }
     WardsStub.wards = [ @member ]
     sign_in @member
     get root_path
 
     assert_equal [ "Home", "Hours", "More" ], tab_labels
   ensure
+    NavHelper.remove_method(:respond_to?)
   end
 
   test "the bar is not on the kiosk or with the flag off" do
