@@ -25,7 +25,9 @@ class Mcp::Tools::AssignBadge < Mcp::Tool
 
   tool_name "assign_badge"
   description "Give a person a badge. Team badges need the person on the badge's team. " \
-    "On a badge open to self-service, you can choose only yourself or people you manage, unless you're an admin. Returns the new assignment."
+    "Admins can give any badge. A team's managers can give most of its badges, though a self-service one only to themselves or people they manage. " \
+    "Anyone else can give only themselves a self-service badge, or a member badge of a team they're on. " \
+    "Managers can also give people they manage a team-less badge marked as added by a manager or self. Returns the new assignment."
   scope :write
   feature :badges
   input_schema(

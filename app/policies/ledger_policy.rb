@@ -9,6 +9,11 @@ class LedgerPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def split?
     update?
   end
@@ -21,15 +26,19 @@ class LedgerPolicy < ApplicationPolicy
     person.admin? || record.team.all_managers.include?(person) || record.owners.include?(person)
   end
 
-  def create?
+  def new?
     person.manager?
   end
 
+  def create?
+    user.admin? || manages?(record.team)
+  end
+
   def update?
-    person.admin? || record.team.all_managers_and_admins.include?(person)
+    user.admin? || manages?(record.team)
   end
 
   def destroy?
-    person.admin? || record.team.all_managers_and_admins.include?(person)
+    update?
   end
 end

@@ -16,7 +16,15 @@
   </div>
 </div>
 
-<%= f.input :content, wrapper_html: { class: "code-editor" }, input_html: { rows: 12, data: { lang: "html" } } %>
+<% if f.object.dynamic && !architect? %>
+  <div class="mb-3">
+    <label class="form-label">Content</label>
+    <pre class="border rounded p-2 bg-body-tertiary"><%= f.object.content %></pre>
+    <div class="form-text">This page runs ERB, so only architects can change its content.</div>
+  </div>
+<% else %>
+  <%= f.input :content, wrapper_html: { class: "code-editor" }, input_html: { rows: 12, data: { lang: "html" } } %>
+<% end %>
 
 <% if architect? %>
   <div class="alert alert-danger">
