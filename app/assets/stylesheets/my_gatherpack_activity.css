@@ -1,0 +1,47 @@
+/* The activity page: what the person has done, a section per kind of event, beside their requirements. */
+.mg-activity-season {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.mg-activity-season .form-select {
+  width: auto;
+  /* Keep room for the arrow even where a theme narrows the select's padding. */
+  padding-right: 2.25rem;
+  min-width: 8.5rem;
+}
+
+.mg-activity-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mg-activity-jump .btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.mg-activity-kind {
+  margin-bottom: 1rem;
+  scroll-margin-top: 1rem;
+}
+
+.mg-activity-kind-total {
+  margin: 0 0 0.25rem;
+  font-family: var(--bs-body-font-family);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mg-activity-counts {
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.mg-activity-link {
+  min-height: 44px;
+}

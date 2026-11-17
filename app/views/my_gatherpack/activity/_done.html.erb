@@ -1,0 +1,46 @@
+<%# What the person has done for the team: meetings in one line (own page), then a section per kind of event with its events. %>
+<% sections = activity.done_sections %>
+<% meetings = activity.meetings_row %>
+<section class="mg-section" data-activity-block="done">
+  <h2 class="mg-heading"><%= activity.own? ? "What you've done" : "What they've done" %></h2>
+  <% if sections.size > 1 %>
+    <nav class="mg-activity-jump" aria-label="Kinds of event" data-activity-jump>
+      <% sections.each do |section| %>
+        <%= link_to section.name, "##{activity_section_anchor(section.key)}", class: "btn btn-outline-secondary btn-sm" %>
+      <% end %>
+    </nav>
+  <% end %>
+  <% if meetings %>
+    <div class="card mg-list mb-3">
+      <div class="mg-row" data-activity-meetings>
+        <div class="mg-row-body">
+          <div class="mg-row-title"><%= activity_meetings_line(activity) %></div>
+          <% if (counts = activity_counts_toward(activity, meetings)) %><div class="mg-row-detail"><%= counts %></div><% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+  <% sections.each do |section| %>
+    <div class="mg-activity-kind" id="<%= activity_section_anchor(section.key) %>" data-activity-kind="<%= section.key %>">
+      <h3 class="mg-activity-kind-total" data-activity-kind-total><%= activity_uncounted_line(section) %></h3>
+      <% if section.row && (rest = activity_not_required(activity, section.row)) %>
+        <div class="mg-row-detail mb-1" data-activity-not-required="<%= section.key %>"><%= rest %></div>
+      <% end %>
+      <div class="card mg-list">
+        <% section.lines.each do |line| %>
+          <% path = activity_line_path(line) %>
+          <div class="mg-row d-block" data-activity-line="<%= line.how %>">
+            <div class="mg-row-title"><%= path ? link_to(line.event.name, path) : line.event.name %></div>
+            <div class="mg-row-detail"><%= activity_line_detail(line) %></div>
+            <% if (counts = activity_counts_toward(activity, line)) %>
+              <div class="mg-activity-counts" data-activity-counts><%= counts %></div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+  <% if sections.empty? && meetings.nil? %>
+    <p class="text-body-secondary mb-0" data-activity-nothing>Nothing yet this season.</p>
+  <% end %>
+</section>
