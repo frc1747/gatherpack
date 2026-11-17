@@ -11,6 +11,7 @@
     })();
   <% end %>
 <% end %>
+<%= render "layouts/theme_palette" %>
 <% theme = Theme.instance %>
 <% if theme.persisted? %>
   <% if theme.css_variables.present? %>
