@@ -608,6 +608,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
     t.text "guardian_reminder_message"
     t.date "expires_on"
     t.integer "valid_for_months"
+    t.integer "auto_reminder_days", default: 0, null: false
+    t.datetime "auto_reminded_at"
     t.index ["audience_badge_id"], name: "index_forms_on_audience_badge_id"
     t.index ["completion_badge_id"], name: "index_forms_on_completion_badge_id"
     t.index ["created_by_id"], name: "index_forms_on_created_by_id"
