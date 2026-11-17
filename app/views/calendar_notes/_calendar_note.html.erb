@@ -1,6 +1,6 @@
 <div class="card" id="<%= dom_id calendar_note %>">
   <div class="card-header">
-    <%= link_to calendar_note.identifier_name, calendar_note, 'data-turbo': false %>
+    <%= link_to calendar_note.identifier_name, calendar_note, data: { turbo_frame: "_top" } %>
   </div>
   <div class="card-body">
     <p><%= calendar_note.start_time.to_fs(:long) %><% if calendar_note.end_time.present? %> to <%= calendar_note.end_time.to_fs(:long) %><% end %></p>
