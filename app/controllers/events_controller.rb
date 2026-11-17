@@ -17,9 +17,9 @@ class EventsController < InternalController
 
   def arrange
     @event.checkins.each(&:refresh_fields)
-    @field = CheckinField.find(params[:field_id]) rescue nil
-    # Linked fields show a person's value; there's nothing to arrange.
-    @field = nil if @field&.linked?
+@field = @event.event_type.checkin_fields.find_by(id: params[:field_id])
+# Linked fields show a person's value; there's nothing to arrange.
+@field = nil if @field&.linked?
     @responses = CheckinFieldResponse
       .includes(checkin: :person)
       .joins(:checkin)
@@ -29,7 +29,7 @@ class EventsController < InternalController
 
   def print
     @event.checkins.each(&:refresh_fields)
-    @field = CheckinField.find(params[:field_id]) rescue nil
+@field = @event.event_type.checkin_fields.find_by(id: params[:field_id])
     @paged = params[:paged] == "true"
     @notes = params[:notes] == "true"
     @groups = @field ? print_groups(@field) : {}
