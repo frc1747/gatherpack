@@ -1,0 +1,22 @@
+<% breadcrumb :person_field, @person_field %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @person_field.name %></h1>
+  </div>
+  <div class="card-body">
+    <p><b>Key:</b> <%= @person_field.key %></p>
+    <p><b>Type:</b> <%= person_field_type_label(@person_field) %></p>
+    <p><b>Applies to:</b> <%= @person_field.team&.name || "Everyone" %></p>
+    <p><b>Who can see this:</b> <%= person_field_level_description(@person_field.read_permission) %></p>
+    <p><b>Who can edit this:</b> <%= @person_field.system_read_only? ? "Managed by account settings" : person_field_level_description(@person_field.write_permission) %></p>
+    <% @person_field.person_field_badge_grants.includes(:badge).each do |grant| %>
+      <p><b><%= grant.badge.name %> badge:</b> <%= grant.write? ? "Can see and edit" : "Can see" %></p>
+    <% end %>
+    <p><b>Values stored:</b> <%= @person_field.person_field_values.count %></p>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Edit", edit_person_field_path(@person_field), class: "btn btn-warning" %>
+    <%= link_to "Back", person_fields_path, class: "btn btn-secondary" %>
+  </div>
+</div>

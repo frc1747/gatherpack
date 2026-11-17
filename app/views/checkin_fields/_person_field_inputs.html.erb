@@ -1,0 +1,14 @@
+<%# Link to a person field (set only when creating), and who can see responses. %>
+<% if f.object.new_record? %>
+  <%= f.input :person_field_id, label: "Show person field", collection: PersonField.in_use.ordered, include_blank: "None (collect a response)",
+        hint: "Shows each person's current value, read-only, to people allowed to see it. Can't be changed later." %>
+<% elsif f.object.linked? %>
+  <div class="mb-3">
+    <div class="form-label">Shows person field</div>
+    <div class="form-control-plaintext"><%= f.object.person_field.name %></div>
+  </div>
+<% end %>
+<% unless f.object.persisted? && f.object.linked? %>
+  <%= f.input :read_permission, label: "Who can see responses", collection: person_field_level_options, include_blank: false,
+        hint: "Relative to the person checked in. Ignored when showing a person field, which uses that field's rules." %>
+<% end %>
