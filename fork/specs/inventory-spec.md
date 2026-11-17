@@ -251,7 +251,7 @@ So with orders on, Purchasing holds Orders and its pages, then Inventory, Reorde
 
 Nav items: Inventory (search), Reorder, Items, Places, Changes. Reorder, Items, Places and Changes are visible only to inventory managers, team managers and admins.
 
-**Home and the member-first menu.** `feature/my-gatherpack-inventory` (from `feature/my-gatherpack` and `feature/inventory`), a connector in the pattern of the orders one: Inventory stays in More, Reorder, Items, Places and Changes go in Manage through `MyGatherpack::Menu.place`, and `register_manager_check` opens Manage for someone with an inventory manager grant who manages no team. A `:todo` row for inventory managers, **"5 items running low"**, one summary row that opens Reorder. As everywhere in that menu, placements change what's shown, never what's allowed.
+**Home and the member-first menu.** `feature/my-gatherpack-inventory` (from `feature/my-gatherpack` and `feature/inventory`), a connector in the pattern of the orders one: every inventory item stays under its section heading (Purchasing with orders, Inventory alone), with no Manage placements or check (since hbr.44). A `:todo` row for inventory managers, **"5 items running low"**, one summary row that opens Reorder. As everywhere in that menu, placements change what's shown, never what's allowed.
 
 ### 3.14 Data
 

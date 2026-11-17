@@ -326,7 +326,7 @@ A draft isn't a to-do: an abandoned one would nag forever. It appears under Your
 
 **Your orders: what's active.** A `:side` section with no `items`, so it isn't counted. For anyone in `orders_requesters` it always shows a **New request** button, so Home is a way in even when nothing is open; with no active requests, the button is all it shows. For anyone else with nothing active, it renders nothing. It lists the viewer's own and watched requests that are draft, submitted, changes requested, approved or ordering, with the status wording lists use ("Ordering: 2 of 3 received"). It shows the five most recently changed, with a link to My requests.
 
-**Menu.** Without a placement, Purchasing items land in More. Orders and To receive stay there. To approve, To buy, Vendors, Funding sources and Reports go in Manage through `MyGatherpack::Menu.place`, and `register_manager_check` opens them for someone with an approver or buyer grant who manages no team. As everywhere in that menu, this changes what is shown, never what is allowed.
+**Menu.** Every orders item stays under the Purchasing heading, with inventory's (since hbr.44): no top or Manage placements and no Manage check, so who sees what is set by each item's own `visible:`. As everywhere in that menu, this changes what is shown, never what is allowed.
 
 **Performance.** Home has a budget ([`my-gatherpack-spec.md`](my-gatherpack-spec.md) §6.3). `WaitingOn` must work out each request's current step in one pass over the requests and their approvals, not with a query per request, and is memoized for the request so the sections share it.
 

@@ -105,11 +105,11 @@ Existing registrations keep working. `_sidebar` skips items that aren't visible,
 |---|---|---|
 | (top, no heading) | Everyone | Home, Forms, Sign-ups, My Hours, Calendar, Teams, Announcements |
 | Family | People with wards | Family |
-| More (closed by default) | Everyone | Every other item they'd see today, such as People, Badges, Questions, Shortcuts, Ledgers |
+| Section headings (since hbr.44) | Everyone | Every other item they'd see today, under the same headings as the plain sidebar (People, Time, Finance, Purchasing, Communication, Content), always open. No More list (Corey, 2026-11-17: "The more list sucks. Get rid of it.") |
 | Manage | People who manage something (§5.3) | People, Teams, Time Clock, Badges, Tokens, Commitments, Ledgers, Budgets, Mailboxes, Pages, Widgets |
 | Automation, Admin | Admins, unchanged | Variables, Reports, Hooks, Setup, Audit Log, MCP Calls |
 
-- Groups are set in a table in the feature's initializer, keyed by path helper, so no existing feature registration changes. **An item not in the table goes in More**, so a new feature can't vanish.
+- Groups are set in a table in the feature's initializer, keyed by path helper, so no existing feature registration changes. **An item not in the table goes under its section heading**, so a new feature can't vanish.
 - A connector adds its own placements with `MyGatherpack::Menu.place(:some_path, manage: 35)`. Placements are stored apart from the table and merged when read, because connector initializers (`my-gatherpack-*.rb`) sort before `my_gatherpack.rb`, whose assignment of the table would otherwise wipe them. Once this exists, `MyGatherpack::ChecklistsMenuTable` moves to it and is deleted.
 - "My Hours" points to the Time Clock page. For a manager, whose Time Clock lists their teams' punches too, it's `time_clock_punches_path` filtered to their own person.
 - Items appear only if their feature is enabled, as today.
@@ -275,7 +275,7 @@ Each row goes through the policy that already governs it, and §7.3 doesn't wide
 While the flag is on, below the `md` breakpoint:
 
 - The `_navbar` override shows a one-line header with the site name, plus search.
-- A fixed bottom tab bar replaces the top-left menu button: Home, Forms, Sign-ups, Hours and More. Guardians get Family in the first position in place of Hours. More opens the existing off-canvas sidebar.
+- A fixed bottom tab bar replaces the top-left menu button: Home, Forms, Sign-ups, Hours and Menu. Guardians get Family in the first position in place of Hours. Menu opens the existing off-canvas sidebar.
 - The tab bar renders in the `_navbar` override. It's fixed, so its place in the document doesn't matter, and the layout itself doesn't need an override.
 - Breadcrumbs are hidden on phones. Page titles do that work.
 - Tap targets are at least 44 px tall in these screens.
@@ -356,7 +356,7 @@ Plus, for [BL-045](../backlog/BL-045-checklist-rule-wording.md): one sign-up she
 ## 12. Decisions
 
 1. **The menu changes what is shown, never what is allowed.** Hiding a link isn't access control, and tests check the destination too.
-2. **Nothing becomes unreachable.** Items that aren't in the short list go to More, and unknown items default to it.
+2. **Nothing becomes unreachable.** Items that aren't in the short list go under their section heading, and unknown items too.
 3. **Keep familiar names in Manage.** Managers know these words. "My Hours" is the one new name, and it's a link to the same page.
 4. **The home replaces the template, not the route.** `root_path` still works, and the flag restores the original.
 5. **Sections register themselves.** That keeps the core free of forms and sign-ups code, and is how a future feature gets a place on the home page.
@@ -364,8 +364,8 @@ Plus, for [BL-045](../backlog/BL-045-checklist-rule-wording.md): one sign-up she
 7. **One deliberate addition for guardians** (§7.3). A ward's team events appear as title, time and place on the family page, with the event scope unchanged, because event pages list other children. Per-person counts follow each checklist item's "who sees it". Time clock punches stay out.
 8. **No personalization settings for the menu.** One well-chosen list beats several ways to arrange it.
 9. **The page says the site's title, not "My GatherPack"** (§5.2a). Decided 2026-11-08.
-10. **Announcements on phones** are under More and on Home.
-11. **People stays in More** for members.
+10. **Announcements on phones** are under Communication and on Home.
+11. **People stays under its People heading** for members.
 12. **Home answers, the activity page explains** (rev. 5, Corey 2026-11-15; rev. 6: the activity page shows what was done apart from what's required). Home says whether you're OK in words; numbers that need the formula live in the item's detail and on the activity page. One card, not a second stats section.
 13. **Each fact shows once, matched by reference** (§6.4). Checklists first, then loose forms, then sign-ups as the calendar, then activity no checklist counts.
 14. **Attendance covers meetings; everything else is activity** (rev. 5). Meeting hours are never in "Also this season".
