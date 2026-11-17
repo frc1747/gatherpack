@@ -1,0 +1,49 @@
+<%= render "teams/show_shared" %>
+
+<h2>Move people to another team</h2>
+<div class="card">
+  <div class="card-body">
+    <%= form_with url: team_move_people_path(@team), method: :get, data: { turbo: false } do %>
+      <%= render "checklists/relative_date_field", name: "no_activity", field_id: "no_activity",
+        legend: "No time clock, check-in or other activity", picked: @no_activity,
+        none_label: "Anyone", date_label: "Since", within_label: "For", after_label: nil %>
+      <%= submit_tag "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
+    <% end %>
+  </div>
+</div>
+
+<%= form_with url: preview_team_move_people_path(@team), method: :post, class: "mt-3", data: { controller: "select-all" } do %>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th style="width: 2em">
+          <%= check_box_tag :select_all, "1", false, class: "form-check-input", "aria-label": "Select all",
+            data: { select_all_target: "all", action: "select-all#toggle" } %>
+        </th>
+        <th>Name</th>
+        <th>Member since</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% since = @team.memberships.where(person_id: @people.map(&:id)).pluck(:person_id, :created_at).to_h %>
+      <% @people.each do |person| %>
+        <tr>
+          <td><%= check_box_tag "ids[]", person.id, false, id: "select_#{person.id}", class: "form-check-input", data: { select_all_target: "item" } %></td>
+          <td><%= label_tag "select_#{person.id}", person.display_name, class: "form-check-label" %></td>
+          <td><%= l(since[person.id].to_date, format: :long) if since[person.id] %></td>
+        </tr>
+      <% end %>
+      <% if @people.empty? %>
+        <tr><td colspan="3" class="text-body-secondary">Nobody to move.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+  <p class="small text-body-secondary">Managers of <%= @team.name %> aren't listed: take that off first.</p>
+
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <%= label_tag :to_team_id, "Move to", class: "form-label mb-0" %>
+    <%= select_tag :to_team_id, options_from_collection_for_select(@targets, :id, :name), include_blank: true, required: true, class: "form-select w-auto" %>
+    <%= submit_tag "Check the move", class: "btn btn-primary" %>
+    <%= link_to "Cancel", team_memberships_path(@team), class: "btn btn-link" %>
+  </div>
+<% end %>
