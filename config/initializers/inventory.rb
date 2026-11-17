@@ -22,15 +22,9 @@ Rails.application.config.to_prepare do
       []
     end
 
-  # Setup is for admins. Where a menu entry can't be hidden per person, the
-  # Inventory pages link to it for admins instead.
-  setup_items =
-    if GatherPack::Feature::NavItem.members.include?(:visible)
-      [ GatherPack::Feature::NavItem.new(label: "Setup", path: :inventory_setup_path, icon: "gear",
-        visible: ->(user) { user&.admin }) ]
-    else
-      []
-    end
+  # Setup is a button on the main Setup page, for admins, not a menu item.
+  setup_item = GatherPack::Feature::SetupItem.new(label: "Inventory", path: :inventory_setup_path,
+    policy_check: ->(view) { view.current_user&.admin })
 
   GatherPack::Features.register(
     Inventory::Feature.new(
@@ -42,7 +36,9 @@ Rails.application.config.to_prepare do
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked"),
         GatherPack::Feature::NavItem.new(label: "Machines", path: :inventory_machines_path, icon: "robot")
-      ] + manager_items + setup_items
+      ] + manager_items,
+      setup_section: "Purchasing",
+      setup_items: [ setup_item ]
     )
   )
 

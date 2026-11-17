@@ -91,24 +91,20 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the Inventory page links to Setup for admins only" do
+  test "Inventory setup is a button on the main Setup page for admins, not a menu item" do
     with_inventory(@world) do
       sign_in @world.admin.user
+      get setup_path
+      assert_select "a.btn[href=?]", inventory_setup_path, text: "Inventory"
       get inventory_root_path
-      assert_select "a[href=?]", inventory_setup_path
+      assert_select ".nav-item a[href=?]", inventory_setup_path, count: 0
       sign_out @world.admin.user
       sign_in @world.keeper.user
       get inventory_root_path
       assert_select "a[href=?]", inventory_setup_path, count: 0
     end
-  end
-
-  test "the menu entry is for admins" do
-    skip "menu entries can't be hidden per person here" unless GatherPack::Feature::NavItem.members.include?(:visible)
-    item = GatherPack::Features.all.find { |feature| feature.key == :inventory }.nav_items.find { |nav| nav.label == "Setup" }
-    assert_equal "gear", item.icon
-    assert item.visible.call(@world.admin.user)
-    assert_not item.visible.call(@world.keeper.user)
+    item = GatherPack::Features.all.find { |feature| feature.key == :inventory }.setup_items.first
+    assert_equal :inventory_setup_path, item.path
   end
 
   test "Machines is in the menu and on the Inventory page for anyone who can use inventory" do

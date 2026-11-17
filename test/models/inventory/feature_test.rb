@@ -41,7 +41,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
   # The manager pages are in the menu only where an entry can be hidden per
   # person.
   def manager_labels
-    GatherPack::Feature::NavItem.members.include?(:visible) ? %w[Reorder Items Places Changes Setup] : []
+    GatherPack::Feature::NavItem.members.include?(:visible) ? %w[Reorder Items Places Changes] : []
   end
 
   test "manager pages are offered only to managers" do
