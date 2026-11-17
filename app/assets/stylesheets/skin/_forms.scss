@@ -72,6 +72,14 @@ select.form-control:disabled, textarea.form-control:disabled {
   }
 }
 
+// simple_form marks every filled boolean is-valid, so a ticked box usually
+// has it. The application colors those --pair-b-bg, which outranks :checked
+// above and hides the white tick.
+.was-validated .form-check-input:valid:checked, .form-check-input.is-valid:checked {
+  background-color: var(--gp-brand);
+  border-color: var(--gp-brand);
+}
+
 .form-range {
   &:focus::-webkit-slider-thumb {
     box-shadow: 0 0 0 1px var(--gp-page), 0 0 0 .25rem rgba(var(--gp-brand-rgb), .25);
