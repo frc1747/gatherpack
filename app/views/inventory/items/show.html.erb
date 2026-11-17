@@ -1,0 +1,141 @@
+<% breadcrumb :inventory_item, @item %>
+<% content_for :title, @item.name %>
+<% inventory_stylesheet %>
+<% home = @home %>
+
+<div class="inventory-phone inventory-has-bar">
+  <%= render "inventory/shared/undo_toast" %>
+  <div class="card mb-3">
+    <div class="card-header">
+      <h1 class="h3 mb-1"><%= @item.name %></h1>
+      <div><%= inventory_stock_badges(@item, total: @total, needs_count: @levels.any? { |level| level.quantity.negative? }) %></div>
+    </div>
+    <div class="card-body">
+      <% if @item.photo.attached? %>
+        <%= image_tag @item.photo, class: "inventory-photo mb-3", alt: @item.name %>
+      <% end %>
+      <p class="fs-4 mb-1">
+        <% if @item.tracked? %>
+          <%= pluralize(@total, "unit") %> available
+        <% else %>
+          <%= inventory_quantity(@total, @item) %> in stock
+        <% end %>
+      </p>
+      <% if @item.reorder_point %>
+        <p class="mb-1 text-body-secondary">Order more at <%= @item.reorder_point %><%= ", order #{@item.reorder_quantity}" if @item.reorder_quantity %></p>
+      <% end %>
+      <% if (counted = @item.last_counted_at) %>
+        <p class="mb-1 text-body-secondary">Last counted <%= time_ago_in_words(counted) %> ago</p>
+      <% end %>
+      <dl class="row mb-0 small">
+        <% { "Category" => @item.category, "Manufacturer" => @item.manufacturer, "Part number" => @item.manufacturer_part_number,
+             "Description" => @item.description, "Note" => @item.note }.compact_blank.each do |label, value| %>
+          <dt class="col-sm-4"><%= label %></dt>
+          <dd class="col-sm-8"><%= value %></dd>
+        <% end %>
+        <% if @item.url.present? %>
+          <dt class="col-sm-4">Link</dt>
+          <dd class="col-sm-8"><%= link_to @item.url, @item.url, target: "_blank", rel: "noopener" %></dd>
+        <% end %>
+      </dl>
+    </div>
+    <% if policy(@item).edit? %>
+      <div class="card-footer d-flex flex-wrap gap-2 inventory-no-print">
+        <%= link_to "Edit", edit_inventory_item_path(@item), class: "btn btn-warning" %>
+        <%= link_to "Label", inventory_labels_path(items: [ @item.id ]), class: "btn btn-secondary" if policy(:inventory).labels? %>
+        <%= link_to "Delete", inventory_item_path(@item), class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@item.name}?" } if policy(@item).destroy? %>
+      </div>
+    <% end %>
+  </div>
+
+  <% unless @item.tracked? %>
+    <h2 class="h4">Where it is</h2>
+    <% if @levels.empty? %>
+      <p class="text-body-secondary">Not kept anywhere yet.</p>
+    <% else %>
+      <ul class="list-group mb-3" id="stock-by-place">
+        <% @levels.each do |level| %>
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <div>
+                <%= link_to level.location.full_name, inventory_location_path(level.location) %>
+                <% if level.location_id == @item.home_location_id %><span class="badge text-bg-light border">Home</span><% end %>
+                <% if (counted = @last_counted[level.location_id]) %>
+                  <div class="small text-body-secondary">Counted <%= time_ago_in_words(counted) %> ago</div>
+                <% end %>
+              </div>
+              <% if level.quantity.negative? %>
+                <span class="badge text-bg-secondary">Needs a count</span>
+              <% else %>
+                <strong class="fs-5"><%= inventory_quantity(level.quantity, @item) %></strong>
+              <% end %>
+            </div>
+            <% if level.quantity.negative? && inventory_may_record?("counted", @item, level.location) %>
+              <%= link_to "Count now", new_inventory_movement_path(kind: "counted", item_id: @item.id, location_id: level.location_id, return_to: request.path),
+                class: "btn btn-warning mt-2" %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+
+  <% Inventory.extensions.item_panels(@item, current_person).each do |panel| %>
+    <%= render panel.partial, item: @item, viewer: current_person %>
+  <% end %>
+
+  <h2 class="h4">Where to buy</h2>
+  <% if @item.item_sources.empty? %>
+    <p class="text-body-secondary">No source yet.</p>
+  <% else %>
+    <ul class="list-group mb-2" id="item-sources">
+      <% @item.item_sources.each do |source| %>
+        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+          <div>
+            <strong><%= source.vendor_name %></strong>
+            <% if source.preferred? %><span class="badge text-bg-primary">Preferred</span><% end %>
+            <% if source.vendor_part_number.present? %><div class="small">Part number <%= source.vendor_part_number %></div><% end %>
+            <% if source.url.present? %><div class="small text-truncate"><%= link_to "Open link", source.url, target: "_blank", rel: "noopener" %></div><% end %>
+            <% if source.note.present? %><div class="small text-body-secondary"><%= source.note %></div><% end %>
+          </div>
+          <%= link_to "Edit", edit_inventory_item_source_path(@item, source), class: "btn btn-sm btn-warning" if policy(source).edit? %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+  <% if policy(@item).update? %>
+    <%= link_to "Add where to buy", new_inventory_item_source_path(@item), class: "btn btn-secondary mb-3" %>
+  <% end %>
+
+  <% unless @item.tracked? %>
+    <% manager_kinds = %w[received added removed].select { |kind| inventory_may_record?(kind, @item, home || @levels.first&.location || policy_scope(Location).active.storage.first) } %>
+    <% if manager_kinds.any? %>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <% manager_kinds.each do |kind| %>
+          <%= link_to inventory_kind_label(kind), new_inventory_movement_path(kind: kind, item_id: @item.id, return_to: request.path), class: "btn btn-primary" %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <h2 class="h4">History</h2>
+  <% if @history.empty? %>
+    <p class="text-body-secondary">No changes yet.</p>
+  <% else %>
+    <%= render "inventory/movements/history", movements: @history, partners: @partners, undone_ids: @undone_ids, show_item: false %>
+  <% end %>
+
+  <% unless @item.tracked? %>
+    <% place = home || @levels.find { |level| level.quantity.positive? }&.location || @levels.first&.location %>
+    <% bar = %w[used counted moved].select { |kind| inventory_may_record?(kind, @item, place || policy_scope(Location).active.storage.first) } %>
+    <% if bar.any? %>
+      <div class="inventory-bar">
+        <% bar.each do |kind| %>
+          <%= link_to({ "used" => "Used", "counted" => "Count", "moved" => "Move" }[kind],
+            new_inventory_movement_path(kind: kind, item_id: @item.id, location_id: (place&.id unless kind == "moved" && @levels.count { |level| level.quantity.positive? } > 1), return_to: request.path),
+            class: "btn #{kind == "used" ? "btn-primary" : "btn-secondary"} btn-lg") %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>
