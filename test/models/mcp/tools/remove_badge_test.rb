@@ -64,7 +64,9 @@ class Mcp::Tools::RemoveBadgeTest < ActionDispatch::IntegrationTest
     Membership.create!(person: person(:both), team: @beta)
     badge = create_world_badge_with(:has_account, team: @alpha)
     assignment = BadgeAssignment.create!(badge: badge, person: person(:both))
-    Membership.find_by!(person: person(:both), team: @alpha).destroy!
+    # Leaving a team now removes its badges, so delete the membership without
+    # callbacks to get an assignment left over from before that rule.
+    Membership.where(person: person(:both), team: @alpha).delete_all
 
     assert ctx_allows_destroy?(:both, assignment)
     assert_refused("Not found", BadgeAssignment) { remove(:both, assignment) }
