@@ -10,12 +10,10 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
     host! "localhost"
     @world = build_orders_world
     @sections = MyGatherpack.sections.dup
-    @checks = MyGatherpack::Menu.manager_checks.dup
   end
 
   teardown do
     MyGatherpack.sections.replace(@sections)
-    MyGatherpack::Menu.manager_checks.replace(@checks)
   end
 
   def home(**settings, &block)
@@ -250,38 +248,25 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "an approver or buyer who manages no team gets Manage with the orders pages; others don't" do
+  test "every orders page is under the Purchasing heading, never on top or in Manage" do
     home do
-      menu = ->(person) { MyGatherpack::Menu.new(person.user) }
+      orders = [ "Orders", "To approve", "To buy", "To receive", "Vendors", "Funding sources", "Reports" ]
+      purchasing = ->(menu) { menu.sections.to_h.fetch("Purchasing", []).map(&:label) }
 
-      assert menu.(@world.mentor).manages_anything?
-      assert_equal [ "Vendors", "Funding sources", "Reports" ], menu.(@world.mentor).manage.map(&:label) - [ "To buy" ]
-      assert_equal [ "Orders", "To approve" ], menu.(@world.mentor).top.map(&:label) & [ "Orders", "To approve" ]
-      assert_includes menu.(@world.buyer).manage.map(&:label), "To buy"
-      assert_not menu.(@world.requester).manages_anything?
-      assert_not menu.(@world.outsider).manages_anything?
-      assert_includes menu.(@world.requester).top.map(&:label), "Orders"
-      assert_includes menu.(@world.requester).more.map(&:label), "To receive"
+      [ @world.mentor, @world.buyer, @world.requester, @world.manager ].each do |person|
+        menu = MyGatherpack::Menu.new(person.user)
+        assert_empty (menu.top + menu.manage).map(&:label) & orders, "#{person.first_name}: orders items outside Purchasing"
+        assert_includes purchasing.(menu), "Orders"
+        assert_includes purchasing.(menu), "To receive"
+      end
+      assert_includes purchasing.(MyGatherpack::Menu.new(@world.buyer.user)), "To buy"
+      assert_not MyGatherpack::Menu.new(@world.mentor.user).manages_anything?
+
       # Hidden from non-approvers where feature/orders gives To approve a visible check.
       to_approve = GatherPack::Features.nav_sections.flat_map(&:last).find { |item| item.label == "To approve" }
       if to_approve.respond_to?(:visible) && to_approve.visible
-        assert_not_includes menu.(@world.requester).top.map(&:label), "To approve"
+        assert_not_includes purchasing.(MyGatherpack::Menu.new(@world.requester.user)), "To approve"
       end
-    end
-    assert_not MyGatherpack::Menu.new(@world.mentor.user).manages_anything?
-  end
-
-  test "a team manager gets Orders and To approve on top and the four pages that run orders in Manage" do
-    home do
-      # Without the check, only the table positions can put them in Manage.
-      MyGatherpack::Menu.manager_checks.delete(:orders)
-      menu = MyGatherpack::Menu.new(@world.manager.user)
-      labels = [ "To buy", "Vendors", "Funding sources", "Reports" ]
-
-      assert_equal labels, menu.manage.map(&:label).select { |label| labels.include?(label) }
-      assert_empty menu.more.map(&:label) & labels
-      assert_equal labels, menu.manage.map(&:label).last(4)
-      assert_equal [ "Orders", "To approve" ], menu.top.map(&:label) & [ "Orders", "To approve" ]
     end
   end
 
