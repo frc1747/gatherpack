@@ -1,0 +1,10 @@
+<% breadcrumb :orders_requests %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>New request</h1>
+  </div>
+  <div class="card-body">
+    <%= order_request_slot :form, order_request: @order_request, lines: @lines %>
+  </div>
+</div>
