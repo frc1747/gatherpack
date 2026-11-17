@@ -12,7 +12,7 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :audit_logs, only: %i[index show destroy] do
+  resources :audit_logs, only: %i[index show] do
     post "revert", to: "audit_logs#revert", on: :member
   end
 
@@ -212,6 +212,7 @@ Rails.application.routes.draw do
           post "split"
           post "unsplit"
         end
+        resources :receipts, only: %i[show], controller: "ledger_entry_receipts"
       end
     end
   end
@@ -223,7 +224,9 @@ Rails.application.routes.draw do
 
   if GatherPack::Features.enabled?(:mailboxes)
     resources :mailboxes do
-      resources :mailbox_messages, except: %i[index]
+      resources :mailbox_messages, except: %i[index] do
+        resources :attachments, only: %i[show], controller: "mailbox_message_attachments"
+      end
     end
   end
 
@@ -246,7 +249,10 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :oauth_applications
+    resources :oauth_applications do
+      post :regenerate_secret, on: :member
+    end
+    resources :authorized_applications, only: %i[index destroy]
 
     # MCP server (feature_mcp); its controllers answer 404 while the feature is off.
     scope format: false do

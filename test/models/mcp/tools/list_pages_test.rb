@@ -34,10 +34,11 @@ class Mcp::Tools::ListPagesTest < ActionDispatch::IntegrationTest
     assert_equal [ "For members", "Public" ], titles(:guardian)
   end
 
-  test "a page on the viewer's team above their level is left out, though the index lists it" do
+  test "a page on the viewer's team above their level is left out, as the index leaves it out" do
     sign_in user(:alpha_member)
     get pages_path
-    assert_includes response.body, "Alpha for managers"
+    assert_response :success
+    assert_not_includes response.body, "Alpha for managers"
 
     assert_not_includes titles(:alpha_member), "Alpha for managers"
   end

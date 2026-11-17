@@ -20,9 +20,16 @@ class PersonPolicy < ApplicationPolicy
   alias_method :relationships?, :show?
   alias_method :teams?, :show?
 
+  # Creating a person can also create their login, so it's admin-only.
+  def create?
+    user.admin?
+  end
+
   # Who may edit the base profile (name, bio, avatar, built-in details).
+  # Managers edit the people they manage, so not an admin or architect, nor
+  # someone who manages a team above them.
   def update_profile?
-    record == person || user.admin? || (person.all_managed_teams & record.all_teams).any?
+    record == person || user.admin? || manages?(record)
   end
 
   # Someone who can write a person field (a guardian, say) can reach the
@@ -43,8 +50,10 @@ class PersonPolicy < ApplicationPolicy
     user.admin?
   end
 
+  # Impersonating someone hands over their powers, so only an architect may
+  # impersonate an architect.
   def impersonate?
-    user.admin?
+    user.admin? && (user.architect? || !record.user&.architect?)
   end
 
   def stop_impersonating?

@@ -137,15 +137,15 @@ class Mcp::Tools::AddTokenTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # The page looks for the raw value, and validates it, before the model normalizes it.
-  test "it refuses another format of a card already issued, where the page makes a second token" do
+  # The page looks a value up by its normalized form, so another format of the card is found.
+  test "it refuses another format of a card already issued, as the page does" do
     Token.create!(tokenable: person(:badge_holder), value: "4660")
     hex = "5700#{4660.to_s(16)}"
     page = page_changes_rows?(Token, as: user(:admin)) do
       post tokens_path, params: { token: { tokenable_nid: person(:ward).neat_id, value: hex } }
     end
 
-    assert page
+    assert_not page
     assert_refused("That value is already in use", Token) { add(:admin, :ward, hex) }
   end
 end
