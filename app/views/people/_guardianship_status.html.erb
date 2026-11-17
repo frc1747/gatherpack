@@ -1,0 +1,13 @@
+<%# On your own relationships page: a minor guardianship that has ended because you've
+    reached the age limit, and a way to give that person access again. %>
+<% if relationship.relationship_type.guardianship_minor? && relationship.child_id == @person.id &&
+      current_user.person == @person && @person.guardianship_expired? %>
+  <div class="text-muted small mt-2">No longer has access to your restricted fields.</div>
+  <% consent_type = RelationshipType.guardianship_consented.order(:created_at).first %>
+  <% if consent_type && !Relationship.exists?(relationship_type: consent_type, parent_id: relationship.parent_id, child_id: @person.id) %>
+    <%= button_to "Allow access", person_relationships_path(@person),
+          params: { relationship: { start_node: "#{consent_type.id}:c", parent_id: relationship.parent_id } },
+          class: "btn btn-sm btn-outline-primary mt-1", form_class: "d-inline",
+          data: { turbo_confirm: "Let #{relationship.parent.identifier_name} see and edit your family-level fields again (as \"#{consent_type.parent_label}\")?" } %>
+  <% end %>
+<% end %>
