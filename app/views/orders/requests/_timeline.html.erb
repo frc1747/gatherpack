@@ -1,0 +1,69 @@
+<%# Who follows the request, and its timeline, newest last with approvals in bold (spec §3.10). Prints with the request. %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<% request_policy = policy(order_request) %>
+<section id="following" class="orders-phone mb-4">
+  <h2 class="h5">Following</h2>
+  <% watchers = order_request.order_request_watchers.sort_by { |watcher| watcher.person.identifier_name.to_s } %>
+  <% if watchers.any? %>
+    <ul class="list-unstyled mb-2">
+      <% watchers.each do |watcher| %>
+        <li class="d-flex align-items-center gap-2">
+          <%= watcher.person.identifier_name %>
+          <% if request_policy.add_watchers? %>
+            <%= button_to "Remove", orders_request_watcher_path(order_request, watcher), method: :delete,
+                  class: "btn btn-link btn-sm text-danger no-print", aria: { label: "Remove #{watcher.person.identifier_name}" } %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p class="text-muted">Nobody else is following this request.</p>
+  <% end %>
+  <% if request_policy.add_watchers? && (candidates = Orders::WatcherCandidates.for(order_request).to_a).any? %>
+    <%= form_with url: orders_request_watchers_path(order_request), class: "d-flex gap-2 no-print" do |f| %>
+      <%= f.label :person_id, "Add someone to follow it", class: "visually-hidden" %>
+      <%= f.select :person_id, candidates.map { |person| [ person.identifier_name, person.id ] },
+            { prompt: "Add someone to follow it" }, class: "form-select" %>
+      <%= f.submit "Add", class: "btn btn-primary" %>
+    <% end %>
+  <% end %>
+</section>
+
+<section id="timeline" class="orders-phone">
+  <h2 class="h5">Timeline</h2>
+  <% events = order_timeline_events(order_request) %>
+  <% if events.empty? %>
+    <p class="text-muted">Nothing has happened yet.</p>
+  <% else %>
+    <ol class="list-unstyled orders-timeline">
+      <% events.each do |event| %>
+        <li id="<%= dom_id(event) %>">
+          <div class="<%= "orders-approval" if event.approval? %>">
+            <%= order_timeline_action(event) %>
+            <% if event.order_line %>· <%= event.order_line.display_name %><% end %>
+          </div>
+          <div class="small text-muted">
+            <%= event.actor&.identifier_name || "GatherPack" %> · <%= l event.created_at, format: :short %>
+          </div>
+          <% if (changes = order_timeline_changes(event, order_request)).any? %>
+            <ul class="small mb-1">
+              <% changes.each do |change| %><li><%= change %></li><% end %>
+            </ul>
+          <% end %>
+          <% if event.comment.present? %>
+            <blockquote class="mb-0 border-start ps-2"><%= simple_format(event.comment) %></blockquote>
+          <% end %>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+
+  <% if !order_request.draft? && request_policy.comment? %>
+    <%= form_with url: comment_orders_request_path(order_request), class: "no-print" do |f| %>
+      <%= f.label :comment, "Add a comment", class: "form-label" %>
+      <%= f.text_area :comment, rows: 2, class: "form-control mb-2", required: true %>
+      <%= f.submit "Comment", class: "btn btn-primary" %>
+    <% end %>
+  <% end %>
+  <div class="orders-has-bar"></div>
+</section>
