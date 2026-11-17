@@ -206,8 +206,8 @@ if INVENTORY
       [ :petg_black, "PETG Basic filament, black", "Filament", "Bambu Lab", "G02-K0", "spool", :hardware, 2, 4, 1 ],
       [ :anderson, "Anderson SB50 connector", "Electrical", "Anderson", "SB50", "each", :electronics, 10, 20, 38 ],
       [ :sparkmax, "SPARK MAX motor controller", "Electrical", "REV Robotics", "REV-11-2158", "each", :electronics, 2, 4, 3 ],
-      [ :wire_red, "12 AWG wire, red", "Electrical", "Generic", "W12-RED", "ft", :electronics, 25, 50, 60 ],
-      [ :wire_black, "12 AWG wire, black", "Electrical", "Generic", "W12-BLK", "ft", :electronics, 25, 50, 45 ],
+      [ :wire_red, "12 AWG wire, red", "Electrical", "Generic", "W12-RED", "foot", :electronics, 25, 50, 60 ],
+      [ :wire_black, "12 AWG wire, black", "Electrical", "Generic", "W12-BLK", "foot", :electronics, 25, 50, 45 ],
       [ :tape, "Electrical tape", "Consumables", "Generic", "ET-BLK", "each", :electronics, 3, 6, 7 ]
     ]
     catalog.each do |key, name, category, maker, part, unit, home, point, quantity, start|
