@@ -104,7 +104,8 @@ Rails.application.config.to_prepare do
   if picked
     snake = ->(text) { text.downcase.tr(" ", "_") }
     Settings.input(:inventory_users, :teams)
-    Settings.input(:inventory_managers, :badge_grants, badges: -> { Badge.added_by_admin })
+    Settings.input(:inventory_managers, :badge_grants, badges: -> { Badge.added_by_admin },
+      blank_team_label: "Up to: every team")
     Settings.input(:inventory_member_kinds, :checkboxes, normalize: snake,
       choices: Inventory::Config::KINDS.map { |kind| [ kind.capitalize, kind ] })
     Settings.input(:inventory_member_unit_actions, :checkboxes, normalize: snake,

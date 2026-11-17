@@ -10,7 +10,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
     @world = build_inventory_world
   end
 
-  test "an admin sees the three settings with their current values" do
+  test "an admin sees the settings with their current values" do
     with_inventory(@world, inventory_users: "#{@world.club.name}\n#{@world.art.name}", inventory_reorder_notice: "each") do
       sign_in @world.admin.user
       get inventory_setup_path
@@ -19,7 +19,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       assert_includes response.body, "Who Can Use Inventory"
       assert_includes response.body, "Inventory Managers"
       assert_includes response.body, "Running Low Notices"
-      assert_not_includes response.body, "Undo Minutes"
+      assert_includes response.body, "Undo Minutes"
       if Settings.respond_to?(:input)
         assert_select "option[selected]", text: "An email each time"
         assert_select "input[type=checkbox][checked][value=?]", @world.club.name
@@ -66,14 +66,65 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "update saves the three settings and leaves the others" do
+  test "update saves the settings posted and leaves the others" do
     with_inventory(@world) do
       sign_in @world.admin.user
       patch inventory_setup_path, params: { settings: { inventory_reorder_notice: "off", inventory_users: "Club", inventory_undo_minutes: "99" } }
       assert_redirected_to inventory_setup_path
       assert_equal "off", Settings[:inventory_reorder_notice]
       assert_equal "Club", Settings[:inventory_users]
-      assert_not_equal "99", Settings[:inventory_undo_minutes]
+      assert_equal "99", Settings[:inventory_undo_minutes]
+      assert_not_equal "Pair", Settings[:inventory_default_unit]
+    end
+  end
+
+  test "every inventory setting is on the setup page" do
+    registered = Settings.settings("Inventory").map(&:setting_key)
+    assert_empty registered - Inventory::SetupController::KEYS, "list these in Inventory::SetupController::GROUPS"
+    assert_empty Inventory::SetupController::KEYS - registered
+    with_inventory(@world) do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_response :success
+      registered.each do |key|
+        assert_includes response.body, Settings.get(key).name, "#{key} is missing from Inventory setup"
+      end
+    end
+  end
+
+  test "every inventory setting saves from the setup page" do
+    skip "plain page only" if Settings.respond_to?(:input)
+    values = { inventory_users: "Club", inventory_managers: "Keeper > Club", inventory_member_kinds: "used, moved",
+      inventory_member_unit_actions: "install, move", inventory_used_needs_reason: "true", inventory_undo_minutes: "25",
+      inventory_reorder_notice: "weekly", inventory_default_unit: "pair", inventory_machines: "off",
+      inventory_machine_name: "Robot", inventory_machine_name_plural: "Robots" }
+    assert_equal Inventory::SetupController::KEYS.sort, values.keys.sort
+    with_inventory(@world) do
+      sign_in @world.admin.user
+      patch inventory_setup_path, params: { settings: values }
+      assert_redirected_to inventory_setup_path
+      values.each { |key, value| assert_equal value, Settings[key].to_s.gsub("\r\n", "\n"), key }
+    end
+  end
+
+  test "the page works without JavaScript: plain fields, one form, a Save button" do
+    skip "plain page only" if Settings.respond_to?(:input)
+    with_inventory(@world) do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_select "form[action=?]", inventory_setup_path, count: 1
+      assert_select "input[type=submit][value=Save]"
+      Inventory::SetupController::KEYS.each { |key| assert_select "[name=?]", "settings[#{key}]" }
+    end
+  end
+
+  test "the managers picker says a blank team means every team" do
+    skip "needs the settings seam" unless Settings.respond_to?(:input)
+    assert_equal "Up to: every team", Settings.input_for(:inventory_managers).options[:blank_team_label]
+    with_inventory(@world) do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_select "select[name$='[team]'] option[value='']", text: "Up to: every team"
     end
   end
 
