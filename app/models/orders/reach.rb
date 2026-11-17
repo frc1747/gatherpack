@@ -5,21 +5,29 @@
 # (renamed or deleted) reaches nothing, never every team. Several pairs give
 # the union. Only admin-assigned badges count.
 #
-# Approver steps, buyers and funding managers each have a Reach. Admins
+# Buyers and funding managers each have a Reach from their setting's
+# lines; an approval step has one from its approver rows (.from_grants). Admins
 # reach every team, and managers reach the teams they manage and those
 # below; #team_ids includes both, so callers needn't check them again.
 module Orders
   class Reach
     attr_reader :lines
 
-    def initialize(lines)
+    # given: [badge, team or nil] pairs already looked up, in place of lines.
+    def initialize(lines, given: nil)
       @lines = Array(lines).map(&:to_s).map(&:strip).compact_blank
+      @given = given&.to_a
+    end
+
+    def self.from_grants(pairs)
+      new([], given: pairs)
     end
 
     # [badge, team or nil for every team] pairs. A line naming a team that
     # isn't found is left out.
     def grants
       return [] unless GatherPack::Features.enabled?(:badges)
+      return @grants ||= @given.select { |badge, _team| badge&.added_by_admin? } if @given
 
       @grants ||= lines.filter_map do |line|
         badge_name, team_name = line.split(">", 2).map(&:strip)

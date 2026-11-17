@@ -21,8 +21,12 @@
       <%= f.date_field :received_on, class: "form-control form-control-lg", required: true %>
     </div>
     <div class="mb-3">
-      <%= f.label :condition, "How is it?", class: "form-label" %>
-      <%= f.select :condition, [ [ "Good", "good" ], [ "Damaged", "damaged" ], [ "Wrong item", "wrong_item" ] ], {}, class: "form-select form-select-lg" %>
+      <%= f.label :delivery_problem_kind_id, "How is it?", class: "form-label" %>
+      <% problems = GatherPack::ManagedLists.find(:delivery_problem_kinds) %>
+      <%= f.select :delivery_problem_kind_id, managed_list_choices(problems, @delivery.delivery_problem_kind_id), { include_blank: "Good" }, class: "form-select form-select-lg" %>
+      <% if problems.allowed?(current_user) %>
+        <div class="form-text"><%= link_to "Manage #{problems.plural_label.downcase}", managed_list_path(problems.key) %></div>
+      <% end %>
     </div>
     <div class="mb-3">
       <%= f.label :note, "Note", class: "form-label" %>

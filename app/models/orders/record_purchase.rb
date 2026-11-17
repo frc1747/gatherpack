@@ -2,7 +2,7 @@
 # one vendor) and says what the vendor's checkout said.
 #
 #   Orders::RecordPurchase.new(buyer:, lines:, vendor: vendor, prices: { line.id => 1299 },
-#     attributes: { vendor_order_number: "A-1", shipping_cents: 800, paid_with: "Team card" }).call
+#     attributes: { vendor_order_number: "A-1", shipping_cents: 800, payment_method: card }).call
 #
 # "Not sure" lines take the purchase's vendor. Every request involved is
 # locked (in id order, so two buyers can't deadlock), and its lines are read

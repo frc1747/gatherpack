@@ -107,7 +107,7 @@ class Orders::RemindersTest < ActiveSupport::TestCase
   end
 
   test "an undecided reminder nobody could receive isn't marked either" do
-    with_notices(orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0, "approvers" => [] } ])) do
+    with_notices(approval_steps: [ { key: "approval", name: "Approval", minimum: 0, approvers: [] } ]) do
       @world.admin.user.update_columns(email: " ")
       @world.manager.user.update_columns(email: "  ")
       request = submitted_request(@world)

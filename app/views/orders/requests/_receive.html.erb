@@ -43,7 +43,7 @@
         <strong><%= line.display_name %>: <%= order_line_status_text(line) %></strong>
         <% last = line.order_deliveries.reject(&:good?).last %>
         <% if last %>
-          <div><%= last.quantity %> came <%= last.condition.humanize.downcase %><%= ": #{last.note}" if last.note.present? %></div>
+          <div><%= last.quantity %> came <%= last.condition_name.downcase %><%= ": #{last.note}" if last.note.present? %></div>
         <% end %>
         <% if can_receive && line.to_come_quantity.positive? %>
           <div class="mt-2">
@@ -69,7 +69,7 @@
           <% line.order_deliveries.each do |delivery| %>
             <li>
               <%= delivery.quantity %> × <%= line.display_name %> on <%= l delivery.received_on, format: :short %>,
-              <%= delivery.condition.humanize.downcase %>, by <%= delivery.received_by.identifier_name %><%= ": #{delivery.note}" if delivery.note.present? %>
+              <%= delivery.condition_name.downcase %>, by <%= delivery.received_by.identifier_name %><%= ": #{delivery.note}" if delivery.note.present? %>
             </li>
           <% end %>
         <% end %>

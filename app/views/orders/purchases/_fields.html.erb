@@ -18,10 +18,9 @@
     <%= f.input :tax, as: :currency, required: false %>
   </div>
   <div class="col-12 col-md-6">
-    <%# An order keeps a choice since renamed or removed until someone picks another. %>
-    <% paid_with_choices = Orders::Config.paid_with.map(&:label) %>
-    <% paid_with_choices.unshift(f.object.paid_with) if f.object.paid_with.present? && !paid_with_choices.include?(f.object.paid_with) %>
-    <%= f.input :paid_with, collection: paid_with_choices, include_blank: f.object.paid_with.blank? && f.object.persisted?, label: "Paid with" %>
+    <%# An order keeps a payment method since retired until someone picks another. %>
+    <%= managed_list_select f, :payment_method_id, list: :payment_methods, label: "Paid with",
+          include_blank: f.object.payment_method_id.blank? && f.object.persisted? %>
   </div>
 </div>
 <%= f.input :tracking_url, label: "Tracking link", input_html: { type: "url", placeholder: "https://" } %>

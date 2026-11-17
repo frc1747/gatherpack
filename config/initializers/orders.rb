@@ -5,6 +5,10 @@ Rails.application.config.to_prepare do
   # Setup is a button on the main Setup page, not a menu item: one Setup in the menu.
   orders_setup_item = GatherPack::Feature::SetupItem.new(label: "Orders", path: :orders_settings_path,
     policy_check: ->(view) { OrderSettingsPolicy.new(view.current_user, :order_settings).show? })
+  # Approval steps are a managed list with a screen of their own, since each
+  # step has approver rows the shared list form has no place for.
+  approval_steps_item = GatherPack::Feature::SetupItem.new(label: "Approval Steps", path: :orders_approval_steps_path,
+    policy_check: ->(view) { ManagedListPolicy.new(view.current_user, ApprovalStep).index? })
 
   # To approve is for approvers; to buy and Reports are refused to most members, so they're hidden where
   # menu items take a visible check (the same guard as the Setup page).
@@ -18,6 +22,8 @@ Rails.application.config.to_prepare do
   end
 
   GatherPack::Features.register_section("Purchasing", position: 35)
+  # Setup's heading for orders (and inventory), where Purchasing sat: after Finance.
+  GatherPack::Features.register_section(Orders::SETUP_SECTION, position: 35)
 
   GatherPack::Features.register(
     GatherPack::Feature.new(
@@ -36,8 +42,8 @@ Rails.application.config.to_prepare do
         GatherPack::Feature::NavItem.new(label: "Funding sources", path: :orders_funding_sources_path, icon: "hand-holding-dollar"),
         GatherPack::Feature::NavItem.new(label: "Reports", path: :orders_reports_path, icon: "chart-column", **reports_visible)
       ],
-      setup_section: "Purchasing",
-      setup_items: [ orders_setup_item ]
+      setup_section: Orders::SETUP_SECTION,
+      setup_items: [ orders_setup_item, approval_steps_item ]
     )
   )
 
@@ -46,19 +52,11 @@ Rails.application.config.to_prepare do
   Settings.register(:orders_viewers, :text, "Who Sees Every Request", "", "Orders",
     "Teams whose members (and members of the teams below) see every request that isn't a draft, and may comment " \
     "when team members can. Seeing doesn't let them approve, buy or receive. Blank: nobody extra")
-  Settings.register(:orders_approval_steps, :text, "Approval Steps",
-    JSON.generate(Orders::Config::DEFAULT_STEPS), "Orders",
-    "The approval steps in order, as JSON: [{\"key\": \"approval\", \"name\": \"Approval\", \"minimum\": 0, " \
-    "\"approvers\": [\"Badge name > Team name\"]}]. A request needs every step whose minimum total it meets. " \
-    "Keep each key once it's used: approvals are stored by key. Admins and the team's managers can always approve")
   Settings.register(:orders_buyers, :text, "Buyers", "", "Orders",
     "Who may buy without managing a team: badge holders, for a team and the teams below it, or for every team. Admins and the team's managers can always buy")
   Settings.register(:orders_price_tolerance, :string, "Price Tolerance", Orders::Config::DEFAULT_TOLERANCE, "Orders",
     "How far a buyer's changes may raise an approved total without approving again: a percentage and an amount, " \
     "whichever is larger (for example \"10%, 25\")")
-  Settings.register(:orders_paid_with, :text, "Paid With Choices",
-    JSON.generate(Orders::Config::DEFAULT_PAID_WITH), "Orders",
-    "The choices for how a purchase was paid, as JSON: [{\"label\": \"Team card\", \"reimburse\": false}]")
   Settings.register(:orders_team_can_see, :boolean, "Team Members See Requests", "true", "Orders",
     "Members of a request's team see it, comment on it and receive it")
   Settings.register(:orders_require_other_vendor_reason, :boolean, "Other Store Needs a Reason", "false", "Orders",
@@ -85,6 +83,22 @@ Rails.application.config.to_prepare do
       to_text: ->(posted, current) { Orders::PriceToleranceField.text_from(posted, current) }, default_label: Orders::Config::DEFAULT_TOLERANCE)
   end
   Settings.page("Orders", :orders_settings_path, label: "Orders setup", if: -> { GatherPack::Features.enabled?(:orders) }) if Settings.respond_to?(:page)
+
+  # The things an orders group names for itself (GatherPack::ManagedLists).
+  if defined?(GatherPack::ManagedLists)
+    ManagedListsController.include(Orders::ManagedListRefusals) unless ManagedListsController < Orders::ManagedListRefusals
+    GatherPack::ManagedLists.register(:payment_methods, model: "PaymentMethod", label: "Payment Method",
+      plural_label: "Payment Methods", setup_section: Orders::SETUP_SECTION, feature: :orders,
+      description: "How a purchase can be paid. One that needs paying back marks the buyer to be repaid.",
+      fields: [ { name: :reimburse, label: "Needs paying back", hint: "The buyer paid with their own money." } ])
+    GatherPack::ManagedLists.register(:delivery_problem_kinds, model: "DeliveryProblemKind", label: "Delivery Problem",
+      plural_label: "Delivery Problems", setup_section: Orders::SETUP_SECTION, feature: :orders,
+      description: "What can be wrong with something that arrives. Picking one makes the item a problem for its buyer to settle.")
+    # No setup_section: Setup links to the approval steps' own screen.
+    GatherPack::ManagedLists.register(:approval_steps, model: "ApprovalStep", label: "Approval Step",
+      plural_label: "Approval Steps", feature: :orders,
+      description: "The approvals a request needs, in order.")
+  end
 
   GatherPack::HookCatalog.register_targets(*Orders::HOOK_TARGETS)
   GatherPack::HookCatalog.register_events(*Orders::HOOK_EVENTS)

@@ -20,37 +20,23 @@
         <%= render "orders/settings/field", f: f, editor: @editor, name: :viewers %>
       </section>
 
-      <section class="mb-4">
-        <h2 class="h5">Who approves</h2>
-        <% unless @editor.steps_fit? %>
-          <div class="alert alert-warning" id="current_steps">
-            <p>The approval steps saved now are:</p>
-            <ul>
-              <% @editor.steps.each do |step| %>
-                <li>
-                  <%= step.name %>:
-                  <%= step.minimum_cents.zero? ? "every request" : "requests of #{number_to_currency(step.minimum_cents / 100.0)} or more" %>,
-                  approved by team managers<%= step.approvers.any? ? ", #{step.approvers.to_sentence}" : "" %>.
-                </li>
-              <% end %>
-            </ul>
-            <p class="mb-0"><strong>Saving this page replaces these steps</strong> with the two below.</p>
-          </div>
-        <% end %>
-        <%= render "orders/settings/field", f: f, editor: @editor, name: :approvers %>
-      </section>
-
-      <section class="mb-4">
-        <h2 class="h5 d-flex flex-wrap align-items-center gap-2">
-          <%= label_tag :large_amount, "Over" %>
-          <span class="input-group" style="max-width: 10rem">
-            <span class="input-group-text">$</span>
-            <%= text_field_tag :large_amount, @editor.large_amount, class: "form-control", inputmode: "decimal", style: "min-height: 44px" %>
-          </span>
-          <span>, also needs</span>
-        </h2>
-        <div class="form-text mb-2">Leave the amount empty for no second approval.</div>
-        <%= render "orders/settings/field", f: f, editor: @editor, name: :large_approvers %>
+      <section class="mb-4" id="orders_lists">
+        <h2 class="h5">Lists</h2>
+        <p class="form-text">Each has a screen of its own, also on the Setup page under <%= Orders::SETUP_SECTION %>.</p>
+        <div class="list-group">
+          <%= link_to orders_approval_steps_path, class: "list-group-item list-group-item-action" do %>
+            <strong>Approval steps</strong>
+            <div class="small text-muted">Who approves, and from which total. Team managers can always approve.</div>
+          <% end %>
+          <%= link_to managed_list_path(:payment_methods), class: "list-group-item list-group-item-action" do %>
+            <strong>Payment methods</strong>
+            <div class="small text-muted">How a purchase can be paid, and which need paying back.</div>
+          <% end %>
+          <%= link_to managed_list_path(:delivery_problem_kinds), class: "list-group-item list-group-item-action" do %>
+            <strong>Delivery problems</strong>
+            <div class="small text-muted">What can be wrong with something that arrives.</div>
+          <% end %>
+        </div>
       </section>
 
       <section class="mb-4">
@@ -61,20 +47,6 @@
       <section class="mb-4">
         <h2 class="h5">Who manages funding sources</h2>
         <%= render "orders/settings/field", f: f, editor: @editor, name: :funding_managers %>
-      </section>
-
-      <section class="mb-4" data-controller="setting-rows">
-        <h2 class="h5">Paid with</h2>
-        <div data-setting-rows-target="list">
-          <% @editor.paid_with.each_with_index do |choice, index| %>
-            <%= render "orders/settings/paid_with_row", index: index, choice: choice %>
-          <% end %>
-          <%= render "orders/settings/paid_with_row", index: @editor.paid_with.size, choice: nil %>
-        </div>
-        <template data-setting-rows-target="template">
-          <%= render "orders/settings/paid_with_row", index: "NEW_ROW", choice: nil %>
-        </template>
-        <button type="button" class="btn btn-secondary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add a way to pay</button>
       </section>
 
       <% Orders::SettingsEditor.sections.each do |heading, settings| %>
