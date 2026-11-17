@@ -179,6 +179,14 @@ feature/digests:
       key: feature_digests
       default: "false"
 
+feature/announcement-search:
+  title: Search finds announcements by what they say
+  emoji: "🔎"
+  description: >-
+    Site search matches an announcement by its title or the text you can
+    read, not by hidden formatting or link addresses.
+  audience: Everyone
+
 feature/signups:
   title: Sign-up sheets
   emoji: "📋"
