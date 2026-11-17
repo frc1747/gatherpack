@@ -3,7 +3,6 @@
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h1>Reports</h1>
-    <%= link_to "Orders setup", orders_settings_path, class: "btn btn-secondary" if policy(:order_settings).show? && !Orders::SettingsEditor.in_menu? %>
   </div>
   <div class="list-group list-group-flush">
     <% @keys.each do |key| %>

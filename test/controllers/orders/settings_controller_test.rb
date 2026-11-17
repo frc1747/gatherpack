@@ -328,34 +328,19 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "Setup is in the Orders menu for admins only" do
-    skip "needs NavItem visible checks" unless Orders::SettingsEditor.in_menu?
-
+  test "Orders setup is a button on the main Setup page, for admins only, and not in the menu" do
     with_orders(@world) do
       sign_in @world.admin.user
+      get setup_url
+      assert_select "a.btn[href='#{orders_settings_path}']", "Orders"
       get orders_reports_url
-      assert_select ".nav-item a[href='#{orders_settings_path}']", text: /Setup/
-      assert_select ".card-header a[href='#{orders_settings_path}']", 0
+      assert_select "a[href='#{orders_settings_path}']", 0
 
       [ @world.manager, @world.buyer, @world.requester ].each do |person|
         sign_in person.user
         get orders_requests_url
         assert_select "a[href='#{orders_settings_path}']", 0
       end
-    end
-  end
-
-  test "without menu visible checks, admins reach Setup from Reports" do
-    skip "Setup is in the menu" if Orders::SettingsEditor.in_menu?
-
-    with_orders(@world) do
-      sign_in @world.admin.user
-      get orders_reports_url
-      assert_select "a.btn[href='#{orders_settings_path}']", "Orders setup"
-
-      sign_in @world.manager.user
-      get orders_reports_url
-      assert_select "a[href='#{orders_settings_path}']", 0
     end
   end
 

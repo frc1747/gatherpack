@@ -33,9 +33,8 @@ module Orders
       Settings.respond_to?(:input) && defined?(SettingInput::BadgeGrants).present?
     end
 
-    # Whether the Orders menu has the Setup item. Menu items can only be
-    # hidden from non-admins where NavItem takes a visible check; elsewhere
-    # the Reports page links here instead.
+    # Whether menu items take a visible check, so the orders items most
+    # members can't use (To approve, To buy, Reports) can be hidden.
     def self.in_menu?
       GatherPack::Feature::NavItem.members.include?(:visible)
     end

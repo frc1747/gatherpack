@@ -2,16 +2,12 @@
 # events. Uses config.to_prepare (like features.rb) so the registrations are
 # replayed after each development reload.
 Rails.application.config.to_prepare do
-  # Setup, for admins only. Where menu items can't be hidden, the Reports
-  # page links to it instead (Orders::SettingsEditor.in_menu?).
-  orders_setup_item = []
-  if Orders::SettingsEditor.in_menu?
-    orders_setup_item << GatherPack::Feature::NavItem.new(label: "Setup", path: :orders_settings_path, icon: "gear",
-      visible: ->(user) { OrderSettingsPolicy.new(user, :order_settings).show? })
-  end
+  # Setup is a button on the main Setup page, not a menu item: one Setup in the menu.
+  orders_setup_item = GatherPack::Feature::SetupItem.new(label: "Orders", path: :orders_settings_path,
+    policy_check: ->(view) { OrderSettingsPolicy.new(view.current_user, :order_settings).show? })
 
   # To approve is for approvers; to buy and Reports are refused to most members, so they're hidden where
-  # menu items take a visible check (the same guard as Setup).
+  # menu items take a visible check (the same guard as the Setup page).
   to_buy_visible = {}
   reports_visible = {}
   to_approve_visible = {}
@@ -38,9 +34,10 @@ Rails.application.config.to_prepare do
         GatherPack::Feature::NavItem.new(label: "To receive", path: :orders_deliveries_path, icon: "box-open"),
         GatherPack::Feature::NavItem.new(label: "Vendors", path: :orders_vendors_path, icon: "store"),
         GatherPack::Feature::NavItem.new(label: "Funding sources", path: :orders_funding_sources_path, icon: "hand-holding-dollar"),
-        GatherPack::Feature::NavItem.new(label: "Reports", path: :orders_reports_path, icon: "chart-column", **reports_visible),
-        *orders_setup_item
-      ]
+        GatherPack::Feature::NavItem.new(label: "Reports", path: :orders_reports_path, icon: "chart-column", **reports_visible)
+      ],
+      setup_section: "Purchasing",
+      setup_items: [ orders_setup_item ]
     )
   )
 
