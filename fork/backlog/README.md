@@ -55,6 +55,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-046](BL-046-wrapped-checklist-exempt-people.md) | Checklists made from commitments treat an exempt badge as "not on the checklist" | fork-only (bug) | medium | blocked | 2026-11-15 |
 | [BL-047](BL-047-orders-approval-fixes.md) | Order approval: repeated field ids, declined items say waiting, re-approval shows $0.00, plus three spec gaps | fork-only (bug) | medium | shipped hbr.42 | 2026-11-15 |
 | [BL-048](BL-048-orders-inventory-polish.md) | Orders/inventory: new-request autosave refused (blocking), menu links members can't open, phone layout, import preview, notices link | fork-only (bug) | high | shipped hbr.42 | 2026-11-15 |
+| [BL-049](BL-049-hbr42-docs-findings.md) | hbr.42 docs findings: activity "Counts toward" missing for sign-ups, To receive not in member menu, empty-looking ticks, filter wording, demo data | fork-only (bug) | medium | open | 2026-11-16 |
 
 ## Fields
 
