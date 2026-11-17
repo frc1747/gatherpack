@@ -42,6 +42,7 @@ feature/forms-expiry
 feature/person-merge
 feature/team-subtree-queries
 feature/recurring-routes-seams
+feature/digests
 feature/mcp-forms-expiry
 feature/security-series
 feature/intake

@@ -165,6 +165,20 @@ feature/settings-inputs:
     re-entering. A feature can also show its settings on its own setup page.
   audience: Admins
 
+feature/digests:
+  title: One summary email instead of several
+  emoji: "📬"
+  description: >-
+    Features that send a daily summary (inventory now; orders and
+    registrations next) can put it in one combined morning email per
+    person, in the Weekly Infodump, or both, as each feature's own notice
+    setting says. People only get a section when it has something for them.
+  audience: Admins (turn it on); inventory managers, buyers and team managers (receive it)
+  settings:
+    - name: Summaries
+      key: feature_digests
+      default: "false"
+
 feature/signups:
   title: Sign-up sheets
   emoji: "📋"
