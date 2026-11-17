@@ -1,0 +1,54 @@
+<% positions = @signup_sheet.signup_positions.includes(:signup_position_rules).to_a %>
+<div class="card mb-3" id="positions">
+  <div class="card-header">
+    <h3 class="h5 mb-0">Positions</h3>
+  </div>
+  <div class="card-body">
+    <p>What the sheet asks for: people to work a job, or items to bring. Members see them in this order.</p>
+    <% if positions.any? %>
+      <ul class="list-group mb-3">
+        <% positions.each_with_index do |position, index| %>
+          <li class="list-group-item" id="<%= dom_id position %>">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <strong><%= position.name %></strong>
+                <span class="text-body-secondary">
+                  <%= position.items? ? "Items" : "People" %>,
+                  <%= position.capacity ? "#{position.capacity} #{position.unit_label} needed" : "no limit" %>
+                </span>
+                <% if position.question.present? %>
+                  <div class="small">Asks: <%= position.question %><%= " (answer required)" if position.question_required? %></div>
+                <% end %>
+                <% if position.signup_position_rules.any? %>
+                  <ul class="small mb-0">
+                    <% position.signup_position_rules.each do |rule| %>
+                      <li id="<%= dom_id rule %>">
+                        <%= rule.description %>
+                        <%= button_to "Remove", signup_sheet_signup_position_signup_position_rule_path(@signup_sheet, position, rule), method: :delete,
+                              class: "btn btn-link btn-sm p-0 text-danger", form_class: "d-inline" %>
+                      </li>
+                    <% end %>
+                  </ul>
+                <% else %>
+                  <div class="small text-body-secondary">Anyone who can sign up can take it.</div>
+                <% end %>
+              </div>
+              <div class="text-nowrap">
+                <%= button_to "Up", signup_sheet_signup_position_path(@signup_sheet, position), method: :patch, params: { move: "up" },
+                      class: "btn btn-sm btn-outline-secondary", form_class: "d-inline", disabled: index.zero?, title: "Move up" %>
+                <%= button_to "Down", signup_sheet_signup_position_path(@signup_sheet, position), method: :patch, params: { move: "down" },
+                      class: "btn btn-sm btn-outline-secondary", form_class: "d-inline", disabled: index == positions.size - 1, title: "Move down" %>
+                <%= link_to "Edit and rules", edit_signup_sheet_signup_position_path(@signup_sheet, position), class: "btn btn-sm btn-warning" %>
+                <%= button_to "Remove", signup_sheet_signup_position_path(@signup_sheet, position), method: :delete,
+                      class: "btn btn-sm btn-outline-danger", form_class: "d-inline", data: { turbo_confirm: "Remove #{position.name}?" } %>
+              </div>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-warning-emphasis">No positions yet.</p>
+    <% end %>
+    <%= link_to "Add a position", new_signup_sheet_signup_position_path(@signup_sheet), class: "btn btn-success" %>
+  </div>
+</div>
