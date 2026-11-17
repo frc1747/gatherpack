@@ -14,6 +14,6 @@
   </div>
   <div class="card-footer">
     <%= link_to "Edit", edit_event_type_path(@event_type), class: "btn btn-warning" if policy(@event_type).edit? %>
-    <%= link_to "Delete", @event_type, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@event_type).destroy? %>
+    <%= link_to "Delete", @event_type, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: checkin_answers_delete_confirm(@event_type.checkin_answer_count) } if policy(@event_type).destroy? %>
   </div>
 </div>
