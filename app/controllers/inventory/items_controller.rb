@@ -76,7 +76,7 @@ module Inventory
 
     def item_params
       permitted = params.require(:item).permit(:team_id, :name, :description, :category, :manufacturer,
-        :manufacturer_part_number, :unit, :home_location_id, :reorder_point, :reorder_quantity, :url, :note, :active, :photo)
+        :manufacturer_part_number, :stock_unit_id, :home_location_id, :reorder_point, :reorder_quantity, :url, :note, :active, :photo)
       if permitted[:home_location_id].present? && !policy_scope(Location).exists?(id: permitted[:home_location_id])
         permitted[:home_location_id] = nil
       end

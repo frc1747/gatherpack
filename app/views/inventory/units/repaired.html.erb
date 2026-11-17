@@ -1,14 +1,6 @@
+<% conditions = UnitCondition.after_repair.to_a %>
 <%= render layout: "action", locals: { unit: @unit, title: "Repaired", submit: "Mark repaired",
       url: repaired_inventory_unit_path(@unit), note_label: "What was done?", note_required: true } do |form| %>
-  <fieldset class="mb-3">
-    <legend class="form-label fs-6">Condition now</legend>
-    <div class="d-grid gap-2">
-      <% %w[good worn].each_with_index do |condition, index| %>
-        <div>
-          <%= radio_button_tag :condition, condition, index.zero?, class: "btn-check", autocomplete: "off" %>
-          <%= label_tag "condition_#{condition}", ItemUnit::CONDITION_LABELS.fetch(condition), class: "btn btn-lg btn-outline-secondary w-100 text-start" %>
-        </div>
-      <% end %>
-    </div>
-  </fieldset>
+  <%= render "inventory/units/condition_choices", conditions: conditions,
+        selected: (UnitCondition.repaired if conditions.any?), style: "btn-outline-secondary", legend: "Condition now" %>
 <% end %>

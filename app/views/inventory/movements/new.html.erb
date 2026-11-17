@@ -53,7 +53,7 @@
           placeholder: (@kind == "moved" ? "All of it" : nil), data: { inventory_stepper_target: "input" } %>
         <button type="button" class="btn btn-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
       </div>
-      <div class="form-text"><%= @item.unit %></div>
+      <div class="form-text"><%= @item.stock_unit&.plural_name %></div>
     </div>
 
     <% unless @kind == "counted" %>

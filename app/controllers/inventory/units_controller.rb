@@ -20,7 +20,8 @@ module Inventory
     end
 
     def show
-      @events = @unit.events.includes(:person, :from_location, :to_location, :from_unit, :to_unit, :via_unit).reverse
+      @events = @unit.events.includes(:person, :from_location, :to_location, :from_unit, :to_unit, :via_unit, :condition_before,
+        :condition_after).reverse
     end
 
     # GET /inventory/units/new?item_id=: units for a tracked item, as
@@ -88,13 +89,12 @@ module Inventory
     end
 
     def mark_for_repair
-      @unit.mark_for_repair!(by: current_user.person, condition: params[:condition].presence || "needs_repair",
-        note: params[:note])
-      done "Marked #{ItemUnit::CONDITION_LABELS.fetch(@unit.condition)}"
+      @unit.mark_for_repair!(by: current_user.person, condition: params[:condition], note: params[:note])
+      done "Marked #{@unit.condition_label}"
     end
 
     def repaired
-      @unit.repaired!(by: current_user.person, condition: params[:condition].presence || "good", note: params[:note])
+      @unit.repaired!(by: current_user.person, condition: params[:condition], note: params[:note])
       done "Marked repaired"
     end
 
@@ -106,7 +106,7 @@ module Inventory
     private
 
     def set_unit
-      @unit = policy_scope(ItemUnit).includes(:item, :location, :installed_in).find(params[:id])
+      @unit = policy_scope(ItemUnit).includes(:item, :location, :installed_in, :unit_condition).find(params[:id])
       authorize @unit, :show? if %w[show action_form].include?(action_name)
       authorize @unit if ACTIONS.include?(action_name) || %w[edit update].include?(action_name)
     end
@@ -116,7 +116,7 @@ module Inventory
       redirect_to inventory_unit_path(@unit), notice: message, status: :see_other
     end
 
-    # A machine (location_id, while machines are on) or another unit, by id (unit_id) or by its
+    # A machine (location_id, a place whose type takes installed parts) or another unit, by id (unit_id) or by its
     # code or label URL, typed or scanned (unit_code). A code more than one
     # team uses prefers this unit's team.
     def install_target
@@ -126,8 +126,8 @@ module Inventory
         unit_from_code(params[:unit_code], team_id: @unit.item.team_id)
       elsif params[:location_id].present?
         policy_scope(Location).find(params[:location_id])
-      elsif Inventory.machines?
-        raise Inventory::Refused, "Pick #{Inventory.machine_word(article: true)}, or type the code of the part to put it in"
+      elsif LocationType.installable.exists?
+        raise Inventory::Refused, "Pick #{LocationType.installable_words}, or type the code of the part to put it in"
       else
         raise Inventory::Refused, "Type the code of the part to put it in"
       end
@@ -150,7 +150,7 @@ module Inventory
     end
 
     def readings_params
-      params.fetch(:readings, {}).permit(*@unit.item.reading_names).to_h
+      params.fetch(:readings, {}).permit(*@unit.item.reading_type_ids).to_h
     end
 
     def unit_params

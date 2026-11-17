@@ -18,7 +18,8 @@
     </div>
     <div class="col-md-6">
       <%= f.input :team_id, label: "Team", collection: managed_teams, include_blank: false %>
-      <%= f.input :unit, label: "Stock unit", hint: "each, ft, pack… Quantities are whole numbers in this unit" %>
+      <%= managed_list_select f, :stock_unit_id, list: :stock_units, label: "Stock unit", include_blank: false,
+            hint: "Quantities are whole numbers in this unit." %>
       <%= f.input :home_location_id, label: "Home place", collection: policy_scope(Location).active.storage.map { |place| [ place.full_name, place.id ] }.sort,
         include_blank: "None", hint: "Where it usually lives: where Used and Received start" %>
       <%= f.input :reorder_point, label: "Order more at", hint: "On the reorder list when stock is at or below this. Blank: never" %>

@@ -8,10 +8,10 @@ module Inventory
       "Who" => %i[inventory_users inventory_managers],
       "What members can do" => %i[inventory_member_kinds inventory_member_unit_actions inventory_used_needs_reason
         inventory_undo_minutes],
-      "Notices" => %i[inventory_reorder_notice],
-      "Defaults" => %i[inventory_default_unit],
-      "Machines" => %i[inventory_machines inventory_machine_name inventory_machine_name_plural]
+      "Notices" => %i[inventory_reorder_notice]
     }.freeze
+    # The managed lists linked under the settings, in this order.
+    LISTS = %i[location_types stock_units unit_conditions reading_types].freeze
     KEYS = GROUPS.values.flatten.freeze
 
     before_action { authorize :inventory_setup, action_name == "update" ? :update? : :show? }

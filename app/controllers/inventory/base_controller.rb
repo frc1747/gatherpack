@@ -1,8 +1,10 @@
 # Base of every inventory controller: turns requests away while the feature
-# is off, and shows a refused domain action as a flash.
+# is off, fills any empty inventory list with its starting rows, and shows a
+# refused domain action as a flash.
 module Inventory
   class BaseController < InternalController
     before_action :require_feature
+    before_action { Inventory::Lists.seed_defaults! }
     helper_method :current_person, :managed_teams
 
     rescue_from Inventory::Refused do |error|

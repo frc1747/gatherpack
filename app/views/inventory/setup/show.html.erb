@@ -17,8 +17,6 @@
               <%= label_tag "settings_#{key}", setting.name, class: "form-label" %>
               <% if key == :inventory_reorder_notice %>
                 <%= select_tag "settings[#{key}]", options_for_select(Inventory::Config::REORDER_NOTICE_CHOICES, Inventory::Config.reorder_notice), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
-              <% elsif key == :inventory_machines %>
-                <%= select_tag "settings[#{key}]", options_for_select([ [ "On", "on" ], [ "Off", "off" ] ], Inventory.machines? ? "on" : "off"), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
               <% elsif setting.setting_type == :boolean %>
                 <%= select_tag "settings[#{key}]", options_for_select([ [ "Yes", "true" ], [ "No", "false" ] ], Inventory::Config.used_needs_reason? ? "true" : "false"), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
               <% elsif setting.setting_type == :integer %>
@@ -39,3 +37,18 @@
     <% end %>
   </div>
 </div>
+
+<% lists = defined?(GatherPack::ManagedLists) ? Inventory::SetupController::LISTS.filter_map { |key| GatherPack::ManagedLists.find(key) } : [] %>
+<% if lists.any? %>
+  <div class="card mb-3" id="inventory_lists">
+    <div class="card-header"><h2 class="h5 mb-0">Lists</h2></div>
+    <div class="card-body">
+      <p class="text-body-secondary">The types, units and conditions inventory offers in its pickers.</p>
+      <div class="d-flex flex-wrap gap-2">
+        <% lists.each do |list| %>
+          <%= link_to list.plural_label, managed_list_path(list.key), class: "btn btn-secondary", style: "min-height: 44px" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

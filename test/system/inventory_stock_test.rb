@@ -174,7 +174,7 @@ class InventoryStockTest < ApplicationSystemTestCase
 
       click_on "Add an item here"
       fill_in "Name", with: "Red wire"
-      fill_in "Stock unit", with: "ft"
+      select "foot", from: "Stock unit"
       fill_in "Order more at", with: "20"
       select @world.club.name, from: "Team"
       click_on "Save item"

@@ -1,10 +1,10 @@
-<% breadcrumb :inventory_machines %>
-<% content_for :title, Inventory.machine_word(count: :many, capitalize: true) %>
+<% breadcrumb :inventory_machines, @type %>
+<% content_for :title, @type.plural_name %>
 
 <div class="row"><div class="col-lg-8 col-xl-6">
-  <h1 class="h3"><%= Inventory.machine_word(count: :many, capitalize: true) %></h1>
+  <h1 class="h3"><%= @type.plural_name %></h1>
   <% if @machines.empty? %>
-    <p class="text-body-secondary">No <%= Inventory.machine_word(count: :many) %> yet. A place becomes <%= Inventory.machine_word(article: true) %> when its kind is set to <%= Inventory.machine_word(capitalize: true) %>.</p>
+    <p class="text-body-secondary">No <%= @type.word(count: :many) %> yet. A place becomes <%= @type.word(article: true) %> when its type is set to <%= @type.name %>.</p>
   <% else %>
     <% names = inventory_full_names(@machines) %>
     <div class="list-group" id="machines">

@@ -53,9 +53,9 @@
         <i class="fa-solid fa-warehouse"></i> Places
       <% end %>
     <% end %>
-    <% if Inventory.machines? %>
-      <%= link_to inventory_machines_path, class: "btn btn-secondary" do %>
-        <i class="fa-solid fa-<%= Inventory::MACHINE_ICON %>"></i> <%= Inventory.machine_word(count: :many, capitalize: true) %>
+    <% LocationType.installable.each do |type| %>
+      <%= link_to inventory_machine_type_path(type), class: "btn btn-secondary" do %>
+        <i class="fa-solid fa-<%= Inventory::MACHINE_ICON %>"></i> <%= type.plural_name %>
       <% end %>
     <% end %>
   </div>

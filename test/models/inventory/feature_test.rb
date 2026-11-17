@@ -5,6 +5,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
   include SettingsTestHelper
 
   setup do
+    Inventory::Lists.seed_defaults!
     @stub = GatherPack::Feature.new(key: :stub_purchasing, label: "Stub", default_enabled: false, nav_section: "Purchasing", nav_position: 10,
       nav_items: [ GatherPack::Feature::NavItem.new(label: "Stub", path: :root_path, icon: "star") ])
     GatherPack::Features.register(@stub)
@@ -69,8 +70,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
     {
       inventory_users: "", inventory_managers: "", inventory_member_kinds: "used, moved, counted",
       inventory_member_unit_actions: "install, take_off, move, check, mark_for_repair",
-      inventory_used_needs_reason: "false", inventory_undo_minutes: "10", inventory_reorder_notice: "daily",
-      inventory_default_unit: "each"
+      inventory_used_needs_reason: "false", inventory_undo_minutes: "10", inventory_reorder_notice: "daily"
     }.each { |key, default| assert_equal default, Settings.get(key).default_value, key }
     assert_equal %w[used moved counted], Inventory::Config.member_kinds
   end

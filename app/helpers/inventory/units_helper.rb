@@ -1,5 +1,6 @@
 # Words and small pieces for the unit and machine pages (inventory spec
-# §3.15). The word for a machine is Inventory.machine_word.
+# §3.15). Conditions, place types and reading types are managed lists:
+# names come from their rows, colours from the condition's flags.
 module Inventory
   module UnitsHelper
     UNIT_ACTION_LABELS = {
@@ -17,14 +18,20 @@ module Inventory
       "mark_for_repair" => "Marked for repair", "retire" => "Retired", "received" => "Received",
       "tracked" => "Started tracking"
     ).freeze
-    CONDITION_BADGES = {
-      "new" => "text-bg-success", "good" => "text-bg-success", "worn" => "text-bg-warning",
-      "needs_repair" => "text-bg-danger", "broken" => "text-bg-danger", "retired" => "text-bg-secondary"
-    }.freeze
+    # A condition's badge colour: by flag, and Worn (by key) amber.
+    def unit_condition_class(condition)
+      if condition.nil? then "text-bg-light"
+      elsif condition.needs_attention? then "text-bg-danger"
+      elsif condition.out_of_service? then "text-bg-secondary"
+      elsif condition.key == "worn" then "text-bg-warning"
+      else "text-bg-success"
+      end
+    end
 
+    # A unit's (or a UnitCondition's) condition as a badge.
     def unit_condition_badge(condition)
-      condition = condition.condition if condition.is_a?(ItemUnit)
-      tag.span(ItemUnit::CONDITION_LABELS.fetch(condition), class: "badge #{CONDITION_BADGES.fetch(condition)}")
+      condition = condition.unit_condition if condition.is_a?(ItemUnit)
+      tag.span(condition&.name || "No condition", class: "badge #{unit_condition_class(condition)}")
     end
 
     def unit_action_label(action)
@@ -34,7 +41,7 @@ module Inventory
     # The actions that fit the unit's state and that the viewer may take,
     # in the order the unit page shows them.
     def unit_actions_for(unit)
-      return [] if unit.condition_retired? || !unit.active?
+      return [] if unit.out_of_service? || !unit.active?
 
       actions = %w[install]
       actions << (unit.installed? ? "take_off" : "move")
@@ -87,8 +94,8 @@ module Inventory
         target = event.to_unit ? event.to_unit.identifier_name : event.to_location&.name
         parts << (event.action == "install" ? "on" : "to") << target if target
         parts << "with #{event.via_unit.identifier_name}" if event.carried?
-      elsif event.condition_before != event.condition_after
-        parts << "#{ItemUnit::CONDITION_LABELS[event.condition_before]} → #{ItemUnit::CONDITION_LABELS[event.condition_after]}"
+      elsif event.condition_before_id != event.condition_after_id
+        parts << "#{event.condition_before&.name} → #{event.condition_after&.name}"
       elsif event.action == "received" && event.to_location
         parts << "into #{event.to_location.name}"
       end
@@ -102,13 +109,15 @@ module Inventory
         .reverse
     end
 
-    # The newest value of each reading from those checks: { name => value }.
+    # The newest value of each reading from those checks: { reading type id
+    # => value }.
     def unit_latest_readings(rows)
       rows.reverse.each_with_object({}) { |event, latest| latest.merge!(event.readings) }
     end
 
-    def reading_heading(field)
-      field["unit"].present? ? "#{field["name"]} (#{field["unit"]})" : field["name"]
+    # "Hours (h)": a ReadingType's name and unit.
+    def reading_heading(type)
+      type.heading
     end
   end
 end

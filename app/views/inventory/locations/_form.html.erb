@@ -7,13 +7,7 @@
     <div class="col-md-6">
       <%= f.input :name, hint: "Shop, cabinet, shelf or bin" %>
       <%= f.input :code, hint: "Short label text, such as A-3. Unique within the top-level place" %>
-      <% if Inventory.machines? %>
-        <%= f.input :kind, collection: [ [ "Storage (shelf, bin, cart)", "storage" ], [ "#{Inventory.machine_word(capitalize: true)} (parts get installed on it)", "machine" ] ], include_blank: false %>
-      <% elsif location.persisted? && location.kind_in_database == "machine" %>
-        <%# Turned off: a place made one before can only become storage. %>
-        <%= f.input :kind, collection: [ [ "Storage (shelf, bin, cart)", "storage" ] ], include_blank: false,
-              hint: "Saving makes this a storage place, so it can hold stock and other places" %>
-      <% end %>
+      <%= managed_list_select f, :location_type_id, list: :location_types, label: "Type", include_blank: false %>
       <%= f.input :note, as: :text, input_html: { rows: 2 } %>
     </div>
     <div class="col-md-6">

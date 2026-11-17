@@ -9,8 +9,10 @@ require "support/settings_test_helper"
 #   └── outreach          outreacher
 #   art (top level)       outsider
 #
-# Plus an admin, a robot (a machine owned by robotics) and screws (a club
-# item kept in bin1, order more at 10).
+# Plus an admin, a robot (a place of the Machine type, owned by robotics)
+# and screws (a club item kept in bin1, order more at 10). The inventory
+# lists (place types, stock units, part conditions, reading types) start
+# with their defaults.
 module InventoryWorld
   include SettingsTestHelper
 
@@ -21,6 +23,7 @@ module InventoryWorld
     :builder, :outreacher, :outsider, :keeper_badge, :shop, :cabinet, :bin1, :bin2, :robot, :screws, keyword_init: true)
 
   def build_inventory_world
+    Inventory::Lists.seed_defaults!
     team_type = TeamType.first || TeamType.create!(name: "Group")
     club = Team.create!(name: "Club #{SecureRandom.hex(3)}", team_type: team_type)
     robotics = Team.create!(name: "Robotics #{SecureRandom.hex(3)}", team_type: team_type, parent: club)
@@ -47,7 +50,7 @@ module InventoryWorld
       shop: shop, cabinet: cabinet,
       bin1: Location.create!(parent: cabinet, name: "Bin 1", code: "A-1"),
       bin2: Location.create!(parent: cabinet, name: "Bin 2", code: "A-2"),
-      robot: Location.create!(team: robotics, name: "Robot", kind: "machine"),
+      robot: Location.create!(team: robotics, name: "Robot", location_type: location_type("machine")),
       screws: nil
     ).tap do |world|
       world.screws = Item.create!(team: club, name: "M4 screw", manufacturer_part_number: "M4-12", category: "Fasteners",
@@ -81,11 +84,33 @@ module InventoryWorld
   end
 
   # A tracked item kept in bin1 with units there (codes U-1, U-2 ...).
+  # readings: reading types, or names of ones to find or make.
   def tracked_item!(world, name: "Motor", units: 0, reorder_point: nil, team: world.club, readings: [])
+    types = Array(readings).map { |type| type.is_a?(ReadingType) ? type : reading_type(type) }
     item = Item.create!(team: team, name: name, tracked: true, home_location: world.bin1, reorder_point: reorder_point,
-      reading_fields: readings)
+      reading_type_ids: types.map(&:id))
     units.times.map { |index| ItemUnit.create_with_event!(item: item, location: world.bin1, person: world.admin).tap { |unit| unit.update!(code: "#{name[0, 3].upcase}-#{index + 1}") } }
     item
+  end
+
+  # A list row by key (or, for reading types and stock units, by name).
+  def location_type(key)
+    LocationType.find_by!(key: key.to_s)
+  end
+
+  def unit_condition(key)
+    UnitCondition.find_by!(key: key.to_s)
+  end
+
+  def stock_unit(name)
+    StockUnit.named(name) || StockUnit.create!(name: name)
+  end
+
+  # { "name" => "Hours", "unit" => "h" } or "Hours": the row with that
+  # name, made with the unit if there's none.
+  def reading_type(field)
+    name, unit = field.is_a?(Hash) ? [ field["name"] || field[:name], field["unit"] || field[:unit] ] : [ field.to_s, nil ]
+    ReadingType.where("LOWER(name) = ?", name.downcase).first || ReadingType.create!(name: name, unit_label: unit)
   end
 
   # A hook for each event that logs [event, record id] to HOOK_LOG.

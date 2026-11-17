@@ -1,5 +1,6 @@
 # A kind of thing kept: "M4 × 12 socket head screw", not one screw
-# (inventory spec §3.1). Counted in one stock unit, in whole numbers.
+# (inventory spec §3.1). Counted in one stock unit (StockUnit, a list
+# managed on Setup), in whole numbers.
 # Its stock is the sum of its movements (StockMovement), cached per
 # location in StockLevel. A tracked item (§3.15) has no movements of its
 # own: each piece is an ItemUnit, and its stock is the units available.
@@ -10,22 +11,23 @@ class Item < ApplicationRecord
 
   belongs_to :team
   belongs_to :home_location, class_name: "Location", optional: true, inverse_of: :home_items
+  belongs_to :stock_unit
+  # The readings a tracked item's checks ask for, in order.
+  has_many :item_reading_types, -> { order(:position) }, inverse_of: :item, dependent: :delete_all, autosave: true
+  has_many :reading_types, -> { order("item_reading_types.position") }, through: :item_reading_types
   has_many :item_sources, -> { ordered }, inverse_of: :item, dependent: :destroy
   has_many :stock_movements, dependent: :restrict_with_error
   has_many :stock_levels, dependent: :delete_all
   has_many :item_units, dependent: :restrict_with_error
   has_one_attached :photo
 
-  validates :name, :unit, presence: true
+  validates :name, presence: true
   validates :reorder_point, :reorder_quantity, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
-  validate :reading_fields_shape
   validate :untracking_without_units
   validate :tracking_through_start_tracking
   validate :home_location_is_storage
 
-  attribute :unit, :string, default: -> { Inventory::Config.default_unit }
-
-  before_validation :normalize_reading_fields
+  attribute :stock_unit_id, default: -> { StockUnit.default_unit&.id }
 
   scope :active, -> { where(active: true) }
   scope :tracked, -> { where(tracked: true) }
@@ -36,6 +38,11 @@ class Item < ApplicationRecord
 
   def self.ransackable_associations(auth_object = nil)
     []
+  end
+
+  # The stock unit's name, for other features and tools that show it as text.
+  def unit
+    stock_unit&.name
   end
 
   def identifier_icon
@@ -133,9 +140,16 @@ class Item < ApplicationRecord
     stock_movements.counted.where(reverses_id: nil).maximum(:created_at)
   end
 
-  # Readings a check asks for: [{ "name" => "Hours", "unit" => "h" }].
-  def reading_names
-    Array(reading_fields).map { |field| field["name"] }
+  # Sets the reading types checks ask for, in the order given. Types no
+  # longer picked are unlinked; readings already saved keep their values.
+  def reading_type_ids=(ids)
+    ids = Array(ids).compact_blank.map(&:to_s).uniq
+    links = item_reading_types.to_a
+    links.reject { |link| ids.include?(link.reading_type_id) }.each(&:mark_for_destruction)
+    ids.each_with_index do |id, position|
+      link = links.find { |existing| existing.reading_type_id == id }
+      link ? link.position = position : item_reading_types.build(reading_type_id: id, position: position)
+    end
   end
 
   # Turns tracking on. Stock at each location becomes that many units
@@ -181,24 +195,6 @@ class Item < ApplicationRecord
 
   private
 
-  def normalize_reading_fields
-    fields = reading_fields.is_a?(String) ? (JSON.parse(reading_fields) rescue nil) : reading_fields
-    return if fields.nil?
-
-    self.reading_fields = Array(fields).filter_map do |field|
-      field = field.to_h.stringify_keys
-      next if field["name"].to_s.strip.empty?
-
-      { "name" => field["name"].to_s.strip, "unit" => field["unit"].to_s.strip.presence }.compact
-    end
-  end
-
-  def reading_fields_shape
-    return if reading_fields.is_a?(Array) && reading_fields.all? { |field| field.is_a?(Hash) && field["name"].present? }
-
-    errors.add(:reading_fields, "must be a list of readings, each with a name")
-  end
-
   def untracking_without_units
     return unless persisted? && will_save_change_to_tracked? && !tracked?
 
@@ -214,6 +210,8 @@ class Item < ApplicationRecord
   end
 
   def home_location_is_storage
-    errors.add(:home_location, "must be a storage place, not #{Inventory.machine_word(article: true)}") if home_location&.machine?
+    return if home_location.nil? || home_location.storage?
+
+    errors.add(:home_location, "must be a place that keeps stock, not #{home_location.type_word(article: true)}")
   end
 end
