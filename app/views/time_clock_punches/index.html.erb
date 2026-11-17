@@ -26,7 +26,7 @@
     </div>
   </div>
   <div class="card-footer">
-    <%= link_to "New Time Clock Punch", new_time_clock_punch_path, class: "btn btn-success" %>
+    <%= link_to "New Time Clock Punch", new_time_clock_punch_path, class: "btn btn-success" if policy(TimeClockPunch.new).new? %>
     <%= link_to "Time Clock Periods", time_clock_periods_path, class: "btn btn-info" %>
     <% if policy(TimeClockPunch).flagged? %>
       <%= link_to "Flag Review", flagged_time_clock_punches_path, class: "btn btn-warning" %>

@@ -3,9 +3,12 @@ class Token < ApplicationRecord
   include CanBeHooked
   has_paper_trail versions: { class_name: "AuditLog" }
   belongs_to :tokenable, polymorphic: true, optional: true
+  # Normalised before validating, so a card can't be added twice by entering
+  # it in each reader's format. A unique index backs this up. Only a new
+  # value is normalised: a stored one already is, and normalising it again
+  # could change it.
+  before_validation :rfidify_value, if: :will_save_change_to_value?
   validates :value, uniqueness: true
-
-  before_save :rfidify_value
 
   class << self
     # we have 2 different kinds of RFID readers that return the information on the cards in different formats...

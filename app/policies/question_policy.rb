@@ -9,6 +9,11 @@ class QuestionPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def create?
     user.admin || person.all_teams.exists?(record.team_id)
   end

@@ -84,7 +84,7 @@ class Mcp::Tools::UpdateEventTest < ActionDispatch::IntegrationTest
   end
 
   test "another period the viewer can't see is not found, and their event's own period can be named again" do
-    @alpha_event.update!(time_clock_period: @beta_period)
+    @alpha_event.update_column(:time_clock_period_id, @beta_period.id) # An event from before the period had to match its team.
 
     assert_nil update(:alpha_manager, name: "Renamed", time_clock_period_id: @beta_period.neat_id).error
     assert_equal @beta_period, @alpha_event.reload.time_clock_period

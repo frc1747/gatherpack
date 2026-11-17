@@ -1,8 +1,13 @@
-class CalendarController < ApplicationController
+class CalendarController < InternalController
   def index
+    # The page itself lists nothing; it loads its entries from #calendar.
+    skip_policy_scope
   end
 
   def calendar
+    # Every list below goes through policy_scope; there is no one record to
+    # authorize.
+    skip_authorization
     respond_to do |format|
       format.html { redirect_to calendar_index_path }
       format.json do
@@ -35,7 +40,7 @@ class CalendarController < ApplicationController
         end
 
         if params[:notes]
-          ransacked_notes = policy_scope(CalendarNote).ransack(params[:q]).result(distinct: true)
+          ransacked_notes = policy_scope(CalendarNote).ransack(params[:q], auth_object: current_user).result(distinct: true)
           ransacked_notes = ransacked_notes.where(noteable: params[:person_id]) if params[:person_id]
           @notes = ransacked_notes.where("start_time >= ? AND start_time <= ?", start_time, end_time)
             .or(ransacked_notes.where("start_time <= ? AND end_time >= ?", start_time, start_time))
