@@ -1,0 +1,42 @@
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6,
+.fc-toolbar-title {
+  font-family: var(--gp-font);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--gp-text);
+}
+
+.badge {
+  font-family: var(--gp-font);
+}
+
+// The application clips any div holding a badge, which cuts off an open menu.
+div:has(.badge):has(.dropdown-menu.show):not(.table-responsive) {
+  overflow: visible;
+}
+
+.money.money-zero, .money.money-failed, .money.money-pending {
+  color: var(--gp-muted);
+}
+
+.ledger .row.entry:nth-child(even) {
+  background-color: var(--gp-subtle);
+}
+
+.arranging-badge {
+  background-color: var(--gp-brand);
+}
+
+.arranging-container {
+  border: thin solid var(--gp-brand);
+}
+
+code pre {
+  background-color: var(--gp-raised);
+  color: var(--gp-text);
+}
