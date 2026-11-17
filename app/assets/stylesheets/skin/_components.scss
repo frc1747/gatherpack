@@ -111,6 +111,15 @@
   --bs-btn-disabled-border-color: var(--gp-border);
 }
 
+// A ticked toggle (btn-check) in these quiet styles only got the raised
+// background, so ticked and unticked looked the same. Fill it like a
+// primary button instead.
+.btn-check:checked + .btn-outline-secondary, .btn-check:checked + .btn-outline-dark {
+  color: var(--gp-on-brand);
+  background-color: var(--gp-brand);
+  border-color: var(--gp-brand);
+}
+
 // !important: beats Bootstrap's utility, which sets a literal white.
 .text-bg-primary, .text-bg-success {
   color: var(--gp-on-brand) !important;
