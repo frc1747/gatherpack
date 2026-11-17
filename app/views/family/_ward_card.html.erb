@@ -44,5 +44,6 @@
     <% if card.empty? %>
       <p class="text-body-secondary m-3">Nothing to show yet.</p>
     <% end %>
+    <% if MyGatherpack::Activity.enabled? %><div class="p-3 border-top"><%= link_to "Activity", activity_path(person: card.ward.neat_id), class: "btn btn-outline-secondary w-100", data: { family_activity: true } %></div><% end %>
   </div>
 </section>

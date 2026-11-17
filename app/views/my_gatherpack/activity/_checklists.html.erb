@@ -1,0 +1,17 @@
+<%# Requirements: each checklist covering the person, as the viewer may see it, with its overall in words. %>
+<% checklists = activity.checklists %>
+<% if checklists.any? %>
+  <section class="mg-section" data-activity-block="checklists">
+    <h2 class="mg-heading">Requirements</h2>
+    <div class="card mg-list">
+      <% checklists.each do |checklist, status| %>
+        <div class="mg-row">
+          <div class="mg-row-body">
+            <div class="mg-row-title"><%= link_to checklist.title, activity_checklist_path(activity, checklist) %></div>
+            <% if status.overall %><div class="mg-row-detail"><%= status.overall.text %></div><% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </section>
+<% end %>
