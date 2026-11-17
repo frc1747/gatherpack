@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   resources :shortcuts
   resources :announcements
   resources :calendar_notes
+  get "family", to: "family#show", as: :family
 
   resources :gateways do
     member do
