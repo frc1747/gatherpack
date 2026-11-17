@@ -2,9 +2,15 @@
 
 <%= search_form_for @q, data: {"controller": "turbo_search", "turbo_frame": "results"} do |f| %>
 <div class="card">
-  <div class="card-header">
+  <div class="card-header d-flex justify-content-between align-items-center">
     <h1>People</h1>
+    <button class="btn btn-primary d-md-none" type="button" style="min-height: 44px"
+            data-bs-toggle="collapse" data-bs-target=".people-search"
+            aria-expanded="<%= params[:q].present? %>" aria-controls="people-search people-search-actions">
+      Search
+    </button>
   </div>
+  <div id="people-search" class="people-search collapse d-md-block<%= " show" if params[:q].present? %>">
   <div class="card-body">
     <div class="row">
       <div class="col-md">
@@ -23,10 +29,13 @@
       <% end %>
     </div>
   </div>
+  </div>
   <div class="card-footer">
     <%= link_to "New Person", new_person_path, class: "btn btn-success" if policy(Person).new? %>
-    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
-    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+    <span id="people-search-actions" class="people-search collapse d-md-inline<%= " show" if params[:q].present? %>">
+      <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+      <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+    </span>
   </div>
 </div>
 <% end %>
