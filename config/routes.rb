@@ -188,6 +188,15 @@ Rails.application.routes.draw do
     end
   end
 
+  # Always drawn; the controllers check the feature (default off).
+  resources :commitments do
+    post :message, on: :member
+    resources :commitment_sources, only: %i[new create edit update destroy]
+    resources :commitment_adjustments, only: %i[new create destroy]
+    resources :commitment_organizers, only: %i[create destroy]
+  end
+  get "people/:person_id/commitments", to: "person_commitments#show", as: :person_commitments
+
   if GatherPack::Features.enabled?(:ledger)
     resources :ledger_payments, only: %i[new create]
     resources :ledger_transfers, only: %i[new create]
