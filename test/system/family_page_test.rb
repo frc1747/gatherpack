@@ -57,7 +57,7 @@ class FamilyPageSystemTest < ApplicationSystemTestCase
     assert_current_path family_path
     assert_selector "[data-family-status]"
 
-    within(".phone-tabs") { click_button "More" }
+    within(".phone-tabs") { click_button "Menu" }
     within("#sidebarMenu") { assert_selector "[data-menu-group=family] a[href='#{family_path}']", text: "Family" }
   end
 
