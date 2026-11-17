@@ -15,7 +15,7 @@
       <label class="visually-hidden" for="<%= setting_input_id(input, index, "team") %>">Up to team</label>
       <%= select_tag setting_input_name(input, "rows", index, "team"),
                      options_for_select(teams, row&.team_name),
-                     include_blank: "Up to: their own teams",
+                     include_blank: input.options[:blank_team_label] || "Up to: their own teams",
                      id: setting_input_id(input, index, "team"), class: "form-select", style: "min-height: 44px" %>
     </div>
   <% end %>

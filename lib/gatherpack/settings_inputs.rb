@@ -7,6 +7,8 @@
 # feature still works (with a text box) where this seam isn't merged:
 #
 #   Settings.input(:my_teams, :teams) if Settings.respond_to?(:input)
+#   Settings.input(:my_grants, :badge_grants, blank_team_label: "Up to: every team")
+#     (the blank team choice says what a grant with no team means for this feature)
 #   Settings.page("My Feature", :my_feature_setup_path,
 #     if: -> { GatherPack::Features.enabled?(:my_feature) }) if Settings.respond_to?(:page)
 #

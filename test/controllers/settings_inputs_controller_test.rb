@@ -85,6 +85,7 @@ class SettingsInputsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[type=hidden][name='settings[input_test_grants][rows][1][line]'][value='Old Badge']"
     assert_select "div", text: "Not found: Old Badge"
     assert_select "select[name='settings[input_test_grants][rows][2][badge]'] option[selected]", count: 0
+    assert_select "select[name='settings[input_test_grants][rows][2][team]'] option[value='']", text: "Up to: their own teams"
     assert_select "input[type=checkbox][name='settings[input_test_kinds][values][]'][value='counted'][checked]"
     assert_select "select[name='settings[input_test_notice]'] option[selected][value='each']"
     assert_select "input[name='settings[input_test_domains][items][]'][value='y.com']"
@@ -317,5 +318,14 @@ class SettingsInputsControllerTest < ActionDispatch::IntegrationTest
 
       assert_redirected_to settings_path
     end
+  end
+
+  test "a badge grant input can say what a grant with no team means" do
+    Settings.input(:input_test_grants, :badge_grants, blank_team_label: "Up to: every team")
+    sign_in @admin_user
+    get settings_path
+    assert_select "select[name$='[team]'] option[value='']", text: "Up to: every team"
+  ensure
+    Settings.input(:input_test_grants, :badge_grants)
   end
 end
