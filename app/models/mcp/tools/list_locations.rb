@@ -8,7 +8,7 @@ class Mcp::Tools::ListLocations < Mcp::Tool
   include Mcp::InventoryRecords
 
   tool_name "list_locations"
-  description "Inventory places you can see (shops, cabinets, bins and machines), with full path, code, kind, how many items " \
+  description "Inventory places you can see (shelves, cabinets, bins, and kind machine: places parts get installed on, which the group may name otherwise), with full path, code, kind, how many items " \
     "have stock there and whether one needs a count. Filters: parent_id (places directly inside one), team_id."
   scope :read
   feature :inventory

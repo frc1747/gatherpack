@@ -122,6 +122,19 @@ class Mcp::Tools::InventoryReadsTest < ActionDispatch::IntegrationTest
     assert_equal "No part has the code MOT-2", call_as(@world.outsider, "get_unit", code: "MOT-2").error, "another team's unit is looked for only among those you see"
   end
 
+  test "list_machines uses the group's words and is refused when they're turned off" do
+    skip "needs the machine settings" unless Inventory.respond_to?(:machine_word)
+    saved = %i[inventory_machines inventory_machine_name inventory_machine_name_plural].index_with { |key| Settings[key] }
+    Settings[:inventory_machine_name] = "Project"
+    Settings[:inventory_machine_name_plural] = "Projects"
+    assert_equal({ "one" => "Project", "many" => "Projects" }, call_as(@world.requester, "list_machines").value["called"])
+
+    Settings[:inventory_machines] = "off"
+    assert_equal "Projects are turned off", call_as(@world.requester, "list_machines").error
+  ensure
+    saved&.each { |key, value| Settings[key] = value }
+  end
+
   test "list_items pages with offset and says where the next page starts" do
     5.times { |index| Item.create!(team: @world.club, name: "Washer #{index}", reorder_point: 1) }
     first = call_as(@world.requester, "list_items", query: "Washer", limit: 2).value
