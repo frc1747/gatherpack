@@ -11,12 +11,40 @@
 module Mcp::InventoryRecords
   KINDS = %w[used moved counted received added removed].freeze
   UNIT_ACTIONS = %w[install take_off move check mark_for_repair repaired retire].freeze
-  CONDITIONS = %w[new good worn needs_repair broken retired].freeze
+
+  # The rows of the managed lists (place types, stock units, part conditions, reading types), as
+  # the pickers on the pages offer them.
+  TYPE_SCHEMA = {
+    type: "object",
+    properties: {
+      id: { type: "string" }, name: { type: "string" }, plural: { type: "string" },
+      holds_stock: { type: "boolean" }, holds_installed_parts: { type: "boolean" }
+    },
+    required: %w[id name plural holds_stock holds_installed_parts]
+  }.freeze
+  CONDITION_SCHEMA = {
+    type: "object",
+    properties: {
+      id: { type: "string" }, name: { type: "string" }, key: { type: %w[string null] },
+      needs_attention: { type: "boolean" }, out_of_service: { type: "boolean" }
+    },
+    required: %w[id name key needs_attention out_of_service]
+  }.freeze
+  STOCK_UNIT_SCHEMA = {
+    type: "object",
+    properties: { id: { type: "string" }, name: { type: "string" }, plural: { type: "string" }, default: { type: "boolean" } },
+    required: %w[id name plural]
+  }.freeze
+  READING_TYPE_SCHEMA = {
+    type: "object",
+    properties: { id: { type: "string" }, name: { type: "string" }, unit: { type: %w[string null] } },
+    required: %w[id name unit]
+  }.freeze
 
   PLACE_SCHEMA = {
     type: "object",
-    properties: { id: { type: "string" }, name: { type: "string" }, full_name: { type: "string" }, kind: { type: "string" } },
-    required: %w[id name full_name kind]
+    properties: { id: { type: "string" }, name: { type: "string" }, full_name: { type: "string" }, type: TYPE_SCHEMA },
+    required: %w[id name full_name type]
   }.freeze
   NULLABLE_PLACE = { anyOf: [ PLACE_SCHEMA, { type: "null" } ] }.freeze
 
@@ -30,6 +58,7 @@ module Mcp::InventoryRecords
       manufacturer: { type: %w[string null] },
       manufacturer_part_number: { type: %w[string null] },
       unit: { type: "string" },
+      stock_unit: STOCK_UNIT_SCHEMA,
       tracked: { type: "boolean" },
       active: { type: "boolean" },
       total_stock: { type: "integer" },
@@ -37,14 +66,14 @@ module Mcp::InventoryRecords
       running_low: { type: "boolean" },
       out_of_stock: { type: "boolean" }
     },
-    required: %w[id name team unit tracked active total_stock reorder_point running_low out_of_stock]
+    required: %w[id name team unit stock_unit tracked active total_stock reorder_point running_low out_of_stock]
   }.freeze
 
   UNIT_REF_SCHEMA = {
     type: "object",
     properties: {
       id: { type: "string" }, code: { type: "string" }, item: Mcp::Tool::REF_SCHEMA,
-      condition: { type: "string", enum: CONDITIONS }, condition_label: { type: "string" },
+      condition: CONDITION_SCHEMA, condition_label: { type: "string" },
       installed_in: { anyOf: [ { type: "object", properties: { id: { type: "string" }, code: { type: "string" } } }, { type: "null" } ] }
     },
     required: %w[id code item condition condition_label installed_in]
@@ -86,7 +115,8 @@ module Mcp::InventoryRecords
       category: item.category.presence,
       manufacturer: item.manufacturer.presence,
       manufacturer_part_number: item.manufacturer_part_number.presence,
-      unit: item.unit.presence || "each",
+      unit: item.unit,
+      stock_unit: stock_unit_json(item.stock_unit),
       tracked: item.tracked?,
       active: item.active?,
       total_stock: total,
@@ -101,7 +131,7 @@ module Mcp::InventoryRecords
     return nil if location.nil?
 
     full_name = full_names&.dig(location.id) || location.full_name
-    { id: location.neat_id, name: location.name, full_name: full_name, kind: location.kind }
+    { id: location.neat_id, name: location.name, full_name: full_name, type: type_json(location.location_type) }
   end
 
   def unit_ref_json(unit)
@@ -109,9 +139,38 @@ module Mcp::InventoryRecords
       id: unit.neat_id,
       code: unit.identifier_name,
       item: item_ref_json(unit.item),
-      condition: unit.condition,
+      condition: condition_json(unit.unit_condition),
       condition_label: unit.condition_label,
       installed_in: unit.installed_in && { id: unit.installed_in.neat_id, code: unit.installed_in.identifier_name }
     }
+  end
+
+  def type_json(type)
+    { id: type.neat_id, name: type.name, plural: type.plural_name, holds_stock: type.holds_stock?,
+      holds_installed_parts: type.holds_installed_parts? }
+  end
+
+  def condition_json(condition)
+    { id: condition.neat_id, name: condition.name, key: condition.key, needs_attention: condition.needs_attention?,
+      out_of_service: condition.out_of_service? }
+  end
+
+  def stock_unit_json(stock_unit)
+    { id: stock_unit.neat_id, name: stock_unit.name, plural: stock_unit.plural_name, default: stock_unit.default? }
+  end
+
+  def reading_type_json(type)
+    { id: type.neat_id, name: type.name, unit: type.unit_label }
+  end
+
+  # A row of a managed list from what a caller sent: its ID, or its key or name where the pages'
+  # pickers show names (case ignored). Rows are looked up among all of them, so a retired one a
+  # record still has can be named; the domain action refuses one that can't be picked.
+  def list_row(scope, value, what)
+    text = value.to_s.strip
+    row = Mcp.find_by_neat_id(scope, text) ||
+      scope.find_by(key: text) ||
+      scope.where("LOWER(name) = ?", text.downcase).order(active: :desc).first
+    row || invalid_argument!("No #{what} is #{text.inspect}")
   end
 end

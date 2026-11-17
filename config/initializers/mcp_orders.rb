@@ -22,6 +22,7 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::ListPurchases)
   Mcp.register_tool(Mcp::Tools::GetPurchase)
   Mcp.register_tool(Mcp::Tools::ListVendors)
+  Mcp.register_tool(Mcp::Tools::ListOrderLists)
   Mcp.register_tool(Mcp::Tools::ListFundingSources)
   Mcp.register_tool(Mcp::Tools::FundingSourceReport)
 

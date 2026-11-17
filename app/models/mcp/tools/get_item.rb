@@ -10,7 +10,7 @@ class Mcp::Tools::GetItem < Mcp::Tool
 
   tool_name "get_item"
   description "One inventory item as its page shows it: details, where to buy it, total stock, on order, and stock by place " \
-    "with full place names and when each was last counted. A tracked item lists its units by where they are."
+    "with full place names and when each was last counted. A tracked item lists its units by where they are and the readings its checks ask for."
   scope :read
   feature :inventory
   input_schema(
@@ -53,9 +53,9 @@ class Mcp::Tools::GetItem < Mcp::Tool
           required: %w[group place units]
         }
       },
-      reading_fields: { type: "array", items: { type: "object", properties: { name: { type: "string" }, unit: { type: %w[string null] } } } }
+      reading_types: { type: "array", items: Mcp::InventoryRecords::READING_TYPE_SCHEMA }
     ),
-    required: Mcp::InventoryRecords::ITEM_SCHEMA[:required] + %w[on_order home sources stock units reading_fields]
+    required: Mcp::InventoryRecords::ITEM_SCHEMA[:required] + %w[on_order home sources stock units reading_types]
   )
 
   def call(item_id:)
@@ -71,7 +71,7 @@ class Mcp::Tools::GetItem < Mcp::Tool
       sources: item.item_sources.map { |source| source_json(source) },
       stock: stock_json(item),
       units: item.tracked? ? units_json(item) : [],
-      reading_fields: Array(item.reading_fields).map { |field| { name: field["name"].to_s, unit: field["unit"].presence } }
+      reading_types: item.reading_types.map { |type| reading_type_json(type) }
     )
   end
 
@@ -104,8 +104,8 @@ class Mcp::Tools::GetItem < Mcp::Tool
 
   # The units panel's groups, in its order.
   def units_json(item)
-    units = ctx.policy_scope(item.item_units).includes(:location, :installed_in, :item).order(:code).to_a
-    retired, current = units.partition(&:condition_retired?)
+    units = ctx.policy_scope(item.item_units).includes(:location, :installed_in, :item, :unit_condition).order(:code).to_a
+    retired, current = units.partition(&:out_of_service?)
     repair, working = current.partition(&:flagged?)
     on_machines, stored = working.partition(&:on_machine?)
     inside, spare = stored.partition(&:installed_in_id?)

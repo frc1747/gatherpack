@@ -21,6 +21,18 @@ module Mcp::OrderRecords
   NULLABLE_MONEY = { anyOf: [ MONEY_SCHEMA, { type: "null" } ] }.freeze
   NULLABLE_REF = { anyOf: [ Mcp::Tool::REF_SCHEMA, { type: "null" } ] }.freeze
 
+  # Rows of the managed lists the order forms pick from.
+  PAYMENT_METHOD_SCHEMA = {
+    type: "object",
+    properties: { id: { type: "string" }, name: { type: "string" }, reimburse: { type: "boolean" } },
+    required: %w[id name reimburse]
+  }.freeze
+  PROBLEM_KIND_SCHEMA = {
+    type: "object",
+    properties: { id: { type: "string" }, name: { type: "string" } },
+    required: %w[id name]
+  }.freeze
+
   REQUEST_REF_SCHEMA = {
     type: "object",
     properties: { id: { type: "string" }, title: { type: "string" } },
@@ -123,6 +135,22 @@ module Mcp::OrderRecords
   }.freeze
 
   private
+
+  def payment_method_json(method)
+    { id: method.neat_id, name: method.name, reimburse: method.reimburse? }
+  end
+
+  def problem_kind_json(kind)
+    { id: kind.neat_id, name: kind.name }
+  end
+
+  # An active row of a managed list from an ID, key or name (case ignored), or an invalid-argument
+  # error listing the active names.
+  def active_list_row(scope, value, what)
+    text = value.to_s.strip
+    row = Mcp.find_by_neat_id(scope, text) || scope.find_by(key: text) || scope.find_by("LOWER(name) = ?", text.downcase)
+    row || invalid_argument!("#{what} must be one of: #{scope.ordered.map(&:name).join(", ")}")
+  end
 
   def order_words
     @order_words ||= Mcp::OrderWords.new(ctx.user)

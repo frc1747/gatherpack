@@ -16,6 +16,7 @@ Rails.application.config.to_prepare do
   Mcp.register_tool(Mcp::Tools::ListLocations)
   Mcp.register_tool(Mcp::Tools::ReorderList)
   Mcp.register_tool(Mcp::Tools::ListMachines)
+  Mcp.register_tool(Mcp::Tools::ListInventoryLists)
   Mcp.register_tool(Mcp::Tools::GetUnit)
 
   # Writes

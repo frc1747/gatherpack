@@ -13,7 +13,7 @@ class Mcp::Tools::InventoryReadsTest < ActionDispatch::IntegrationTest
     StockMovement.record!(kind: :added, item: @stock.screws, location: @stock.bin, quantity: 4, person: @world.admin, reason: "Starting count")
     @paint = Item.create!(team: @world.art, name: "Paint", reorder_point: 1)
     @old = Item.create!(team: @world.club, name: "Old bracket", active: false)
-    @robot = Location.create!(team: @world.robotics, name: "Robot", kind: "machine")
+    @robot = Location.create!(team: @world.robotics, name: "Robot", location_type: LocationType.installable.first)
     @motors = 3.times.map do |index|
       ItemUnit.create_with_event!(item: @stock.motor, location: @stock.bin, person: @world.admin).tap { |unit| unit.update!(code: "MOT-#{index + 1}") }
     end
@@ -97,7 +97,7 @@ class Mcp::Tools::InventoryReadsTest < ActionDispatch::IntegrationTest
 
   test "list_machines and get_unit show what the machine and unit pages show" do
     VIEWERS.each do |name|
-      on_page = linked_on_page(viewer(name), inventory_machines_path, [ @robot ]) { |machine| inventory_machine_path(machine) }
+      on_page = linked_on_page(viewer(name), inventory_machine_type_path(@robot.location_type), [ @robot ]) { |machine| inventory_machine_path(machine) }
       result = call_as(viewer(name), "list_machines")
       if on_page.nil?
         assert_equal "Not allowed", result.error, name
@@ -113,7 +113,9 @@ class Mcp::Tools::InventoryReadsTest < ActionDispatch::IntegrationTest
     assert_equal [ [ "MOT-1" ], 0 ], [ machine["units"].map { |unit| unit["code"] }, machine["flagged"] ]
 
     unit = call_as(@world.requester, "get_unit", code: "mot-2").value
-    assert_equal [ @motors.second.neat_id, "needs_repair", "Shop › Cabinet › Bin" ], [ unit["id"], unit["condition"], unit["place"]["full_name"] ]
+    assert_equal [ @motors.second.neat_id, "needs_repair", "Shop › Cabinet › Bin" ], [ unit["id"], unit["condition"]["key"], unit["place"]["full_name"] ]
+    assert_equal [ true, false ], unit["condition"].values_at("needs_attention", "out_of_service")
+    assert_equal [ true, false ], unit["place"]["type"].values_at("holds_stock", "holds_installed_parts")
     assert_equal "Marked for repair New → Needs repair", unit["history"].first["text"]
     assert_equal %w[mark_for_repair tracked], unit["history"].map { |event| event["action"] }
     assert_equal %w[install move check], unit["actions"], "members don't mark repaired or retire"
@@ -122,17 +124,60 @@ class Mcp::Tools::InventoryReadsTest < ActionDispatch::IntegrationTest
     assert_equal "No part has the code MOT-2", call_as(@world.outsider, "get_unit", code: "MOT-2").error, "another team's unit is looked for only among those you see"
   end
 
-  test "list_machines uses the group's words and is refused when they're turned off" do
-    skip "needs the machine settings" unless Inventory.respond_to?(:machine_word)
-    saved = %i[inventory_machines inventory_machine_name inventory_machine_name_plural].index_with { |key| Settings[key] }
-    Settings[:inventory_machine_name] = "Project"
-    Settings[:inventory_machine_name_plural] = "Projects"
-    assert_equal({ "one" => "Project", "many" => "Projects" }, call_as(@world.requester, "list_machines").value["called"])
+  test "list_machines covers every type that holds installed parts and names each type" do
+    robot_type = @robot.location_type
+    arm_type = LocationType.create!(name: "Arm", plural: "Arms", holds_stock: false, holds_installed_parts: true)
+    arm = Location.create!(team: @world.robotics, name: "Arm 1", location_type: arm_type)
 
-    Settings[:inventory_machines] = "off"
-    assert_equal "Projects are turned off", call_as(@world.requester, "list_machines").error
-  ensure
-    saved&.each { |key, value| Settings[key] = value }
+    result = call_as(@world.requester, "list_machines").value
+    assert_equal [ "Machine", "Arm" ], result["types"].map { |type| type["name"] }
+    assert_equal [ @robot, arm ].map(&:neat_id).sort, result["machines"].map { |machine| machine["id"] }.sort
+    assert_equal [ arm_type.neat_id ], call_as(@world.requester, "list_machines", type_id: "Arm").value["machines"].map { |machine| machine["type"]["id"] }
+    assert_equal [ @robot.neat_id ], call_as(@world.requester, "list_machines", type_id: robot_type.neat_id).value["machines"].map { |machine| machine["id"] }
+    assert_match "isn't a type parts get installed on", call_as(@world.requester, "list_machines", type_id: "Storage").error
+
+    robot_type.update!(name: "Robot", plural: "Robots")
+    assert_equal "Robots", call_as(@world.requester, "list_machines").value["types"].first["plural"]
+
+    arm_type.retire!
+    assert_equal [ robot_type.neat_id ], call_as(@world.requester, "list_machines").value["types"].map { |type| type["id"] }
+    assert_equal [ @robot.neat_id ], call_as(@world.requester, "list_machines").value["machines"].map { |machine| machine["id"] }
+    assert_equal arm_type.neat_id, call_as(@world.requester, "list_locations", type_id: arm_type.neat_id).value["items"].first["type"]["id"],
+      "a retired type's places are still places"
+  end
+
+  test "list_inventory_lists gives each picker's active rows to whoever may use inventory" do
+    VIEWERS.each do |name|
+      result = call_as(viewer(name), "list_inventory_lists")
+      status, = page_for(viewer(name), inventory_items_path)
+      assert_equal status == 200, result.error.nil?, name
+    end
+
+    lists = call_as(@world.requester, "list_inventory_lists").value
+    assert_equal [ "Storage", "Machine" ], lists["place_types"].map { |type| type["name"] }
+    assert_equal [ [ true, false ], [ false, true ] ], lists["place_types"].map { |type| type.values_at("holds_stock", "holds_installed_parts") }
+    assert_equal [ "each" ], lists["stock_units"].select { |unit| unit["default"] }.map { |unit| unit["name"] }
+    assert_equal %w[new good worn needs_repair broken], lists["part_conditions"].map { |condition| condition["key"] }.first(5)
+    assert_equal %w[Hours Cycles Volts], lists["reading_types"].map { |type| type["name"] }
+    assert_equal "h", lists["reading_types"].first["unit"]
+
+    UnitCondition.find_by!(key: "broken").retire!
+    assert_not_includes call_as(@world.requester, "list_inventory_lists").value["part_conditions"].map { |condition| condition["key"] }, "broken"
+  end
+
+  test "get_item and get_unit give the stock unit and reading types by ID" do
+    hours = ReadingType.find_by!(key: "hours")
+    @stock.motor.update!(reading_type_ids: [ hours.id ])
+    item = call_as(@world.requester, "get_item", item_id: @stock.motor.neat_id).value
+    assert_equal [ [ hours.neat_id, "Hours", "h" ] ], item["reading_types"].map { |type| type.values_at("id", "name", "unit") }
+    assert_equal [ "each", true ], item["stock_unit"].values_at("name", "default")
+    assert_equal "each", item["unit"]
+
+    @motors.first.check!(by: @world.admin, readings: { "Hours" => 40 })
+    unit = call_as(@world.requester, "get_unit", unit_id: @motors.first.neat_id).value
+    assert_equal({ hours.neat_id => 40 }, unit["latest_readings"])
+    assert_equal [ hours.neat_id ], unit["reading_types"].map { |type| type["id"] }
+    assert_equal [ { hours.neat_id => 40 } ], unit["history"].map { |event| event["readings"] }.reject(&:empty?)
   end
 
   test "list_items pages with offset and says where the next page starts" do

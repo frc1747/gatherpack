@@ -10,7 +10,7 @@ class Mcp::Tools::InventoryWritesTest < ActionDispatch::IntegrationTest
   setup do
     StockMovement.record!(kind: :added, item: @stock.screws, location: @stock.bin, quantity: 12, person: @world.admin, reason: "Starting count")
     @drawer = Location.create!(parent: @stock.cabinet, name: "Drawer", code: "A-2")
-    @robot = Location.create!(team: @world.robotics, name: "Robot", kind: "machine")
+    @robot = Location.create!(team: @world.robotics, name: "Robot", location_type: LocationType.installable.first)
     @unit = ItemUnit.create_with_event!(item: @stock.motor, location: @stock.bin, person: @world.admin).tap { |unit| unit.update!(code: "MOT-1") }
   end
 
@@ -53,7 +53,7 @@ class Mcp::Tools::InventoryWritesTest < ActionDispatch::IntegrationTest
     assert_equal "Not found", call_as(@world.outsider, "record_unit_event", unit_id: @unit.neat_id, action: "check").error
 
     checked = call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "mark_for_repair", note: "Grinds")
-    assert_equal "needs_repair", checked.value["unit"]["condition"]
+    assert_equal "needs_repair", checked.value["unit"]["condition"]["key"]
     assert_equal "Say what was done", call_as(@world.buyer, "record_unit_event", unit_id: @unit.neat_id, action: "repaired").error
 
     assert_nil call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "take_off").error
@@ -65,10 +65,34 @@ class Mcp::Tools::InventoryWritesTest < ActionDispatch::IntegrationTest
   end
 
   test "record_unit_event records a check's readings, and refuses a reading the item doesn't ask for" do
-    @stock.motor.update!(reading_fields: [ { "name" => "Hours", "unit" => "h" } ])
+    hours = ReadingType.find_by!(key: "hours")
+    @stock.motor.update!(reading_type_ids: [ hours.id ])
     checked = call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", condition: "worn", readings: { "Hours" => 12.5 })
     assert_nil checked.error
-    assert_equal({ "Hours" => 12.5 }, call_as(@world.requester, "get_unit", unit_id: @unit.neat_id).value["latest_readings"])
+    assert_equal({ hours.neat_id => 12.5 }, call_as(@world.requester, "get_unit", unit_id: @unit.neat_id).value["latest_readings"])
+    by_id = call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", readings: { hours.neat_id => 14 })
+    assert_nil by_id.error
+    assert_equal({ hours.neat_id => 14 }, call_as(@world.requester, "get_unit", unit_id: @unit.neat_id).value["latest_readings"])
     assert_not_nil call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", readings: { "Volts" => 12 }).error
+  end
+
+  test "record_unit_event takes a condition by ID, key or name and follows the group's list" do
+    worn = UnitCondition.find_by!(key: "worn")
+    assert_equal "worn", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", condition: worn.neat_id).value["unit"]["condition"]["key"]
+    worn.update!(name: "Tired")
+    assert_equal "Tired", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", condition: "tired").value["unit"]["condition"]["name"]
+    assert_equal "No part condition is \"Weathered\"", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", condition: "Weathered").error
+
+    custom = UnitCondition.create!(name: "Sticky", needs_attention: true)
+    marked = call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "mark_for_repair", condition: custom.neat_id, note: "Sticks")
+    assert_equal [ "Sticky", true ], marked.value["unit"]["condition"].values_at("name", "needs_attention")
+    assert_equal "Pick a condition", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "check", condition: "retired").error
+    assert_match "Pick", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "mark_for_repair", condition: "good", note: "x").error
+  end
+
+  test "record_unit_event asks for the places the group's types allow" do
+    assert_match "Give a machine", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "install").error
+    @robot.location_type.update!(name: "Robot", plural: "Robots")
+    assert_match "Give a robot", call_as(@world.requester, "record_unit_event", unit_id: @unit.neat_id, action: "install").error
   end
 end

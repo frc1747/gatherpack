@@ -137,13 +137,16 @@ class Mcp::Tools::OrderWritesTest < ActionDispatch::IntegrationTest
     assert_equal "Not allowed", call_as(@world.requester, "record_purchase", lines: [ { id: bearing.neat_id } ]).error
     assert_equal "Tick items from one vendor.", call_as(@world.buyer, "record_purchase", lines: [ { id: bearing.neat_id }, { id: mystery.neat_id } ]).error
     assert_match "Say where", call_as(@world.buyer, "record_purchase", lines: [ { id: mystery.neat_id } ]).error
-    assert_match "paid_with must be one of", call_as(@world.buyer, "record_purchase", lines: [ { id: belt.neat_id } ], paid_with: "Cash").error
+    assert_match "payment_method_id must be one of: Team card, Paid personally",
+      call_as(@world.buyer, "record_purchase", lines: [ { id: belt.neat_id } ], payment_method_id: "Cash").error
+    personal = PaymentMethod.find_by!(name: "Paid personally")
 
     result = call_as(@world.buyer, "record_purchase", lines: [ { id: bearing.neat_id, price_cents: 350 }, { id: belt.neat_id } ],
-      vendor_order_number: "PD-77", shipping_cents: 400, tax_cents: 100, paid_with: "Personal card — reimburse")
+      vendor_order_number: "PD-77", shipping_cents: 400, tax_cents: 100, payment_method_id: personal.neat_id)
     assert_nil result.error
     purchase = Purchase.find_by_neat_id(result.value["purchase"]["id"])
     assert_equal [ "PD-77", @world.preferred_vendor, @world.buyer, @world.buyer ], [ purchase.vendor_order_number, purchase.vendor, purchase.buyer, purchase.reimburse_to ]
+    assert_equal personal, purchase.payment_method
     assert_equal [ 350, 900 ], [ bearing.reload.actual_unit_price_cents, belt.reload.actual_unit_price_cents ]
     assert_equal %w[ordered ordered], [ bearing.status, belt.status ]
     assert_equal 0, result.value["needs_reapproval"]
@@ -151,6 +154,8 @@ class Mcp::Tools::OrderWritesTest < ActionDispatch::IntegrationTest
 
     other = call_as(@world.buyer, "record_purchase", lines: [ { id: mystery.neat_id } ], other_vendor_name: "Corner Store")
     assert_equal "Corner Store", other.value["purchase"]["vendor_name"]
+    assert_equal PaymentMethod.active.ordered.first, other.then { |result| Purchase.find_by_neat_id(result.value["purchase"]["id"]).payment_method },
+      "the first active method when none is named"
     assert_equal "Corner Store", mystery.reload.purchase.other_vendor_name
   end
 
@@ -186,8 +191,9 @@ class Mcp::Tools::OrderWritesTest < ActionDispatch::IntegrationTest
     assert_equal [ "partly_received", [] ], [ result.value["line"]["status"], result.value["put_away_problems"] ]
     assert_equal 6, @stock.screws.stock_at(@stock.bin)
 
-    damaged = call_as(@world.teammate, "record_delivery", order_line_id: line.neat_id, condition: "damaged", note: "Bent")
-    assert_equal [ 4, "problem" ], [ damaged.value["delivery"]["quantity"], damaged.value["line"]["status"] ]
+    damaged = call_as(@world.teammate, "record_delivery", order_line_id: line.neat_id, problem_kind_id: "Damaged", note: "Bent")
+    assert_equal [ 4, "problem", "Damaged" ], [ damaged.value["delivery"]["quantity"], damaged.value["line"]["status"], damaged.value["delivery"]["problem_kind"]["name"] ]
+    assert_equal DeliveryProblemKind.find_by!(key: "damaged"), OrderDelivery.find_by_neat_id(damaged.value["delivery"]["id"]).delivery_problem_kind
     assert_equal "This item isn't waiting to be received.",
       call_as(@world.requester, "record_delivery", order_line_id: approved_request(@world).order_lines.first.neat_id).error
   end
@@ -251,5 +257,53 @@ class Mcp::Tools::OrderWritesTest < ActionDispatch::IntegrationTest
     sign_in treasurer.user
     post reallocate_orders_request_line_path(order_request, line), params: { funding_source_id: spare.id, reason: "Back" }
     assert_equal spare, line.reload.funding_source, "the reallocation page allows them the same"
+  end
+
+  test "record_purchase and record_delivery follow the group's payment methods and delivery problems" do
+    order_request = approved_request(@world, lines: [ { description: "Bearing", price: 3, vendor_id: @world.preferred_vendor.id },
+      { description: "Belt", price: 9, vendor_id: @world.preferred_vendor.id } ])
+    bearing, belt = order_request.order_lines.to_a
+    card = PaymentMethod.find_by!(name: "Team card")
+    card.retire!
+    assert_match "must be one of: Paid personally", call_as(@world.buyer, "record_purchase", lines: [ { id: bearing.neat_id } ], payment_method_id: card.neat_id).error
+
+    gift = PaymentMethod.create!(name: "Gift card")
+    result = call_as(@world.buyer, "record_purchase", lines: [ { id: bearing.neat_id } ], payment_method_id: "gift card")
+    assert_equal [ gift, nil ], [ Purchase.find_by_neat_id(result.value["purchase"]["id"]).payment_method, Purchase.find_by_neat_id(result.value["purchase"]["id"]).reimburse_to ]
+    buy(@world, [ belt ], vendor: @world.preferred_vendor)
+
+    scratched = DeliveryProblemKind.create!(name: "Scratched")
+    DeliveryProblemKind.find_by!(key: "wrong_item").retire!
+    assert_match "problem_kind_id must be one of: Damaged, Scratched",
+      call_as(@world.requester, "record_delivery", order_line_id: belt.neat_id, problem_kind_id: "Wrong item").error
+    good = call_as(@world.requester, "record_delivery", order_line_id: bearing.neat_id)
+    assert_equal [ "Good", nil ], good.value["delivery"].values_at("condition", "problem_kind")
+    flagged = call_as(@world.requester, "record_delivery", order_line_id: belt.neat_id, problem_kind_id: scratched.neat_id)
+    assert_equal [ scratched.neat_id, "problem" ], [ flagged.value["delivery"]["problem_kind"]["id"], flagged.value["line"]["status"] ]
+  end
+
+  test "get_purchase gives the payment method" do
+    order_request = approved_bought([ { description: "Bearing", price: 3 } ])
+    purchase = order_request.order_lines.first.purchase
+    purchase.update!(payment_method: PaymentMethod.find_by!(name: "Paid personally"), reimburse_to: @world.buyer)
+    json = call_as(@world.buyer, "get_purchase", purchase_id: purchase.neat_id).value
+    assert_equal [ "Paid personally", true ], json["payment_method"].values_at("name", "reimburse")
+    assert_equal @world.buyer.neat_id, json["reimburse_to"]["id"]
+  end
+
+  test "list_order_lists gives each picker's active rows to whoever its page shows them to" do
+    lists = call_as(@world.buyer, "list_order_lists").value
+    assert_equal [ "Team card", "Paid personally" ], lists["payment_methods"].map { |method| method["name"] }
+    assert_equal [ false, true ], lists["payment_methods"].map { |method| method["reimburse"] }
+    assert_equal [ "Damaged", "Wrong item" ], lists["delivery_problems"].map { |kind| kind["name"] }
+    assert_empty lists["approval_steps"], "the Approval Steps screen is for admins"
+
+    assert_empty call_as(@world.requester, "list_order_lists").value["payment_methods"], "the Record purchase form is for buyers"
+    assert_equal 2, call_as(@world.requester, "list_order_lists").value["delivery_problems"].size
+
+    steps = call_as(@world.admin, "list_order_lists").value["approval_steps"]
+    assert_equal ApprovalStep.active.ordered.map(&:neat_id), steps.map { |step| step["id"] }
+    DeliveryProblemKind.find_by!(key: "damaged").retire!
+    assert_equal [ "Wrong item" ], call_as(@world.admin, "list_order_lists").value["delivery_problems"].map { |kind| kind["name"] }
   end
 end

@@ -3,8 +3,8 @@
 # Mirrors: the request is found in policy_scope(OrderRequest) and asked receive? (the
 # requester, followers, team members who see it, buyers and managers), and the item on it. Then
 # OrderLine#record_delivery! with quantity (default: what's still to come), date (default
-# today), condition and note: good items count towards the quantity, damaged or wrong ones make
-# it a problem for its buyer, and the same notices go out. Its refusals come back as
+# today), problem_kind_id (an active delivery problem; none means it arrived good) and note: good
+# items count towards the quantity, a problem makes it one for its buyer, and the same notices go out. Its refusals come back as
 # invalid-argument errors with the page's message.
 #
 # put_away is the receive dialog's Inventory section, run by the receiving extension
@@ -17,7 +17,7 @@ class Mcp::Tools::RecordDelivery < Mcp::Tool
 
   tool_name "record_delivery"
   description "Record a delivery of an ordered item, as Receive does: how many came (default: all still to come), when " \
-    "(default today), condition (good, damaged, wrong_item) and a note. Damaged or wrong items go to the buyer as a problem. " \
+    "(default today), a delivery problem if there was one (problem_kind_id, see list_order_lists; none means it arrived good) and a note. A problem goes to the buyer. " \
     "put_away also records good items into inventory, as the dialog's Inventory section does. Returns the delivery and the item."
   scope :write
   feature :orders
@@ -26,7 +26,7 @@ class Mcp::Tools::RecordDelivery < Mcp::Tool
       order_line_id: { type: "string", description: "The item's ID (ordl_)" },
       quantity: { type: "integer", minimum: 1, maximum: 1_000_000, description: "How many came (default: what's still to come)" },
       received_on: { type: "string", format: "date", description: "YYYY-MM-DD; default today" },
-      condition: { type: "string", enum: %w[good damaged wrong_item], description: "Default good" },
+      problem_kind_id: { type: "string", description: "What was wrong: a delivery problem's ID (dpk_), key or name. Default: nothing, it arrived good" },
       note: { type: "string" },
       put_away: {
         type: "object",
@@ -49,9 +49,10 @@ class Mcp::Tools::RecordDelivery < Mcp::Tool
     properties: {
       delivery: {
         type: "object",
-        properties: { id: { type: "string" }, quantity: { type: "integer" }, condition: { type: "string" }, received_on: { type: "string" },
+        properties: { id: { type: "string" }, quantity: { type: "integer" }, condition: { type: "string", description: "Good, or the problem's name" },
+                      problem_kind: { anyOf: [ Mcp::OrderRecords::PROBLEM_KIND_SCHEMA, { type: "null" } ] }, received_on: { type: "string" },
                       received_by: Mcp::Tool::REF_SCHEMA },
-        required: %w[id quantity condition received_on received_by]
+        required: %w[id quantity condition problem_kind received_on received_by]
       },
       line: Mcp::OrderRecords::LINE_SCHEMA,
       order_request: Mcp::OrderRecords::REQUEST_SCHEMA,
@@ -60,19 +61,22 @@ class Mcp::Tools::RecordDelivery < Mcp::Tool
     required: %w[delivery line order_request put_away_problems]
   )
 
-  def call(order_line_id:, quantity: nil, received_on: nil, condition: "good", note: nil, put_away: nil)
+  def call(order_line_id:, quantity: nil, received_on: nil, problem_kind_id: nil, note: nil, put_away: nil)
     line = find_order_line(order_line_id)
     ctx.authorize!(line.order_request, :receive?)
+    Orders::Lists.seed!
+    problem_kind = active_list_row(DeliveryProblemKind.active, problem_kind_id, "problem_kind_id") if problem_kind_id.present?
     params = put_away ? put_away_params(put_away) : {}
     problems_before = OrderInventory::Current.problems.size
     delivery = order_action do
       line.record_delivery!(by: ctx.person, quantity: quantity || [ line.to_come_quantity, 1 ].max,
-        received_on: parse_order_date(received_on, "received_on") || Date.current, condition: condition, note: note.presence, params: params)
+        received_on: parse_order_date(received_on, "received_on") || Date.current, problem_kind: problem_kind, note: note.presence, params: params)
     end
     line.reload
     changed!(delivery, line)
     {
-      delivery: { id: delivery.neat_id, quantity: delivery.quantity, condition: delivery.condition, received_on: date_json(delivery.received_on),
+      delivery: { id: delivery.neat_id, quantity: delivery.quantity, condition: delivery.condition_name,
+                  problem_kind: (problem_kind_json(delivery.delivery_problem_kind) if delivery.delivery_problem_kind), received_on: date_json(delivery.received_on),
                   received_by: person_json(ctx.person) },
       line: line_json(line),
       order_request: request_json(line.order_request.reload),

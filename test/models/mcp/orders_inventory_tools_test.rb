@@ -7,10 +7,10 @@ class Mcp::OrdersInventoryToolsTest < ActionDispatch::IntegrationTest
 
   ORDERS_TOOLS = %w[
     list_order_requests get_order_request orders_waiting_on_me list_to_buy list_purchases get_purchase list_vendors
-    list_funding_sources funding_source_report create_order_request decide_order_request record_purchase update_order_line
+    list_order_lists list_funding_sources funding_source_report create_order_request decide_order_request record_purchase update_order_line
     record_delivery set_funding_source
   ].freeze
-  INVENTORY_TOOLS = %w[list_items get_item list_locations reorder_list list_machines get_unit record_stock_movement record_unit_event].freeze
+  INVENTORY_TOOLS = %w[list_items get_item list_locations reorder_list list_machines list_inventory_lists get_unit record_stock_movement record_unit_event].freeze
   WRITES = %w[
     create_order_request decide_order_request record_purchase update_order_line record_delivery set_funding_source
     record_stock_movement record_unit_event
@@ -20,7 +20,7 @@ class Mcp::OrdersInventoryToolsTest < ActionDispatch::IntegrationTest
     tools.map(&:tool_name)
   end
 
-  test "registers 15 orders tools and 8 inventory tools, each gated on its feature" do
+  test "registers 16 orders tools and 9 inventory tools, each gated on its feature" do
     orders = Mcp.tools.select { |tool| tool.features == [ :orders ] }
     inventory = Mcp.tools.select { |tool| tool.features == [ :inventory ] }
     assert_equal ORDERS_TOOLS.sort, names(orders).sort

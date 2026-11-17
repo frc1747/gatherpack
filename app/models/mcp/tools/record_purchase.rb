@@ -4,8 +4,9 @@
 # Mirrors: authorize Purchase, :create? (buyers); the items must all still be waiting for this
 # buyer and come from one vendor (Orders::ToBuy#selection, with its messages). The vendor is the
 # items' own; for "Not sure" items it's vendor_id (an active vendor) or other_vendor_name, as the
-# page asks. A price left out keeps the estimate. paid_with must be one of orders_paid_with's
-# choices, and one that reimburses sets the buyer to be paid back, as the page does. Then
+# page asks. A price left out keeps the estimate. payment_method_id is an active payment method
+# (the first when left out), found by ID or name; one that reimburses sets the buyer to be paid back,
+# as the page does. Then
 # Orders::RecordPurchase, which locks the requests, puts the items on the purchase, tells the
 # requesters, and sends items whose price rose past the tolerance back for re-approval (counted
 # in needs_reapproval). Receipts and Record in ledger are left to the page. Needs the orders
@@ -15,7 +16,7 @@ class Mcp::Tools::RecordPurchase < Mcp::Tool
 
   tool_name "record_purchase"
   description "Record a vendor order for items on your To buy list (list_to_buy), all from one vendor: order number, order " \
-    "date (default today), price each (default: the estimate), shipping, tax, paid with, expected date, tracking link and a " \
+    "date (default today), price each (default: the estimate), shipping, tax, payment method (list_order_lists; default the first), expected date, tracking link and a " \
     "note. For \"Vendor not chosen\" items, say where they were bought (vendor_id or other_vendor_name). Buyers only. " \
     "Returns the order, and how many items now need re-approval because they cost more than was approved."
   scope :write
@@ -42,7 +43,7 @@ class Mcp::Tools::RecordPurchase < Mcp::Tool
       tracking_url: { type: "string" },
       shipping_cents: { type: "integer", minimum: 0, maximum: 100_000_000 },
       tax_cents: { type: "integer", minimum: 0, maximum: 100_000_000 },
-      paid_with: { type: "string", description: "One of the organization's paid-with choices (default the first)" },
+      payment_method_id: { type: "string", description: "An active payment method (pmt_, or its name); default the first. See list_order_lists" },
       note: { type: "string" }
     },
     required: %w[lines],
@@ -55,7 +56,7 @@ class Mcp::Tools::RecordPurchase < Mcp::Tool
   )
 
   def call(lines:, vendor_id: nil, other_vendor_name: nil, vendor_order_number: nil, ordered_on: nil, expected_on: nil,
-    tracking_url: nil, shipping_cents: nil, tax_cents: nil, paid_with: nil, note: nil)
+    tracking_url: nil, shipping_cents: nil, tax_cents: nil, payment_method_id: nil, note: nil)
     ctx.authorize!(Purchase, :create?)
     chosen = lines.map { |line| [ Mcp.find_by_neat_id(OrderLine, line["id"]) || not_found!, line["price_cents"] ] }
     group = order_action { Orders::ToBuy.new(ctx.person).selection(chosen.map { |line, _| line.id }) }
@@ -68,7 +69,7 @@ class Mcp::Tools::RecordPurchase < Mcp::Tool
       shipping_cents: shipping_cents.to_i,
       tax_cents: tax_cents.to_i,
       note: note.presence
-    }.merge(payment(paid_with))
+    }.merge(payment(payment_method_id))
     prices = chosen.filter_map { |line, cents| [ line.id, cents ] unless cents.nil? }.to_h
 
     purchase = order_action do
@@ -95,12 +96,12 @@ class Mcp::Tools::RecordPurchase < Mcp::Tool
     end
   end
 
-  # paid_with and who to pay back, as the page sets them.
-  def payment(label)
-    choices = Orders::Config.paid_with
-    choice = label.nil? ? choices.first : choices.find { |option| option.label == label }
-    invalid_argument!("paid_with must be one of: #{choices.map(&:label).join(", ")}") if choice.nil?
+  # The payment method and who to pay back, as the page sets them.
+  def payment(value)
+    Orders::Lists.seed!
+    methods = PaymentMethod.active
+    method = value.blank? ? methods.ordered.first : active_list_row(methods, value, "payment_method_id")
 
-    { paid_with: choice.label, reimburse_to_id: choice.reimburse ? ctx.person.id : nil }
+    { payment_method: method, reimburse_to_id: method.reimburse? ? ctx.person.id : nil }
   end
 end
