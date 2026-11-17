@@ -1,5 +1,5 @@
 # Adds the documentation personas (Demo Member, Demo Lead, Demo Mentor, Demo
-# Student, Demo Veteran, Demo Parent) to an anonymized demo database. Run by bin/fork-make-demo-db after anonymize.rb.
+# Student, Demo Veteran, Demo Parent, Demo Admin) to an anonymized demo database. Run by bin/fork-make-demo-db after anonymize.rb.
 # Everything goes through the models, as if each persona had done it.
 #
 # Env: DEMO_PASSWORD.
@@ -33,7 +33,12 @@ PERSONAS = [
     listed_forms: true, item_quantities: true, checkins: { "Outreach" => 2, "Concessions" => 2 }, attends: 1 },
   # Guardian of Demo Member and Sam Student, through the relationship Concessions pools on.
   { first: "Demo", last: "Parent", email: "demo.parent@example.invalid", gender: "F", shirt_size: "M", birthday: "1980-02-08",
-    teams: {}, badges: [], forms: 0, signups: 0, guardian_of: %w[demo.member@example.invalid demo.student@example.invalid] }
+    teams: { "Team 1747 - Parents" => false }, badges: [], forms: 0, signups: 0,
+    guardian_of: %w[demo.member@example.invalid demo.student@example.invalid] },
+  # Site admin for the admin guides (Settings, Setup pages, imports). Not a
+  # mentor and holds no badges, so it gets no approval or to-do notices.
+  { first: "Demo", last: "Admin", email: "demo.admin@example.invalid", gender: "M", shirt_size: "L", birthday: "1978-06-11",
+    teams: {}, badges: [], forms: 0, signups: 0, admin: true }
 ].freeze
 
 def say(label, value = nil)
@@ -78,6 +83,7 @@ PERSONAS.each_with_index do |spec, index|
   say "#{spec[:first]} #{spec[:last]}"
   user = User.find_or_initialize_by(email: spec[:email])
   user.password = PASSWORD if user.new_record?
+  user.admin = true if spec[:admin]
   user.save!
   PaperTrail.request.whodunnit = user.id
   person = Person.find_or_initialize_by(user: user)
