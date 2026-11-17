@@ -89,6 +89,10 @@ The health check endpoint `/up` is excluded from both the HTTPS redirect and
 `Host` header validation, so container and load balancer probes work without
 any extra configuration.
 
+Limit request body sizes at the proxy as well (nginx `client_max_body_size`,
+Caddy `request_body { max_size }`). Set it to the largest upload you accept;
+GatherPack refuses gateway webhook bodies over 1 MB itself.
+
 `ROOT_URL` must be the full public URL including the scheme
 (`https://gather.example.com`). It drives the hostname allowed by Rails' DNS
 rebinding protection and the URLs generated in outgoing email.
@@ -103,6 +107,69 @@ rebinding protection and the URLs generated in outgoing email.
 3. `/setup` links to the rest of the initial configuration, and `/jobs` shows
    the background job dashboard (protected by the HTTP basic auth credentials
    in `JOBS_DASHBOARD_USER` / `JOBS_DASHBOARD_PASSWORD`).
+
+## Payment and email gateways
+
+Gateways (Stripe, Postmark, Resend, SMTP) are set up by an architect at
+`/gateways`. Their webhook URLs are public, so GatherPack checks every webhook
+request before acting on it:
+
+- Stripe events must carry a valid `Stripe-Signature`. A Stripe gateway without
+  a webhook signing secret refuses every event, and its page says it isn't
+  ready. Copy the endpoint's signing secret from the Stripe dashboard into the
+  gateway's Secret field.
+- Resend events must carry a valid Svix signature. A Resend gateway without a
+  webhook signing secret refuses them the same way.
+- Postmark inbound mail must sign in with the user name and password in the
+  receiving gateway's webhook URL, shown on its page. Paste that whole URL into
+  the Postmark server's inbound webhook setting, and again whenever you
+  regenerate the password; until then inbound mail is refused with 401.
+- Requests to any other gateway's webhook URL are refused with 400. That
+  includes the bounce and spam-complaint webhook a Postmark sending gateway
+  registers with Postmark; GatherPack never acted on those events, so delete
+  that webhook in Postmark or ignore its failed deliveries.
+- Webhook bodies over 1 MB are refused with 413, and more than 120 webhook
+  requests a minute from one address get 429.
+
+## Stored secrets and encryption keys
+
+Gateway API keys, tokens and passwords are encrypted in the database, and the
+OAuth client secrets in `storage/settings.pstore`, with Active Record
+encryption. Each of its three keys is taken, in order, from:
+
+1. `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY`,
+   `ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY` and
+   `ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT` (generate values with
+   `bin/rails db:encryption:init`);
+2. the `active_record_encryption` section of the Rails credentials;
+3. otherwise, a key derived from `SECRET_KEY_BASE`.
+
+Setting explicit keys later is safe as long as `SECRET_KEY_BASE` stays the
+same: secrets saved with the derived keys stay readable. OAuth client secrets
+are encrypted again with the new keys at the next start, but gateway secrets
+still depend on `SECRET_KEY_BASE` until they are encrypted again. To move them,
+set the explicit keys, restart, and run
+`docker compose -f docker-compose.production.yml exec web ./bin/rails gateways:reencrypt`
+before you change `SECRET_KEY_BASE`.
+
+Changing `SECRET_KEY_BASE` while relying on derived keys, or replacing explicit
+keys, makes the stored secrets unreadable. Gateway pages then say so: enter the
+secrets again on each gateway's edit page (and the OAuth client secrets on the
+settings page), or restore the old keys (unreadable gateway secrets stay stored
+until they are entered again or cleared from the gateway page).
+
+### Upgrading from plain-text gateway secrets
+
+- The migrations move existing secrets into the encrypted column. Rolling them
+  back moves them back into the plain `configuration` column.
+- Audit log rows written before the upgrade still contain the old secrets.
+  Remove them with
+  `docker compose -f docker-compose.production.yml exec web ./bin/rails gateways:scrub_audit_log`,
+  then **rotate every gateway key** (Stripe, Postmark, Resend, SMTP): backups
+  taken before the upgrade still contain them.
+- OAuth client secrets already in `storage/settings.pstore` are encrypted the
+  first time they are read, at startup. Copies of that file made before still
+  hold them in plain text; rotate the client secrets with the providers.
 
 ## Using an external PostgreSQL server
 
@@ -133,6 +200,11 @@ docker run --rm -v gatherpack_storage:/storage -v "$PWD:/backup" alpine \
 
 `pg_dumpall` is used rather than `pg_dump` because of the three databases
 above.
+
+Keep `SECRET_KEY_BASE` (and the `ACTIVE_RECORD_ENCRYPTION_*` keys, if you set
+them) safe alongside the backups. Gateway secrets in a restored database, and
+OAuth client secrets in a restored `storage` volume, can only be read with the
+same keys.
 
 ## Operating the stack
 

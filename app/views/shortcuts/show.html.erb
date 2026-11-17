@@ -6,9 +6,13 @@
   </div>
   <div class="card-body">
     <p>
-      <a href="<%= @shortcut.target %>">
+      <% if @shortcut.safe_target? %>
+        <a href="<%= @shortcut.target %>">
+          <tt><%= @shortcut.target %></tt>
+        </a>
+      <% else %>
         <tt><%= @shortcut.target %></tt>
-      </a>
+      <% end %>
     </p>
   </div>
   <div class="card-footer">

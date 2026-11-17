@@ -77,12 +77,13 @@ class Mcp::Tools::GetBadgeTest < ActiveSupport::TestCase
   test "on a self-service badge, a plain member gets the ID of their own assignment only" do
     badge = create_world_badge_with(:has_account)
     own = BadgeAssignment.create!(badge: badge, person: person(:alpha_member))
-    teammate = BadgeAssignment.create!(badge: badge, person: person(:ward))
+    BadgeAssignment.create!(badge: badge, person: person(:ward))
     manager = BadgeAssignment.create!(badge: badge, person: person(:alpha_manager))
     ids = ->(viewer) { get(viewer, badge).value["holders"].to_h { |holder| [ holder["id"], holder["badge_assignment_id"] ] } }
 
     assert_equal({ person(:alpha_member).neat_id => own.neat_id, person(:ward).neat_id => nil, person(:alpha_manager).neat_id => nil }, ids.call(:alpha_member))
-    assert_equal({ person(:alpha_member).neat_id => own.neat_id, person(:ward).neat_id => teammate.neat_id, person(:alpha_manager).neat_id => manager.neat_id }, ids.call(:alpha_manager))
+    # In this build a team-less "has account" badge is each holder's own, a manager's too.
+    assert_equal({ person(:alpha_member).neat_id => nil, person(:ward).neat_id => nil, person(:alpha_manager).neat_id => manager.neat_id }, ids.call(:alpha_manager))
   end
 
   test "a badge assignment ID is there exactly when remove_badge accepts it" do

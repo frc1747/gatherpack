@@ -9,6 +9,11 @@ class AnnouncementPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, Announcement).resolve.exists?(record.id)
+  end
+
   def new?
     user.admin? || manageable_teams.present?
   end
@@ -19,6 +24,10 @@ class AnnouncementPolicy < ApplicationPolicy
 
   def update?
     create?
+  end
+
+  def destroy?
+    update?
   end
 
   private

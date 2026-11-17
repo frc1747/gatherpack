@@ -42,7 +42,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
   end
 
   def refresh_params(app, token, **extra)
-    { grant_type: "refresh_token", refresh_token: token.refresh_token, client_id: app.uid, client_secret: app.plaintext_secret }.merge(extra)
+    { grant_type: "refresh_token", refresh_token: token.plaintext_refresh_token, client_id: app.uid, client_secret: app.plaintext_secret }.merge(extra)
   end
 
   def refreshable_token(app, scopes)
@@ -103,7 +103,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
     mcp_only = OauthApplication.create!(name: "MCP only", redirect_uri: "https://client.example.com/callback", scopes: "mcp_read", confidential: true)
 
     with_pkce_supported(false) do
-      get "/oauth/authorize", params: authorize_params(@public_app, scope: "").except(:scope)
+      get "/oauth/authorize", params: authorize_params(@public_app, scope: "", **s256).except(:scope)
       assert_response :success
       assert_includes response.body, "Read your profile"
       assert_not_includes response.body, "AI assistant"
@@ -116,7 +116,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
   test "an array or hash scope is dropped and grants no MCP scope" do
     with_pkce_supported(false) do
       [ [ "mcp_read" ], { a: "mcp_read" } ].each do |scope|
-        get "/oauth/authorize", params: authorize_params(@public_app, scope: scope)
+        get "/oauth/authorize", params: authorize_params(@public_app, scope: scope, **s256)
 
         assert_response :success
         assert_includes response.body, "Read your profile"
@@ -134,7 +134,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
       end
       assert_response :bad_request
 
-      post "/oauth/authorize?scope=user_read", params: authorize_params(@public_app, scope: "mcp_read")
+      post "/oauth/authorize?scope=user_read", params: authorize_params(@public_app, scope: "mcp_read", **s256)
       assert_redirected_to(/code=/)
       assert_equal "user_read", Doorkeeper::AccessGrant.by_token(code_from_redirect).scopes.to_s
     end
@@ -155,6 +155,7 @@ class McpPkceTest < ActionDispatch::IntegrationTest
 
   test "a refresh after the application's scopes are cleared gives no MCP access" do
     token = refreshable_token(@confidential_app, "mcp_write")
+    # The form requires a scope now, but an application saved before that can have none.
     @confidential_app.update_columns(scopes: "")
 
     post "/oauth/token", params: refresh_params(@confidential_app, token)
@@ -213,13 +214,18 @@ class McpPkceTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Make changes in GatherPack through an AI assistant"
   end
 
-  test "unsupported: non-MCP requests are unchanged" do
+  # This build requires PKCE from every public client (force_pkce), MCP scope or not.
+  test "unsupported: non-MCP requests get no MCP rule, and a public client still needs a challenge" do
     with_pkce_supported(false) do
-      [ @public_app, @confidential_app ].each do |app|
-        get "/oauth/authorize", params: authorize_params(app, scope: "user_read")
+      [ authorize_params(@public_app, scope: "user_read", **s256), authorize_params(@confidential_app, scope: "user_read") ].each do |params|
+        get "/oauth/authorize", params: params
         assert_response :success
         assert_includes response.body, "Read your profile"
       end
+
+      get "/oauth/authorize", params: authorize_params(@public_app, scope: "user_read")
+      assert_response :bad_request
+      assert_not_includes response.body, "confidential clients"
     end
   end
 
@@ -283,12 +289,17 @@ class McpPkceTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Make changes in GatherPack through an AI assistant"
   end
 
-  test "supported: non-MCP requests are unchanged" do
+  # This build requires PKCE from every public client (force_pkce), MCP scope or not.
+  test "supported: non-MCP requests get no MCP rule, and a public client still needs a challenge" do
     with_pkce_supported(true) do
-      [ @public_app, @confidential_app ].each do |app|
-        get "/oauth/authorize", params: authorize_params(app, scope: "user_read")
+      [ authorize_params(@public_app, scope: "user_read", **s256), authorize_params(@confidential_app, scope: "user_read") ].each do |params|
+        get "/oauth/authorize", params: params
         assert_response :success
       end
+
+      get "/oauth/authorize", params: authorize_params(@public_app, scope: "user_read")
+      assert_response :bad_request
+      assert_not_includes response.body, "PKCE"
     end
   end
 

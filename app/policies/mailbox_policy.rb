@@ -9,6 +9,11 @@ class MailboxPolicy < ApplicationPolicy
     end
   end
 
+  # Records are loaded through Scope, which decides who may see them.
+  def show?
+    true
+  end
+
   def create?
     user.admin?
   end
