@@ -1,0 +1,4 @@
+<%= render layout: "action", locals: { unit: @unit, title: "Retire", submit: "Retire", url: retire_inventory_unit_path(@unit),
+      note_label: "Why?", note_required: true, danger: true } do |form| %>
+  <p>A retired unit keeps its history, drops out of every count, and can't be installed again.</p>
+<% end %>
