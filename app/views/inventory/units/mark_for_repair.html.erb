@@ -1,0 +1,14 @@
+<%= render layout: "action", locals: { unit: @unit, title: "Mark for repair", submit: "Mark for repair",
+      url: mark_for_repair_inventory_unit_path(@unit), note_label: "What's wrong?", note_required: true, danger: true } do |form| %>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">Condition</legend>
+    <div class="d-grid gap-2">
+      <% ItemUnit::FLAGGED.each_with_index do |condition, index| %>
+        <div>
+          <%= radio_button_tag :condition, condition, index.zero?, class: "btn-check", autocomplete: "off" %>
+          <%= label_tag "condition_#{condition}", ItemUnit::CONDITION_LABELS.fetch(condition), class: "btn btn-lg btn-outline-danger w-100 text-start" %>
+        </div>
+      <% end %>
+    </div>
+  </fieldset>
+<% end %>
