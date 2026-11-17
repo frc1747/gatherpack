@@ -1,0 +1,15 @@
+<fieldset data-controller="setting-rows">
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <%= hidden_field_tag setting_input_name(input, "items", ""), "", id: nil %>
+  <div data-setting-rows-target="list">
+    <% (input.items + [ "" ]).each_with_index do |item, index| %>
+      <label class="visually-hidden" for="<%= setting_input_id(input, index) %>"><%= setting.name %> <%= index + 1 %></label>
+      <%= text_field_tag setting_input_name(input, "items", ""), item, id: setting_input_id(input, index), class: "form-control mb-2", style: "min-height: 44px" %>
+    <% end %>
+  </div>
+  <template data-setting-rows-target="template">
+    <%= text_field_tag setting_input_name(input, "items", ""), "", id: nil, "aria-label": setting.name, class: "form-control mb-2", style: "min-height: 44px" %>
+  </template>
+  <button type="button" class="btn btn-secondary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add another</button>
+  <div class="form-text">Clear a box to remove it.</div>
+</fieldset>
