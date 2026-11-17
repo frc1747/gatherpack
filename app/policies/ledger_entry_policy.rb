@@ -9,6 +9,11 @@ class LedgerEntryPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, LedgerEntry).resolve.exists?(record.id)
+  end
+
   def split?
     update?
   end
@@ -21,11 +26,14 @@ class LedgerEntryPolicy < ApplicationPolicy
     person.admin? || record.ledger.team.all_managers.include?(person)
   end
 
+  # Changing or deleting one half of a transfer changes the other half too,
+  # which is usually in another team's ledger, so the user has to manage the
+  # ledgers of every linked entry as well.
   def update?
-    person.admin? || record.ledger.team.all_managers.include?(person)
+    person.admin? || [ record, *record.linked_entries ].all? { |entry| entry.ledger.team.all_managers.include?(person) }
   end
 
   def destroy?
-    person.admin? || record.ledger.team.all_managers.include?(person)
+    update?
   end
 end

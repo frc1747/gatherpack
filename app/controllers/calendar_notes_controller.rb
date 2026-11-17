@@ -3,7 +3,7 @@ class CalendarNotesController < InternalController
 
   # GET /calendar_notes
   def index
-    @q = policy_scope(CalendarNote).ransack(params[:q])
+    @q = policy_scope(CalendarNote).ransack(params[:q], auth_object: current_user)
     @q.sorts = "name asc" if @q.sorts.empty?
     @calendar_notes = @q.result(distinct: true).page(params[:page])
   end
@@ -34,7 +34,13 @@ class CalendarNotesController < InternalController
 
   # PATCH/PUT /calendar_notes/1
   def update
-    if @calendar_note.update(calendar_note_params)
+    # set_calendar_note checked the note as stored; check it as it will be
+    # saved too, so it can't be moved onto a team or person the user may not
+    # write notes for.
+    @calendar_note.assign_attributes(calendar_note_params)
+    authorize @calendar_note
+
+    if @calendar_note.save
       redirect_to @calendar_note, notice: "Calendar note was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity

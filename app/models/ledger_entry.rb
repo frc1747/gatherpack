@@ -14,6 +14,7 @@ class LedgerEntry < ApplicationRecord
   accepts_nested_attributes_for :child_entries, allow_destroy: true, reject_if: :unsplit?
 
   has_many_attached :receipts
+  validates :receipts, attachment: { content_types: AttachmentValidator::IMAGE_TYPES + %w[application/pdf], max_size: 10.megabytes }
 
   monetize :amount_cents
 
@@ -30,6 +31,15 @@ class LedgerEntry < ApplicationRecord
 
   def linked_entries
     LedgerEntry.where(id: (ledger_entry_links.flat_map(&:ledger_entries).map(&:id) - [ id ]))
+  end
+
+  # The other half of a transfer carries the same amount with the opposite
+  # sign. Nothing else (approval, tags, receipts, splits) is shared.
+  def mirror_amount_to_linked_entries
+    return true unless saved_change_to_amount_cents?
+
+    linked_entries.each { |entry| entry.update!(amount_cents: -amount_cents) }
+    true
   end
 
   def update_associated_entries

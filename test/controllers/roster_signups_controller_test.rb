@@ -170,6 +170,8 @@ class RosterSignupsControllerTest < ActionDispatch::IntegrationTest
     assert signup.reload.active?
 
     travel_to @event.start_time + 1.hour do
+      sign_out :user
+      sign_in person(:worker).user
       patch mark_signup_sheet_roster_signup_path(@sheet, signup), params: { status: "no_show" }
     end
     assert signup.reload.no_show?

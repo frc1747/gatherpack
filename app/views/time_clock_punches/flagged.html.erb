@@ -23,13 +23,13 @@
       <button class="btn btn-outline-secondary btn-sm" type="button"
               data-bs-toggle="collapse" data-bs-target="#still-clocked-in-body"
               aria-expanded="true">Toggle</button>
-      <% if @still_clocked_in.any? %>
+      <% if @deletable_counts[:still_clocked_in].positive? %>
         <button type="button" class="btn btn-danger btn-sm"
                 data-controller="confirm-delete"
                 data-confirm-delete-url-value="<%= bulk_destroy_time_clock_punches_path(violation: "still_clocked_in") %>"
-                data-confirm-delete-message-value="Delete all <%= @still_clocked_in.size %> open punches? This cannot be undone."
+                data-confirm-delete-message-value="Delete all <%= @deletable_counts[:still_clocked_in] %> open punches? This cannot be undone."
                 data-action="click->confirm-delete#open">
-          Delete All (<%= @still_clocked_in.size %>)
+          Delete All (<%= @deletable_counts[:still_clocked_in] %>)
         </button>
       <% end %>
     </div>
@@ -95,13 +95,13 @@
       <button class="btn btn-outline-secondary btn-sm" type="button"
               data-bs-toggle="collapse" data-bs-target="#too-long-body"
               aria-expanded="true">Toggle</button>
-      <% if @too_long.any? %>
+      <% if @deletable_counts[:too_long].positive? %>
         <button type="button" class="btn btn-danger btn-sm"
                 data-controller="confirm-delete"
                 data-confirm-delete-url-value="<%= bulk_destroy_time_clock_punches_path(violation: "too_long") %>"
-                data-confirm-delete-message-value="Delete all <%= @too_long.size %> over-long punches? This cannot be undone."
+                data-confirm-delete-message-value="Delete all <%= @deletable_counts[:too_long] %> over-long punches? This cannot be undone."
                 data-action="click->confirm-delete#open">
-          Delete All (<%= @too_long.size %>)
+          Delete All (<%= @deletable_counts[:too_long] %>)
         </button>
       <% end %>
     </div>
@@ -158,13 +158,13 @@
       <button class="btn btn-outline-secondary btn-sm" type="button"
               data-bs-toggle="collapse" data-bs-target="#overlapping-body"
               aria-expanded="true">Toggle</button>
-      <% if @near_duplicates.any? %>
+      <% if @deletable_counts[:near_duplicates].positive? %>
         <button type="button" class="btn btn-danger btn-sm"
                 data-controller="confirm-delete"
                 data-confirm-delete-url-value="<%= bulk_destroy_time_clock_punches_path(violation: "near_duplicates") %>"
-                data-confirm-delete-message-value="Delete all <%= @near_duplicates.size %> overlapping punches? This cannot be undone."
+                data-confirm-delete-message-value="Delete <%= @deletable_counts[:near_duplicates] %> overlapping punches, keeping the longest punch of each overlap? This cannot be undone."
                 data-action="click->confirm-delete#open">
-          Delete All (<%= @near_duplicates.size %>)
+          Delete Overlaps (<%= @deletable_counts[:near_duplicates] %>)
         </button>
       <% end %>
     </div>

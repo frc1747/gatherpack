@@ -1,5 +1,6 @@
 # Who may use the MCP server. The badge limit applies to admins too, so it
-# can be used for a trial.
+# can be used for a trial. A kiosk account is kept to the time kiosk (see
+# KioskConfinement), so it is refused here too, even with a token made by hand.
 module Mcp::Access
   class << self
     def enabled?
@@ -7,7 +8,7 @@ module Mcp::Access
     end
 
     def allowed?(user)
-      enabled? && user&.person.present? && badge_allows?(user.person)
+      enabled? && user&.person.present? && !user.kiosk_account? && badge_allows?(user.person)
     end
 
     def writes_enabled?

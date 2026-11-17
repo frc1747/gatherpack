@@ -58,7 +58,7 @@
           <div class="row align-items-center">
             <% @groups[v].sort_by { |checkin| [ checkin.person.last_name.to_s, checkin.person.first_name.to_s ] }.each do |checkin| %>
               <div class="col-2 fs-6">
-                <%= render "people/person", person: checkin.person, footer: (checkin.notes if @notes) %>
+                <%= render "people/person", person: checkin.person, footer: (checkin.notes if @notes && policy(checkin).show_notes?) %>
               </div>
             <% end %>
           </div>

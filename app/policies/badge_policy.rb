@@ -1,4 +1,8 @@
 class BadgePolicy < ApplicationPolicy
+  # Kinds of team badge the team's managers look after. The admin kinds stay
+  # with admins.
+  MANAGED_PERMISSIONS = %w[added_by_manager added_by_manager_or_self added_by_current_member has_account].freeze
+
   class Scope < ApplicationPolicy::Scope
     def resolve
       if user.admin
@@ -9,6 +13,11 @@ class BadgePolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, Badge).resolve.exists?(record.id)
+  end
+
   def new?
      user.admin || person.all_managed_teams.present?
   end
@@ -17,26 +26,18 @@ class BadgePolicy < ApplicationPolicy
     user.admin || (record.team && person.all_managed_teams.include?(record.team))
   end
 
+  # Changing or deleting a badge is for admins and, on a team badge that
+  # managers may hand out, the managers of that team. Being allowed to take a
+  # badge oneself doesn't make it one's own to change (BadgeAssignmentPolicy).
   def update?
-    case record.permission
-    when "added_by_admin"
-      user.admin
-    when "added_by_admin_or_self"
-      true
-    when "added_by_manager"
-      (person.all_managed_teams.include?(record.team)) || user.admin
-    when "added_by_current_member"
-      (person.all_teams.include?(record.team)) || user.admin
-    when "added_by_manager_or_self"
-      true
-    when "has_account"
-      true
-    else
-      user.admin
-    end
+    user.admin? || (record.team.present? && MANAGED_PERMISSIONS.include?(record.permission) && manages?(record.team))
+  end
+
+  def edit?
+    update?
   end
 
   def destroy?
-    edit?
+    update?
   end
 end

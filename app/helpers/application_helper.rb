@@ -1,6 +1,18 @@
 module ApplicationHelper
   DEFAULT_EVENT_COLOR = "#3788d8"
 
+  # Redcarpet copies a fenced code block's info string into the class
+  # attribute as is, which would let authors apply any CSS class on the page.
+  # Keep only the first word ("ruby", or ".ruby" in {.ruby}), as a language-
+  # class.
+  class MarkdownRenderer < Redcarpet::Render::HTML
+    def block_code(code, language)
+      language = language.to_s.split.first&.delete_prefix(".")
+      klass = %( class="language-#{ERB::Util.h(language)}") if language&.match?(/\A[\w+#.-]+\z/)
+      "<pre><code#{klass}>#{ERB::Util.h(code)}</code></pre>\n"
+    end
+  end
+
   def contrasting_color(color, dark: "#000", light: "#fff")
     Color::RGB.by_hex(color.to_s).brightness > 0.5 ? dark : light
   rescue ArgumentError
@@ -14,10 +26,13 @@ module ApplicationHelper
   end
 
   def hex_color?(color)
-    Color::RGB.by_hex(color.to_s)
-    true
-  rescue ArgumentError
-    false
+    color.to_s.match?(/\A#\h{3}(\h{3})?\z/)
+  end
+
+  # Returns the color if it's safe to put in a style attribute (a hex color
+  # or a CSS color name), otherwise the fallback.
+  def safe_color(color, fallback = nil)
+    hex_color?(color) || color.to_s.match?(/\A[a-z]+\z/i) ? color : fallback
   end
 
   def as_badge(obj, **opts)
@@ -50,7 +65,7 @@ module ApplicationHelper
       time_clock_punch_as_badge(obj, **opts)
     else
       raise "Tried to display a #{obj.class} as a badge but couldn't!"
-    end.html_safe
+    end
   end
 
   def flash_to_class(type)
@@ -99,8 +114,12 @@ module ApplicationHelper
     end
   end
 
+  # Renders member-written Markdown. Raw HTML in the source is dropped, and
+  # Rails' sanitizer then removes links and images with unsafe protocols
+  # (javascript:, vbscript:, data:text/html and the like).
   def md(content)
-    md = Redcarpet::Markdown.new(Redcarpet::Render::HTML, autolink: true, no_intra_emphasis: true, fenced_code_blocks: true, lax_spacing: true)
-    md.render(content || "").html_safe
+    renderer = MarkdownRenderer.new(filter_html: true)
+    md = Redcarpet::Markdown.new(renderer, autolink: true, no_intra_emphasis: true, fenced_code_blocks: true, lax_spacing: true)
+    sanitize(md.render(content || ""))
   end
 end
