@@ -23,6 +23,7 @@
   <%= f.input :badge_ids, label: "Also give these badges", collection: (intake_assignable_badges | f.object.badges.to_a).sort_by(&:name), label_method: :name, value_method: :id, input_html: { multiple: true, size: 4 }, include_blank: false, hint: "Given when approved. On teams that need no approval, only badges members can give themselves." %>
   <%= render "team_list", f: f, teams: teams, attribute: :pick_one_team_ids, label: "Also pick one of these teams", hint: "The approving manager picks one." %>
   <%= f.input :pick_one_required, label: "A pick is required to approve" %>
+  <%= render "intake/registrations/checklist_fields", f: f %>
 
   <h2 class="h5 mt-4">Families</h2>
   <%= f.input :guardian_relationship_type_id, label: "Link guardians with", collection: RelationshipType.where.not(guardianship: :none).order(:parent_label), label_method: :identifier_name, value_method: :id,
