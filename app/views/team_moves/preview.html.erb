@@ -1,0 +1,33 @@
+<%= render "teams/show_shared" %>
+
+<div class="card">
+  <div class="card-header"><h2 class="mb-0">Check before you move</h2></div>
+  <div class="card-body">
+    <p class="fw-semibold"><%= @move.sentence %></p>
+    <% if @move.ready.any? %>
+      <ul>
+        <% @move.ready.each do |person| %>
+          <li><%= person.display_name %></li>
+        <% end %>
+      </ul>
+    <% end %>
+    <% if @move.skipped.any? %>
+      <h3 class="h6">Skipped</h3>
+      <ul class="text-body-secondary">
+        <% @move.skipped.each do |skip| %>
+          <li><%= skip.record.display_name %>: <%= skip.reason %></li>
+        <% end %>
+      </ul>
+    <% end %>
+    <p class="small text-body-secondary">They leave <%= @team.name %> and join <%= @move.to.name %>. Their history stays.</p>
+
+    <%= form_with url: team_move_people_path(@team), method: :post do %>
+      <%= hidden_field_tag :to_team_id, @move.to.id %>
+      <% @move.ready.each do |person| %>
+        <%= hidden_field_tag "ids[]", person.id, id: nil %>
+      <% end %>
+      <%= submit_tag "Move #{@move.ready.size}", class: "btn btn-primary" if @move.ready.any? %>
+      <%= link_to "Cancel", team_move_people_path(@team), class: "btn btn-link" %>
+    <% end %>
+  </div>
+</div>
