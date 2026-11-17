@@ -1,0 +1,31 @@
+<%# The values of a profile field test: a tick for each choice when the field
+    is a select or multi-select, a text to type into for any other. Both are
+    drawn and the field picked above shows one (checklist-field-values). Saved
+    values the field no longer offers stay ticked, so they can be seen and
+    unticked. %>
+<% kind = Checklists::Kinds::PersonField %>
+<% offered = kind.offered_settings(current_user.person, item).find { |one| one.key == :field_id }&.options.to_a.map(&:last) %>
+<% choice_fields = ::PersonField.where(id: offered).select { |field| kind.choice_field?(field) } %>
+<% saved = kind.values(item) %>
+<% joined = saved.join(", ") %>
+<div data-controller="checklist-field-values" data-checklist-field-values-field-value="checklist_item_config_field_id">
+  <% choice_fields.each do |field| %>
+    <%# Someone who can't read the field sees only the values already saved, not its other choices. %>
+    <% readable = current_user.person.admin? || field.readable_subjects_for(current_user.person).exists? %>
+    <% choices = readable ? field.choice_list : [] %>
+    <% extra = field.id == item.config["field_id"] ? saved.reject { |one| choices.any? { |choice| choice.casecmp?(one) } } : [] %>
+    <fieldset data-checklist-field-values-target="choices" data-field-id="<%= field.id %>" class="d-none" disabled>
+      <legend class="form-label fs-6"><%= setting.label %></legend>
+      <% (choices + extra).each_with_index do |choice, index| %>
+        <div class="form-check">
+          <%= check_box_tag "#{name}[]", choice, saved.any? { |one| one.casecmp?(choice) }, id: "#{field_id}_#{field.id}_#{index}", class: "form-check-input" %>
+          <%= label_tag "#{field_id}_#{field.id}_#{index}", choice, class: "form-check-label" %>
+        </div>
+      <% end %>
+    </fieldset>
+  <% end %>
+  <div data-checklist-field-values-target="text">
+    <%= label_tag field_id, setting.label, class: "form-label" %>
+    <%= text_field_tag "#{name}[]", joined, id: field_id, autocomplete: "off", class: "form-control" %>
+  </div>
+</div>
