@@ -9,7 +9,9 @@ module MyGatherpack
   # they're exempt from it. Which items are named follows the viewer: only
   # those the viewer's status_for shows. A check-in counts when a count item
   # counts check-ins at its event type, or counts sign-ups on a sheet (or a
-  # position on it) where the person has a sign-up at that event (§6.4).
+  # position on it) where the person has a sign-up at that event (§6.4). A
+  # sign-up marked done at an event they didn't check in at counts by its
+  # sheet or position only.
   #
   # The viewer is the person or a guardian of theirs. A guardian gets no
   # punches and no meetings (they stay out for guardians), and a record's
@@ -56,7 +58,8 @@ module MyGatherpack
     end
 
     # An event in a section. how is :checked_in, or :signed_up for a
-    # sign-up marked done at an event the person didn't check in at.
+    # sign-up marked done at an event the person didn't check in at. hours
+    # is nil for an all-day event the person has no punch in.
     # item_ids are the checklist items covering the person that count it.
     # record is what its name links to: the Event when the viewer may open
     # it, else the sign-up's sheet, or nil for no link.
@@ -79,7 +82,20 @@ module MyGatherpack
       # end_time − start_time for a timed event (Event#hours); nil for
       # all-day and TBA ones, whose times are only their day.
       def event_hours(event)
-        event.hours if event.timed? && event.complete?
+        event.hours if event.timed? && event.complete? && !all_day?(event)
+      end
+
+      # An all_day event, or a timed one that runs from midnight to the end
+      # of a day, as events saved before time_kind existed and imported
+      # whole-day events do.
+      def all_day?(event)
+        return true if event.all_day?
+        return false unless event.timed? && event.complete?
+
+        starts = event.start_time.in_time_zone
+        ends = event.end_time.in_time_zone
+        starts == starts.beginning_of_day && ends > starts &&
+          (ends == ends.beginning_of_day || ends.seconds_since_midnight >= 1.day - 1.minute)
       end
     end
 
@@ -258,6 +274,8 @@ module MyGatherpack
     # filter: the ids of the count and attendance items covering them, on
     # checklists in force, that they aren't exempt from, as
     # { event_types: { type id => item ids }, events: { event id => item ids }, meetings: item ids }.
+    # events holds the sheet and position items counting the person's own
+    # sign-ups at each event in the season, checked in at or not.
     def coverage
       @coverage ||= begin
         found = { event_types: Hash.new { [] }, events: Hash.new { [] }, meetings: [] }
@@ -285,9 +303,10 @@ module MyGatherpack
       sheet_sources = sources.select { |source| SHEET_SOURCES.include?(source.kind) }
       return if sheet_sources.empty?
 
-      # The person's own sign-ups at the events they checked in at.
-      places = Signup.counted.where(on_behalf_of_id: person.id).joins(signup_slot: :signup_position)
-        .where(signup_slots: { event_id: checkins.map(&:event_id) })
+      # The person's own sign-ups at events in the season: those they
+      # checked in at, and those marked done where they didn't.
+      places = Signup.counted.where(on_behalf_of_id: person.id).joins(signup_slot: %i[ signup_position event ])
+        .where(events: { start_time: season.times })
         .pluck("signup_slots.event_id", "signup_positions.signup_sheet_id", "signup_slots.signup_position_id")
       places.each do |event_id, sheet_id, position_id|
         sheet_sources.each do |source|
@@ -303,16 +322,16 @@ module MyGatherpack
     end
 
     def checkin_line(event, reachable)
-      DoneLine.new(event: event, how: :checked_in, hours: self.class.event_hours(event),
+      DoneLine.new(event: event, how: :checked_in, hours: event_hours(event),
         item_ids: (coverage[:event_types][event.event_type_id] + coverage[:events][event.id]).uniq,
         record: (event if reachable.include?(event.id)))
     end
 
-    # A sign-up at an event the person didn't check in at counts toward
-    # nothing here: coverage counts check-ins (§6.4).
+    # A sign-up at an event the person didn't check in at counts toward the
+    # items counting their sign-ups there; check-in sources don't count it.
     def signup_line(signup, reachable)
       event = signup.event
-      DoneLine.new(event: event, how: :signed_up, hours: self.class.event_hours(event), item_ids: [],
+      DoneLine.new(event: event, how: :signed_up, hours: event_hours(event), item_ids: coverage[:events][event.id],
         record: reachable.include?(event.id) ? event : signup.signup_sheet)
     end
 
@@ -349,8 +368,25 @@ module MyGatherpack
     end
 
     def total_hours(events)
-      hours = events.filter_map { |event| self.class.event_hours(event) }
+      hours = events.filter_map { |event| event_hours(event) }
       hours.sum if hours.any?
+    end
+
+    # An event's hours (Activity.event_hours). An all-day one has none
+    # unless the person was clocked in during it: then the punched hours
+    # within its day, own page only, as punches are.
+    def event_hours(event)
+      return self.class.event_hours(event) unless self.class.all_day?(event)
+
+      worked = punches.sum { |punch| punch_hours_within(punch, event) }
+      worked.round(2) if worked.positive?
+    end
+
+    def punch_hours_within(punch, event)
+      return 0 unless punch.start_time && overlaps?(punch, event)
+
+      ends = [ punch.end_time || Time.current, event.end_time ].min
+      [ (ends - [ punch.start_time, event.start_time ].max) / 1.hour, 0 ].max
     end
 
     def punch_hours(punch)

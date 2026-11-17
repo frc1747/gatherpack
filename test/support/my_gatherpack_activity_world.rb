@@ -54,6 +54,31 @@ module MyGatherpackActivityWorld
     item
   end
 
+  # Two Concessions events the person (on behalf of themselves, or of
+  # on_behalf_of) signed up for and was marked done at, without checking in:
+  # "Stocking" on a sheet that "Concessions shifts", a count item on Fall
+  # Requirements, counts; "Shelving" on a sheet nothing counts. Guardians
+  # may sign up their wards on both. Returns [stocking, shelving].
+  def build_concessions_signups(name = :member, on_behalf_of: name, read_level: nil)
+    concessions = EventType.create!(name: "Concessions")
+    events = [ [ "Stocking", "2026-10-10 09:00" ], [ "Shelving", "2026-10-11 09:00" ] ].map do |title, start_time|
+      event = create_activity_event(title, start_time, concessions)
+      sheet = SignupSheet.create!(title: "#{title} crew", team: @members, status: :open,
+        on_behalf_of_mode: :related_people, others_relationship_type_ids: [ @parent_of.id ])
+      sheet.signup_sheet_events.create!(event: event)
+      position = sheet.signup_positions.create!(name: "Helper", capacity: 5)
+      Signup.create!(signup_slot: position.signup_slots.find_by!(event: event), person: person(name), on_behalf_of: person(on_behalf_of),
+        signed_up_by: person(name), status: :fulfilled)
+      [ event, sheet ]
+    end
+    item = @requirements.checklist_items.new(kind: "count", label: "Concessions shifts", read_level: read_level)
+    item.config_params = { base_amount: 2, unit: "shifts" }
+    item.save!
+    item.commitment.commitment_sources.create!(kind: "signups", subject: events.first.last)
+    refresh(@requirements)
+    events.map(&:first)
+  end
+
   def create_activity_event(name, start_time, event_type, hours: 3, team: @members, **attributes)
     start_time = Time.zone.parse(start_time)
     Event.create!(name: name, start_time: start_time, end_time: start_time + hours.hours, event_type: event_type, team: team, **attributes)

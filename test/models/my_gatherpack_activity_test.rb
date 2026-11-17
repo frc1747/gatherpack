@@ -222,6 +222,58 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_equal [ 3, 10.0 ], [ outreach.events, outreach.hours ]
   end
 
+  test "a sign-up marked done counts toward the items counting its sheet, with no check-in" do
+    stocking, shelves = build_concessions_signups
+    activity = activity_for(:member)
+    lines = activity.done_sections.flat_map(&:lines).select { |line| line.how == :signed_up }.index_by(&:event)
+
+    assert_equal [ "Concessions shifts" ], activity.counts_toward(lines.fetch(stocking))
+    assert_empty activity.counts_toward(lines.fetch(shelves)), "no checklist counts the shelving sheet"
+  end
+
+  test "a ward's sign-up marked done names the item the guardian may see" do
+    stocking, shelves = build_concessions_signups(:kid, read_level: "family")
+    guardian = activity_for(:kid, viewer: :parent)
+    lines = guardian.done_sections.flat_map(&:lines).index_by(&:event)
+
+    assert_equal [ "Concessions shifts" ], guardian.counts_toward(lines.fetch(stocking))
+    assert_empty guardian.counts_toward(lines.fetch(shelves))
+  end
+
+  test "a sign-up done on behalf of someone else counts nothing for the one who did it" do
+    stocking, = build_concessions_signups(:parent, on_behalf_of: :kid)
+    activity = activity_for(:parent)
+
+    assert_empty activity.counts_toward(activity.done_sections.flat_map(&:lines).find { |line| line.event == stocking })
+  end
+
+  # All-day events
+
+  test "an all-day event has no hours and adds none to totals" do
+    whole_day = create_activity_event("Concessions day", "2026-10-24 00:00", @build, hours: 24)
+    whole_day.checkins.create!(person: person(:member))
+    activity = activity_for(:member)
+    build = activity.done_sections.find { |section| section.key == @build.neat_id }
+
+    assert MyGatherpack::Activity.all_day?(@build_day)
+    assert MyGatherpack::Activity.all_day?(whole_day), "a timed event from midnight to midnight is all day"
+    assert_not MyGatherpack::Activity.all_day?(@outreach1)
+    assert_equal [ nil, nil ], build.lines.map(&:hours)
+    assert_nil build.hours
+    assert_nil activity.kind_row(@build.neat_id).hours
+  end
+
+  test "an all-day event the person was clocked in during shows the punched hours" do
+    TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
+      start_time: Time.zone.parse("2026-09-12 09:00"), end_time: Time.zone.parse("2026-09-12 13:30"))
+    activity = activity_for(:member)
+    build = activity.done_sections.find { |section| section.key == @build.neat_id }
+
+    assert_equal [ 4.5 ], build.lines.map(&:hours)
+    assert_equal 4.5, build.hours
+    assert_nil MyGatherpack::Activity.uncounted(person(:member), @season).first.hours, "Home reads no punches"
+  end
+
   # A ward
 
   test "a guardian sees no punches and no meetings row on a ward's page" do

@@ -54,8 +54,17 @@ module MyGatherpackActivityHelper
 
   # "Sat Oct 3 · Town Hall · 3 h · Checked in"
   def activity_line_detail(line)
-    [ line.event.start_time.strftime("%a %b %-d"), line.event.location.presence, (activity_hours(line.hours) if line.hours),
+    [ line.event.start_time.strftime("%a %b %-d"), line.event.location.presence, activity_line_length(line),
       (line.how == :signed_up ? "Signed up" : "Checked in") ].compact.join(" · ")
+  end
+
+  # "3 h"; "All day" for an all-day event with no punched hours.
+  def activity_line_length(line)
+    if line.hours
+      activity_hours(line.hours)
+    elsif MyGatherpack::Activity.all_day?(line.event)
+      "All day"
+    end
   end
 
   # The anchor of a kind's section on the page; Home's "Also this season" links to it.
