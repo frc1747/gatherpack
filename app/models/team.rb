@@ -9,7 +9,7 @@ class Team < ApplicationRecord
   has_many :events
   has_many :memberships, dependent: :destroy
   has_many :membership_applications, dependent: :destroy
-  has_many :people, through: :memberships
+  has_many :people, through: :memberships, after_remove: :remove_badges_outside_team
   has_many :events
   has_many :pages
   has_many :time_clock_periods
@@ -18,6 +18,12 @@ class Team < ApplicationRecord
   has_many :calendar_notes, as: :noteable
   has_many :questions
   enum :join_permission, { added_by_admin: 0, added_by_manager: 1, added_by_current_member: 2, has_account: 3, requires_approval: 4 }
+
+  # Moving or deleting a team changes which teams its members, and the
+  # managers above it, belong to. Captured before deleting nullifies children.
+  before_destroy :capture_related_team_ids, prepend: true
+  after_destroy :remove_related_badges_outside_team
+  after_update :remove_related_badges_outside_team, if: :saved_change_to_parent_id?
 
   validates :name, presence: true
   validates :join_permission, inclusion: { in: join_permissions.keys }
@@ -144,6 +150,26 @@ class Team < ApplicationRecord
   end
 
   private
+
+  # Removing people through person_ids= deletes memberships without their
+  # callbacks.
+  def remove_badges_outside_team(person)
+    BadgeAssignment.remove_outside_team(person.badge_assignments)
+  end
+
+  def capture_related_team_ids
+    @related_team_ids = [ id ] + all_ancestor_ids + all_descendant_ids
+  end
+
+  # Members of this team and the teams below it may have left the teams
+  # above it; managers above it may have left the teams below it. A deleted
+  # team's own badges have no members left.
+  def remove_related_badges_outside_team
+    team_ids = @related_team_ids || ([ id ] + all_descendant_ids + all_ancestor_ids)
+    old_parent = Team.find_by(id: parent_id_before_last_save) if saved_change_to_parent_id?
+    team_ids += [ old_parent.id ] + old_parent.all_ancestor_ids if old_parent
+    BadgeAssignment.remove_outside_team(BadgeAssignment.joins(:badge).where(badges: { team_id: team_ids }))
+  end
 
   # A team under itself makes all_ancestors and all_descendants recurse
   # forever. Walk up from the new parent, remembering where we've been, so
