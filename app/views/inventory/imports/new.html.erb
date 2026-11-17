@@ -1,0 +1,25 @@
+<% breadcrumb :inventory_import %>
+<% content_for :title, "Import items" %>
+
+<div class="card">
+  <div class="card-header"><h1>Import items</h1></div>
+  <%= form_with url: inventory_import_path, method: :post, multipart: true, class: "card-body" do %>
+    <% if @import.errors.any? %>
+      <div class="alert alert-danger"><%= @import.errors.full_messages.to_sentence %></div>
+    <% end %>
+    <p>A CSV file with a header line. Columns (any order; only Name is needed):
+      Name, Category, Manufacturer, Manufacturer part number, Unit, Vendor, Vendor part number, Link,
+      Place code, Quantity, Reorder point, Reorder quantity.</p>
+    <p class="text-body-secondary">A row whose manufacturer part number (or name, when it has none) matches an item already here
+      updates that item. A quantity is recorded as Added, reason “Imported”, at the place with that code. You'll see a preview first.</p>
+    <div class="mb-3">
+      <%= label_tag :team_id, "Team for new items", class: "form-label" %>
+      <%= select_tag :team_id, options_from_collection_for_select(managed_teams, :id, :name, @import.team_id), class: "form-select" %>
+    </div>
+    <div class="mb-3">
+      <%= label_tag :file, "CSV file", class: "form-label" %>
+      <%= file_field_tag :file, accept: ".csv,text/csv", class: "form-control", required: true %>
+    </div>
+    <%= submit_tag "Preview", class: "btn btn-primary" %>
+  <% end %>
+</div>

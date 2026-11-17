@@ -1,0 +1,24 @@
+<% inventory_stylesheet %>
+<%= simple_form_for location, url: location.new_record? ? inventory_locations_path : inventory_location_path(location), html: { class: "inventory-form" } do |f| %>
+  <%= f.error_notification %>
+  <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :name, hint: "Shop, cabinet, shelf or bin" %>
+      <%= f.input :code, hint: "Short label text, such as A-3. Unique within the top-level place" %>
+      <%= managed_list_select f, :location_type_id, list: :location_types, label: "Type", include_blank: false %>
+      <%= f.input :note, as: :text, input_html: { rows: 2 } %>
+    </div>
+    <div class="col-md-6">
+      <%= f.input :parent_id, label: "Inside", collection: policy_scope(Location).storage.where.not(id: location.persisted? ? location.subtree_ids : []).ordered.map { |place| [ place.full_name, place.id ] }.sort,
+        include_blank: "Nothing (a top-level place)" %>
+      <% if location.parent_id.nil? %>
+        <%= f.input :team_id, label: "Team", collection: managed_teams, include_blank: false, hint: "Places inside take this place's team" %>
+      <% end %>
+      <%= f.input :position, hint: "Lower numbers come first" %>
+      <%= f.input :active, hint: "A place with something kept in it can't be made inactive" %>
+    </div>
+  </div>
+  <%= f.button :submit, "Save place", class: "btn btn-primary" %>
+<% end %>
