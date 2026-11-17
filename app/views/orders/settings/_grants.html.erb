@@ -6,7 +6,7 @@
 <% teams = input.teams %>
 <fieldset data-controller="setting-rows">
   <legend class="form-label fs-6"><%= input.setting.name %></legend>
-  <div class="form-text mb-2">Each badge works for the team picked and the teams below it. No team: every team.</div>
+  <div class="form-text mb-2">Each badge works up to the team picked, and the teams below it. No team: every team.</div>
   <div data-setting-rows-target="list">
     <% input.rows.each_with_index do |row, index| %>
       <%= render "orders/settings/grant_row", input: input, index: index, row: row, badge_names: badge_names, teams: teams %>

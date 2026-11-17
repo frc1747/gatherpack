@@ -95,6 +95,29 @@ class Orders::FundingSourcesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the dates are date-only on the form and on the page" do
+    with_orders(@world) do
+      @source.update!(starts_on: "2026-09-01", ends_on: "2027-06-30", report_due_on: "2027-01-31", spent_outside_as_of: "2026-10-01")
+      sign_in @world.admin.user
+
+      get new_orders_funding_source_url
+      %w[starts_on ends_on report_due_on spent_outside_as_of].each do |field|
+        assert_select "input[type=date][name='funding_source[#{field}]']"
+      end
+      assert_select "input[type=datetime-local], input[type=datetime]", 0
+
+      get edit_orders_funding_source_url(@source)
+      assert_select "input[type=date][name='funding_source[starts_on]'][value='2026-09-01']"
+      assert_select "input[type=date][name='funding_source[report_due_on]'][value='2027-01-31']"
+      assert_select "input[type=date][name='funding_source[spent_outside_as_of]'][value='2026-10-01']"
+
+      get orders_funding_source_url(@source)
+      assert_match "September 01, 2026 to June 30, 2027", response.body
+      assert_match "January 31, 2027", response.body
+      assert_no_match(/\d{1,2}:\d{2}/, css_select("dl").text)
+    end
+  end
+
   test "saving a source keeps its documents, adds new ones and removes ticked ones" do
     with_orders(@world) do
       @source.documents.attach(io: StringIO.new("one"), filename: "one.txt")

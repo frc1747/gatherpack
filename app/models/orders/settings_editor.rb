@@ -1,10 +1,13 @@
 # Reads and writes the orders settings shown on Orders setup: who can ask,
 # who sees every request, who approves (one step, plus an optional second one over an amount), who
-# buys and how purchases are paid. It writes the same text and JSON the
-# readers in Orders::Config parse, and leaves a setting's saved text as it
-# is when the form says the same thing, so opening the page and saving
-# changes nothing. #save checks what it's given and leaves the settings
-# alone when anything is wrong.
+# buys, who manages funding sources, how purchases are paid, and the plain
+# yes/no and number settings in SECTIONS. Every setting in the "Orders"
+# group is on the page: one that isn't in the list above or in SECTIONS is
+# drawn under "More settings", so a new orders setting can't be left off.
+# It writes the same text and JSON the readers in Orders::Config parse, and
+# leaves a setting's saved text as it is when the form says the same thing,
+# so opening the page and saving changes nothing. #save checks what it's
+# given and leaves the settings alone when anything is wrong.
 #
 # Where the settings pickers are available (Settings.input), the page draws
 # teams and badge grants with them; otherwise with one-per-line text boxes.
@@ -22,12 +25,43 @@ module Orders
       viewers: "Teams whose members (and members of the teams below) see every request, without approving or buying. Leave empty for nobody extra.",
       approvers: "Team managers can always approve. Also:",
       large_approvers: "Team managers can always approve. Also:",
-      buyers: "Team managers can always buy. Also:"
+      buyers: "Team managers can always buy. Also:",
+      funding_managers: "Team managers can always manage funding sources. Also:"
     }.freeze
+
+    # What the blank team choice of a badge grant means for orders.
+    BLANK_TEAM_LABEL = "Up to: every team".freeze
+
+    # The orders settings with a box of their own (not a badge grant, team
+    # list or the approval steps, which have fields above), in the order the
+    # page draws them.
+    SECTIONS = [
+      [ "Seeing requests", %i[orders_team_can_see] ],
+      [ "Buying", %i[orders_price_tolerance orders_require_other_vendor_reason] ],
+      [ "Funding", %i[orders_require_funding_source orders_requesters_pick_funding] ],
+      [ "Closing", %i[orders_close_after_days] ]
+    ].freeze
+
+    # Orders settings the page draws with the fields above.
+    FIELD_SETTINGS = %i[orders_requesters orders_viewers orders_approval_steps orders_buyers orders_paid_with orders_funding_managers].freeze
 
     TEAM_FIELDS = %i[requesters viewers].freeze
 
-    attr_reader :large_amount, :paid_with, :errors
+    attr_reader :large_amount, :paid_with, :errors, :values
+
+    # The settings in the "Orders" group that SECTIONS lists, grouped, then
+    # any others as "More settings".
+    def self.sections
+      listed = SECTIONS.flat_map(&:last) + FIELD_SETTINGS
+      extra = Settings.settings("Orders").map(&:setting_key) - listed
+      list = SECTIONS.map { |heading, keys| [ heading, keys.filter_map { |key| Settings.get(key) } ] }
+      list << [ "More settings", extra.filter_map { |key| Settings.get(key) } ] if extra.any?
+      list.reject { |_, settings| settings.empty? }
+    end
+
+    def self.section_keys
+      sections.flat_map { |_, settings| settings.map(&:setting_key) }
+    end
 
     def self.pickers?
       Settings.respond_to?(:input) && defined?(SettingInput::BadgeGrants).present?
@@ -47,9 +81,11 @@ module Orders
         viewers: Settings[:orders_viewers].to_s,
         approvers: @steps.first.approvers.join("\n"),
         large_approvers: @steps.second&.approvers.to_a.join("\n"),
-        buyers: Settings[:orders_buyers].to_s
+        buyers: Settings[:orders_buyers].to_s,
+        funding_managers: Settings[:orders_funding_managers].to_s
       }
       @saved_texts = @texts.dup
+      @values = self.class.section_keys.index_with { |key| saved_value(key) }
       @large_amount = @steps.second ? format("%g", @steps.second.minimum_cents / 100.0) : ""
       @paid_with = Orders::Config.paid_with.map { |choice| { "label" => choice.label, "reimburse" => choice.reimburse } }
       @saved_paid_with = @paid_with
@@ -81,6 +117,8 @@ module Orders
       FIELDS.each_key do |name|
         @texts[name] = text_from(name, posted[name]) if posted.key?(name)
       end
+      posted_values = params[:values].respond_to?(:to_unsafe_h) ? params[:values].to_unsafe_h : params[:values].to_h
+      @values = values.to_h { |key, value| [ key, posted_values.fetch(key.to_s, value).to_s.strip ] }
       @large_amount = params[:large_amount].to_s.strip.delete_prefix("$").delete(",")
       @paid_with = rows(params[:paid_with]).filter_map { |row| paid_with_from(row) }
       self
@@ -93,6 +131,8 @@ module Orders
       write(:orders_requesters, text(:requesters)) unless same_lines?(text(:requesters), @saved_texts[:requesters])
       write(:orders_viewers, text(:viewers)) unless same_lines?(text(:viewers), @saved_texts[:viewers])
       write(:orders_buyers, text(:buyers)) unless same_lines?(text(:buyers), @saved_texts[:buyers])
+      write(:orders_funding_managers, text(:funding_managers)) unless same_lines?(text(:funding_managers), @saved_texts[:funding_managers])
+      values.each { |key, value| write(key, value) unless value == saved_value(key) }
       write(:orders_approval_steps, JSON.generate(new_steps)) unless same_steps?(new_steps)
       write(:orders_paid_with, JSON.generate(paid_with)) unless paid_with == @saved_paid_with
       true
@@ -135,6 +175,27 @@ module Orders
       validate_grants(:approvers, "Who approves")
       validate_grants(:large_approvers, "Over $#{large_amount}") if large_amount.present?
       validate_grants(:buyers, "Who buys")
+      validate_grants(:funding_managers, "Who manages funding sources")
+      values.each { |key, value| validate_value(Settings.get(key), value) }
+    end
+
+    # A saved value as the page holds it: yes/no settings as "true"/"false".
+    def saved_value(key)
+      setting = Settings.get(key)
+      setting.setting_type == :boolean ? setting.value.to_s : setting.value.to_s.strip
+    end
+
+    def validate_value(setting, value)
+      case setting.setting_type
+      when :boolean
+        errors << "#{setting.name}: choose yes or no." unless %w[true false].include?(value)
+      when :integer
+        errors << "#{setting.name}: must be a whole number, zero or more." unless value.match?(/\A\d+\z/)
+      end
+      return unless setting.setting_key == :orders_price_tolerance
+
+      bad = value.split(/[,;]/).map(&:strip).compact_blank.reject { |part| part.match?(/\A\d+(\.\d+)?\s*%?\z/) }
+      errors << "#{setting.name}: use a percentage and an amount, such as \"10%, 25\"." if bad.any?
     end
 
     # Only lines that weren't saved before are checked, so a saved line whose

@@ -1,6 +1,5 @@
 module Orders
-  # Orders setup: who can ask, who approves, who buys and how purchases are
-  # paid. The other orders settings stay on the settings page.
+  # Orders setup: every orders setting.
   class SettingsController < BaseController
     # GET /orders/settings
     def show
