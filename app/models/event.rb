@@ -53,6 +53,24 @@ class Event < ApplicationRecord
     start_time.present? && end_time.present?
   end
 
+  # Whether the event should read as "All day": an all_day event, or a timed one
+  # (legacy or imported) that runs from local midnight to the end of a day or to
+  # a later midnight. Compares wall-clock times, so DST days work out.
+  def all_day_span?
+    return true if all_day?
+    return false unless timed? && start_time.present? && end_time.present?
+
+    first = start_time.in_time_zone
+    last = end_time.in_time_zone
+    return false unless first == first.beginning_of_day && last > first
+
+    last == last.beginning_of_day || (last.hour == 23 && last.min == 59)
+  end
+
+  def time_tba?
+    tba?
+  end
+
   # All-day and TBA events aren't meetings with a known length.
   def hours
     timed? && complete? ? ((self.end_time - self.start_time) / 3600 * 20).round / 20.0 : 0.0
