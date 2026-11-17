@@ -1,0 +1,14 @@
+<%# Pick from what we stock (orders spec §5), above the items on the request form. Picking fills an empty item, or adds one, and links it. %>
+<% if OrderInventory.enabled? && Inventory::Access.for(viewer).user? %>
+  <div class="card mb-3" data-controller="order-item-search" data-order-item-search-mode-value="line"
+       data-order-item-search-url-value="<%= order_inventory_items_path(format: :json) %>">
+    <div class="card-body">
+      <%= label_tag "order_item_search", "Pick from what we stock", class: "form-label" %>
+      <%= search_field_tag "order_item_search", nil, class: "form-control", autocomplete: "off",
+            placeholder: "Search by name or part number", form: "",
+            data: { order_item_search_target: "query", action: "input->order-item-search#search keydown.enter->order-item-search#ignoreEnter" } %>
+      <div class="list-group mt-2" data-order-item-search-target="results" role="listbox"></div>
+      <div class="form-text" data-order-item-search-target="status" role="status" aria-live="polite">Or type an item yourself below.</div>
+    </div>
+  </div>
+<% end %>
