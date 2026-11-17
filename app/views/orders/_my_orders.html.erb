@@ -1,0 +1,81 @@
+<%# The classic dashboard's My Orders card (spec §3.15), read from Orders::WaitingOn. %>
+<% if Orders.enabled? && current_user.person %>
+  <% waiting = Orders::WaitingOn.for(current_user.person) %>
+  <% can_request = Orders::Access.for(current_user.person).requester? %>
+  <% if waiting.any? || can_request %>
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2>My Orders</h2>
+        <% if can_request %>
+          <%= link_to "New request", new_orders_request_path, class: "btn btn-primary" %>
+        <% end %>
+      </div>
+      <% if waiting.todos.any? %>
+        <div class="list-group list-group-flush">
+          <% waiting.todos.each do |todo| %>
+            <% case todo.kind %>
+            <% when :approve, :reapprove %>
+              <%= link_to orders_request_path(todo.order_request), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+                <span>
+                  <strong><%= todo.order_request.display_title %></strong><br>
+                  <small class="text-muted">
+                    <%= todo.kind == :reapprove ? "Needs re-approval" : "#{todo.order_request.total.format} · #{todo.order_request.team.name}" %>
+                  </small>
+                </span>
+                <span class="btn btn-sm btn-outline-primary">Review</span>
+              <% end %>
+            <% when :update %>
+              <%= link_to orders_request_path(todo.order_request), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+                <span>
+                  <strong><%= todo.order_request.display_title %></strong><br>
+                  <small class="text-muted"><%= truncate(todo.comment.to_s, length: 80) %></small>
+                </span>
+                <span class="btn btn-sm btn-outline-primary">Update</span>
+              <% end %>
+            <% when :buy %>
+              <%= link_to to_buy_orders_purchases_path, class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+                <span>
+                  <strong><%= pluralize(todo.count, "item") %> to buy</strong>
+                  <% if todo.needed_by %><br><small class="text-muted">Earliest needed <%= l todo.needed_by, format: :short %></small><% end %>
+                </span>
+                <span class="btn btn-sm btn-outline-primary">Open To buy</span>
+              <% end %>
+            <% when :resolve %>
+              <%= link_to orders_request_path(todo.order_request), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+                <span>
+                  <strong><%= todo.order_request.display_title %></strong><br>
+                  <small class="text-muted">Problem with a delivery</small>
+                </span>
+                <span class="btn btn-sm btn-outline-primary">Resolve</span>
+              <% end %>
+            <% when :receive %>
+              <%= link_to orders_deliveries_path(mine: 1), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+                <strong><%= pluralize(todo.count, "item") %> to receive</strong>
+                <span class="btn btn-sm btn-outline-primary">Receive</span>
+              <% end %>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+      <% if waiting.active_requests.any? %>
+        <div class="card-body">
+          <h3 class="h6">Your orders</h3>
+          <div class="list-group">
+            <% waiting.active_requests.first(5).each do |order_request| %>
+              <%= link_to orders_request_path(order_request), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center" do %>
+                <span><%= order_request.display_title %></span>
+                <small class="text-muted"><%= order_request_status_text(order_request) %></small>
+              <% end %>
+            <% end %>
+          </div>
+          <%= link_to "My requests", orders_requests_path(mine: 1), class: "d-block mt-2" %>
+        </div>
+      <% end %>
+      <% if Orders::Access.for(current_user.person).buyer? %>
+        <div class="card-footer">
+          <%= link_to "Buying notices", edit_orders_notice_preference_path %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>
