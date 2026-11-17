@@ -1,0 +1,9 @@
+<%# A form section of the rows test kind: one line per row. %>
+<table class="table" id="test-rows">
+  <% (Array(item.config["rows"]) + [ {} ]).each_with_index do |row, index| %>
+    <tr>
+      <td><%= text_field_tag "#{field_name}[rows][#{index}][name]", row["name"], autocomplete: "off", "aria-label": "Name" %></td>
+      <td><%= number_field_tag "#{field_name}[rows][#{index}][share]", row["share"], autocomplete: "off", "aria-label": "Share" %></td>
+    </tr>
+  <% end %>
+</table>

@@ -1,0 +1,2 @@
+class ChecklistOrganizerPolicy < ChecklistPartPolicy
+end

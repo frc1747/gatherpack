@@ -1,0 +1,58 @@
+<%# One person's results on one checklist, unmet first, with what to do. person is optional (found from status). %>
+<% person = local_assigns[:person] || Person.find(status.person_id) %>
+<div class="card mb-3" id="<%= dom_id(checklist) %>">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><%= link_to checklist.title, checklist %></span>
+    <%= checklist_status_badge(status.overall) if status.overall %>
+  </div>
+  <ul class="list-group list-group-flush">
+    <% only_item = status.explained.one? %>
+    <% status.explained.each do |entry| %>
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div class="flex-grow-1 min-w-0">
+            <% unless only_item && entry.item.label == checklist.title %><strong><%= entry.item.label %></strong><% end %>
+            <% if entry.full? %>
+              <% detail_lines = entry.detail.to_s.split("\n") %>
+              <% percent = checklist_item_percent(entry) %>
+              <%# A measured item shows its count and a bar; any other item only its pill, no status sentence. %>
+              <% if percent %>
+                <div class="small"><%= checklist_item_count(entry) %></div>
+                <div class="progress mt-1 mb-2" style="height: .5rem" role="progressbar" aria-label="<%= entry.item.label %>" aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
+                  <%# The bar takes its status's pill color, so a shortfall shows red or yellow. %>
+                  <div class="progress-bar <%= checklist_status_class(entry.status).sub("text-bg-", "bg-") %>" style="width: <%= percent %>%"></div>
+                </div>
+              <% end %>
+              <%# A kind may show the Details its own way (ItemKind.detail_partial); when it shows nothing, the detail lines do. %>
+              <% detail_partial = entry.item.kind_class&.detail_partial %>
+              <% own_detail = detail_partial ? render(detail_partial, entry: entry, person: person, viewer: current_user.person) : "" %>
+              <% if own_detail.strip.present? %>
+                <details class="small text-body-secondary">
+                  <summary>Details</summary>
+                  <%= own_detail %>
+                </details>
+              <% elsif percent ? detail_lines.any? : detail_lines.many? %>
+                <details class="small text-body-secondary">
+                  <summary>Details</summary>
+                  <ul class="mb-0 mt-1 ps-3">
+                    <% detail_lines.each do |line| %><li><%= line %></li><% end %>
+                  </ul>
+                </details>
+              <% end %>
+              <% if entry.excuse && entry.excuse["by"] %><div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %></div><% end %>
+              <% Array(entry.children).each do |child| %>
+                <div class="small ms-3"><%= checklist_status_badge(child) %> <%= child.item.label %></div>
+              <% end %>
+              <% if (fix = checklist_fix(checklist, entry, status.person_id)).present? %>
+                <div class="mt-2"><%= fix %></div>
+              <% end %>
+            <% end %>
+          </div>
+          <% unless only_item && status.overall %>
+            <div class="flex-shrink-0"><%= checklist_status_badge(entry) %></div>
+          <% end %>
+        </div>
+      </li>
+    <% end %>
+  </ul>
+</div>
