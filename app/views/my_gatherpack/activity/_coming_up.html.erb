@@ -1,0 +1,12 @@
+<%# Upcoming sign-ups, as on Home and the family page. %>
+<% items = activity_signup_items(activity) %>
+<% if items.any? %>
+  <section class="mg-section" data-activity-block="coming-up">
+    <h2 class="mg-heading">Coming up</h2>
+    <div class="card mg-list">
+      <% items.each do |item| %>
+        <%= render "my_gatherpack/signup_row", item: item %>
+      <% end %>
+    </div>
+  </section>
+<% end %>
