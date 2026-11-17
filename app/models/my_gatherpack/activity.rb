@@ -11,7 +11,9 @@ module MyGatherpack
   # counts check-ins at its event type, or counts sign-ups on a sheet (or a
   # position on it) where the person has a sign-up at that event (§6.4). A
   # sign-up marked done at an event they didn't check in at counts by its
-  # sheet or position only.
+  # sheet or position only. Either way only events of the item's commitment
+  # team or a team below it, during the commitment's period, count, as in
+  # Commitments::CheckinSource and SignupSource.
   #
   # The viewer is the person or a guardian of theirs. A guardian gets no
   # punches and no meetings (they stay out for guardians), and a record's
@@ -26,6 +28,14 @@ module MyGatherpack
     # position, through the person's own sign-ups.
     TYPE_SOURCES = %w[checkins].freeze
     SHEET_SOURCES = %w[signups signup_positions].freeze
+
+    # Where one count source's items count: events of these teams (the
+    # commitment's team and those below it) during the commitment's period.
+    Reach = Struct.new(:item_ids, :team_ids, :times, keyword_init: true) do
+      def covers?(team_id, start_time)
+        team_ids.include?(team_id) && times.cover?(start_time)
+      end
+    end
 
     # One kind of event the person checked in at, or Meetings. key is the
     # event type's neat id, or MEETINGS. hours is nil when none of its
@@ -59,7 +69,7 @@ module MyGatherpack
 
     # An event in a section. how is :checked_in, or :signed_up for a
     # sign-up marked done at an event the person didn't check in at. hours
-    # is nil for an all-day event the person has no punch in.
+    # is nil for an all-day event (Activity.all_day?), always.
     # item_ids are the checklist items covering the person that count it.
     # record is what its name links to: the Event when the viewer may open
     # it, else the sign-up's sheet, or nil for no link.
@@ -259,8 +269,7 @@ module MyGatherpack
     end
 
     def kind_row_for(type, checkins)
-      by_type = coverage[:event_types][type.id]
-      counting = checkins.index_with { |checkin| (by_type + coverage[:events][checkin.event_id]).uniq }
+      counting = checkins.index_with { |checkin| checkin_item_ids(checkin.event) }
       left = checkins.select { |checkin| counting[checkin].empty? }
       events = checkins.map(&:event)
       uncounted = if left.any?
@@ -273,9 +282,10 @@ module MyGatherpack
     # The person's own answer, from their stored results with no viewer
     # filter: the ids of the count and attendance items covering them, on
     # checklists in force, that they aren't exempt from, as
-    # { event_types: { type id => item ids }, events: { event id => item ids }, meetings: item ids }.
+    # { event_types: { type id => [Reach] }, events: { event id => item ids }, meetings: item ids }.
     # events holds the sheet and position items counting the person's own
-    # sign-ups at each event in the season, checked in at or not.
+    # sign-ups at each event in the season, checked in at or not, within
+    # each item's reach.
     def coverage
       @coverage ||= begin
         found = { event_types: Hash.new { [] }, events: Hash.new { [] }, meetings: [] }
@@ -295,9 +305,12 @@ module MyGatherpack
       return if items.empty?
 
       ids = items.group_by(&:commitment_id).transform_values { |list| list.map(&:id) }
-      sources = CommitmentSource.where(commitment_id: ids.keys, kind: TYPE_SOURCES + SHEET_SOURCES).to_a
+      sources = CommitmentSource.where(commitment_id: ids.keys, kind: TYPE_SOURCES + SHEET_SOURCES).includes(:commitment).to_a
+      return if sources.empty?
+
+      reaches = reaches_for(sources.map(&:commitment).uniq, ids)
       sources.select { |source| TYPE_SOURCES.include?(source.kind) }.each do |source|
-        found[:event_types][source.subject_id] += ids[source.commitment_id]
+        found[:event_types][source.subject_id] += [ reaches[source.commitment_id] ]
       end
 
       sheet_sources = sources.select { |source| SHEET_SOURCES.include?(source.kind) }
@@ -307,12 +320,41 @@ module MyGatherpack
       # checked in at, and those marked done where they didn't.
       places = Signup.counted.where(on_behalf_of_id: person.id).joins(signup_slot: %i[ signup_position event ])
         .where(events: { start_time: season.times })
-        .pluck("signup_slots.event_id", "signup_positions.signup_sheet_id", "signup_slots.signup_position_id")
-      places.each do |event_id, sheet_id, position_id|
+        .pluck("signup_slots.event_id", "events.team_id", "events.start_time", "signup_positions.signup_sheet_id", "signup_slots.signup_position_id")
+      places.each do |event_id, team_id, start_time, sheet_id, position_id|
         sheet_sources.each do |source|
-          found[:events][event_id] += ids[source.commitment_id] if [ sheet_id, position_id ].include?(source.subject_id)
+          reach = reaches[source.commitment_id]
+          next unless [ sheet_id, position_id ].include?(source.subject_id) && reach.covers?(team_id, start_time)
+
+          found[:events][event_id] += reach.item_ids
         end
       end
+    end
+
+    # { commitment id => Reach }, from one read of the team tree.
+    def reaches_for(commitments, ids)
+      children = Team.pluck(:id, :parent_id).each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |(id, parent_id), found|
+        found[parent_id] << id if parent_id
+      end
+      commitments.to_h do |commitment|
+        [ commitment.id, Reach.new(item_ids: ids[commitment.id], team_ids: team_and_below(commitment.team_id, children), times: commitment.period_times) ]
+      end
+    end
+
+    def team_and_below(team_id, children)
+      found = Set.new
+      pending = [ team_id ]
+      while (id = pending.pop)
+        pending.concat(children[id]) if found.add?(id)
+      end
+      found
+    end
+
+    # The items counting the person's check-in at the event: those counting
+    # check-ins at its type, and those counting their sign-ups there.
+    def checkin_item_ids(event)
+      by_type = coverage[:event_types][event.event_type_id].select { |reach| reach.covers?(event.team_id, event.start_time) }
+      (by_type.flat_map(&:item_ids) + coverage[:events][event.id]).uniq
     end
 
     # { item id => label } for every item the viewer's status_for shows.
@@ -322,8 +364,7 @@ module MyGatherpack
     end
 
     def checkin_line(event, reachable)
-      DoneLine.new(event: event, how: :checked_in, hours: event_hours(event),
-        item_ids: (coverage[:event_types][event.event_type_id] + coverage[:events][event.id]).uniq,
+      DoneLine.new(event: event, how: :checked_in, hours: self.class.event_hours(event), item_ids: checkin_item_ids(event),
         record: (event if reachable.include?(event.id)))
     end
 
@@ -331,7 +372,7 @@ module MyGatherpack
     # items counting their sign-ups there; check-in sources don't count it.
     def signup_line(signup, reachable)
       event = signup.event
-      DoneLine.new(event: event, how: :signed_up, hours: event_hours(event), item_ids: coverage[:events][event.id],
+      DoneLine.new(event: event, how: :signed_up, hours: self.class.event_hours(event), item_ids: coverage[:events][event.id],
         record: reachable.include?(event.id) ? event : signup.signup_sheet)
     end
 
@@ -368,25 +409,8 @@ module MyGatherpack
     end
 
     def total_hours(events)
-      hours = events.filter_map { |event| event_hours(event) }
+      hours = events.filter_map { |event| self.class.event_hours(event) }
       hours.sum if hours.any?
-    end
-
-    # An event's hours (Activity.event_hours). An all-day one has none
-    # unless the person was clocked in during it: then the punched hours
-    # within its day, own page only, as punches are.
-    def event_hours(event)
-      return self.class.event_hours(event) unless self.class.all_day?(event)
-
-      worked = punches.sum { |punch| punch_hours_within(punch, event) }
-      worked.round(2) if worked.positive?
-    end
-
-    def punch_hours_within(punch, event)
-      return 0 unless punch.start_time && overlaps?(punch, event)
-
-      ends = [ punch.end_time || Time.current, event.end_time ].min
-      [ (ends - [ punch.start_time, event.start_time ].max) / 1.hour, 0 ].max
     end
 
     def punch_hours(punch)

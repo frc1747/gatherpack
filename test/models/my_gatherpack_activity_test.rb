@@ -101,13 +101,15 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     Checklists.singleton_class.define_method(:checklist_for, original)
   end
 
-  test "uncounted reads no punches, meetings or teams" do
+  test "uncounted reads no punches, meetings or the person's teams, and the team tree once" do
     queries = []
     subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| queries << payload[:sql] }
     MyGatherpack::Activity.uncounted(person(:member), @season)
     ActiveSupport::Notifications.unsubscribe(subscriber)
 
-    assert_empty queries.grep(/time_clock_punches|time_clock_period_id" IS NOT NULL|FROM "teams"|FROM "memberships"/)
+    assert_empty queries.grep(/time_clock_punches|time_clock_period_id" IS NOT NULL|FROM "memberships"/)
+    assert_equal [ 'SELECT "teams"."id", "teams"."parent_id" FROM "teams"' ], queries.grep(/FROM "teams"/),
+      "only the tree, for the commitments' teams and those below them"
   end
 
   test "a count item on a checklist that doesn't cover the person counts nothing for them" do
@@ -247,6 +249,38 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_empty activity.counts_toward(activity.done_sections.flat_map(&:lines).find { |line| line.event == stocking })
   end
 
+  test "a sign-up outside its item's commitment period or teams counts toward nothing" do
+    stocking, = build_concessions_signups
+    late = create_activity_event("Spring stocking", "2027-03-06 09:00", stocking.event_type)
+    elsewhere = create_activity_event("Org stocking", "2026-10-17 09:00", stocking.event_type, team: @org)
+    sheet = SignupSheet.find_by!(title: "Stocking crew")
+    [ late, elsewhere ].each do |event|
+      sheet.signup_sheet_events.create!(event: event)
+      Signup.create!(signup_slot: sheet.signup_positions.first.signup_slots.find_by!(event: event), person: person(:member),
+        signed_up_by: person(:member), status: :fulfilled)
+    end
+    @requirements.checklist_items.find_by!(label: "Concessions shifts").update!(ends_on: Date.new(2026, 12, 31))
+    refresh(@requirements)
+    activity = activity_for(:member)
+    lines = activity.done_sections.flat_map(&:lines).index_by(&:event)
+
+    assert_equal [ "Concessions shifts" ], activity.counts_toward(lines.fetch(stocking))
+    assert_empty activity.counts_toward(lines.fetch(late)), "March is after the commitment's period"
+    assert_empty activity.counts_toward(lines.fetch(elsewhere)), "Org is above the commitment's team, not below it"
+  end
+
+  test "a check-in outside its item's commitment period counts toward nothing" do
+    @outreach_item.update!(ends_on: Date.new(2026, 10, 10))
+    refresh(@requirements)
+    activity = activity_for(:member)
+    outreach = activity.done_sections.find { |section| section.key == @outreach.neat_id }
+    lines = outreach.lines.index_by(&:event)
+
+    assert_equal [ "Outreach events" ], activity.counts_toward(lines.fetch(@outreach1))
+    assert_empty activity.counts_toward(lines.fetch(@outreach2)), "Oct 17 is after the period"
+    assert_equal [ [ "Build", 1 ], [ "Outreach", 1 ] ], MyGatherpack::Activity.uncounted(person(:member), @season).map { |row| [ row.name, row.events ] }
+  end
+
   # All-day events
 
   test "an all-day event has no hours and adds none to totals" do
@@ -263,15 +297,19 @@ class MyGatherpackActivityTest < ActiveSupport::TestCase
     assert_nil activity.kind_row(@build.neat_id).hours
   end
 
-  test "an all-day event the person was clocked in during shows the punched hours" do
+  test "two all-day events and a punch that day add no hours, on the page and Home" do
+    pit_day = Event.create!(name: "Pit day", time_kind: "all_day", event_date: Date.new(2026, 9, 12), event_type: @build, team: @members)
+    pit_day.checkins.create!(person: person(:member))
     TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
-      start_time: Time.zone.parse("2026-09-12 09:00"), end_time: Time.zone.parse("2026-09-12 13:30"))
+      start_time: Time.zone.parse("2026-09-12 09:00"), end_time: Time.zone.parse("2026-09-12 13:00"))
     activity = activity_for(:member)
     build = activity.done_sections.find { |section| section.key == @build.neat_id }
+    home = MyGatherpack::Activity.uncounted(person(:member), @season).find { |row| row.key == @build.neat_id }
 
-    assert_equal [ 4.5 ], build.lines.map(&:hours)
-    assert_equal 4.5, build.hours
-    assert_nil MyGatherpack::Activity.uncounted(person(:member), @season).first.hours, "Home reads no punches"
+    assert_equal [ nil, nil ], build.lines.map(&:hours)
+    assert_nil build.hours
+    assert_nil activity.kind_row(@build.neat_id).hours
+    assert_equal [ 2, nil ], [ home.events, home.hours ]
   end
 
   # A ward

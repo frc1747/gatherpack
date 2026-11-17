@@ -58,7 +58,7 @@ module MyGatherpackActivityHelper
       (line.how == :signed_up ? "Signed up" : "Checked in") ].compact.join(" · ")
   end
 
-  # "3 h"; "All day" for an all-day event with no punched hours.
+  # "3 h"; "All day" for an all-day event, which has no hours.
   def activity_line_length(line)
     if line.hours
       activity_hours(line.hours)

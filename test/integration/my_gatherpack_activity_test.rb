@@ -207,9 +207,11 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-activity-line=signed_up] [data-activity-counts]", count: 1
   end
 
-  test "an all-day event says All day and adds no hours, unless the person punched in during it" do
+  test "an all-day event says All day and adds no hours, even with a punch that day" do
     whole_day = create_activity_event("Concessions day", "2026-10-24 00:00", @build, hours: 24)
     whole_day.checkins.create!(person: person(:member))
+    TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
+      start_time: Time.zone.parse("2026-10-24 10:00"), end_time: Time.zone.parse("2026-10-24 14:00"))
     sign_in person(:member).user
     get activity_path
 
@@ -217,12 +219,8 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-kind-total]", text: "Build: 2 events"
     assert_no_match(/24 h/, response.body)
 
-    TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
-      start_time: Time.zone.parse("2026-10-24 10:00"), end_time: Time.zone.parse("2026-10-24 14:00"))
-    get activity_path
-
-    assert_select "[data-activity-line]", text: /Concessions day\s+Sat Oct 24 · 4 h · Checked in/
-    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-kind-total]", text: "Build: 2 events · 4 h"
+    get root_path
+    assert_select "[data-activity-uncounted=#{@build.neat_id}]", text: "Build: 2 events"
   end
 
   test "nothing this season says so" do
