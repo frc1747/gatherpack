@@ -1,0 +1,23 @@
+<% breadcrumb :orders_notice_preference %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Buying notices</h1>
+  </div>
+  <%= form_with model: @preference, scope: :order_notice_preference, url: orders_notice_preference_path, method: :patch do |form| %>
+    <div class="card-body">
+      <p>How do you want to hear about approved requests waiting to be bought?</p>
+      <% [ [ "digest", "One email each morning listing what's waiting" ],
+           [ "immediate", "An email for each request as it's approved" ],
+           [ "off", "No emails about requests to buy" ] ].each do |value, label| %>
+        <div class="form-check mb-2">
+          <%= form.radio_button :buyer_notices, value, class: "form-check-input", checked: @preference.buyer_notices == value %>
+          <%= form.label "buyer_notices_#{value}", label, class: "form-check-label" %>
+        </div>
+      <% end %>
+    </div>
+    <div class="card-footer">
+      <%= form.submit "Save", class: "btn btn-primary" %>
+    </div>
+  <% end %>
+</div>
