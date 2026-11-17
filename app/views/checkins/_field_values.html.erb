@@ -1,0 +1,11 @@
+<%# Each check-in field's value, or "—" when the viewer isn't allowed to see it. %>
+<% checkin.event.event_type.checkin_fields.includes(:person_field).order(:name).each do |field| %>
+  <div>
+    <strong><%= field.name %></strong>:
+    <% if field.readable_by?(current_user.person, checkin.person) %>
+      <%= field.linked? ? person_field_display(field.person_field, field.value_for(checkin)) : field.value_for(checkin) %>
+    <% else %>
+      —
+    <% end %>
+  </div>
+<% end %>
