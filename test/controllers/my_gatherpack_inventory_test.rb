@@ -1,8 +1,8 @@
 require "test_helper"
 require "support/inventory_world"
 
-# Inventory on the My GatherPack home page and menu: the reorder to-do and the
-# Manage placements.
+# Inventory on the My GatherPack home page and menu: the reorder to-do, and
+# the inventory pages under their own section heading.
 class MyGatherpackInventoryTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
   include InventoryWorld
@@ -11,12 +11,10 @@ class MyGatherpackInventoryTest < ActionDispatch::IntegrationTest
     host! "localhost"
     @world = build_inventory_world
     @sections = MyGatherpack.sections.dup
-    @checks = MyGatherpack::Menu.manager_checks.dup
   end
 
   teardown do
     MyGatherpack.sections.replace(@sections)
-    MyGatherpack::Menu.manager_checks.replace(@checks)
   end
 
   def home(**settings, &block)
@@ -128,51 +126,18 @@ class MyGatherpackInventoryTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a badge holder who manages no team gets Manage; members don't" do
-    home do
-      menu = ->(person) { MyGatherpack::Menu.new(person.user) }
-
-      assert menu.(@world.keeper).manages_anything?
-      assert_not menu.(@world.member).manages_anything?
-      assert_not menu.(@world.outsider).manages_anything?
-      assert menu.(@world.admin).manages_anything?
-    end
-    assert_not MyGatherpack::Menu.new(@world.keeper.user).manages_anything?
-  end
-
-  test "a grant holder who manages no team gets the four pages in Manage, and not in More" do
+  test "the inventory pages sit together under their section heading, never on top or in Manage" do
     home do
       labels = %w[Reorder Items Places Changes]
-      menu = MyGatherpack::Menu.new(@world.keeper.user)
 
-      assert_not @world.keeper.manager?
-      assert_equal labels, menu.manage.map(&:label)
-      assert_empty labels & menu.more.map(&:label)
-      assert_empty MyGatherpack::Menu.new(@world.member.user).manage
-    end
-  end
-
-  test "the four manager pages are placed in Manage, in order" do
-    assert_equal %i[inventory_reorder_path inventory_items_path inventory_locations_path inventory_movements_path],
-      MyGatherpack::InventoryMenuTable::ENTRIES.keys
-    positions = MyGatherpack::InventoryMenuTable::ENTRIES.keys.map { |path| MyGatherpack::Menu.table.dig(path, :manage) }
-    assert_equal positions.sort, positions
-    assert positions.all?
-    # Reassigning the table, as the core's initializer does, keeps them.
-    original = MyGatherpack::Menu.table
-    MyGatherpack::Menu.table = { people_path: { manage: 10 } }
-    assert_equal positions, MyGatherpack::InventoryMenuTable::ENTRIES.keys.map { |path| MyGatherpack::Menu.table.dig(path, :manage) }
-  ensure
-    MyGatherpack::Menu.table = original
-  end
-
-  test "where the menu can hide entries per person, Manage lists the pages for managers only" do
-    home do
-      MyGatherpack::Menu.manager_checks.delete(:inventory)
-      labels = %w[Reorder Items Places Changes]
-      assert_equal labels, MyGatherpack::Menu.new(@world.manager.user).manage.map(&:label).last(4)
-      assert_empty labels & MyGatherpack::Menu.new(@world.member.user).manage.map(&:label)
-      assert_empty labels & MyGatherpack::Menu.new(@world.manager.user).more.map(&:label)
+      [ @world.keeper, @world.manager, @world.admin ].each do |person|
+        menu = MyGatherpack::Menu.new(person.user)
+        assert_empty (menu.top + menu.manage).map(&:label) & labels, "#{person.first_name}: inventory pages outside their section"
+        # Purchasing when orders shares it, Inventory on its own.
+        section = menu.sections.to_h.slice("Purchasing", "Inventory").values.flatten.map(&:label)
+        assert_equal labels, section & labels
+      end
+      assert_not MyGatherpack::Menu.new(@world.keeper.user).manages_anything?
     end
   end
 
