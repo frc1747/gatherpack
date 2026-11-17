@@ -11,16 +11,35 @@ class TeamPolicy < ApplicationPolicy
     end
   end
 
+  # The same records Scope lists, which is how the controller loads them.
+  def show?
+    Scope.new(user, Team).resolve.exists?(record.id)
+  end
+
   def new?
     person.manager?
   end
 
+  # Managers create teams only under a team they manage; top-level teams are
+  # for admins.
   def create?
-    person.admin? || (person.manager? && !record.parent.nil? && person.teams.include?(record.parent))
+    user.admin? || manages?(record.parent)
+  end
+
+  # Checked with the new parent assigned. A manager moves a team only from
+  # under one team they manage to another, so they can't take it away from a
+  # team above them; making a team top-level, or moving one that is, is for
+  # admins.
+  def move?
+    user.admin? || (manages?(Team.find_by(id: record.parent_id_was)) && manages?(record.parent))
   end
 
   def update?
     has_perms
+  end
+
+  def destroy?
+    update?
   end
 
   def badges?
@@ -50,11 +69,13 @@ class TeamPolicy < ApplicationPolicy
     user.admin || user.architect || record.people.include?(person) || has_perms
   end
 
+  # Managers add and remove people through memberships, which check who they
+  # may add; person_ids would replace the whole list unchecked.
   def permitted_attributes_for_update
     [ :name, :color, :team_type_id, :description ] + if user.admin?
       [ :join_permission, :parent_id, person_ids: [] ]
     elsif record.join_permission != "added_by_admin"
-      [ :parent_id, person_ids: [] ]
+      [ :parent_id ]
     else
       []
     end

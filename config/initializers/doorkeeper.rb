@@ -33,6 +33,8 @@ Doorkeeper.configure do
   end
 
   application_class "OauthApplication"
+  # Refuses refresh tokens past their lifetime (see OauthAccessToken).
+  access_token_class "OauthAccessToken"
   #
   # Don't forget to include Doorkeeper ORM mixins into your custom models:
   #
@@ -166,7 +168,11 @@ Doorkeeper.configure do
   # Require non-confidential clients to use PKCE when using an authorization code
   # to obtain an access_token (disabled by default)
   #
-  # force_pkce
+  force_pkce
+
+  # Accept only the S256 PKCE challenge method; "plain" sends the verifier
+  # itself as the challenge.
+  pkce_code_challenge_methods %w[S256]
 
   # Hash access and refresh tokens before persisting them.
   # This will disable the possibility to use +reuse_access_token+
@@ -174,8 +180,10 @@ Doorkeeper.configure do
   #
   # Note: If you are already a user of doorkeeper and have existing tokens
   # in your installation, they will be invalid without adding 'fallback: :plain'.
+  # Tokens and codes issued before hashing was enabled are hashed by the
+  # HashOauthSecrets migration, so no fallback is needed.
   #
-  # hash_token_secrets
+  hash_token_secrets
   # By default, token secrets will be hashed using the
   # +Doorkeeper::Hashing::SHA256+ strategy.
   #
@@ -189,7 +197,9 @@ Doorkeeper.configure do
 
   # Hash application secrets before persisting them.
   #
-  # hash_application_secrets
+  # Client secrets can then be shown only once, when they are created or
+  # regenerated. Existing ones are hashed by the HashOauthSecrets migration.
+  hash_application_secrets
   #
   # By default, applications will be hashed
   # with the +Doorkeeper::SecretStoring::SHA256+ strategy.
@@ -231,7 +241,7 @@ Doorkeeper.configure do
   # enable_application_owner confirmation: false
 
   default_scopes :user_read
-  optional_scopes :user_email, :user_name, :teams_read, :badges_read
+  optional_scopes :user_email, :user_name, :teams_read, :badges_read, :roles_read
 
   # Allows to restrict only certain scopes for grant_type.
   # By default, all the scopes will be available for all the grant types.

@@ -66,7 +66,7 @@ class Doorkeeper::AuthorizationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a signed-out visit comes back to the same request after signing in" do
-    request_path = authorize_path("https://one.example.com/callback", state: "abc 123", code_challenge: "xyz")
+    request_path = authorize_path("https://one.example.com/callback", state: "abc 123", code_challenge: "xyz", code_challenge_method: "S256")
     user = User.create!(email: "returning@example.com", password: "Password1!")
 
     get request_path

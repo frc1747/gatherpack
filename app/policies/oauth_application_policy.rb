@@ -23,13 +23,17 @@ class OauthApplicationPolicy < ApplicationPolicy
     update?
   end
 
+  def regenerate_secret?
+    user.admin?
+  end
+
   def destroy?
     user.admin?
   end
 
   class Scope < ApplicationPolicy::Scope
     def resolve
-      scope.all
+      user.admin? ? scope.all : scope.none
     end
   end
 end

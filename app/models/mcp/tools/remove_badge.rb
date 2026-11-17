@@ -18,7 +18,9 @@ class Mcp::Tools::RemoveBadge < Mcp::Tool
 
   tool_name "remove_badge"
   description "Take a badge away from a person, by the badge assignment's ID. " \
-    "On a badge open to self-service, you can remove only your own or that of people you manage, unless you're an admin. Returns what was removed."
+    "Admins can remove any badge. A team's managers can remove most of its badges, though a self-service one only from themselves or people they manage. " \
+    "Anyone else can remove only their own self-service badge, or their own member badge while on its team. " \
+    "Managers can also remove a team-less badge marked as added by a manager or self from people they manage. Returns what was removed."
   scope :write
   feature :badges
   destructive

@@ -10,7 +10,7 @@ class EventsController < InternalController
 
   # GET /events/1
   def show
-    @q = policy_scope(@event.checkins).ransack(params[:q])
+    @q = policy_scope(@event.checkins).ransack(params[:q], auth_object: current_user)
     @checkins = @q.result(distinct: true).page(params[:page])
     @checkin = @event.checkins.build
   end
@@ -61,7 +61,12 @@ class EventsController < InternalController
 
   # PATCH/PUT /events/1
   def update
-    if @event.update(event_params)
+    # Authorize again once the new attributes are in place: set_event only
+    # checked the event's current team, not the one in the form.
+    @event.assign_attributes(event_params)
+    authorize @event
+
+    if @event.save
       redirect_to @event, notice: "Event was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -95,7 +100,7 @@ class EventsController < InternalController
 
     # Use callbacks to share common setup or constraints between actions.
     def set_event
-      @event = authorize Event.find(params[:id])
+      @event = authorize policy_scope(Event).find(params[:id])
     end
 
     # Only allow a list of trusted parameters through.
