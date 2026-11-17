@@ -56,7 +56,12 @@ module FamilyHelper
   end
 
   def family_event_detail(row)
-    times = [ row.start_time.strftime("%-I:%M %p"), row.end_time&.strftime(row.end_time.to_date == row.start_time.to_date ? "%-I:%M %p" : "%b %-d, %-I:%M %p") ].compact.join(" – ")
+    times =
+      if respond_to?(:event_time_text) && row.respond_to?(:all_day_span?)
+        event_time_text(row) # "All day" / "Time TBA" (feature/event-time-display)
+      else
+        [ row.start_time.strftime("%-I:%M %p"), row.end_time&.strftime(row.end_time.to_date == row.start_time.to_date ? "%-I:%M %p" : "%b %-d, %-I:%M %p") ].compact.join(" – ")
+      end
     [ times, row.location.presence ].compact.join(" · ")
   end
 
