@@ -5,7 +5,9 @@
 # - Admins: any open punch.
 # - Managers: open punches in periods whose team they manage (all_managed_teams, as
 #   TimeKiosk#managed_periods), including "added by admin" periods, as All Periods does.
-#   Their own open punch too.
+#   With the kiosk's "Managers Clock Out the People They Manage" setting on, also the open
+#   punches of anyone in the teams they manage, as the kiosk's Manager window does
+#   (TimeKiosk::ManagerClockOut). Their own open punch too.
 # - Anyone else: nothing, by owner decision (Mcp::PunchRecords#may_enter_punches?). They
 #   clock out at the kiosk.
 #
@@ -13,8 +15,8 @@
 # no period can only be closed by an admin or its owner, if a manager, here; a manager uses
 # update_punch for the rest.
 #
-# all: true covers the periods only, as All Periods does: every period for an admin, the
-# managed teams' for a manager. A punch in no period, or a
+# all: true is what the kiosk's All Periods clocks out: every period for an admin, the
+# managed teams' for a manager (plus the people they manage, with the setting on). A punch in no period, or a
 # manager's own in another team's period, needs person_id.
 #
 # A punch the viewer can neither see nor close isn't listed at all: a skipped entry would
@@ -31,7 +33,7 @@ class Mcp::Tools::ClockOut < Mcp::Tool
 
   tool_name "clock_out"
   description "Clock people out, as the kiosk's Clock Out does, for one person, one period or all: true, each punch ending now or at the end of its period's last day. " \
-    "Admins close any open punch, managers those in their teams' periods and their own; others you can see are skipped as \"Not allowed\". Anyone else is \"Not allowed\" and clocks out at the kiosk. " \
+    "Admins close any open punch, managers those in their teams' periods (and, when the kiosk lets managers clock out the people they manage, those people's) and their own; others you can see are skipped as \"Not allowed\". Anyone else is \"Not allowed\" and clocks out at the kiosk. " \
     "Use dry_run first to see what would change."
   scope :write
   feature :time_tracking
@@ -40,7 +42,7 @@ class Mcp::Tools::ClockOut < Mcp::Tool
     properties: {
       person_id: { type: "string", description: "This person's open punches (per_ ID)" },
       period_id: { type: "string", description: "This period's open punches (tcpd_ ID)" },
-      all: { type: "boolean", description: "true: open punches in every period on the teams you manage (admins: every period)" },
+      all: { type: "boolean", description: "true: open punches in every period on the teams you manage, and of the people you manage when the kiosk allows it (admins: every period)" },
       dry_run: dry_run_property
     },
     closed: true
@@ -65,13 +67,13 @@ class Mcp::Tools::ClockOut < Mcp::Tool
   def open_punches(person_id, period_id, all)
     open = TimeClockPunch.still_clocked_in
     chosen = if all
-      ctx.user.admin ? open.where.not(time_clock_period_id: nil) : open.where(time_clock_period_id: managed_periods.select(:id))
+      ctx.user.admin ? open.where.not(time_clock_period_id: nil) : open.where(id: kiosk_clock_out.punches.select(:id))
     elsif person_id
       open.where(person: ctx.find(Person, person_id))
     else
       open.where(time_clock_period: ctx.find(TimeClockPeriod, period_id))
     end
-    visible = ctx.policy_scope(TimeClockPunch).or(TimeClockPunch.where(time_clock_period_id: managed_periods.select(:id)))
+    visible = ctx.policy_scope(TimeClockPunch).or(TimeClockPunch.where(id: kiosk_clock_out.punches.select(:id)))
 
     @chosen_punches = chosen.where(id: visible.select(:id)).includes(:person, time_clock_period: :team).order(:start_time, :id).to_a
   end
@@ -93,16 +95,17 @@ class Mcp::Tools::ClockOut < Mcp::Tool
     flags
   end
 
-  def managed_periods
-    TimeClockPeriod.where(team_id: managed_team_ids)
-  end
-
-  def managed_team_ids
-    @managed_team_ids ||= ctx.person.all_managed_teams.pluck(:id)
-  end
-
   def may_close?(punch)
-    ctx.user.admin || punch.person_id == ctx.person.id || managed_team_ids.include?(punch.time_clock_period&.team_id)
+    ctx.user.admin || punch.person_id == ctx.person.id || closable_ids.include?(punch.id)
+  end
+
+  # What the kiosk's Manager window would let this person clock out.
+  def kiosk_clock_out
+    @kiosk_clock_out ||= TimeKiosk::ManagerClockOut.new(ctx.person)
+  end
+
+  def closable_ids
+    @closable_ids ||= kiosk_clock_out.punches.pluck(:id).to_set
   end
 
   # Sets the end time here, so a dry run shows it and refuses what a real run would.
