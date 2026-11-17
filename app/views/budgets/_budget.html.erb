@@ -1,6 +1,6 @@
 <div class="card" id="<%= dom_id budget %>">
   <div class="card-header">
-    <%= link_to budget.identifier_name, budget, 'data-turbo': false %>
+    <%= link_to budget.identifier_name, budget, data: { turbo_frame: "_top" } %>
   </div>
   <div class="card-body">
     <div class="text-center"><%= as_currency budget.remaining_amount %><br>Remaining</div>
