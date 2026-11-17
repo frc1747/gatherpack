@@ -241,15 +241,9 @@ Members get no notices. The daily digest is a recurring job in `config/recurring
 
 ### 3.13 Menu
 
-Inventory registers its feature with `nav_section` decided when the menu is drawn, not at boot:
+Inventory always has its own menu heading, **Inventory** (since hbr.46; until then it joined a shared Purchasing heading when orders was on, which mixed the two). `Inventory::Feature < GatherPack::Feature` stays only to draw the machine item with the group's word (§3.15).
 
-- The section name **Purchasing** is a shared convention. Any feature that buys or keeps things registers `GatherPack::Features.register_section("Purchasing", position: 35)`. Registering a section twice is harmless: `register_section` stores it in a hash by name.
-- Inventory also registers its own section, **Inventory**, at the same position.
-- Inventory's feature is a small subclass, `Inventory::Feature < GatherPack::Feature`, whose `nav_section` returns "Purchasing" when another enabled feature has nav items in "Purchasing", and "Inventory" otherwise. `Features.nav_sections` groups by `nav_section` on each call, so this needs no change to upstream code.
-
-So with orders on, Purchasing holds Orders and its pages, then Inventory, Reorder, Places and Changes. With orders absent or off, the same entries form their own Inventory section. Inventory never names orders; it only looks for the shared section name.
-
-Nav items: Inventory (search), Reorder, Items, Places, Changes. Reorder, Items, Places and Changes are visible only to inventory managers, team managers and admins.
+Nav items: Stock (`/inventory/stock`: search and what's on hand), Machines (the group's word; hidden when turned off), Reorder, Items, Places, Changes. Stock has its own path so upstream's prefix highlighting lights only one item; `/inventory` still opens Stock. Inventory setup is a button under an Inventory heading on the main Setup page.
 
 **Home and the member-first menu.** `feature/my-gatherpack-inventory` (from `feature/my-gatherpack` and `feature/inventory`), a connector in the pattern of the orders one: every inventory item stays under its section heading (Purchasing with orders, Inventory alone), with no Manage placements or check (since hbr.44). A `:todo` row for inventory managers, **"5 items running low"**, one summary row that opens Reorder. As everywhere in that menu, placements change what's shown, never what's allowed.
 
@@ -375,7 +369,7 @@ Rules:
 - Visibility: an item on a top-level team is seen from a subteam; a subteam's item isn't seen from a sibling; `inventory_users` excludes a team.
 - Member kinds follow `inventory_member_kinds`; a member can't record `removed` by default.
 - Location code unique within its top-level place; a place with stock can't be deactivated.
-- Menu: `Inventory::Feature#nav_section` is "Inventory" alone and "Purchasing" when a stub feature with Purchasing items is enabled, and "Inventory" again when that feature is off.
+- Menu: `Inventory::Feature#nav_section` is "Inventory" whether or not a feature with Purchasing items is enabled; on `/inventory/machines` only Machines is highlighted.
 - Import: preview, create, update by part number, unknown place code reported, `added` movements written.
 
 **Tracked units (model tests):** available count excludes installed, Needs repair, Broken and Retired units, and drives the reorder list; installing an outer unit carries its inner units and writes an event for each; a retired unit can't be installed; installing a Needs repair unit needs the confirm and records it; members can't do actions outside `inventory_member_unit_actions`; undo writes a reversing event; turning tracking on creates units for existing stock and turning it off is refused while units exist; codes are unique within a team; the `needs_repair`, `installed` and `removed` hooks fire once.
