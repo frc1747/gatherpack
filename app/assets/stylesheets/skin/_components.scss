@@ -80,6 +80,24 @@
   --bs-btn-disabled-border-color: var(--gp-accent);
 }
 
+// In dark mode a near-black button disappears into the page (Print,
+// Impersonate), so it turns light with dark text instead.
+[data-bs-theme=dark] .btn-dark {
+  --bs-btn-color: var(--gp-page);
+  --bs-btn-bg: var(--gp-text-soft);
+  --bs-btn-border-color: var(--gp-text-soft);
+  --bs-btn-hover-color: var(--gp-page);
+  --bs-btn-hover-bg: var(--gp-text);
+  --bs-btn-hover-border-color: var(--gp-text);
+  --bs-btn-focus-shadow-rgb: var(--gp-text-rgb);
+  --bs-btn-active-color: var(--gp-page);
+  --bs-btn-active-bg: var(--gp-text);
+  --bs-btn-active-border-color: var(--gp-text);
+  --bs-btn-disabled-color: var(--gp-page);
+  --bs-btn-disabled-bg: var(--gp-text-soft);
+  --bs-btn-disabled-border-color: var(--gp-text-soft);
+}
+
 .btn-outline-secondary, .btn-outline-dark {
   --bs-btn-color: var(--gp-text-soft);
   --bs-btn-border-color: var(--gp-input-border);
