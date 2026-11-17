@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | medium |
-| Status | fixed, next release (#1 310, #3 312, #4 313; #2 not a bug: To receive is in More; demo: Demo Admin added, parent on Parents; real names are fine) |
+| Status | shipped hbr.43 (#1 310, #3 312, #4 313; #2 not a bug: To receive is in More; demo: Demo Admin added, parent on Parents; real names are fine) |
 | Added | 2026-11-16 |
 | Commit checked | `v0.0.0-hbr.42` (demo) |
 | Planned branch | `feature/my-gatherpack-activity`, `feature/my-gatherpack-orders`, `feature/inventory`, `feature/checklists`; demo data on hbr/platform |

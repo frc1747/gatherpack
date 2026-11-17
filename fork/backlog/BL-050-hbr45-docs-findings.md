@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | high (1), medium (rest) |
-| Status | open (waiting on the fork owner) |
+| Status | shipped hbr.47 (1-3 orders/inventory setup, settings-inputs; 4 feature/announcement-search; 5-6 event-time-display + my-gatherpack, -family, -signups; 7 demo setting set back to off; 8 intake) |
 | Added | 2026-11-17 |
 | Commit checked | `v0.0.0-hbr.45` (demo) |
 | Planned branch | `feature/orders`, `feature/inventory`, `feature/settings-inputs`, `feature/my-gatherpack-family`, `feature/my-gatherpack` / `feature/event-time-display`, search |
