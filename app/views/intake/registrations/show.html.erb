@@ -42,6 +42,7 @@
         <dt class="col-sm-3"><%= label %></dt>
         <dd class="col-sm-9"><%= names.to_sentence %></dd>
       <% end %>
+      <%= render "intake/registrations/checklist_summary", registration: @registration %>
       <dt class="col-sm-3">Applications</dt>
       <dd class="col-sm-9">
         <%= %w[pending approved denied].map { |status| "#{@application_counts[MembershipApplication.statuses[status]] || @application_counts[status] || 0} #{status}" }.join(", ") %>
