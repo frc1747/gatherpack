@@ -32,9 +32,22 @@ class MembershipPolicyTest < ActiveSupport::TestCase
     refute allowed?(@member, team: @open_team, person: people(:two))
   end
 
-  def test_create_allows_team_managers
+  def test_create_allows_team_managers_to_add_people_they_manage
     memberships(:one).update!(manager: true)
+    sub_team = Team.create!(name: "Sub", team_type: team_types(:one), parent: @team)
+    Membership.create!(person: people(:two), team: sub_team)
     assert allowed?(@member, team: @team, person: people(:two), manager: true)
+  end
+
+  def test_create_rejects_team_managers_adding_people_they_dont_manage
+    memberships(:one).update!(manager: true)
+    refute allowed?(@member, team: @team, person: people(:two))
+  end
+
+  def test_create_rejects_team_managers_adding_to_a_team_they_dont_manage
+    memberships(:one).update!(manager: true)
+    closed_team = Team.create!(name: "Closed", team_type: team_types(:one))
+    refute allowed?(@member, team: closed_team, person: people(:one))
   end
 
   def test_create_allows_admins

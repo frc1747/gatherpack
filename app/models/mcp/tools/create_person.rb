@@ -29,7 +29,7 @@ class Mcp::Tools::CreatePerson < Mcp::Tool
 
   tool_name "create_person"
   description "Create a person, as the People page's New Person does, with a login if you give an email and a team membership if you give a team, all or nothing. " \
-    "Admins can create anyone; team managers must give a team they manage; anyone else gets \"Not allowed\", and a team you can't see gets \"Not found\". " \
+    "Only admins can; anyone else gets \"Not allowed\". " \
     "The password is never shown: the person uses Forgot password. Duplicates aren't refused, so call find_duplicate_people first. " \
     "Returns the person as get_person shows them, with has_login."
   scope :write

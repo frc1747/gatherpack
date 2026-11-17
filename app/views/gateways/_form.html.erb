@@ -10,7 +10,12 @@
   <% @gateway.fields.each do |fd| %>
     <div class="mb-3">
       <%= f.label "gateway[#{fd}]", fd, class: "form-label", name: "gateway[#{fd}]" %>
-      <%= f.text_area "gateway[#{fd}]", class: "form-control", value: @gateway.send(fd.to_sym), name: "gateway[#{fd}]" %>
+      <% if @gateway.secret_field?(fd) %>
+        <%= f.password_field "gateway[#{fd}]", class: "form-control", value: nil, name: "gateway[#{fd}]", autocomplete: "new-password",
+              placeholder: @gateway.send(fd.to_sym).present? ? "Set (leave blank to keep it)" : "Not set" %>
+      <% else %>
+        <%= f.text_area "gateway[#{fd}]", class: "form-control", value: @gateway.send(fd.to_sym), name: "gateway[#{fd}]" %>
+      <% end %>
     </div>
   <% end %>
 </div>
