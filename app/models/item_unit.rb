@@ -252,7 +252,7 @@ class ItemUnit < ApplicationRecord
     raise Inventory::Refused, "It's installed: take it off first" if installed?
     raise Inventory::Refused, "Say why" if note.blank?
 
-    change_condition!("retire", UnitCondition.retired, person: by, recorded_by: recorded_by, note: note)
+    change_condition!("retire", UnitCondition.retire_condition, person: by, recorded_by: recorded_by, note: note)
   end
 
   # Moves the unit, and everything inside it, to a location and outer unit,
