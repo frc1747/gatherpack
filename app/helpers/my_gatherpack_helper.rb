@@ -104,9 +104,15 @@ module MyGatherpackHelper
   def my_gatherpack_event_items
     events = policy_scope(Event).where("COALESCE(end_time, start_time) >= ?", Time.current).order(:start_time).limit(MY_GATHERPACK_ROW_LIMITS[:coming_up])
     events.map do |event|
-      times = [ event.start_time.strftime("%-I:%M %p"), event.end_time&.strftime(event.end_time.to_date == event.start_time.to_date ? "%-I:%M %p" : "%b %-d, %-I:%M %p") ].compact.join(" – ")
-      MyGatherpack::Item.new(title: event.name, detail: [ times, event.location.presence ].compact.join(" · "), at: event.start_time, path: event_path(event))
+      MyGatherpack::Item.new(title: event.name, detail: [ my_gatherpack_event_times(event), event.location.presence ].compact.join(" · "), at: event.start_time, path: event_path(event))
     end
+  end
+
+  # "All day" and "Time TBA" where the event-time feature (feature/event-time-display) is in the build.
+  def my_gatherpack_event_times(event)
+    return event_time_text(event) if respond_to?(:event_time_text) && event.respond_to?(:all_day_span?)
+
+    [ event.start_time.strftime("%-I:%M %p"), event.end_time&.strftime(event.end_time.to_date == event.start_time.to_date ? "%-I:%M %p" : "%b %-d, %-I:%M %p") ].compact.join(" – ")
   end
 
   # Widget slots belong to a separate feature, so this core can't assume them.
