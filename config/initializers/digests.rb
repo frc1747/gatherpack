@@ -14,4 +14,11 @@ Rails.application.config.to_prepare do
       default_enabled: false
     )
   )
+
+  # Which days a person's daily summary went out: bookkeeping only, removed
+  # with the person, so a merge leaves it behind rather than moving it.
+  if defined?(GatherPack::PersonMerge)
+    GatherPack::PersonMerge.exempt :digest_deliveries, :person_id,
+      reason: "Daily summary send log; rows go with the person (on delete cascade)"
+  end
 end
