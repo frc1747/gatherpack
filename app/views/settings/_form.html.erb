@@ -1,0 +1,24 @@
+<%# A form for some settings, for a feature's own settings page:
+      render "settings/form", keys: %i[my_setting other_setting], return_to: request.path
+    It saves through the settings page's action and comes back to return_to
+    (a path on this site). Only admins can save, so anyone else sees the
+    values read-only, with no Save. Keys not registered are skipped. %>
+<% settings = keys.filter_map { |key| Settings.get(key.to_sym) } %>
+<% editable = admin? %>
+<%= simple_form_for :settings, url: update_settings_path do |f| %>
+  <% if editable %>
+    <%= hidden_field_tag :return_to, return_to, id: nil %>
+  <% end %>
+  <fieldset<%= " disabled" unless editable %>>
+    <% settings.each do |setting| %>
+      <%= render "settings/inputs/field", f: f, setting: setting %>
+    <% end %>
+  </fieldset>
+  <% if editable %>
+    <div class="sticky-bottom bg-body border-top py-2">
+      <%= f.submit "Save", class: "btn btn-lg btn-success" %>
+    </div>
+  <% else %>
+    <p class="text-body-secondary">Only admins can change these settings.</p>
+  <% end %>
+<% end %>
