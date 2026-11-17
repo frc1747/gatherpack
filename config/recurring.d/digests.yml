@@ -1,0 +1,6 @@
+# Daily summaries (GatherPack::Digests). The job checks the site's time zone
+# itself (7:00 there), so it runs often and sends once a day.
+deliver_daily_digests:
+  class: DeliverDailyDigestsJob
+  queue: default
+  schedule: every 15 minutes
