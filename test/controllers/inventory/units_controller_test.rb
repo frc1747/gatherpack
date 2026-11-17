@@ -138,10 +138,12 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
 
   test "a check records the condition and readings, and the unit page shows them" do
     as(@world.member) do
-      post check_inventory_unit_path(@unit), params: { condition: "worn", readings: { "Hours" => "12.5" }, note: "Bearing a bit loud" }
+      hours = @motor.reading_types.first
+      worn = unit_condition("worn")
+      post check_inventory_unit_path(@unit), params: { condition: worn.id, readings: { hours.id => "12.5" }, note: "Bearing a bit loud" }
       assert_redirected_to inventory_unit_path(@unit)
-      assert @unit.reload.condition_worn?
-      assert_equal({ "Hours" => 12.5 }, @unit.events.last.readings)
+      assert_equal worn, @unit.reload.unit_condition
+      assert_equal({ hours.id => 12.5 }, @unit.events.last.readings)
 
       get inventory_unit_path(@unit)
       assert_select "#latest_readings dd", "12.5"
@@ -154,27 +156,28 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
       post mark_for_repair_inventory_unit_path(@unit), params: { condition: "broken", note: "" }
       assert_equal "Say what's wrong", flash[:alert]
 
-      post mark_for_repair_inventory_unit_path(@unit), params: { condition: "broken", note: "Shaft snapped" }
-      assert @unit.reload.condition_broken?
+      post mark_for_repair_inventory_unit_path(@unit), params: { condition: unit_condition("broken").id, note: "Shaft snapped" }
+      assert_equal "broken", @unit.reload.unit_condition.key
+      assert_equal "Marked Broken", flash[:notice]
 
-      post repaired_inventory_unit_path(@unit), params: { condition: "good", note: "New shaft" }
+      post repaired_inventory_unit_path(@unit), params: { condition: unit_condition("good").id, note: "New shaft" }
       assert_equal "You are not allowed to do that", flash[:notice]
-      assert @unit.reload.condition_broken?
+      assert_equal "broken", @unit.reload.unit_condition.key
     end
     as(@world.keeper) do
-      post repaired_inventory_unit_path(@unit), params: { condition: "good", note: "New shaft" }
-      assert @unit.reload.condition_good?
+      post repaired_inventory_unit_path(@unit), params: { condition: unit_condition("good").id, note: "New shaft" }
+      assert_equal "good", @unit.reload.unit_condition.key
     end
   end
 
   test "only a manager retires a unit" do
     as(@world.member) do
       post retire_inventory_unit_path(@unit), params: { note: "Worn out" }
-      assert_not @unit.reload.condition_retired?
+      assert_not @unit.reload.out_of_service?
     end
     as(@world.keeper) do
       post retire_inventory_unit_path(@unit), params: { note: "Worn out" }
-      assert @unit.reload.condition_retired?
+      assert @unit.reload.out_of_service?
     end
   end
 

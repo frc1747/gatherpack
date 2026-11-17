@@ -1,4 +1,5 @@
-<% machines = Inventory.machines? ? policy_scope(Location).machine.active : Location.none %>
+<% installable = LocationType.installable.exists? %>
+<% machines = installable ? policy_scope(Location).active.where(location_type_id: LocationType.installable.select(:id)) : Location.none %>
 <% target = @target || machines.find_by(id: params[:location_id].presence || session[:inventory_machine_id]) %>
 <%= render layout: "action", locals: { unit: @unit, title: "Install", submit: @unit.flagged? ? "Install anyway" : "Install",
       url: install_inventory_unit_path(@unit), danger: @unit.flagged? } do |form| %>
@@ -13,17 +14,17 @@
     <p>Into <strong><%= target.identifier_name %></strong> (<%= target.item.name %>)</p>
     <%= hidden_field_tag :unit_id, target.id %>
   <% else %>
-    <% if Inventory.machines? %>
+    <% if installable %>
       <div class="mb-3">
-        <%= label_tag :location_id, "On #{Inventory.machine_word(article: true)}", class: "form-label" %>
+        <%= label_tag :location_id, "On #{LocationType.installable_words}", class: "form-label" %>
         <%= select_tag :location_id, options_for_select(inventory_place_options(machines), target&.id),
-              include_blank: "Pick #{Inventory.machine_word(article: true)}", class: "form-select form-select-lg" %>
+              include_blank: "Pick #{LocationType.installable_words}", class: "form-select form-select-lg" %>
       </div>
     <% end %>
     <div class="mb-3">
-      <%= label_tag :unit_code, Inventory.machines? ? "Or inside another part: its code" : "Inside another part: its code", class: "form-label" %>
+      <%= label_tag :unit_code, installable ? "Or inside another part: its code" : "Inside another part: its code", class: "form-label" %>
       <%= text_field_tag :unit_code, params[:unit_code], class: "form-control form-control-lg", autocapitalize: "characters",
-            autocomplete: "off", placeholder: "For example the code of the part it goes in", required: !Inventory.machines? %>
+            autocomplete: "off", placeholder: "For example the code of the part it goes in", required: !installable %>
     </div>
   <% end %>
 <% end %>

@@ -14,8 +14,8 @@
   </div>
   <div class="card-body">
     <% if item.tracked? %>
-      <% units = ItemUnitPolicy::Scope.new(viewer.user, item.item_units).resolve.includes(:location, :installed_in).order(:code).to_a %>
-      <% retired, current = units.partition(&:condition_retired?) %>
+      <% units = ItemUnitPolicy::Scope.new(viewer.user, item.item_units).resolve.includes(:location, :installed_in, :unit_condition).order(:code).to_a %>
+      <% retired, current = units.partition(&:out_of_service?) %>
       <% repair, working = current.partition(&:flagged?) %>
       <% on_machines, stored = working.partition(&:on_machine?) %>
       <% inside, spare = stored.partition(&:installed_in_id?) %>
@@ -39,7 +39,7 @@
             <% list.each do |unit| %>
               <li>
                 <%= link_to unit.identifier_name, inventory_unit_path(unit) %>
-                <%= unit_condition_badge(unit) unless unit.condition_retired? %>
+                <%= unit_condition_badge(unit) unless unit.out_of_service? %>
                 <%= tag.span("in #{unit.installed_in.identifier_name}", class: "small text-body-secondary") if unit.installed_in %>
               </li>
             <% end %>
@@ -47,7 +47,7 @@
         <% end %>
       <% end %>
 
-      <% fields = Array(item.reading_fields) %>
+      <% fields = item.reading_types.to_a %>
       <div class="mt-3 small">
         <strong>Readings a check asks for:</strong>
         <%= fields.any? ? fields.map { |field| reading_heading(field) }.to_sentence : "none" %>

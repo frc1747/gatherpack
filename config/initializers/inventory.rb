@@ -18,7 +18,8 @@ Rails.application.config.to_prepare do
       []
     end
 
-  # Setup is a button on the main Setup page, for admins, not a menu item.
+  # Setup is a button on the main Setup page, for admins, not a menu item,
+  # under the heading inventory shares with orders.
   setup_item = GatherPack::Feature::SetupItem.new(label: "Inventory", path: :inventory_setup_path,
     policy_check: ->(view) { view.current_user&.admin })
 
@@ -31,10 +32,10 @@ Rails.application.config.to_prepare do
       nav_position: 50,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Stock", path: :inventory_stock_path, icon: "boxes-stacked"),
-        # Named and shown as Inventory setup says (Inventory::Feature#nav_items).
+        # One entry per place type parts get installed on (Inventory::Feature#nav_items).
         GatherPack::Feature::NavItem.new(label: "Machines", path: :inventory_machines_path, icon: Inventory::MACHINE_ICON)
       ] + manager_items,
-      setup_section: "Inventory",
+      setup_section: Inventory::SETUP_SECTION,
       setup_items: [ setup_item ]
     )
   )
@@ -85,19 +86,47 @@ Rails.application.config.to_prepare do
       "When inventory managers hear that an item is running low: off, each (an email each time), daily (in the daily digest) " \
         "or weekly (in the Weekly Infodump, when Summaries is on)"
     end)
-  Settings.register(:inventory_default_unit, :string, "Default Stock Unit", "each", "Inventory",
-    "The stock unit a new item starts with")
-  Settings.register(:inventory_machines, :string, "Things Parts Get Installed On", "on", "Inventory",
-    if picked
-      "Places that are built and run, with tracked parts installed on them, each with its own page"
-    else
-      "Places that are built and run, with tracked parts installed on them, each with its own page: on or off"
-    end)
-  Settings.register(:inventory_machine_name, :string, "What One Is Called", "", "Inventory",
-    "The name for one of them, such as Robot, Project or Tool. Blank: #{Inventory::Config::DEFAULT_MACHINE_NAME}")
-  Settings.register(:inventory_machine_name_plural, :string, "What Several Are Called", "", "Inventory",
-    "The name for more than one. Blank: the plural of the name above, or " \
-      "#{Inventory::Config::DEFAULT_MACHINE_NAME_PLURAL} when that's blank too")
+
+  # The things a group names for itself are lists admins manage on Setup,
+  # next to Inventory setup (managed lists, where that seam is merged).
+  if defined?(GatherPack::ManagedLists)
+    GatherPack::ManagedLists.register(:location_types, model: "LocationType", label: "Place Type",
+      setup_section: Inventory::SETUP_SECTION, feature: :inventory,
+      description: "The types of place things are kept in or installed on. Storage keeps stock; a type parts get " \
+        "installed on, such as Robot, gets its own menu entry and a page for each place.",
+      fields: [
+        { name: :holds_stock, label: "Keeps stock", hint: "Counted stock and spare parts can be kept in these places." },
+        { name: :holds_installed_parts, label: "Parts get installed on it",
+          hint: "Tracked parts are installed on these places, each with its own page." }
+      ])
+    GatherPack::ManagedLists.register(:stock_units, model: "StockUnit", label: "Stock Unit",
+      setup_section: Inventory::SETUP_SECTION, feature: :inventory,
+      description: "The units stock is counted in. Quantities are whole numbers in the item's unit.",
+      fields: [ { name: :default, label: "Default", hint: "New items start with this unit. Only one unit is the default." } ])
+    GatherPack::ManagedLists.register(:unit_conditions, model: "UnitCondition", label: "Part Condition",
+      setup_section: Inventory::SETUP_SECTION, feature: :inventory,
+      description: "The conditions a tracked part can be in.",
+      fields: [
+        { name: :needs_attention, label: "Needs attention",
+          hint: "Not a spare until it's repaired, and installing it asks first. Mark for repair offers these." },
+        { name: :out_of_service, label: "Out of service",
+          hint: "Ends the part's use: it drops out of every count and can't be installed again." }
+      ])
+    GatherPack::ManagedLists.register(:reading_types, model: "ReadingType", label: "Reading Type",
+      setup_section: Inventory::SETUP_SECTION, feature: :inventory,
+      description: "What a check can record on a tracked part, such as hours of use. Each item picks the ones its checks ask for.",
+      fields: [ { name: :unit_label, label: "Unit", hint: "Shown after the name, such as h or V. Optional." } ])
+
+    # Inventory's lists refuse some retires and merges (the default stock
+    # unit, place types that do different things) by raising RecordInvalid
+    # with a message; the list screen shows it instead of an error page.
+    if defined?(ManagedListsController)
+      ManagedListsController.rescue_from(ActiveRecord::RecordInvalid) do |error|
+        flash[:danger] = error.record.errors.full_messages.to_sentence
+        redirect_to managed_list_path(params[:list]), status: :see_other
+      end
+    end
+  end
 
   # Pickers and the Setup page come with the settings inputs seam; without
   # it the settings stay text boxes and Setup shows plain fields.
@@ -112,9 +141,7 @@ Rails.application.config.to_prepare do
       choices: Inventory::Config::UNIT_ACTIONS.map { |action| [ action.humanize, action ] })
     Settings.input(:inventory_reorder_notice, :select,
       choices: Inventory::Config::REORDER_NOTICE_CHOICES)
-    Settings.input(:inventory_machines, :select, choices: [ [ "On", "on" ], [ "Off", "off" ] ])
-    Settings.input(:inventory_default_unit, :text,
-      suggestions: -> { Item.distinct.order(:unit).pluck(:unit).compact_blank })
+    Settings.input(:inventory_used_needs_reason, :select, choices: [ [ "Yes", "true" ], [ "No", "false" ] ])
   end
   if Settings.respond_to?(:page)
     Settings.page("Inventory", :inventory_setup_path, label: "Inventory setup",

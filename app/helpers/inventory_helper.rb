@@ -25,10 +25,9 @@ module InventoryHelper
     content_for :head, stylesheet_link_tag("inventory")
   end
 
-  # "14", or "14 ft" when the item isn't counted in each.
+  # "14", or "14 feet" when the item isn't counted in each.
   def inventory_quantity(quantity, item)
-    unit = item.unit.to_s
-    unit.blank? || unit == "each" ? quantity.to_s : "#{quantity} #{unit}"
+    item.stock_unit ? item.stock_unit.quantity_text(quantity) : quantity.to_s
   end
 
   # Running low, Out of stock and Needs a count, as badges.

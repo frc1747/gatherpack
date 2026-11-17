@@ -41,11 +41,11 @@ class LocationTest < ActiveSupport::TestCase
     with_inventory(@world) do
       stock!(@world, 5)
 
-      assert_not @world.bin1.update(kind: "machine")
-      assert_includes @world.bin1.errors[:kind].first, "move or remove it first"
+      assert_not @world.bin1.update(location_type: location_type("machine"))
+      assert_includes @world.bin1.errors[:location_type].first, "move or remove it first"
 
       record(@world, :used, 5, location: @world.bin1.reload)
-      assert @world.bin1.update(kind: "machine")
+      assert @world.bin1.update(location_type: location_type("machine"))
     end
   end
 
@@ -67,7 +67,8 @@ class LocationTest < ActiveSupport::TestCase
 
   test "a machine is top level or under a storage place, not inside another machine" do
     cart = Location.create!(team: @world.robotics, name: "Robot cart")
-    assert Location.new(parent: cart, name: "Practice robot", kind: "machine").valid?
-    assert_not Location.new(parent: @world.robot, name: "Arm", kind: "machine").valid?
+    machine = location_type("machine")
+    assert Location.new(parent: cart, name: "Practice robot", location_type: machine).valid?
+    assert_not Location.new(parent: @world.robot, name: "Arm", location_type: machine).valid?
   end
 end

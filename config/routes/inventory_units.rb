@@ -9,4 +9,6 @@ namespace :inventory do
       post :install
     end
   end
+  # The places of one place type that parts get installed on.
+  get "machines/type/:type_id", to: "machines#index", as: :machine_type
 end

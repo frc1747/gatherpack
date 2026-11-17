@@ -11,8 +11,6 @@ module Inventory
     REORDER_NOTICE_CHOICES = [ [ "Off", "off" ], [ "An email each time", "each" ], [ "In the daily digest", "daily" ],
       [ "In the Weekly Infodump", "weekly" ] ].freeze
     DEFAULT_UNDO_MINUTES = 10
-    DEFAULT_MACHINE_NAME = "Machine"
-    DEFAULT_MACHINE_NAME_PLURAL = "Machines"
 
     module_function
 
@@ -52,28 +50,10 @@ module Inventory
       REORDER_NOTICES.include?(value) ? value : "daily"
     end
 
+    # The default stock unit's name. Kept for features written against the
+    # old inventory_default_unit setting; new code uses StockUnit.default_unit.
     def default_unit
-      Settings[:inventory_default_unit].to_s.strip.presence || "each"
-    end
-
-    # Whether places can be machines: things built and run that parts get
-    # installed on. On unless set to off.
-    def machines?
-      Settings[:inventory_machines].to_s.strip.downcase != "off"
-    end
-
-    # What the group calls a machine, as set up: "Robot", "Project", "Tool".
-    def machine_name
-      Settings[:inventory_machine_name].to_s.strip.presence || DEFAULT_MACHINE_NAME
-    end
-
-    # The plural; blank takes the plural of the singular name.
-    def machine_name_plural
-      plural = Settings[:inventory_machine_name_plural].to_s.strip.presence
-      return plural if plural
-      return DEFAULT_MACHINE_NAME_PLURAL if Settings[:inventory_machine_name].to_s.strip.empty?
-
-      machine_name.pluralize
+      StockUnit.default_unit&.name || "each"
     end
 
     # The known names in a comma- or line-separated setting, in the

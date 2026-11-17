@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_17_140300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -230,6 +230,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "item_reading_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "item_id", null: false
+    t.uuid "reading_type_id", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["item_id", "reading_type_id"], name: "index_item_reading_types_on_item_id_and_reading_type_id", unique: true
+    t.index ["reading_type_id"], name: "index_item_reading_types_on_reading_type_id"
+  end
+
   create_table "item_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "item_id", null: false
     t.string "vendor_name", null: false
@@ -251,8 +261,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.uuid "from_unit_id"
     t.uuid "to_unit_id"
     t.uuid "via_unit_id"
-    t.string "condition_before"
-    t.string "condition_after"
     t.jsonb "readings", default: {}, null: false
     t.boolean "confirmed", default: false, null: false
     t.uuid "person_id"
@@ -260,7 +268,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.uuid "reverses_id"
     t.text "note"
     t.datetime "created_at", null: false
+    t.uuid "condition_before_id"
+    t.uuid "condition_after_id"
     t.index ["action", "created_at"], name: "index_item_unit_events_on_action_and_created_at"
+    t.index ["condition_after_id"], name: "index_item_unit_events_on_condition_after_id"
+    t.index ["condition_before_id"], name: "index_item_unit_events_on_condition_before_id"
     t.index ["from_location_id"], name: "index_item_unit_events_on_from_location_id"
     t.index ["from_unit_id"], name: "index_item_unit_events_on_from_unit_id"
     t.index ["item_unit_id", "created_at"], name: "index_item_unit_events_on_item_unit_id_and_created_at"
@@ -279,16 +291,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.string "name"
     t.uuid "location_id", null: false
     t.uuid "installed_in_id"
-    t.string "condition", default: "new", null: false
     t.text "condition_note"
     t.date "in_service_on"
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "unit_condition_id", null: false
     t.index ["code"], name: "index_item_units_on_code"
     t.index ["installed_in_id"], name: "index_item_units_on_installed_in_id"
     t.index ["item_id"], name: "index_item_units_on_item_id"
     t.index ["location_id"], name: "index_item_units_on_location_id"
+    t.index ["unit_condition_id"], name: "index_item_units_on_unit_condition_id"
   end
 
   create_table "items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -298,9 +311,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.string "category"
     t.string "manufacturer"
     t.string "manufacturer_part_number"
-    t.string "unit", default: "each", null: false
     t.boolean "tracked", default: false, null: false
-    t.jsonb "reading_fields", default: [], null: false
     t.uuid "home_location_id"
     t.integer "reorder_point"
     t.integer "reorder_quantity"
@@ -309,8 +320,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "stock_unit_id", null: false
     t.index ["home_location_id"], name: "index_items_on_home_location_id"
     t.index ["manufacturer_part_number"], name: "index_items_on_manufacturer_part_number"
+    t.index ["stock_unit_id"], name: "index_items_on_stock_unit_id"
     t.index ["team_id", "active"], name: "index_items_on_team_id_and_active"
   end
 
@@ -405,17 +418,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "location_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.boolean "holds_stock", default: true, null: false
+    t.boolean "holds_installed_parts", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_location_types_on_lower_name", unique: true
+    t.index ["key"], name: "index_location_types_on_key", unique: true
+  end
+
   create_table "locations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "team_id", null: false
     t.uuid "parent_id"
     t.string "name", null: false
     t.string "code"
-    t.string "kind", default: "storage", null: false
     t.text "note"
     t.integer "position", default: 0, null: false
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "location_type_id", null: false
+    t.index ["location_type_id"], name: "index_locations_on_location_type_id"
     t.index ["parent_id"], name: "index_locations_on_parent_id"
     t.index ["team_id", "active"], name: "index_locations_on_team_id_and_active"
     t.index ["team_id"], name: "index_locations_on_team_id"
@@ -569,6 +597,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.index ["created_at"], name: "index_questions_on_created_at"
     t.index ["person_id"], name: "index_questions_on_person_id"
     t.index ["team_id"], name: "index_questions_on_team_id"
+  end
+
+  create_table "reading_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.string "unit_label"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_reading_types_on_lower_name", unique: true
+    t.index ["key"], name: "index_reading_types_on_key", unique: true
   end
 
   create_table "relationship_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -795,6 +836,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.index ["reverses_id"], name: "index_stock_movements_on_reverses_id", unique: true
   end
 
+  create_table "stock_units", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.boolean "default", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_stock_units_on_lower_name", unique: true
+    t.index ["default"], name: "index_stock_units_one_default", unique: true, where: "\"default\""
+    t.index ["key"], name: "index_stock_units_on_key", unique: true
+  end
+
   create_table "team_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "icon"
@@ -871,6 +926,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
     t.index ["created_by_type", "created_by_id"], name: "index_transactions_on_created_by"
   end
 
+  create_table "unit_conditions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.boolean "needs_attention", default: false, null: false
+    t.boolean "out_of_service", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_unit_conditions_on_lower_name", unique: true
+    t.index ["key"], name: "index_unit_conditions_on_key", unique: true
+  end
+
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "admin", default: false
     t.boolean "architect", default: false, null: false
@@ -912,6 +981,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
   add_foreign_key "checkins", "people"
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
+  add_foreign_key "item_reading_types", "items"
+  add_foreign_key "item_reading_types", "reading_types"
   add_foreign_key "item_sources", "items"
   add_foreign_key "item_unit_events", "item_unit_events", column: "reverses_id"
   add_foreign_key "item_unit_events", "item_units"
@@ -922,10 +993,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
   add_foreign_key "item_unit_events", "locations", column: "to_location_id"
   add_foreign_key "item_unit_events", "people", column: "recorded_by_id", on_delete: :nullify
   add_foreign_key "item_unit_events", "people", on_delete: :nullify
+  add_foreign_key "item_unit_events", "unit_conditions", column: "condition_after_id"
+  add_foreign_key "item_unit_events", "unit_conditions", column: "condition_before_id"
   add_foreign_key "item_units", "item_units", column: "installed_in_id"
   add_foreign_key "item_units", "items"
   add_foreign_key "item_units", "locations"
+  add_foreign_key "item_units", "unit_conditions"
   add_foreign_key "items", "locations", column: "home_location_id"
+  add_foreign_key "items", "stock_units"
   add_foreign_key "items", "teams"
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
@@ -936,6 +1011,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_16_100600) do
   add_foreign_key "ledgers", "teams"
   add_foreign_key "lego_lottery_drawing_tickets", "lego_lottery_drawings"
   add_foreign_key "lego_lottery_drawing_tickets", "people"
+  add_foreign_key "locations", "location_types"
   add_foreign_key "locations", "locations", column: "parent_id"
   add_foreign_key "locations", "teams"
   add_foreign_key "mailbox_assignments", "mailboxes"

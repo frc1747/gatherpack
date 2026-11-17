@@ -96,8 +96,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
     skip "plain page only" if Settings.respond_to?(:input)
     values = { inventory_users: "Club", inventory_managers: "Keeper > Club", inventory_member_kinds: "used, moved",
       inventory_member_unit_actions: "install, move", inventory_used_needs_reason: "true", inventory_undo_minutes: "25",
-      inventory_reorder_notice: "weekly", inventory_default_unit: "pair", inventory_machines: "off",
-      inventory_machine_name: "Robot", inventory_machine_name_plural: "Robots" }
+      inventory_reorder_notice: "weekly" }
     assert_equal Inventory::SetupController::KEYS.sort, values.keys.sort
     with_inventory(@world) do
       sign_in @world.admin.user
@@ -147,7 +146,10 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.admin.user
       get setup_path
       assert_select "a.btn[href=?]", inventory_setup_path, text: "Inventory"
-      assert_select "h6, h5, h4, h3, h2", text: "Inventory"
+      assert_select "h6, h5, h4, h3, h2", text: "Orders and Inventory"
+      %i[location_types stock_units unit_conditions reading_types].each do |key|
+        assert_select "a[href=?]", managed_list_path(key)
+      end
       get inventory_root_path
       assert_select ".nav-item a[href=?]", inventory_setup_path, count: 0
       sign_out @world.admin.user
@@ -161,11 +163,33 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
 
   test "Machines is in the menu and on the Inventory page for anyone who can use inventory" do
     nav = GatherPack::Features.all.find { |feature| feature.key == :inventory }.nav_items.find { |item| item.label == "Machines" }
-    assert_equal :inventory_machines_path, nav.path
+    assert_kind_of Proc, nav.path
     with_inventory(@world) do
       sign_in @world.member.user
       get inventory_root_path
-      assert_select "a[href=?]", inventory_machines_path, text: /Machines/
+      path = inventory_machine_type_path(location_type("machine"))
+      assert_select ".nav-item a[href=?]", path, text: /Machines/
+      assert_select "a.btn[href=?]", path, text: /Machines/
+    end
+  end
+
+  test "yes/no settings show Yes and No, and the four lists are linked" do
+    with_inventory(@world) do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_select "select[name='settings[inventory_used_needs_reason]'] option", text: "Yes"
+      assert_select "select[name='settings[inventory_used_needs_reason]'] option", text: "No"
+      assert_select "select[name='settings[inventory_used_needs_reason]'] option", text: "true", count: 0
+      assert_select "#inventory_lists a", text: "Place Types"
+      assert_select "#inventory_lists a", text: "Stock Units"
+      assert_select "#inventory_lists a", text: "Part Conditions"
+      assert_select "#inventory_lists a", text: "Reading Types"
+    end
+  end
+
+  test "the machine and default unit settings are gone: they're the place types and stock units lists" do
+    %i[inventory_machines inventory_machine_name inventory_machine_name_plural inventory_default_unit].each do |key|
+      assert_nil Settings.get(key), key
     end
   end
 

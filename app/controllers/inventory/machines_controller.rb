@@ -1,17 +1,28 @@
-# Machines (inventory spec §3.15): things built and run, under the name
-# Inventory setup gives them, each with the units installed on it, nested
-# by sub-assembly. Install a part takes a unit's code, typed or scanned from
-# its label. Gone while Inventory setup turns them off.
+# Places parts get installed on (inventory spec §3.15), one page per active
+# place type that takes them (Robots, Practice bases), each place with the
+# units installed on it, nested by sub-assembly. Install a part takes a
+# unit's code, typed or scanned from its label. /inventory/machines opens
+# the first such type. A type that's retired, and its places, are gone
+# from here.
 module Inventory
   class MachinesController < BaseController
     include Inventory::UnitLookup
 
-    before_action :require_machines
     before_action :set_machine, only: %i[show install]
 
+    # GET /inventory/machines/type/:type_id, or /inventory/machines for the
+    # first type.
     def index
       authorize :inventory, :use?
-      @machines = policy_scope(Location).machine.includes(:parent).sort_by { |machine| [ machine.active? ? 0 : 1, machine.full_name ] }
+      @type = params[:type_id].present? ? LocationType.installable.find(params[:type_id]) : LocationType.installable.first
+      if @type.nil? || params[:type_id].blank?
+        skip_policy_scope
+        return redirect_to(@type ? inventory_machine_type_path(@type) : inventory_root_path,
+          notice: ("No type of place takes installed parts" unless @type))
+      end
+
+      @machines = policy_scope(Location).where(location_type: @type).includes(:parent)
+        .sort_by { |machine| [ machine.active? ? 0 : 1, machine.full_name ] }
       # The same units each machine's page lists.
       units = policy_scope(ItemUnit).active.where(location_id: @machines.map(&:id))
       @unit_counts = units.group(:location_id).count
@@ -19,7 +30,7 @@ module Inventory
     end
 
     def show
-      units = policy_scope(ItemUnit).active.where(location: @machine).includes(:item).order(:code).to_a
+      units = policy_scope(ItemUnit).active.where(location: @machine).includes(:item, :unit_condition).order(:code).to_a
       # A unit inside one the viewer can't see is listed at the top level.
       seen = units.to_set(&:id)
       @contents = units.group_by { |unit| seen.include?(unit.installed_in_id) ? unit.installed_in_id : nil }
@@ -44,15 +55,12 @@ module Inventory
 
     private
 
-    def require_machines
-      return if Inventory.machines?
-
-      redirect_to inventory_root_path, notice: "#{Inventory.machine_word(count: :many, capitalize: true)} are turned off"
-    end
-
     def set_machine
-      @machine = policy_scope(Location).machine.find(params[:id])
+      @machine = policy_scope(Location).machine.includes(:location_type).find(params[:id])
       authorize @machine, :show?
+      return if @machine.takes_installs?
+
+      redirect_to inventory_location_path(@machine), notice: "#{@machine.location_type.plural_name} are retired"
     end
   end
 end

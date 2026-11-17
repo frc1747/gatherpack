@@ -31,8 +31,8 @@
     <% end %>
   </div>
 
-  <% if @location.machine? && Inventory.machines? %>
-    <p>This is <%= Inventory.machine_word(article: true) %>: parts on it are tracked units. <%= link_to "Open its page", inventory_machine_path(@location) %>.</p>
+  <% if @location.takes_installs? %>
+    <p>This is <%= @location.type_word(article: true) %>: parts on it are tracked units. <%= link_to "Open its page", inventory_machine_path(@location) %>.</p>
   <% elsif @location.machine? %>
     <% units = policy_scope(ItemUnit).active.where(location: @location).includes(:item).order(:code) %>
     <h2 class="h4">Parts here</h2>

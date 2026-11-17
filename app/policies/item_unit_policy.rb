@@ -1,9 +1,9 @@
 # Units of tracked items: seen with their item, edited (code, serial, name,
 # photo) by those who manage it. Each action follows
 # Inventory::Access#may_unit_action? (inventory_member_unit_actions for
-# members, every action for managers). While Inventory setup turns machines
-# off, Install only puts a unit inside another one, so it needs another
-# unit to go into (ItemUnit#install! refuses a machine then). Units aren't
+# members, every action for managers). While no active place type takes
+# installed parts, Install only puts a unit inside another one, so it needs
+# another unit to go into (ItemUnit#install! refuses a machine then). Units aren't
 # deleted: retire them.
 class ItemUnitPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
@@ -42,7 +42,7 @@ class ItemUnitPolicy < ApplicationPolicy
   end
 
   def install?
-    person.present? && (Inventory.machines? || part_to_go_into?) && access.may_unit_action?("install", record)
+    person.present? && (LocationType.installable.exists? || part_to_go_into?) && access.may_unit_action?("install", record)
   end
 
   private

@@ -79,12 +79,13 @@ class Inventory::ItemsControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.keeper.user
       get new_inventory_item_path
       assert_response :success
-      post inventory_items_path, params: { item: { team_id: @world.robotics.id, name: "Zip tie", unit: "pack",
+      post inventory_items_path, params: { item: { team_id: @world.robotics.id, name: "Zip tie", stock_unit_id: stock_unit("pack").id,
         home_location_id: @world.bin2.id, reorder_point: "5" } }
       item = Item.find_by!(name: "Zip tie")
       assert_redirected_to inventory_item_path(item)
       assert_equal @world.bin2, item.home_location
       assert_equal 5, item.reorder_point
+      assert_equal "pack", item.unit
     end
   end
 

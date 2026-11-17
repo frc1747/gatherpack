@@ -22,7 +22,7 @@
               pattern: "[0-9]*", class: "form-control", data: { inventory_stepper_target: "input" } %>
             <button type="button" class="btn btn-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
           </div>
-          <div class="form-text"><%= level.item.unit %></div>
+          <div class="form-text"><%= level.item.stock_unit&.plural_name %></div>
         </div>
       </section>
     <% end %>
