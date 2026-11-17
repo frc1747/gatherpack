@@ -1,0 +1,64 @@
+<% content_for :title, @registration.title %>
+<h1 class="h3"><%= @registration.title %></h1>
+<% Array(@errors).each do |message| %>
+  <div class="alert alert-danger"><%= message %></div>
+<% end %>
+
+<%= form_with url: intake_kiosk_path(@registration.slug), scope: :kiosk, data: { turbo: false }, html: { autocomplete: "off" } do |f| %>
+  <% teams = @registration.apply_teams %>
+  <% if teams.one? %>
+    <%= hidden_field_tag "kiosk[team_ids][]", teams.first.id %>
+    <p>Joining <strong><%= teams.first.name %></strong>.</p>
+  <% else %>
+    <fieldset class="mb-3">
+      <legend class="form-label fs-5">Who is joining? Choose any that apply.</legend>
+      <% teams.each do |team| %>
+        <div class="form-check">
+          <%= check_box_tag "kiosk[team_ids][]", team.id, Array(@form["team_ids"]).include?(team.id), id: "kiosk_team_#{team.id}", class: "form-check-input" %>
+          <%= label_tag "kiosk_team_#{team.id}", team.name, class: "form-check-label" %>
+        </div>
+      <% end %>
+    </fieldset>
+  <% end %>
+
+  <div class="row">
+    <div class="col-sm-6 mb-3"><%= f.label :first_name, "First name", class: "form-label" %><%= f.text_field :first_name, value: @form["first_name"], required: true, class: "form-control form-control-lg" %></div>
+    <div class="col-sm-6 mb-3"><%= f.label :last_name, "Last name", class: "form-label" %><%= f.text_field :last_name, value: @form["last_name"], required: true, class: "form-control form-control-lg" %></div>
+  </div>
+  <div class="mb-3">
+    <%= f.label :birth_year, "Year you were born", class: "form-label" %>
+    <%= f.number_field :birth_year, value: @form["birth_year"], required: true, min: Date.current.year - 110, max: Date.current.year, class: "form-control form-control-lg", style: "max-width: 12rem;" %>
+  </div>
+  <div class="mb-3" data-controller="intake-email-hint" data-intake-email-hint-domains-value="<%= intake_domain_hints.to_json %>">
+    <%= f.label :email, "Your email", class: "form-label" %>
+    <%= f.email_field :email, value: @form["email"], required: true, class: "form-control form-control-lg",
+      data: { intake_email_hint_target: "input", action: "blur->intake-email-hint#check" } %>
+    <div class="form-text text-warning" data-intake-email-hint-target="hint" hidden></div>
+  </div>
+  <div class="mb-3">
+    <%= f.label :email_confirmation, "Your email again", class: "form-label" %>
+    <%= f.email_field :email_confirmation, value: @form["email_confirmation"], required: true, class: "form-control form-control-lg" %>
+  </div>
+
+  <% if (questions = @registration.kiosk_fields.to_a).any? %>
+    <%= simple_fields_for :person, Person.new do |pf| %>
+      <% questions.each do |field| %>
+        <%= person_field_input(pf, field, @answers[field.key]) %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <% if @registration.guardian_relationship_type %>
+    <fieldset class="mb-3 border rounded p-3">
+      <legend class="form-label fs-6 float-none w-auto px-1">Under <%= Relationship.guardianship_age_limit || 18 %>? A guardian's name and email</legend>
+      <div class="row">
+        <div class="col-sm-6 mb-2"><%= f.label :guardian_first_name, "Guardian's first name", class: "form-label" %><%= f.text_field :guardian_first_name, value: @form["guardian_first_name"], class: "form-control" %></div>
+        <div class="col-sm-6 mb-2"><%= f.label :guardian_last_name, "Guardian's last name", class: "form-label" %><%= f.text_field :guardian_last_name, value: @form["guardian_last_name"], class: "form-control" %></div>
+      </div>
+      <%= f.label :guardian_email, "Guardian's email", class: "form-label" %>
+      <%= f.email_field :guardian_email, value: @form["guardian_email"], class: "form-control" %>
+    </fieldset>
+  <% end %>
+
+  <%= f.submit "Done", class: "btn btn-primary btn-lg" %>
+<% end %>
