@@ -1,5 +1,5 @@
 <div class="card" id="<%= dom_id ledger_tag %>">
   <div class="card-header">
-    <%= link_to ledger_tag.identifier_name, ledger_tag, 'data-turbo': false %>
+    <%= link_to ledger_tag.identifier_name, ledger_tag, data: { turbo_frame: "_top" } %>
   </div>
 </div>

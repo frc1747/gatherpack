@@ -1,6 +1,6 @@
 <div class="card" id="<%= dom_id audit_log %>">
   <div class="card-header">
-    <%= link_to audit_log, "data-turbo": "false" do %>
+    <%= link_to audit_log, data: { turbo_frame: "_top" } do %>
       <%= audit_log.created_at %>
       <br>
       (<%= time_ago_in_words(audit_log.created_at.to_time, include_seconds: true) %> ago)
