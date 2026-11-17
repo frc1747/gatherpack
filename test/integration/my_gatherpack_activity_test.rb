@@ -135,7 +135,7 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
       assert_select "[data-activity-line] [data-activity-counts]", text: "Counts toward Outreach events", count: 2
     end
     assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-kind-total]", text: "Build: 1 event"
-    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-line]", text: /Build day\s+Sat Sep 12 · Checked in/
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-line]", text: /Build day\s+Sat Sep 12 · All day · Checked in/
     assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-not-required]", text: "Not required for you"
     assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-counts]", count: 0
   end
@@ -185,6 +185,42 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
 
     assert_select "[data-activity-kind=#{@outreach.neat_id}] [data-activity-kind-total]", text: "Outreach: 3 events · 10 h"
     assert_select "[data-activity-line=signed_up]", text: /Science fair\s+Sun Nov 1 · 4 h · Signed up/
+  end
+
+  test "a sign-up marked done says what it counts toward, and one nothing counts says nothing" do
+    build_concessions_signups
+    sign_in person(:member).user
+    get activity_path
+
+    assert_select "[data-activity-line=signed_up]", text: /Stocking.*Counts toward Concessions shifts/m
+    assert_select "[data-activity-line=signed_up]", text: /Shelving/ do |lines|
+      assert_select lines.first, "[data-activity-counts]", count: 0
+    end
+  end
+
+  test "a ward's sign-up marked done says what it counts toward on the guardian's view" do
+    build_concessions_signups(:kid, read_level: "family")
+    sign_in person(:parent).user
+    get activity_path(person: person(:kid).neat_id)
+
+    assert_select "[data-activity-line=signed_up]", text: /Stocking.*Counts toward Concessions shifts/m
+    assert_select "[data-activity-line=signed_up] [data-activity-counts]", count: 1
+  end
+
+  test "an all-day event says All day and adds no hours, even with a punch that day" do
+    whole_day = create_activity_event("Concessions day", "2026-10-24 00:00", @build, hours: 24)
+    whole_day.checkins.create!(person: person(:member))
+    TimeClockPunch.create!(person: person(:member), time_clock_period: @period, created_by: person(:admin),
+      start_time: Time.zone.parse("2026-10-24 10:00"), end_time: Time.zone.parse("2026-10-24 14:00"))
+    sign_in person(:member).user
+    get activity_path
+
+    assert_select "[data-activity-line]", text: /Concessions day\s+Sat Oct 24 · All day · Checked in/
+    assert_select "[data-activity-kind=#{@build.neat_id}] [data-activity-kind-total]", text: "Build: 2 events"
+    assert_no_match(/24 h/, response.body)
+
+    get root_path
+    assert_select "[data-activity-uncounted=#{@build.neat_id}]", text: "Build: 2 events"
   end
 
   test "nothing this season says so" do
