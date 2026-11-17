@@ -44,7 +44,7 @@ class SearchController < ApplicationController
     results += current_user.person.all_managed_teams.ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("managed_teams")
     results += policy_scope(Badge).ransack(name_or_description_i_cont: params[:q]).result(distinct: true) if scope.include?("badges")
     results += policy_scope(Token).ransack(value_i_cont: params[:q]).result(distinct: true) if scope.include?("tokens")
-    results += policy_scope(Announcement).ransack(title_or_visible_text_i_cont: params[:q]).result(distinct: true) if scope.include?("announcements")
+    results += policy_scope(Announcement).ransack(name_or_content_i_cont: params[:q]).result(distinct: true) if scope.include?("announcements")
     results += policy_scope(TimeClockPeriod).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("time_clock_periods")
     results += policy_scope(Ledger).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("ledgers")
     results += policy_scope(Hook).ransack(name_i_cont: params[:q]).result(distinct: true) if scope.include?("hooks")

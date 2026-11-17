@@ -2,7 +2,7 @@ require "test_helper"
 
 class AnnouncementTest < ActiveSupport::TestCase
   def search(term)
-    Announcement.ransack(title_or_visible_text_i_cont: term).result
+    Announcement.ransack(name_or_content_i_cont: term).result # what site search asks for
   end
 
   def announcement(title:, content:)

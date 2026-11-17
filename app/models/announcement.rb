@@ -13,9 +13,11 @@ class Announcement < ApplicationRecord
 
   scope :visible, -> { where("start_time < ? AND end_time > ?", DateTime.current, DateTime.current) }
 
-  # The content as a reader sees it: markdown link targets and HTML tags
-  # (with their attributes) removed, so searching only matches visible text.
-  ransacker :visible_text do
+  # Search matches what a reader sees. Site search asks for name_or_content:
+  # announcements have no name, so it means the title, and content means the
+  # text without markdown link targets or HTML tags (with their attributes).
+  ransack_alias :name, :title
+  ransacker :content do
     Arel.sql(<<~SQL.squish)
       regexp_replace(
         regexp_replace(announcements.content, '\\[([^\\]]*)\\]\\([^)]*\\)', '\\1', 'g'),
@@ -24,7 +26,7 @@ class Announcement < ApplicationRecord
   end
 
   def self.ransackable_attributes(auth_object = nil)
-    [ "title", "content", "visible_text", "start_time", "end_time", "team_id", "updated_at" ]
+    [ "title", "content", "start_time", "end_time", "team_id", "updated_at" ]
   end
 
   def self.ransackable_associations(auth_objects = nil)
