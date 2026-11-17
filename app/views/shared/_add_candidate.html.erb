@@ -1,0 +1,20 @@
+<%# locals: (record:, add_url: nil, add_params: nil, state: :available, errors: nil) %>
+<div class="list-group-item d-flex align-items-center gap-2" id="<%= dom_id record, :candidate %>">
+  <% if record.is_a?(Person) %>
+    <%= image_tag get_avatar_url_64(record.avatar), class: "person-img rounded-circle flex-shrink-0", style: "height: 2em; width: 2em;", alt: "" %>
+  <% end %>
+  <div class="flex-grow-1">
+    <%= record.is_a?(Person) ? record.identifier_name : as_badge(record) %>
+    <% if errors.present? %>
+      <div class="small text-danger"><%= errors.to_sentence %></div>
+    <% end %>
+  </div>
+  <% if state == :added %>
+    <span class="text-success small text-nowrap"><i class="fa-solid fa-check"></i> Added</span>
+  <% else %>
+    <%= button_to "Add", add_url,
+          params: add_params,
+          class: "btn btn-sm btn-outline-success",
+          form: { data: { turbo_frame: "_top" } } %>
+  <% end %>
+</div>
