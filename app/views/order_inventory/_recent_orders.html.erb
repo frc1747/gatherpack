@@ -1,0 +1,20 @@
+<%# Recent orders, a panel on the inventory item's page (inventory spec §3.8): the newest order items for it, on requests the viewer sees. %>
+<% lines = OrderInventory.recent_lines(item, viewer).to_a %>
+<div class="card mb-3">
+  <div class="card-header"><h2 class="h6 mb-0">Recent orders</h2></div>
+  <% if lines.empty? %>
+    <div class="card-body text-muted">Not ordered yet.</div>
+  <% else %>
+    <ul class="list-group list-group-flush">
+      <% lines.each do |line| %>
+        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+          <span>
+            <%= link_to line.order_request.display_title, orders_request_path(line.order_request) %>
+            <small class="text-muted d-block"><%= line.quantity %> <%= line.unit.presence || item.unit %> · <%= l(line.created_at.to_date, format: :long) %></small>
+          </span>
+          <span class="badge text-bg-light"><%= OrdersHelper::LINE_STATUS_WORDS.fetch(line.status, line.status.humanize) %></span>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</div>
