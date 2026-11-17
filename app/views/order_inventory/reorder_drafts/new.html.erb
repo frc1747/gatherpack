@@ -1,0 +1,41 @@
+<%# Order these, from the reorder list: check the items, then start a draft request. %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<div class="card orders-phone">
+  <div class="card-header">
+    <h1>Order these</h1>
+    <small class="text-muted">Starts a draft request. You can change it before you submit it for approval.</small>
+  </div>
+  <%= form_with url: order_inventory_reorder_drafts_path, method: :post, class: "card-body orders-has-bar" do %>
+    <% if @rows.empty? %>
+      <p class="text-muted">No items were ticked. Go back to the reorder list and tick what to order.</p>
+    <% end %>
+    <% @rows.each do |item, quantity| %>
+      <% source = item.preferred_source %>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-8">
+          <%= label_tag "items_#{item.id}", item.name, class: "form-label fw-semibold mb-0" %>
+          <div class="small text-muted">
+            <%= [ source&.vendor_name, source&.vendor_part_number ].compact_blank.join(" · ").presence || "No source yet" %>
+          </div>
+        </div>
+        <div class="col-4">
+          <%= number_field_tag "items[#{item.id}]", quantity, min: 0, step: 1, inputmode: "numeric", id: "items_#{item.id}",
+                class: "form-control", aria: { label: "How many #{item.name}" } %>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @teams.size > 1 %>
+      <div class="mb-3">
+        <%= label_tag :team_id, "Team", class: "form-label" %>
+        <%= select_tag :team_id, options_for_select(@teams.map { |team| [ team.name, team.id ] }, @team_id), class: "form-select" %>
+      </div>
+    <% else %>
+      <%= hidden_field_tag :team_id, @team_id %>
+    <% end %>
+
+    <div class="orders-bar orders-bar-fixed">
+      <%= submit_tag "Start the request", class: "btn btn-primary", disabled: @rows.empty? %>
+    </div>
+  <% end %>
+</div>
