@@ -245,7 +245,7 @@ Inventory always has its own menu heading, **Inventory** (since hbr.46; until th
 
 Nav items: Stock (`/inventory/stock`: search and what's on hand), Machines (the group's word; hidden when turned off), Reorder, Items, Places, Changes. Stock has its own path so upstream's prefix highlighting lights only one item; `/inventory` still opens Stock. Inventory setup is a button under an Inventory heading on the main Setup page.
 
-**Home and the member-first menu.** `feature/my-gatherpack-inventory` (from `feature/my-gatherpack` and `feature/inventory`), a connector in the pattern of the orders one: every inventory item stays under its section heading (Purchasing with orders, Inventory alone), with no Manage placements or check (since hbr.44). A `:todo` row for inventory managers, **"5 items running low"**, one summary row that opens Reorder. As everywhere in that menu, placements change what's shown, never what's allowed.
+**Home and the member-first menu.** `feature/my-gatherpack-inventory` (from `feature/my-gatherpack` and `feature/inventory`), a connector in the pattern of the orders one: every inventory item stays under the Inventory heading, with no Manage placements or check (since hbr.44). A `:todo` row for inventory managers, **"5 items running low"**, one summary row that opens Reorder. As everywhere in that menu, placements change what's shown, never what's allowed.
 
 ### 3.14 Data
 
