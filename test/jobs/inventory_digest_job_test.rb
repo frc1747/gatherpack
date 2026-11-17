@@ -87,7 +87,7 @@ class InventoryDigestJobTest < ActiveJob::TestCase
     skip "needs feature/digests" unless defined?(GatherPack::Digests) && GatherPack::Digests[:inventory]
 
     with_inventory(@world, feature_digests: "true", inventory_reorder_notice: "weekly") do
-      travel_to 2.days.ago do
+      travel_to 10.days.ago do # before the weekly window, so the drop is new
         stock!(@world, 30)
       end
       record(@world, :used, 21, person: @world.member) # 9: running low
