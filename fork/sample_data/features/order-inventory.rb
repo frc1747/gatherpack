@@ -53,7 +53,7 @@ Hbr::SampleData.feature "feature/order-inventory" do |s|
     lines = order_request.reload.order_lines.to_a
     Orders::RecordPurchase.new(buyer: gina, lines: lines, vendor: parts,
       prices: lines.to_h { |line| [ line.id, line.estimated_unit_price_cents ] },
-      attributes: { ordered_on: s.clock.date(-3), paid_with: "Team card", expected_on: s.clock.date(3) }).call
+      attributes: { ordered_on: s.clock.date(-3), payment_method: PaymentMethod.find_by!(name: "Team card"), expected_on: s.clock.date(3) }).call
     order_request.reload
   end
   put_away = lambda do |order_request, place|
