@@ -6,7 +6,7 @@ module MyGatherpack
   # The table in config/initializers/my_gatherpack.rb places items by path
   # helper, so no feature's registration changes. An item that isn't placed in
   # the top or family groups, and isn't listed under Manage for this person,
-  # goes in More, so a new feature can't vanish.
+  # goes under its own section heading, so a new feature can't vanish.
   class Menu
     ManagerCheck = Struct.new(:key, :paths, :check, keyword_init: true)
 
@@ -52,9 +52,14 @@ module MyGatherpack
       placed(:family)
     end
 
-    def more
+    # [[section_name, items]] for what the other groups don't show, in section
+    # order. A section with nothing left is dropped.
+    def sections
       shown = (placed(:top) + family + manage).map(&:path)
-      visible_items.reject { |item| shown.include?(item.path) }
+      GatherPack::Features.nav_sections.filter_map do |name, items|
+        left = items.select { |item| item.visible?(@user) && !shown.include?(item.path) }
+        [ name, left ] if left.any?
+      end
     end
 
     # Team managers get every Manage item; anyone else only what their passing
