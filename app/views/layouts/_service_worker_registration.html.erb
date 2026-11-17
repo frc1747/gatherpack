@@ -1,0 +1,15 @@
+<% if GatherPack::Features.enabled?(:installable_app) %>
+  <%= javascript_tag nonce: true do %>
+    // Keep Android's install prompt for the sidebar's "Add to Home Screen".
+    window.addEventListener("beforeinstallprompt", function (event) {
+      event.preventDefault()
+      window.installPrompt = event
+    })
+    window.addEventListener("appinstalled", function () { window.installPrompt = null })
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("<%= pwa_service_worker_path %>").catch(function () {})
+      })
+    }
+  <% end %>
+<% end %>
