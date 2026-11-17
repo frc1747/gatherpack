@@ -59,6 +59,15 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
+  test "the Registrations menu item is only for those who can open it" do
+    item = GatherPack::Features.all.find { |feature| feature.key == :intake }.nav_items.find { |nav| nav.label == "Registrations" }
+    skip "menu items can't be hidden per person here" unless item.respond_to?(:visible) && item.visible
+
+    member = create_intake_person("Pat", "Member", team: @everyone)
+    assert item.visible.call(@leader.user)
+    assert_not item.visible.call(member.user)
+  end
+
   test "the entries screen shows unfinished sign-ups and deletes selected ones" do
     keep, = create_intake_entry(first_name: "Keep", email: "keep@example.com")
     drop, = create_intake_entry(first_name: "Drop", email: "drop@example.com")

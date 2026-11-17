@@ -16,8 +16,11 @@ Rails.application.config.to_prepare do
       default_enabled: false,
       nav_section: "People",
       nav_position: 40,
+      # Only admins and team managers can open Registrations, so it's hidden
+      # from everyone else where menu items take a visible check.
       nav_items: [
-        GatherPack::Feature::NavItem.new(label: "Registrations", path: :intake_registrations_path, icon: "clipboard-list")
+        GatherPack::Feature::NavItem.new(label: "Registrations", path: :intake_registrations_path, icon: "clipboard-list",
+          **(GatherPack::Feature::NavItem.members.include?(:visible) ? { visible: ->(user) { Intake::RegistrationPolicy.new(user, Intake::Registration).index? } } : {}))
       ]
     )
   )
