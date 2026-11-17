@@ -301,6 +301,8 @@ Rails.application.routes.draw do
 
   get "/setup" => "welcome#setup", :as => :setup
   resource :theme, only: [ :show, :edit, :update ], controller: "theme"
+  resource :color_mode, only: [ :update ]
+  resource :skin_preview, only: [ :create, :destroy ]
 
   get "search" => "search#index", :as => :search
   get "search/combo" => "search#combo", :as => :combo_search
