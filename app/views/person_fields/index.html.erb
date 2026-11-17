@@ -1,0 +1,97 @@
+<% breadcrumb :person_fields %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Person Fields</h1>
+  </div>
+  <div class="card-body">
+    <% guardian_levels = %w[ guardians family team ] %>
+    <% if !@guardianship_configured && @person_fields.any? { |field| guardian_levels.include?(field.read_permission) || guardian_levels.include?(field.write_permission) } %>
+      <div class="alert alert-warning">
+        No relationship types grant guardianship yet, so guardians won't have access.
+        <%= link_to "Relationship Types", relationship_types_path %>
+      </div>
+    <% end %>
+
+    <% if @person_fields.empty? %>
+      <p class="text-muted">No person fields yet.</p>
+    <% else %>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Applies to</th>
+              <th>Who can see</th>
+              <th>Who can edit</th>
+              <th>Badge access</th>
+              <th>On profile</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <% @person_fields.group_by(&:person_field_group).each do |group, fields| %>
+            <tbody>
+              <tr>
+                <td colspan="9" class="fw-bold"><%= group&.name || "Top of profile" %></td>
+              </tr>
+              <% fields.each do |field| %>
+                <tr id="<%= dom_id field %>">
+                  <td>
+                    <%= link_to field.name, edit_person_field_path(field) %><br>
+                    <small class="text-muted"><%= field.key %></small>
+                  </td>
+                  <td><%= person_field_type_label(field) %></td>
+                  <td><%= field.team&.name || "Everyone" %></td>
+                  <td><%= person_field_level_label(field.read_permission, @guardianship_configured) %></td>
+                  <td><%= field.system_read_only? ? "Account settings" : person_field_level_label(field.write_permission, @guardianship_configured) %></td>
+                  <td>
+                    <% field.person_field_badge_grants.each do |grant| %>
+                      <span class="badge text-bg-secondary"><%= grant.badge.name %>: <%= grant.write? ? "see and edit" : "see" %></span>
+                    <% end %>
+                  </td>
+                  <td><%= field.show_on_profile? ? "✓" : "—" %></td>
+                  <td>
+                    <%= field.archived? ? "Archived" : "Active" %>
+                    <% if field.system? %><span class="badge text-bg-info">System</span><% end %>
+                  </td>
+                  <td class="text-nowrap">
+                    <%= button_to i("arrow-up"), move_person_field_path(field, direction: "up"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move up" %>
+                    <%= button_to i("arrow-down"), move_person_field_path(field, direction: "down"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move down" %>
+                    <% if field.archived? %>
+                      <%= button_to "Restore", restore_person_field_path(field), method: :patch, class: "btn btn-sm btn-success", form_class: "d-inline" %>
+                      <% if policy(field).destroy? %>
+                        <%= button_to "Delete", person_field_path(field), method: :delete, class: "btn btn-sm btn-danger", form_class: "d-inline",
+                              data: { turbo_confirm: "Delete #{field.name} and its #{pluralize(field.person_field_values.count, "value")}? This can't be undone." } %>
+                      <% end %>
+                    <% else %>
+                      <%= button_to "Archive", archive_person_field_path(field), method: :patch, class: "btn btn-sm btn-warning", form_class: "d-inline" %>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          <% end %>
+        </table>
+      </div>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <% if GatherPack::Features.enabled?(:person_fields) %>
+      <%= link_to "New Field", new_person_field_path, class: "btn btn-success" %>
+    <% end %>
+    <%= link_to "Preview as…", preview_person_fields_path, class: "btn btn-primary" %>
+    <% recommended = PersonField.recommended_privacy_changes %>
+    <% if recommended.any? %>
+      <%= button_to "Apply recommended privacy settings", apply_recommended_person_fields_path, class: "btn btn-info", form_class: "d-inline",
+            data: { turbo_confirm: recommended_privacy_confirmation(recommended) } %>
+    <% end %>
+    <%= link_to "Sections", person_field_groups_path, class: "btn btn-secondary" %>
+    <% if params[:archived] == "1" %>
+      <%= link_to "Hide archived", person_fields_path, class: "btn btn-dark" %>
+    <% else %>
+      <%= link_to "Show archived", person_fields_path(archived: "1"), class: "btn btn-dark" %>
+    <% end %>
+  </div>
+</div>
