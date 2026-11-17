@@ -1,0 +1,95 @@
+<%# New request and Edit request (spec §3.16). A draft saves itself as the requester types (order_form_controller.js). %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<% lines = local_assigns[:lines].presence ||
+     order_request.order_lines.reject(&:cancelled?).each_with_index.map { |line, index| [ index.to_s, line, false ] }.presence ||
+     [ [ "0", OrderLine.new(quantity: 1), false ] ] %>
+<% vendors = order_vendors(lines.map(&:second)) %>
+<% teams = order_request_team_options(order_request.requested_by) %>
+<% events = order_next_events(teams) %>
+<% autosave = order_request.new_record? || order_request.draft? %>
+<% show_funding = policy(order_request).set_funding? %>
+
+<%= form_with model: order_request, scope: :order_request,
+      url: order_request.new_record? ? orders_requests_path : orders_request_path(order_request),
+      multipart: true, class: "orders-phone orders-has-bar",
+      data: {
+        controller: "order-form",
+        order_form_autosave_value: autosave,
+        order_form_vendors_value: order_vendors_json(vendors),
+        order_form_events_value: events.to_json,
+        action: "input->order-form#changed change->order-form#changed submit->order-form#submit"
+      } do |f| %>
+  <% Orders.line_entry_extensions.all.select(&:partial).each do |extension| %>
+    <%= render extension.partial, order_request: order_request, viewer: current_user.person %>
+  <% end %>
+
+  <div data-order-form-target="lines">
+    <% lines.each_with_index do |(key, line, removed), index| %>
+      <%= render "orders/requests/line_fields", key: key, line: line, removed: removed, vendors: vendors, number: index + 1 %>
+    <% end %>
+  </div>
+  <template data-order-form-target="template">
+    <%= render "orders/requests/line_fields", key: "NEW_LINE", line: OrderLine.new(quantity: 1), removed: false, vendors: vendors, number: nil %>
+  </template>
+  <datalist id="order_units">
+    <% %w[each pack box roll pair set].each do |unit| %><option value="<%= unit %>"><% end %>
+  </datalist>
+  <button type="button" class="btn btn-secondary w-100 mb-3" data-action="order-form#addLine">
+    <i class="fa fa-plus"></i> Add another item
+  </button>
+
+  <details class="orders-more" data-more>
+    <summary>More details</summary>
+    <div class="pt-2">
+      <fieldset class="mb-3">
+        <legend class="form-label fs-6">When is it needed?</legend>
+        <% picks = order_needed_by_picks(order_request.needed_by, events[order_request.team_id]) %>
+        <% picks.each_with_index do |pick, index| %>
+          <%# The event pick follows the team box: hidden while the team has no event coming up. %>
+          <div class="form-check" <%= tag.attributes(data: { order_form_target: "eventPick" }, hidden: pick[:hidden]) if pick[:kind] == :event %>>
+            <%= radio_button_tag "needed_by_pick", pick[:value], pick[:checked], id: "needed_by_pick_#{index}",
+                  class: "form-check-input", data: { action: "change->order-form#pickNeededBy" } %>
+            <%= label_tag "needed_by_pick_#{index}", pick[:label], class: "form-check-label" %>
+          </div>
+        <% end %>
+        <div class="mt-2" data-order-form-target="pickDate" <%= "hidden" unless picks.find { |pick| pick[:checked] }&.dig(:value) == "pick" %>>
+          <%= f.label :needed_by, "Needed by", class: "visually-hidden" %>
+          <%= f.date_field :needed_by, class: "form-control", data: { order_form_target: "neededBy" } %>
+        </div>
+      </fieldset>
+
+      <div class="mb-3">
+        <%= f.label :purpose, "What is it for?", class: "form-label" %>
+        <%= f.text_area :purpose, rows: 2, class: "form-control", placeholder: "Optional: tell the approver why" %>
+      </div>
+
+      <% if teams.size > 1 %>
+        <div class="mb-3">
+          <%= f.label :team_id, "Team", class: "form-label" %>
+          <%= f.select :team_id, teams.map { |team| [ team.name, team.id ] }, {}, class: "form-select",
+                data: { action: "change->order-form#teamChanged" } %>
+        </div>
+      <% end %>
+
+      <% if show_funding %>
+        <div class="mb-3">
+          <%= f.label :funding_source_id, "Paid from", class: "form-label" %>
+          <%= f.select :funding_source_id, order_funding_source_options(order_request),
+                { include_blank: "Leave it to the approver" }, class: "form-select" %>
+        </div>
+      <% end %>
+    </div>
+  </details>
+
+  <div class="orders-bar orders-bar-fixed">
+    <span class="orders-bar-status small text-muted" data-order-form-target="status" role="status" aria-live="polite"></span>
+    <% if order_request.new_record? || order_request.draft? %>
+      <%= f.button "Submit for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>
+    <% elsif order_request.changes_requested? %>
+      <%= f.button "Save", type: "submit", class: "btn btn-secondary" %>
+      <%= f.button "Send back for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>
+    <% else %>
+      <%= f.button "Save changes", type: "submit", class: "btn btn-primary" %>
+    <% end %>
+  </div>
+<% end %>

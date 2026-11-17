@@ -1,0 +1,23 @@
+<% breadcrumb :orders_funding_source_budget, @funding_source %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Budget for <%= @funding_source.name %></h1>
+    <div class="text-muted">
+      Requests still pick the funding source. Approvers see the budget's amount and its spending in the ledger next to it.
+    </div>
+  </div>
+  <div class="card-body">
+    <%= form_with model: @funding_source, url: orders_funding_source_budget_path(@funding_source), method: :patch do |f| %>
+      <% choices = @budgets.map { |budget| [ budget.identifier_name, budget.id ] } %>
+      <% if @funding_source.budget && @budgets.exclude?(@funding_source.budget) %>
+        <% choices.unshift([ @funding_source.budget.identifier_name, @funding_source.budget_id ]) %>
+      <% end %>
+      <div class="mb-3">
+        <%= f.label :budget_id, "Budget", class: "form-label" %>
+        <%= f.select :budget_id, choices, { include_blank: "No budget" }, class: "form-select" %>
+      </div>
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    <% end %>
+  </div>
+</div>

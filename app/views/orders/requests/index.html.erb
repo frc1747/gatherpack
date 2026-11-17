@@ -1,0 +1,46 @@
+<% breadcrumb :orders_requests %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<% can_request = policy(OrderRequest).create? %>
+
+<div class="card orders-phone <%= "orders-has-bar" if can_request %>">
+  <div class="card-header">
+    <h1><%= params[:mine].present? ? "My requests" : "Orders" %></h1>
+    <ul class="nav nav-pills">
+      <li class="nav-item">
+        <%= link_to "Mine", orders_requests_path(mine: 1), class: "nav-link #{"active" if params[:mine].present?}",
+              aria: { current: (params[:mine].present? ? "page" : nil) } %>
+      </li>
+      <li class="nav-item">
+        <%= link_to "All I can see", orders_requests_path, class: "nav-link #{"active" if params[:mine].blank?}",
+              aria: { current: (params[:mine].blank? ? "page" : nil) } %>
+      </li>
+    </ul>
+  </div>
+  <div class="list-group list-group-flush">
+    <% @order_requests.each do |order_request| %>
+      <%= link_to (order_request.draft? ? edit_orders_request_path(order_request) : orders_request_path(order_request)),
+            class: "list-group-item list-group-item-action" do %>
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <strong><%= order_request.display_title %></strong>
+          <span class="badge text-bg-light text-wrap"><%= order_request_status_text(order_request) %></span>
+        </div>
+        <small class="text-muted">
+          <%= order_request.team.name %>
+          · <%= pluralize(order_request.live_lines.size, "item") %>
+          · <%= order_request_shown_total(order_request).format %>
+          <% if order_request.needed_by %>· needed by <%= l order_request.needed_by, format: :short %><% end %>
+        </small>
+      <% end %>
+    <% end %>
+  </div>
+  <% if @order_requests.empty? %>
+    <div class="card-body text-muted">Nothing here yet.</div>
+  <% end %>
+  <% if can_request %>
+    <div class="card-body orders-bar orders-bar-fixed">
+      <%= link_to "New request", new_orders_request_path, class: "btn btn-primary" %>
+    </div>
+  <% end %>
+</div>
+
+<%= paginate @order_requests %>
