@@ -21,6 +21,7 @@
             <% if application.message.present? %>
               <div class="text-muted small"><%= truncate(application.message, length: 120) %></div>
             <% end %>
+            <%= render "intake/membership_applications/details", application: application %>
           </div>
           <div class="col-12 col-md-4 d-flex gap-2">
             <%= link_to "View", team_membership_application_path(@team, application), class: "btn btn-sm me-3 btn-outline-primary" %>

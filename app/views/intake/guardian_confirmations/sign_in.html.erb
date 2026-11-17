@@ -1,0 +1,4 @@
+<% content_for :title, "Thanks" %>
+<h1 class="h3">Thanks. You're linked as <%= @row.ward.first_name %>'s guardian.</h1>
+<p>You already have an account. Sign in to continue.</p>
+<p><%= link_to "Sign in", new_user_session_path, class: "btn btn-primary" %></p>

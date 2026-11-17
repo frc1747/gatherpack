@@ -1,0 +1,15 @@
+<% teams = @registration.apply_teams %>
+<% if teams.one? %>
+  <%= hidden_field_tag "entry[team_ids][]", teams.first.id %>
+  <p>Joining <strong><%= teams.first.name %></strong>.</p>
+<% else %>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">Who is joining? Choose any that apply.</legend>
+    <% teams.each do |team| %>
+      <div class="form-check">
+        <%= check_box_tag "entry[team_ids][]", team.id, selected.include?(team.id), id: "team_#{team.id}", class: "form-check-input" %>
+        <%= label_tag "team_#{team.id}", team.name, class: "form-check-label" %>
+      </div>
+    <% end %>
+  </fieldset>
+<% end %>
