@@ -728,6 +728,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.uuid "kiosk_field_ids", default: [], null: false, array: true
+    t.index ["checklist_id"], name: "index_intake_registrations_on_checklist_id"
     t.index ["created_by_id"], name: "index_intake_registrations_on_created_by_id"
     t.index ["guardian_relationship_type_id"], name: "index_intake_registrations_on_guardian_relationship_type_id"
     t.index ["slug"], name: "index_intake_registrations_on_slug", unique: true
@@ -1589,6 +1590,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
   add_foreign_key "intake_registration_badges", "intake_registrations", column: "registration_id", on_delete: :cascade
   add_foreign_key "intake_registration_teams", "intake_registrations", column: "registration_id", on_delete: :cascade
   add_foreign_key "intake_registration_teams", "teams", on_delete: :cascade
+  add_foreign_key "intake_registrations", "checklists"
   add_foreign_key "intake_registrations", "intake_registrations", column: "successor_id", on_delete: :nullify
   add_foreign_key "intake_registrations", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "intake_registrations", "relationship_types", column: "guardian_relationship_type_id", on_delete: :nullify
