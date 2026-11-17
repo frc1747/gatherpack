@@ -66,8 +66,7 @@ class Inventory::MachineWordsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "turned off: no menu item, no page, no Install, no machine kind" do
-    @other.install!(into: @world.robot, by: @world.admin)
+  test "turned off: no menu item and no Machines page" do
     turned_off do
       assert_not_includes menu_labels, "Machines"
 
@@ -79,20 +78,6 @@ class Inventory::MachineWordsTest < ActionDispatch::IntegrationTest
       assert_redirected_to inventory_root_path
       get inventory_machine_path(@world.robot)
       assert_redirected_to inventory_root_path
-
-      get inventory_unit_path(@unit)
-      assert_select "#unit_actions a", text: "Install", count: 0
-      assert_select "#unit_actions a", text: "Move"
-      get inventory_unit_action_form_path(@unit, act: "install")
-      assert_redirected_to root_path
-      post install_inventory_unit_path(@unit), params: { location_id: @world.robot.id }
-      assert_equal @world.bin1, @unit.reload.location
-
-      get new_inventory_location_path
-      assert_select "select[name='location[kind]']", count: 0
-      post inventory_locations_path, params: { location: { name: "Cart", team_id: @world.club.id, kind: "machine" } }
-      assert_response :unprocessable_entity
-      assert_not Location.exists?(name: "Cart")
     end
   end
 
@@ -111,13 +96,73 @@ class Inventory::MachineWordsTest < ActionDispatch::IntegrationTest
 
       get inventory_unit_path(@other)
       assert_select "#unit_actions a", text: "Take off"
-      assert_select "#unit_actions a", text: "Install", count: 0
       assert_no_match(/machine/i, visible_text)
       post take_off_inventory_unit_path(@other), params: { location_id: @world.bin2.id }
       assert_equal @world.bin2, @other.reload.location
 
       error = assert_raises(Inventory::Refused) { @unit.install!(into: @world.robot, by: @world.admin) }
       assert_equal "Machines are turned off", error.message
+    end
+  end
+
+  test "turned off: Install only puts a part inside another one" do
+    turned_off do
+      sign_in @world.keeper.user
+      get inventory_unit_path(@unit)
+      assert_select "#unit_actions a", text: "Install"
+      get inventory_unit_action_form_path(@unit, act: "install")
+      assert_response :success
+      assert_select "select[name=location_id]", count: 0
+      assert_select "label[for=unit_code]", "Inside another part: its code"
+      assert_no_match(/machine/i, visible_text)
+
+      post install_inventory_unit_path(@unit), params: { location_id: @world.robot.id }
+      assert_equal "Machines are turned off", flash[:alert]
+      assert_equal @world.bin1, @unit.reload.location
+      post install_inventory_unit_path(@unit), params: {}
+      assert_equal "Type the code of the part to put it in", flash[:alert]
+
+      post install_inventory_unit_path(@unit), params: { unit_code: @other.code }
+      assert_equal @other, @unit.reload.installed_in
+      # The only other part is now inside it, so it has nothing to go into.
+      assert_not ItemUnitPolicy.new(@world.keeper.user, @other).install?
+    end
+  end
+
+  test "turned off: no Install when there's no other part to go into" do
+    @other.retire!(by: @world.admin, note: "Worn out")
+    turned_off do
+      assert_not ItemUnitPolicy.new(@world.keeper.user, @unit).install?
+      sign_in @world.keeper.user
+      get inventory_unit_path(@unit)
+      assert_select "#unit_actions a", text: "Install", count: 0
+      assert_select "#unit_actions a", text: "Move"
+      get inventory_unit_action_form_path(@unit, act: "install")
+      assert_redirected_to root_path
+      post install_inventory_unit_path(@unit), params: { location_id: @world.robot.id }
+      assert_equal @world.bin1, @unit.reload.location
+    end
+  end
+
+  test "turned off: a machine place can be edited into a storage place, and nothing becomes a machine" do
+    turned_off do
+      sign_in @world.keeper.user
+      get new_inventory_location_path
+      assert_select "select[name='location[kind]']", count: 0
+      post inventory_locations_path, params: { location: { name: "Cart", team_id: @world.club.id, kind: "machine" } }
+      assert_response :unprocessable_entity
+      assert_not Location.exists?(name: "Cart")
+
+      get edit_inventory_location_path(@world.bin1)
+      assert_select "select[name='location[kind]']", count: 0
+
+      get edit_inventory_location_path(@world.robot)
+      assert_select "select[name='location[kind]'] option", count: 1
+      assert_select "select[name='location[kind]'] option[value=storage]"
+      assert_no_match(/machine/i, visible_text)
+      patch inventory_location_path(@world.robot), params: { location: { name: "Rover", kind: "storage" } }
+      assert_redirected_to inventory_location_path(@world.robot)
+      assert @world.robot.reload.storage?
     end
   end
 

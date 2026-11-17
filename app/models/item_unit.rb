@@ -138,7 +138,8 @@ class ItemUnit < ApplicationRecord
 
   # Puts the unit on a machine or in another unit; anything inside it goes
   # too. A unit marked Needs repair or Broken needs confirm: true, which the
-  # event records.
+  # event records. While Inventory setup turns machines off, only another
+  # unit can be the target (as ItemUnitPolicy#install? expects).
   def install!(into:, by:, confirm: false, note: nil, recorded_by: nil, authorized_by: nil)
     authorize_action!(:install, by, recorded_by, authorized_by, into)
     raise Inventory::Refused, "A retired unit can't be installed" if condition_retired? || !active?
