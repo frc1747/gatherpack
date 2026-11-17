@@ -1,0 +1,21 @@
+<%# My Season: checklist items that aren't to-dos, in words. Tapping a line shows its detail. With several people (a guardian and wards) each gets a block. Renders nothing when there are none. %>
+<% season = my_gatherpack_season %>
+<% if season.any? %>
+  <% content_for :head, stylesheet_link_tag("my_gatherpack_checklists") %>
+  <% blocks = my_gatherpack_season_blocks(season) %>
+  <section class="mg-section" data-home-section="checklists-season">
+    <h2 class="mg-heading">My Season</h2>
+    <div class="card mg-list">
+      <% if blocks.many? %>
+        <% blocks.each do |block| %>
+          <div class="mg-season-person" data-season-person="<%= block.subject.id %>">
+            <h3 class="mg-season-person-name"><%= block.name %></h3>
+            <%= render partial: "my_gatherpack/checklists_season_group", locals: { in_progress: block.in_progress, done: block.done, done_id: "mg-season-done-#{block.subject.id}", all_set: block.in_progress.empty? && my_gatherpack_rows(:todo).none? { |_section, item| item.ward == block.ward }, named: true } %>
+          </div>
+        <% end %>
+      <% else %>
+        <%= render partial: "my_gatherpack/checklists_season_group", locals: { in_progress: season.in_progress, done: season.done, done_id: "mg-season-done", all_set: season.in_progress.empty? && my_gatherpack_rows(:todo).empty?, named: false } %>
+      <% end %>
+    </div>
+  </section>
+<% end %>
