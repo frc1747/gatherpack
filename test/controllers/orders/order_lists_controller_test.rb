@@ -22,6 +22,31 @@ class Orders::OrderListsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "at least one way to pay is kept: the last active payment method can't be retired or deleted" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      card = payment_method("Team card")
+      personal = payment_method("Paid personally")
+
+      patch retire_managed_list_row_url(:payment_methods, personal)
+      assert_redirected_to managed_list_url(:payment_methods)
+      assert personal.reload.retired?
+
+      patch retire_managed_list_row_url(:payment_methods, card)
+      assert_redirected_to managed_list_url(:payment_methods)
+      assert_equal "Team card is the only active payment method. Add or restore another before retiring or deleting it.", flash[:danger]
+      assert card.reload.active?
+
+      delete managed_list_row_url(:payment_methods, card)
+      assert_redirected_to managed_list_url(:payment_methods)
+      assert_match "Team card is the only active payment method", flash[:danger]
+      assert PaymentMethod.exists?(card.id)
+
+      follow_redirect!
+      assert_select ".alert", /only active payment method/
+    end
+  end
+
   test "delivery problems are listed, and the built-in ones can't be deleted" do
     with_orders(@world) do
       sign_in @world.admin.user

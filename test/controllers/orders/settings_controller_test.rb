@@ -341,6 +341,11 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_select "a.btn[href='#{orders_approval_steps_path}']", "Approval Steps"
       assert_select "a.btn[href='#{managed_list_path(:payment_methods)}']", "Payment Methods"
       assert_select "a.btn[href='#{managed_list_path(:delivery_problem_kinds)}']", "Delivery Problems"
+      headings = css_select("h5.text-muted").map { |node| node.text.squish }
+      positions = headings.map { |heading| GatherPack::Features.sections[heading]&.position || Float::INFINITY }
+      assert_equal 35, GatherPack::Features.sections["Orders and Inventory"]&.position
+      assert_equal positions.sort, positions, "Setup headings in position order: #{headings.inspect}"
+      assert_operator positions[headings.index("Orders and Inventory")], :<, Float::INFINITY
       get orders_reports_url
       assert_select "a[href='#{orders_settings_path}']", 0
 

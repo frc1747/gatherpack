@@ -205,16 +205,19 @@ module OrderRequestsHelper
   private
 
   # How a delivery came: "Good", or the problem kind's current name. Kinds
-  # are logged by key when they have one ("damaged"), else by id.
+  # are logged as { "id", "name" }, and the logged name stands in once the
+  # kind is gone (merged away). Entries from before problem kinds were a
+  # list hold "damaged" or "wrong_item", the built-in kinds' keys.
   def order_timeline_condition(value)
-    value = value.to_s
-    return "Good" if value == "good"
+    return "Good" if value.to_s == "good"
 
     @order_timeline_names ||= {}
-    @order_timeline_names[[ DeliveryProblemKind, value ]] ||=
-      DeliveryProblemKind.find_by(key: value)&.name ||
-      (DeliveryProblemKind.find_by(id: value)&.name if value.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)) ||
-      value.humanize
+    if value.is_a?(Hash)
+      @order_timeline_names[[ DeliveryProblemKind, value["id"] ]] ||=
+        DeliveryProblemKind.find_by(id: value["id"])&.name || value["name"].presence || "removed"
+    else
+      @order_timeline_names[[ DeliveryProblemKind, value.to_s ]] ||= DeliveryProblemKind.find_by(key: value.to_s)&.name || value.to_s.humanize
+    end
   end
 
   def order_timeline_name(klass, id)

@@ -21,6 +21,21 @@ class PaymentMethodTest < ActiveSupport::TestCase
     end
   end
 
+  test "the last active one can't be retired or deleted, so Record purchase always has a choice" do
+    card = payment_method("Team card")
+    personal = payment_method("Paid personally")
+    personal.retire!
+
+    assert_raises(ActiveRecord::RecordInvalid) { card.retire! }
+    assert_includes card.errors[:base], "Team card is the only active payment method. Add or restore another before retiring or deleting it."
+    assert_not card.destroy
+    assert card.reload.active?
+
+    personal.restore!
+    card.retire!
+    assert card.reload.retired?
+  end
+
   test "one in use is retired or merged, not deleted, and old purchases keep it" do
     with_orders(@world) do
       card = payment_method("Team card")

@@ -71,7 +71,8 @@ module Orders
     # One row per step in the saved setting, keeping its key, name and
     # minimum, with an approver row per "Badge name > Team name" line. Lines
     # whose badge or team isn't found reached nobody, so they're left out
-    # and returned as "Step: line". A blank or unreadable setting gives the
+    # and returned as "Step: line". A first step with a minimum gets 0
+    # (every request needs the first step), also returned as a warning. A blank or unreadable setting gives the
     # default step. Does nothing when there are steps already.
     def convert_approval_steps!(stored)
       return [] if ApprovalStep.exists?
@@ -85,13 +86,18 @@ module Orders
         end
 
         entries.uniq { |entry| entry["key"].to_s }.each_with_index do |entry, index|
-          step = ApprovalStep.create!(key: entry["key"].to_s, position: index,
-            name: free_step_name(entry["name"].presence || entry["key"].to_s.humanize),
-            minimum_cents: (entry["minimum"].to_d * 100).round)
+          minimum_cents = (entry["minimum"].to_d * 100).round
+          name = free_step_name(entry["name"].presence || entry["key"].to_s.humanize)
+          # The first step is needed by every request, so it has no minimum.
+          if index.zero? && minimum_cents.positive?
+            skipped << "#{name}: minimum #{Money.new(minimum_cents).format} dropped, the first step is needed by every request"
+            minimum_cents = 0
+          end
+          step = ApprovalStep.create!(key: entry["key"].to_s, position: index, name: name, minimum_cents: minimum_cents)
           Array(entry["approvers"]).map { |line| line.to_s.strip }.compact_blank.uniq.each do |line|
             badge, team = grant(line)
             if badge.nil? || team == :missing
-              skipped << "#{step.name}: #{line}"
+              skipped << "#{step.name}: approver not found, left out: #{line}"
             elsif !step.approvers.exists?(badge: badge, team: team)
               step.approvers.create!(badge: badge, team: team)
             end

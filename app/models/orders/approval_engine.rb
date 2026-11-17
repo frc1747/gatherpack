@@ -16,10 +16,11 @@ module Orders
       Orders::Config.approval_steps
     end
 
-    # The steps this request's total needs, in order.
+    # The steps this request's total needs, in order: the first step
+    # always (its minimum is 0, ApprovalStep.free_first_step!), then each
+    # later one whose minimum the total meets.
     def needed_steps(steps = approval_steps)
-      needed = steps.select { |step| total_cents >= step.minimum_cents }
-      needed.presence || steps.first(1)
+      steps.each_with_index.select { |step, index| index.zero? || total_cents >= step.minimum_cents }.map(&:first)
     end
 
     def final_step(steps = approval_steps)

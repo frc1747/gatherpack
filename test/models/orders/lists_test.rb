@@ -86,10 +86,21 @@ class Orders::ListsTest < ActiveSupport::TestCase
     assert_equal [ [ "mentor", "Mentor", 0 ], [ "treasurer", "Treasurer", 50050 ] ], ApprovalStep.ordered.pluck(:key, :name, :minimum_cents)
     mentor = ApprovalStep.find_by!(key: "mentor")
     assert_equal [ [ @world.approver_badge, @world.club ], [ @world.buyer_badge, nil ] ], mentor.approvers.map { |row| [ row.badge, row.team ] }
-    assert_equal [ "Treasurer: No Such Badge > #{@world.club.name}", "Treasurer: #{@world.funder_badge.name} > No Such Team" ], skipped
+    assert_equal [ "Treasurer: approver not found, left out: No Such Badge > #{@world.club.name}",
+      "Treasurer: approver not found, left out: #{@world.funder_badge.name} > No Such Team" ], skipped
     assert_empty ApprovalStep.find_by!(key: "treasurer").approvers
     assert_equal [], Orders::Lists.convert_approval_steps!(setting), "runs once"
     assert_equal 2, ApprovalStep.count
+  end
+
+  test "a first step with a minimum gets 0, with a warning" do
+    setting = JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 100, "approvers" => [] },
+      { "key" => "treasurer", "name" => "Treasurer", "minimum" => 500, "approvers" => [] } ])
+
+    skipped = Orders::Lists.convert_approval_steps!(setting)
+
+    assert_equal [ [ "approval", 0 ], [ "treasurer", 50_000 ] ], ApprovalStep.ordered.pluck(:key, :minimum_cents)
+    assert_equal [ "Approval: minimum $100.00 dropped, the first step is needed by every request" ], skipped
   end
 
   test "a blank or unreadable approval steps setting gives the default step" do

@@ -1,5 +1,6 @@
 # One level of approval an order request needs (spec §3.3), in position
-# order. A request needs every active step whose minimum its total meets.
+# order. Every request needs the first active step, whose minimum is always
+# 0; it also needs each later active step whose minimum its total meets.
 # Approvals are stored by the step's key, which never changes, so renaming a
 # step keeps its approvals. Approvers are badge and team rows: a holder of
 # the badge approves for that team and the teams below it, or for every team
@@ -19,6 +20,7 @@ class ApprovalStep < ApplicationRecord
   monetize :minimum_cents
 
   validates :minimum_cents, numericality: { greater_than_or_equal_to: 0 }
+  validate :first_step_has_no_minimum
   before_validation :assign_key, on: :create
   before_validation :drop_repeated_approvers
 
@@ -26,6 +28,29 @@ class ApprovalStep < ApplicationRecord
   # approve every request.
   def self.fallback
     new(key: "approval", name: "Approval", minimum_cents: 0)
+  end
+
+  # The first active step applies to every request, so its minimum is 0.
+  # Reordering, retiring or restoring can put a step with a minimum first;
+  # this clears that minimum and returns the step, or nil when nothing
+  # changed.
+  def self.free_first_step!
+    first = active.ordered.first
+    return nil unless first&.minimum_cents&.positive?
+
+    first.update_column(:minimum_cents, 0)
+    first
+  end
+
+  # Whether this step is (or, saved, would be) the first active step.
+  def first?
+    return false unless active?
+
+    others = self.class.active.where.not(id: id).ordered.to_a
+    return true if others.empty?
+    return false if new_record? && position.nil?
+
+    ([ self ] + others).min_by { |step| [ step.position.to_i, step.name.to_s ] }.equal?(self)
   end
 
   # The Orders::Reach of this step's approvers.
@@ -47,6 +72,12 @@ class ApprovalStep < ApplicationRecord
   end
 
   private
+
+  def first_step_has_no_minimum
+    return unless minimum_cents.to_i.positive? && first?
+
+    errors.add(:minimum, "must be $0 for the first step, which every request needs")
+  end
 
   # The same badge and team twice is one approver.
   def drop_repeated_approvers

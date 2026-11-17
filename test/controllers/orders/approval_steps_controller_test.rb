@@ -75,6 +75,43 @@ class Orders::ApprovalStepsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the first step's minimum is 0, shown and kept" do
+    with_orders(@world, **two_step_settings(@world, minimum: 500)) do
+      mentor = ApprovalStep.find_by!(key: "mentor")
+      treasurer = ApprovalStep.find_by!(key: "treasurer")
+      sign_in @world.admin.user
+
+      get orders_approval_steps_url
+      assert_select "p", /Every request needs the first step, so it has no minimum/
+
+      get edit_orders_approval_step_url(mentor)
+      assert_select "input[name='approval_step[minimum]'][disabled][value='0.00']"
+      assert_select ".form-text", /This is the first step, so every request needs it and it has no minimum/
+
+      patch orders_approval_step_url(mentor), params: { approval_step: { name: "Mentor", minimum: "100" } }
+      assert_equal 0, mentor.reload.minimum_cents
+
+      get edit_orders_approval_step_url(treasurer)
+      assert_select "input[name='approval_step[minimum]']:not([disabled])"
+
+      patch move_orders_approval_step_url(treasurer, direction: "up")
+      assert_equal "Treasurer is now the first step, which every request needs, so its minimum is now $0.", flash[:notice]
+      assert_equal 0, treasurer.reload.minimum_cents
+      follow_redirect!
+      assert_select "#approval_steps_active li:first-child", /Treasurer\s+Every request\./
+    end
+  end
+
+  test "retiring the first step clears the minimum of the step that takes its place" do
+    with_orders(@world, **two_step_settings(@world, minimum: 500)) do
+      sign_in @world.admin.user
+
+      patch retire_orders_approval_step_url(ApprovalStep.find_by!(key: "mentor"))
+      assert_match "Treasurer is now the first step", flash[:notice]
+      assert_equal 0, ApprovalStep.find_by!(key: "treasurer").minimum_cents
+    end
+  end
+
   test "a bad minimum shows the form again" do
     with_orders(@world) do
       step = ApprovalStep.find_by!(key: "approval")

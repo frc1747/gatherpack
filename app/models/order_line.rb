@@ -269,7 +269,7 @@ class OrderLine < ApplicationRecord
         end
       update!(status: status_now)
       order_request.log!(status_now == :problem ? :problem : :received, by: by, line: self, comment: note,
-        changes: { "status" => [ from, status_now.to_s ], "quantity" => delivery.quantity, "condition" => delivery.condition })
+        changes: { "status" => [ from, status_now.to_s ], "quantity" => delivery.quantity, "condition" => delivery.condition_for_timeline })
       order_request.refresh_status_from_lines
       Orders.after_receive(delivery, params)
       delivery

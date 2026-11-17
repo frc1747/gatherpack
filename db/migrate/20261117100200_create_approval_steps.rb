@@ -2,6 +2,8 @@
 # replacing the orders_approval_steps JSON setting. Each step keeps its key,
 # so approvals already given still match it. An approver line whose badge
 # or team isn't found reached nobody before; it is left out, with a warning.
+# A first step with a minimum gets 0, also with a warning: every request
+# needs the first step.
 class CreateApprovalSteps < ActiveRecord::Migration[8.1]
   def up
     create_table :approval_steps, id: :uuid do |t|
@@ -31,8 +33,8 @@ class CreateApprovalSteps < ActiveRecord::Migration[8.1]
     ApprovalStepApprover.reset_column_information
     skipped = Orders::Lists.convert_approval_steps!(Orders::Lists.stored_setting(:orders_approval_steps))
     skipped.each do |line|
-      say "Approver not found, left out: #{line}"
-      Rails.logger.warn("Approval steps: approver not found, left out: #{line}")
+      say "Approval steps: #{line}"
+      Rails.logger.warn("Approval steps: #{line}")
     end
     Orders::Lists.forget_setting(:orders_approval_steps)
   end

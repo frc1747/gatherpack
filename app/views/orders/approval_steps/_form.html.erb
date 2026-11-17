@@ -3,8 +3,13 @@
 
 <div class="form-inputs">
   <%= f.input :name %>
-  <%= f.input :minimum, as: :currency, label: "Minimum total",
-        hint: "Requests whose total reaches this need the step. 0: every request." %>
+  <% if f.object.first? %>
+    <%= f.input :minimum, as: :currency, label: "Minimum total", disabled: true, input_html: { value: "0.00" },
+          hint: "This is the first step, so every request needs it and it has no minimum." %>
+  <% else %>
+    <%= f.input :minimum, as: :currency, label: "Minimum total",
+          hint: "Requests whose total reaches this need the step too. 0: every request. Every request needs the first step." %>
+  <% end %>
 
   <fieldset class="mb-3">
     <legend class="form-label fs-6">Who approves</legend>

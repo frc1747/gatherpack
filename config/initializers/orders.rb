@@ -22,6 +22,8 @@ Rails.application.config.to_prepare do
   end
 
   GatherPack::Features.register_section("Purchasing", position: 35)
+  # Setup's heading for orders (and inventory), where Purchasing sat: after Finance.
+  GatherPack::Features.register_section(Orders::SETUP_SECTION, position: 35)
 
   GatherPack::Features.register(
     GatherPack::Feature.new(
@@ -84,6 +86,7 @@ Rails.application.config.to_prepare do
 
   # The things an orders group names for itself (GatherPack::ManagedLists).
   if defined?(GatherPack::ManagedLists)
+    ManagedListsController.include(Orders::ManagedListRefusals) unless ManagedListsController < Orders::ManagedListRefusals
     GatherPack::ManagedLists.register(:payment_methods, model: "PaymentMethod", label: "Payment Method",
       plural_label: "Payment Methods", setup_section: Orders::SETUP_SECTION, feature: :orders,
       description: "How a purchase can be paid. One that needs paying back marks the buyer to be repaid.",

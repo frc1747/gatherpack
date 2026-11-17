@@ -3,7 +3,7 @@
   <div class="flex-grow-1">
     <strong><%= step.name %></strong>
     <div class="small text-muted">
-      <%= step.minimum_cents.zero? ? "Every request" : "Requests of #{step.minimum.format} or more" %>.
+      <%= (step.active? && first) || step.minimum_cents.zero? ? "Every request" : "Requests of #{step.minimum.format} or more" %>.
       Approved by team managers<%= step.approvers.any? ? ", #{step.approvers.map { |approver| approver.team ? "#{approver.badge.name} (up to #{approver.team.name})" : "#{approver.badge.name} (every team)" }.to_sentence}" : "" %>.
     </div>
   </div>

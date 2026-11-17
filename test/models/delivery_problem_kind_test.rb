@@ -28,7 +28,7 @@ class DeliveryProblemKindTest < ActiveSupport::TestCase
       assert line.reload.problem?
       assert_equal 1, line.problem_quantity
       assert_equal "Cracked", bad.condition_name
-      assert_equal bad.delivery_problem_kind_id, line.order_request.events.where(action: "problem").last.field_changes["condition"]
+      assert_equal({ "id" => cracked.id, "name" => "Cracked" }, line.order_request.events.where(action: "problem").last.field_changes["condition"])
     end
   end
 
@@ -60,6 +60,22 @@ class DeliveryProblemKindTest < ActiveSupport::TestCase
       assert_equal "Broken", line.order_deliveries.reload.last.condition_name
       assert_equal "Broken", helper.send(:order_timeline_condition, event.field_changes["condition"])
       assert_equal "Good", helper.send(:order_timeline_condition, "good")
+    end
+  end
+
+  test "a kind merged away shows its logged name on the timeline, never an id" do
+    line = ordered_line
+    with_orders(@world) do
+      short = DeliveryProblemKind.create!(name: "Short shipped")
+      line.record_delivery!(by: @world.requester, quantity: 1, problem_kind: short)
+      short.merge_into!(DeliveryProblemKind.find_by!(key: "wrong_item"))
+      event = line.order_request.events.where(action: "problem").last
+      helper = Object.new.extend(OrderRequestsHelper)
+
+      assert_equal "Short shipped", helper.send(:order_timeline_condition, event.field_changes["condition"])
+      assert_equal "Wrong item", line.order_deliveries.reload.last.condition_name
+      assert_equal "removed", helper.send(:order_timeline_condition, { "id" => SecureRandom.uuid })
+      assert_equal "Damaged", helper.send(:order_timeline_condition, "damaged"), "entries from before the list"
     end
   end
 

@@ -16,9 +16,9 @@ class Orders::ConfigTest < ActiveSupport::TestCase
     badge = Badge.create!(name: "Treasurer badge", short: "TB", color: "#000000", badge_type: BadgeType.first || BadgeType.create!(name: "Role"),
       permission: :added_by_admin)
     ApprovalStep.create!(key: "old", name: "Old step", minimum_cents: 0, position: 1, active: false)
-    treasurer = ApprovalStep.create!(key: "treasurer", name: "Treasurer", minimum: "500.50", position: 3)
+    ApprovalStep.create!(key: "mentor", name: "Mentor", minimum_cents: 0, position: 3)
+    treasurer = ApprovalStep.create!(key: "treasurer", name: "Treasurer", minimum: "500.50", position: 4)
     treasurer.approvers.create!(badge: badge)
-    ApprovalStep.create!(key: "mentor", name: "Mentor", minimum_cents: 0, position: 2)
 
     assert_equal %w[mentor treasurer], Orders::Config.approval_steps.map(&:key)
     assert_equal [ 0, 50050 ], Orders::Config.approval_steps.map(&:minimum_cents)

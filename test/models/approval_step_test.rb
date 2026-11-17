@@ -17,6 +17,39 @@ class ApprovalStepTest < ActiveSupport::TestCase
     end
   end
 
+  test "the first active step has no minimum: every request needs it" do
+    first = ApprovalStep.create!(name: "Approval")
+    first.minimum = "100"
+
+    assert_not first.valid?
+    assert_includes first.errors[:minimum], "must be $0 for the first step, which every request needs"
+
+    later = ApprovalStep.create!(name: "Treasurer", minimum: "500")
+    assert later.valid?
+    assert_not later.first?
+  end
+
+  test "a step with a minimum that becomes first loses its minimum" do
+    first = ApprovalStep.create!(name: "Approval")
+    later = ApprovalStep.create!(name: "Treasurer", minimum: "500")
+
+    assert_nil ApprovalStep.free_first_step!
+    later.move!(:up)
+    assert_equal later, ApprovalStep.free_first_step!
+    assert_equal 0, later.reload.minimum_cents
+    assert_equal 0, first.reload.minimum_cents
+  end
+
+  test "every request needs the first step even when it has a minimum stored" do
+    with_settings(two_step_settings(@world, minimum: 500)) do
+      Orders::Current.reset
+      ApprovalStep.find_by!(key: "mentor").update_column(:minimum_cents, 100_000)
+      small = submitted_request(@world, lines: [ { description: "Gear", price: 20 } ])
+
+      assert_equal [ "mentor" ], small.needed_steps.map(&:key)
+    end
+  end
+
   test "a request needs the active steps whose minimum it meets, in order" do
     with_settings(two_step_settings(@world, minimum: 500)) do
       Orders::Current.reset
@@ -27,8 +60,9 @@ class ApprovalStepTest < ActiveSupport::TestCase
       assert_equal %w[mentor treasurer], large.needed_steps.map(&:key)
 
       ApprovalStep.find_by!(key: "treasurer").move!(:up)
+      ApprovalStep.free_first_step!
       assert_equal %w[treasurer mentor], large.needed_steps.map(&:key)
-      assert_equal [ "mentor" ], small.needed_steps.map(&:key)
+      assert_equal %w[treasurer mentor], small.needed_steps.map(&:key), "the first step is needed by every request"
 
       ApprovalStep.find_by!(key: "treasurer").retire!
       assert_equal [ "mentor" ], large.needed_steps.map(&:key)

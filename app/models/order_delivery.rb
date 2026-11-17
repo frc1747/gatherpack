@@ -25,11 +25,18 @@ class OrderDelivery < ApplicationRecord
   end
 
   # "good", or the problem kind's key ("damaged", "wrong_item") or, for a
-  # kind admins added, its id: what notifications and the timeline record.
+  # kind admins added, its id: what notifications carry.
   def condition
     return "good" if good?
 
     delivery_problem_kind&.key || delivery_problem_kind_id
+  end
+
+  # What the timeline records: "good", or the kind's id and its name then,
+  # so the timeline shows its current name, or that name if it's since
+  # been merged away.
+  def condition_for_timeline
+    good? ? "good" : { "id" => delivery_problem_kind_id, "name" => delivery_problem_kind&.name }
   end
 
   # How it came, as the page says it: "Good" or the problem kind's name.
