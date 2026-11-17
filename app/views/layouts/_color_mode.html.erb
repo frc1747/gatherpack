@@ -1,0 +1,10 @@
+<div class="color-mode px-3 py-2" data-controller="color-mode"
+     data-color-mode-url-value="<%= color_mode_path %>">
+  <div class="btn-group btn-group-sm w-100" role="group" aria-label="Color mode">
+    <% [ %w[light Light], %w[dark Dark], %w[auto Auto] ].each do |mode, label| %>
+      <button type="button" class="btn btn-outline-secondary" aria-pressed="false"
+              data-color-mode-target="button" data-color-mode-mode-param="<%= mode %>"
+              data-action="color-mode#choose"><%= label %></button>
+    <% end %>
+  </div>
+</div>
