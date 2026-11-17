@@ -46,6 +46,7 @@
           <% if flash.any? %>
             <div class="my-3">
               <% flash.each do |type, value| %>
+                <% next if type == "client_secret" %>
                 <div class="alert <%= flash_to_class(type) %> alert-dismissible fade show" role="alert">
                   <i class="bi flex-shrink-0 me-2 fa-solid <%= flash_to_icon(type) %>"></i>
                   <%= value %>
