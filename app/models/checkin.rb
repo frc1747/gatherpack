@@ -10,7 +10,7 @@ class Checkin < ApplicationRecord
   validates :person, presence: true, uniqueness: { scope: :event, message: "has already been checked in" }
   validate :check_limit
 
-  before_update :check_attributes
+  before_validation :keep_response_fields
   before_validation :drop_other_types_new_responses, on: :create
   before_validation :refresh_fields
 
@@ -46,6 +46,20 @@ class Checkin < ApplicationRecord
 
   private
 
+  # A saved response stays with its field, so nested attributes can't move an
+  # answer onto or off a field the acting person may not write. Answers for
+  # another type's fields are hidden, so they can't be edited at all. This runs
+  # before refresh_fields, which would otherwise fill the gap left behind.
+  def keep_response_fields
+    field_ids = event.event_type.checkin_fields.map(&:id)
+    checkin_field_responses.each do |r|
+      next unless r.persisted?
+
+      r.restore_attributes([ :checkin_field_id ])
+      r.restore_attributes unless field_ids.include?(r.checkin_field_id)
+    end
+  end
+
   # refresh_fields has already added every response a saved check-in needs, so
   # a form never adds one; an id-less row there is forged.
   def new_response_on_saved_checkin?(attributes)
@@ -57,21 +71,6 @@ class Checkin < ApplicationRecord
     field_ids = event.event_type.checkin_fields.map(&:id)
     other = checkin_field_responses.reject { |r| field_ids.include?(r.checkin_field_id) }
     checkin_field_responses.delete(*other) if other.any?
-  end
-
-  def check_attributes
-    field_ids = event.event_type.checkin_fields.map(&:id)
-    checkin_field_responses.each do |r|
-      next unless r.persisted?
-
-      if field_ids.include?(r.checkin_field_id_was)
-        r.restore_attributes([ "checkin_field_id" ])
-        r.response = r.response_was unless r.permission_check(self.created_by)
-      else
-        # Answers for another type's fields are hidden, so they can't be edited.
-        r.restore_attributes
-      end
-    end
   end
 
   def check_limit

@@ -154,6 +154,7 @@ en:
       user_name: 'Read your name'
       teams_read: 'Read your team memberships'
       badges_read: 'Read your badges'
+      roles_read: 'See whether you are an admin, architect or manager'
 
     layouts:
       admin:

@@ -13,6 +13,11 @@ class ReplyVotePolicy < ApplicationPolicy
     user.admin || person.all_teams.exists?(record.question&.team_id)
   end
 
+  # Changing a vote is casting it again.
+  def update?
+    create?
+  end
+
   def upvote?
     create?
   end

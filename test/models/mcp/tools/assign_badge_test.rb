@@ -48,10 +48,12 @@ class Mcp::Tools::AssignBadgeTest < ActionDispatch::IntegrationTest
     assert_refused("Not allowed", BadgeAssignment) { assign(:beta_member, :beta_member, @access_badge) }
   end
 
-  test "a current member gives a current-member badge to a teammate" do
+  test "a current member takes a current-member badge themselves, and only their managers give it to a teammate" do
     badge = create_world_badge_with(:added_by_current_member, team: @alpha)
 
-    assert_nil assign(:alpha_member, :ward, badge).error
+    assert_refused("Not allowed", BadgeAssignment) { assign(:alpha_member, :ward, badge) }
+    assert_nil assign(:alpha_member, :alpha_member, badge).error
+    assert_nil assign(:alpha_manager, :ward, badge).error
   end
 
   SELF_SERVICE = %i[added_by_admin_or_self added_by_manager_or_self has_account].freeze
@@ -69,7 +71,9 @@ class Mcp::Tools::AssignBadgeTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "on a self-service badge, a manager chooses themselves or people they manage" do
+  # Stricter than the tool's own rule: this build's policy lets a manager choose
+  # others only on a team-less "added by manager or self" badge.
+  test "on a self-service badge, a manager chooses themselves, and people they manage where the badge lets them" do
     parent = create_world_team("Parent")
     kid = create_world_team("Kid", parent: parent)
     sibling = create_world_team("Sibling", parent: parent)
@@ -82,7 +86,11 @@ class Mcp::Tools::AssignBadgeTest < ActionDispatch::IntegrationTest
       badge = create_world_badge_with(permission)
 
       assert_nil assign(:kid_manager, :kid_manager, badge).error, permission
-      assert_nil assign(:kid_manager, :kid_member, badge).error, permission
+      if permission == :added_by_manager_or_self
+        assert_nil assign(:kid_manager, :kid_member, badge).error, permission
+      else
+        assert_refused("Not allowed", BadgeAssignment) { assign(:kid_manager, :kid_member, badge) }
+      end
       assert_refused("Not allowed", BadgeAssignment) { assign(:kid_manager, :sibling_member, badge) }
     end
   end
@@ -153,25 +161,25 @@ class Mcp::Tools::AssignBadgeTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # The POST passes everyone on a self-service badge, whoever they choose.
-  test "it refuses a self-service grant to a teammate the viewer doesn't manage, where the POST goes through" do
+  # This build's POST checks whom the badge goes to, as the tool does.
+  test "it refuses a self-service grant to a teammate the viewer doesn't manage, and so does the POST" do
     open_badge = create_world_badge_with(:has_account)
     page = page_changes_rows?(BadgeAssignment, as: user(:alpha_member)) do
       post badge_badge_assignments_path(open_badge), params: { badge_assignment: { person_id: person(:ward).id } }
     end
 
-    assert page
+    assert_not page
     assert_refused("Not allowed", BadgeAssignment) { assign(:alpha_member, :ward, open_badge) }
   end
 
-  # The POST doesn't check the person, though its form only offers people in scope.
-  test "it refuses a person the viewer can't see, where a hand-made POST goes through" do
+  # This build's POST checks the person too.
+  test "it refuses a person the viewer can't see, and so does a hand-made POST" do
     open_badge = create_world_badge_with(:has_account)
     page = page_changes_rows?(BadgeAssignment, as: user(:guardian)) do
       post badge_badge_assignments_path(open_badge), params: { badge_assignment: { person_id: person(:ward).id } }
     end
 
-    assert page
+    assert_not page
     assert_refused("Not found", BadgeAssignment) { assign(:guardian, :ward, open_badge) }
   end
 end

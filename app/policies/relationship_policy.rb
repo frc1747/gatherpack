@@ -20,6 +20,12 @@ class RelationshipPolicy < ApplicationPolicy
     true
   end
 
+  # Decides whether the relationships page offers to reverse one; reversing it
+  # is reverse?.
+  def update?
+    true
+  end
+
   # A minor guardianship can only be removed by a manager or admin, so a
   # child can't cut off their guardian. Either side can remove a consented
   # one, since the child side granted it.

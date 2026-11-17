@@ -2,9 +2,9 @@
 # permitted attributes (line 63), authorize create?, refuse a value already in use, save.
 # Token's before_save normalizes the value (rfidify).
 #
-# The page looks for a duplicate before that normalization, and its redirect goes to the
+# The page finds a duplicate by its normalized form, and its redirect goes to the
 # holder's token. This compares the raw and the normalized value, so a reader's other
-# format of a card already issued is refused too, and doesn't say whose it is. Only after
+# format of a card already issued is refused, as there, and doesn't say whose it is. Only after
 # create?, so nobody else can test a value.
 #
 # Narrower than the page: only people (its form offers hooks too), and only those in
