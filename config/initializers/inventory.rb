@@ -82,7 +82,8 @@ Rails.application.config.to_prepare do
     if picked
       "When inventory managers hear that an item is running low"
     else
-      "When inventory managers hear that an item is running low: off, each (an email each time) or daily (in the daily digest)"
+      "When inventory managers hear that an item is running low: off, each (an email each time), daily (in the daily digest) " \
+        "or weekly (in the Weekly Infodump, when Summaries is on)"
     end)
   Settings.register(:inventory_default_unit, :string, "Default Stock Unit", "each", "Inventory",
     "The stock unit a new item starts with")
@@ -109,7 +110,7 @@ Rails.application.config.to_prepare do
     Settings.input(:inventory_member_unit_actions, :checkboxes, normalize: snake,
       choices: Inventory::Config::UNIT_ACTIONS.map { |action| [ action.humanize, action ] })
     Settings.input(:inventory_reorder_notice, :select,
-      choices: [ [ "Off", "off" ], [ "An email each time", "each" ], [ "In the daily digest", "daily" ] ])
+      choices: Inventory::Config::REORDER_NOTICE_CHOICES)
     Settings.input(:inventory_machines, :select, choices: [ [ "On", "on" ], [ "Off", "off" ] ])
     Settings.input(:inventory_default_unit, :text,
       suggestions: -> { Item.distinct.order(:unit).pluck(:unit).compact_blank })
@@ -130,4 +131,21 @@ Rails.application.config.to_prepare do
     path: ->(rows) { routes.inventory_reorder_path(print: 1, items: ticked.call(rows)) })
   Inventory.extensions.register_reorder_action(:csv, label: "Download CSV", method: :get,
     path: ->(rows) { routes.inventory_reorder_path(format: :csv, items: ticked.call(rows)) })
+
+  # The managers' summary goes in the combined daily email or the Weekly
+  # Infodump when the summaries feature (feature/digests) is present and on;
+  # otherwise InventoryDigestJob sends its own daily email.
+  if defined?(GatherPack::Digests)
+    GatherPack::Digests.register(:inventory, label: "Inventory",
+      delivery: -> { Inventory::Config.reorder_notice == "weekly" ? :weekly : :daily },
+      build: ->(person, since:) {
+        next unless Inventory.enabled?
+
+        team_ids = InventoryNotices.managers[person]
+        digest = Inventory::Digest.new(since: since).for_teams(team_ids || [])
+        next if team_ids.nil? || digest.empty?
+
+        GatherPack::Digests::Section.new(heading: "Inventory: #{digest.summary}", body: InventoryNotices.new.digest_body(digest))
+      })
+  end
 end

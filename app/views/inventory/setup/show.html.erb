@@ -14,7 +14,7 @@
           <div class="mb-3">
             <%= label_tag "settings_#{key}", setting.name, class: "form-label" %>
             <% if key == :inventory_reorder_notice %>
-              <%= select_tag "settings[#{key}]", options_for_select([ [ "Off", "off" ], [ "An email each time", "each" ], [ "In the daily digest", "daily" ] ], Inventory::Config.reorder_notice), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
+              <%= select_tag "settings[#{key}]", options_for_select(Inventory::Config::REORDER_NOTICE_CHOICES, Inventory::Config.reorder_notice), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
             <% elsif key == :inventory_machines %>
               <%= select_tag "settings[#{key}]", options_for_select([ [ "On", "on" ], [ "Off", "off" ] ], Inventory.machines? ? "on" : "off"), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
             <% elsif setting.setting_type == :string %>

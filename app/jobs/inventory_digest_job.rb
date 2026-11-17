@@ -7,6 +7,8 @@ class InventoryDigestJob < ApplicationJob
 
   def perform(since = nil)
     return unless Inventory.enabled?
+    # The summaries feature sends it instead (daily email or Weekly Infodump).
+    return if defined?(GatherPack::Digests) && GatherPack::Digests.handles?(:inventory)
 
     since = since ? Time.zone.parse(since.to_s) : 1.day.ago
     digest = Inventory::Digest.new(since: since)

@@ -12,7 +12,7 @@ module Inventory
     def initialize(since:, now: Time.current, running_low: nil, count_differences: nil, needs_repair: nil)
       @since = since
       @now = now
-      @running_low = running_low || (Inventory::Config.reorder_notice == "daily" ? find_running_low : [])
+      @running_low = running_low || (Inventory::Config.reorder_notice.in?(%w[daily weekly]) ? find_running_low : [])
       @count_differences = count_differences || find_count_differences
       @needs_repair = needs_repair || find_needs_repair
     end
