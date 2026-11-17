@@ -61,13 +61,13 @@
           </div>
         <% end %>
 
-        <% if my_gatherpack_menu.more.any? %>
-          <details data-menu-group="more">
-            <summary class="px-3 mt-2 mb-1 text-secondary text-uppercase small fw-medium">More</summary>
-            <% my_gatherpack_menu.more.each do |item| %>
+        <% my_gatherpack_menu.sections.each do |section_name, items| %>
+          <div data-menu-group="section-<%= section_name.parameterize %>">
+            <%= nav_heading section_name %>
+            <% items.each do |item| %>
               <%= nav_link item.label, resolve_nav_path(item), item.icon %>
             <% end %>
-          </details>
+          </div>
         <% end %>
 
         <% if my_gatherpack_menu.manage.any? %>

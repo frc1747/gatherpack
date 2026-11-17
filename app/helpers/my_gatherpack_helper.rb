@@ -16,9 +16,10 @@ module MyGatherpackHelper
     return unless MyGatherpack.enabled?
 
     menu = my_gatherpack_menu
-    groups = [ menu.top, menu.family, menu.more, menu.manage ].map { |items| items.map(&:label).join(",") }
+    groups = [ menu.top, menu.family, menu.manage ].map { |items| items.map(&:label).join(",") }
+    sections = menu.sections.map { |name, items| "#{name}:#{items.map(&:label).join(",")}" }.join(";")
     account_links = MyGatherpack.account_links_for(self).map(&:label).join(",")
-    [ *groups, account_links, site_title, Theme.instance.logo.attachment&.blob_id ].join("/")
+    [ *groups, sections, account_links, site_title, Theme.instance.logo.attachment&.blob_id ].join("/")
   end
 
   PhoneTab = Struct.new(:label, :path, :icon, keyword_init: true)

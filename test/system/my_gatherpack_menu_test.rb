@@ -20,7 +20,7 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
     Capybara.always_include_port = @saved_include_port
   end
 
-  test "on desktop the sidebar carries the site name, More opens, and search leaves it only on Home" do
+  test "on desktop the sidebar carries the site name, every section is open, and search leaves it only on Home" do
     login = create_login("Morgan")
     sign_in login
     visit root_path
@@ -34,9 +34,8 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
     within ".sidebar" do
       assert_text "Northwind Community"
       assert_selector "input[type=search]"
-      assert_no_link "Shortcuts"
-      find("summary", text: "MORE").click
       assert_link "Shortcuts"
+      assert_no_text "More"
     end
     assert_no_selector "header.navbar"
   end
