@@ -4,14 +4,14 @@
 module OrderInventory
   module ItemFromLine
     def self.attributes(line)
-      unit = line.units_per.to_i > 1 ? nil : line.unit.presence
+      unit = line.units_per.to_i > 1 ? nil : StockUnit.active.named(line.unit)
       {
         team: line.order_request.team,
         name: line.description.presence || line.display_name,
         manufacturer: line.manufacturer.presence,
         manufacturer_part_number: line.manufacturer_part_number.presence,
         url: (line.url if line.web_link?)
-      }.tap { |values| values[:unit] = unit if unit }
+      }.tap { |values| values[:stock_unit] = unit if unit }
     end
 
     # The preferred source: the line's store, its part number and link. Nil

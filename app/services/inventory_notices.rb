@@ -31,7 +31,7 @@ class InventoryNotices
   def running_low(item)
     total = item.total_stock
     deliver(self.class.recipients_for(item.team_id), "Running low: #{item.name}") do
-      "<p><strong>#{h(item.name)}</strong> is running low: #{total} #{h(item.unit)} left, " \
+      "<p><strong>#{h(item.name)}</strong> is running low: #{h(item.stock_unit.quantity_text(total))} left, " \
         "order more at #{item.reorder_point}.</p>#{reorder_link}"
     end
   end
@@ -43,8 +43,7 @@ class InventoryNotices
     deliver([ person ], "Inventory: #{digest.summary}") { digest_body(digest) } == 1
   end
 
-  private
-
+  # The digest's sections as HTML (names escaped); also the summaries section.
   def digest_body(digest)
     parts = []
     if digest.running_low.any?
@@ -61,6 +60,8 @@ class InventoryNotices
     end
     parts.join
   end
+
+  private
 
   def reorder_link
     "<p><a href=\"#{h(Rails.application.routes.url_helpers.inventory_reorder_url)}\">Open the reorder list</a></p>"

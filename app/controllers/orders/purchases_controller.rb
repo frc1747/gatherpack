@@ -4,7 +4,7 @@ module Orders
   # only through one of its requests gets its vendor, date and status, and
   # their own items.
   class PurchasesController < BaseController
-    PURCHASE_FIELDS = %i[vendor_order_number ordered_on expected_on tracking_url shipping tax paid_with note].freeze
+    PURCHASE_FIELDS = %i[vendor_order_number ordered_on expected_on tracking_url shipping tax payment_method_id note].freeze
 
     before_action :set_purchase, only: %i[show edit update make_vendor]
 
@@ -36,7 +36,8 @@ module Orders
     def new
       authorize Purchase, :create?
       @group = Orders::ToBuy.new(current_user.person).selection(params[:line_ids])
-      @purchase = Purchase.new(ordered_on: Date.current, paid_with: paid_with_labels.first)
+      Orders::Lists.seed!
+      @purchase = Purchase.new(ordered_on: Date.current, payment_method: PaymentMethod.active.ordered.first)
     end
 
     # POST /orders/purchases
@@ -99,11 +100,14 @@ module Orders
     def purchase_attributes
       attributes = params.fetch(:purchase, {}).permit(*PURCHASE_FIELDS).to_h
       %w[shipping tax].each { |field| attributes[field] = "0" if attributes.key?(field) && attributes[field].blank? }
-      attributes.delete("paid_with") if attributes.key?("paid_with") && !attributes["paid_with"].in?(paid_with_labels)
-      if attributes.key?("paid_with")
-        choice = Orders::Config.paid_with.find { |option| option.label == attributes["paid_with"] }
-        # Whoever paid with their own card is the buyer, not whoever edits it later.
-        attributes["reimburse_to_id"] = choice.reimburse ? (@purchase&.buyer_id || current_user.person.id) : nil
+      if attributes.key?("payment_method_id")
+        method = payment_method_choice(attributes["payment_method_id"])
+        if method.nil? && attributes["payment_method_id"].present?
+          attributes.delete("payment_method_id")
+        else
+          # Whoever paid with their own money is the buyer, not whoever edits it later.
+          attributes["reimburse_to_id"] = method&.reimburse ? (@purchase&.buyer_id || current_user.person.id) : nil
+        end
       end
       attributes
     end
@@ -139,8 +143,12 @@ module Orders
       ledger
     end
 
-    def paid_with_labels
-      Orders::Config.paid_with.map(&:label)
+    # An active payment method, or the purchase's own one even if it has
+    # since been retired.
+    def payment_method_choice(id)
+      return nil if id.blank?
+
+      PaymentMethod.active.find_by(id: id) || (PaymentMethod.find_by(id: id) if @purchase&.payment_method_id == id)
     end
 
     def recorded_notice(purchase)

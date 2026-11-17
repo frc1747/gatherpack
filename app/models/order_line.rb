@@ -36,7 +36,6 @@ class OrderLine < ApplicationRecord
   # stored or shown as a link.
   WEB_LINK_SCHEMES = %w[http https].freeze
   OPEN_TO_RECEIVE = %w[ordered backordered partly_received].freeze
-  CONDITIONS_OK = %w[good].freeze
 
   validates :quantity, numericality: { only_integer: true, greater_than: 0 }
   validates :units_per, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
@@ -155,7 +154,7 @@ class OrderLine < ApplicationRecord
 
   # Quantity that arrived in good condition.
   def received_quantity
-    order_deliveries.select { |delivery| delivery.condition.in?(CONDITIONS_OK) }.sum(&:quantity)
+    order_deliveries.select(&:good?).sum(&:quantity)
   end
 
   def outstanding_quantity
@@ -249,15 +248,18 @@ class OrderLine < ApplicationRecord
 
   # -- Receiving ----------------------------------------------------------
 
-  # Records a delivery. Good items count towards the quantity; damaged or
-  # wrong ones make the line a problem for its buyer. Receiving
-  # extensions run with the saved delivery and params.
-  def record_delivery!(by:, quantity:, received_on: Date.current, condition: :good, note: nil, photo: nil, params: {})
+  # Records a delivery. Good items count towards the quantity; ones with a
+  # problem_kind (a DeliveryProblemKind) make the line a problem for its
+  # buyer. condition: names a built-in kind by key instead ("damaged",
+  # "wrong_item"; "good" or blank for none). Receiving extensions run with
+  # the saved delivery and params.
+  def record_delivery!(by:, quantity:, received_on: Date.current, problem_kind: nil, condition: nil, note: nil, photo: nil, params: {})
+    problem_kind ||= DeliveryProblemKind.for_key!(condition) if condition.present? && condition.to_s != "good"
     within_lock do
       raise Orders::Refused, "This item isn't waiting to be received." unless open_to_receive? || problem?
 
       delivery = order_deliveries.create!(quantity: quantity, received_by: by, received_on: received_on || Date.current,
-        condition: condition, note: note, photo: photo)
+        delivery_problem_kind: problem_kind, note: note, photo: photo)
       from = status
       status_now =
         if !delivery.good? then :problem
@@ -267,7 +269,7 @@ class OrderLine < ApplicationRecord
         end
       update!(status: status_now)
       order_request.log!(status_now == :problem ? :problem : :received, by: by, line: self, comment: note,
-        changes: { "status" => [ from, status_now.to_s ], "quantity" => delivery.quantity, "condition" => delivery.condition })
+        changes: { "status" => [ from, status_now.to_s ], "quantity" => delivery.quantity, "condition" => delivery.condition_for_timeline })
       order_request.refresh_status_from_lines
       Orders.after_receive(delivery, params)
       delivery

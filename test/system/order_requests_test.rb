@@ -27,6 +27,37 @@ class OrderRequestsSystemTest < ApplicationSystemTestCase
     Capybara.always_include_port = @saved_include_port
   end
 
+  # Forgery protection is off in tests by default. With it on, the form's
+  # token was made for creating; later saves and Submit must still pass.
+  test "with forgery protection on, a new request saves more than once and submits" do
+    was = ActionController::Base.allow_forgery_protection
+    ActionController::Base.allow_forgery_protection = true
+    with_orders(@world) do
+      sign_in @world.requester.user
+      visit new_orders_request_path
+
+      fill_in "Link", with: "https://www.partsdepot.example/p/AB-123?ref=phone"
+      assert_text "Draft saved"
+      click_button "Add another item"
+      within all("[data-order-line]").last do
+        fill_in "Link", with: "https://cornershop.example/item/9"
+        assert_text "Other store: cornershop.example"
+      end
+      # The second save comes after the autosave delay.
+      saved_lines = -> { OrderRequest.find_by!(requested_by: @world.requester).order_lines.count }
+      deadline = Time.current + Capybara.default_max_wait_time * 2
+      sleep 0.1 until saved_lines.call == 2 || Time.current > deadline
+      assert_no_text "Not saved yet"
+      assert_equal 2, saved_lines.call
+
+      click_button "Submit for approval"
+      assert_text "Sent for approval"
+      assert OrderRequest.find_by!(requested_by: @world.requester).submitted?
+    end
+  ensure
+    ActionController::Base.allow_forgery_protection = was
+  end
+
   test "at 390 px a pasted link fills in the store and part number, saves a draft and submits" do
     with_orders(@world) do
       sign_in @world.requester.user

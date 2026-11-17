@@ -52,4 +52,11 @@ namespace :orders do
   end
   resources :reports, only: %i[index show]
   resource :settings, only: %i[show update]
+  resources :approval_steps, only: %i[index new create edit update] do
+    member do
+      patch :move
+      patch :retire
+      patch :restore
+    end
+  end
 end

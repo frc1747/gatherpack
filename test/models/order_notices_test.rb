@@ -230,15 +230,29 @@ class OrderNoticesTest < ActiveSupport::TestCase
     end
   end
 
-  test "approving or declining the changed items again sends no notice" do
+  test "approving or declining the changed items again tells the requester only" do
     with_notices do
       request = start(approved_request(@world))
+      request.follow!(@world.teammate)
       line = request.order_lines.first
       buy(@world, [ line ], vendor: @world.preferred_vendor, prices: { line.id => 90_000 })
       clear_enqueued_jobs
       request.decide!(:approved, by: @world.mentor)
 
-      assert_empty emailed
+      assert_equal addresses(@requester), emailed
+      assert_match "Approved: ", enqueued_emails.first[1]
+    end
+
+    with_notices do
+      request = start(approved_request(@world))
+      request.follow!(@world.teammate)
+      line = request.order_lines.first
+      buy(@world, [ line ], vendor: @world.preferred_vendor, prices: { line.id => 90_000 })
+      clear_enqueued_jobs
+      request.decide!(:declined, by: @world.mentor, comment: "Too dear")
+
+      assert_equal addresses(@requester), emailed
+      assert_match "Too dear", email_to(@requester)
     end
   end
 

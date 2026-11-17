@@ -21,6 +21,22 @@ class Inventory::MachinesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "on the Machines page only Machines is highlighted, and /inventory still shows the stock page" do
+    as(@world.keeper) do
+      get inventory_machines_path
+      assert_redirected_to inventory_machine_type_path(location_type("machine"))
+      follow_redirect!
+      assert_select ".sidebar a.active", count: 1
+      assert_select ".sidebar a.active[href=?]", inventory_machine_type_path(location_type("machine")), text: /Machines/
+      get inventory_stock_path
+      assert_select ".sidebar a.active[href=?]", inventory_stock_path, count: 1
+      assert_select ".sidebar a.active", count: 1
+      get inventory_root_path
+      assert_response :success
+      assert_select "form[role=search]"
+    end
+  end
+
   test "turns requests away while the feature is off" do
     with_settings(feature_inventory: "false") do
       sign_in @world.member.user
@@ -31,9 +47,9 @@ class Inventory::MachinesControllerTest < ActionDispatch::IntegrationTest
 
   test "a member lists the machines they can see, with part counts" do
     @module.install!(into: @world.robot, by: @world.admin)
-    other = Location.create!(team: @world.art, name: "Art robot", kind: "machine")
+    other = Location.create!(team: @world.art, name: "Art robot", location_type: location_type("machine"))
     as(@world.member) do
-      get inventory_machines_path
+      get inventory_machine_type_path(location_type("machine"))
       assert_response :success
       assert_select "#machines", /Robot/
       assert_select "#machines", /1 part/
@@ -163,7 +179,7 @@ class Inventory::MachinesControllerTest < ActionDispatch::IntegrationTest
     @motor1.install!(into: build_module, by: @world.admin)
     build_module.install!(into: @world.robot, by: @world.admin)
     as(@world.member) do
-      get inventory_machines_path
+      get inventory_machine_type_path(location_type("machine"))
       assert_select "#machines", /1 part\b/
 
       get inventory_machine_path(@world.robot)
@@ -172,7 +188,7 @@ class Inventory::MachinesControllerTest < ActionDispatch::IntegrationTest
       assert_select "#installed_units", text: /BRA-1/, count: 0
     end
     as(@world.builder) do
-      get inventory_machines_path
+      get inventory_machine_type_path(location_type("machine"))
       assert_select "#machines", /2 parts/
       get inventory_machine_path(@world.robot)
       assert_select "#installed_units > li", 1

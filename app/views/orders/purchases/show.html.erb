@@ -14,9 +14,9 @@
       <div class="d-flex gap-2">
         <% if @purchase.vendor_id.nil? && @purchase.other_vendor_name.present? && policy(Vendor).create? %>
           <%= button_to "Make #{@purchase.other_vendor_name} a vendor", make_vendor_orders_purchase_path(@purchase),
-                class: "btn btn-outline-secondary" %>
+                class: "btn btn-secondary" %>
         <% end %>
-        <%= link_to "Edit", edit_orders_purchase_path(@purchase), class: "btn btn-primary" %>
+        <%= link_to "Edit", edit_orders_purchase_path(@purchase), class: "btn btn-warning" %>
       </div>
     <% end %>
   </div>
@@ -30,7 +30,7 @@
         <dd class="col-sm-9"><%= @purchase.buyer.identifier_name %></dd>
         <dt class="col-sm-3">Paid with</dt>
         <dd class="col-sm-9">
-          <%= @purchase.paid_with.presence || "—" %>
+          <%= @purchase.payment_method&.name || "—" %>
           <% if @purchase.reimburse? && @purchase.reimburse_to %>
             <small class="text-muted">(pay back <%= @purchase.reimburse_to.identifier_name %>)</small>
           <% end %>

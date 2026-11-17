@@ -1,21 +1,22 @@
-# Tracked units and machines (inventory spec §3.15).
-crumb :inventory_machines do
-  link "Inventory", inventory_root_path
-  link "Machines", inventory_machines_path
+# Tracked units and places parts get installed on (inventory spec §3.15),
+# under their place type's plural.
+crumb :inventory_machines do |type|
+  link "Inventory", inventory_stock_path
+  link type.plural_name, inventory_machine_type_path(type)
 end
 
 crumb :inventory_machine do |machine|
   link machine.name, inventory_machine_path(machine)
-  parent :inventory_machines
+  parent :inventory_machines, machine.location_type
 end
 
 crumb :inventory_units do
-  link "Inventory", inventory_root_path
+  link "Inventory", inventory_stock_path
   link "Find a part", inventory_units_path
 end
 
 crumb :inventory_tracked_item do |item|
-  link "Inventory", inventory_root_path
+  link "Inventory", inventory_stock_path
   link item.name, inventory_item_path(item)
 end
 

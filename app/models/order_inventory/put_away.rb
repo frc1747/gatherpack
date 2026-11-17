@@ -100,7 +100,7 @@ module OrderInventory
         raise Inventory::Refused, "only an inventory manager can create an inventory item"
       end
 
-      item.home_location = Location.find_by(id: @values[:location_id], kind: "storage")
+      item.home_location = Location.storage.find_by(id: @values[:location_id])
       item.save!
       source = OrderInventory::ItemFromLine.source_attributes(@line)
       item.item_sources.create!(source) if source

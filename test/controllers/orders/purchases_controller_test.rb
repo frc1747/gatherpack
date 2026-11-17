@@ -68,7 +68,7 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
         line_ids: [ gear.id, belt.id ],
         prices: { gear.id => "11.00", belt.id => "" },
         purchase: { vendor_order_number: "A-100", ordered_on: Date.current.iso8601, shipping: "6.00", tax: "",
-                    paid_with: "Team card", expected_on: (Date.current + 5).iso8601,
+                    payment_method_id: payment_method("Team card").id, expected_on: (Date.current + 5).iso8601,
                     tracking_url: "https://track.example/1", receipts: [ receipt ] }
       }
 
@@ -100,7 +100,7 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
       get new_orders_purchase_url(line_ids: [ line.id ])
       assert_select "#vendor_prompt select[name='purchase[vendor_id]']"
 
-      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { vendor_id: @world.other_vendor.id, paid_with: "Team card" } }
+      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { vendor_id: @world.other_vendor.id, payment_method_id: payment_method("Team card").id } }
 
       assert_redirected_to orders_purchase_url(Purchase.last)
       assert_equal @world.other_vendor, line.reload.vendor
@@ -113,7 +113,7 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
       line = approved_request(@world, lines: [ { description: "Mystery part", price: 5 } ]).order_lines.first
       sign_in @world.buyer.user
 
-      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { paid_with: "Team card" } }
+      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { payment_method_id: payment_method("Team card").id } }
 
       assert_response :unprocessable_content
       assert_match "another store&#39;s name is needed", response.body
@@ -122,12 +122,12 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "paying with a card to reimburse records who to pay back" do
+  test "paying personally records who to pay back" do
     with_orders(@world) do
       line = approved_request(@world, lines: [ { description: "Gear", price: 5, vendor_id: @world.preferred_vendor.id } ]).order_lines.first
       sign_in @world.buyer.user
 
-      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { paid_with: "Personal card — reimburse" } }
+      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { payment_method_id: payment_method("Paid personally").id } }
 
       assert_equal @world.buyer, Purchase.last.reimburse_to
       assert Purchase.last.reimburse?
@@ -140,7 +140,7 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
       line = order_request.order_lines.first
       sign_in @world.buyer.user
 
-      post orders_purchases_url, params: { line_ids: [ line.id ], prices: { line.id => "200" }, purchase: { paid_with: "Team card" } }
+      post orders_purchases_url, params: { line_ids: [ line.id ], prices: { line.id => "200" }, purchase: { payment_method_id: payment_method("Team card").id } }
 
       assert_match "needs re-approval", flash[:notice]
       assert line.reload.needs_reapproval?
@@ -265,10 +265,10 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
 
   test "an admin who switches an order to a card to reimburse records the buyer to pay back, not themselves" do
     with_orders(@world) do
-      purchase = buy(@world, approved_request(@world).order_lines.to_a, paid_with: "Team card")
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, payment_method: payment_method("Team card"))
       sign_in @world.admin.user
 
-      patch orders_purchase_url(purchase), params: { purchase: { paid_with: "Personal card — reimburse" } }
+      patch orders_purchase_url(purchase), params: { purchase: { payment_method_id: payment_method("Paid personally").id } }
 
       assert_equal @world.buyer, purchase.reload.reimburse_to
     end
@@ -276,34 +276,64 @@ class Orders::PurchasesControllerTest < ActionDispatch::IntegrationTest
 
   test "switching an order away from a card to reimburse clears who to pay back" do
     with_orders(@world) do
-      purchase = buy(@world, approved_request(@world).order_lines.to_a, paid_with: "Personal card — reimburse",
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, payment_method: payment_method("Paid personally"),
         reimburse_to: @world.buyer)
       sign_in @world.buyer.user
 
-      patch orders_purchase_url(purchase), params: { purchase: { paid_with: "Team card" } }
+      patch orders_purchase_url(purchase), params: { purchase: { payment_method_id: payment_method("Team card").id } }
 
-      assert_equal "Team card", purchase.reload.paid_with
+      assert_equal payment_method("Team card"), purchase.reload.payment_method
       assert_nil purchase.reimburse_to
     end
   end
 
-  test "editing an order keeps a Paid with choice that has since been renamed" do
+  test "editing an order keeps a payment method that has since been retired" do
     with_orders(@world) do
-      purchase = buy(@world, approved_request(@world).order_lines.to_a, paid_with: "Team card")
+      card = payment_method("Team card")
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, payment_method: card)
       sign_in @world.buyer.user
+      card.retire!
 
-      with_settings(orders_paid_with: JSON.generate([ { "label" => "Personal card — reimburse", "reimburse" => true },
-                                                      { "label" => "Team debit card", "reimburse" => false } ])) do
-        get edit_orders_purchase_url(purchase)
-        assert_select "select[name='purchase[paid_with]'] option[selected]", text: "Team card"
+      get edit_orders_purchase_url(purchase)
+      assert_select "select[name='purchase[payment_method_id]'] option[selected]", text: "Team card (retired)"
 
-        patch orders_purchase_url(purchase), params: { purchase: { paid_with: "Team card", tracking_url: "https://track.example/3" } }
-      end
+      patch orders_purchase_url(purchase), params: { purchase: { payment_method_id: card.id, tracking_url: "https://track.example/3" } }
 
       purchase.reload
-      assert_equal "Team card", purchase.paid_with
+      assert_equal card, purchase.payment_method
       assert_nil purchase.reimburse_to
       assert_equal "https://track.example/3", purchase.tracking_url
+    end
+  end
+
+  test "a retired payment method can't be picked for a new purchase" do
+    with_orders(@world) do
+      card = payment_method("Team card")
+      card.retire!
+      line = approved_request(@world, lines: [ { description: "Gear", price: 5, vendor_id: @world.preferred_vendor.id } ]).order_lines.first
+      sign_in @world.buyer.user
+
+      get new_orders_purchase_url(line_ids: [ line.id ])
+      assert_select "select[name='purchase[payment_method_id]'] option", text: "Team card", count: 0
+      assert_select "select[name='purchase[payment_method_id]'] option", text: "Team card (retired)", count: 0
+
+      post orders_purchases_url, params: { line_ids: [ line.id ], purchase: { payment_method_id: card.id } }
+
+      assert_nil Purchase.last.payment_method
+    end
+  end
+
+  test "a renamed payment method shows its new name on the purchase" do
+    with_orders(@world) do
+      card = payment_method("Team card")
+      purchase = buy(@world, approved_request(@world).order_lines.to_a, payment_method: card)
+      card.update!(name: "Club debit card")
+      sign_in @world.buyer.user
+
+      get orders_purchase_url(purchase)
+      assert_match "Club debit card", response.body
+      get edit_orders_purchase_url(purchase)
+      assert_select "select[name='purchase[payment_method_id]'] option[selected]", text: "Club debit card"
     end
   end
 end

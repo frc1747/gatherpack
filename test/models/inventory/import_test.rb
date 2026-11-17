@@ -33,6 +33,24 @@ class Inventory::ImportTest < ActiveSupport::TestCase
     end
   end
 
+  test "a unit names a stock unit by name or plural; an unknown or retired one is a problem" do
+    stock_unit("roll").retire!
+    csv = <<~CSV
+      Name,Unit,Place code,Quantity
+      Wire,Feet,A-1,3
+      Tape,roll,A-1,1
+      Glue,tube,A-1,1
+    CSV
+    with_inventory(@world) do
+      preview = import(csv)
+      assert_equal %i[create skip skip], preview.rows.map(&:action)
+      assert_equal [ "Unknown unit roll: add it to the stock units first" ], preview.rows.second.problems
+      assert_equal [ "Unknown unit tube: add it to the stock units first" ], preview.rows.third.problems
+      import(csv).apply!
+      assert_equal "foot", Item.find_by!(name: "Wire").unit
+    end
+  end
+
   test "apply creates, updates by part number and records added movements" do
     with_inventory(@world) do
       result = nil

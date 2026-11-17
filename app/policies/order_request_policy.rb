@@ -7,7 +7,7 @@ class OrderRequestPolicy < ApplicationPolicy
       return scope.none if person.nil?
 
       access = Orders::Access.for(person)
-      return scope.where.not(status: :draft).or(scope.where(requested_by_id: person.id)) if access.admin?
+      return scope.where.not(status: :draft).or(scope.where(requested_by_id: person.id)) if access.admin? || access.sees_every_request?
 
       team_ids = access.managed_team_ids | access.any_approver_team_ids | access.buyer_team_ids
       team_ids |= access.member_team_ids if Orders::Config.team_can_see?
@@ -25,8 +25,7 @@ class OrderRequestPolicy < ApplicationPolicy
     return false if person.nil?
     return requester? if record.draft?
 
-    requester? || watcher? || team_member? || manager? || access.any_approver_team_ids.include?(record.team_id) ||
-      access.buyer_for?(record.team_id)
+    involved? || access.sees_every_request?
   end
 
   # Anyone in orders_requesters may start a request.
@@ -65,13 +64,18 @@ class OrderRequestPolicy < ApplicationPolicy
     record.received? && (requester? || manager? || access.buyer_for?(record.team_id))
   end
 
-  # Not on a draft: nobody else sees it yet.
+  # Not on a draft: nobody else sees it yet. Those who see every request
+  # (orders_viewers) comment as team members do, when team members can.
   def comment?
-    show? && !record.draft?
+    return false if person.nil? || record.draft?
+
+    involved? || (access.sees_every_request? && Orders::Config.team_can_see?)
   end
 
+  # Following would let someone who only sees every request receive, so
+  # they can't.
   def follow?
-    show? && !requester?
+    show? && involved? && !requester?
   end
 
   # Adding other people as followers.
@@ -126,6 +130,13 @@ class OrderRequestPolicy < ApplicationPolicy
 
   def requester?
     person.present? && record.requested_by_id == person.id
+  end
+
+  # Sees the request for a reason of its own, not only through
+  # orders_viewers.
+  def involved?
+    requester? || watcher? || team_member? || manager? || access.any_approver_team_ids.include?(record.team_id) ||
+      access.buyer_for?(record.team_id)
   end
 
   def watcher?

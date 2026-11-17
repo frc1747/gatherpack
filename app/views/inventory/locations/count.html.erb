@@ -17,12 +17,12 @@
           <% end %>
           <%= label_tag "counts_#{level.item.id}", "How many do you see?", class: "form-label" %>
           <div class="inventory-stepper" data-controller="inventory-stepper">
-            <button type="button" class="btn btn-outline-secondary" data-action="inventory-stepper#decrement" aria-label="One fewer">−</button>
+            <button type="button" class="btn btn-secondary" data-action="inventory-stepper#decrement" aria-label="One fewer">−</button>
             <%= number_field_tag "counts[#{level.item.id}]", nil, id: "counts_#{level.item.id}", min: 0, step: 1, inputmode: "numeric",
               pattern: "[0-9]*", class: "form-control", data: { inventory_stepper_target: "input" } %>
-            <button type="button" class="btn btn-outline-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
+            <button type="button" class="btn btn-secondary" data-action="inventory-stepper#increment" aria-label="One more">+</button>
           </div>
-          <div class="form-text"><%= level.item.unit %></div>
+          <div class="form-text"><%= level.item.stock_unit&.plural_name %></div>
         </div>
       </section>
     <% end %>
@@ -35,7 +35,7 @@
     </section>
 
     <div class="inventory-bar">
-      <button type="button" class="btn btn-outline-secondary btn-lg" data-inventory-count-target="back" data-action="inventory-count#back">Back</button>
+      <button type="button" class="btn btn-secondary btn-lg" data-inventory-count-target="back" data-action="inventory-count#back">Back</button>
       <button type="button" class="btn btn-primary btn-lg" data-inventory-count-target="next" data-action="inventory-count#next" hidden>Next</button>
       <%= f.submit "Save counts", class: "btn btn-primary btn-lg", data: { inventory_count_target: "save" } %>
     </div>

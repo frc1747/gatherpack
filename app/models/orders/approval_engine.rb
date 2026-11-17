@@ -1,5 +1,5 @@
-# Approval of an order request (spec §3.3). The steps come from the
-# orders_approval_steps setting, keyed by a stable step_key; a request needs
+# Approval of an order request (spec §3.3). The steps are ApprovalStep
+# rows, matched by their stable key (step_key); a request needs
 # every step whose minimum its total meets, in order, and at least the
 # first. Approvals a material change voids keep their row with cleared_at
 # set, so the timeline still shows them.
@@ -16,10 +16,11 @@ module Orders
       Orders::Config.approval_steps
     end
 
-    # The steps this request's total needs, in order.
+    # The steps this request's total needs, in order: the first step
+    # always (its minimum is 0, ApprovalStep.free_first_step!), then each
+    # later one whose minimum the total meets.
     def needed_steps(steps = approval_steps)
-      needed = steps.select { |step| total_cents >= step.minimum_cents }
-      needed.presence || steps.first(1)
+      steps.each_with_index.select { |step, index| index.zero? || total_cents >= step.minimum_cents }.map(&:first)
     end
 
     def final_step(steps = approval_steps)

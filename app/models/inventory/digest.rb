@@ -12,7 +12,7 @@ module Inventory
     def initialize(since:, now: Time.current, running_low: nil, count_differences: nil, needs_repair: nil)
       @since = since
       @now = now
-      @running_low = running_low || (Inventory::Config.reorder_notice == "daily" ? find_running_low : [])
+      @running_low = running_low || (Inventory::Config.reorder_notice.in?(%w[daily weekly]) ? find_running_low : [])
       @count_differences = count_differences || find_count_differences
       @needs_repair = needs_repair || find_needs_repair
     end
@@ -87,8 +87,9 @@ module Inventory
 
     # Units that became Needs repair or Broken in the window and still are.
     def find_needs_repair
-      unit_ids = ItemUnitEvent.where(created_at: window, condition_after: ItemUnit::FLAGGED)
-        .where.not(condition_before: ItemUnit::FLAGGED).distinct.pluck(:item_unit_id)
+      attention = UnitCondition.attention.select(:id)
+      unit_ids = ItemUnitEvent.where(created_at: window, condition_after_id: attention)
+        .where.not(condition_before_id: attention).distinct.pluck(:item_unit_id)
       ItemUnit.active.flagged.where(id: unit_ids).includes(:item).order(:code).to_a
     end
   end

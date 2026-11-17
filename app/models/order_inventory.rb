@@ -151,8 +151,9 @@ module OrderInventory
   # "2 packs = 200 each", or "3 each" when a unit holds one piece.
   def self.conversion_text(line, quantity, item: item_for(line))
     per = stock_units_per(line)
-    stock_unit = item&.unit.presence || Inventory::Config.default_unit
-    pieces = "#{quantity.to_i * per} #{stock_unit}"
+    stock_unit = item&.stock_unit || StockUnit.default_unit
+    count = quantity.to_i * per
+    pieces = "#{count} #{count.abs == 1 ? stock_unit.name : stock_unit.plural_name}"
     return pieces if per == 1
 
     line_unit = line.unit.presence || "unit"
@@ -169,7 +170,7 @@ module OrderInventory
   # Storage places the person may put things away in.
   def self.places_for(person)
     access = Inventory::Access.for(person)
-    places = Location.active.where(kind: "storage").includes(:parent)
+    places = Location.active.storage.includes(:parent)
     places = places.where(team_id: access.visible_team_ids.to_a) unless access.admin?
     places.sort_by(&:full_name)
   end
