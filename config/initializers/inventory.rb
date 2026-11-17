@@ -35,7 +35,8 @@ Rails.application.config.to_prepare do
       nav_position: 50,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Inventory", path: :inventory_root_path, icon: "boxes-stacked"),
-        GatherPack::Feature::NavItem.new(label: "Machines", path: :inventory_machines_path, icon: "robot")
+        # Named and shown as Inventory setup says (Inventory::Feature#nav_items).
+        GatherPack::Feature::NavItem.new(label: "Machines", path: :inventory_machines_path, icon: Inventory::MACHINE_ICON)
       ] + manager_items,
       setup_section: "Purchasing",
       setup_items: [ setup_item ]
@@ -89,6 +90,17 @@ Rails.application.config.to_prepare do
     end)
   Settings.register(:inventory_default_unit, :string, "Default Stock Unit", "each", "Inventory",
     "The stock unit a new item starts with")
+  Settings.register(:inventory_machines, :string, "Things Parts Get Installed On", "on", "Inventory",
+    if picked
+      "Places that are built and run, with tracked parts installed on them, each with its own page"
+    else
+      "Places that are built and run, with tracked parts installed on them, each with its own page: on or off"
+    end)
+  Settings.register(:inventory_machine_name, :string, "What One Is Called", "", "Inventory",
+    "The name for one of them, such as Robot, Project or Tool. Blank: #{Inventory::Config::DEFAULT_MACHINE_NAME}")
+  Settings.register(:inventory_machine_name_plural, :string, "What Several Are Called", "", "Inventory",
+    "The name for more than one. Blank: the plural of the name above, or " \
+      "#{Inventory::Config::DEFAULT_MACHINE_NAME_PLURAL} when that's blank too")
 
   # Pickers and the Setup page come with the settings inputs seam; without
   # it the settings stay text boxes and Setup shows plain fields.
@@ -102,6 +114,7 @@ Rails.application.config.to_prepare do
       choices: Inventory::Config::UNIT_ACTIONS.map { |action| [ action.humanize, action ] })
     Settings.input(:inventory_reorder_notice, :select,
       choices: [ [ "Off", "off" ], [ "An email each time", "each" ], [ "In the daily digest", "daily" ] ])
+    Settings.input(:inventory_machines, :select, choices: [ [ "On", "on" ], [ "Off", "off" ] ])
     Settings.input(:inventory_default_unit, :text,
       suggestions: -> { Item.distinct.order(:unit).pluck(:unit).compact_blank })
   end

@@ -2,7 +2,7 @@
 <% content_for :title, @machine.name %>
 
 <div class="row"><div class="col-lg-8 col-xl-6">
-  <h1 class="h3 mb-1"><%= i("robot") %> <%= @machine.name %></h1>
+  <h1 class="h3 mb-1"><%= i(Inventory::MACHINE_ICON) %> <%= @machine.name %></h1>
   <p class="text-body-secondary small">
     <%= @machine.full_name %><%= " · Code #{@machine.code}" if @machine.code.present? %><%= " · Inactive" unless @machine.active? %>
   </p>

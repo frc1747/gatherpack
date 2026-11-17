@@ -69,6 +69,9 @@ module Inventory
     [ "Changes", :inventory_movements_path, "right-left" ]
   ].freeze
 
+  # The icon of a machine and of the Machines page.
+  MACHINE_ICON = "gears"
+
   HOOK_TARGETS = %w[items item_sources locations stock_movements item_units item_unit_events].freeze
   HOOK_EVENTS = (ITEM_EVENTS.values + [ COUNT_DIFFERS_EVENT ] + UNIT_EVENTS.values).freeze
 
@@ -161,6 +164,34 @@ module Inventory
   def self.enabled?
     GatherPack::Features.enabled?(:inventory)
   end
+
+  # Whether places can be machines (inventory_machines).
+  def self.machines?
+    Inventory::Config.machines?
+  end
+
+  # The group's word for a machine, as set up on Inventory setup, for any
+  # screen, message or tool that names one:
+  #
+  #   Inventory.machine_word                                 # => "robot"
+  #   Inventory.machine_word(count: :many, capitalize: true) # => "Robots"
+  #   Inventory.machine_word(article: true)                  # => "a robot"
+  #
+  # count: 1 for the singular, anything else for the plural. Mid-sentence
+  # the first letter is lowercased, unless the name starts with an acronym
+  # ("CNC mill").
+  def self.machine_word(count: 1, capitalize: false, article: false)
+    word = count == 1 ? Inventory::Config.machine_name : Inventory::Config.machine_name_plural
+    word = capitalize ? word[0].upcase + word[1..] : lower_first(word)
+    return word unless article && count == 1
+
+    "#{word.match?(/\A[aeiou]/i) ? "an" : "a"} #{word}"
+  end
+
+  def self.lower_first(word)
+    word.match?(/\A[[:upper:]]{2}/) ? word : word[0].downcase + word[1..]
+  end
+  private_class_method :lower_first
 
   # The manager pages this person may open, as [label, route helper, icon]:
   # all of them for inventory managers, team managers and admins, none for

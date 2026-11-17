@@ -10,7 +10,7 @@ module Inventory
 
     before_action :set_unit, only: %i[show edit update action_form] + ACTIONS.map(&:to_sym)
 
-    # GET /inventory/units?code=NEO-07: finds a unit by its code, serial
+    # GET /inventory/units?code=A-07: finds a unit by its code, serial
     # number or name. One match opens it.
     def index
       authorize ItemUnit, :index?
@@ -116,7 +116,7 @@ module Inventory
       redirect_to inventory_unit_path(@unit), notice: message, status: :see_other
     end
 
-    # A machine (location_id) or another unit, by id (unit_id) or by its
+    # A machine (location_id, while machines are on) or another unit, by id (unit_id) or by its
     # code or label URL, typed or scanned (unit_code). A code more than one
     # team uses prefers this unit's team.
     def install_target
@@ -126,8 +126,10 @@ module Inventory
         unit_from_code(params[:unit_code], team_id: @unit.item.team_id)
       elsif params[:location_id].present?
         policy_scope(Location).find(params[:location_id])
+      elsif Inventory.machines?
+        raise Inventory::Refused, "Pick #{Inventory.machine_word(article: true)}, or type the code of the part to put it in"
       else
-        raise Inventory::Refused, "Pick a machine, or type the code of the part to put it in"
+        raise Inventory::Refused, "Type the code of the part to put it in"
       end
     end
 

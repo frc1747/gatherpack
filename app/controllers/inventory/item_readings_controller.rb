@@ -1,5 +1,5 @@
 # The readings a check asks for on a tracked item (inventory spec §3.15):
-# each a name and a unit, such as "Internal resistance" in "mΩ".
+# each a name and a unit, such as "Run time" in "h".
 module Inventory
   class ItemReadingsController < BaseController
     # Blank rows offered under the item's readings, for adding new ones.

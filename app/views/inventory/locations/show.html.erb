@@ -31,8 +31,23 @@
     <% end %>
   </div>
 
-  <% if @location.machine? %>
-    <p>This is a machine: parts on it are tracked units. <%= link_to "Open its page", inventory_machine_path(@location) %>.</p>
+  <% if @location.machine? && Inventory.machines? %>
+    <p>This is <%= Inventory.machine_word(article: true) %>: parts on it are tracked units. <%= link_to "Open its page", inventory_machine_path(@location) %>.</p>
+  <% elsif @location.machine? %>
+    <% units = policy_scope(ItemUnit).active.where(location: @location).includes(:item).order(:code) %>
+    <h2 class="h4">Parts here</h2>
+    <% if units.empty? %>
+      <p class="text-body-secondary">Nothing is kept here.</p>
+    <% else %>
+      <ul class="list-group mb-3" id="units_here">
+        <% units.each do |unit| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><%= link_to unit.identifier_name, inventory_unit_path(unit) %> <span class="text-body-secondary small"><%= unit.item.name %></span></span>
+            <%= unit_condition_badge(unit) %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
   <% end %>
 
   <% if @children.any? %>

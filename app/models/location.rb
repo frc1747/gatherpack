@@ -1,8 +1,10 @@
 # A place things are kept, nested: shop › cabinet › bin (inventory spec
 # §3.1). A location can hold stock and other locations at the same time.
-# A machine (§3.15) is something built and run, a robot or a demo board:
-# only units go on it, and it's either a top-level place or sits under a
-# storage place.
+# A machine (§3.15) is something built and run that parts get installed
+# on, under the name Inventory setup gives it (Inventory.machine_word): only
+# units go on it, and it's either a top-level place or sits under a storage
+# place. While Inventory setup turns machines off, no place becomes one;
+# those already made keep their kind and show as places.
 class Location < ApplicationRecord
   has_neat_id :loc
   include CanBeHooked
@@ -39,7 +41,7 @@ class Location < ApplicationRecord
   end
 
   def identifier_icon
-    machine? ? "robot" : "box-archive"
+    machine? ? Inventory::MACHINE_ICON : "box-archive"
   end
 
   def ancestors
@@ -106,9 +108,13 @@ class Location < ApplicationRecord
   def machine_placement
     return unless machine?
 
-    errors.add(:parent, "must be a storage place, or blank, for a machine") if parent&.machine?
+    word = Inventory.machine_word(article: true)
+    if will_save_change_to_kind? && !Inventory.machines?
+      errors.add(:kind, "can't be #{word}: #{Inventory.machine_word(count: :many)} are turned off")
+    end
+    errors.add(:parent, "must be a storage place, or blank, for #{word}") if parent&.machine?
     if persisted? && will_save_change_to_kind? && stock_levels.where.not(quantity: 0).exists?
-      errors.add(:kind, "can't be machine while counted stock is kept here: move or remove it first")
+      errors.add(:kind, "can't be #{word} while counted stock is kept here: move or remove it first")
     end
   end
 

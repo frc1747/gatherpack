@@ -61,7 +61,7 @@
       <% end %>
     <% elsif item_policy.start_tracking? %>
       <% count = item.stock_levels.where("quantity > 0").sum(:quantity) %>
-      <p class="mb-2">Track each piece when it's reused and worth following: motors, controllers, batteries. Each gets its own label, condition and history.</p>
+      <p class="mb-2">Track each piece when it's reused and worth following on its own. Each gets its own label, condition and history.</p>
       <%= button_to "Track each piece", inventory_item_tracking_path(item), class: "btn btn-primary",
             form: { data: { turbo_confirm: count.positive? ? "This turns the #{count} in stock into #{pluralize(count, "unit")}, with codes to fill in later. Go ahead?" : "Track each piece of #{item.name}?" } } %>
     <% end %>

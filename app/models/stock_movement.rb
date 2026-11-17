@@ -190,7 +190,9 @@ class StockMovement < ApplicationRecord
     raise Inventory::Refused, "#{item.name} is tracked: change its units instead" if item.tracked?
     raise Inventory::Refused, "#{item.name} isn't active" unless item.active?
     raise Inventory::Refused, "#{location.name} isn't active" unless location.active?
-    raise Inventory::Refused, "Only units go on a machine" if location.machine? || to_location&.machine?
+    if (machine = [ location, to_location ].compact.find(&:machine?))
+      raise Inventory::Refused, "Only units go on #{Inventory.machine_word(article: true)}: #{machine.name} holds no stock"
+    end
     return unless kind == "moved"
 
     raise Inventory::Refused, "Pick where it's going" if to_location.nil?
