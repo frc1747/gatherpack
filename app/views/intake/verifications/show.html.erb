@@ -1,0 +1,23 @@
+<% content_for :title, "Finish joining" %>
+<h1 class="h3">Finish joining <%= @entry.team_names %></h1>
+<% @user.errors.full_messages.each do |message| %>
+  <div class="alert alert-danger"><%= message %></div>
+<% end %>
+<%= form_with url: intake_verification_path, data: { turbo: false } do |f| %>
+  <%= hidden_field_tag :token, @token %>
+  <% unless @existing_login %>
+    <p>Choose a password for <strong><%= @entry.email %></strong>.</p>
+    <div class="mb-3">
+      <%= label_tag :password, "Password", class: "form-label" %>
+      <%= password_field_tag :password, nil, required: true, autocomplete: "new-password", class: "form-control" %>
+    </div>
+    <div class="mb-3">
+      <%= label_tag :password_confirmation, "Password again", class: "form-label" %>
+      <%= password_field_tag :password_confirmation, nil, required: true, autocomplete: "new-password", class: "form-control" %>
+    </div>
+    <%= f.submit "Finish", class: "btn btn-primary" %>
+  <% else %>
+    <p>Confirm your email to continue.</p>
+    <%= f.submit "Confirm", class: "btn btn-primary" %>
+  <% end %>
+<% end %>
