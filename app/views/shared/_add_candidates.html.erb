@@ -1,0 +1,15 @@
+<%# locals: (candidates:, more:, add_url:, param_key:, attribute:, empty_message:) %>
+<%= turbo_frame_tag "candidates" do %>
+  <div class="list-group list-group-flush overflow-auto" style="max-height: 70vh;">
+    <% candidates.each do |record| %>
+      <%= render "shared/add_candidate", record: record, add_url: add_url, add_params: { param_key => { attribute => record.id } } %>
+    <% end %>
+  </div>
+  <% if candidates.empty? %>
+    <p class="text-body-secondary p-3 mb-0">
+      <%= params[:candidate_q].present? ? "No matches." : empty_message %>
+    </p>
+  <% elsif more %>
+    <p class="text-body-secondary small p-3 mb-0">Showing the first <%= SearchAndAdd::CANDIDATE_LIMIT %>. Keep typing to narrow it down.</p>
+  <% end %>
+<% end %>
