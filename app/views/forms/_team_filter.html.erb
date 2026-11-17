@@ -1,0 +1,12 @@
+<% if teams.size > 1 %>
+  <%= form_with url: url, method: :get, class: "row g-2 align-items-end mb-3" do %>
+    <% Array(keep).each do |name, value| %>
+      <% Array(value).each do |item| %><%= hidden_field_tag(value.is_a?(Array) ? "#{name}[]" : name, item, id: nil) %><% end %>
+    <% end %>
+    <div class="col-auto">
+      <%= label_tag :team_id, "Team", class: "form-label" %>
+      <%= select_tag :team_id, options_from_collection_for_select(teams, :id, :name, team&.id), include_blank: "All of #{teams.first.name}", class: "form-select" %>
+    </div>
+    <div class="col-auto"><%= submit_tag "Filter", class: "btn btn-secondary", name: nil %></div>
+  <% end %>
+<% end %>
