@@ -42,6 +42,10 @@ module Orders
       [ "Closing", %i[orders_close_after_days] ]
     ].freeze
 
+    # Settings drawn by a partial of their own, with locals setting, value
+    # and prefix (the names of the fields it posts).
+    PARTIALS = { orders_price_tolerance: "orders/settings/price_tolerance" }.freeze
+
     # Orders settings the page draws with the fields above.
     FIELD_SETTINGS = %i[orders_requesters orders_viewers orders_approval_steps orders_buyers orders_paid_with orders_funding_managers].freeze
 
@@ -118,7 +122,7 @@ module Orders
         @texts[name] = text_from(name, posted[name]) if posted.key?(name)
       end
       posted_values = params[:values].respond_to?(:to_unsafe_h) ? params[:values].to_unsafe_h : params[:values].to_h
-      @values = values.to_h { |key, value| [ key, posted_values.fetch(key.to_s, value).to_s.strip ] }
+      @values = values.to_h { |key, value| [ key, value_from(key, posted_values.fetch(key.to_s, value), value) ] }
       @large_amount = params[:large_amount].to_s.strip.delete_prefix("$").delete(",")
       @paid_with = rows(params[:paid_with]).filter_map { |row| paid_with_from(row) }
       self
@@ -177,6 +181,18 @@ module Orders
       validate_grants(:buyers, "Who buys")
       validate_grants(:funding_managers, "Who manages funding sources")
       values.each { |key, value| validate_value(Settings.get(key), value) }
+      errors << "#{Settings.get(:orders_price_tolerance).name}: use numbers for the percentage and the amount." if @tolerance_invalid
+    end
+
+    # What the form posted for a setting, as text. A setting drawn by a
+    # partial of its own posts fields, which turn into its text.
+    def value_from(key, posted, current)
+      if key == :orders_price_tolerance && (posted.respond_to?(:to_unsafe_h) || posted.is_a?(Hash))
+        @tolerance_invalid = !Orders::PriceToleranceField.valid?(posted)
+        Orders::PriceToleranceField.text_from(posted, current)
+      else
+        posted.to_s.strip
+      end
     end
 
     # A saved value as the page holds it: yes/no settings as "true"/"false".
@@ -192,10 +208,6 @@ module Orders
       when :integer
         errors << "#{setting.name}: must be a whole number, zero or more." unless value.match?(/\A\d+\z/)
       end
-      return unless setting.setting_key == :orders_price_tolerance
-
-      bad = value.split(/[,;]/).map(&:strip).compact_blank.reject { |part| part.match?(/\A\d+(\.\d+)?\s*%?\z/) }
-      errors << "#{setting.name}: use a percentage and an amount, such as \"10%, 25\"." if bad.any?
     end
 
     # Only lines that weren't saved before are checked, so a saved line whose

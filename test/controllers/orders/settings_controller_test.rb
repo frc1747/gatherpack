@@ -79,7 +79,11 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_equal [ "Who can ask", "Who sees every request", "Who approves", "Over $ , also needs", "Who buys", "Who manages funding sources",
         "Paid with", "Seeing requests", "Buying", "Funding", "Closing" ], css_select("h2").map { |node| node.text.squish }
       assert_select "select[name='values[orders_team_can_see]'] option[selected][value=true]", "Yes"
-      assert_select "input[name='values[orders_price_tolerance]'][value='10%, 25']"
+      assert_select "input[type=number][name='values[orders_price_tolerance][percent]'][value='10']"
+      assert_select "input[type=number][name='values[orders_price_tolerance][amount]'][value='25']"
+      assert_select "label[for=values_orders_price_tolerance_percent]", "Up to"
+      assert_select "label[for=values_orders_price_tolerance_amount]", "or up to $"
+      assert_select "input[type=text][name*=tolerance]", 0
       assert_select "input[type=number][name='values[orders_close_after_days]'][value='14']"
       assert_select "select[name='values[orders_require_funding_source]'] option[selected][value=false]", "No"
       assert_select ".form-text", /Received requests close after this many days/
@@ -92,10 +96,10 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       get orders_settings_url
       shown = Orders::SettingsEditor.section_keys + Orders::SettingsEditor::FIELD_SETTINGS
       assert_equal Settings.settings("Orders").map(&:setting_key).sort, shown.sort
-      Orders::SettingsEditor.section_keys.each { |key| assert_select "[name='values[#{key}]']", 1, "#{key} isn't on the page" }
+      Orders::SettingsEditor.section_keys.each { |key| assert_select "[name^='values[#{key}]']", minimum: 1, message: "#{key} isn't on the page" }
 
       params = open_form
-      params["values"].merge!("orders_team_can_see" => "false", "orders_price_tolerance" => "5%, 40", "orders_require_other_vendor_reason" => "true",
+      params["values"].merge!("orders_team_can_see" => "false", "orders_price_tolerance" => { "percent" => "5", "amount" => "40" }, "orders_require_other_vendor_reason" => "true",
         "orders_require_funding_source" => "true", "orders_requesters_pick_funding" => "true", "orders_close_after_days" => "30")
       patch orders_settings_url, params: params
       assert_redirected_to orders_settings_url
@@ -124,6 +128,41 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_equal "9", Settings.get(:orders_test_extra).value
     ensure
       Settings.instance.settings.delete(:orders_test_extra)
+    end
+  end
+
+  test "price tolerance round trips as the text the app parses, with either number blank" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      { [ "10", "25" ] => "10%, 25", [ "10", "" ] => "10%", [ "", "25" ] => "25", [ "2.5", "0" ] => "2.5%, 0", [ "", "" ] => "" }.each do |(percent, amount), text|
+        params = open_form
+        params["values"]["orders_price_tolerance"] = { "percent" => percent, "amount" => amount }
+        patch orders_settings_url, params: params
+        assert_redirected_to orders_settings_url
+        assert_equal text, Settings[:orders_price_tolerance]
+
+        get orders_settings_url
+        field = Orders::PriceToleranceField.new(text)
+        assert_select "input[name='values[orders_price_tolerance][percent]'][value='#{field.percent}']", field.percent ? 1 : 0
+        assert_select "input[name='values[orders_price_tolerance][amount]'][value='#{field.amount}']", field.amount ? 1 : 0
+      end
+    end
+  end
+
+  test "a saved tolerance that isn't a percentage and an amount shows as not found and is kept" do
+    with_orders(@world, orders_price_tolerance: "about ten percent") do
+      sign_in @world.admin.user
+      get orders_settings_url
+      assert_select "fieldset .text-danger", "Not found: about ten percent"
+
+      patch orders_settings_url, params: open_form
+      assert_redirected_to orders_settings_url
+      assert_equal "about ten percent", Settings[:orders_price_tolerance]
+
+      params = open_form
+      params["values"]["orders_price_tolerance"].merge!("percent" => "8")
+      patch orders_settings_url, params: params
+      assert_equal "8%", Settings[:orders_price_tolerance]
     end
   end
 
@@ -158,13 +197,13 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     with_orders(@world) do
       sign_in @world.admin.user
       params = open_form
-      params["values"].merge!("orders_team_can_see" => "maybe", "orders_close_after_days" => "soon", "orders_price_tolerance" => "ten")
+      params["values"].merge!("orders_team_can_see" => "maybe", "orders_close_after_days" => "soon", "orders_price_tolerance" => { "percent" => "ten", "amount" => "" })
       params["large_amount"] = "100"
       patch orders_settings_url, params: params
       assert_response :unprocessable_entity
       assert_match "choose yes or no", response.body
       assert_match "must be a whole number", response.body
-      assert_match "use a percentage and an amount", response.body
+      assert_match "use numbers for the percentage and the amount", response.body
       assert_equal "10%, 25", Settings[:orders_price_tolerance]
       assert_equal 1, Orders::Config.approval_steps.size
     end
