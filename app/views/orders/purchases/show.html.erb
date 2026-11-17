@@ -1,0 +1,141 @@
+<% breadcrumb :orders_purchase, @purchase %>
+
+<div class="card mb-3">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-start gap-2">
+    <div>
+      <h1><%= @full ? "Order from #{@purchase.vendor_name}" : "Ordered from #{@purchase.vendor_name}" %></h1>
+      <div>
+        <span class="badge text-bg-secondary"><%= purchase_status_text(@lines) %></span>
+        <% if @purchase.ordered_on %>Ordered <%= l @purchase.ordered_on, format: :long %><% end %>
+        <% if @purchase.expected_on %>· Expected <%= l @purchase.expected_on, format: :long %><% end %>
+      </div>
+    </div>
+    <% if policy(@purchase).update? %>
+      <div class="d-flex gap-2">
+        <% if @purchase.vendor_id.nil? && @purchase.other_vendor_name.present? && policy(Vendor).create? %>
+          <%= button_to "Make #{@purchase.other_vendor_name} a vendor", make_vendor_orders_purchase_path(@purchase),
+                class: "btn btn-secondary" %>
+        <% end %>
+        <%= link_to "Edit", edit_orders_purchase_path(@purchase), class: "btn btn-warning" %>
+      </div>
+    <% end %>
+  </div>
+
+  <% if @full %>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Order number</dt>
+        <dd class="col-sm-9"><%= @purchase.vendor_order_number.presence || "—" %></dd>
+        <dt class="col-sm-3">Bought by</dt>
+        <dd class="col-sm-9"><%= @purchase.buyer.identifier_name %></dd>
+        <dt class="col-sm-3">Paid with</dt>
+        <dd class="col-sm-9">
+          <%= @purchase.paid_with.presence || "—" %>
+          <% if @purchase.reimburse? && @purchase.reimburse_to %>
+            <small class="text-muted">(pay back <%= @purchase.reimburse_to.identifier_name %>)</small>
+          <% end %>
+        </dd>
+        <% if @purchase.tracking_url.present? %>
+          <dt class="col-sm-3">Tracking</dt>
+          <dd class="col-sm-9"><%= orders_external_link("Track the delivery", @purchase.tracking_url) %></dd>
+        <% end %>
+        <% if @purchase.note.present? %>
+          <dt class="col-sm-3">Note</dt>
+          <dd class="col-sm-9"><%= simple_format @purchase.note %></dd>
+        <% end %>
+        <% if @purchase.receipts.attached? %>
+          <dt class="col-sm-3">Receipts</dt>
+          <dd class="col-sm-9">
+            <% @purchase.receipts.each do |receipt| %>
+              <%= link_to receipt.filename.to_s, rails_blob_path(receipt, disposition: "inline"), target: "_blank", rel: "noopener" %><br>
+            <% end %>
+          </dd>
+        <% end %>
+      </dl>
+    </div>
+  <% end %>
+</div>
+
+<%= render "orders/purchases/ledger", purchase: @purchase if @full %>
+
+<div class="card mb-3">
+  <div class="card-header"><h2 class="h5 mb-0"><%= @full ? "Items" : "Your items" %></h2></div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0" id="purchase_lines">
+      <thead>
+        <tr>
+          <th scope="col">Item</th>
+          <th scope="col">Request</th>
+          <th scope="col" class="text-end">Qty</th>
+          <% if @full %>
+            <th scope="col" class="text-end">Price each</th>
+            <th scope="col" class="text-end">Cost</th>
+          <% end %>
+          <th scope="col">Status</th>
+          <% if @full %><th scope="col"></th><% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <% @lines.each do |line| %>
+          <tr id="<%= dom_id(line) %>">
+            <td><%= orders_external_link(line.display_name, line.url) %></td>
+            <td><%= link_to line.order_request.display_title, orders_request_path(line.order_request) %></td>
+            <td class="text-end"><%= line.quantity %></td>
+            <% if @full %>
+              <td class="text-end"><%= orders_money(line.unit_price_cents) %></td>
+              <td class="text-end"><%= orders_money(line.cost_cents) %></td>
+            <% end %>
+            <td>
+              <%= order_line_status_text(line) %>
+              <% if line.backordered? && line.expected_on %>
+                <small class="text-muted">until <%= l line.expected_on, format: :short %></small>
+              <% end %>
+            </td>
+            <% if @full %>
+              <td class="text-end">
+                <%= render "orders/purchases/line_actions", line: line if policy(line).buy? %>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+      <% if @full %>
+        <tfoot>
+          <tr><td colspan="4" class="text-end">Items</td><td class="text-end"><%= orders_money(@purchase.lines_cost_cents) %></td><td colspan="2"></td></tr>
+          <tr><td colspan="4" class="text-end">Shipping</td><td class="text-end"><%= orders_money(@purchase.shipping_cents) %></td><td colspan="2"></td></tr>
+          <tr><td colspan="4" class="text-end">Tax</td><td class="text-end"><%= orders_money(@purchase.tax_cents) %></td><td colspan="2"></td></tr>
+          <tr class="fw-bold"><td colspan="4" class="text-end">Total</td><td class="text-end"><%= orders_money(@purchase.total_cents) %></td><td colspan="2"></td></tr>
+        </tfoot>
+      <% end %>
+    </table>
+  </div>
+</div>
+
+<% if @full && @purchase.extras_cents.positive? && @purchase.order_requests.size > 1 %>
+  <div class="card mb-3" id="extras_split">
+    <div class="card-header"><h2 class="h5 mb-0">Shipping and tax by request</h2></div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th scope="col">Request</th>
+            <th scope="col" class="text-end">Items</th>
+            <th scope="col" class="text-end">Shipping and tax</th>
+            <th scope="col" class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% requests = @purchase.order_requests.index_by(&:id) %>
+          <% Orders::PurchaseSplit.new(@purchase).by_request.each do |request_id, total| %>
+            <tr>
+              <td><%= requests[request_id]&.display_title %></td>
+              <td class="text-end"><%= orders_money(total.cost_cents) %></td>
+              <td class="text-end"><%= orders_money(total.extras_cents) %></td>
+              <td class="text-end"><%= orders_money(total.total_cents) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>

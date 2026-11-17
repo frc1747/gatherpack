@@ -1,0 +1,13 @@
+<%= f.error_notification %>
+
+<div class="form-inputs">
+  <%= f.input :name %>
+  <%= f.input :website %>
+  <%= f.input :domains, as: :string, input_html: { value: f.object.domains.join(", ") },
+    hint: "Hosts that belong to this vendor, separated by commas. A pasted link from one of them fills in the vendor." %>
+  <%= f.input :part_number_pattern, label: "Part number pattern",
+    hint: "A regular expression with one capture group that pulls the part number out of a product link, such as /p/([A-Z0-9-]+)" %>
+  <%= f.input :account_note, as: :text, hint: "Customer number, tax-exempt status. Buyers and admins only." %>
+  <%= f.input :preferred, as: :boolean %>
+  <%= f.input :active, as: :boolean, label: "In use" %>
+</div>
