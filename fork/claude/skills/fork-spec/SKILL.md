@@ -38,3 +38,16 @@ All of these except task briefs are pushed straight to `hbr/platform`.
 - **Native over config:** surface a feature the way the nearest existing feature does (native card, profile tab), even if that costs a one-line `render` in an upstream view (recorded in `FORK.md`). Never a second mechanism such as an admin-built widget.
 - **Match upstream's look:** copy the nearest upstream screen. Buttons follow gp-map "Views" (full-size solid; outline only for small row buttons, toggle groups, My GatherPack card secondary actions).
 - Don't use demo data that makes a feature look pointless.
+
+## Defined things (types, units, conditions, categories)
+
+AGENT.md rule 13. The standard way (Jira issue types and statuses, Salesforce picklists, Odoo units of measure, and upstream's own Team Types, Badge Types, Event Types, Relationship Types and Check-in Fields) is a small table managed on a screen:
+
+- **A table per vocabulary**, not a setting: `name` (and `plural` when the word is shown as a count), `position` for order, `active` (retire instead of delete), optional `description`, `color`/`icon` when the screen shows them, and `team_id` only if teams really differ.
+- **Records point at it by id**, so renaming a row renames it everywhere. Never store the word on the record.
+- **Behavior is a flag on the row, not a reserved name.** A location type that holds installed parts has `holds_installed_parts: true`; code reads the flag. If code needs one specific row, give it a stable `key` that the admin can't change, and let the label change freely.
+- **Defaults are rows, not code.** A data migration (reversible) and the seeds create the starting rows (e.g. units: each, box, pack, ft, m; conditions: New, Good, Worn, Needs repair, Broken, Retired). Existing text values are converted into rows and linked, never dropped.
+- **Remove safely:** a row in use can't be deleted, only retired (hidden from pickers, still shown on old records), or merged into another row.
+- **Where it's managed:** a button on the main Setup page under the feature's heading (as upstream's types are), listing rows with Add, Edit, drag or arrows to reorder, Retire. Pickers on other screens offer the active rows and a "Manage <things>" link for admins.
+- **Settings stay for single choices about behavior** (on/off, how often, a number), never for lists of things people define.
+- Hooks: these tables usually aren't hooked; say so in the spec's Hooks section.

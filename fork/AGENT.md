@@ -24,6 +24,7 @@ The rules for working in the HBR fork of GatherPack. This file is the authority 
 10. Behavior-changing fork features get a flag, default off.
 11. Docs, specs, pitches, backlog, skills and `FORK.md` are pushed to `hbr/platform` directly. Scripts, CI and the manifest order need the owner's OK first.
 12. Each fact lives in one place: rules here, reasoning in STRATEGY.md, procedures in skills, product decisions in specs. Change the one place, not a copy.
+13. Anything a group defines (types, kinds, units, conditions, categories, payment methods, statuses people name) is data: a table admins add to, edit and retire on a screen, seeded with sensible defaults, referenced by id. Never a hard-coded list, a fixed set of checkboxes, or a one-word setting standing in for one. Only words tied to code behavior stay in code, and their labels are still editable. Pattern: `fork-spec` "Defined things".
 
 ## Workspace
 
