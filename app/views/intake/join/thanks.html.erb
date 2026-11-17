@@ -1,0 +1,3 @@
+<% content_for :title, "Check your email" %>
+<h1 class="h3">Thanks, <%= @entry.first_name %>. Check your email to finish.</h1>
+<p>The link works for <%= Intake.setting(:intake_link_hours, 48) %> hours. If it doesn't arrive, check your spam folder.</p>
