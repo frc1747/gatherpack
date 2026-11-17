@@ -1,5 +1,6 @@
 <%= render "teams/show_shared" %>
 
+<%= render "housekeeping/people_bar", team: @team if policy(@team).manage_members? %>
 <div class="row g-3">
   <% if @can_add %>
     <div class="col-12 col-lg-4">
