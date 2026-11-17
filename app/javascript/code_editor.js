@@ -96,7 +96,7 @@ function doModifications() {
             textarea.value = view.state.doc.toString();
         });
     });
-    document.querySelectorAll("code").forEach(codeElem => {
+    document.querySelectorAll("code:has(> pre)").forEach(codeElem => {
         let codeLang = codeElem.getAttribute("data-lang");
         view = genCodeEditor(codeElem.firstChild.innerText, codeLang, true, "json");
         codeElem.replaceWith(view.dom);
