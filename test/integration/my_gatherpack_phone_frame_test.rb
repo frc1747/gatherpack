@@ -37,20 +37,20 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     @plugins.replace(@original_plugins)
   end
 
-  test "the header names the site and More opens the sidebar" do
+  test "the header names the site and Menu opens the sidebar" do
     sign_in @member
     get root_path
 
     assert_select "header.navbar.d-md-none .navbar-brand", text: /Northwind Community/
     assert_select "header.navbar button[data-bs-target='#sidebarMenu']", count: 0
-    assert_select "nav.phone-tabs.d-md-none button.phone-tab[data-bs-target='#sidebarMenu']", text: "More"
+    assert_select "nav.phone-tabs.d-md-none button.phone-tab[data-bs-target='#sidebarMenu']", text: "Menu"
   end
 
   test "a member's tabs hold only the features that are on" do
     sign_in @member
     get root_path
 
-    assert_equal [ "Home", "Hours", "More" ], tab_labels
+    assert_equal [ "Home", "Hours", "Menu" ], tab_labels
     assert_select "nav.phone-tabs a.phone-tab.active", text: "Home"
   end
 
@@ -74,7 +74,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     sign_in @member
     get root_path
 
-    assert_equal [ "Home", "More" ], tab_labels
+    assert_equal [ "Home", "Menu" ], tab_labels
   end
 
   test "a feature that is registered adds its tab, in order" do
@@ -85,7 +85,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     sign_in @member
     get root_path
 
-    assert_equal [ "Home", "Forms", "Sign-ups", "Hours", "More" ], tab_labels
+    assert_equal [ "Home", "Forms", "Sign-ups", "Hours", "Menu" ], tab_labels
   ensure
     NavHelper.remove_method(:forms_path)
     NavHelper.remove_method(:signup_sheets_path)
@@ -99,7 +99,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     sign_in @member
     get root_path
 
-    assert_equal [ "Family", "Home", "More" ], tab_labels
+    assert_equal [ "Family", "Home", "Menu" ], tab_labels
   ensure
     NavHelper.remove_method(:family_path)
   end
@@ -109,7 +109,7 @@ class MyGatherpackPhoneFrameTest < ActionDispatch::IntegrationTest
     sign_in @member
     get root_path
 
-    assert_equal [ "Home", "Hours", "More" ], tab_labels
+    assert_equal [ "Home", "Hours", "Menu" ], tab_labels
   ensure
   end
 

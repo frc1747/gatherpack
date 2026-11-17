@@ -34,7 +34,7 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
     assert_no_selector ".sidebar", visible: true, text: "Sign Out"
 
     tabs = all(".phone-tab").map { |tab| tab.text }
-    assert_equal [ "Home", "Hours", "More" ], tabs
+    assert_equal [ "Home", "Hours", "Menu" ], tabs
     assert page.evaluate_script("[...document.querySelectorAll('.phone-tab')].every(t => t.getBoundingClientRect().height >= 44)")
 
     bar = page.evaluate_script("document.querySelector('.phone-tabs').getBoundingClientRect().bottom")
@@ -54,7 +54,7 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
     visit root_path
     assert page.evaluate_script("[...document.querySelectorAll('header.navbar .navbar-brand, header.navbar .navbar-toggler')].every(t => t.getBoundingClientRect().height >= 44)")
 
-    find(".phone-tab", text: "More").click
+    find(".phone-tab", text: "Menu").click
     assert_selector "#sidebarMenu.show"
     sleep 0.5
     assert page.evaluate_script("[...document.querySelectorAll('#sidebarMenu .nav-item > a, #sidebarMenu summary, #sidebarMenu .btn-close')].filter(t => t.offsetParent).every(t => t.getBoundingClientRect().height >= 44)")
@@ -68,9 +68,9 @@ class MyGatherpackPhoneFrameSystemTest < ApplicationSystemTestCase
     assert page.evaluate_script("[...document.styleSheets].some(s => { try { return [...s.cssRules].some(r => r.cssText.includes('safe-area-inset-left')) } catch (e) { return false } })")
   end
 
-  test "More opens the sidebar" do
+  test "Menu opens the sidebar" do
     visit root_path
-    find(".phone-tab", text: "More").click
+    find(".phone-tab", text: "Menu").click
 
     assert_selector "#sidebarMenu.show", text: "Sign Out"
   end

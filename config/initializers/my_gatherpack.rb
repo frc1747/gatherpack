@@ -23,7 +23,7 @@ Rails.application.config.to_prepare do
 
   GatherPack::SidebarSlots.fingerprint(:my_gatherpack) { my_gatherpack_sidebar_fingerprint }
 
-  # Where each nav item goes, by path helper. Anything else lands in More.
+  # Where each nav item goes, by path helper. Anything else goes under its section heading.
   MyGatherpack::Menu.table = {
     forms_path: { top: 10 },
     signup_sheets_path: { top: 20 },

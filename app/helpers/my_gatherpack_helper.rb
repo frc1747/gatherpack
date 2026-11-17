@@ -26,7 +26,7 @@ module MyGatherpackHelper
 
   # The phone tab bar's links, in order. A tab drops out when its feature is
   # off, since it comes from the same menu as the sidebar. A guardian gets
-  # Family first in place of Hours. More isn't here: it opens the sidebar.
+  # Family first in place of Hours. Menu isn't here: it opens the sidebar.
   PHONE_TABS = { root_path: "Home", forms_path: "Forms", signup_sheets_path: "Sign-ups", time_clock_punches_path: "Hours" }.freeze
 
   def my_gatherpack_phone_tabs
