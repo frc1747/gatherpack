@@ -6,6 +6,13 @@
 # a Demo board stands on its own. Youth Program has its own Outreach closet,
 # and keeps one item (Craft wire) on the Build shop's Wire shelf.
 #
+# Lists (Setup > Orders and Inventory): the Machine place type is renamed
+# Robot (the robots are its places) and a second type, Display, holds the
+# Demo board, so the menu shows Robots and Displays. Stock units are the
+# defaults plus "spool", retired but still on Craft wire. Part conditions
+# and reading types are the defaults plus Internal resistance (mΩ) and
+# Charge cycles.
+#
 # Isla holds the Inventory Manager badge, capped at Operations, so she
 # manages Operations' and its crews' inventory (Safety glasses and the
 # Anderson connectors are Operations') but not the community's.
@@ -45,9 +52,22 @@ Hbr::SampleData.feature "feature/inventory" do |s|
   s.setting :inventory_reorder_notice, "daily"
   Inventory::Current.reset
 
+  # Lists: the defaults, a renamed Machine type, a second type parts get
+  # installed on, and a retired stock unit kept on an old item.
+  Inventory::Lists.seed_defaults!
+  LocationType.find_by!(key: "machine").update!(name: "Robot", plural: "Robots")
+  display = s.upsert!(LocationType, { name: "Display" }, plural: "Displays", holds_stock: false, holds_installed_parts: true)
+  storage = LocationType.find_by!(key: "storage")
+  robot_type = LocationType.find_by!(key: "machine")
+  spool = s.upsert!(StockUnit, { name: "spool" }, plural: "spools")
+  # The catalog's units, by name or plural ("ft" is the foot row).
+  units = ->(text) { StockUnit.named({ "ft" => "foot" }.fetch(text, text)) || raise("No stock unit #{text}") }
+  resistance = s.upsert!(ReadingType, { name: "Internal resistance" }, unit_label: "mΩ")
+  charge_cycles = s.upsert!(ReadingType, { name: "Charge cycles" }, unit_label: nil)
+
   # Places.
-  place = lambda do |name, team: nil, parent: nil, code: nil, kind: "storage", position: 0|
-    s.upsert!(Location, { name: name, parent_id: parent&.id }, team: team || parent.team, code: code, kind: kind,
+  place = lambda do |name, team: nil, parent: nil, code: nil, type: storage, position: 0|
+    s.upsert!(Location, { name: name, parent_id: parent&.id }, team: team || parent.team, code: code, location_type: type,
       position: position, active: true)
   end
   shop = place.call("Build shop", team: root)
@@ -57,9 +77,9 @@ Hbr::SampleData.feature "feature/inventory" do |s|
   drawers = (1..4).to_h { |n| [ "E-#{n}", place.call("Drawer #{n}", parent: cart, code: "E-#{n}", position: n) ] }
   wire_shelf = place.call("Wire shelf", parent: shop, code: "W", position: 3)
   robot_cart = place.call("Robot cart", parent: shop, code: "R", position: 4)
-  competition = place.call("Competition robot", parent: robot_cart, code: "R-1", kind: "machine", position: 1)
-  practice = place.call("Practice robot", parent: robot_cart, code: "R-2", kind: "machine", position: 2)
-  demo = place.call("Demo board", team: root, code: "D", kind: "machine")
+  competition = place.call("Competition robot", parent: robot_cart, code: "R-1", type: robot_type, position: 1)
+  practice = place.call("Practice robot", parent: robot_cart, code: "R-2", type: robot_type, position: 2)
+  demo = place.call("Demo board", team: root, code: "D", type: display)
   closet = place.call("Outreach closet", team: youth, code: "O")
   places = bins.merge(drawers).merge("W" => wire_shelf, "O" => closet)
 
@@ -95,7 +115,7 @@ Hbr::SampleData.feature "feature/inventory" do |s|
   owners = { "Safety glasses" => operations, "Anderson connector 30 A" => operations }
   items = catalog.to_h do |name, category, maker, part, unit, home, point, quantity, vendor, vendor_part, _start|
     item = s.upsert!(Item, { name: name }, team: owners.fetch(name, root), category: category, manufacturer: maker, manufacturer_part_number: part,
-      unit: unit, home_location: places.fetch(home), reorder_point: point, reorder_quantity: quantity, active: true, tracked: false)
+      stock_unit: units.call(unit), home_location: places.fetch(home), reorder_point: point, reorder_quantity: quantity, active: true, tracked: false)
     if vendor
       s.upsert!(ItemSource, { item_id: item.id, vendor_name: vendor }, vendor_part_number: vendor_part,
         url: "https://#{vendor.downcase.delete(" ")}.example/p/#{vendor_part}", preferred: true, position: 0)
@@ -103,10 +123,11 @@ Hbr::SampleData.feature "feature/inventory" do |s|
     [ name, item ]
   end
   craft_wire = s.upsert!(Item, { name: "Craft wire" }, team: youth, category: "Consumables", manufacturer: "WireWorks",
-    manufacturer_part_number: "CW-20", unit: "ft", home_location: wire_shelf, reorder_point: 20, reorder_quantity: 50, active: true)
+    manufacturer_part_number: "CW-20", stock_unit: spool, home_location: wire_shelf, reorder_point: 20, reorder_quantity: 50, active: true)
   s.upsert!(ItemSource, { item_id: craft_wire.id, vendor_name: "Office Supply Co" }, vendor_part_number: "OS-CW20", preferred: true)
+  spool.update!(active: false)
   felt = s.upsert!(Item, { name: "Felt sheets" }, team: youth, category: "Consumables", manufacturer: "CraftCo",
-    manufacturer_part_number: "FS-9", unit: "pack", home_location: closet, reorder_point: 2, active: true)
+    manufacturer_part_number: "FS-9", stock_unit: units.call("pack"), home_location: closet, reorder_point: 2, active: true)
 
   # History, written once: later runs leave it as it is.
   recorded = 0
@@ -151,14 +172,14 @@ Hbr::SampleData.feature "feature/inventory" do |s|
   # Tracked parts.
   tracked = lambda do |name, category, maker, part, home, point, readings = []|
     item = s.upsert!(Item, { name: name }, team: root, category: category, manufacturer: maker, manufacturer_part_number: part,
-      unit: "each", home_location: home, reorder_point: point, reading_fields: readings, active: true)
+      stock_unit: units.call("each"), home_location: home, reorder_point: point, reading_type_ids: readings.map(&:id), active: true)
     item.start_tracking!(by: admin) unless item.tracked?
     item
   end
   neo = tracked.call("NEO brushless motor", "Motors", "SparkWorks", "NEO-1650", drawers["E-1"], 3)
   swerve = tracked.call("Swerve module", "Drivetrain", "SwerveCo", "SM-MK4", bins["A-6"], 1)
   battery = tracked.call("12V battery", "Electrical", "PowerCell", "BAT-18AH", drawers["E-4"], 4,
-    [ { "name" => "Internal resistance", "unit" => "mΩ" }, { "name" => "Charge cycles" } ])
+    [ resistance, charge_cycles ])
 
   unit = lambda do |item, code, location|
     ItemUnit.find_by(code: code, item_id: item.id) ||
@@ -187,7 +208,8 @@ Hbr::SampleData.feature "feature/inventory" do |s|
     batteries[2].reload.install!(into: demo, by: grace)
   end
 
-  s.report "#{Location.count} places (3 machines), #{Item.where(tracked: false).count} counted items, " \
+  s.report "#{Location.count} places (#{Location.machine.count} that parts get installed on), " \
+    "#{Item.where(tracked: false).count} counted items, " \
     "#{ItemUnit.count} units; #{recorded} item histories written"
   s.expect("Zip ties and Heat shrink are running low") do
     [ items["Zip ties 8 in"], items["Heat shrink assortment"] ].all? { |item| item.reload.on_reorder_list? }
@@ -199,5 +221,7 @@ Hbr::SampleData.feature "feature/inventory" do |s|
     competition.item_units.where(item: swerve).count == 3 && competition.item_units.where(item: neo).count == 6
   end
   s.expect("two spare NEOs, below the reorder point of 3") { neo.total_stock == 2 && neo.on_reorder_list? }
-  s.expect("one battery is Worn") { battery.item_units.condition_worn.count == 1 }
+  s.expect("one battery is Worn") { battery.item_units.where(unit_condition: UnitCondition.find_by!(key: "worn")).count == 1 }
+  s.expect("the menu shows Robots and Displays") { LocationType.installable.map(&:plural_name) == %w[Robots Displays] }
+  s.expect("Craft wire keeps its retired spool unit") { craft_wire.reload.stock_unit.retired? && craft_wire.unit == "spool" }
 end

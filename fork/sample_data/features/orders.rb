@@ -2,7 +2,8 @@
 #
 # Operations buys for its crews. Henry holds Order Approver and Ruby
 # Treasurer (the second step, from $500); Gina holds Order Buyer and Frank
-# Funding Manager. They're on Operations (Ruby on Northwind Community) so
+# Funding Manager; steps Approval and Treasurer (from $500) are list rows,
+# and Petty cash is a retired payment method on one purchase. They're on Operations (Ruby on Northwind Community) so
 # their grants reach the crews. Requests come from Facilities and Logistics
 # members, one in each state the spec lists (§8):
 #
@@ -45,10 +46,16 @@ Hbr::SampleData.feature "feature/orders" do |s|
   grant.call("Order Buyer", "credit-card", gina)
   grant.call("Funding Manager", "hand-holding-dollar", frank)
 
-  s.setting :orders_approval_steps, JSON.generate([
-    { "key" => "approval", "name" => "Approval", "minimum" => 0, "approvers" => [ "Order Approver > #{root.name}" ] },
-    { "key" => "treasurer", "name" => "Treasurer", "minimum" => 500, "approvers" => [ "Treasurer > #{root.name}" ] }
-  ])
+  # Approval steps and payment methods are lists (Setup > Orders and Inventory).
+  Orders::Lists.seed!
+  approval = s.upsert!(ApprovalStep, { key: "approval" }, name: "Approval", minimum_cents: 0, position: 0, active: true)
+  treasurer = s.upsert!(ApprovalStep, { key: "treasurer" }, name: "Treasurer", minimum_cents: 50_000, position: 1, active: true)
+  { approval => "Order Approver", treasurer => "Treasurer" }.each do |step, badge_name|
+    step.approvers.find_or_create_by!(badge: Badge.find_by!(name: badge_name), team: root)
+  end
+  team_card = PaymentMethod.find_by!(name: "Team card")
+  # A retired method still on an old purchase (retired after the scenarios).
+  petty_cash = s.upsert!(PaymentMethod, { name: "Petty cash" }, reimburse: false, active: true)
   s.setting :orders_buyers, "Order Buyer > #{root.name}"
   s.setting :orders_funding_managers, "Funding Manager > #{root.name}"
   s.setting :orders_price_tolerance, "10%, 25"
@@ -94,7 +101,7 @@ Hbr::SampleData.feature "feature/orders" do |s|
   end
   buy = lambda do |lines, vendor, prices: {}, **attrs|
     Orders::RecordPurchase.new(buyer: gina, lines: lines, vendor: vendor, other_vendor_name: vendor ? nil : attrs.delete(:other_vendor_name),
-      prices: prices, attributes: { ordered_on: s.clock.date(-5), paid_with: "Team card", expected_on: s.clock.date(4) }.merge(attrs)).call
+      prices: prices, attributes: { ordered_on: s.clock.date(-5), payment_method: team_card, expected_on: s.clock.date(4) }.merge(attrs)).call
   end
 
   scenario.call("Paint rollers", ella, facilities, [ line.call("9 in paint rollers", 4, 6, vendor_id: hardware.id) ])
@@ -145,7 +152,7 @@ Hbr::SampleData.feature "feature/orders" do |s|
 
   scenario.call("Folding tables", mia, facilities, [ line.call("6 ft folding table", 60, 2, vendor_id: office.id) ]) do |order_request|
     approve.call(order_request)
-    buy.call(order_request.order_lines.to_a, office, vendor_order_number: "OS-1207")
+    buy.call(order_request.order_lines.to_a, office, vendor_order_number: "OS-1207", payment_method: petty_cash)
     order_request.order_lines.first.reload.record_delivery!(by: mia, quantity: 2, condition: :damaged,
       note: "One table has a bent leg; both boxes were crushed.")
   end
@@ -238,6 +245,8 @@ Hbr::SampleData.feature "feature/orders" do |s|
   s.report "#{Purchase.where.not(ledger_entry_id: nil).count} purchases in the Operations Account, " \
     "#{Purchase.where(ledger_entry_id: nil).count} not in ledger"
 
+  petty_cash.retire!
+
   s.report "#{made} order requests (#{OrderRequest.count} in all), #{Purchase.count} purchases, 4 vendors, 3 funding sources"
   s.expect("every request state is present") do
     %w[draft submitted changes_requested approved ordering declined closed].all? { |status| OrderRequest.where(status: status).exists? }
@@ -246,6 +255,7 @@ Hbr::SampleData.feature "feature/orders" do |s|
   s.expect("a line is backordered, one partly received and one a problem") do
     OrderLine.backordered.exists? && OrderLine.partly_received.exists? && OrderLine.problem.exists?
   end
+  s.expect("a retired payment method is still on an old purchase") { Purchase.where(payment_method: petty_cash).exists? && !petty_cash.reload.active? }
   s.expect("the tools grant is over its amount with Power tools") do
     power = OrderRequest.find_by(title: "Power tools")
     tools_grant.numbers.over_after?(power)

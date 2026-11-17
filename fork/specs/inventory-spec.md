@@ -155,7 +155,7 @@ Registered through `Settings.register` (from `feature/extension-registries`), in
 | `inventory_used_needs_reason` | Used needs a "What for?" | off |
 | `inventory_undo_minutes` | How long the recorder can undo their own movement | 10 |
 | `inventory_reorder_notice` | When managers hear an item went low: `off`, `each`, `daily` | daily |
-| `inventory_default_unit` | Stock unit for a new item | each |
+| (list) Stock Units | An item's stock unit is a row of Stock Units on Setup (each, box, pack, roll, foot, set to start; exactly one default, which new items take; the default can't be retired) | each |
 
 The flag gates everything: with it off, controllers redirect (forms' pattern), the menu entries disappear, and no notices or hooks fire from inventory's own events.
 
@@ -269,7 +269,7 @@ Migrations are new and reversible. Upstream files touched (estimate): `db/schema
 
 ### 3.15 Tracked parts and machines
 
-**Machines are the group's word, not ours (hbr.46).** Inventory setup names them (singular and plural; blank = Machine/Machines) and can turn them off (`inventory_machines`, `inventory_machine_name`, `inventory_machine_name_plural`). Every screen, message and MCP tool says the word through `Inventory.machine_word`. Off: no menu item or Machines page, no machine kind for new places; a place already made a machine keeps `kind: machine`, shows as an ordinary place listing its parts, and its edit form offers only Storage; Install only puts a part inside another part; Take off stays so parts can come back to storage. Turning them on again restores everything.
+**Place types (managed list, hbr.48).** What a place does comes from its type, a list admins manage on Setup (Orders and Inventory › Place Types), seeded with Storage (keeps stock) and Machine (parts get installed on it). Code reads the two flags, never the name: `holds_stock` places keep counted stock and spare units; on a `holds_installed_parts` place only units go, each with its own page. Every active type that holds installed parts is a menu entry and a page named by its plural ("Robots", "Practice bases"); `/inventory/machines` opens the first. Renaming a type renames it everywhere; retiring it is "off": no new place takes it, nothing is installed on its places, its menu entry and page go, and its places keep the type, showing as ordinary places that list their parts so they can be taken off. A type's flags can't change while its places rely on them, and one type can't have both.
 
 Some parts aren't used up. A motor goes onto a robot, comes off for a rebuild, waits in a bin, and goes onto the practice robot. People want to know which one is where, what shape it's in, and what's on each robot. Counting them as stock loses all of that, so these items are **tracked**: each piece is a **unit**.
 
@@ -285,7 +285,7 @@ Turning tracking on for an item that has stock asks for that many units to be cr
 
 **Sub-assemblies.** A unit can be installed in another unit: motors in a swerve module, a module on a robot. Moving the outer unit moves everything in it; each inner unit's history records the move with the outer unit's code. Taking an inner unit out puts it in a location or another unit.
 
-**Conditions.** One fixed list, in plain words: `new` (New), `good` (Good), `worn` (Worn), `needs_repair` (Needs repair), `broken` (Broken), `retired` (Retired). A unit is created as New. Retired units keep their history, drop out of every count and list except the item's "Retired" group, and can't be installed.
+**Conditions (managed list, hbr.48).** Part Conditions on Setup, seeded New, Good, Worn, Needs repair and Broken (both *needs attention*), and Retired (*out of service*). Needs attention: not available, installing asks first, the daily digest lists it. Out of service: drops out of every count, can't be installed. Mark for repair offers the active needs-attention conditions (Needs repair first), Repaired the active ones with neither flag (Good first), Retire sets Retired; each finds its default by key, so renaming keeps it working. A unit is created New.
 
 **Actions on a unit.** Each writes an `item_unit_events` row in the same transaction, with who, when and a note; events are never edited or deleted.
 
@@ -301,7 +301,7 @@ Turning tracking on for an item that has stock asks for that many units to be cr
 
 Members' unit actions are a setting, `inventory_member_unit_actions` (default Install, Take off, Move, Check, Mark for repair), on the same pattern as `inventory_member_kinds` (§3.2). Undo works as for movements (§3.3): the person who recorded it, for 10 minutes; managers any time; undo writes a reversing event.
 
-**Readings.** A tracked item can list the readings a check asks for, each with a name and a unit: a battery's "Internal resistance (mΩ)" and "Charge cycles", a motor's "Hours". A check records any of them; none are required. The unit page shows the latest of each and the history as a small table, so a battery whose resistance is climbing is easy to spot.
+**Readings (managed list, hbr.48).** Reading Types on Setup (Hours (h), Cycles, Volts (V) to start); a tracked item ticks the ones its checks ask for. Saved readings are keyed by the type, so renaming one renames it in every history.
 
 **Installing something that isn't right.** Installing a unit marked Needs repair or Broken asks "This unit is marked Needs repair: install anyway?" and records the answer in the event. It's flagged, not blocked, as with going below zero (§3.3). The machine page marks such units at the top.
 

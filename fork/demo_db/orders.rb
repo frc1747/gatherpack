@@ -108,23 +108,26 @@ mentor_badge = Badge.added_by_admin.where("name ILIKE ?", "%mentor%").to_a
 mentor_badge = nil if mentor_badge && BadgeAssignment.where(badge_id: mentor_badge.id, person_id: mentor_ids).none?
 lead_badge = Badge.added_by_admin.find_by("name ILIKE ? OR name ILIKE ?", "%lead mentor%", "%mentor lead%")
 
-default_steps = JSON.generate(Orders::Config::DEFAULT_STEPS)
-if Settings[:orders_approval_steps].blank? || Settings[:orders_approval_steps] == default_steps
-  steps = [ { "key" => "mentor", "name" => "Mentor approval", "minimum" => 0, "approvers" => mentor_badge ? [ "#{mentor_badge.name} > #{top.name}" ] : [] } ]
-  steps << { "key" => "lead_mentor", "name" => "From $500, also a lead mentor", "minimum" => 500, "approvers" => [ "#{lead_badge.name} > #{top.name}" ] } if lead_badge
-  Settings[:orders_approval_steps] = JSON.generate(steps)
-  say "Approval steps", steps.map { |step| step["name"] }.join(" / ")
+# Approval steps are list rows; change them only while they're the untouched default.
+Orders::Lists.seed!
+steps = ApprovalStep.ordered.to_a
+if steps.size == 1 && steps.first.key == "approval" && steps.first.approvers.none?
+  first = steps.first
+  first.update!(name: "Mentor approval")
+  first.approvers.find_or_create_by!(badge: mentor_badge, team: top) if mentor_badge
+  if lead_badge
+    lead = ApprovalStep.create!(key: "lead_mentor", name: "From $500, also a lead mentor", minimum_cents: 50_000)
+    lead.approvers.create!(badge: lead_badge, team: top)
+  end
+  say "Approval steps", ApprovalStep.active.ordered.map(&:name).join(" / ")
 end
 if Settings[:orders_buyers].blank? && mentor_badge
   Settings[:orders_buyers] = "#{mentor_badge.name} > #{top.name}"
   say "Buyers", Settings[:orders_buyers]
 end
-if Settings[:orders_paid_with].blank? || Settings[:orders_paid_with] == JSON.generate(Orders::Config::DEFAULT_PAID_WITH)
-  Settings[:orders_paid_with] = JSON.generate([ { "label" => "Team card", "reimburse" => false }, { "label" => "Paid personally (reimburse)", "reimburse" => true } ])
-end
 Orders::Current.reset
-card = Orders::Config.paid_with.find { |choice| !choice.reimburse }&.label
-personal = Orders::Config.paid_with.find(&:reimburse)&.label
+card = PaymentMethod.active.ordered.find { |method| !method.reimburse }
+personal = PaymentMethod.active.ordered.find(&:reimburse)
 
 # Who may do what, asked of Orders itself so the data is something the
 # screens would allow. Falls through to an admin when a mentor doesn't reach
@@ -176,9 +179,10 @@ items = {}
 places = {}
 if INVENTORY
   at(70) do
-    place = lambda do |name, parent: nil, kind: "storage", position: 0|
+    Inventory::Lists.seed_defaults!
+    place = lambda do |name, parent: nil, type: "storage", position: 0|
       Location.find_or_create_by!(name: name, parent_id: parent&.id, team_id: top.id) do |location|
-        location.assign_attributes(kind: kind, position: position, active: true)
+        location.assign_attributes(location_type: LocationType.find_by!(key: type), position: position, active: true)
       end
     end
     shop = place.call("Shop")
@@ -186,7 +190,7 @@ if INVENTORY
     places[:hardware] = place.call("Hardware cabinet", parent: shop, position: 1)
     places[:electronics] = place.call("Electronics shelf", parent: shop, position: 2)
     places[:motors] = place.call("Motor bin", parent: shop, position: 3)
-    places[:practice] = place.call("Practice bot", parent: shop, kind: "machine", position: 4)
+    places[:practice] = place.call("Practice bot", parent: shop, type: "machine", position: 4)
 
     # key, name, category, maker, part number, unit, place, reorder at, reorder qty, starting count
     catalog = [
@@ -260,7 +264,7 @@ perform = lambda do |order_request, day, action, options|
       prices = options.fetch(:prices, {}).transform_keys { |index| order_request.order_lines.to_a[index].id }
       reimburse = options[:paid] == :personal
       Orders::RecordPurchase.new(buyer: buyer, lines: lines, vendor: vendor, other_vendor_name: vendor ? nil : options[:other], prices: prices,
-        attributes: { ordered_on: Date.current, vendor_order_number: options[:number], paid_with: reimburse ? personal : card,
+        attributes: { ordered_on: Date.current, vendor_order_number: options[:number], payment_method: reimburse ? personal : card,
                       reimburse_to: (buyer if reimburse), shipping_cents: cents(options.fetch(:shipping, 0)), tax_cents: cents(options.fetch(:tax, 0)),
                       expected_on: TODAY + options.fetch(:expected, 0) }).call
     when :backorder then lines.each { |each| each.backorder!(by: buyer_for.call(order_request), expected_on: TODAY + options.fetch(:expected, 7), comment: options[:comment]) }

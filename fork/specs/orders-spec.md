@@ -56,7 +56,7 @@ Ledgers and Budgets are optional. Orders works with both turned off. Where the m
 | Order request | One person's ask: who it's for (a team), when it's needed, why, and one or more lines |
 | Line | One thing to buy: description, manufacturer and part number, vendor and vendor part number, link, quantity, unit, estimated price |
 | Approval | One approver's decision on one step of a request: approved, changes requested, or declined, with a comment |
-| Approval step | A level of approval a request needs (for example "Mentor", then "Treasurer" above $500). The last one is the final approval. |
+| Approval step | A level of approval a request needs, a row admins manage (Setup › Orders and Inventory › Approval Steps): name, minimum total, approvers (badge up to a team, or every team). Every request needs the first step, which always has a $0 minimum. |
 | Purchase | An order placed with one vendor by a buyer: order number, date, actual costs, shipping and tax, paid with, receipt file. Holds lines from one or more requests. |
 | Funding source | Where a request's money comes from: a budget or a restricted gift, kept in GatherPack or not, with an optional amount and, for a gift, its restriction |
 | Delivery | A quantity of a line that arrived, who received it, when, and in what condition |
@@ -116,7 +116,7 @@ The request page shows the request status and each line's status. Lists show the
 
 ### 3.3 Approval
 
-**Steps.** A setting, `orders_approval_steps`: an ordered list, each with a name, its approver grants (§3.7) and a minimum request total (0 means always). A request needs every step whose minimum it meets, in order. The last needed step is the final approval. Default: one step, "Approval", for everyone.
+**Steps (managed list, hbr.48).** Approval Steps on Setup: ordered rows, each with a name, approvers (badge up to a team, or every team; §3.7) and a minimum total. The first step has no minimum, so every request needs it; a request also needs each later step whose minimum it meets. Each step has a stable `key`, so existing approvals keep matching when a step is renamed.
 
 **Deciding.** An approver on the current step chooses:
 - **Approve** (optional comment). Moves to the next step, or to `approved` after the last.
@@ -167,10 +167,11 @@ Registered through `Settings.register` (from `feature/extension-registries`):
 |---|---|---|
 | `feature_orders` | Feature flag, the setting `GatherPack::Features.register` creates | off |
 | `orders_requesters` | Who can create requests: list of teams (members and below) | everyone signed in |
-| `orders_approval_steps` | §3.3 | one step |
+| (list) Approval Steps | §3.3 | one step, "Approval" |
 | `orders_buyers` | Badge → team pairs (who buys), picked on Orders setup | none (admins only) |
 | `orders_price_tolerance` | Percentage and amount, §3.4 | 10%, $25 |
-| `orders_paid_with` | Choices for a purchase: label and whether it needs reimbursing ("Team card", "Purchase order", "Personal card — reimburse") | Team card, Personal card — reimburse |
+| (list) Payment Methods | A row per way to pay, with a `reimburse` flag; at least one stays active | Team card; Paid personally (reimburse) |
+| (list) Delivery Problems | What can be wrong with a delivery; a delivery is good or has one | Damaged; Wrong item |
 | `orders_team_can_see` | Whether members of a request's team see its requests | on |
 | `orders_require_other_vendor_reason` | A line from "Other" needs a reason | off |
 | `orders_funding_managers` | Who manages funding sources: badge → highest team pairs (§3.13) | none (admins and team managers) |
@@ -288,8 +289,8 @@ New tables, with plain names as upstream uses (`vendors`, `purchases`, `funding_
 | `order_request_watchers` | `order_request_id`, `person_id` |
 | `order_lines` | `order_request_id`, `position`, `description`, `manufacturer`, `manufacturer_part_number`, `vendor_id`, `other_vendor_name`, `other_vendor_reason`, `vendor_part_number`, `url`, `quantity`, `unit`, `units_per`, `estimated_unit_price_cents`, `actual_unit_price_cents`, `status`, `purchase_id`, `funding_source_id`, `expected_on`, `item_type`, `item_id`, `note`; photo attachment |
 | `order_approvals` | `order_request_id`, `step_key`, `approver_id`, `decision`, `comment`, `cleared_at` (set when a material change voids it) |
-| `purchases` | `vendor_id`, `other_vendor_name`, `buyer_id`, `vendor_order_number`, `ordered_on`, `shipping_cents`, `tax_cents`, `paid_with`, `reimburse_to_id`, `tracking_url`, `expected_on`, `ledger_entry_id` (nullable, §6), `note`; receipts as Active Storage attachments, as `LedgerEntry#receipts` |
-| `order_deliveries` | `order_line_id`, `quantity`, `received_by_id`, `received_on`, `condition`, `note`; photo attachment |
+| `purchases` | `vendor_id`, `other_vendor_name`, `buyer_id`, `vendor_order_number`, `ordered_on`, `shipping_cents`, `tax_cents`, `payment_method_id`, `reimburse_to_id`, `tracking_url`, `expected_on`, `ledger_entry_id` (nullable, §6), `note`; receipts as Active Storage attachments, as `LedgerEntry#receipts` |
+| `order_deliveries` | `order_line_id`, `quantity`, `received_by_id`, `received_on`, `delivery_problem_kind_id` (null = good), `note`; photo attachment |
 | `funding_sources` | `team_id`, `name`, `kind` (`general`, `restricted`), `amount_cents` (nullable), `starts_on`, `ends_on`, `restriction`, `giver`, `reference`, `report_due_on`, `spent_outside_cents`, `spent_outside_as_of`, `budget_id` (nullable, §6), `active`; documents as Active Storage attachments |
 | `order_request_events` | `order_request_id`, `order_line_id` (nullable), `actor_id`, `action`, `step_key`, `changes` (jsonb), `comment`, `created_at` |
 
@@ -466,4 +467,4 @@ What the sheet can't do, and where this spec handles it:
 The sheet's supplier dropdown becomes the preferred vendors (§3.1). Approver and buyer badges and the approval steps are settings (§3.7).
 ## Orders setup (hbr.42)
 
-Orders setup (an Orders button under Purchasing on the main Setup page since hbr.45, admins only; no Setup item in the menu) shows, in order: Who can ask (teams), Who sees every request (`orders_viewers`, teams: members of those teams and the teams below see every submitted request, view only), Who approves (team managers always; plus badge → team rows, saved as step 1), Over $X also needs (an amount and badge → team rows, saved as step 2), Who buys, and Paid with. Other step shapes can still be stored; the page lists them read-only and saving replaces them. The other orders settings keep their values and defaults and are not on any screen.
+Orders setup (an Orders button under Orders and Inventory on the main Setup page, with Approval Steps, Payment Methods and Delivery Problems; admins only; no Setup item in the menu) shows, in order: Who can ask (teams), Who sees every request (`orders_viewers`, teams: members of those teams and the teams below see every submitted request, view only), Who approves (team managers always; plus badge → team rows, saved as step 1), Over $X also needs (an amount and badge → team rows, saved as step 2), Who buys, and Paid with. Other step shapes can still be stored; the page lists them read-only and saving replaces them. The other orders settings keep their values and defaults and are not on any screen.
