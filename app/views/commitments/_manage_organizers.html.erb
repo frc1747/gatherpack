@@ -1,0 +1,37 @@
+<% organizers = @commitment.commitment_organizers.includes(:person).sort_by { |organizer| organizer.person.display_name.to_s } %>
+<% grant_badge_ids = Commitment.organizer_grants.map { |badge, _team| badge.id } %>
+<% candidates = Person.where(id: BadgeAssignment.where(badge_id: grant_badge_ids).select(:person_id))
+     .where.not(id: organizers.map(&:person_id)).order(:last_name, :first_name)
+     .select { |person| @commitment.organizer_candidate?(person) } %>
+<div class="card mb-3" id="organizers">
+  <div class="card-header">
+    <h3 class="h5 mb-0">Organizers</h3>
+  </div>
+  <div class="card-body">
+    <p>People who run this commitment with you. Admins and managers of <%= @commitment.team.name %> can always run it too.</p>
+    <ul class="list-group mb-3">
+      <% organizers.each do |organizer| %>
+        <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id organizer %>">
+          <span><%= organizer.person.display_name %></span>
+          <% if organizers.size > 1 %>
+            <%= button_to "Remove", commitment_commitment_organizer_path(@commitment, organizer), method: :delete,
+                  class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                  data: { turbo_confirm: "Remove #{organizer.person.display_name} as an organizer?" } %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+    <% if candidates.any? %>
+      <%= form_with model: CommitmentOrganizer.new, url: commitment_commitment_organizers_path(@commitment), class: "row g-2 align-items-end" do |f| %>
+        <div class="col-md-6">
+          <%= f.label :person_id, "Who else runs this commitment", class: "form-label" %>
+          <%= f.select :person_id, candidates.map { |person| [ person.display_name, person.id ] }, { prompt: "Pick someone…" }, class: "form-select", required: true %>
+        </div>
+        <div class="col-auto"><%= f.submit "Add organizer", class: "btn btn-secondary" %></div>
+      <% end %>
+      <div class="form-text">Only people with an organizer badge for this team are listed.</div>
+    <% else %>
+      <p class="text-body-secondary mb-0">Nobody else holds an organizer badge for this team.</p>
+    <% end %>
+  </div>
+</div>
