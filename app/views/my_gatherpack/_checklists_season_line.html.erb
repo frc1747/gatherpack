@@ -1,0 +1,15 @@
+<%# One My Season line: the item's title and its answer in words. Tapping it shows the detail the checklist page shows. %>
+<% entry = line.entry %>
+<details class="mg-season-item" id="<%= dom_id entry.item, "season_#{line.subject.id}" %>" data-season-status="<%= entry.status %>">
+  <summary class="mg-season-line">
+    <span class="mg-season-title"><%= entry.item.label %></span>
+    <% if line.ward && !named %><span class="mg-row-ward">for <%= line.ward %></span><% end %>
+    <span class="mg-season-answer<%= " mg-season-met" if entry.met? %>"><%= entry.met? ? "✓" : "·" %> <%= my_gatherpack_season_answer(entry, subject: line.subject) %></span>
+  </summary>
+  <div class="mg-season-detail">
+    <% if (detail = my_gatherpack_season_detail(entry, subject: line.subject)).present? %>
+      <div><%= detail %></div>
+    <% end %>
+    <%= link_to line.ward ? "#{line.ward}'s checklists" : "Open the checklist", line.path %>
+  </div>
+</details>
