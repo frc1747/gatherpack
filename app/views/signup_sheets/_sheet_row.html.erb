@@ -1,0 +1,20 @@
+<% count = @my_counts[signup_sheet.id].to_i %>
+<% next_date = @next_dates[signup_sheet.id] %>
+<tr id="<%= dom_id signup_sheet %>">
+  <td>
+    <%= link_to signup_sheet.title, signup_sheet %>
+    <% unless signup_sheet.open? %>
+      <span class="badge text-bg-secondary"><%= signup_sheet.status.humanize %></span>
+    <% end %>
+  </td>
+  <td><%= signup_sheet.team.name %></td>
+  <td><%= next_date ? next_date.in_time_zone.strftime("%a %b %-d, %-l:%M %p") : "None coming up" %></td>
+  <td class="text-end">
+    <% if count.positive? %>
+      <span class="me-2">You're signed up for <%= count %></span>
+    <% end %>
+    <% if @organized_ids.include?(signup_sheet.id) %>
+      <%= link_to "Set up", edit_signup_sheet_path(signup_sheet), class: "btn btn-sm btn-outline-secondary" %>
+    <% end %>
+  </td>
+</tr>
