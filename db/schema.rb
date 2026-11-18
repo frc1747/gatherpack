@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_17_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -253,6 +253,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
     t.index ["owing_badge_id"], name: "index_commitments_on_owing_badge_id"
     t.index ["owing_team_id"], name: "index_commitments_on_owing_team_id"
     t.index ["team_id"], name: "index_commitments_on_team_id"
+  end
+
+  create_table "digest_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.date "delivered_on", null: false
+    t.boolean "sent", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["delivered_on"], name: "index_digest_deliveries_on_delivered_on"
+    t.index ["person_id", "delivered_on"], name: "index_digest_deliveries_on_person_id_and_delivered_on", unique: true
   end
 
   create_table "event_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1221,8 +1231,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
   add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
-  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
+  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
   add_foreign_key "commitment_organizers", "people", on_delete: :cascade
   add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
@@ -1232,6 +1242,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
   add_foreign_key "commitments", "relationship_types", column: "group_relationship_type_id"
   add_foreign_key "commitments", "teams"
   add_foreign_key "commitments", "teams", column: "owing_team_id"
+  add_foreign_key "digest_deliveries", "people", on_delete: :cascade
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
