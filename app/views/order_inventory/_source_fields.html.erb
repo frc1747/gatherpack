@@ -1,0 +1,8 @@
+<%# The orders vendor for a Where to buy entry (orders spec §5): a line made from the item buys from it. %>
+<% if Orders.enabled? %>
+  <div class="mb-3">
+    <%= form.label :vendor_id, "Store in Orders", class: "form-label" %>
+    <%= form.select :vendor_id, Vendor.active.listed.map { |vendor| [ vendor.name, vendor.id ] },
+          { include_blank: "Match by name or link" }, class: "form-select" %>
+  </div>
+<% end %>
