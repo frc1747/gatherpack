@@ -18,6 +18,7 @@ Resend allows 10 API requests a second. `SendEmailJob` (`app/jobs/send_email_job
 
 - New `Gateway::RateLimited` error. Each sending gateway maps its own throttling error to it: Resend `RateLimitExceededError`, Postmark HTTP 429, SMTP `Net::SMTPServerBusy` (4xx).
 - `SendEmailJob`: `retry_on Gateway::RateLimited, wait: :polynomially_longer, attempts: 10` (about 3 s, 18 s, 83 s, …), so throttled sends go out later; any other error fails as before.
+- `SendEmailJob`: `limits_concurrency to: 1, key: "send_email"`, so the 3 worker threads can't send at once and most bursts stay under the limit.
 
 ## Tests
 

@@ -191,8 +191,10 @@ feature/email-rate-limit-retry:
   title: Throttled emails are sent a little later, not lost
   emoji: "📨"
   description: >-
-    When the email service says too many messages were sent too quickly,
-    GatherPack tries each one again after a short wait instead of dropping it.
+    GatherPack sends emails one at a time so a burst of notices stays under
+    the email service's limit, and if the service still says too many were
+    sent too quickly, it tries each one again after a short wait instead of
+    dropping it.
   audience: Everyone
 
 feature/managed-lists:
