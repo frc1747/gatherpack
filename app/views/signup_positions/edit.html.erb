@@ -1,0 +1,18 @@
+<% breadcrumb @signup_sheet %>
+
+<%= simple_form_for([ @signup_sheet, @signup_position ]) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Editing <%= @signup_position.name %></h1>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Back to the sheet", edit_signup_sheet_path(@signup_sheet, anchor: "positions"), class: "btn btn-warning" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
+
+<%= render "rules" %>

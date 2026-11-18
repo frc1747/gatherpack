@@ -1,0 +1,28 @@
+<% breadcrumb @signup_sheet %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Change <%= @event.name %></h1>
+    <%= @signup_sheet.title %>
+  </div>
+  <%= form_with url: signup_sheet_signup_sheet_event_path(@signup_sheet, @signup_sheet_event), method: :patch do |f| %>
+    <div class="card-body">
+      <p>
+        Leave the times empty if they still aren't known (the event stays 00:00 to 23:59).
+        Everyone signed up is emailed when the date or time changes.
+      </p>
+      <% if @row.errors.any? %>
+        <div class="alert alert-danger"><%= @row.errors.full_messages.to_sentence %></div>
+      <% end %>
+      <div class="row g-2">
+        <%= fields_for :date, @row do |row_fields| %>
+          <%= render "date_fields", f: row_fields, row: @row, compact: false, name_placeholder: nil %>
+        <% end %>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, anchor: "dates"), class: "btn btn-warning" %>
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    </div>
+  <% end %>
+</div>

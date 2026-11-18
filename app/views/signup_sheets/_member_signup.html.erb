@@ -1,0 +1,38 @@
+<% signup_policy = policy(signup) %>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-2 border-bottom" id="<%= dom_id signup %>">
+  <div>
+    <% if for_other %>
+      <div><strong><%= signup.person.identifier_name %></strong></div>
+      <%= signup.signup_position.name %>,
+    <% else %>
+      <strong><%= signup.signup_position.name %></strong>,
+    <% end %>
+    <%= signup.event.name %>, <%= signup_event_when(signup.event, format: "%a %b %-d, %-l:%M %p") %>
+    <%= render "sheet_signup_details", signup: signup %>
+    <% unless signup.active? %>
+      <% items_label = { "fulfilled" => "Brought", "no_show" => "Not brought" }[signup.status] if signup.signup_position.items? %>
+      <span class="badge text-bg-secondary"><%= items_label || signup.status.humanize %></span>
+    <% end %>
+    <div class="small text-body-secondary">
+      <% if !for_other && signup.person_id != @viewer.id %>
+        Taken for you by <%= signup.person.identifier_name %>
+      <% elsif for_other && signup.on_behalf_of_id == @viewer.id %>
+        On your behalf
+      <% end %>
+      <% if signup.on_behalf_of_id != signup.person_id && signup.on_behalf_of_id != @viewer.id %>
+        on behalf of <%= signup.on_behalf_of.identifier_name %>
+      <% end %>
+    </div>
+  </div>
+  <div>
+    <% if signup_policy.update? %>
+      <%= link_to "Change", edit_signup_sheet_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-primary" %>
+    <% end %>
+    <% if signup_policy.destroy? %>
+      <%= button_to "Cancel", signup_sheet_signup_path(@signup_sheet, signup), method: :delete, class: "btn btn-sm btn-danger",
+            form_class: "d-inline", data: { turbo_confirm: signup_cancel_confirmation(signup, viewer: @viewer) } %>
+    <% elsif signup.active? && [ signup.person_id, signup.signed_up_by_id ].include?(@viewer.id) %>
+      <span class="small text-body-secondary">Ask an organizer to cancel</span>
+    <% end %>
+  </div>
+</div>
