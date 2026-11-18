@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | started (`feature/email-rate-limit-retry`) |
+| Status | shipped hbr.50 (`feature/email-rate-limit-retry`) |
 | Added | 2026-11-17 |
 | Commit checked | `upstream/main` @ `eeaa691aa`; `app/jobs/send_email_job.rb` from `f3b42845a`, Resend gateway from `8e6135f03` |
 | Planned branch | `feature/email-rate-limit-retry` |

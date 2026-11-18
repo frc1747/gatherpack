@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | started (`feature/event-type-starts-locked`) |
+| Status | shipped hbr.50 (`feature/event-type-starts-locked`) |
 | Added | 2026-11-17 |
 | Commit checked | `upstream/main` @ `eeaa691aa`; `hbr/integration` @ `14fc6e1d8` |
 | Planned branch | `feature/event-type-starts-locked` |
