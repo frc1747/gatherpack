@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | waiting |
+| Status | started (`feature/event-type-starts-locked`) |
 | Added | 2026-11-17 |
 | Commit checked | `upstream/main` @ `eeaa691aa`; `hbr/integration` @ `14fc6e1d8` |
 | Planned branch | `feature/event-type-starts-locked` |
@@ -24,10 +24,10 @@ Every new event starts unlocked, and anyone who can see an unlocked event can ch
 
 ## Fix
 
-Behind a flag, default off (`event_type_lock_defaults`):
+Behind a flag, default off (`feature_event_type_starts_locked`):
 
 - **Event type row flag** (AGENT.md rule 13: behavior is a flag on the row): add the reversible migration `event_types.starts_locked boolean, default false, null false`. Add a tick box on the event type form, labelled "New events start locked (only admins and the team's managers can check people in)".
-- **New events take it:** `Event` sets `locked = event_type.starts_locked` on create when `locked` wasn't given. This covers the new-event form (the tick box shows pre-ticked), the MCP `create_event` tool, and any copy or import that creates events. Changing an event's type later leaves its lock alone. A manager can still untick it on a single event.
+- **New events take it:** `Event` sets `locked = true` on create when the type starts locked, even if the form left Locked unticked (the form always sends the box, so "not given" can't be told apart). This covers the new-event form, the MCP `create_event` tool, and any copy or import that creates events. Changing an event's type later leaves its lock alone. A manager can still untick it on a single event.
 - **Show it:** add a "Locked" badge on the event page beside the type, with the hover text "Only admins and the team's managers can check people in". Add `locked` to the MCP `get_event` and `list_events` results.
 - **Clearer field label:** on the event form, label **Locked** as "Only managers can check people in".
 
@@ -35,7 +35,7 @@ Defaults: off for every existing event type. Existing events are left as they ar
 
 ## Tests
 
-- Model: a new event of a `starts_locked` type is locked. One created with `locked: false` stays unlocked. Changing the type of an existing event doesn't change its lock.
+- Model: a new event of a `starts_locked` type is locked. One created with `locked: false` is locked too; unlocking it afterwards sticks. Changing the type of an existing event doesn't change its lock.
 - Policy: a member can't check themselves in to an event created from a `starts_locked` type, and the team's manager can check them in.
 - MCP: `create_event` with a `starts_locked` type returns a locked event, and `get_event` includes `locked`.
 - Flag off: the type field is hidden and new events start unlocked as before.

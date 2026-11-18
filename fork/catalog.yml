@@ -966,3 +966,17 @@ feature/team-badge-membership:
     deleted, or the badge moves to another team. Anything the badge allowed,
     such as seeing profile fields or form answers, ends with it.
   audience: Admins and team managers
+
+feature/event-type-starts-locked:
+  title: Event types whose events start locked
+  emoji: "🔒"
+  description: >-
+    An event type can be marked "New events start locked". Its new events
+    are created locked, so only admins and the team's managers can check
+    people in, and members can't mark themselves present for credit. A
+    manager can still unlock one event. Event pages show a Locked badge.
+  audience: Admins set it up; members and managers checking in
+  settings:
+    - name: "Event types that start locked"
+      key: feature_event_type_starts_locked
+      default: "off"
