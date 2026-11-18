@@ -14,7 +14,9 @@ class TimeKioskConfirmationsTest < ActionDispatch::IntegrationTest
     @manager = create_person("manager@example.com")
     Membership.create!(person: @manager, team: @team, manager: true)
 
-    sign_in create_person("kiosk@example.com").user
+    kiosk_user = create_person("kiosk@example.com").user
+    kiosk_user.update!(kiosk: true)
+    sign_in kiosk_user
   end
 
   teardown do

@@ -8,7 +8,7 @@ class TimeKiosk
   attr_writer :person_ref
 
   def token
-    @token ||= Token.find_by(value: token_value)
+    @token ||= Token.find_by_rfid(token_value)
   end
 
   def time_clock_period
@@ -28,11 +28,17 @@ class TimeKiosk
     @person ||= token&.tokenable.then { |tokenable| tokenable if tokenable.is_a?(Person) }
   end
 
+  def person=(person)
+    @person = person
+  end
+
   # A short-lived reference to the scanned person, carried by the profile's
   # buttons in place of their id.
   def person_ref
     @issued_person_ref ||= person&.signed_id(purpose: PERSON_REF_PURPOSE, expires_in: PERSON_REF_EXPIRES_IN)
   end
+
+  alias_method :person_reference, :person_ref
 
   # The person named by the reference a profile button sent back, or nil when
   # it is missing, forged, expired or for another purpose.

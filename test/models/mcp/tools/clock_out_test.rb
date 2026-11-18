@@ -272,10 +272,17 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     closed.sort
   end
 
+  # The kiosk runs on a kiosk account and acts for whoever's card was scanned.
   def kiosk(viewer, **params)
-    sign_in user(viewer)
+    account = kiosk_account
+    sign_in account
     post time_kiosk_path, params: { time_kiosk: { person_id: person(viewer).id, person_ref: person(viewer).signed_id(purpose: :time_kiosk, expires_in: 5.minutes), **params } }
-    sign_out user(viewer)
+    assert_response :success
+    sign_out account
+  end
+
+  def kiosk_account
+    @kiosk_account ||= User.create!(email: "kiosk@example.com", password: "Password1!", kiosk: true)
   end
 
   test "all closes what the kiosk's All Periods closes" do
@@ -290,6 +297,17 @@ class Mcp::Tools::ClockOutTest < ActionDispatch::IntegrationTest
     page = closed_by(:alpha_manager) { kiosk(:alpha_manager, tool: "punch_out_period", time_clock_period_id: @alpha_period.id) }
     tool = closed_by(:alpha_manager) { clock_out(:alpha_manager, period_id: @alpha_period.neat_id) }
     assert_equal 2, page.size
+    assert_equal page, tool
+  end
+
+  test "on an added by manager period, a period closes what the kiosk's per-period button closes" do
+    period = TimeClockPeriod.create!(name: "Alpha Managers", team: @alpha, start_time: Time.utc(2026, 3, 1), end_time: Time.utc(2026, 3, 31), permission: :added_by_manager)
+    create_world_punch(person(:ward), period, 32, nil)
+
+    page = closed_by(:alpha_manager) { kiosk(:alpha_manager, tool: "punch_out_period", time_clock_period_id: period.id) }
+    tool = closed_by(:alpha_manager) { clock_out(:alpha_manager, period_id: period.neat_id) }
+
+    assert_equal 1, page.size
     assert_equal page, tool
   end
 

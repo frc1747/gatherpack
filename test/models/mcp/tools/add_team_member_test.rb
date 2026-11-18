@@ -59,7 +59,7 @@ class Mcp::Tools::AddTeamMemberTest < ActionDispatch::IntegrationTest
     page = page_changes_rows?(Membership, as: user(:kid_manager)) do
       post team_memberships_path(kid), params: { membership: { person_id: person(:sibling_member).id } }
     end
-    assert page, "the POST doesn't check the person"
+    assert_not page, "this build's POST checks the person too"
   end
 
   test "an admin adds anyone, managed or not" do
@@ -156,13 +156,13 @@ class Mcp::Tools::AddTeamMemberTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # The team route's POST doesn't check the person, though its form only offers managed people.
-  test "it refuses a person the manager can't see, where a hand-made POST goes through" do
+  # This build's POST checks the person too.
+  test "it refuses a person the manager can't see, and so does a hand-made POST" do
     page = page_changes_rows?(Membership, as: user(:alpha_manager)) do
       post team_memberships_path(@alpha), params: { membership: { person_id: person(:beta_member).id } }
     end
 
-    assert page
+    assert_not page
     assert_refused("Not found", Membership) { add(:alpha_manager, :beta_member, @alpha) }
   end
 end
