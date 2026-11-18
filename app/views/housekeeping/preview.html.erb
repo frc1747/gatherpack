@@ -1,0 +1,103 @@
+<% verb = { archive: "Archive", restore: "Restore", copy: "Copy" }.fetch(@action) %>
+<% change = @copy || @preview %>
+<div class="card">
+  <div class="card-header"><h1>Check before you <%= verb.downcase %></h1></div>
+  <div class="card-body">
+    <p class="fw-semibold"><%= change.sentence %></p>
+
+    <%= form_with url: housekeeping_apply_path(@type.key), method: :post do %>
+      <%= hidden_field_tag :act, @action %>
+      <%= hidden_field_tag :archived, "1" if params[:archived].present? %>
+      <%= housekeeping_older_fields(@older_than) %>
+      <%= hidden_field_tag :shift_months, @shift_months if @copy %>
+      <% change.ready.each do |record| %>
+        <%= hidden_field_tag "ids[]", record.id, id: nil %>
+      <% end %>
+
+      <% if @copy %>
+        <h2 class="h5">Dates</h2>
+        <p class="small text-body-secondary">Each copy's dates move by the same amount. Dates like "within the last 12 months" stay as they are. You can change any of them in the copy afterwards.</p>
+        <table class="table table-sm">
+          <thead><tr><th>Copy of</th><th>Date</th><th>Now</th><th>In the copy</th></tr></thead>
+          <tbody>
+            <% @copy.date_changes.each do |record, changes| %>
+              <% changes.each_with_index do |date_change, index| %>
+                <tr>
+                  <td><%= record.identifier_name if index.zero? %></td>
+                  <td><%= date_change.label %></td>
+                  <td><%= l(date_change.old, format: :long) %></td>
+                  <td><%= l(date_change.proposed, format: :long) %></td>
+                </tr>
+              <% end %>
+              <% if changes.empty? %>
+                <tr><td><%= record.identifier_name %></td><td colspan="3" class="text-body-secondary">No fixed dates</td></tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+
+        <% if (links = @copy.links).any? %>
+          <h2 class="h5">Copied together</h2>
+          <ul class="small">
+            <% links.each do |record, named| %>
+              <li>The copy of <%= record.identifier_name %> will use the copy of <%= named.map(&:identifier_name).to_sentence %>.</li>
+            <% end %>
+          </ul>
+        <% end %>
+
+        <% if (left_out = @copy.left_out).any? %>
+          <div class="alert alert-warning small">
+            <% left_out.each do |record, rules| %>
+              <div>
+                <%= record.identifier_name %>: <%= pluralize(rules.size, "rule") %> naming a deleted person, team or badge will be left out:
+                <%= rules.map { |rule| rule.item ? "#{rule.item.label}: #{rule.description}" : rule.description }.to_sentence %>.
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <% replacements = @copy.replacements %>
+        <% if replacements.any? %>
+          <h2 class="h5">Named with a year</h2>
+          <p class="small text-body-secondary">Pick what the copies should use instead, or keep the same one.</p>
+          <table class="table table-sm">
+            <thead><tr><th>Now</th><th>In the copies</th></tr></thead>
+            <tbody>
+              <% replacements.each do |replacement| %>
+                <% column = replacement.model.column_names.include?("title") ? :title : :name %>
+                <tr>
+                  <td><%= replacement.record.public_send(column) %></td>
+                  <td>
+                    <%= select_tag "replace[#{replacement.key}]",
+                      options_for_select(replacement.model.where.not(id: replacement.record.id).order(column).pluck(column, :id), replacement.proposed&.id),
+                      include_blank: "Keep #{replacement.record.public_send(column)}", class: "form-select form-select-sm", "aria-label": "Replacement for #{replacement.record.public_send(column)}" %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      <% elsif change.ready.any? %>
+        <ul>
+          <% change.ready.each do |record| %>
+            <li><%= record.identifier_name %></li>
+          <% end %>
+        </ul>
+      <% end %>
+
+      <% if change.skipped.any? %>
+        <h2 class="h6">Skipped</h2>
+        <ul class="text-body-secondary">
+          <% change.skipped.each do |skip| %>
+            <li><%= skip.record.identifier_name %>: <%= skip.reason %></li>
+          <% end %>
+        </ul>
+      <% end %>
+
+      <% if change.ready.any? %>
+        <%= submit_tag "#{verb} #{change.ready.size}", class: "btn btn-primary" %>
+      <% end %>
+      <%= link_to "Cancel", housekeeping_list_path(@type.key, archived: params[:archived].presence, older: @older_than&.to_config || { mode: "" }), class: "btn btn-link" %>
+    <% end %>
+  </div>
+</div>

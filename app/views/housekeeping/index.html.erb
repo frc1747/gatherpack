@@ -1,0 +1,74 @@
+<% back = @type.list_path && respond_to?(@type.list_path) ? public_send(@type.list_path) : nil %>
+<div class="card">
+  <div class="card-header">
+    <h1><%= @archived ? "Archived" : "Old" %> <%= @type.label.downcase %></h1>
+  </div>
+  <div class="card-body">
+    <%= form_with url: housekeeping_list_path(@type.key), method: :get, data: { turbo: false } do %>
+      <%= render "checklists/relative_date_field", name: "older", field_id: "older", legend: "Ended",
+        picked: @older_than, none_label: "Any time", date_label: "On or before", within_label: "More than", after_label: "ago" %>
+      <div class="form-check mt-2">
+        <%= check_box_tag :archived, "1", @archived, class: "form-check-input" %>
+        <%= label_tag :archived, "Archived ones", class: "form-check-label" %>
+      </div>
+      <%= submit_tag "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
+      <%= link_to "Back to #{@type.label.downcase}", back, class: "btn btn-link mt-2" if back %>
+    <% end %>
+    <%= form_with url: housekeeping_default_path(@type.key), method: :post, class: "mt-2 small" do %>
+      <%= hidden_field_tag :archived, "1" if @archived %>
+      <%= housekeeping_older_fields(@older_than) %>
+      <span class="text-body-secondary">
+        Opens on <%= @preference.archived? ? "archived ones" : "current ones" %><%= ", ended #{housekeeping_older_text(@preference.older_than)}" if @preference.older_than %> by default.
+      </span>
+      <%= submit_tag "Make this view my default", class: "btn btn-sm btn-link" %>
+    <% end %>
+  </div>
+</div>
+
+<%= form_with url: housekeeping_preview_path(@type.key), method: :post, class: "mt-3", data: { controller: "select-all" } do %>
+  <%= hidden_field_tag :archived, "1" if @archived %>
+  <%= housekeeping_older_fields(@older_than) %>
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th style="width: 2em">
+          <%= check_box_tag :select_all, "1", false, class: "form-check-input", "aria-label": "Select all",
+            data: { select_all_target: "all", action: "select-all#toggle" } %>
+        </th>
+        <th>Name</th>
+        <th>Ended</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @records.each do |record| %>
+        <tr>
+          <td><%= check_box_tag "ids[]", record.id, false, id: "select_#{record.id}", class: "form-check-input", data: { select_all_target: "item" } %></td>
+          <td><%= label_tag "select_#{record.id}", record.identifier_name, class: "form-check-label" %> <%= link_to "Open", record, class: "small ms-1" %></td>
+          <td><% if (ended = @type.ended_on(record)) %><%= l(ended, format: :long) %><% else %><span class="text-body-secondary">Not yet</span><% end %></td>
+        </tr>
+      <% end %>
+      <% if @records.empty? %>
+        <tr><td colspan="3" class="text-body-secondary">Nothing here<%= " ended #{housekeeping_older_text(@older_than)}" if @older_than %>.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+  <%= paginate @records %>
+
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <% if @archived %>
+      <%= button_tag "Restore selected", name: "act", value: "restore", class: "btn btn-primary" %>
+    <% else %>
+      <%= button_tag "Archive selected", name: "act", value: "archive", class: "btn btn-primary" %>
+    <% end %>
+    <% if @type.copyable? %>
+      <span class="ms-3">or</span>
+      <%= button_tag "Copy selected", name: "act", value: "copy", class: "btn btn-outline-primary" %>
+      <%= label_tag :shift_months, "with dates moved by", class: "form-label mb-0" %>
+      <%= number_field_tag :shift_months, 12, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em" %>
+      <span>months</span>
+    <% end %>
+  </div>
+  <p class="small text-body-secondary mt-2">
+    You'll see what will change first. Archived <%= @type.label.downcase %> leave menus and lists but can still be opened, and can be restored.
+  </p>
+<% end %>
