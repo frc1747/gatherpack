@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | waiting |
+| Status | started (`feature/email-rate-limit-retry`) |
 | Added | 2026-11-17 |
 | Commit checked | `upstream/main` @ `eeaa691aa`; `app/jobs/send_email_job.rb` from `f3b42845a`, Resend gateway from `8e6135f03` |
 | Planned branch | `feature/email-rate-limit-retry` |
@@ -16,8 +16,8 @@ Resend allows 10 API requests a second. `SendEmailJob` (`app/jobs/send_email_job
 
 ## Fix
 
-- `SendEmailJob`: `retry_on Resend::Error::RateLimitExceededError, wait: :polynomially_longer, attempts: 8` (guarded with `defined?(Resend)`), so throttled sends go out a few seconds later.
-- Optionally a gateway-neutral seam: gateways raise a common `Gateway::RateLimited` error that the job retries, so SMTP/Postmark throttling is handled the same way.
+- New `Gateway::RateLimited` error. Each sending gateway maps its own throttling error to it: Resend `RateLimitExceededError`, Postmark HTTP 429, SMTP `Net::SMTPServerBusy` (4xx).
+- `SendEmailJob`: `retry_on Gateway::RateLimited, wait: :polynomially_longer, attempts: 10` (about 3 s, 18 s, 83 s, …), so throttled sends go out later; any other error fails as before.
 
 ## Tests
 

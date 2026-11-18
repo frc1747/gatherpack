@@ -187,6 +187,14 @@ feature/announcement-search:
     read, not by hidden formatting or link addresses.
   audience: Everyone
 
+feature/email-rate-limit-retry:
+  title: Throttled emails are sent a little later, not lost
+  emoji: "📨"
+  description: >-
+    When the email service says too many messages were sent too quickly,
+    GatherPack tries each one again after a short wait instead of dropping it.
+  audience: Everyone
+
 feature/managed-lists:
   title: Lists you define
   emoji: "🗂️"
