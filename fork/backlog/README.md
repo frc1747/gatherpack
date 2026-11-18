@@ -60,6 +60,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-051](BL-051-admin-notice-flood.md) | Site admins get every team's approval, registration and join notices | fork-only | medium | waiting | 2026-11-17 |
 | [BL-052](BL-052-email-rate-limit-retry.md) | Emails over the Resend rate limit fail and are never retried | upstream bug | medium | started | 2026-11-17 |
 | [BL-053](BL-053-event-type-starts-locked.md) | Events members shouldn't check themselves in to must be locked one at a time; let an event type start its events locked | fork-only | medium | started | 2026-11-17 |
+| [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | waiting | 2026-11-17 |
 
 ## Fields
 
