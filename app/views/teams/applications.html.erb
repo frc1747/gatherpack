@@ -8,6 +8,7 @@
     <% end %>
   </div>
   <div class="card-body">
+    <%= render "intake/membership_applications/bulk", team: @team, applications: @pending_applications %>
     <% if @pending_applications.any? %>
       <% @pending_applications.each do |application| %>
         <div class="row align-items-center py-2 border-bottom">
