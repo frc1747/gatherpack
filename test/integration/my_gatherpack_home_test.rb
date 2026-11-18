@@ -77,6 +77,16 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     assert_equal [ "Last week", "Tomorrow", "Next month", "Undated" ], row_titles("todo")
   end
 
+  test "every to-do row's button looks the same, not just the first one's" do
+    register_todos item("One"), item("Two"), item("Three")
+
+    get root_path
+
+    buttons = css_select("[data-home-column=todo] .mg-row a.btn")
+    assert_equal 3, buttons.size
+    assert buttons.all? { |button| button["class"].include?("btn-primary") }
+  end
+
   test "a to-do row has one specific button, and names a ward only on that ward's row" do
     register_todos item("Permission slip", ward: "Maya", action: "Fill out"), item("My own form", action: "See shifts")
 
