@@ -1,0 +1,57 @@
+<%# Who one guardian choice emails. Both choices are rendered; the tick box shows one. %>
+<% guardians = sender.recipients.keys.select { |recipient| sender.guardian?(recipient) } %>
+<% own = sender.recipients.keys - guardians %>
+<div data-form-reminder-when="<%= state %>" <%= "hidden" unless shown %>>
+  <p class="fs-5 mb-2">
+    <% if sender.recipients.empty? %>
+      Nobody to email.
+    <% elsif guardians.any? %>
+      Email <%= pluralize(sender.recipients.size, "person", plural: "people") %>: <%= own.size %> about their own response and <%= pluralize(guardians.size, "guardian") %>.
+    <% else %>
+      Email <%= pluralize(sender.recipients.size, "person", plural: "people") %>.
+    <% end %>
+  </p>
+  <% if sender.large? %>
+    <div class="alert alert-warning py-2">This will email <%= pluralize(sender.recipients.size, "person", plural: "people") %>.</div>
+  <% end %>
+  <% if state == "off" && guardians.any? %>
+    <p class="text-muted mb-2"><%= pluralize(guardians.size, "guardian") %> <%= guardians.size == 1 ? "is" : "are" %> emailed either way, because the form needs them to sign or fill it in.</p>
+  <% end %>
+  <% if (unreached = sender.unreached).any? %>
+    <p class="text-muted mb-2">
+      <%= pluralize(unreached.size, "person", plural: "people") %> won't be reminded, because nobody can be emailed about them: <%= unreached.map(&:display_name).to_sentence %>.
+    </p>
+  <% end %>
+  <% if sender.recipients.any? %>
+    <details class="mb-3">
+      <summary>Who gets it</summary>
+      <% if own.any? %>
+        <% if guardians.any? %><h3 class="h6 mt-2">About their own response</h3><% end %>
+        <ul class="list-unstyled mb-2" style="columns: 3 14rem;">
+          <% own.sort_by(&:display_name).each do |person| %>
+            <li><%= person.display_name %></li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if guardians.any? %>
+        <h3 class="h6 mt-2">Guardians</h3>
+        <ul class="list-unstyled mb-2" style="columns: 2 20rem;">
+          <% guardians.sort_by(&:display_name).each do |person| %>
+            <li><%= person.display_name %> <span class="text-muted">(for <%= (sender.recipients[person] - [ person ]).map(&:display_name).to_sentence %>)</span></li>
+          <% end %>
+        </ul>
+      <% end %>
+    </details>
+
+    <h2 class="h5">Preview</h2>
+    <% [ own.first, guardians.first ].compact.each do |recipient| %>
+      <div class="border rounded p-3 mb-3 bg-body-tertiary">
+        <div class="small text-muted mb-2">
+          <%= sender.guardian?(recipient) ? "To guardians" : "To people about their own response" %>, for example <%= recipient.display_name %>
+          · Subject: <%= sender.email_subject %>
+        </div>
+        <%= sender.body(recipient).html_safe %>
+      </div>
+    <% end %>
+  <% end %>
+</div>
