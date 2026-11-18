@@ -57,6 +57,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-048](BL-048-orders-inventory-polish.md) | Orders/inventory: new-request autosave refused (blocking), menu links members can't open, phone layout, import preview, notices link | fork-only (bug) | high | shipped hbr.42 | 2026-11-15 |
 | [BL-049](BL-049-hbr42-docs-findings.md) | hbr.42 docs findings: activity "Counts toward" missing for sign-ups, To receive not in member menu, empty-looking ticks, filter wording, demo data | fork-only (bug) | medium | shipped hbr.43 | 2026-11-16 |
 | [BL-050](BL-050-hbr45-docs-findings.md) | hbr.43-45 docs findings: settings missing from Orders/Inventory setup pages, picker wording, funding dates, search match, midnight events on Family and Home, demo kiosk setting | fork-only (bug) | high | shipped hbr.47 | 2026-11-17 |
+| [BL-051](BL-051-admin-notice-flood.md) | Site admins get every team's approval, registration and join notices | fork-only | medium | waiting | 2026-11-17 |
+| [BL-052](BL-052-email-rate-limit-retry.md) | Emails over the Resend rate limit fail and are never retried | upstream bug | medium | waiting | 2026-11-17 |
 
 ## Fields
 
