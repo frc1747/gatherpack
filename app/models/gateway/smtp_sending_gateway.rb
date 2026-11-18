@@ -50,5 +50,7 @@ class Gateway::SmtpSendingGateway < Gateway
 
     mail.delivery_method :smtp, smtp_options
     mail.deliver
+  rescue Net::SMTPServerBusy => e
+    raise Gateway::RateLimited, e.message
   end
 end

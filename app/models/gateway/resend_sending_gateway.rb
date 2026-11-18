@@ -28,6 +28,8 @@ class Gateway::ResendSendingGateway < Gateway
       subject: subject,
       html: body
     })
+  rescue Resend::Error::RateLimitExceededError => e
+    raise Gateway::RateLimited, e.message
   end
 
   def self.webhook_headers
