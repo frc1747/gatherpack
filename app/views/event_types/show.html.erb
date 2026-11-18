@@ -5,6 +5,9 @@
     <h1><%= @event_type.identifier_name %></h1>
   </div>
   <div class="card-body">
+    <% if EventTypes::StartsLocked.enabled? && @event_type.starts_locked? %>
+      <p>New events start locked: only admins and the team's managers can check people in.</p>
+    <% end %>
     <h2>Events</h2>
     <ul>
       <% @event_type.events.order(start_time: :asc).each do |event| %>

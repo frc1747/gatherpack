@@ -7,6 +7,9 @@
   <div class="card-body">
     <p>
       <%= format_event_time_date(@event, :long_ordinal, false) %>
+      <% if @event.locked? %>
+        <span class="badge bg-secondary ms-1" title="Only admins and the team's managers can check people in">Locked</span>
+      <% end %>
     </p>
     <% if @event.location.present? %>
       <p>
