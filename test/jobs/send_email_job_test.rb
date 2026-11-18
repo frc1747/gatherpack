@@ -45,6 +45,14 @@ class SendEmailJobTest < ActiveJob::TestCase
     end
   end
 
+  test "emails send one at a time, whichever gateway sends them" do
+    first = SendEmailJob.new(nil, "one@example.com", "Subject", "Body")
+    second = SendEmailJob.new(Gateway::ResendSendingGateway.new, "two@example.com", "Subject", "Body")
+
+    assert_equal 1, SendEmailJob.concurrency_limit
+    assert_equal first.concurrency_key, second.concurrency_key
+  end
+
   test "other errors are not retried" do
     gateway = FlakyGateway.new(1, ArgumentError)
 
