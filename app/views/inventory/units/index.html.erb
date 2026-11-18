@@ -1,0 +1,25 @@
+<% breadcrumb :inventory_units %>
+<% content_for :title, "Find a part" %>
+
+<div class="row"><div class="col-lg-8 col-xl-6">
+  <h1 class="h3">Find a part</h1>
+  <%= form_with url: inventory_units_path, method: :get, class: "d-flex gap-2 mb-3" do |form| %>
+    <%= form.search_field :code, value: @query, placeholder: "Code or serial number", class: "form-control form-control-lg",
+          autocapitalize: "characters", autocomplete: "off", autofocus: true, aria: { label: "Code or serial number" } %>
+    <%= form.submit "Find", class: "btn btn-lg btn-primary" %>
+  <% end %>
+  <% if @query.present? %>
+    <% if @units.empty? %>
+      <p class="text-body-secondary">No part matches <%= @query %>.</p>
+    <% else %>
+      <ul class="list-group">
+        <% @units.each do |unit| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><%= link_to unit.identifier_name, inventory_unit_path(unit) %> <span class="small text-body-secondary"><%= unit.item.name %></span></span>
+            <%= unit_condition_badge(unit) %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  <% end %>
+</div></div>

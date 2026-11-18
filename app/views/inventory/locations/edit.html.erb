@@ -1,0 +1,7 @@
+<% breadcrumb :inventory_location, @location %>
+<% content_for :title, "Edit #{@location.name}" %>
+
+<div class="card">
+  <div class="card-header"><h1>Edit <%= @location.name %></h1></div>
+  <div class="card-body"><%= render "form", location: @location %></div>
+</div>

@@ -1,0 +1,18 @@
+<%# Units installed in parent_id (nil: straight on the machine), and what's
+    inside each, at any depth. %>
+<% Array(contents[parent_id]).each do |unit| %>
+  <li class="list-group-item <%= "list-group-item-danger" if unit.flagged? %>" id="<%= dom_id(unit) %>">
+    <div class="d-flex justify-content-between align-items-center gap-2">
+      <span>
+        <%= link_to unit.identifier_name, inventory_unit_path(unit), class: "fw-semibold" %>
+        <span class="small text-body-secondary"><%= unit.item.name %><%= " · #{unit.name}" if unit.name.present? && unit.code.present? %><%= " · inside another part" if parent_id.nil? && unit.installed_in_id %></span>
+      </span>
+      <%= unit_condition_badge(unit) %>
+    </div>
+    <% if contents[unit.id].present? %>
+      <ul class="list-group mt-2 ms-3">
+        <%= render "inventory/machines/unit_tree", contents: contents, parent_id: unit.id %>
+      </ul>
+    <% end %>
+  </li>
+<% end %>

@@ -1,0 +1,27 @@
+<%# The frame of every unit action page: the unit, the form, and the main
+    button in a bar fixed to the bottom. The block receives the form. %>
+<% breadcrumb :inventory_unit_action, unit, title %>
+<% content_for :title, "#{title}: #{unit.identifier_name}" %>
+
+<div class="row"><div class="col-lg-8 col-xl-6">
+  <h1 class="h3 mb-1"><%= title %></h1>
+  <p class="mb-3">
+    <%= link_to unit.identifier_name, inventory_unit_path(unit) %> <%= unit_condition_badge(unit) %><br>
+    <span class="text-body-secondary small"><%= unit.item.name %> · <%= unit_whereabouts(unit) %></span>
+  </p>
+
+  <%= form_with url: url, method: :post, multipart: local_assigns[:multipart], id: "unit_action_form" do |form| %>
+    <%= yield form %>
+    <div class="mb-3">
+      <%= form.label :note, local_assigns[:note_label] || "Note (optional)", class: "form-label" %>
+      <%= form.text_area :note, rows: 2, class: "form-control form-control-lg", required: local_assigns[:note_required] %>
+    </div>
+    <div class="pb-5 mb-5"></div>
+    <div class="fixed-bottom bg-body border-top p-2">
+      <div class="d-flex gap-2">
+        <%= link_to "Cancel", inventory_unit_path(unit), class: "btn btn-lg btn-warning" %>
+        <%= form.submit submit, class: "btn btn-lg #{local_assigns[:danger] ? "btn-danger" : "btn-primary"} flex-grow-1", data: { turbo_submits_with: "Saving…" } %>
+      </div>
+    </div>
+  <% end %>
+</div></div>
