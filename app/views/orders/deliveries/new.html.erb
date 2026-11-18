@@ -1,0 +1,51 @@
+<% breadcrumb :orders_delivery_new, @order_request, @line %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Receive <%= @line.display_name %></h1>
+    <small class="text-muted">
+      <%= @order_request.display_title %> · <%= @line.to_come_quantity %> of <%= @line.quantity %> still to come
+    </small>
+  </div>
+  <%= form_with model: @delivery, scope: :order_delivery, url: orders_request_line_deliveries_path(@order_request, @line, from: params[:from], mine: params[:mine]), class: "card-body" do |f| %>
+    <% if @delivery.errors.any? %>
+      <div class="alert alert-danger"><%= @delivery.errors.full_messages.to_sentence %></div>
+    <% end %>
+
+    <div class="mb-3">
+      <%= f.label :quantity, "How many came?", class: "form-label" %>
+      <%= f.number_field :quantity, min: 1, inputmode: "numeric", class: "form-control form-control-lg", required: true %>
+    </div>
+    <div class="mb-3">
+      <%= f.label :received_on, "Day it came", class: "form-label" %>
+      <%= f.date_field :received_on, class: "form-control form-control-lg", required: true %>
+    </div>
+    <div class="mb-3">
+      <%= f.label :delivery_problem_kind_id, "How is it?", class: "form-label" %>
+      <% problems = GatherPack::ManagedLists.find(:delivery_problem_kinds) %>
+      <%= f.select :delivery_problem_kind_id, managed_list_choices(problems, @delivery.delivery_problem_kind_id), { include_blank: "Good" }, class: "form-select form-select-lg" %>
+      <% if problems.allowed?(current_user) %>
+        <div class="form-text"><%= link_to "Manage #{problems.plural_label.downcase}", managed_list_path(problems.key) %></div>
+      <% end %>
+    </div>
+    <div class="mb-3">
+      <%= f.label :note, "Note", class: "form-label" %>
+      <%= f.text_area :note, rows: 2, class: "form-control", placeholder: "Anything the buyer should know" %>
+    </div>
+    <div class="mb-3">
+      <%= f.label :photo, "Photo", class: "form-label" %>
+      <%= f.file_field :photo, accept: "image/*", capture: "environment", class: "form-control" %>
+    </div>
+
+    <%# Fields other features add, such as where to put it away. %>
+    <% Orders.receiving_extensions.all.select(&:partial).each do |extension| %>
+      <%= render extension.partial, line: @line, form: f %>
+    <% end %>
+
+    <div class="pb-5 mb-4"></div>
+    <div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">
+      <%= link_to "Cancel", (params[:from] == "list" ? orders_deliveries_path(mine: params[:mine].presence) : orders_request_path(@order_request)), class: "btn btn-warning btn-lg" %>
+      <%= f.submit "Record delivery", class: "btn btn-primary btn-lg flex-grow-1" %>
+    </div>
+  <% end %>
+</div>

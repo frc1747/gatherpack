@@ -1,0 +1,88 @@
+<%# Receiving, on the request page (spec §3.6): what's still to arrive, the
+    buyer's problem and no-record actions, and what has arrived. %>
+<% lines = order_request.order_lines.reject(&:cancelled?) %>
+<% open = lines.select { |line| line.open_to_receive? && !line.problem? } %>
+<% problems = lines.select(&:problem?) %>
+<% delivered = lines.select { |line| line.order_deliveries.any? } %>
+<% can_receive = policy(order_request).receive? %>
+
+<% if open.any? || problems.any? || delivered.any? %>
+  <section class="mt-4" id="receiving">
+    <h2 class="h5">Receiving</h2>
+
+    <% if open.any? %>
+      <div class="list-group mb-3">
+        <% open.each do |line| %>
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span>
+                <strong><%= line.display_name %></strong>
+                <small class="text-muted d-block">
+                  <%= line.to_come_quantity %> of <%= line.quantity %> to come · <%= order_line_status_text(line) %>
+                  <% expected = line.expected_on || line.purchase&.expected_on %>
+                  <% if expected %> · Expected <%= l expected, format: :short %><% end %>
+                </small>
+              </span>
+              <% if can_receive %>
+                <%= link_to "Receive", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-primary btn-lg" %>
+              <% end %>
+            </div>
+            <% if policy(line).mark_received? %>
+              <%= form_with url: mark_received_orders_request_line_path(order_request, line), class: "d-flex gap-2 mt-2" do %>
+                <%= text_field_tag :note, nil, placeholder: "Went straight to… (needed)", required: true, class: "form-control form-control-lg", "aria-label": "Where it went" %>
+                <%= submit_tag "Already got it", class: "btn btn-secondary btn-lg text-nowrap" %>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% problems.each do |line| %>
+      <div class="alert alert-warning">
+        <strong><%= line.display_name %>: <%= order_line_status_text(line) %></strong>
+        <% last = line.order_deliveries.reject(&:good?).last %>
+        <% if last %>
+          <div><%= last.quantity %> came <%= last.condition_name.downcase %><%= ": #{last.note}" if last.note.present? %></div>
+        <% end %>
+        <% if can_receive && line.to_come_quantity.positive? %>
+          <div class="mt-2">
+            <%= link_to "Receive the rest (#{line.to_come_quantity} to come)", new_orders_request_line_delivery_path(order_request, line), class: "btn btn-primary btn-lg" %>
+          </div>
+        <% end %>
+        <% if policy(line).buy? %>
+          <%= form_with url: resolve_orders_request_line_path(order_request, line), class: "mt-2" do %>
+            <%= label_tag "quantity_#{line.id}", "How many to order again?", class: "form-label" %>
+            <%= number_field_tag :quantity, line.problem_quantity, id: "quantity_#{line.id}", min: 1, max: line.problem_quantity,
+                  class: "form-control form-control-lg mb-2" %>
+            <%= text_field_tag :comment, nil, placeholder: "Note (needed to cancel)", class: "form-control form-control-lg mb-2", "aria-label": "Note" %>
+            <%= button_tag "Order a replacement", name: "resolution", value: "reorder", class: "btn btn-primary btn-lg" %>
+            <%= button_tag "Cancel it", name: "resolution", value: "cancel", class: "btn btn-danger btn-lg" %>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if delivered.any? %>
+      <ul class="list-unstyled small text-muted">
+        <% delivered.each do |line| %>
+          <% line.order_deliveries.each do |delivery| %>
+            <li>
+              <%= delivery.quantity %> × <%= line.display_name %> on <%= l delivery.received_on, format: :short %>,
+              <%= delivery.condition_name.downcase %>, by <%= delivery.received_by.identifier_name %><%= ": #{delivery.note}" if delivery.note.present? %>
+            </li>
+          <% end %>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <% if can_receive && open.any? %>
+      <%# The page leaves room under the bar (see requests/show). %>
+      <% content_for :fixed_bottom_bar, "yes" %>
+      <div class="fixed-bottom bg-body border-top p-2">
+        <%= button_to "Mark all received", mark_all_received_orders_request_path(order_request), method: :post,
+              class: "btn btn-primary btn-lg w-100", form_class: "m-0" %>
+      </div>
+    <% end %>
+  </section>
+<% end %>

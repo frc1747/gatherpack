@@ -1,0 +1,34 @@
+<% breadcrumb :orders_approvals %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>To approve</h1>
+  </div>
+  <div class="list-group list-group-flush">
+    <% @order_requests.each do |order_request| %>
+      <% reapproval = !order_request.submitted? %>
+      <% flags = Orders::ApprovalFlags.new(order_request) %>
+      <%= link_to orders_request_path(order_request, anchor: "decision"), class: "list-group-item list-group-item-action py-3" do %>
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <strong><%= order_request.display_title %></strong>
+          <span class="text-nowrap"><%= order_request.total.format %></span>
+        </div>
+        <small class="text-muted d-block">
+          <%= order_request.team.name %> · <%= order_request.requested_by.identifier_name %>
+          <% if order_request.needed_by %>
+            · Needed by <%= l order_request.needed_by, format: :short %>
+          <% end %>
+        </small>
+        <% if reapproval %>
+          <span class="badge text-bg-warning">Needs re-approval</span>
+        <% end %>
+        <% flags.map(&:text).uniq.each do |text| %>
+          <span class="badge text-bg-light border"><%= text %></span>
+        <% end %>
+      <% end %>
+    <% end %>
+  </div>
+  <% if @order_requests.empty? %>
+    <div class="card-body text-muted">Nothing is waiting for you to approve.</div>
+  <% end %>
+</div>

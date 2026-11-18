@@ -1,0 +1,29 @@
+<%# One badge grant line. A row with no row is blank, for adding one. %>
+<div class="row g-2 align-items-center mb-2 border-bottom pb-2">
+  <%= hidden_field_tag setting_input_name(input, "rows", index, "line"), row&.line, id: nil %>
+  <% if row&.missing %>
+    <div class="col-12 col-sm text-danger">Not found: <%= row.line %></div>
+  <% else %>
+    <div class="col-12 col-sm">
+      <label class="visually-hidden" for="<%= setting_input_id(input, index, "badge") %>">Badge</label>
+      <%= select_tag setting_input_name(input, "rows", index, "badge"),
+                     options_for_select(badge_names, row&.badge_name),
+                     include_blank: "Choose a badge",
+                     id: setting_input_id(input, index, "badge"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+    <div class="col-12 col-sm">
+      <label class="visually-hidden" for="<%= setting_input_id(input, index, "team") %>">For team</label>
+      <%= select_tag setting_input_name(input, "rows", index, "team"),
+                     options_for_select(teams.map { |label, name| [ "Up to: #{label}", name ] }, row&.team_name),
+                     include_blank: Orders::SettingsEditor::BLANK_TEAM_LABEL,
+                     id: setting_input_id(input, index, "team"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+  <% end %>
+  <% if row %>
+    <div class="col-12 col-sm-auto">
+      <%= check_box_tag setting_input_name(input, "rows", index, "remove"), "1", false,
+                        id: setting_input_id(input, index, "remove"), class: "btn-check", autocomplete: "off" %>
+      <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center" style="min-height: 44px" for="<%= setting_input_id(input, index, "remove") %>">Remove</label>
+    </div>
+  <% end %>
+</div>

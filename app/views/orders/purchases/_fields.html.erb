@@ -1,0 +1,29 @@
+<%# What the vendor's checkout said. Used by new and edit. %>
+<div class="row">
+  <div class="col-12 col-md-4">
+    <%= f.input :vendor_order_number, label: "Order number", required: false %>
+  </div>
+  <div class="col-6 col-md-4">
+    <%= f.input :ordered_on, as: :string, label: "Order date", input_html: { type: "date" } %>
+  </div>
+  <div class="col-6 col-md-4">
+    <%= f.input :expected_on, as: :string, label: "Expected delivery", input_html: { type: "date" } %>
+  </div>
+</div>
+<div class="row">
+  <div class="col-6 col-md-3">
+    <%= f.input :shipping, as: :currency, required: false %>
+  </div>
+  <div class="col-6 col-md-3">
+    <%= f.input :tax, as: :currency, required: false %>
+  </div>
+  <div class="col-12 col-md-6">
+    <%# An order keeps a payment method since retired until someone picks another. %>
+    <%= managed_list_select f, :payment_method_id, list: :payment_methods, label: "Paid with",
+          include_blank: f.object.payment_method_id.blank? && f.object.persisted? %>
+  </div>
+</div>
+<%= f.input :tracking_url, label: "Tracking link", input_html: { type: "url", placeholder: "https://" } %>
+<%= f.input :receipts, as: :file, label: f.object.persisted? ? "Add receipts" : "Receipts",
+      input_html: { multiple: true, accept: "image/*,application/pdf" } %>
+<%= f.input :note, as: :text, input_html: { rows: 2 } %>
