@@ -13,7 +13,7 @@ class Mcp::Tools::GetEvent < Mcp::Tool
   include Mcp::EventRecords
 
   tool_name "get_event"
-  description "One event you can see: team, type, times, location, description and the people checked in " \
+  description "One event you can see: team, type, times, location, description, whether it's locked and the people checked in " \
     "(at most `limit`, by name; checkin_count is the full number). " \
     "Each check-in's ID is given only where you may remove it."
   scope :read

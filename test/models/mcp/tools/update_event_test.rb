@@ -34,7 +34,7 @@ class Mcp::Tools::UpdateEventTest < ActionDispatch::IntegrationTest
     assert_equal Time.utc(2026, 3, 10, 21), @alpha_event.end_time
 
     shown = call_tool("get_event", user: user(:admin), event_id: @alpha_event.neat_id).value
-    assert_equal shown, value.except("locked", "time_clock_period")
+    assert_equal shown, value.except("time_clock_period")
     assert_equal true, value["locked"]
     assert_equal @beta_period.neat_id, value.dig("time_clock_period", "id")
     assert_equal user(:admin).id.to_s, AuditLog.where(item_type: "Event", item_id: @alpha_event.id, event: "update").last.whodunnit

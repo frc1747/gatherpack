@@ -13,7 +13,7 @@ class Mcp::Tools::ListEvents < Mcp::Tool
 
   tool_name "list_events"
   description "Events you can see that start between `from` and `to` (YYYY-MM-DD, inclusive, at most 366 days, both ends counted), " \
-    "oldest first, with team, type, times and number of check-ins. Optionally only one team's or one event type's."
+    "oldest first, with team, type, times, whether it's locked and number of check-ins. Optionally only one team's or one event type's."
   scope :read
   feature :events
   input_schema(
@@ -41,9 +41,10 @@ class Mcp::Tools::ListEvents < Mcp::Tool
             start_time: { type: "string" },
             end_time: { type: [ "string", "null" ] },
             location: { type: [ "string", "null" ] },
+            locked: { type: "boolean", description: "Whether only admins and the team's managers can check people in" },
             checkin_count: { type: "integer" }
           },
-          required: %w[id name team event_type start_time end_time location checkin_count]
+          required: %w[id name team event_type start_time end_time location locked checkin_count]
         }
       },
       truncated: { type: "boolean" }
@@ -73,7 +74,8 @@ class Mcp::Tools::ListEvents < Mcp::Tool
       event_type: { id: event.event_type.neat_id, name: event.event_type.name.to_s },
       start_time: time_json(event.start_time),
       end_time: time_json(event.end_time),
-      location: event.location.presence
+      location: event.location.presence,
+      locked: event.locked == true
     }
   end
 

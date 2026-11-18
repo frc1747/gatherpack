@@ -46,10 +46,9 @@ class Mcp::Tools::UpdateEvent < Mcp::Tool
   )
   output_schema(Mcp::EventRecords::SCHEMA.merge(
     properties: Mcp::EventRecords::SCHEMA[:properties].merge(
-      locked: { type: "boolean" },
       time_clock_period: { anyOf: [ REF_SCHEMA, { type: "null" } ] }
     ),
-    required: Mcp::EventRecords::SCHEMA[:required] + %w[locked time_clock_period]
+    required: Mcp::EventRecords::SCHEMA[:required] + %w[time_clock_period]
   ))
 
   def call(event_id:, **changes)
@@ -63,7 +62,7 @@ class Mcp::Tools::UpdateEvent < Mcp::Tool
 
     changed!(event) if event.saved_changes?
     period = event.time_clock_period
-    event_json(event).merge(locked: event.locked == true, time_clock_period: period && { id: period.neat_id, name: period.name.to_s })
+    event_json(event).merge(time_clock_period: period && { id: period.neat_id, name: period.name.to_s })
   end
 
   private

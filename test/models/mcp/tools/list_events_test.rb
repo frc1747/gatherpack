@@ -21,12 +21,18 @@ class Mcp::Tools::ListEventsTest < ActiveSupport::TestCase
     assert_equal [ "Alpha Meeting", "Beta Meeting", "Open Day" ], names(list(:admin))
   end
 
-  test "events come with team, type, times and check-in count" do
+  test "events come with team, type, times, lock and check-in count" do
     item = list(:admin).value["items"].first
 
     assert_equal({ "id" => @alpha_event.neat_id, "name" => "Alpha Meeting", "team" => { "id" => @alpha.neat_id, "name" => "Alpha" },
       "event_type" => { "id" => event_types(:one).neat_id, "name" => event_types(:one).name.to_s },
-      "start_time" => "2026-03-10T18:00:00Z", "end_time" => "2026-03-10T19:00:00Z", "location" => nil, "checkin_count" => 2 }, item)
+      "start_time" => "2026-03-10T18:00:00Z", "end_time" => "2026-03-10T19:00:00Z", "location" => nil, "locked" => false, "checkin_count" => 2 }, item)
+  end
+
+  test "a locked event says so" do
+    @alpha_event.update!(locked: true)
+
+    assert list(:admin).value["items"].find { |i| i["id"] == @alpha_event.neat_id }["locked"]
   end
 
   test "a team without a manager role sees only their team's events, not team-less ones" do

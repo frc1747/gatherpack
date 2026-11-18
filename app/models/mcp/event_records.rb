@@ -14,6 +14,7 @@ module Mcp::EventRecords
       location: { type: [ "string", "null" ] },
       description: { type: [ "string", "null" ] },
       checkin_limit: { type: [ "integer", "null" ] },
+      locked: { type: "boolean", description: "Whether only admins and the team's managers can check people in" },
       checkin_count: { type: "integer" },
       attendees: {
         type: "array",
@@ -25,7 +26,7 @@ module Mcp::EventRecords
       },
       attendees_truncated: { type: "boolean" }
     },
-    required: %w[id name team event_type start_time end_time location description checkin_limit checkin_count attendees attendees_truncated]
+    required: %w[id name team event_type start_time end_time location description checkin_limit locked checkin_count attendees attendees_truncated]
   }.freeze
 
   private
@@ -45,6 +46,7 @@ module Mcp::EventRecords
       location: event.location.presence,
       description: event.description.presence,
       checkin_limit: event.checkin_limit.to_i.positive? ? event.checkin_limit : nil,
+      locked: event.locked == true,
       checkin_count: event.checkins.count,
       attendees: attendees[:items],
       attendees_truncated: attendees[:truncated]

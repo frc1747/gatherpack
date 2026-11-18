@@ -22,6 +22,14 @@ class Mcp::Tools::GetEventTest < ActiveSupport::TestCase
     assert_equal %w[checkin_id person], value["attendees"].first.keys.sort
   end
 
+  test "the event says whether it's locked" do
+    assert_equal false, get(:admin, @alpha_event).value["locked"]
+
+    @alpha_event.update!(locked: true)
+
+    assert_equal true, get(:admin, @alpha_event).value["locked"]
+  end
+
   test "checkin_id is given only to those who may remove that check-in" do
     ids = ->(viewer) { get(viewer, @alpha_event).value["attendees"].to_h { |a| [ a["person"]["name"], a["checkin_id"].present? ] } }
 
