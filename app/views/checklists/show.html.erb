@@ -1,0 +1,84 @@
+<% breadcrumb @checklist %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h1 class="mb-0"><%= @checklist.title %></h1>
+      <div class="text-body-secondary">
+        <%= @checklist.team.name %> · <%= checklist_window_text(@checklist) %>
+        <% unless @checklist.active? %><span class="badge text-bg-secondary"><%= @checklist.status.humanize %></span><% end %>
+      </div>
+    </div>
+    <% if policy(@checklist).copy? %>
+      <div class="d-flex gap-2 flex-wrap no-print">
+        <% if @organizer %>
+          <%= link_to "Edit", edit_checklist_path(@checklist), class: "btn btn-warning" %>
+          <%= button_to "Take Snapshot", checklist_checklist_lists_path(@checklist), class: "btn btn-secondary", form_class: "d-inline" %>
+          <%= button_to "Recompute", refresh_checklist_path(@checklist), class: "btn btn-outline-secondary", form_class: "d-inline" %>
+        <% end %>
+        <%= link_to "Copy", copy_checklist_path(@checklist), class: "btn btn-info" %>
+      </div>
+    <% end %>
+  </div>
+  <div class="card-body">
+    <%= md(@checklist.description) if @checklist.description.present? %>
+    <% if @checklist.ends_on %>
+      <p class="mb-1">
+        <% if @checklist.ends_on >= Date.current %>
+          Counting until <%= l(@checklist.ends_on, format: :long) %>; these are today's numbers.
+        <% else %>
+          As of <%= l(@checklist.ends_on, format: :long) %>, when counting stopped.
+          <% unless @checklist.archived? %>Results are frozen.<% if @organizer %> Recompute to apply corrections.<% end %><% end %>
+        <% end %>
+      </p>
+    <% end %>
+    <% if (change = @checklist.last_change_text(details: @full_view)) %>
+      <p class="small text-body-secondary mb-1"><%= change %>.</p>
+    <% end %>
+    <% if @checklist.archived? %>
+      <div class="alert alert-secondary mb-2 d-flex justify-content-between align-items-center">
+        <span>Archived: read-only. Results stay as they were.</span>
+        <%= button_to "Restore", restore_checklist_path(@checklist), class: "btn btn-sm btn-outline-secondary" if policy(@checklist).restore? %>
+      </div>
+    <% end %>
+    <% if @organizer && (problems = @checklist.problems).any? %>
+      <div class="alert alert-warning mb-2">
+        <p class="fw-semibold mb-1">Setup problems</p>
+        <ul class="mb-2"><% problems.each do |problem| %><li><%= problem %></li><% end %></ul>
+        <%= link_to "Fix them on the Edit page", edit_checklist_path(@checklist), class: "alert-link" %>
+      </div>
+    <% end %>
+    <% if @organizer %>
+      <%= form_with url: checklist_path(@checklist), method: :get, class: "d-flex gap-2 align-items-center no-print" do %>
+        <%= label_tag :as_of, "As of", class: "form-label mb-0" %>
+        <%= date_field_tag :as_of, @as_of, autocomplete: "off", class: "form-control form-control-sm w-auto" %>
+        <%= submit_tag "Show", class: "btn btn-sm btn-outline-primary", name: nil %>
+        <%= link_to "Today", checklist_path(@checklist), class: "btn btn-sm btn-link" if @as_of %>
+      <% end %>
+      <% if @as_of %>
+        <p class="small text-body-secondary mt-1 mb-0">
+          <% if @checklist.reads_stored_as_of?(@as_of) %>
+            The frozen results, as of <%= l(@checklist.ends_on, format: :long) %>.
+          <% else %>
+            Computed as of <%= l(@as_of, format: :long) %>; nothing is saved.
+          <% end %>
+        </p>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+
+<%= render "report", report: @report, checklist: @checklist, organizer: @organizer %>
+<% lists = policy(@checklist).copy? ? @checklist.checklist_lists.order(recorded_at: :desc).to_a : [] %>
+<% if lists.any? %>
+  <div class="card mt-3 no-print" id="lists">
+    <div class="card-header"><h2 class="h5 mb-0">Snapshots</h2></div>
+    <div class="card-body">
+      <ul class="list-unstyled mb-0">
+        <% lists.each do |list| %>
+          <li><%= link_to l(list.recorded_at, format: :long), checklist_checklist_list_path(@checklist, list) %><%= " — #{list.note}" if list.note.present? %></li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% end %>
