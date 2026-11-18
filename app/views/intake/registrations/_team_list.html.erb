@@ -1,0 +1,2 @@
+<%= f.input attribute, label: label, hint: hint, collection: teams, label_method: :name, value_method: :id,
+  input_html: { multiple: true, size: teams.size.clamp(2, 6) }, include_blank: false %>
