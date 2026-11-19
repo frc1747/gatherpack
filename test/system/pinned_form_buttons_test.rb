@@ -64,6 +64,39 @@ class PinnedFormButtonsTest < ApplicationSystemTestCase
     JS
     assert_in_delta fields_bottom, footer_top, 1
     assert_operator footer_bottom, :<, evaluate_script("window.innerHeight")
+    assert_not edge_shown?("main form .card-footer"), "a row that isn't stuck has no edge"
+  end
+
+  test "a stuck row shows its edge only while it's stuck" do
+    Settings[:feature_pinned_form_buttons] = "true"
+    page.driver.browser.manage.window.resize_to(*DESKTOP)
+    visit settings_path
+    save_card = "main form > .card:has(> .card-footer:only-child)"
+
+    assert edge_shown?(save_card), "the stuck Save row should have a top border and shadow"
+
+    execute_script("window.scrollTo({ top: document.documentElement.scrollHeight, behavior: \"instant\" })")
+    assert_not edge_shown?(save_card), "at the end of the form the row settles back without its edge"
+  end
+
+  [ [ "gp-form-actions", "gp-form-actions" ], [ "d-flex gap-2", "d-flex gap-2" ] ].each do |name, row_class|
+    test "a #{name} row ending a long form is pinned" do
+      Settings[:feature_pinned_form_buttons] = "true"
+      page.driver.browser.manage.window.resize_to(*DESKTOP)
+      visit new_badge_type_path
+      add_long_form(row_class:, method: "post")
+
+      assert save_in_view?("#long-form"), "the #{name} row should be pinned to the bottom of the window"
+    end
+  end
+
+  test "a long search form's button row isn't pinned" do
+    Settings[:feature_pinned_form_buttons] = "true"
+    page.driver.browser.manage.window.resize_to(*DESKTOP)
+    visit new_badge_type_path
+    add_long_form(row_class: "d-flex gap-2", method: "get")
+
+    assert_not save_in_view?("#long-form"), "a GET form's row should stay at the end of the form"
   end
 
   private
@@ -72,10 +105,39 @@ class PinnedFormButtonsTest < ApplicationSystemTestCase
     evaluate_script("document.documentElement.scrollHeight > window.innerHeight + 200")
   end
 
-  def save_in_view?
+  # A long form of plain fields ending in a button row, added to the page so
+  # the test needs no screen of its own.
+  def add_long_form(row_class:, method:)
+    execute_script(<<~JS, row_class, method)
+      const [rowClass, method] = arguments
+      const form = document.createElement("form")
+      form.id = "long-form"
+      form.method = method
+      for (let i = 0; i < 40; i++) {
+        form.insertAdjacentHTML("beforeend", `<div class="mb-3"><input class="form-control" name="field${i}"></div>`)
+      }
+      form.insertAdjacentHTML("beforeend", `<div class="${rowClass}"><input type="submit" class="btn btn-primary" value="Save"></div>`)
+      document.querySelector("main").prepend(form)
+      window.scrollTo({ top: 0, behavior: "instant" })
+    JS
+  end
+
+  # Whether the row's ::before edge (top border and shadow) is drawn, after
+  # the browser has had two frames to update scroll-state queries.
+  def edge_shown?(selector)
+    evaluate_async_script(<<~JS, selector)
+      const [selector, done] = arguments
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const style = getComputedStyle(document.querySelector(selector), "::before")
+        done(style.content !== "none" && style.boxShadow !== "none")
+      }))
+    JS
+  end
+
+  def save_in_view?(form = "main form")
     evaluate_script(<<~JS)
       (() => {
-        const rect = document.querySelector("main form input[type=submit][value=Save]").getBoundingClientRect()
+        const rect = document.querySelector("#{form} input[type=submit][value=Save]").getBoundingClientRect()
         return window.scrollY === 0 && rect.top >= 0 && rect.bottom <= window.innerHeight
       })()
     JS

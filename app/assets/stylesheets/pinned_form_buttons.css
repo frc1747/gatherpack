@@ -3,35 +3,70 @@
  * window while the form runs past it, and settles back in place at the end of
  * the form. Only linked while the feature is on (layouts/_pinned_form_buttons).
  *
- * Covered: a .card-footer or .actions row holding a submit button inside a
- * form, and a form's last card when it holds nothing but its footer (the
- * settings page), since a sticky row can't leave its own parent.
- * Left alone: search bars (turbo_search), modals, one-line forms (button_to),
- * forms with no button row, and rows a screen already pins itself.
+ * Covered, inside a form that isn't a GET (search) form or a button_to:
+ *   - a .card-footer holding a submit button;
+ *   - a form's card that holds nothing but its footer (the settings page),
+ *     since a sticky row can't leave its own parent;
+ *   - an .actions row holding a submit button;
+ *   - a .d-flex.gap-2 row that ends the form and holds a submit button;
+ *   - a .gp-form-actions row: add this class to any other row to pin it.
+ * Left alone: search bars (turbo_search), modals, one-line forms and rows a
+ * screen already pins itself.
  *
  * A fixed bar along the bottom of the window (a phone tab bar) can set
  * --gp-phone-tabs-height so the row sits just above it.
  */
 
-main form:not(.button_to) :is(
+main form:not(.button_to, [method="get" i]) :is(
   .card-footer:not(.card > .card-footer:only-child),
   .card:has(> .card-footer:only-child),
-  .actions
+  .actions,
+  form > .d-flex.gap-2:last-child,
+  .gp-form-actions
 ):has(:is(input, button)[type="submit"], button:not([type])):not(:has([data-action*="turbo_search"])):not(.modal *) {
   position: sticky;
   bottom: var(--gp-phone-tabs-height, 0px);
   z-index: 10;
+  container-type: scroll-state;
 }
 
 /* The footer's own background is see-through; lay it over the card colour. */
-main form:not(.button_to) .card-footer:has(:is(input, button)[type="submit"], button:not([type])):not(:has([data-action*="turbo_search"])):not(.modal *) {
+main form:not(.button_to, [method="get" i]) .card-footer:has(:is(input, button)[type="submit"], button:not([type])):not(:has([data-action*="turbo_search"])):not(.modal *) {
   background-image: linear-gradient(var(--bs-card-cap-bg), var(--bs-card-cap-bg));
   background-color: var(--bs-card-bg);
 }
 
-main form:not(.button_to) .actions:has(:is(input, button)[type="submit"], button:not([type])):not(.modal *) {
+/* Rows outside a card get the page background, so fields don't show through. */
+main form:not(.button_to, [method="get" i]) :is(
+  .actions,
+  form > .d-flex.gap-2:last-child,
+  .gp-form-actions
+):has(:is(input, button)[type="submit"], button:not([type])):not(:has([data-action*="turbo_search"])):not(.modal *) {
   padding-block: 0.5rem;
   background-color: var(--bs-body-bg);
+}
+
+/*
+ * While the row is stuck over the fields, a top border and a small shadow
+ * mark its edge. Browsers without scroll-state queries show the row without
+ * them; a row that isn't stuck (a short form) never gets them.
+ */
+@container scroll-state(stuck: bottom) {
+  main form :is(
+    .card-footer:not(.card > .card-footer:only-child),
+    .card:has(> .card-footer:only-child),
+    .actions,
+    form > .d-flex.gap-2:last-child,
+    .gp-form-actions
+  )::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-top: 1px solid var(--bs-border-color);
+    border-radius: inherit;
+    box-shadow: 0 -0.25rem 0.5rem rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+  }
 }
 
 /* Rows a screen already made sticky still clear a phone tab bar. */
