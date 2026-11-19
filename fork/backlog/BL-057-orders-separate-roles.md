@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (security) |
 | Priority | high |
-| Status | in progress (tasks 332-333) |
+| Status | built; on Ditto (preview 7e09e7ede), not yet released |
 | Added | 2026-11-18 |
 | Commit checked | `hbr/integration` @ `b251e91d3` (hbr.50) |
 | Planned branches | `feature/orders`, `feature/inventory` |

@@ -61,9 +61,9 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-052](BL-052-email-rate-limit-retry.md) | Emails over the Resend rate limit fail and are never retried | upstream bug | medium | shipped hbr.50 | 2026-11-17 |
 | [BL-053](BL-053-event-type-starts-locked.md) | Events members shouldn't check themselves in to must be locked one at a time; let an event type start its events locked | fork-only | medium | shipped hbr.50 | 2026-11-17 |
 | [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | waiting | 2026-11-17 |
-| [BL-055](BL-055-order-form-pinned-buttons.md) | Pinned Save/Cancel on every form (sticky button row), the standard Order Settings already uses | fork-only (UX) | medium | in progress | 2026-11-18 |
-| [BL-056](BL-056-orders-inventory-email-choices.md) | Orders and Inventory emails: one model, a site default (each time, daily digest, Weekly Infodump, off) and each person's own choice | fork-only | high | in progress | 2026-11-18 |
-| [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | in progress | 2026-11-18 |
+| [BL-055](BL-055-order-form-pinned-buttons.md) | Pinned Save/Cancel on every form (sticky button row), the standard Order Settings already uses | fork-only (UX) | medium | on Ditto | 2026-11-18 |
+| [BL-056](BL-056-orders-inventory-email-choices.md) | Orders and Inventory emails: one model, a site default (each time, daily digest, Weekly Infodump, off) and each person's own choice | fork-only | high | on Ditto | 2026-11-18 |
+| [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | on Ditto | 2026-11-18 |
 
 ## Fields
 
