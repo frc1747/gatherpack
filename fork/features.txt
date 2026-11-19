@@ -90,3 +90,4 @@ feature/announcement-search
 feature/team-badge-membership
 feature/event-type-starts-locked
 feature/email-rate-limit-retry
+feature/pinned-form-buttons
