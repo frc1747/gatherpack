@@ -53,6 +53,6 @@ Ask before changing the manifest order. A new branch needs, in one session:
 1. A line in `fork/features.txt` after its dependencies.
 2. An entry in `fork/catalog.yml` (title, emoji, description, audience, settings).
 3. `fork/sample_data/features/<name>.rb` (see `fork/sample_data/README.md`). Update it whenever the feature gains a state or a screen.
-4. A `FORK.md` row: status, upstream links, depends on, upstream files touched, migrations, flag, notes.
+4. A `FORK.md` row: status, upstream links, depends on, notes, upstream files touched, migrations, flag.
 
 Never commit `HBR-CHANGELOG.md` anywhere but integration. Commit messages follow upstream's style.
