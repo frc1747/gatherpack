@@ -1,36 +1,40 @@
-# BL-055: Order Settings Save/Cancel are pinned to the bottom of the screen, unlike every other form
+# BL-055: Pinned Save/Cancel on every form, not just Order Settings
 
 | | |
 |---|---|
-| Kind | fork-only (bug) |
-| Priority | low |
-| Status | waiting |
-| Added | 2026-11-18 |
-| Commit checked | `upstream/main` @ `eeaa691aa`; `feature/orders` @ `92bc6a174` |
-| Planned branch | `feature/orders` |
+| Kind | fork-only (UX) |
+| Priority | medium |
+| Status | in progress (task 334) |
+| Added | 2026-11-18; revised 2026-11-18 (owner: make the pinned bar the standard everywhere instead of removing it) |
+| Commit checked | `hbr/integration` @ `b251e91d3` (hbr.50) |
+| Planned branches | new `feature/pinned-form-buttons` (from `upstream/main`); `feature/orders` and `feature/inventory` (their own bars) |
 | Upstream issue / PR | none |
 
 ## Summary
 
-On Order Settings, Cancel and Save sit in a bar fixed to the bottom of the window, with Save stretched across the whole width. No other settings page or form in GatherPack does this: they end with ordinary Save and Cancel buttons at the bottom of the form. The Record delivery form has the same pinned bar.
+Order Settings and Record delivery keep Save and Cancel in a bar pinned to the bottom of the window. Every other form ends with ordinary buttons, so on a long form you scroll to the end to save. The fix is to make pinned buttons **the standard on every form**, not to remove them from Orders.
 
 ## Evidence
 
-- `app/views/orders/settings/show.html.erb:63-67`: `<div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">` with Cancel first and `f.submit "Save", class: "btn btn-success btn-lg flex-grow-1"`, plus a `pb-5 mb-4` spacer so the bar doesn't hide the last field.
-- `app/views/orders/deliveries/new.html.erb:44-49`: the same bar, Cancel `btn-warning`, "Record delivery" `btn-primary btn-lg flex-grow-1`.
-- Upstream's Setup page, the screen Order Settings should copy (`app/views/settings/index.html.erb:43-48`): a `card mt-3` with a `card-footer` holding `f.submit "Save", class: "btn btn-lg btn-success"` then `link_to "Cancel", :back, class: "btn btn-lg btn-primary"`, in normal page flow, natural width, Save first.
+- 204 views have a submit button. 138 put it in a `card-footer` (upstream's pattern, e.g. `app/views/settings/index.html.erb:43-48`). Others use `.actions`, `d-flex gap-2`, `col-auto` or `modal-footer`.
+- Orders' and Inventory's bars: `app/views/orders/settings/show.html.erb:64`, `app/views/orders/deliveries/new.html.erb:46` (`fixed-bottom`, a spacer, Save stretched full width).
 
-## Fix
+## Design
 
-1. **Order Settings:** replace the fixed bar and spacer with upstream's card footer: Save (`btn btn-lg btn-success`) then Cancel (`btn btn-lg btn-primary`, still going to `orders_requests_path`). Same for the Inventory and other fork Setup pages if any copied the bar (none found by `grep fixed-bottom` today).
-2. **Record delivery:** same treatment: buttons at the end of the form in page flow, "Record delivery" (`btn btn-primary btn-lg`) then Cancel (`btn btn-warning btn-lg`), natural width.
-3. **Keep** the "Mark all received" bar on a request (`app/views/orders/requests/_receive.html.erb:82`): it's a single action at the foot of a long line list that people use on a phone while unpacking, and it sets `content_for :fixed_bottom_bar` so the page leaves room. That's a deliberate exception, not a form footer.
+- **Sticky, not fixed.** A form's button row uses `position: sticky; bottom: 0`. While the form runs past the bottom of the window, the buttons stay in view at the bottom edge. Once the form's end scrolls into view, they sit in their usual place at the end of the form. Short forms look exactly as they do now. Nothing is hidden behind the bar, so no spacer is needed.
+- **Look:** the row keeps its own buttons, order and sizes, so upstream's "Save, then Cancel" stays. It gets the page background, a top border and a small shadow, so it reads as a bar over the fields scrolling behind it. On phones it sits above the bottom tab bar where one is shown.
+- **Which rows:** a form's `card-footer` that holds a submit button, plus the other endings found in the survey (`.actions` and the `d-flex gap-2` endings) that end a form with a submit. This is done in CSS (`:has()`), so no upstream view changes. Modal footers, search and filter bars, inline one-field forms and kiosk screens are left alone. Fork views that need it add the class `gp-form-actions`.
+- **Orders and Inventory:** Order Settings and Record delivery drop their own `fixed-bottom` bar and spacer and use the standard: a card footer with Save first, at natural width. The single-action bars ("Mark all received" on a request, unit actions, machine actions) stay as they are: they're one tap at the foot of a long list, not a form's Save.
+- **Flag** `feature_pinned_form_buttons` ("Pinned form buttons"), off by default (AGENT.md rule 10). With the flag off, nothing changes. Orders and Inventory then use their card footers unpinned.
 
 ## Tests
 
-- Update any system or view test that finds the buttons inside `.fixed-bottom` (`grep -rn fixed-bottom test/` on `feature/orders`).
-- Order Settings controller/system test still saves and Cancel still returns to the requests list.
+- System test: on a long form (Setup) at phone and desktop sizes, the Save button is in the viewport before scrolling with the flag on, and not with it off. A short form looks unchanged.
+- The flag's stylesheet is present only when the flag is on.
+- Orders/Inventory: tests that found buttons in `.fixed-bottom` are updated, and Save and Cancel still work.
 
 ## Fork notes
 
-Fork views only; no upstream files touched. Check the Orders help pages and gphelp screenshots of Order Settings and Record delivery after the change; recapture any that show the pinned bar.
+- `feature/pinned-form-buttons`: one line in `app/views/layouts/application.html.erb` that renders the flag's stylesheet. Placed away from smooth-pages' head line, checked by a trial merge into integration. Recorded in FORK.md "Upstream files touched".
+- The Orders and Inventory view changes are made after tasks 331-333 merge, because they edit the same settings view.
+- Recapture gphelp screenshots of long forms once HBR turns the flag on.
