@@ -1,0 +1,61 @@
+<%# Sample components only. Forms here have no submit button and save nothing. %>
+<header class="navbar navbar-dark bg-dark mb-3 px-3">
+  <span class="navbar-brand">Your site</span>
+</header>
+
+<main class="container-fluid">
+  <h1 class="h4">Page heading</h1>
+  <p>Body text on the page, with <a href="#">a link</a> and <span class="text-muted">muted text</span>.</p>
+  <p>
+    <button type="button" class="btn btn-primary">Primary</button>
+    <button type="button" class="btn btn-outline-primary">Outline</button>
+    <button type="button" class="btn btn-outline-secondary">Secondary</button>
+  </p>
+  <p>
+    <span class="badge text-bg-primary">Signed up</span>
+    <span class="badge text-bg-success">Clocked in</span>
+    <span class="text-success">On time</span>
+    <span class="text-danger">Overdue</span>
+  </p>
+
+  <div class="card mb-3">
+    <div class="card-header"><h2>A card</h2></div>
+    <div class="card-body">
+      <p>Card text with <a href="#">a link</a> and <span class="text-muted">muted text</span>.</p>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Jo Example</td><td><span class="badge text-bg-success">Clocked in</span></td></tr>
+          <tr><td>Sam Sample</td><td>Signed up</td></tr>
+        </tbody>
+      </table>
+
+      <form>
+        <div class="mb-3">
+          <label class="form-label" for="preview-name">Name</label>
+          <input class="form-control" id="preview-name" value="Jo Example">
+        </div>
+        <div class="mb-3 form-check">
+          <input class="form-check-input" type="checkbox" id="preview-check" checked>
+          <label class="form-check-label" for="preview-check">A choice</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Text editor</label>
+          <%= rich_text_area_tag "preview_rich_text", "<div>Rich text with <strong>bold</strong> and a <a href=\"#\">link</a>.</div>" %>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Code editor</label>
+          <div class="code-editor">
+            <textarea data-lang="ruby" readonly style="height: 7rem"># A comment
+class Greeter
+  def hello(name) = "Hi, #{name}" * 3
+end</textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+
+<%# Read by the theme page, so warnings follow the unsaved colors. %>
+<template id="palette-warnings"><%= render "theme/palette_warnings", warnings: @warnings %></template>
