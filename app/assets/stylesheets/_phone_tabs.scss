@@ -166,7 +166,9 @@ body:has(.phone-tabs) {
 @include media-breakpoint-down(md) {
   // Room for the bar, which is about 3.5rem tall plus the inset.
   body:has(.phone-tabs) {
-    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    // The tab bar's height, for anything else pinned to the bottom of the page.
+    --gp-phone-tabs-height: calc(3.5rem + env(safe-area-inset-bottom));
+    padding-bottom: var(--gp-phone-tabs-height);
 
     .breadcrumb-container {
       display: none;
