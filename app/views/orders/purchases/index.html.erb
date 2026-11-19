@@ -2,16 +2,23 @@
 
 <div class="card">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-    <h1><%= params[:mine].present? ? "Orders I placed" : "Vendor orders" %></h1>
+    <h1><%= params[:mine].present? ? "Orders I placed" : "Vendor orders" %><%= " not in ledger" if params[:not_in_ledger].present? && Orders::LedgerRecording.ledger_on? %></h1>
     <% if policy(Purchase).create? %>
       <div class="d-flex gap-2">
         <% if params[:mine].present? %>
-          <%= link_to "All orders", orders_purchases_path, class: "btn btn-outline-secondary" %>
+          <%= link_to "All orders", orders_purchases_path, class: "btn btn-secondary" %>
         <% else %>
-          <%= link_to "Orders I placed", orders_purchases_path(mine: 1), class: "btn btn-outline-secondary" %>
+          <%= link_to "Orders I placed", orders_purchases_path(mine: 1), class: "btn btn-secondary" %>
         <% end %>
         <%= link_to "To buy", to_buy_orders_purchases_path, class: "btn btn-primary" %>
       </div>
+    <% end %>
+    <% if Orders::LedgerRecording.ledger_on? %>
+      <% if params[:not_in_ledger].present? %>
+        <%= link_to "All orders", orders_purchases_path, class: "btn btn-secondary" %>
+      <% else %>
+        <%= link_to "Not in ledger", orders_purchases_path(not_in_ledger: 1), class: "btn btn-secondary" %>
+      <% end %>
     <% end %>
   </div>
   <div class="list-group list-group-flush">
@@ -28,7 +35,10 @@
             <% if full %>· <%= purchase.buyer.identifier_name %> · <%= orders_money(purchase.total_cents) %><% end %>
           </small>
         </span>
-        <small><%= purchase_status_text(purchase_policy.visible_lines) %></small>
+        <span class="text-end">
+          <small><%= purchase_status_text(purchase_policy.visible_lines) %></small>
+          <% if full %><br><%= render "orders/purchases/ledger_badge", purchase: purchase %><% end %>
+        </span>
       <% end %>
     <% end %>
   </div>

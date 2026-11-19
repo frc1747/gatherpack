@@ -74,6 +74,14 @@ class FundingSource < ApplicationRecord
     remaining_cents && Money.new(remaining_cents)
   end
 
+  # Links the source to a GatherPack Budget, or unlinks it with nil (spec
+  # §6). Requests still pick the source, never the Budget.
+  def link_budget!(budget)
+    raise Orders::Refused, "Budgets are turned off." unless Orders::LedgerRecording.budgets_on?
+
+    update!(budget: budget)
+  end
+
   def reload(*)
     @numbers = nil
     super

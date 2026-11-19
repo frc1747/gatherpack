@@ -37,7 +37,8 @@ module Orders
       admin? || managed_team_ids.include?(team_id)
     end
 
-    # Teams reached as an approver on the step (management included).
+    # Teams reached as an approver on the step: by its rows, not by
+    # managing a team.
     def approver_team_ids(step)
       @approver_team_ids ||= {}
       @approver_team_ids[step.key] ||= step.reach.team_ids(person).to_set
@@ -60,7 +61,7 @@ module Orders
       admin? || buyer_team_ids.include?(team_id)
     end
 
-    # Holds a buyer grant or manages a team, so has a To buy list at all.
+    # Has a buyer row reaching some team, so has a To buy list at all.
     def buyer?
       admin? || buyer_team_ids.any?
     end
@@ -90,17 +91,19 @@ module Orders
     end
 
     # Sees a request as more than its requester, follower or team member:
-    # manages its team, or reaches it as an approver or buyer.
+    # reaches its team as an approver, buyer or funding manager (or is an
+    # admin). Managing the team alone doesn't count.
     def staff_for?(team_id)
-      manages?(team_id) || any_approver_team_ids.include?(team_id) || buyer_for?(team_id)
+      admin? || any_approver_team_ids.include?(team_id) || buyer_for?(team_id) || funding_manager_for?(team_id)
     end
 
-    # May choose a request's funding source: its team's managers until it's
-    # finished, an approver who can decide it now, and its requester while
-    # it's editable when orders_requesters_pick_funding is on.
+    # May choose a request's funding source: admins and its team's funding
+    # managers until it's finished, an approver who can decide it now, and
+    # its requester while it's editable when orders_requesters_pick_funding
+    # is on. Managing the team alone doesn't count.
     def sets_funding?(order_request)
       return false if person.nil?
-      return true if manages?(order_request.team_id) && !order_request.finished?
+      return true if funding_manager_for?(order_request.team_id) && !order_request.finished?
       return true if order_request.can_decide?(person)
 
       order_request.requested_by_id == person.id && order_request.editable? && Orders::Config.requesters_pick_funding?
@@ -111,10 +114,11 @@ module Orders
       person.present? && staff_for?(order_request.team_id)
     end
 
-    # The teams a person may make a request for: those they're on and those
-    # they manage (all for an admin).
+    # The teams a person may make a request for: those they're on, those
+    # they manage, and those orders_requesters' grant rows reach for them
+    # (all for an admin).
     def request_team_ids
-      @request_team_ids ||= admin? ? nil : member_team_ids | managed_team_ids
+      @request_team_ids ||= admin? ? nil : member_team_ids | managed_team_ids | requester_reach_team_ids
     end
 
     def may_request_for?(team_id)
@@ -122,14 +126,32 @@ module Orders
     end
 
     # May make requests at all (orders_requesters): everyone signed in when
-    # the setting is blank, else members of its teams and the teams below.
+    # the setting is blank, else members of its teams and the teams below,
+    # and those its grant rows reach any team for.
     def requester?
       return false if person.nil?
       return @requester unless @requester.nil?
 
       teams = Orders::Config.requester_teams
-      @requester = admin? || teams.nil? ||
-        (member_team_ids & teams.flat_map { |team| [ team.id ] + team.all_descendant_ids }.to_set).any?
+      @requester = admin? || teams.nil? || member_of_any?(teams) || requester_reach_team_ids.any?
+    end
+
+    def requester_reach_team_ids
+      @requester_reach_team_ids ||= person.nil? ? Set.new : Orders::Config.requester_reach.granted_team_ids(person).to_set
+    end
+
+    # Sees every request that isn't a draft (orders_viewers), read only:
+    # members of its teams and the teams below, as for orders_requesters.
+    def sees_every_request?
+      return false if person.nil?
+      return @sees_every_request unless @sees_every_request.nil?
+
+      teams = Orders::Config.viewer_teams
+      @sees_every_request = teams.any? && member_of_any?(teams)
+    end
+
+    def member_of_any?(teams)
+      (member_team_ids & teams.flat_map { |team| [ team.id ] + team.all_descendant_ids }.to_set).any?
     end
 
     def steps

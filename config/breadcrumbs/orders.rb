@@ -37,8 +37,22 @@ crumb :orders_report do |report|
   parent :orders_reports
 end
 
+crumb :orders_approval_steps do
+  link "Approval Steps", orders_approval_steps_path
+  parent :setup
+end
+
+crumb :orders_approval_step do |step|
+  if step.new_record?
+    link "New approval step", new_orders_approval_step_path
+  else
+    link step.name_was, edit_orders_approval_step_path(step)
+  end
+  parent :orders_approval_steps
+end
+
 crumb :orders_settings do
-  link "Orders settings", orders_settings_path
+  link "Orders setup", orders_settings_path
   parent :orders_requests
 end
 
@@ -50,9 +64,4 @@ end
 crumb :orders_delivery_new do |order_request, line|
   link "Receive #{line.display_name}", new_orders_request_line_delivery_path(order_request, line)
   parent :order_request, order_request
-end
-
-crumb :orders_notice_preference do
-  link "Buying notices", edit_orders_notice_preference_path
-  parent :orders_requests
 end

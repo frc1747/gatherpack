@@ -4,7 +4,7 @@ module Orders
   # only through one of its requests gets its vendor, date and status, and
   # their own items.
   class PurchasesController < BaseController
-    PURCHASE_FIELDS = %i[vendor_order_number ordered_on expected_on tracking_url shipping tax paid_with note].freeze
+    PURCHASE_FIELDS = %i[vendor_order_number ordered_on expected_on tracking_url shipping tax payment_method_id note].freeze
 
     before_action :set_purchase, only: %i[show edit update make_vendor]
 
@@ -15,6 +15,7 @@ module Orders
       @purchases = policy_scope(Purchase).includes(:vendor, :buyer, order_lines: :order_request)
         .order(Purchase.arel_table[:ordered_on].desc.nulls_last, created_at: :desc)
       @purchases = @purchases.where(buyer: current_user.person) if params[:mine].present?
+      @purchases = @purchases.where(ledger_entry_id: nil) if params[:not_in_ledger].present? && Orders::LedgerRecording.ledger_on?
       @purchases = @purchases.page(params[:page])
     end
 
@@ -35,7 +36,8 @@ module Orders
     def new
       authorize Purchase, :create?
       @group = Orders::ToBuy.new(current_user.person).selection(params[:line_ids])
-      @purchase = Purchase.new(ordered_on: Date.current, paid_with: paid_with_labels.first)
+      Orders::Lists.seed!
+      @purchase = Purchase.new(ordered_on: Date.current, payment_method: PaymentMethod.active.ordered.first)
     end
 
     # POST /orders/purchases
@@ -44,10 +46,21 @@ module Orders
       @group = Orders::ToBuy.new(current_user.person).selection(params[:line_ids])
       @purchase = Purchase.new(purchase_attributes)
       vendor, other_vendor_name = chosen_vendor
+      ledger = ledger_choice
       purchase = Orders::RecordPurchase.new(buyer: current_user.person, lines: @group.lines, vendor: vendor,
         other_vendor_name: other_vendor_name, prices: line_prices, attributes: purchase_attributes,
         receipts: params.dig(:purchase, :receipts)).call
-      redirect_to orders_purchase_path(purchase), notice: recorded_notice(purchase)
+      notice = recorded_notice(purchase)
+      if ledger
+        # After the purchase commits, so its receipts are stored and can be
+        # copied to the entry.
+        begin
+          Orders::RecordInLedger.new(purchase, ledger: ledger, by: current_user.person).call
+        rescue Orders::Refused => e
+          return redirect_to orders_purchase_path(purchase), notice: notice, alert: e.message
+        end
+      end
+      redirect_to orders_purchase_path(purchase), notice: notice
     rescue ActiveRecord::RecordInvalid => e
       prefix = e.record.is_a?(OrderLine) ? "#{e.record.display_name}: " : ""
       @errors = e.record.errors.full_messages.map { |message| prefix + message }
@@ -87,11 +100,14 @@ module Orders
     def purchase_attributes
       attributes = params.fetch(:purchase, {}).permit(*PURCHASE_FIELDS).to_h
       %w[shipping tax].each { |field| attributes[field] = "0" if attributes.key?(field) && attributes[field].blank? }
-      attributes.delete("paid_with") if attributes.key?("paid_with") && !attributes["paid_with"].in?(paid_with_labels)
-      if attributes.key?("paid_with")
-        choice = Orders::Config.paid_with.find { |option| option.label == attributes["paid_with"] }
-        # Whoever paid with their own card is the buyer, not whoever edits it later.
-        attributes["reimburse_to_id"] = choice.reimburse ? (@purchase&.buyer_id || current_user.person.id) : nil
+      if attributes.key?("payment_method_id")
+        method = payment_method_choice(attributes["payment_method_id"])
+        if method.nil? && attributes["payment_method_id"].present?
+          attributes.delete("payment_method_id")
+        else
+          # Whoever paid with their own money is the buyer, not whoever edits it later.
+          attributes["reimburse_to_id"] = method&.reimburse ? (@purchase&.buyer_id || current_user.person.id) : nil
+        end
       end
       attributes
     end
@@ -116,8 +132,23 @@ module Orders
       end.to_h
     end
 
-    def paid_with_labels
-      Orders::Config.paid_with.map(&:label)
+    # The ledger to record the purchase in, when Record in ledger is ticked
+    # (spec §6). Checked before anything is recorded, so a ledger the buyer
+    # can't add to refuses the purchase too.
+    def ledger_choice
+      return unless params[:record_in_ledger] == "1" && Orders::LedgerRecording.ledger_on?
+
+      ledger = Ledger.find_by(id: params[:ledger_id])
+      Orders::RecordInLedger.check!(ledger: ledger, by: current_user.person)
+      ledger
+    end
+
+    # An active payment method, or the purchase's own one even if it has
+    # since been retired.
+    def payment_method_choice(id)
+      return nil if id.blank?
+
+      PaymentMethod.active.find_by(id: id) || (PaymentMethod.find_by(id: id) if @purchase&.payment_method_id == id)
     end
 
     def recorded_notice(purchase)

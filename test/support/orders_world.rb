@@ -8,7 +8,8 @@ require "support/settings_test_helper"
 #   art                   outsider
 #
 # Plus an admin, a manager of robotics, a buyer and a funding manager
-# (badge grants), a parent (relative of the requester) and two vendors.
+# (badge grants), a parent (relative of the requester), two vendors and the
+# orders lists' starting rows (payment methods, delivery problem kinds).
 module OrdersWorld
   include SettingsTestHelper
 
@@ -46,25 +47,83 @@ module OrdersWorld
       other_vendor: Vendor.create!(name: "Hardware Barn", domains: [ "hardwarebarn.example" ])
     )
     relate(world.parent, world.requester)
+    PaymentMethod.seed_defaults!(Orders::Lists::PAYMENT_METHODS)
+    Orders::Lists.seed_delivery_problem_kinds!
     world
   end
 
   # Settings that turn orders on and give the world's badges their grants.
+  # Each role also has a "Managers of each team" row, as a site upgraded
+  # from when team managers always could has (MANAGERS_ROW).
+  # approval_steps isn't a setting: #with_settings makes ApprovalStep rows
+  # from it for the block (#apply_orders_settings).
   def orders_settings(world, **overrides)
     {
       feature_orders: "true",
-      orders_approval_steps: JSON.generate([ { "key" => "approval", "name" => "Approval", "minimum" => 0,
-        "approvers" => [ "#{world.approver_badge.name} > #{world.club.name}" ] } ]),
-      orders_buyers: "#{world.buyer_badge.name} > #{world.club.name}",
-      orders_funding_managers: "#{world.funder_badge.name} > #{world.club.name}"
+      approval_steps: [ { key: "approval", name: "Approval", minimum: 0, approvers: [ [ world.approver_badge, world.club ], MANAGERS_ROW ] } ],
+      orders_buyers: "#{world.buyer_badge.name} > #{world.club.name}\n#{Orders::Reach::OWN_TEAM_LINE}",
+      orders_funding_managers: "#{world.funder_badge.name} > #{world.club.name}\n#{Orders::Reach::OWN_TEAM_LINE}"
     }.merge(overrides)
   end
 
+  # An approver row for the managers of the request's own team, in an
+  # approval_steps spec's approvers.
+  MANAGERS_ROW = :managers_of_each_team
+
   def two_step_settings(world, minimum: 500)
-    orders_settings(world, orders_approval_steps: JSON.generate([
-      { "key" => "mentor", "name" => "Mentor", "minimum" => 0, "approvers" => [ "#{world.approver_badge.name} > #{world.club.name}" ] },
-      { "key" => "treasurer", "name" => "Treasurer", "minimum" => minimum, "approvers" => [] }
-    ]))
+    orders_settings(world, approval_steps: [
+      { key: "mentor", name: "Mentor", minimum: 0, approvers: [ [ world.approver_badge, world.club ], MANAGERS_ROW ] },
+      { key: "treasurer", name: "Treasurer", minimum: minimum, approvers: [ MANAGERS_ROW ] }
+    ])
+  end
+
+  # Settings as SettingsTestHelper takes them, with approval_steps: given as
+  # [{ key:, name:, minimum: (dollars), approvers: [[badge, team or nil],
+  # MANAGERS_ROW, { kind:, manager_team:, team: }] }]
+  # replacing the ApprovalStep rows. Returns a proc that puts back the
+  # settings and the steps there were before.
+  def apply_orders_settings(values)
+    values = values.to_h.symbolize_keys
+    steps = values.delete(:approval_steps)
+    before = approval_step_specs if steps
+    replace_approval_steps(steps) if steps
+    restore_settings = SettingsTestHelper.apply(values)
+    lambda do
+      restore_settings.call
+      replace_approval_steps(before) if steps
+    end
+  end
+
+  def with_settings(values)
+    restore = apply_orders_settings(values)
+    yield
+  ensure
+    restore&.call
+  end
+
+  def replace_approval_steps(specs)
+    ApprovalStepApprover.delete_all
+    ApprovalStep.delete_all
+    specs.each_with_index do |spec, index|
+      step = ApprovalStep.create!(key: spec[:key], name: spec[:name], position: index,
+        minimum_cents: (spec[:minimum].to_d * 100).round, active: spec.fetch(:active, true))
+      spec[:approvers].to_a.each { |approver| step.approvers.create!(approver_attributes(approver)) }
+    end
+  end
+
+  def approval_step_specs
+    ApprovalStep.ordered.includes(:approvers).map do |step|
+      { key: step.key, name: step.name, minimum: step.minimum_cents / 100r, active: step.active,
+        approvers: step.approvers.map { |approver| approver.slice(:kind, :badge, :manager_team, :team).symbolize_keys } }
+    end
+  end
+
+  def approver_attributes(approver)
+    case approver
+    when MANAGERS_ROW then { kind: :own_team_managers }
+    when Hash then approver
+    else { badge: approver[0], team: approver[1] }
+    end
   end
 
   def with_orders(world, **overrides, &block)
@@ -115,6 +174,11 @@ module OrdersWorld
     price = line.delete(:price)
     line[:estimated_unit_price_cents] = (price * 100).round if price
     line
+  end
+
+  # A payment method by name: "Team card", or "Paid personally" (reimburse).
+  def payment_method(name)
+    PaymentMethod.find_by!(name: name)
   end
 
   def buy(world, lines, vendor: nil, prices: {}, **attributes)

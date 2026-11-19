@@ -21,8 +21,12 @@
       <%= f.date_field :received_on, class: "form-control form-control-lg", required: true %>
     </div>
     <div class="mb-3">
-      <%= f.label :condition, "How is it?", class: "form-label" %>
-      <%= f.select :condition, [ [ "Good", "good" ], [ "Damaged", "damaged" ], [ "Wrong item", "wrong_item" ] ], {}, class: "form-select form-select-lg" %>
+      <%= f.label :delivery_problem_kind_id, "How is it?", class: "form-label" %>
+      <% problems = GatherPack::ManagedLists.find(:delivery_problem_kinds) %>
+      <%= f.select :delivery_problem_kind_id, managed_list_choices(problems, @delivery.delivery_problem_kind_id), { include_blank: "Good" }, class: "form-select form-select-lg" %>
+      <% if problems.allowed?(current_user) %>
+        <div class="form-text"><%= link_to "Manage #{problems.plural_label.downcase}", managed_list_path(problems.key) %></div>
+      <% end %>
     </div>
     <div class="mb-3">
       <%= f.label :note, "Note", class: "form-label" %>
@@ -38,10 +42,10 @@
       <%= render extension.partial, line: @line, form: f %>
     <% end %>
 
-    <div class="pb-5 mb-4"></div>
-    <div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">
-      <%= link_to "Cancel", (params[:from] == "list" ? orders_deliveries_path(mine: params[:mine].presence) : orders_request_path(@order_request)), class: "btn btn-outline-secondary btn-lg" %>
-      <%= f.submit "Record delivery", class: "btn btn-primary btn-lg flex-grow-1" %>
+    <%# The form's buttons; Pinned form buttons keeps them in view on a long form. %>
+    <div class="gp-form-actions d-flex gap-2 mt-3">
+      <%= f.submit "Record delivery", class: "btn btn-primary btn-lg" %>
+      <%= link_to "Cancel", (params[:from] == "list" ? orders_deliveries_path(mine: params[:mine].presence) : orders_request_path(@order_request)), class: "btn btn-warning btn-lg" %>
     </div>
   <% end %>
 </div>

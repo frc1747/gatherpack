@@ -17,7 +17,7 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
   end
 
   def delivery_params(**overrides)
-    { order_delivery: { quantity: 3, received_on: Date.current.to_s, condition: "good", note: "" }.merge(overrides) }
+    { order_delivery: { quantity: 3, received_on: Date.current.to_s, delivery_problem_kind_id: "", note: "" }.merge(overrides) }
   end
 
   test "To receive lists open items by purchase, and mine=1 only own and followed requests" do
@@ -58,8 +58,13 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
       get orders_deliveries_url(mine: 1)
 
       # The orders tables are what grows with the list; the layout's own
-      # lookups (theme, logo) aren't counted.
+      # lookups (theme, logo) aren't counted. The query cache lives across
+      # requests in a test, so each count starts from an empty one: otherwise
+      # a lookup that runs once per request (the grants' team by name) counts
+      # or not depending on what the request before it, or a write since,
+      # left in the cache.
       count = lambda do
+        ActiveRecord::Base.clear_query_caches_for_current_thread
         queries = 0
         counter = ->(*, payload) { queries += 1 if payload[:sql].match?(/FROM "(order_\w+|purchases|vendors|teams)"/) && !payload[:cached] }
         ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { get orders_deliveries_url(mine: 1) }
@@ -93,7 +98,9 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "input[name='order_delivery[quantity]'][value='3']"
       assert_select "input[name='order_delivery[received_on]']"
-      assert_select "select[name='order_delivery[condition]']"
+      assert_select "select[name='order_delivery[delivery_problem_kind_id]'] option[selected]", 0
+      assert_select "select[name='order_delivery[delivery_problem_kind_id]'] option", 3
+      assert_select "select[name='order_delivery[delivery_problem_kind_id]'] option[value='']", "Good"
       assert_select "textarea[name='order_delivery[note]']"
       assert_select "input[type=file][name='order_delivery[photo]']"
     end
@@ -148,8 +155,9 @@ class Orders::DeliveriesControllerTest < ActionDispatch::IntegrationTest
       line = order_request.order_lines.find_by(description: "Gear")
       sign_in @world.requester.user
 
-      post orders_request_line_deliveries_url(order_request, line), params: delivery_params(condition: "damaged", note: "Crushed box")
+      post orders_request_line_deliveries_url(order_request, line), params: delivery_params(delivery_problem_kind_id: DeliveryProblemKind.find_by!(key: "damaged").id, note: "Crushed box")
       assert line.reload.problem?
+      assert_equal "Damaged", line.order_deliveries.last.condition_name
     end
   end
 

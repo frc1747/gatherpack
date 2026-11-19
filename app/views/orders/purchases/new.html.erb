@@ -71,10 +71,11 @@
       </div>
 
       <%= render "orders/purchases/fields", f: f %>
+      <%= render "orders/purchases/ledger_choice" %>
 
       <div class="d-flex gap-2">
         <%= f.button :submit, "Record purchase", class: "btn btn-primary" %>
-        <%= link_to "Back to To buy", to_buy_orders_purchases_path, class: "btn btn-outline-secondary" %>
+        <%= link_to "Back to To buy", to_buy_orders_purchases_path, class: "btn btn-secondary" %>
       </div>
     <% end %>
   </div>

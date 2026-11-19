@@ -41,8 +41,9 @@ class OrdersReceiveTest < ApplicationSystemTestCase
       fill_in "How many came?", with: "2"
       select "Good", from: "How is it?"
       fill_in "Note", with: "Two of three"
-      # The main action sits in a bar fixed to the bottom of the screen.
-      assert_equal "fixed", evaluate_script("getComputedStyle(document.querySelector('.fixed-bottom')).position")
+      # The form ends in the standard button row (pinned while Pinned form buttons is on), not a bar of its own.
+      assert_selector ".gp-form-actions input[type=submit][value='Record delivery']"
+      assert_no_selector ".fixed-bottom input[type=submit]"
       click_on "Record delivery"
 
       assert_text "Recorded: Gear"

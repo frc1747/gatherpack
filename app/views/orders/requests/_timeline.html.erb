@@ -24,7 +24,7 @@
       <%= f.label :person_id, "Add someone to follow it", class: "visually-hidden" %>
       <%= f.select :person_id, candidates.map { |person| [ person.identifier_name, person.id ] },
             { prompt: "Add someone to follow it" }, class: "form-select" %>
-      <%= f.submit "Add", class: "btn btn-outline-primary" %>
+      <%= f.submit "Add", class: "btn btn-primary" %>
     <% end %>
   <% end %>
 </section>
@@ -62,7 +62,7 @@
     <%= form_with url: comment_orders_request_path(order_request), class: "no-print" do |f| %>
       <%= f.label :comment, "Add a comment", class: "form-label" %>
       <%= f.text_area :comment, rows: 2, class: "form-control mb-2", required: true %>
-      <%= f.submit "Comment", class: "btn btn-outline-primary" %>
+      <%= f.submit "Comment", class: "btn btn-primary" %>
     <% end %>
   <% end %>
   <div class="orders-has-bar"></div>

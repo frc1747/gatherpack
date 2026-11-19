@@ -1,0 +1,38 @@
+<%# One grant row of Orders::GrantRows. A row with no row is blank, for adding one. %>
+<% field = ->(part) { "settings[#{name}][rows][#{index}][#{part}]" } %>
+<% id = ->(part) { "settings_#{name}_#{index}_#{part}" } %>
+<% kind = row&.kind&.to_s || "badge" %>
+<div class="row g-2 align-items-center mb-2 border-bottom pb-2" data-orders-grant-row>
+  <%= hidden_field_tag field.call("line"), row&.line, id: nil %>
+  <% if row&.missing %>
+    <div class="col-12 col-sm text-danger">Not found: <%= row.line %></div>
+  <% else %>
+    <div class="col-12 col-sm">
+      <label class="visually-hidden" for="<%= id.call("kind") %>">Who</label>
+      <%= select_tag field.call("kind"), options_for_select(Orders::GrantRows::WHO_CHOICES, kind),
+                     id: id.call("kind"), class: "form-select", style: "min-height: 44px",
+                     data: { orders_grant_rows_target: "who", action: "orders-grant-rows#change" } %>
+    </div>
+    <div class="col-12 col-sm" data-for-kind="badge">
+      <label class="visually-hidden" for="<%= id.call("badge") %>">Badge</label>
+      <%= select_tag field.call("badge"), options_for_select(rows.badge_names, row&.badge_name),
+                     include_blank: "Choose a badge", id: id.call("badge"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+    <div class="col-12 col-sm" data-for-kind="team_managers">
+      <label class="visually-hidden" for="<%= id.call("manager_team") %>">Managers of</label>
+      <%= select_tag field.call("manager_team"), options_for_select(rows.team_names, row&.manager_team_name),
+                     include_blank: "Choose a team", id: id.call("manager_team"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+    <div class="col-12 col-sm" data-for-kind="badge team_managers">
+      <label class="visually-hidden" for="<%= id.call("team") %>">For</label>
+      <%= select_tag field.call("team"), options_for_select(rows.team_names.map { |team| [ "For: #{team}", team ] }, row&.team_name),
+                     include_blank: Orders::SettingsEditor::BLANK_TEAM_LABEL, id: id.call("team"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+  <% end %>
+  <% if row %>
+    <div class="col-12 col-sm-auto">
+      <%= check_box_tag field.call("remove"), "1", false, id: id.call("remove"), class: "btn-check", autocomplete: "off" %>
+      <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center" style="min-height: 44px" for="<%= id.call("remove") %>">Remove</label>
+    </div>
+  <% end %>
+</div>

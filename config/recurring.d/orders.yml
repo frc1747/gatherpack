@@ -1,5 +1,5 @@
-orders_buyer_digest:
-  class: Orders::BuyerDigestJob
+orders_digest:
+  class: Orders::DigestJob
   queue: default
   schedule: at 7am every day
 orders_reminders:
