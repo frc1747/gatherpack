@@ -30,7 +30,7 @@ Rails.application.config.to_prepare do
   GatherPack::PushTopics.register(:announcements, label: "Announcements", hint: "When a leader sends one out", default_on: false)
 
   GatherPack::SidebarSlots.register(:phone_notifications, partial: "notification_settings/sidebar_entry", position: 800,
-    visible: ->(_view) { current_user == true_user && GatherPack::NotificationSections.page_for?(current_user) })
+    visible: ->(_view) { GatherPack::NotificationSections.page_for?(current_user) && current_user == true_user })
 end
 
 # Deletes this device's subscription however sign-out happens, so the next person
