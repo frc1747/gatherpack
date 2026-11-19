@@ -320,14 +320,21 @@ class GatherPack::DigestsTest < ActiveSupport::TestCase
   test "a person's daily choice sends the daily email when the site sends nothing daily" do
     turn_on
     @delivery[:test_tasks] = :weekly
-    assert_not GatherPack::Digests.entries.any?(&:daily?)
+    # Only this test's sections: features in the build register their own.
+    registered = GatherPack::Digests.instance_variable_get(:@entries).dup
+    (GatherPack::Digests.entries.map(&:key) - %i[test_tasks test_news test_site]).each { |key| GatherPack::Digests.unregister(key) }
+    begin
+      assert_not GatherPack::Digests.entries.any?(&:daily?)
 
-    DeliverDailyDigestsJob.perform_now(morning)
-    assert_empty sent_emails
+      DeliverDailyDigestsJob.perform_now(morning)
+      assert_empty sent_emails
 
-    choose(@alice, :test_tasks, :daily)
-    DeliverDailyDigestsJob.perform_now(morning + 1.day)
-    assert_equal [ @alice.user.email ], sent_emails.map(&:second)
+      choose(@alice, :test_tasks, :daily)
+      DeliverDailyDigestsJob.perform_now(morning + 1.day)
+      assert_equal [ @alice.user.email ], sent_emails.map(&:second)
+    ensure
+      GatherPack::Digests.instance_variable_set(:@entries, registered)
+    end
   end
 
   test "people choose only while summaries are on, and only for features that are on" do
