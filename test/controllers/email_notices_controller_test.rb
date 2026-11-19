@@ -17,9 +17,14 @@ class EmailNoticesControllerTest < ActionDispatch::IntegrationTest
 
     @alice = people(:one)
     sign_in @alice.user
+
+    # These cover the choices' own page; where the Notifications page takes
+    # cards, set the card aside so this build behaves like Summaries alone.
+    @card = GatherPack::NotificationSections.unregister(:email_notices) if defined?(GatherPack::NotificationSections)
   end
 
   teardown do
+    GatherPack::NotificationSections.registered[:email_notices] = @card if @card
     %i[test_tasks test_news test_site].each { |key| GatherPack::Digests.unregister(key) }
     Settings.instance.store = @original_store
     File.delete(@path) if File.exist?(@path)
@@ -133,5 +138,22 @@ class EmailNoticesControllerTest < ActionDispatch::IntegrationTest
   ensure
     GatherPack.send(:remove_const, :NotificationSections) if GatherPack.const_defined?(:NotificationSections, false) && GatherPack::NotificationSections == sections
     GatherPack.const_set(:NotificationSections, original) if original
+  end
+
+  test "where the Notifications page takes cards, the choices go there" do
+    skip "needs the Notifications page" unless defined?(GatherPack::NotificationSections)
+
+    GatherPack::Digests.register_notification_section
+
+    get email_notices_url
+    assert_redirected_to notifications_url
+
+    patch email_notices_url, params: { email_notices: { test_tasks: "each" } }
+    assert_redirected_to notifications_url(anchor: "email-notices")
+
+    get person_url(@alice)
+    assert_select "a[href=?]", email_notices_path, count: 0
+  ensure
+    GatherPack::NotificationSections.unregister(:email_notices) if defined?(GatherPack::NotificationSections)
   end
 end
