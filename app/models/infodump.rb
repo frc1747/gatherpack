@@ -56,6 +56,9 @@ class Infodump
         @content << "<h3>#{announcement.title}</h3><div>#{md.render(announcement.content)}</div>"
       end
     end
+
+    # Summary sections set to go out in the Weekly Infodump (GatherPack::Digests).
+    @deliverable = true if defined?(GatherPack::Digests) && GatherPack::Digests.append_weekly(@content, @person)
   end
 
   def send
