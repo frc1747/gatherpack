@@ -1,0 +1,17 @@
+<%# Adding what counts toward a count item (CountItemCommitmentPages). %>
+<% breadcrumb :checklist_count_part, count_item, "Add #{@source.kind_class.label.downcase}" %>
+
+<%= simple_form_for([ @commitment, @source ]) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Add <%= @source.kind_class.label.downcase %> to <%= count_item.label %></h1>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", edit_checklist_checklist_item_path(count_item.checklist, count_item, anchor: "sources"), class: "btn btn-warning" %>
+    <%= f.button :submit, "Add", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
