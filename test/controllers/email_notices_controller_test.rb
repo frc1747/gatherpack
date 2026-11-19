@@ -105,37 +105,33 @@ class EmailNoticesControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", email_notices_path, count: 0
   end
 
-  test "the sidebar slot registers where the seam exists and shows while there's a choice to make" do
-    slots = Module.new do
+  test "the choices register as a Notifications page card where that seam exists" do
+    sections = Module.new do
       class << self
-        attr_reader :registered
+        def registered
+          @registered ||= {}
+        end
 
         def register(key, **options)
-          (@registered ||= {})[key] = options
+          registered[key] = options
         end
       end
     end
-    original = GatherPack.send(:remove_const, :SidebarSlots) if GatherPack.const_defined?(:SidebarSlots, false)
-    GatherPack.const_set(:SidebarSlots, slots)
+    original = GatherPack.send(:remove_const, :NotificationSections) if GatherPack.const_defined?(:NotificationSections, false)
+    GatherPack.const_set(:NotificationSections, sections)
 
-    GatherPack::Digests.register_sidebar_slot
+    assert_not GatherPack::Digests.on_notifications_page?
+    GatherPack::Digests.register_notification_section
 
-    slot = slots.registered.fetch(:email_notices)
-    assert_equal "email_notices/sidebar_entry", slot[:partial]
-    assert_equal 810, slot[:position]
-    assert slot[:visible].call(nil)
+    section = sections.registered.fetch(:email_notices)
+    assert_equal "email_notices/form", section[:partial]
+    assert section[:visible].call(nil)
+    assert GatherPack::Digests.on_notifications_page?
 
     Settings[:feature_digests] = "false"
-    assert_not slot[:visible].call(nil)
+    assert_not section[:visible].call(nil)
   ensure
-    GatherPack.send(:remove_const, :SidebarSlots) if GatherPack.const_defined?(:SidebarSlots, false) && GatherPack::SidebarSlots == slots
-    GatherPack.const_set(:SidebarSlots, original) if original
-  end
-
-  test "the sidebar entry links to the page" do
-    html = ApplicationController.render(partial: "email_notices/sidebar_entry")
-
-    assert_includes html, %(href="#{email_notices_path}")
-    assert_includes html, "Email notices"
+    GatherPack.send(:remove_const, :NotificationSections) if GatherPack.const_defined?(:NotificationSections, false) && GatherPack::NotificationSections == sections
+    GatherPack.const_set(:NotificationSections, original) if original
   end
 end

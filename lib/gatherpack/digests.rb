@@ -152,12 +152,18 @@ module GatherPack
         enabled? && NoticePreference.where(key: keys, delivery: "daily").exists?
       end
 
-      # Puts the Email notices link in the sidebar's account menu, next to
-      # the phone notification settings (800), while there's something to
-      # choose. Called only where GatherPack::SidebarSlots exists.
-      def register_sidebar_slot(slots = GatherPack::SidebarSlots)
-        slots.register(:email_notices, partial: "email_notices/sidebar_entry", position: 810,
-          visible: ->(_view) { GatherPack::Digests.personal_entries.any? })
+      # Puts the email choices on the person's Notifications page as a card,
+      # while there's something to choose. Called only where
+      # GatherPack::NotificationSections exists.
+      def register_notification_section(sections = GatherPack::NotificationSections)
+        sections.register(:email_notices, partial: "email_notices/form", position: 10,
+          visible: ->(_user) { GatherPack::Digests.personal_entries.any? })
+      end
+
+      # Whether the choices are on the Notifications page rather than their
+      # own page.
+      def on_notifications_page?
+        defined?(GatherPack::NotificationSections) && GatherPack::NotificationSections.registered.key?(:email_notices) ? true : false
       end
 
       # The daily email's HTML for the person, or nil when no daily section

@@ -21,7 +21,9 @@ Rails.application.config.to_prepare do
     )
   )
 
-  GatherPack::Digests.register_sidebar_slot if defined?(GatherPack::SidebarSlots)
+  # The choices go on the Notifications page where it takes other features'
+  # cards; without it they have their own page, linked from the profile.
+  GatherPack::Digests.register_notification_section if defined?(GatherPack::NotificationSections)
 
   # Which days a person's daily summary went out: bookkeeping only, removed
   # with the person, so a merge leaves it behind rather than moving it.
