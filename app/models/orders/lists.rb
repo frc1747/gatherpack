@@ -105,8 +105,8 @@ module Orders
             badge, team = grant(line)
             if badge.nil? || team == :missing
               skipped << "#{step.name}: approver not found, left out: #{line}"
-            elsif !step.approvers.exists?(badge: badge, team: team)
-              step.approvers.create!(badge: badge, team: team)
+            else
+              add_badge_approver(step, badge, team)
             end
           end
         end
@@ -133,13 +133,40 @@ module Orders
       JSON.generate(PaymentMethod.ordered.map { |method| { "label" => method.name, "reimburse" => method.reimburse } })
     end
 
+    # Only badge rows: the setting had no other kind. Reads the tables with
+    # SQL, not ApprovalStepApprover, so it works before and after approver
+    # rows had kinds (the migrations run it with today's models loaded).
     def approval_steps_json
-      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge manager_team team]).map do |step|
+      steps = ApprovalStep.active.ordered.map do |step|
         minimum = step.minimum_cents / 100r
         { "key" => step.key, "name" => step.name, "minimum" => minimum.denominator == 1 ? minimum.to_i : minimum.to_f,
-          "approvers" => step.approvers.map(&:line) }
+          "approvers" => badge_approver_lines(step) }
       end
       JSON.generate(steps)
+    end
+
+    def badge_approver_lines(step)
+      connection.select_rows(ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, step.id ])).map { |badge, team| Orders::Reach.format_line(:badge, badge, team) }
+        SELECT badges.name, teams.name FROM approval_step_approvers
+        JOIN badges ON badges.id = approval_step_approvers.badge_id
+        LEFT JOIN teams ON teams.id = approval_step_approvers.team_id
+        WHERE approval_step_approvers.approval_step_id = ? ORDER BY approval_step_approvers.created_at
+      SQL
+    end
+
+    # A badge approver row for the step, unless it has one. SQL on the
+    # columns every version of the table has, for the same reason.
+    def add_badge_approver(step, badge, team)
+      exists = connection.select_value(ActiveRecord::Base.sanitize_sql_array([
+        "SELECT 1 FROM approval_step_approvers WHERE approval_step_id = ? AND badge_id = ? AND team_id IS NOT DISTINCT FROM ?",
+        step.id, badge.id, team&.id
+      ]))
+      return if exists
+
+      connection.execute(ActiveRecord::Base.sanitize_sql_array([
+        "INSERT INTO approval_step_approvers (approval_step_id, badge_id, team_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+        step.id, badge.id, team&.id
+      ]))
     end
 
     # The saved text of a setting, read from the store whether or not

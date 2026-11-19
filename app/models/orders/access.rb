@@ -91,17 +91,19 @@ module Orders
     end
 
     # Sees a request as more than its requester, follower or team member:
-    # manages its team, or reaches it as an approver or buyer.
+    # reaches its team as an approver, buyer or funding manager (or is an
+    # admin). Managing the team alone doesn't count.
     def staff_for?(team_id)
-      manages?(team_id) || any_approver_team_ids.include?(team_id) || buyer_for?(team_id)
+      admin? || any_approver_team_ids.include?(team_id) || buyer_for?(team_id) || funding_manager_for?(team_id)
     end
 
-    # May choose a request's funding source: its team's managers until it's
-    # finished, an approver who can decide it now, and its requester while
-    # it's editable when orders_requesters_pick_funding is on.
+    # May choose a request's funding source: admins and its team's funding
+    # managers until it's finished, an approver who can decide it now, and
+    # its requester while it's editable when orders_requesters_pick_funding
+    # is on. Managing the team alone doesn't count.
     def sets_funding?(order_request)
       return false if person.nil?
-      return true if manages?(order_request.team_id) && !order_request.finished?
+      return true if funding_manager_for?(order_request.team_id) && !order_request.finished?
       return true if order_request.can_decide?(person)
 
       order_request.requested_by_id == person.id && order_request.editable? && Orders::Config.requesters_pick_funding?

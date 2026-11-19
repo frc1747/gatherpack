@@ -91,4 +91,47 @@ class Orders::AccessRolesTest < ActiveSupport::TestCase
       assert access(@world.teammate).requester?
     end
   end
+
+  test "a manager without rows can't edit purchases, manage vendors, set funding or see estimated shipping" do
+    with_orders(@world, **no_manager_rows) do
+      order_request = submitted_request(@world)
+      purchase = buy(@world, approved_request(@world).order_lines.to_a)
+      Orders::Current.reset
+
+      assert_not PurchasePolicy.new(@world.manager.user, purchase).update?
+      assert_not PurchasePolicy.new(@world.manager.user, purchase).receipts?
+      assert PurchasePolicy.new(@world.buyer.user, purchase).update?
+      assert_not VendorPolicy.new(@world.manager.user, @world.preferred_vendor).update?
+      assert_not VendorPolicy.new(@world.manager.user, Vendor).create?
+      assert VendorPolicy.new(@world.buyer.user, Vendor).create?
+      assert_not access(@world.manager).sets_funding?(order_request)
+      assert_not access(@world.manager).sees_estimated_shipping?(order_request)
+      assert access(@world.funding_manager).sets_funding?(order_request)
+      assert access(@world.funding_manager).sees_estimated_shipping?(order_request)
+      assert access(@world.mentor).sets_funding?(order_request)
+      assert access(@world.admin).sets_funding?(order_request)
+    end
+  end
+
+  test "with managers of each team rows, a manager edits their team's purchases, manages vendors and sets funding" do
+    with_orders(@world) do
+      order_request = submitted_request(@world)
+      purchase = buy(@world, approved_request(@world).order_lines.to_a)
+      Orders::Current.reset
+
+      assert PurchasePolicy.new(@world.manager.user, purchase).update?
+      assert VendorPolicy.new(@world.manager.user, Vendor).create?
+      assert access(@world.manager).sets_funding?(order_request)
+      assert access(@world.manager).sees_estimated_shipping?(order_request)
+    end
+  end
+
+  test "a funding manager can't set funding once the request is finished" do
+    with_orders(@world, **no_manager_rows) do
+      order_request = approved_request(@world)
+      order_request.update_column(:status, OrderRequest.statuses[:cancelled])
+
+      assert_not access(@world.funding_manager).sets_funding?(order_request.reload)
+    end
+  end
 end

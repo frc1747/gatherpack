@@ -73,12 +73,12 @@ Rails.application.config.to_prepare do
 
   # Orders setup (Orders::SettingsEditor) draws every orders setting, with
   # the settings pickers where they exist, and the settings page links there
-  # while orders is on.
+  # while orders is on. Buyers and funding managers have no picker there:
+  # their grant rows (Orders::GrantRows) are drawn on Orders setup only, so
+  # the settings page shows them as text in the line format of their hints.
   if Settings.respond_to?(:input)
     Settings.input(:orders_requesters, :teams)
     Settings.input(:orders_viewers, :teams)
-    Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
-    Settings.input(:orders_funding_managers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
     Settings.input(:orders_price_tolerance, :partial, partial: "orders/settings/price_tolerance",
       to_text: ->(posted, current) { Orders::PriceToleranceField.text_from(posted, current) }, default_label: Orders::Config::DEFAULT_TOLERANCE)
   end

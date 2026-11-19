@@ -1,5 +1,6 @@
-# Everyone signed in sees vendors (to pick one on a request); buyers,
-# managers and admins manage them and see account notes.
+# Everyone signed in sees vendors (to pick one on a request); buyers (a
+# buyer row reaching any team) and admins manage them and see account
+# notes.
 class VendorPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
@@ -37,6 +38,6 @@ class VendorPolicy < ApplicationPolicy
     return false if person.nil?
 
     access = Orders::Access.for(person)
-    access.buyer? || access.managed_team_ids.any?
+    access.buyer?
   end
 end

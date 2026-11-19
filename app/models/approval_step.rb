@@ -82,8 +82,12 @@ class ApprovalStep < ApplicationRecord
     errors.add(:minimum, "must be $0 for the first step, which every request needs")
   end
 
-  # The same row twice is one approver.
+  # The same row twice is one approver. Only rows already in memory (the
+  # form's), so saving a step alone never loads ApprovalStepApprover: the
+  # migrations that make steps run before approver rows had kinds.
   def drop_repeated_approvers
+    return if association(:approvers).target.empty?
+
     seen = Set.new
     approvers.each do |approver|
       next if approver.marked_for_destruction?
