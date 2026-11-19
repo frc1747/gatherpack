@@ -1,10 +1,18 @@
 class NotificationSettingsController < InternalController
   include PhoneNotificationsAccess
 
+  # The page also holds other features' cards (GatherPack::NotificationSections),
+  # so it opens while one of them is shown even without phone notifications.
+  skip_before_action :require_phone_notifications, only: :show
+  before_action :require_notifications_page, only: :show
   before_action { authorize PushSubscription, :settings? }
 
   # GET /notifications
   def show
+    @phone = GatherPack::PushChannel.available?
+    @sections = GatherPack::NotificationSections.visible_for(current_user)
+    return unless @phone
+
     @gateway = GatherPack::PushChannel.gateway
     @topics = GatherPack::PushTopics.all
     @enabled_topics = current_user.enabled_push_topics
@@ -31,4 +39,11 @@ class NotificationSettingsController < InternalController
       redirect_to notifications_path, notice: "Test sent to #{helpers.pluralize(sent, "device")}. It should arrive within a minute.", status: :see_other
     end
   end
+
+  private
+    def require_notifications_page
+      return if current_user == true_user && GatherPack::NotificationSections.page_for?(current_user)
+
+      redirect_to root_path, notice: "You are not allowed to do that", status: :see_other
+    end
 end

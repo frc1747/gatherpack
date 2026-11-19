@@ -1,5 +1,6 @@
 <% breadcrumb :notifications %>
 
+<% if @phone %>
 <div class="card mb-3" data-controller="push-notifications"
      data-push-notifications-url-value="<%= push_subscription_path %>"
      data-push-notifications-public-key-value="<%= @gateway&.public_key %>">
@@ -56,4 +57,14 @@
       <% end %>
     </ul>
   </div>
+<% end %>
+<% end %>
+
+<% if @sections.any? %>
+  <% unless @phone %>
+    <h1 class="mb-3">Notifications</h1>
+  <% end %>
+  <% @sections.each do |section| %>
+    <%= render section.partial %>
+  <% end %>
 <% end %>

@@ -1,5 +1,6 @@
 require_relative "../../lib/gatherpack/push_topics"
 require_relative "../../lib/gatherpack/push_channel"
+require_relative "../../lib/gatherpack/notification_sections"
 
 # Phone notifications: people opt in per device and per topic, on top of email.
 # Connector branches register their own topics and prepend onto their own senders.
@@ -29,7 +30,7 @@ Rails.application.config.to_prepare do
   GatherPack::PushTopics.register(:announcements, label: "Announcements", hint: "When a leader sends one out", default_on: false)
 
   GatherPack::SidebarSlots.register(:phone_notifications, partial: "notification_settings/sidebar_entry", position: 800,
-    visible: ->(_view) { GatherPack::PushChannel.available? && current_user == true_user })
+    visible: ->(_view) { current_user == true_user && GatherPack::NotificationSections.page_for?(current_user) })
 end
 
 # Deletes this device's subscription however sign-out happens, so the next person

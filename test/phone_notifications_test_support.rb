@@ -7,7 +7,9 @@ module PhoneNotificationsTestSupport
   def use_throwaway_settings
     @settings_store = Settings.instance.store
     @settings_file = Tempfile.new([ "settings", ".pstore" ])
-    Settings.instance.store = PStore.new(@settings_file.path)
+    # Thread safe like the real store: the test server answers several
+    # requests at once, which would otherwise raise "nested transaction".
+    Settings.instance.store = PStore.new(@settings_file.path, true)
     @flag_values = FLAGS.index_with { |key| Settings.get(key).instance_variable_get(:@value) }
   end
 
