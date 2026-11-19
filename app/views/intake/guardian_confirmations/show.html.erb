@@ -1,0 +1,21 @@
+<% content_for :title, "Confirm you're a guardian" %>
+<h1 class="h3"><%= @row.ward.first_name %> would like to join <%= @row.entry.team_names.presence || @row.entry.registration.team.name %>.</h1>
+<p>Confirm you are their guardian.</p>
+<% @user.errors.full_messages.each do |message| %>
+  <div class="alert alert-danger"><%= message %></div>
+<% end %>
+<%= form_with url: intake_guardian_confirmation_path, data: { turbo: false } do |f| %>
+  <%= hidden_field_tag :token, @token %>
+  <% if @user.new_record? %>
+    <p>Choose a password for <strong><%= @row.facts["email"] %></strong> to finish.</p>
+    <div class="mb-3">
+      <%= label_tag :password, "Password", class: "form-label" %>
+      <%= password_field_tag :password, nil, required: true, autocomplete: "new-password", class: "form-control" %>
+    </div>
+    <div class="mb-3">
+      <%= label_tag :password_confirmation, "Password again", class: "form-label" %>
+      <%= password_field_tag :password_confirmation, nil, required: true, autocomplete: "new-password", class: "form-control" %>
+    </div>
+  <% end %>
+  <%= f.submit "I'm their guardian", class: "btn btn-primary" %>
+<% end %>
