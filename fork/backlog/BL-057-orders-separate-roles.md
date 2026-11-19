@@ -35,7 +35,7 @@ Every role is a list of rows, read as "any of these". A row says **who** and **f
 | Who | For |
 |---|---|
 | Holders of badge B | team T and the teams below it, or every team |
-| Managers of team M (and the teams below M) | team T and the teams below it, or every team |
+| Managers of team M (M's own managers only, not those of teams above or below it) | team T and the teams below it, or every team |
 | Managers of the request's own team | the request's team (managers of a team above it count, as today) |
 
 Stored in the existing forms, extended:
