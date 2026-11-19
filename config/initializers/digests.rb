@@ -21,6 +21,8 @@ Rails.application.config.to_prepare do
     )
   )
 
+  GatherPack::Digests.register_sidebar_slot if defined?(GatherPack::SidebarSlots)
+
   # Which days a person's daily summary went out: bookkeeping only, removed
   # with the person, so a merge leaves it behind rather than moving it.
   if defined?(GatherPack::PersonMerge)

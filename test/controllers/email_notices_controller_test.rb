@@ -104,4 +104,38 @@ class EmailNoticesControllerTest < ActionDispatch::IntegrationTest
     get person_url(@alice)
     assert_select "a[href=?]", email_notices_path, count: 0
   end
+
+  test "the sidebar slot registers where the seam exists and shows while there's a choice to make" do
+    slots = Module.new do
+      class << self
+        attr_reader :registered
+
+        def register(key, **options)
+          (@registered ||= {})[key] = options
+        end
+      end
+    end
+    original = GatherPack.send(:remove_const, :SidebarSlots) if GatherPack.const_defined?(:SidebarSlots, false)
+    GatherPack.const_set(:SidebarSlots, slots)
+
+    GatherPack::Digests.register_sidebar_slot
+
+    slot = slots.registered.fetch(:email_notices)
+    assert_equal "email_notices/sidebar_entry", slot[:partial]
+    assert_equal 810, slot[:position]
+    assert slot[:visible].call(nil)
+
+    Settings[:feature_digests] = "false"
+    assert_not slot[:visible].call(nil)
+  ensure
+    GatherPack.send(:remove_const, :SidebarSlots) if GatherPack.const_defined?(:SidebarSlots, false) && GatherPack::SidebarSlots == slots
+    GatherPack.const_set(:SidebarSlots, original) if original
+  end
+
+  test "the sidebar entry links to the page" do
+    html = ApplicationController.render(partial: "email_notices/sidebar_entry")
+
+    assert_includes html, %(href="#{email_notices_path}")
+    assert_includes html, "Email notices"
+  end
 end
