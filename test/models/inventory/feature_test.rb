@@ -40,7 +40,8 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
 
   test "manager pages are offered only to managers" do
     world = Object.new.extend(InventoryWorld).build_inventory_world
-    with_settings(feature_inventory: "true", inventory_managers: "#{world.keeper_badge.name} > #{world.club.name}") do
+    with_settings(feature_inventory: "true",
+      inventory_managers: "#{world.keeper_badge.name} > #{world.club.name}\n#{Inventory::Config::DEFAULT_MANAGERS}") do
       Inventory::Current.reset
       assert_equal %w[Reorder Items Places Changes], Inventory.manager_pages(world.keeper).map(&:first)
       assert_equal %w[Reorder Items Places Changes], Inventory.manager_pages(world.manager).map(&:first)
@@ -68,7 +69,7 @@ class Inventory::FeatureTest < ActiveSupport::TestCase
 
   test "settings are registered with their defaults" do
     {
-      inventory_users: "", inventory_managers: "", inventory_member_kinds: "used, moved, counted",
+      inventory_users: "", inventory_managers: "Managers of each team", inventory_member_kinds: "used, moved, counted",
       inventory_member_unit_actions: "install, take_off, move, check, mark_for_repair",
       inventory_used_needs_reason: "false", inventory_undo_minutes: "10", inventory_reorder_notice: "daily"
     }.each { |key, default| assert_equal default, Settings.get(key).default_value, key }

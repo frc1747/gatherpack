@@ -1,0 +1,46 @@
+<%# One Inventory Managers row: Who (a badge, the managers of a team, or the
+    managers of each team), then For. With no row it's blank, for adding
+    one. Without JavaScript every picker shows and the Who decides which
+    count. %>
+<% name = ->(part) { "#{prefix}[#{index}][#{part}]" } %>
+<% id = ->(part) { "#{prefix}_#{index}_#{part}".parameterize(separator: "_") } %>
+<% kind = row&.kind || "badge" %>
+<div class="row g-2 align-items-center mb-2 border-bottom pb-2" data-inventory-grants-target="row">
+  <%= hidden_field_tag name.call("line"), row&.line, id: nil %>
+  <% if row&.missing %>
+    <div class="col-12 col-sm text-danger">Not found: <%= row.line %></div>
+  <% else %>
+    <div class="col-12 col-sm">
+      <label class="visually-hidden" for="<%= id.call("who") %>">Who</label>
+      <%= select_tag name.call("who"), options_for_select(Inventory::ManagerRows::WHO_CHOICES, kind),
+                     id: id.call("who"), class: "form-select", style: "min-height: 44px",
+                     data: { action: "inventory-grants#reveal" } %>
+    </div>
+    <div class="col-12 col-sm" data-who="badge">
+      <label class="visually-hidden" for="<%= id.call("badge") %>">Badge</label>
+      <%= select_tag name.call("badge"), options_for_select(editor.badge_names, row&.badge_name),
+                     include_blank: "Choose a badge",
+                     id: id.call("badge"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+    <div class="col-12 col-sm" data-who="team_managers">
+      <label class="visually-hidden" for="<%= id.call("manager_team") %>">Managers of</label>
+      <%= select_tag name.call("manager_team"),
+                     options_for_select(editor.team_names.map { |team| [ "Managers of: #{team}", team ] }, row&.manager_team_name),
+                     include_blank: "Choose a team",
+                     id: id.call("manager_team"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+    <div class="col-12 col-sm" data-who="badge team_managers">
+      <label class="visually-hidden" for="<%= id.call("team") %>">For</label>
+      <%= select_tag name.call("team"),
+                     options_for_select(editor.team_names.map { |team| [ "Up to: #{team}", team ] }, row&.team_name),
+                     include_blank: Inventory::ManagerRows::BLANK_TEAM_LABEL,
+                     id: id.call("team"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+  <% end %>
+  <% if row %>
+    <div class="col-12 col-sm-auto">
+      <%= check_box_tag name.call("remove"), "1", false, id: id.call("remove"), class: "btn-check", autocomplete: "off" %>
+      <label class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center" style="min-height: 44px" for="<%= id.call("remove") %>">Remove</label>
+    </div>
+  <% end %>
+</div>

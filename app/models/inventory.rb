@@ -169,7 +169,7 @@ module Inventory
   end
 
   # The manager pages this person may open, as [label, route helper, icon]:
-  # all of them for inventory managers, team managers and admins, none for
+  # all of them for inventory managers and admins, none for
   # anyone else.
   def self.manager_pages(person)
     Inventory::Access.for(person).manager? ? MANAGER_PAGES : []

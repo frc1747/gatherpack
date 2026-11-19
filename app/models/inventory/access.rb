@@ -5,8 +5,9 @@
 # Spec §3.6: a team's items and locations are visible to everyone in
 # person.all_team_ids of that team (their teams, those above, and those
 # below the ones they manage), when they may use inventory at all
-# (inventory_users). Inventory managers (the inventory_managers grant), team
-# managers and admins also see and manage everything within their reach.
+# (inventory_users). Inventory managers (the inventory_managers rows, which
+# can name team managers) and admins also see and manage everything within
+# their reach.
 module Inventory
   class Access
     attr_reader :person
@@ -26,8 +27,8 @@ module Inventory
       @admin == :yes
     end
 
-    # Teams whose inventory the person manages: all for an admin, the teams
-    # they manage and those below, and their inventory_managers grants.
+    # Teams whose inventory the person manages: all for an admin, else what
+    # their inventory_managers rows reach.
     def managed_team_ids
       @managed_team_ids ||= person.nil? ? Set.new : Inventory::Config.managers.team_ids(person).to_set
     end

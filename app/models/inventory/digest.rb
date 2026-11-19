@@ -1,8 +1,9 @@
-# What the inventory managers' daily digest reports (inventory spec §3.12,
-# §3.15 Notices) for changes since a time: items that went onto the reorder
-# list (when inventory_reorder_notice is "daily"), counts that changed
-# stock by more than half, and units marked Needs repair or Broken.
-# Worked out once for every team; #for_teams narrows it to one manager's.
+# What the inventory managers' digest reports (inventory spec §3.12, §3.15
+# Notices) for changes since a time: items that went onto the reorder list,
+# counts that changed stock by more than half, and units marked Needs
+# repair or Broken. Worked out once for every team; #for_teams narrows it
+# to one manager's. Who gets it is each manager's notice choice
+# (Inventory::Config.notice_for), decided by the sender.
 module Inventory
   class Digest
     Row = Struct.new(:item, :total, keyword_init: true)
@@ -12,9 +13,18 @@ module Inventory
     def initialize(since:, now: Time.current, running_low: nil, count_differences: nil, needs_repair: nil)
       @since = since
       @now = now
-      @running_low = running_low || (Inventory::Config.reorder_notice.in?(%w[daily weekly]) ? find_running_low : [])
+      @running_low = running_low || find_running_low
       @count_differences = count_differences || find_count_differences
       @needs_repair = needs_repair || find_needs_repair
+    end
+
+    # Whether a count's difference is big enough to report: more than half of
+    # what was there before, or any difference when nothing was.
+    def self.big_difference?(movement)
+      return false unless movement.counted? && !movement.quantity.zero? && movement.reverses_id.nil?
+
+      before = movement.counted_quantity - movement.quantity
+      before <= 0 || movement.quantity.abs * 2 > before
     end
 
     def for_teams(team_ids)
@@ -79,10 +89,7 @@ module Inventory
     def find_count_differences
       StockMovement.counted.where(created_at: window, reverses_id: nil).where.not(quantity: 0)
         .where.not(id: StockMovement.where.not(reverses_id: nil).select(:reverses_id))
-        .includes(:item, :person, :location).order(:created_at).select do |movement|
-          before = movement.counted_quantity - movement.quantity
-          before <= 0 || movement.quantity.abs * 2 > before
-        end
+        .includes(:item, :person, :location).order(:created_at).select { |movement| self.class.big_difference?(movement) }
     end
 
     # Units that became Needs repair or Broken in the window and still are.

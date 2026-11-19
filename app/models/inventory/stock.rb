@@ -52,10 +52,10 @@ module Inventory
     end
 
     # Fires the hooks for crossings once the change has committed, and the
-    # immediate notice when inventory_reorder_notice is "each".
+    # running low email to the managers who chose "An email each time".
     def announce_crossings(item, crossings)
       crossings.each { |event| Inventory.run_hooks(Inventory::ITEM_EVENTS.fetch(event), item) }
-      return unless crossings.include?(:running_low) && Inventory.enabled? && Inventory::Config.reorder_notice == "each"
+      return unless crossings.include?(:running_low) && Inventory.enabled?
 
       InventoryNotices.new.running_low(item)
     end

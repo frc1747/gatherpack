@@ -59,9 +59,10 @@ module InventoryWorld
   end
 
   # Settings that turn inventory on and give the keeper badge its grant,
-  # capped at the club.
+  # capped at the club, next to a new site's row for team managers.
   def inventory_settings(world, **overrides)
-    { feature_inventory: "true", inventory_managers: "#{world.keeper_badge.name} > #{world.club.name}" }.merge(overrides)
+    { feature_inventory: "true",
+      inventory_managers: "#{world.keeper_badge.name} > #{world.club.name}\n#{Inventory::Config::DEFAULT_MANAGERS}" }.merge(overrides)
   end
 
   def with_inventory(world, **overrides, &block)
