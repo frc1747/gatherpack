@@ -1,6 +1,7 @@
 # One person's Orders section of a summary (spec §3.11): the requests
-# waiting for their approval, what's ready for them to buy, and what
-# happened to the requests they made or follow since the last one. Built for
+# waiting for their approval or their approval again, what's ready for them
+# to buy, delivery problems on what they bought, and what happened to the
+# requests they made or follow since the last one. Built for
 # the daily email and the Weekly Infodump (GatherPack::Digests) and for
 # Orders' own daily email when Summaries is off.
 #
@@ -42,12 +43,22 @@ module Orders
     end
 
     def empty?
-      to_approve.empty? && to_buy.empty? && changes.empty?
+      [ to_approve, to_reapprove, to_buy, problems, changes ].all?(&:empty?)
     end
 
     # Submitted requests on a step the person approves, oldest first.
     def to_approve
-      @to_approve ||= Orders::WaitingOn.new(person).to_approve.sort_by { |order_request| order_request.submitted_at || order_request.created_at }
+      @to_approve ||= waiting_on.to_approve.sort_by { |order_request| order_request.submitted_at || order_request.created_at }
+    end
+
+    # Requests with items whose new price needs the person's approval again.
+    def to_reapprove
+      @to_reapprove ||= waiting_on.to_reapprove
+    end
+
+    # Requests with a delivery problem on an item the person bought.
+    def problems
+      @problems ||= waiting_on.problems
     end
 
     def to_buy
@@ -73,12 +84,21 @@ module Orders
     def body
       html = +""
       html << part("Waiting for your approval", to_approve) { |order_request| "#{request_line(order_request)}, asked by #{h(order_request.requested_by.display_name)}" }
+      html << part("Waiting for you to approve again", to_reapprove) { |order_request| request_line(order_request) }
       html << part("Ready to buy", to_buy) { |order_request| request_line(order_request) }
+      html << part("Delivery problems", problems) do |order_request|
+        lines = order_request.order_lines.select { |line| line.problem? && line.purchase&.buyer_id == person.id }
+        "#{link_to_request(order_request)}: #{h(lines.map(&:display_name).to_sentence)}"
+      end
       html << part("Your requests", changes) { |(order_request, state)| "#{link_to_request(order_request)}: #{h(state)}" }
       html
     end
 
     private
+
+    def waiting_on
+      @waiting_on ||= Orders::WaitingOn.new(person)
+    end
 
     # A step's approval isn't news to the requester (the final one, or one
     # of items approved again, is); an item received is news only once

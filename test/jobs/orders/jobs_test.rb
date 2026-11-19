@@ -17,7 +17,7 @@ class Orders::JobsTest < ActiveSupport::TestCase
     assert_includes File.read(Rails.root.join("config/recurring.yml")), "GatherPack::RecurringSchedule.yaml"
   end
 
-  test "the digest job sends the Orders summary, and nothing with the flag off" do
+  test "the digest job sends the Orders summary, once a day, and nothing with the flag off" do
     world = build_orders_world
     with_orders(world) { approved_request(world) }
     travel 2.days
@@ -34,6 +34,9 @@ class Orders::JobsTest < ActiveSupport::TestCase
       Orders::DigestJob.perform_now
       assert_equal addresses(world.buyer, world.manager, world.admin), emailed
       assert_match "Ready to buy", email_to(world.buyer)
+      clear_enqueued_jobs
+      Orders::DigestJob.perform_now
+      assert_empty enqueued_emails, "once a day"
     end
 
     clear_enqueued_jobs

@@ -13,13 +13,15 @@
 # Each person hears as Orders::Config.delivery_for says: the event notices
 # go only to those who chose an email each time (the rest find the change in
 # their Orders summary, Orders::Digest), "needed soon" goes to everyone but
-# those who chose off, and #digest is the summary itself.
+# those who chose off, and #digest is the summary itself. Each public method
+# picks its people that way before #deliver, so a connector that prepends
+# onto #deliver reaches the same people.
 class OrderNotices
   include ERB::Util
 
   # Submitted or resubmitted: the approvers on the step it waits at.
   def submitted(order_request, by: nil)
-    deliver(approvers_now(order_request), "To approve: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(approvers_now(order_request)), "To approve: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.requested_by.display_name)} asked for #{h(summary(order_request))} " \
         "for #{h(order_request.team.name)}#{h(needed_by_text(order_request))}. It's waiting for your decision.</p>#{details(order_request)}"
     end
@@ -27,7 +29,7 @@ class OrderNotices
 
   # Approved on a step that isn't the last: the approvers on the next step.
   def step_approved(order_request, by: nil)
-    deliver(approvers_now(order_request), "To approve: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(approvers_now(order_request)), "To approve: #{order_request.display_title}", by: by) do
       "<p>#{h(by&.display_name || "An approver")} approved #{h(order_request.display_title)} for " \
         "#{h(order_request.team.name)}. It's now waiting for your decision.</p>#{details(order_request)}"
     end
@@ -38,15 +40,15 @@ class OrderNotices
   # the requester alone: nothing is left to buy.
   def approved(order_request, by: nil, reapproval: false)
     if reapproval
-      return deliver([ order_request.requested_by ], "Approved: #{order_request.display_title}", by: by) do
+      return deliver(hearing_now([ order_request.requested_by ]), "Approved: #{order_request.display_title}", by: by) do
         "<p>The higher price on #{h(order_request.display_title)} was approved.</p>#{details(order_request)}"
       end
     end
 
-    told = deliver(Orders::Recipients.requester_and_watchers(order_request), "Approved: #{order_request.display_title}", by: by) do
+    told = deliver(hearing_now(Orders::Recipients.requester_and_watchers(order_request)), "Approved: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} was approved. A buyer will order it.</p>#{details(order_request)}"
     end
-    told + deliver(Orders::Recipients.buyers(order_request.team_id), "To buy: #{order_request.display_title}", by: by) do
+    told + deliver(hearing_now(Orders::Recipients.buyers(order_request.team_id)), "To buy: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} for #{h(order_request.team.name)} was approved and is ready to buy" \
         "#{h(needed_by_text(order_request))}.</p>#{details(order_request)}#{choice_link}"
     end
@@ -54,7 +56,7 @@ class OrderNotices
 
   # Changes requested: the requester and watchers, with the comment.
   def changes_requested(order_request, comment: nil, by: nil)
-    deliver(Orders::Recipients.requester_and_watchers(order_request), "Needs changes: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(Orders::Recipients.requester_and_watchers(order_request)), "Needs changes: #{order_request.display_title}", by: by) do
       "<p>#{h(by&.display_name || "An approver")} asked for changes to #{h(order_request.display_title)}.</p>" \
         "#{comment_text(comment)}<p>Change it and send it again.</p>#{details(order_request)}"
     end
@@ -63,7 +65,7 @@ class OrderNotices
   # Declined: the requester and watchers, with the comment.
   def declined(order_request, comment: nil, by: nil, reapproval: false)
     people = reapproval ? [ order_request.requested_by ] : Orders::Recipients.requester_and_watchers(order_request)
-    deliver(people, "Declined: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(people), "Declined: #{order_request.display_title}", by: by) do
       "<p>#{h(by&.display_name || "An approver")} declined #{h(order_request.display_title)}.</p>#{comment_text(comment)}#{details(order_request)}"
     end
   end
@@ -72,7 +74,7 @@ class OrderNotices
   # watchers.
   def ordered(order_request, purchase, by: nil)
     lines = order_request.order_lines.select { |line| line.purchase_id == purchase.id }
-    deliver(Orders::Recipients.requester_and_watchers(order_request), "Ordered: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(Orders::Recipients.requester_and_watchers(order_request)), "Ordered: #{order_request.display_title}", by: by) do
       "<p>#{h(list(lines))} #{lines.size == 1 ? 'was' : 'were'} ordered from #{h(purchase.vendor_name)}" \
         "#{h(expected_text(purchase.expected_on))}.</p>#{details(order_request)}"
     end
@@ -81,7 +83,7 @@ class OrderNotices
   # One item is delayed, with its expected date when the buyer gave one.
   def backordered(order_line, by: nil)
     order_request = order_line.order_request
-    deliver(Orders::Recipients.requester_and_watchers(order_request), "Delayed: #{order_line.display_name}", by: by) do
+    deliver(hearing_now(Orders::Recipients.requester_and_watchers(order_request)), "Delayed: #{order_line.display_name}", by: by) do
       "<p>#{h(order_line.display_name)} on #{h(order_request.display_title)} is delayed" \
         "#{h(expected_text(order_line.expected_on))}.</p>#{details(order_request)}"
     end
@@ -91,7 +93,7 @@ class OrderNotices
   # purchases.
   def received(order_request, by: nil)
     buyers = order_request.order_lines.filter_map { |line| line.purchase&.buyer }
-    deliver(Orders::Recipients.requester_and_watchers(order_request) + buyers, "Here: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(Orders::Recipients.requester_and_watchers(order_request) + buyers), "Here: #{order_request.display_title}", by: by) do
       "<p>Everything on #{h(order_request.display_title)} has arrived.</p>#{details(order_request)}"
     end
   end
@@ -99,7 +101,7 @@ class OrderNotices
   # A delivery problem on an item: the buyer who ordered it.
   def problem(order_line, by: nil)
     order_request = order_line.order_request
-    deliver([ order_line.purchase&.buyer ], "Problem with delivery: #{order_line.display_name}", by: by) do
+    deliver(hearing_now([ order_line.purchase&.buyer ]), "Problem with delivery: #{order_line.display_name}", by: by) do
       "<p>#{h(by&.display_name || "Someone")} reported a problem with #{h(order_line.display_name)} " \
         "on #{h(order_request.display_title)}. Please reorder it or cancel it.</p>#{details(order_request)}"
     end
@@ -108,7 +110,7 @@ class OrderNotices
   # A buyer's change raised the total past the tolerance: the final step's
   # approvers.
   def needs_reapproval(order_request, by: nil)
-    deliver(Orders::Recipients.approvers(order_request, order_request.final_step), "Approve again: #{order_request.display_title}", by: by) do
+    deliver(hearing_now(Orders::Recipients.approvers(order_request, order_request.final_step)), "Approve again: #{order_request.display_title}", by: by) do
       lines = order_request.reapproval_lines
       "<p>The price of #{h(list(lines))} on #{h(order_request.display_title)} went up. It needs your approval again.</p>#{details(order_request)}"
     end
@@ -119,7 +121,7 @@ class OrderNotices
   # goes to everyone who didn't choose off.
   def needed_soon(order_request)
     holders = order_request.submitted? ? approvers_now(order_request) : Orders::Recipients.buyers(order_request.team_id)
-    deliver(holders, "Needed soon: #{order_request.display_title}", urgent: true) do
+    deliver(hearing_now(holders, urgent: true), "Needed soon: #{order_request.display_title}") do
       "<p>#{h(order_request.display_title)} is needed by #{h(order_request.needed_by.strftime("%a %b %-d"))} and nothing is " \
         "ordered yet.</p>#{details(order_request)}"
     end
@@ -127,7 +129,7 @@ class OrderNotices
 
   # Submitted and undecided for 5 days: the approvers on its current step.
   def undecided(order_request)
-    deliver(approvers_now(order_request), "Still waiting: #{order_request.display_title}") do
+    deliver(hearing_now(approvers_now(order_request)), "Still waiting: #{order_request.display_title}") do
       "<p>#{h(order_request.display_title)} has been waiting for a decision since " \
         "#{h(local(order_request.submitted_at).strftime("%a %b %-d"))}.</p>#{details(order_request)}"
     end
@@ -138,22 +140,29 @@ class OrderNotices
   def digest(person, digest)
     return 0 if digest.empty?
 
-    deliver([ person ], "Orders summary", summary: true) do
+    deliver([ person ], "Orders summary") do
       "#{digest.body}#{choice_link}"
     end
   end
 
   private
 
+  # The people who hear a notice as it happens: those whose choice
+  # (Orders::Config.delivery_for) is an email each time, or, for an urgent
+  # notice, anything but off.
+  def hearing_now(people, urgent: false)
+    people.compact.select do |person|
+      delivery = Orders::Config.delivery_for(person)
+      urgent ? delivery != :off : delivery == :each
+    end
+  end
+
   # Sends one email per person with an address and returns how many. The
-  # block gives the body. The person named by by: isn't included, nor anyone
-  # whose choice (Orders::Config.delivery_for) isn't an email each time, or,
-  # for an urgent notice, is off. A summary: goes to the people given.
-  def deliver(people, subject, by: nil, urgent: false, summary: false)
+  # block gives the body. The person named by by: isn't included.
+  def deliver(people, subject, by: nil)
     return 0 unless Orders.enabled?
 
     people = people.compact.uniq.reject { |person| person == by }.select { |person| person.user&.email.present? }
-    people = people.select { |person| hears_now?(person, urgent) } unless summary
     return 0 if people.empty?
 
     body = yield
@@ -162,11 +171,6 @@ class OrderNotices
       SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{body}")
     end
     people.size
-  end
-
-  def hears_now?(person, urgent)
-    delivery = Orders::Config.delivery_for(person)
-    urgent ? delivery != :off : delivery == :each
   end
 
   def approvers_now(order_request)

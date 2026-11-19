@@ -1,6 +1,6 @@
 require "test_helper"
 require "support/orders_world"
-require Rails.root.join("db/migrate/20261118100000_copy_order_notice_choices")
+require Rails.root.join("db/migrate/20261118130000_copy_order_notice_choices")
 
 # Retiring the Buying notices page copies each buyer's choice into
 # Summaries' notice_preferences, where that table exists.

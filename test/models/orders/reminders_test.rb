@@ -284,7 +284,7 @@ class Orders::RemindersTest < ActiveSupport::TestCase
     with_orders(@world, orders_notices: "daily", **overrides, &block)
   end
 
-  test "each buyer in reach gets a summary of what's ready to buy, and nothing goes when none wait" do
+  test "each buyer in reach gets one summary a day of what's ready to buy, and nothing goes when none wait" do
     with_digest do
       approved_request(@world, title: "Belts", needed_by: Date.current + 9)
       approved_request(@world, lines: [ { description: "Pinion", price: 8 } ], title: "Pinions")
@@ -296,6 +296,13 @@ class Orders::RemindersTest < ActiveSupport::TestCase
       body = email_to(@world.buyer)
       assert_match(/Ready to buy.*Belts.*Pinions/m, body)
       assert_match "Orders summary", enqueued_emails.first[1]
+
+      clear_enqueued_jobs
+      assert_equal 0, Orders::Reminders.digest
+      assert_empty emailed
+
+      travel_to 1.day.from_now
+      assert_equal 3, Orders::Reminders.digest
 
       clear_enqueued_jobs
       OrderRequest.update_all(status: OrderRequest.statuses[:cancelled])
@@ -389,6 +396,42 @@ class Orders::RemindersTest < ActiveSupport::TestCase
       body = email_to(@world.requester)
       assert_match(/Router<\/a>: everything has arrived/, body)
       assert_equal 1, body.scan("Router</a>").size
+    end
+  end
+
+  test "a summary nobody could receive doesn't take the day, so a later run can send it" do
+    with_digest do
+      start approved_request(@world)
+      travel_to 2.days.from_now
+      @world.buyer.user.update_columns(email: "")
+      Orders::Reminders.digest
+      assert_nil OrderSummarySend.find_by(person: @world.buyer)
+
+      @world.buyer.user.update_columns(email: "buyer-again@example.com")
+      clear_enqueued_jobs
+      assert_equal 1, Orders::Reminders.digest
+      assert_equal [ "buyer-again@example.com" ], emailed
+    end
+  end
+
+  test "approvers of the final step find requests to approve again, and buyers their delivery problems" do
+    with_digest(**two_step_settings(@world)) do
+      router = submitted_request(@world, lines: [ { description: "Router", price: 600 } ], title: "Router")
+      router.decide!(:approved, by: @world.mentor)
+      router.decide!(:approved, by: @world.manager)
+      line = router.order_lines.first
+      buy(@world, [ line ], vendor: @world.preferred_vendor, prices: { line.id => 90_000 })
+      belts = approved_request(@world, title: "Belts")
+      buy(@world, belts.order_lines.to_a, vendor: @world.preferred_vendor)
+      belt = belts.order_lines.first
+      belt.record_delivery!(by: @world.requester, quantity: belt.quantity, condition: :damaged, note: "Cracked")
+      travel_to 2.days.from_now
+      clear_enqueued_jobs
+      Orders::Reminders.digest
+
+      assert_match(/Waiting for you to approve again.*Router/m, email_to(@world.admin))
+      assert_match(/Delivery problems.*Belts<\/a>: Gear/m, email_to(@world.buyer))
+      assert_no_match(/Delivery problems/, email_to(@world.admin))
     end
   end
 

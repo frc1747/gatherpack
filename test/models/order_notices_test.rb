@@ -294,6 +294,26 @@ class OrderNoticesTest < ActiveSupport::TestCase
     end
   end
 
+  test "deliver keeps its signature and gets only the people who hear, for a connector to prepend onto" do
+    assert_equal [ %i[req people], %i[req subject], %i[key by] ], OrderNotices.instance_method(:deliver).parameters
+
+    with_notices(orders_notices: "daily") do
+      with_personal_choices(@world.mentor => :each) do
+        given = []
+        notices = OrderNotices.new
+        notices.singleton_class.prepend(Module.new do
+          define_method(:deliver) do |people, subject, by: nil, &block|
+            given.concat(people)
+            super(people, subject, by: by, &block)
+          end
+        end)
+        notices.submitted(start)
+
+        assert_equal [ @world.mentor ], given
+      end
+    end
+  end
+
   test "each notice is its own method on OrderNotices, for a connector to prepend onto" do
     expected = %i[submitted step_approved approved changes_requested declined ordered backordered received problem
       needs_reapproval needed_soon undecided digest]

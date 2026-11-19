@@ -11,7 +11,8 @@ module Orders
     # Orders' own daily summary (Orders::Digest) for each person whose
     # choice is a summary, while Summaries isn't there to send it. Without
     # Summaries there's no Weekly Infodump to carry it, so a weekly choice
-    # gets it daily too. Nothing goes to a person with nothing in it.
+    # gets it daily too. Nothing goes to a person with nothing in it, and it
+    # goes to each person once a day however often it runs (OrderSummarySend).
     def digest(now: Time.current)
       return 0 unless Orders.enabled?
       return 0 if defined?(GatherPack::Digests) && GatherPack::Digests.handles?(:orders)
@@ -20,7 +21,9 @@ module Orders
       digest_candidates(since).count do |person|
         next false unless %i[daily weekly].include?(Orders::Config.delivery_for(person))
 
-        OrderNotices.new.digest(person, Orders::Digest.new(person, since: since)).positive?
+        OrderSummarySend.once(person, on: now.to_date) do
+          OrderNotices.new.digest(person, Orders::Digest.new(person, since: since))
+        end.positive?
       end
     end
 
