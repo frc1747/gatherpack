@@ -56,6 +56,9 @@
 
       <footer class="col-12 footer-ad">
         <a href="https://gatherpack.com" target="_blank">powered by <%= image_tag "logo.svg", alt: "GatherPack" %> GatherPack</a>
+        <% if gatherpack_version %>
+          <div class="app-version" title="<%= gatherpack_revision %>"><%= gatherpack_version %></div>
+        <% end %>
       </footer>
     </div>
   </div>
