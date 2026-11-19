@@ -1,5 +1,5 @@
 # The reorder list (Inventory::ReorderController#index: authorize :inventory, :reorder?, which is
-# inventory managers, team managers and admins): active items within the viewer's managed reach
+# inventory managers (by grant row) and admins): active items within the viewer's managed reach
 # whose total stock plus on order is at or below the reorder point (Inventory::Reorder), grouped by
 # the preferred source's vendor name with "No source yet" first and out of stock first in each
 # group, with the suggested quantity. Anyone the Reorder page turns away is "Not allowed". Filters

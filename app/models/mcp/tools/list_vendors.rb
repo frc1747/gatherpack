@@ -1,12 +1,12 @@
 # Vendors, as Purchasing → Vendors lists them (Orders::VendorsController#index:
 # policy_scope(Vendor).listed, preferred first). Everyone signed in sees them, to pick one on a
 # request; the account note and part number pattern show only where VendorPolicy#account_note?
-# allows (buyers, team managers and admins), as on the vendor's page. Needs the orders feature.
+# allows (buyers and admins), as on the vendor's page. Needs the orders feature.
 class Mcp::Tools::ListVendors < Mcp::Tool
   include Mcp::OrderRecords
 
   tool_name "list_vendors"
-  description "Vendors (stores), preferred first, with website, link domains and whether each is in use. Buyers and managers " \
+  description "Vendors (stores), preferred first, with website, link domains and whether each is in use. Buyers and admins " \
     "also see each one's account note and part number pattern. Use a vendor's ID as a request item's store."
   scope :read
   feature :orders
