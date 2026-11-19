@@ -70,6 +70,9 @@ Rails.application.config.to_prepare do
     "Requesters see and may choose a funding source. Off: approvers set it")
   Settings.register(:orders_close_after_days, :integer, "Close Received Requests After (days)", "14", "Orders",
     "Received requests close after this many days")
+  Settings.register(:orders_notices, :string, "Order Notices", Orders::Config::DEFAULT_NOTICES, "Orders",
+    "How people hear about requests: approvers about requests waiting for them, requesters and watchers about their " \
+    "requests, buyers about what's ready to buy. Each person can change this for themselves.")
 
   # Orders setup (Orders::SettingsEditor) draws every orders setting, with
   # the settings pickers where they exist, and the settings page links there
@@ -79,6 +82,7 @@ Rails.application.config.to_prepare do
     Settings.input(:orders_viewers, :teams)
     Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
     Settings.input(:orders_funding_managers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
+    Settings.input(:orders_notices, :select, choices: Orders::Config::NOTICE_CHOICES)
     Settings.input(:orders_price_tolerance, :partial, partial: "orders/settings/price_tolerance",
       to_text: ->(posted, current) { Orders::PriceToleranceField.text_from(posted, current) }, default_label: Orders::Config::DEFAULT_TOLERANCE)
   end
@@ -98,6 +102,13 @@ Rails.application.config.to_prepare do
     GatherPack::ManagedLists.register(:approval_steps, model: "ApprovalStep", label: "Approval Step",
       plural_label: "Approval Steps", feature: :orders,
       description: "The approvals a request needs, in order.")
+  end
+
+  # The Orders section of the daily email and the Weekly Infodump. Where
+  # this seam isn't merged, or Summaries is off, Orders::DigestJob sends it.
+  if defined?(GatherPack::Digests)
+    GatherPack::Digests.register(:orders, label: "Orders", delivery: -> { Orders::Config.notices },
+      build: ->(person, since:) { Orders::Digest.section(person, since: since) })
   end
 
   GatherPack::HookCatalog.register_targets(*Orders::HOOK_TARGETS)

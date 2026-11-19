@@ -34,12 +34,13 @@ module Orders
       [ "Seeing requests", %i[orders_team_can_see] ],
       [ "Buying", %i[orders_price_tolerance orders_require_other_vendor_reason] ],
       [ "Funding", %i[orders_require_funding_source orders_requesters_pick_funding] ],
-      [ "Closing", %i[orders_close_after_days] ]
+      [ "Closing", %i[orders_close_after_days] ],
+      [ "Email", %i[orders_notices] ]
     ].freeze
 
     # Settings drawn by a partial of their own, with locals setting, value
     # and prefix (the names of the fields it posts).
-    PARTIALS = { orders_price_tolerance: "orders/settings/price_tolerance" }.freeze
+    PARTIALS = { orders_price_tolerance: "orders/settings/price_tolerance", orders_notices: "orders/settings/notices" }.freeze
 
     # Orders settings the page draws with the fields above.
     FIELD_SETTINGS = %i[orders_requesters orders_viewers orders_buyers orders_funding_managers].freeze
@@ -165,6 +166,7 @@ module Orders
       when :integer
         errors << "#{setting.name}: must be a whole number, zero or more." unless value.match?(/\A\d+\z/)
       end
+      errors << "#{setting.name}: choose one of the options." if setting.setting_key == :orders_notices && !Orders::Config::NOTICES.include?(value)
     end
 
     # Only lines that weren't saved before are checked, so a saved line whose

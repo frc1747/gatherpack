@@ -77,7 +77,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       get orders_settings_url
       assert_select "h1", "Orders setup"
       assert_equal [ "Who can ask", "Who sees every request", "Lists", "Who buys", "Who manages funding sources",
-        "Seeing requests", "Buying", "Funding", "Closing" ], css_select("h2").map { |node| node.text.squish }
+        "Seeing requests", "Buying", "Funding", "Closing", "Email" ], css_select("h2").map { |node| node.text.squish }
       assert_select "select[name='values[orders_team_can_see]'] option[selected][value=true]", "Yes"
       assert_select "input[type=number][name='values[orders_price_tolerance][percent]'][value='10']"
       assert_select "input[type=number][name='values[orders_price_tolerance][amount]'][value='25']"
@@ -111,6 +111,30 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert Settings[:orders_require_other_vendor_reason]
       assert Settings[:orders_require_funding_source]
       assert Settings[:orders_requesters_pick_funding]
+    end
+  end
+
+  test "Order Notices offers the four choices, defaults to the daily digest and saves" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      get orders_settings_url
+      assert_select "label[for=values_orders_notices]", "Order Notices"
+      assert_equal [ "An email each time", "In the daily digest", "In the Weekly Infodump", "Off" ],
+        css_select("select[name='values[orders_notices]'] option").map(&:text)
+      assert_select "select[name='values[orders_notices]'] option[selected][value=daily]"
+      assert_select ".form-text", /How people hear about requests: approvers about requests waiting for them/
+
+      params = open_form
+      params["values"]["orders_notices"] = "each"
+      patch orders_settings_url, params: params
+      assert_redirected_to orders_settings_url
+      assert_equal :each, Orders::Config.notices
+
+      params["values"]["orders_notices"] = "hourly"
+      patch orders_settings_url, params: params
+      assert_response :unprocessable_entity
+      assert_match "Order Notices: choose one of the options.", response.body
+      assert_equal :each, Orders::Config.notices
     end
   end
 

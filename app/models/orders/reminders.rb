@@ -8,13 +8,19 @@ module Orders
 
     module_function
 
-    # Each buyer who gets a digest hears of the approved requests still
-    # waiting to be bought, once a day. Nothing goes when none are waiting.
-    def buyer_digest(today: Date.current)
+    # Orders' own daily summary (Orders::Digest) for each person whose
+    # choice is a summary, while Summaries isn't there to send it. Without
+    # Summaries there's no Weekly Infodump to carry it, so a weekly choice
+    # gets it daily too. Nothing goes to a person with nothing in it.
+    def digest(now: Time.current)
       return 0 unless Orders.enabled?
+      return 0 if defined?(GatherPack::Digests) && GatherPack::Digests.handles?(:orders)
 
-      Orders::Recipients.candidates(Orders::Config.buyers).count do |person|
-        send_digest(person, today)
+      since = now - 1.day
+      digest_candidates(since).count do |person|
+        next false unless %i[daily weekly].include?(Orders::Config.delivery_for(person))
+
+        OrderNotices.new.digest(person, Orders::Digest.new(person, since: since)).positive?
       end
     end
 
@@ -51,17 +57,15 @@ module Orders
       end
     end
 
-    def send_digest(person, today)
-      access = Orders::Access.new(person)
-      preference = OrderNoticePreference.for(person)
-      return false unless access.buyer? && preference.buyer_digest? && preference.digest_sent_on != today
-
-      order_requests = to_buy(access)
-      return false if order_requests.empty?
-
-      OrderNotices.new.buyer_digest(person, order_requests)
-      preference.update!(digest_sent_on: today)
-      true
+    # Everyone who could have something in a digest: whoever may approve or
+    # buy, and the people whose requests changed since `since`.
+    def digest_candidates(since)
+      reaches = [ Orders::Config.buyers, *Orders::Config.approval_steps.map(&:reach) ]
+      changed = OrderRequest.where(id: OrderRequestEvent.where(created_at: since..).select(:order_request_id))
+      people = Person.where(id: changed.select(:requested_by_id))
+        .or(Person.where(id: OrderRequestWatcher.where(order_request_id: changed.select(:id)).select(:person_id)))
+        .includes(:user).to_a
+      (reaches.flat_map { |reach| Orders::Recipients.candidates(reach) } + people).uniq.select { |person| person.user&.email.present? }
     end
 
     # Approved requests with something not yet bought, within the buyer's

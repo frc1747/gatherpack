@@ -9,6 +9,11 @@
 # changes drive, and from the jobs in Orders::Reminders. The person who made
 # a change (by:) isn't told about their own action. Every method returns the
 # number of people it went to.
+#
+# Each person hears as Orders::Config.delivery_for says: the event notices
+# go only to those who chose an email each time (the rest find the change in
+# their Orders summary, Orders::Digest), "needed soon" goes to everyone but
+# those who chose off, and #digest is the summary itself.
 class OrderNotices
   include ERB::Util
 
@@ -28,9 +33,8 @@ class OrderNotices
     end
   end
 
-  # Final approval: the requester and watchers now, and each buyer who asked
-  # to hear about every approval (the rest get Orders::Reminders' digest).
-  # A re-approval (a buyer's change that went past the tolerance) is told to
+  # Final approval: the requester and watchers, and the buyers who can buy
+  # it. A re-approval (a buyer's change that went past the tolerance) is told to
   # the requester alone: nothing is left to buy.
   def approved(order_request, by: nil, reapproval: false)
     if reapproval
@@ -42,10 +46,9 @@ class OrderNotices
     told = deliver(Orders::Recipients.requester_and_watchers(order_request), "Approved: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} was approved. A buyer will order it.</p>#{details(order_request)}"
     end
-    buyers = Orders::Recipients.buyers(order_request.team_id).select { |person| OrderNoticePreference.for(person).buyer_immediate? }
-    told + deliver(buyers, "To buy: #{order_request.display_title}", by: by) do
+    told + deliver(Orders::Recipients.buyers(order_request.team_id), "To buy: #{order_request.display_title}", by: by) do
       "<p>#{h(order_request.display_title)} for #{h(order_request.team.name)} was approved and is ready to buy" \
-        "#{h(needed_by_text(order_request))}.</p>#{details(order_request)}#{preference_link}"
+        "#{h(needed_by_text(order_request))}.</p>#{details(order_request)}#{choice_link}"
     end
   end
 
@@ -112,10 +115,11 @@ class OrderNotices
   end
 
   # Needed within 3 days with nothing ordered: whoever holds it, the
-  # approvers while it's undecided, the buyers once approved.
+  # approvers while it's undecided, the buyers once approved. Urgent, so it
+  # goes to everyone who didn't choose off.
   def needed_soon(order_request)
     holders = order_request.submitted? ? approvers_now(order_request) : Orders::Recipients.buyers(order_request.team_id)
-    deliver(holders, "Needed soon: #{order_request.display_title}") do
+    deliver(holders, "Needed soon: #{order_request.display_title}", urgent: true) do
       "<p>#{h(order_request.display_title)} is needed by #{h(order_request.needed_by.strftime("%a %b %-d"))} and nothing is " \
         "ordered yet.</p>#{details(order_request)}"
     end
@@ -129,24 +133,27 @@ class OrderNotices
     end
   end
 
-  # The daily digest for a buyer: approved requests waiting to be bought.
-  def buyer_digest(person, order_requests)
-    deliver([ person ], "To buy: #{order_requests.size} #{order_requests.size == 1 ? 'request' : 'requests'}") do
-      rows = order_requests.map do |order_request|
-        "<li>#{link_to_request(order_request)}, #{h(order_request.team.name)}#{h(needed_by_text(order_request))}</li>"
-      end
-      "<p>Approved and waiting for you to buy:</p><ul>#{rows.join}</ul>#{preference_link}"
+  # Orders' own daily summary (Orders::Digest), sent while Summaries isn't
+  # there to carry it. Nothing goes when the digest is empty.
+  def digest(person, digest)
+    return 0 if digest.empty?
+
+    deliver([ person ], "Orders summary", summary: true) do
+      "#{digest.body}#{choice_link}"
     end
   end
 
   private
 
   # Sends one email per person with an address and returns how many. The
-  # block gives the body. The person named by by: isn't included.
-  def deliver(people, subject, by: nil)
+  # block gives the body. The person named by by: isn't included, nor anyone
+  # whose choice (Orders::Config.delivery_for) isn't an email each time, or,
+  # for an urgent notice, is off. A summary: goes to the people given.
+  def deliver(people, subject, by: nil, urgent: false, summary: false)
     return 0 unless Orders.enabled?
 
     people = people.compact.uniq.reject { |person| person == by }.select { |person| person.user&.email.present? }
+    people = people.select { |person| hears_now?(person, urgent) } unless summary
     return 0 if people.empty?
 
     body = yield
@@ -155,6 +162,11 @@ class OrderNotices
       SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{body}")
     end
     people.size
+  end
+
+  def hears_now?(person, urgent)
+    delivery = Orders::Config.delivery_for(person)
+    urgent ? delivery != :off : delivery == :each
   end
 
   def approvers_now(order_request)
@@ -192,9 +204,16 @@ class OrderNotices
     date ? ", expected #{date.strftime("%a %b %-d")}" : ""
   end
 
-  def preference_link
-    url = Rails.application.routes.url_helpers.edit_orders_notice_preference_url
-    "<p><a href=\"#{h(url)}\">Change how you hear about requests to buy</a></p>"
+  # Where people choose for themselves (Summaries' Email notices page), when
+  # that page is there.
+  def choice_link
+    return "" unless defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:delivery_for) && GatherPack::Digests.enabled?
+
+    url = "#{Rails.application.routes.url_helpers.root_url.chomp("/")}/email_notices"
+    Rails.application.routes.recognize_path(url)
+    "<p><a href=\"#{h(url)}\">Change how you hear about orders</a></p>"
+  rescue ActionController::RoutingError
+    ""
   end
 
   def link_to_request(order_request, text = nil)

@@ -12,30 +12,33 @@ class Orders::JobsTest < ActiveSupport::TestCase
   test "the jobs are scheduled from config/recurring.d" do
     tasks = GatherPack::RecurringSchedule.tasks(env: :test)
 
-    assert_equal %w[Orders::AutoCloseJob Orders::BuyerDigestJob Orders::ReminderJob],
-      tasks.values_at(:orders_auto_close, :orders_buyer_digest, :orders_reminders).map { |task| task[:class] }.sort
+    assert_equal %w[Orders::AutoCloseJob Orders::DigestJob Orders::ReminderJob],
+      tasks.values_at(:orders_auto_close, :orders_digest, :orders_reminders).map { |task| task[:class] }.sort
     assert_includes File.read(Rails.root.join("config/recurring.yml")), "GatherPack::RecurringSchedule.yaml"
   end
 
-  test "the digest job sends the digest, once a day, and nothing with the flag off" do
+  test "the digest job sends the Orders summary, and nothing with the flag off" do
     world = build_orders_world
-    OrderNoticePreference.create!(person: world.manager, buyer_notices: :digest)
-    OrderNoticePreference.create!(person: world.admin, buyer_notices: :digest)
     with_orders(world) { approved_request(world) }
+    travel 2.days
     clear_enqueued_jobs
 
     with_orders(world, feature_orders: "false") do
-      Orders::BuyerDigestJob.perform_now
+      Orders::DigestJob.perform_now
       Orders::ReminderJob.perform_now
       Orders::AutoCloseJob.perform_now
       assert_empty enqueued_emails
     end
 
     with_orders(world) do
-      Orders::BuyerDigestJob.perform_now
+      Orders::DigestJob.perform_now
       assert_equal addresses(world.buyer, world.manager, world.admin), emailed
-      clear_enqueued_jobs
-      Orders::BuyerDigestJob.perform_now
+      assert_match "Ready to buy", email_to(world.buyer)
+    end
+
+    clear_enqueued_jobs
+    with_orders(world, orders_notices: "each") do
+      Orders::DigestJob.perform_now
       assert_empty enqueued_emails
     end
   end

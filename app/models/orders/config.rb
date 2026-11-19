@@ -11,6 +11,10 @@ module Orders
     end
 
     DEFAULT_TOLERANCE = "10%, 25"
+    NOTICES = %w[each daily weekly off].freeze
+    NOTICE_CHOICES = [ [ "An email each time", "each" ], [ "In the daily digest", "daily" ],
+      [ "In the Weekly Infodump", "weekly" ], [ "Off", "off" ] ].freeze
+    DEFAULT_NOTICES = "daily"
 
     module_function
 
@@ -85,6 +89,24 @@ module Orders
 
     def requesters_pick_funding?
       Settings[:orders_requesters_pick_funding] == true
+    end
+
+    # The site's orders_notices: :each, :daily, :weekly or :off.
+    def notices
+      value = Settings[:orders_notices].to_s.strip.downcase
+      (NOTICES.include?(value) ? value : DEFAULT_NOTICES).to_sym
+    end
+
+    # How the person hears about orders: :each (an email as things happen),
+    # :daily or :weekly (the Orders section of a summary) or :off. Their own
+    # choice where Summaries offers one, else the site's.
+    def delivery_for(person)
+      if defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:delivery_for)
+        value = GatherPack::Digests.delivery_for(:orders, person).to_s
+        return :daily if value == "both"
+        return value.to_sym if NOTICES.include?(value)
+      end
+      notices
     end
 
     def close_after_days
