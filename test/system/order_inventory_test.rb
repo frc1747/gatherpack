@@ -36,7 +36,7 @@ class OrderInventorySystemTest < ApplicationSystemTestCase
       assert_field "How many go into stock?", with: "200"
       assert_text "2 packs = 200 each"
       assert_operator find_field("How many go into stock?").native.size.height, :>=, 44
-      assert_equal "fixed", evaluate_script("getComputedStyle(document.querySelector('.fixed-bottom')).position")
+      assert_selector ".gp-form-actions input[type=submit][value='Record delivery']"
       assert_equal 0, evaluate_script("document.documentElement.scrollWidth - document.documentElement.clientWidth")
       click_on "Record delivery"
 
