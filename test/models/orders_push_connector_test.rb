@@ -15,7 +15,8 @@ class OrdersPushConnectorTest < ActiveSupport::TestCase
     create_push_gateway
   end
 
-  PUSH_ON = { feature_phone_notifications: "true", feature_installable_app: "true" }.freeze
+  # Pushes follow the email choice, so these tests hear each notice as it happens.
+  PUSH_ON = { feature_phone_notifications: "true", feature_installable_app: "true", orders_notices: "each" }.freeze
 
   def with_push(**overrides, &block)
     with_orders(@world, **PUSH_ON, **overrides, &block)
@@ -83,15 +84,26 @@ class OrdersPushConnectorTest < ActiveSupport::TestCase
     end
   end
 
-  test "the buyers' digest opens To buy" do
+  test "the Orders summary opens the requests list" do
     with_push do
-      request = approved_request(@world)
+      approved_request(@world)
       opt_in @world.buyer
       clear_enqueued_jobs
-      OrderNotices.new.buyer_digest(@world.buyer, [ request ])
+      OrderNotices.new.digest(@world.buyer, Orders::Digest.new(@world.buyer, since: 1.day.ago))
 
       assert_equal user_ids(@world.buyer), pushed_user_ids
-      assert_equal [ "/orders/purchases/to_buy" ], push_paths
+      assert_equal [ "/orders/requests" ], push_paths
+    end
+  end
+
+  test "people whose orders choice is the daily summary get no push as things happen" do
+    with_push(orders_notices: "daily") do
+      draft = draft_request(@world)
+      opt_in @world.mentor
+      clear_enqueued_jobs
+      draft.submit!(by: @requester)
+
+      assert_empty pushed_user_ids
     end
   end
 

@@ -6,7 +6,7 @@
 module OrdersPushConnector
   ENTRY_POINTS = %i[
     submitted step_approved approved changes_requested declined ordered backordered
-    received problem needs_reapproval needed_soon undecided buyer_digest
+    received problem needs_reapproval needed_soon undecided digest
   ].freeze
 
   ENTRY_POINTS.each do |name|
@@ -41,13 +41,14 @@ module OrdersPushConnector
       []
     end
 
-    # The request, or one of its lines, opens the request; the digest opens To buy.
+    # The request, or one of its lines, opens the request; the Orders summary
+    # (sent to a person) opens the requests list.
     def push_path_for(subject)
       urls = Rails.application.routes.url_helpers
       case subject
       when OrderRequest then urls.orders_request_path(subject)
       when OrderLine then urls.orders_request_path(subject.order_request)
-      else urls.to_buy_orders_purchases_path
+      else urls.orders_requests_path
       end
     end
 end
