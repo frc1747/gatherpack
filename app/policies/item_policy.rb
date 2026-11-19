@@ -1,6 +1,7 @@
 # Items are seen by everyone who may use inventory and is in person.all_team_ids
 # of the item's team (spec §3.6), and managed (created, edited, tracked) by
-# inventory managers, team managers and admins within reach. Inactive items
+# inventory managers (team managers only through an inventory_managers row)
+# and admins within reach. Inactive items
 # are seen only by those who manage them.
 class ItemPolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope

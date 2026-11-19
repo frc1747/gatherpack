@@ -3,10 +3,10 @@
 #
 #   Badge name > Team name              holders of the badge, for that team and those below
 #   Badge name                          holders of the badge, for every team
-#   Managers of Team name > Team name   managers of the first team (or of a team above or
-#                                       below it), for the second and those below
+#   Managers of Team name > Team name   the first team's own managers (not those of a team
+#                                       above or below it), for the second and those below
 #   Managers of Team name               the same, for every team
-#   Managers of each team               managers of a team, for the teams they manage
+#   Managers of each team               managers of a team or a team above it, for that team
 #
 # Inventory carries its own copy of this grammar so it depends on no other
 # feature. A line naming a badge or team that doesn't exist, or one that
@@ -82,7 +82,7 @@ module Inventory
       ids = grants.flat_map do |grant|
         case grant.kind
         when "badge" then BadgeAssignment.where(badge_id: grant.badge.id).pluck(:person_id)
-        when "team_managers" then Membership.where(manager: true, team_id: around(grant.manager_team)).pluck(:person_id)
+        when "team_managers" then Membership.where(manager: true, team_id: grant.manager_team.id).pluck(:person_id)
         else Membership.where(manager: true).pluck(:person_id)
         end
       end
@@ -144,16 +144,9 @@ module Inventory
     def holds?(person, grant)
       case grant.kind
       when "badge" then held_badge_ids(person).include?(grant.badge.id)
-      when "team_managers" then managed_team_ids(person).intersect?(around(grant.manager_team))
+      when "team_managers" then direct_team_ids(person).include?(grant.manager_team.id)
       else managed_team_ids(person).any?
       end
-    end
-
-    # The team, those above it and those below it: a manager of any of them
-    # counts as one of the team's managers.
-    def around(team)
-      @around ||= {}
-      @around[team.id] ||= [ team.id ] + team.all_ancestor_ids + team.all_descendant_ids
     end
 
     def held_badge_ids(person)
@@ -161,12 +154,18 @@ module Inventory
       @held_badge_ids[person.id] ||= BadgeAssignment.where(person_id: person.id).pluck(:badge_id)
     end
 
+    # The teams the person is a manager of themselves.
+    def direct_team_ids(person)
+      @direct_team_ids ||= {}
+      @direct_team_ids[person.id] ||= Membership.where(person_id: person.id, manager: true).pluck(:team_id)
+    end
+
     # The teams the person manages and those below, from their memberships
     # (an admin isn't a manager of every team here).
     def managed_team_ids(person)
       @managed_team_ids ||= {}
       @managed_team_ids[person.id] ||= begin
-        direct = Membership.where(person_id: person.id, manager: true).pluck(:team_id)
+        direct = direct_team_ids(person)
         direct + Team.where(id: direct).flat_map(&:all_descendant_ids)
       end
     end

@@ -1,6 +1,6 @@
 require "test_helper"
 require "support/settings_test_helper"
-require Rails.root.join("db/migrate/20261118120000_add_team_managers_to_inventory_managers.rb")
+require Rails.root.join("db/migrate/20261118140000_add_team_managers_to_inventory_managers.rb")
 
 # The migration that writes "team managers manage their teams' inventory"
 # out as a row, so upgrading changes nothing.

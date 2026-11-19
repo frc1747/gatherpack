@@ -65,19 +65,26 @@ class Inventory::ReachTest < ActiveSupport::TestCase
     assert_equal [ @world.manager.id ], reach.holders.ids
   end
 
-  test "Managers of a team: that team's managers, and those above and below it, reach the team named or every team" do
+  test "Managers of a team: only that team's own managers reach the team named or every team" do
     top = inventory_person("Top", teams: { @world.club => true })
     below = inventory_person("Below", teams: { @world.build => true })
     for_art = Inventory::Reach.new([ "Managers of #{@world.robotics.name} > #{@world.art.name}" ])
 
     assert_equal [ @world.art.id ], for_art.team_ids(@world.manager)
-    assert_equal [ @world.art.id ], for_art.team_ids(top)
-    assert_equal [ @world.art.id ], for_art.team_ids(below)
+    assert_empty for_art.team_ids(top), "a manager of a team above doesn't count"
+    assert_empty for_art.team_ids(below), "a manager of a team below doesn't count"
     assert_empty for_art.team_ids(@world.member)
-    assert_equal [ @world.manager, top, below ].map(&:id).sort, for_art.holders.ids.sort
+    assert_equal [ @world.manager.id ], for_art.holders.ids
 
     assert_equal Team.ids.sort, Inventory::Reach.new([ "managers of #{@world.robotics.name}" ]).team_ids(@world.manager).sort
     assert_empty Inventory::Reach.new([ "Managers of #{@world.outreach.name}" ]).team_ids(@world.manager)
+  end
+
+  test "Managers of each team: a manager of a team above reaches the teams below it too" do
+    top = inventory_person("Top", teams: { @world.club => true })
+
+    assert_equal [ @world.club, @world.robotics, @world.build, @world.outreach ].map(&:id).sort,
+      Inventory::Reach.new([ "Managers of each team" ]).team_ids(top).sort
   end
 
   test "lines that don't parse or name nothing grant nothing" do
