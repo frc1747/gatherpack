@@ -124,7 +124,10 @@ class ItemUnitEvent < ApplicationRecord
   def announce
     return if announcement.nil?
 
-    Array(announcement[:hooks]).each { |event, unit| Inventory.run_hooks(event, unit) }
+    Array(announcement[:hooks]).each do |event, unit|
+      Inventory.run_hooks(event, unit)
+      InventoryNotices.new.needs_repair(unit) if event == Inventory::UNIT_EVENTS[:needs_repair]
+    end
     Inventory::Stock.announce_crossings(announcement[:item], Array(announcement[:crossings]))
   end
 end

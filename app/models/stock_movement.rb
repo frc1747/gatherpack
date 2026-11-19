@@ -231,6 +231,7 @@ class StockMovement < ApplicationRecord
     Inventory.movement_recorded(self, stock_after: announcement[:stock_after], total_after: announcement[:total_after],
       went_low: announcement[:went_low])
     Inventory.run_hooks(Inventory::COUNT_DIFFERS_EVENT, self) if counted? && !quantity.zero? && !reversal?
+    InventoryNotices.new.count_differs(self) if counted?
     Inventory::Stock.announce_crossings(item, announcement[:crossings])
   end
 end

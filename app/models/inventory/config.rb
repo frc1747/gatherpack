@@ -7,9 +7,12 @@ module Inventory
     DEFAULT_MEMBER_KINDS = %w[used moved counted].freeze
     UNIT_ACTIONS = %w[install take_off move check mark_for_repair repaired retire].freeze
     DEFAULT_MEMBER_UNIT_ACTIONS = %w[install take_off move check mark_for_repair].freeze
-    REORDER_NOTICES = %w[off each daily weekly].freeze
-    REORDER_NOTICE_CHOICES = [ [ "Off", "off" ], [ "An email each time", "each" ], [ "In the daily digest", "daily" ],
-      [ "In the Weekly Infodump", "weekly" ] ].freeze
+    REORDER_NOTICES = %w[each daily weekly off].freeze
+    REORDER_NOTICE_CHOICES = [ [ "An email each time", "each" ], [ "In the daily digest", "daily" ],
+      [ "In the Weekly Infodump", "weekly" ], [ "Off", "off" ] ].freeze
+    # What a new site's inventory_managers says: managers of a team manage
+    # its inventory (Inventory::Reach).
+    DEFAULT_MANAGERS = "Managers of each team".freeze
     DEFAULT_UNDO_MINUTES = 10
 
     module_function
@@ -44,10 +47,21 @@ module Inventory
       minutes.nil? || minutes.negative? ? DEFAULT_UNDO_MINUTES : minutes
     end
 
-    # off, each, daily or weekly (in the Weekly Infodump, when summaries are on).
+    # The site's choice for inventory notices: each, daily, weekly (in the
+    # Weekly Infodump, when summaries are on) or off.
     def reorder_notice
       value = Settings[:inventory_reorder_notice].to_s.strip.downcase
       REORDER_NOTICES.include?(value) ? value : "daily"
+    end
+
+    # How this person hears about inventory: their own choice on the Email
+    # notices page where the summaries feature offers one, else the site's.
+    def notice_for(person)
+      if person && defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:delivery_for)
+        value = GatherPack::Digests.delivery_for(:inventory, person).to_s
+        return value if REORDER_NOTICES.include?(value)
+      end
+      reorder_notice
     end
 
     # The default stock unit's name. Kept for features written against the

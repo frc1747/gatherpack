@@ -78,7 +78,7 @@ class InventoryDigestJobTest < ActiveJob::TestCase
     end
   end
 
-  test "Running Low Notices offers the Weekly Infodump" do
+  test "Inventory Notices offers the Weekly Infodump" do
     assert_includes Inventory::Config::REORDER_NOTICE_CHOICES, [ "In the Weekly Infodump", "weekly" ]
     with_settings(inventory_reorder_notice: "weekly") { assert_equal "weekly", Inventory::Config.reorder_notice }
   end

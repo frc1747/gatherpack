@@ -19,6 +19,19 @@ class Inventory::ListScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "every inventory list screen opens, with a retired row too" do
+    skip "needs feature/managed-lists" unless defined?(GatherPack::ManagedLists)
+
+    as_admin do
+      %i[location_types stock_units unit_conditions reading_types].each do |key|
+        list = GatherPack::ManagedLists.find(key)
+        list.model.ordered.last.update_columns(active: false) if list.model.where(key: nil).none?
+        get managed_list_path(key)
+        assert_response :success, "#{key} list screen"
+      end
+    end
+  end
+
   test "retiring the default stock unit says to pick another default first" do
     pack = stock_unit("pack")
     pack.update!(default: true)

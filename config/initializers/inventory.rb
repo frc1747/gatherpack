@@ -51,13 +51,15 @@ Rails.application.config.to_prepare do
       "Teams whose members (and members of the teams below) may see and record stock, one team name per line. " \
         "Blank: everyone signed in"
     end)
-  Settings.register(:inventory_managers, :text, "Inventory Managers", "", "Inventory",
+  Settings.register(:inventory_managers, :text, "Inventory Managers", Inventory::Config::DEFAULT_MANAGERS, "Inventory",
     if picked
-      "Who manages items and places without managing a team, by badge: for the team picked and the teams " \
-        "below it, or every team when none is picked. Admins and team managers always can"
+      "Who manages items and places: holders of a badge, the managers of a team, or the managers of each team " \
+        "for their own teams. A badge or team row works for the team picked and the teams below it, or every team. " \
+        "Admins always can"
     else
-      "Who manages items and places without managing a team. One per line, as Badge name > Team name: " \
-        "for that team and the teams below it. Blank team: every team. Admins and team managers always can"
+      "Who manages items and places, one per line, any of: Badge name > Team name (holders of the badge, for that team " \
+        "and the teams below it); Managers of Team name > Team name (that team's managers); Managers of each team " \
+        "(managers of a team, for the teams they manage). Leave out \"> Team name\" for every team. Admins always can"
     end)
   Settings.register(:inventory_member_kinds, :string, "What Members Can Record",
     Inventory::Config::DEFAULT_MEMBER_KINDS.join(", "), "Inventory",
@@ -79,12 +81,14 @@ Rails.application.config.to_prepare do
     "Recording Used asks \"What for?\" and needs an answer")
   Settings.register(:inventory_undo_minutes, :integer, "Undo Minutes", Inventory::Config::DEFAULT_UNDO_MINUTES.to_s, "Inventory",
     "How long the person who recorded a change can undo it. Inventory managers can undo any change at any time")
-  Settings.register(:inventory_reorder_notice, :string, "Running Low Notices", "daily", "Inventory",
+  Settings.register(:inventory_reorder_notice, :string, "Inventory Notices", "daily", "Inventory",
     if picked
-      "When inventory managers hear that an item is running low"
+      "How inventory managers hear about items running low, counts that changed a lot and units marked for repair. " \
+        "Each person can change this for themselves"
     else
-      "When inventory managers hear that an item is running low: off, each (an email each time), daily (in the daily digest) " \
-        "or weekly (in the Weekly Infodump, when Summaries is on)"
+      "How inventory managers hear about items running low, counts that changed a lot and units marked for repair: " \
+        "each (an email each time), daily (in the daily digest), weekly (in the Weekly Infodump, when Summaries is on) " \
+        "or off. Each person can change this for themselves when Summaries is on"
     end)
 
   # The things a group names for itself are lists admins manage on Setup,
@@ -133,8 +137,11 @@ Rails.application.config.to_prepare do
   if picked
     snake = ->(text) { text.downcase.tr(" ", "_") }
     Settings.input(:inventory_users, :teams)
-    Settings.input(:inventory_managers, :badge_grants, badges: -> { Badge.added_by_admin },
-      blank_team_label: "Up to: every team")
+    # Rows of a badge, a team's managers or each team's managers, drawn by
+    # inventory itself (Inventory::ManagerRows).
+    Settings.input(:inventory_managers, :partial, partial: "inventory/setup/managers",
+      to_text: ->(posted, current) { Inventory::ManagerRows.text_from(posted, current) },
+      default_label: Inventory::Config::DEFAULT_MANAGERS, blank_team_label: Inventory::ManagerRows::BLANK_TEAM_LABEL)
     Settings.input(:inventory_member_kinds, :checkboxes, normalize: snake,
       choices: Inventory::Config::KINDS.map { |kind| [ kind.capitalize, kind ] })
     Settings.input(:inventory_member_unit_actions, :checkboxes, normalize: snake,
@@ -162,16 +169,20 @@ Rails.application.config.to_prepare do
 
   # The managers' summary goes in the combined daily email or the Weekly
   # Infodump when the summaries feature (feature/digests) is present and on;
-  # otherwise InventoryDigestJob sends its own daily email.
+  # otherwise InventoryDigestJob sends its own daily email. Each person's
+  # choice (Inventory::Config.notice_for) decides whether they get it; "each"
+  # and "off" get no section.
   if defined?(GatherPack::Digests)
     GatherPack::Digests.register(:inventory, label: "Inventory",
-      delivery: -> { Inventory::Config.reorder_notice == "weekly" ? :weekly : :daily },
+      delivery: -> { Inventory::Config.reorder_notice.to_sym },
       build: ->(person, since:) {
-        next unless Inventory.enabled?
+        next unless Inventory.enabled? && Inventory::Config.notice_for(person).in?(%w[daily weekly])
 
         team_ids = InventoryNotices.managers[person]
-        digest = Inventory::Digest.new(since: since).for_teams(team_ids || [])
-        next if team_ids.nil? || digest.empty?
+        next if team_ids.nil?
+
+        digest = Inventory::Digest.new(since: since).for_teams(team_ids)
+        next if digest.empty?
 
         GatherPack::Digests::Section.new(heading: "Inventory: #{digest.summary}", body: InventoryNotices.new.digest_body(digest))
       })

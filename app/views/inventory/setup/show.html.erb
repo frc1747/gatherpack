@@ -14,8 +14,10 @@
           <% keys.each do |key| %>
             <% setting = Settings.get(key) %>
             <div class="mb-3">
-              <%= label_tag "settings_#{key}", setting.name, class: "form-label" %>
-              <% if key == :inventory_reorder_notice %>
+              <%= label_tag "settings_#{key}", setting.name, class: "form-label" unless key == :inventory_managers %>
+              <% if key == :inventory_managers %>
+                <%= render "inventory/setup/managers", setting: setting %>
+              <% elsif key == :inventory_reorder_notice %>
                 <%= select_tag "settings[#{key}]", options_for_select(Inventory::Config::REORDER_NOTICE_CHOICES, Inventory::Config.reorder_notice), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
               <% elsif setting.setting_type == :boolean %>
                 <%= select_tag "settings[#{key}]", options_for_select([ [ "Yes", "true" ], [ "No", "false" ] ], Inventory::Config.used_needs_reason? ? "true" : "false"), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>

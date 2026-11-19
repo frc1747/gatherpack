@@ -59,7 +59,7 @@ class Inventory::AccessTest < ActiveSupport::TestCase
     end
   end
 
-  test "managers are inventory managers, team managers and admins" do
+  test "managers are inventory managers (team managers through the default row) and admins" do
     with_inventory(@world) do
       assert Inventory::Access.for(@world.keeper).manager?
       assert Inventory::Access.for(@world.manager).manager?

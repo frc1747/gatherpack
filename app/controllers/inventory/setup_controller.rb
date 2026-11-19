@@ -1,6 +1,7 @@
 # Inventory > Setup: every inventory setting on one page for admins. With the
 # settings pickers it draws the shared settings form; without them, plain
-# fields saved here. GROUPS orders and groups the settings; a test fails when
+# fields saved here; Inventory Managers is drawn as rows either way
+# (Inventory::ManagerRows). GROUPS orders and groups the settings; a test fails when
 # a setting registered in the "Inventory" group isn't listed.
 module Inventory
   class SetupController < BaseController
@@ -21,7 +22,12 @@ module Inventory
 
     def update
       values = params.fetch(:settings, {})
-      KEYS.each { |key| Settings.set(key, values[key].to_s) if values.key?(key) }
+      KEYS.each do |key|
+        next unless values.key?(key)
+
+        text = key == :inventory_managers ? Inventory::ManagerRows.text_from(values[key], Settings[key]) : values[key].to_s
+        Settings.set(key, text)
+      end
       redirect_to inventory_setup_path, notice: "Inventory setup was saved.", status: :see_other
     end
   end

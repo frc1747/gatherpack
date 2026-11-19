@@ -18,7 +18,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       assert_select "h1", text: "Inventory setup"
       assert_includes response.body, "Who Can Use Inventory"
       assert_includes response.body, "Inventory Managers"
-      assert_includes response.body, "Running Low Notices"
+      assert_includes response.body, "Inventory Notices"
       assert_includes response.body, "Undo Minutes"
       if Settings.respond_to?(:input)
         assert_select "option[selected]", text: "An email each time"
@@ -113,7 +113,8 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       get inventory_setup_path
       assert_select "form[action=?]", inventory_setup_path, count: 1
       assert_select "input[type=submit][value=Save]"
-      Inventory::SetupController::KEYS.each { |key| assert_select "[name=?]", "settings[#{key}]" }
+      (Inventory::SetupController::KEYS - [ :inventory_managers ]).each { |key| assert_select "[name=?]", "settings[#{key}]" }
+      assert_select "select[name^=?]", "settings[inventory_managers][rows]"
     end
   end
 
@@ -124,6 +125,66 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.admin.user
       get inventory_setup_path
       assert_select "select[name$='[team]'] option[value='']", text: "Up to: every team"
+    end
+  end
+
+  # Saves posted settings the way the page's form does: to the settings
+  # page with pickers, else to Inventory setup.
+  def save_setup(settings)
+    if Settings.respond_to?(:input)
+      post update_settings_path, params: { return_to: inventory_setup_path, settings: settings }
+    else
+      patch inventory_setup_path, params: { settings: settings }
+    end
+    assert_redirected_to inventory_setup_path
+  end
+
+  test "Inventory Managers rows save and redraw each kind" do
+    with_inventory(@world, inventory_managers: "") do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_select "select[name=?] option", "settings[inventory_managers][rows][0][who]", text: "Managers of the item's own team"
+      assert_select "legend", text: "Inventory Managers"
+      assert_includes response.body, "Any of these"
+
+      save_setup(inventory_managers: { rows: {
+        "0" => { line: "", who: "badge", badge: @world.keeper_badge.name, manager_team: "", team: @world.club.name },
+        "1" => { line: "", who: "team_managers", badge: "", manager_team: @world.robotics.name, team: "" },
+        "2" => { line: "", who: "own_team_managers", badge: @world.keeper_badge.name, manager_team: "", team: @world.art.name },
+        "3" => { line: "", who: "badge", badge: "", manager_team: "", team: "" }
+      } })
+      assert_equal [ "#{@world.keeper_badge.name} > #{@world.club.name}", "Managers of #{@world.robotics.name}", "Managers of each team" ],
+        Settings[:inventory_managers].lines.map(&:strip)
+
+      get inventory_setup_path
+      assert_select "select[name=?] option[selected]", "settings[inventory_managers][rows][0][who]", text: "A badge"
+      assert_select "select[name=?] option[selected]", "settings[inventory_managers][rows][0][badge]", text: @world.keeper_badge.name
+      assert_select "select[name=?] option[selected]", "settings[inventory_managers][rows][0][team]", text: "Up to: #{@world.club.name}"
+      assert_select "select[name=?] option[selected]", "settings[inventory_managers][rows][1][who]", text: "Managers of a team"
+      assert_select "select[name=?] option[selected]", "settings[inventory_managers][rows][1][manager_team]",
+        text: "Managers of: #{@world.robotics.name}"
+      assert_select "select[name=?] option[selected]", "settings[inventory_managers][rows][2][who]", text: "Managers of the item's own team"
+      assert_select "select[name=?]", "settings[inventory_managers][rows][3][who]", count: 1, message: "a blank row to add one"
+    end
+  end
+
+  test "opening and saving the managers changes nothing; a row not found is kept until removed" do
+    text = "#{@world.keeper_badge.name.upcase}   >  #{@world.club.name}\nManagers of  each team\nGone badge > #{@world.club.name}"
+    with_inventory(@world, inventory_managers: text) do
+      sign_in @world.admin.user
+      get inventory_setup_path
+      assert_includes response.body, "Not found: Gone badge"
+      rows = { "0" => { line: "#{@world.keeper_badge.name.upcase}   >  #{@world.club.name}", who: "badge", badge: @world.keeper_badge.name,
+                        manager_team: "", team: @world.club.name },
+               "1" => { line: "Managers of  each team", who: "own_team_managers", badge: "", manager_team: "", team: "" },
+               "2" => { line: "Gone badge > #{@world.club.name}" },
+               "3" => { line: "", who: "badge", badge: "", manager_team: "", team: "" } }
+      save_setup(inventory_managers: { rows: rows })
+      assert_equal text, Settings[:inventory_managers]
+
+      save_setup(inventory_managers: { rows: rows.merge("2" => rows["2"].merge(remove: "1")) })
+      assert_equal 2, Settings[:inventory_managers].lines.size
+      assert_not_includes Settings[:inventory_managers], "Gone badge"
     end
   end
 

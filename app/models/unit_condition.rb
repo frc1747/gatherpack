@@ -58,7 +58,7 @@ class UnitCondition < ApplicationRecord
     pick("good", after_repair) or raise Inventory::Refused, "Add a working part condition on Setup first"
   end
 
-  def self.retired
+  def self.retire_condition
     pick("retired", active.where(out_of_service: true).ordered) or
       raise Inventory::Refused, "Add an out of service part condition on Setup first"
   end
