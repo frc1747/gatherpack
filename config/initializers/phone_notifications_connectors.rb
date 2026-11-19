@@ -13,8 +13,8 @@ Rails.application.config.to_prepare do
     available: -> { GatherPack::Features.enabled?(:commitments) })
 
   # It's a person's own setting, so with My GatherPack on it goes beside Sign Out.
-  visible = -> { current_user == true_user && GatherPack::NotificationSections.page_for?(current_user) }
+  visible = -> { GatherPack::NotificationSections.page_for?(current_user) && current_user == true_user }
   MyGatherpack.register_account_link(:notifications, label: "Notifications", path: :notifications_path, visible: visible)
   GatherPack::SidebarSlots.register(:phone_notifications, partial: "my_gatherpack/notifications_sidebar_entry", position: 800,
-    visible: ->(_view) { current_user == true_user && GatherPack::NotificationSections.page_for?(current_user) })
+    visible: ->(_view) { GatherPack::NotificationSections.page_for?(current_user) && current_user == true_user })
 end
