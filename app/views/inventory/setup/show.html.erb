@@ -1,0 +1,56 @@
+<% breadcrumb :inventory_setup %>
+<% content_for :title, "Inventory setup" %>
+<% inventory_stylesheet %>
+
+<div class="card mb-3">
+  <div class="card-header"><h1 class="mb-0">Inventory setup</h1></div>
+  <div class="card-body">
+    <% if Settings.respond_to?(:page) %>
+      <%= render "settings/form", keys: Inventory::SetupController::KEYS, return_to: inventory_setup_path %>
+    <% else %>
+      <%= form_with url: inventory_setup_path, method: :patch do %>
+        <% Inventory::SetupController::GROUPS.each do |heading, keys| %>
+          <h2 class="h5 mt-4"><%= heading %></h2>
+          <% keys.each do |key| %>
+            <% setting = Settings.get(key) %>
+            <div class="mb-3">
+              <%= label_tag "settings_#{key}", setting.name, class: "form-label" unless key == :inventory_managers %>
+              <% if key == :inventory_managers %>
+                <%= render "inventory/setup/managers", setting: setting %>
+              <% elsif key == :inventory_reorder_notice %>
+                <%= select_tag "settings[#{key}]", options_for_select(Inventory::Config::REORDER_NOTICE_CHOICES, Inventory::Config.reorder_notice), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
+              <% elsif setting.setting_type == :boolean %>
+                <%= select_tag "settings[#{key}]", options_for_select([ [ "Yes", "true" ], [ "No", "false" ] ], Inventory::Config.used_needs_reason? ? "true" : "false"), id: "settings_#{key}", class: "form-select", style: "min-height: 44px" %>
+              <% elsif setting.setting_type == :integer %>
+                <%= number_field_tag "settings[#{key}]", setting.value, id: "settings_#{key}", min: 0, class: "form-control", style: "min-height: 44px" %>
+              <% elsif setting.setting_type == :string %>
+                <%= text_field_tag "settings[#{key}]", setting.value, id: "settings_#{key}", class: "form-control", style: "min-height: 44px" %>
+              <% else %>
+                <%= text_area_tag "settings[#{key}]", setting.value, id: "settings_#{key}", rows: 4, class: "form-control" %>
+              <% end %>
+              <div class="form-text"><%= setting.description %></div>
+            </div>
+          <% end %>
+        <% end %>
+        <div class="sticky-bottom bg-body border-top py-2">
+          <%= submit_tag "Save", class: "btn btn-lg btn-success" %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>
+
+<% lists = defined?(GatherPack::ManagedLists) ? Inventory::SetupController::LISTS.filter_map { |key| GatherPack::ManagedLists.find(key) } : [] %>
+<% if lists.any? %>
+  <div class="card mb-3" id="inventory_lists">
+    <div class="card-header"><h2 class="h5 mb-0">Lists</h2></div>
+    <div class="card-body">
+      <p class="text-body-secondary">The types, units and conditions inventory offers in its pickers.</p>
+      <div class="d-flex flex-wrap gap-2">
+        <% lists.each do |list| %>
+          <%= link_to list.plural_label, managed_list_path(list.key), class: "btn btn-secondary", style: "min-height: 44px" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

@@ -1,0 +1,110 @@
+<% breadcrumb :inventory_unit, @unit %>
+<% content_for :title, @unit.identifier_name %>
+
+<div class="row"><div class="col-lg-8 col-xl-6">
+  <div class="mb-3">
+    <h1 class="h3 mb-1"><%= i("microchip") %> <%= @unit.identifier_name %> <%= unit_condition_badge(@unit) %></h1>
+    <div><%= link_to @unit.item.name, inventory_item_path(@unit.item) %><%= " · #{@unit.name}" if @unit.name.present? && @unit.code.present? %></div>
+    <div class="text-body-secondary" id="unit_whereabouts"><%= i(@unit.location.identifier_icon) %> <%= unit_whereabouts(@unit) %></div>
+    <% if @unit.condition_note.present? %>
+      <div class="small mt-1"><%= @unit.condition_note %></div>
+    <% end %>
+  </div>
+
+  <% if (actions = unit_actions_for(@unit)).any? %>
+    <div class="d-grid gap-2 mb-4" id="unit_actions">
+      <% actions.each do |action| %>
+        <%= unit_action_button(@unit, action) %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if (inside = @unit.contents.includes(:item).order(:code)).any? %>
+    <h2 class="h5">Inside it</h2>
+    <ul class="list-group mb-4">
+      <% inside.each do |inner| %>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span><%= link_to inner.identifier_name, inventory_unit_path(inner) %> <span class="text-body-secondary small"><%= inner.item.name %></span></span>
+          <%= unit_condition_badge(inner) %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <% fields = @unit.item.reading_types.to_a %>
+  <% rows = unit_readings_rows(@unit) %>
+  <% if fields.any? %>
+    <h2 class="h5">Readings</h2>
+    <% if rows.empty? %>
+      <p class="text-body-secondary">No readings yet. Add them with Check.</p>
+    <% else %>
+      <% latest = unit_latest_readings(rows) %>
+      <dl class="row mb-2" id="latest_readings">
+        <% fields.each do |field| %>
+          <dt class="col-7"><%= reading_heading(field) %></dt>
+          <dd class="col-5"><%= latest.fetch(field.id, "—") %></dd>
+        <% end %>
+      </dl>
+      <div class="table-responsive mb-4">
+        <table class="table table-sm" id="readings_history">
+          <thead>
+            <tr>
+              <th>When</th>
+              <% fields.each do |field| %>
+                <th><%= reading_heading(field) %></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |event| %>
+              <tr>
+                <td><%= l(event.created_at.to_date, format: :short) %></td>
+                <% fields.each do |field| %>
+                  <td><%= event.readings.fetch(field.id, "") %></td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  <% end %>
+
+  <h2 class="h5">History</h2>
+  <ul class="list-group mb-4" id="unit_history">
+    <% undone = @events.filter_map(&:reverses_id).to_set %>
+    <% @events.each do |event| %>
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between gap-2">
+          <div>
+            <%= unit_event_summary(event) %>
+            <% if event.confirmed? %><span class="badge text-bg-warning">Installed anyway</span><% end %>
+            <% if undone.include?(event.id) %><span class="badge text-bg-secondary">Undone</span><% end %>
+            <% if event.reversal? %><span class="badge text-bg-secondary">Undo</span><% end %>
+          </div>
+          <% if policy(event).undo? %>
+            <%= button_to "Undo", undo_inventory_unit_event_path(event), class: "btn btn-outline-secondary btn-sm" %>
+          <% end %>
+        </div>
+        <div class="small text-body-secondary">
+          <%= l(event.created_at, format: :short) %><%= " · #{event.person.identifier_name}" if event.person %>
+          <%= " · #{event.note}" if event.note.present? && !event.reversal? %>
+        </div>
+        <% if event.photo.attached? %>
+          <%= link_to "Photo", url_for(event.photo), class: "small" %>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+
+  <dl class="row small text-body-secondary">
+    <% if @unit.serial_number.present? %>
+      <dt class="col-5">Serial number</dt><dd class="col-7"><%= @unit.serial_number %></dd>
+    <% end %>
+    <dt class="col-5">In use since</dt><dd class="col-7"><%= l(@unit.in_service_on) if @unit.in_service_on %></dd>
+  </dl>
+  <% if policy(@unit).update? %>
+    <%= link_to "Edit code and details", edit_inventory_unit_path(@unit), class: "btn btn-warning mb-4" %>
+  <% end %>
+</div>
+</div>

@@ -1,0 +1,63 @@
+<% breadcrumb :inventory_items %>
+<% content_for :title, "Items" %>
+<% inventory_stylesheet %>
+
+<%= search_form_for @q, url: inventory_items_path do |f| %>
+  <div class="card mb-3">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h1 class="mb-0">Items</h1>
+      <div class="d-flex gap-2">
+        <%= link_to "Import", new_inventory_import_path, class: "btn btn-secondary" if policy(:inventory).import? %>
+        <%= link_to "New item", new_inventory_item_path, class: "btn btn-success" if policy(Item).new? %>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md">
+          <%= f.input :name_or_manufacturer_part_number_cont, label: "Name or part number", required: false %>
+        </div>
+        <div class="col-md">
+          <%= f.input :category_eq, label: "Category", collection: policy_scope(Item).categories, required: false %>
+        </div>
+        <div class="col-md">
+          <%= f.input :active_eq, label: "Active", collection: [ [ "Active", true ], [ "Inactive", false ] ], required: false %>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= f.submit "Search", class: "btn btn-primary" %>
+      <%= link_to "Clear Search", inventory_items_path, class: "btn btn-dark" %>
+    </div>
+  </div>
+<% end %>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle" id="items">
+    <thead>
+      <tr>
+        <th><%= sort_link @q, :name, "Item" %></th>
+        <th><%= sort_link @q, :category, "Category" %></th>
+        <th>Part number</th>
+        <th>Home</th>
+        <th class="text-end">Stock</th>
+        <th class="text-end">Order more at</th>
+        <th>Team</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @items.each do |item| %>
+        <tr>
+          <td><%= link_to item.name, inventory_item_path(item) %> <%= inventory_stock_badges(item, total: @totals[item.id]) %></td>
+          <td><%= item.category %></td>
+          <td><%= item.manufacturer_part_number %></td>
+          <td><%= item.home_location&.name %></td>
+          <td class="text-end"><%= inventory_quantity(@totals[item.id], item) %></td>
+          <td class="text-end"><%= item.reorder_point %></td>
+          <td><%= item.team.name %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+<%= paginate @items %>
+<%= render "inventory/shared/manager_links" %>

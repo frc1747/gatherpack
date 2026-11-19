@@ -1,0 +1,53 @@
+<% breadcrumb :inventory_import %>
+<% content_for :title, "Import preview" %>
+
+<div class="card mb-3">
+  <div class="card-header"><h1>Import preview</h1></div>
+  <div class="card-body">
+    <p id="import-summary">
+      <%= pluralize(@import.creating, "new item") %>, <%= pluralize(@import.updating, "item") %> to update<%= ", #{pluralize(@import.problem_rows.size, "row")} skipped" if @import.problem_rows.any? %>.
+      New items go to <strong><%= @import.team.name %></strong>.
+    </p>
+    <% if @import.problem_rows.any? %>
+      <div class="alert alert-warning" id="import-problems">
+        <p class="mb-1">These rows won't be imported. Fix the file and upload it again, or import the rest:</p>
+        <ul class="mb-0">
+          <% @import.problem_rows.each do |row| %>
+            <li>Row <%= row.number %> (<%= row.values[:name].presence || "no name" %>): <%= row.problems.to_sentence %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-sm align-middle" id="import-rows">
+    <thead>
+      <tr><th>Row</th><th></th><th>Name</th><th>Part number</th><th>Vendor</th><th>Place</th><th class="text-end">Quantity</th><th class="text-end">Order more at</th></tr>
+    </thead>
+    <tbody>
+      <% @import.rows.each do |row| %>
+        <tr class="<%= "table-warning" if row.action == :skip %>">
+          <td><%= row.number %></td>
+          <td><%= { create: "New", update: "Update", skip: "Skip" }[row.action] %></td>
+          <td><%= row.values[:name] %></td>
+          <td><%= row.values[:manufacturer_part_number] %></td>
+          <td><%= row.values[:vendor] %></td>
+          <td><%= row.location&.full_name || row.values[:place_code] %></td>
+          <td class="text-end"><%= row.values[:quantity] %></td>
+          <td class="text-end"><%= row.values[:reorder_point] %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+
+<%= form_with url: inventory_import_path, method: :post, class: "d-flex gap-2 my-3" do %>
+  <%= hidden_field_tag :team_id, @import.team_id %>
+  <%= hidden_field_tag :csv, @import.text %>
+  <%= hidden_field_tag :confirm, "1" %>
+  <%= submit_tag "Import #{pluralize(@import.creating + @import.updating, "row")}", class: "btn btn-primary",
+    disabled: (@import.creating + @import.updating).zero? %>
+  <%= link_to "Start again", new_inventory_import_path, class: "btn btn-secondary" %>
+<% end %>

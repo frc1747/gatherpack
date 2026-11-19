@@ -1,0 +1,63 @@
+<% breadcrumb :inventory %>
+<% content_for :title, "Stock" %>
+<% inventory_stylesheet %>
+
+<div class="inventory-phone">
+  <%= render "inventory/shared/undo_toast" %>
+  <%= form_with url: inventory_stock_path, method: :get, data: { controller: "inventory-search", turbo_frame: "inventory_results", turbo_action: "replace" }, role: "search" do |f| %>
+    <label for="q" class="form-label h1">Stock</label>
+    <div class="input-group input-group-lg">
+      <%= f.search_field :q, value: @query, id: "q", class: "form-control inventory-search", placeholder: "Name, part number or category",
+        autocomplete: "off", autofocus: true, data: { inventory_search_target: "input", action: "input->inventory-search#search" } %>
+      <button type="submit" class="btn btn-primary" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </div>
+  <% end %>
+
+  <%= turbo_frame_tag "inventory_results", target: "_top" do %>
+    <% if @query.present? %>
+      <% if @items.empty? %>
+        <p class="my-3 text-body-secondary">Nothing matches “<%= @query %>”.</p>
+      <% else %>
+        <div class="list-group my-3" id="inventory-results">
+          <% @items.each do |item| %>
+            <% levels = @levels[item.id] || [] %>
+            <%= link_to inventory_item_path(item), class: "list-group-item list-group-item-action" do %>
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <strong><%= item.name %></strong>
+                <span><%= inventory_stock_badges(item, total: @totals[item.id], needs_count: levels.any? { |level| level.quantity.negative? }) %></span>
+              </div>
+              <% if item.manufacturer_part_number.present? || item.category.present? %>
+                <div class="small text-body-secondary"><%= [ item.manufacturer_part_number, item.category ].compact_blank.join(" · ") %></div>
+              <% end %>
+              <% if item.tracked? %>
+                <div><%= pluralize(@totals[item.id], "unit") %> available</div>
+              <% elsif levels.empty? %>
+                <div class="text-body-secondary">None in stock</div>
+              <% else %>
+                <ul class="list-unstyled mb-0">
+                  <% levels.sort_by { |level| -level.quantity }.each do |level| %>
+                    <li><%= inventory_place_name(level.location, @places) %>: <strong><%= inventory_quantity(level.quantity, item) %></strong></li>
+                  <% end %>
+                </ul>
+              <% end %>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <div class="d-flex flex-wrap gap-2 my-3 inventory-no-print">
+    <% if Inventory.manager_pages(current_person).none? %>
+      <%= link_to inventory_locations_path, class: "btn btn-secondary" do %>
+        <i class="fa-solid fa-warehouse"></i> Places
+      <% end %>
+    <% end %>
+    <% LocationType.installable.each do |type| %>
+      <%= link_to inventory_machine_type_path(type), class: "btn btn-secondary" do %>
+        <i class="fa-solid fa-<%= Inventory::MACHINE_ICON %>"></i> <%= type.plural_name %>
+      <% end %>
+    <% end %>
+  </div>
+  <%= render "inventory/shared/manager_links" %>
+</div>

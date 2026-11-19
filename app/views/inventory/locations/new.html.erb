@@ -1,0 +1,7 @@
+<% breadcrumb :inventory_location, @location %>
+<% content_for :title, "New place" %>
+
+<div class="card">
+  <div class="card-header"><h1>New place</h1></div>
+  <div class="card-body"><%= render "form", location: @location %></div>
+</div>
