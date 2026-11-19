@@ -829,7 +829,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_150100) do
     t.integer "position", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "vendor_id"
     t.index ["item_id"], name: "index_item_sources_on_item_id"
+    t.index ["vendor_id"], name: "index_item_sources_on_vendor_id"
   end
 
   create_table "item_unit_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2092,6 +2094,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_150100) do
   add_foreign_key "item_reading_types", "items"
   add_foreign_key "item_reading_types", "reading_types"
   add_foreign_key "item_sources", "items"
+  add_foreign_key "item_sources", "vendors", on_delete: :nullify
   add_foreign_key "item_unit_events", "item_unit_events", column: "reverses_id"
   add_foreign_key "item_unit_events", "item_units"
   add_foreign_key "item_unit_events", "item_units", column: "from_unit_id"
@@ -2099,8 +2102,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_150100) do
   add_foreign_key "item_unit_events", "item_units", column: "via_unit_id"
   add_foreign_key "item_unit_events", "locations", column: "from_location_id"
   add_foreign_key "item_unit_events", "locations", column: "to_location_id"
-  add_foreign_key "item_unit_events", "people", on_delete: :nullify
   add_foreign_key "item_unit_events", "people", column: "recorded_by_id", on_delete: :nullify
+  add_foreign_key "item_unit_events", "people", on_delete: :nullify
   add_foreign_key "item_unit_events", "unit_conditions", column: "condition_after_id"
   add_foreign_key "item_unit_events", "unit_conditions", column: "condition_before_id"
   add_foreign_key "item_units", "item_units", column: "installed_in_id"
