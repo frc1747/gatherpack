@@ -48,6 +48,26 @@
   color: var(--bs-success-text-emphasis);
 }
 
+/* Not done yet: a red mark and red answer so it stands out from the done lines. */
+.mg-season-unfinished {
+  color: var(--bs-danger-text-emphasis);
+  font-weight: 600;
+}
+
+.mg-season-alert {
+  color: var(--bs-danger);
+}
+
+.mg-season-label-unfinished {
+  color: var(--bs-danger-text-emphasis);
+}
+
+.mg-season-count {
+  margin-inline-start: 0.25rem;
+  vertical-align: text-top;
+  font-size: 0.75rem;
+}
+
 .mg-season-detail {
   padding: 0 1.25rem 0.75rem;
   color: var(--bs-secondary-color);

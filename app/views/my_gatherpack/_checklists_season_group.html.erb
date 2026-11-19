@@ -4,7 +4,7 @@
 <% end %>
 <% if in_progress.any? %>
   <div class="mg-season-group" data-season-group="in-progress">
-    <h4 class="mg-season-label">In progress</h4>
+    <h4 class="mg-season-label mg-season-label-unfinished">In progress <span class="badge rounded-pill text-bg-danger mg-season-count"><%= in_progress.size %></span></h4>
     <%= render partial: "my_gatherpack/checklists_season_line", collection: in_progress, as: :line, locals: { named: named } %>
   </div>
 <% end %>

@@ -338,7 +338,9 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:member).user
       get root_path
-      assert_equal [ "Attendance · 1.5 more hours by Dec 31", "Concessions · 2 more shifts" ], season_lines("in-progress")
+      assert_equal [ "Attendance 1.5 more hours by Dec 31", "Concessions 2 more shifts" ], season_lines("in-progress")
+      assert_select "[data-season-group=in-progress] .mg-season-count", text: "2"
+      assert_select "[data-season-group=in-progress] summary .mg-season-unfinished .mg-season-alert[aria-label='Not done yet']", 2
     end
   end
 
@@ -350,7 +352,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:member).user
       get root_path
-      assert_equal [ "Concessions · 2 shifts signed up", "Pit crew · 1 more shift" ], season_lines("in-progress")
+      assert_equal [ "Concessions 2 shifts signed up", "Pit crew 1 more shift" ], season_lines("in-progress")
     end
   end
 
@@ -362,7 +364,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:member).user
       get root_path
-      assert_equal [ "Concessions · 2 more shifts", "Pit crew · 2 more shifts" ], season_lines("in-progress")
+      assert_equal [ "Concessions 2 more shifts", "Pit crew 2 more shifts" ], season_lines("in-progress")
     end
   end
 
@@ -374,7 +376,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:member).user
       get root_path
-      assert_equal [ "Attendance · 1.5 more hours, was due #{due.strftime("%b %-d")}" ], season_lines("in-progress")
+      assert_equal [ "Attendance 1.5 more hours, was due #{due.strftime("%b %-d")}" ], season_lines("in-progress")
     end
   end
 
@@ -385,7 +387,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:member).user
       get root_path
-      assert_equal [ "Paperwork · Not Started" ], season_lines("in-progress")
+      assert_equal [ "Paperwork Not Started" ], season_lines("in-progress")
     end
   end
 
@@ -398,7 +400,8 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       sign_in person(:member).user
       get root_path
       assert_equal [ "Outreach · Rookie" ], season_lines("done")
-      assert_equal [ "Paperwork · Not Started" ], season_lines("in-progress")
+      assert_select "[data-season-group=done] .mg-season-alert", 0
+      assert_equal [ "Paperwork Not Started" ], season_lines("in-progress")
     end
   end
 
@@ -409,7 +412,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     with_feature_on do
       sign_in person(:member).user
       get root_path
-      assert_equal [ "Concessions · 1 more shift for your family" ], season_lines("in-progress")
+      assert_equal [ "Concessions 1 more shift for your family" ], season_lines("in-progress")
     end
   end
 
@@ -726,7 +729,7 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
       assert_equal [ "You", "Kid", "Zed" ], blocks.map { |block| block.at_css(".mg-season-person-name").text.strip }
       assert_equal [ person(:parent).id, person(:kid).id, second.id ], blocks.map { |block| block["data-season-person"] }
       blocks.each do |block|
-        assert_equal [ "Paperwork · Not Started" ], block.css("[data-season-group=in-progress] summary").map { |line| line.text.squish }
+        assert_equal [ "Paperwork Not Started" ], block.css("[data-season-group=in-progress] summary").map { |line| line.text.squish }
         assert_equal [ "Consent ✓ Signed" ], block.css("[data-season-group=done] summary").map { |line| line.text.squish }
       end
       assert_select "[data-home-section=checklists-season] .mg-row-ward", false

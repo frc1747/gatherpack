@@ -4,7 +4,8 @@
   <summary class="mg-season-line">
     <span class="mg-season-title"><%= entry.item.label %></span>
     <% if line.ward && !named %><span class="mg-row-ward">for <%= line.ward %></span><% end %>
-    <span class="mg-season-answer<%= " mg-season-met" if entry.met? %>"><%= entry.met? ? "✓" : "·" %> <%= my_gatherpack_season_answer(entry, subject: line.subject) %></span>
+    <% unfinished = MyGatherpackChecklistsHelper::UNFINISHED.include?(entry.status) %>
+    <span class="mg-season-answer<%= " mg-season-met" if entry.met? %><%= " mg-season-unfinished" if unfinished %>"><% if entry.met? %>✓<% elsif unfinished %><span class="mg-season-alert" aria-label="Not done yet" title="Not done yet"><%= i("circle-exclamation") %></span><% else %>·<% end %> <%= my_gatherpack_season_answer(entry, subject: line.subject) %></span>
   </summary>
   <div class="mg-season-detail">
     <% if (detail = my_gatherpack_season_detail(entry, subject: line.subject)).present? %>
