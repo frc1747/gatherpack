@@ -1,0 +1,4 @@
+<%# "Not in ledger" on a purchase in the list, while the ledger is on. %>
+<% if Orders::LedgerRecording.ledger_on? && purchase.ledger_entry_id.nil? %>
+  <span class="badge text-bg-warning">Not in ledger</span>
+<% end %>

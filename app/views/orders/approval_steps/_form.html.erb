@@ -1,0 +1,52 @@
+<%= f.error_notification %>
+<%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+<div class="form-inputs">
+  <%= f.input :name %>
+  <% if f.object.first? %>
+    <%= f.input :minimum, as: :currency, label: "Minimum total", disabled: true, input_html: { value: "0.00" },
+          hint: "This is the first step, so every request needs it and it has no minimum." %>
+  <% else %>
+    <%= f.input :minimum, as: :currency, label: "Minimum total",
+          hint: "Requests whose total reaches this need the step too. 0: every request. Every request needs the first step." %>
+  <% end %>
+
+  <fieldset class="mb-3" data-controller="orders-grant-rows">
+    <legend class="form-label fs-6">Who approves</legend>
+    <div class="form-text mb-2">
+      Admins always can. A team under "For" covers the teams below it too; no team: every team.
+      Managers of a team: that team's own managers, not those of the teams above or below it. Managers of the request's own team include managers of the teams above it.
+    </div>
+    <p class="mb-2">Any of these:</p>
+    <% badges = (Badge.added_by_admin.order(:name).to_a | f.object.approvers.filter_map(&:badge)).map { |badge| [ badge.name, badge.id ] } %>
+    <% team_choices = Team.order(:name).map { |team| [ team.name, team.id ] } %>
+    <%= f.simple_fields_for :approvers do |row| %>
+      <div class="row g-2 align-items-center mb-2 border-bottom pb-2" data-orders-grant-row>
+        <div class="col-12 col-sm">
+          <%= row.label :kind, "Who", class: "visually-hidden" %>
+          <%= row.select :kind, Orders::GrantRows::WHO_CHOICES, {}, class: "form-select", style: "min-height: 44px",
+                data: { orders_grant_rows_target: "who", action: "orders-grant-rows#change" } %>
+        </div>
+        <div class="col-12 col-sm" data-for-kind="badge">
+          <%= row.label :badge_id, "Badge", class: "visually-hidden" %>
+          <%= row.select :badge_id, badges, { include_blank: "Choose a badge" }, class: "form-select", style: "min-height: 44px" %>
+        </div>
+        <div class="col-12 col-sm" data-for-kind="team_managers">
+          <%= row.label :manager_team_id, "Managers of", class: "visually-hidden" %>
+          <%= row.select :manager_team_id, team_choices, { include_blank: "Choose a team" }, class: "form-select", style: "min-height: 44px" %>
+        </div>
+        <div class="col-12 col-sm" data-for-kind="badge team_managers">
+          <%= row.label :team_id, "For", class: "visually-hidden" %>
+          <%= row.select :team_id, team_choices.map { |label, id| [ "For: #{label}", id ] }, { include_blank: Orders::SettingsEditor::BLANK_TEAM_LABEL }, class: "form-select", style: "min-height: 44px" %>
+        </div>
+        <% if row.object.persisted? %>
+          <div class="col-12 col-sm-auto">
+            <%= row.check_box :_destroy, class: "btn-check", autocomplete: "off" %>
+            <%= row.label :_destroy, "Remove", class: "btn btn-outline-danger w-100 d-flex align-items-center justify-content-center", style: "min-height: 44px" %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+    <div class="form-text">Save to add another row.</div>
+  </fieldset>
+</div>

@@ -1,0 +1,99 @@
+/* Order requests: the requester's phone-first screens (spec §3.16) and the
+   request page's printout. Loaded by the orders views that use it. */
+
+.orders-phone .btn,
+.orders-phone .form-control,
+.orders-phone .form-select {
+  min-height: 44px;
+}
+
+.orders-phone .form-check {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.orders-phone .form-check-input {
+  margin-top: 0;
+}
+
+.orders-more > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.orders-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+}
+
+.orders-bar-status {
+  flex: 1 1 100%;
+}
+
+.orders-bar-status:empty {
+  display: none;
+}
+
+.orders-line-photo {
+  max-width: 8rem;
+  max-height: 8rem;
+  object-fit: cover;
+  border-radius: 0.25rem;
+}
+
+.orders-timeline > li {
+  border-left: 2px solid var(--bs-border-color);
+  padding: 0 0 1rem 1rem;
+}
+
+.orders-timeline .orders-approval {
+  font-weight: 700;
+}
+
+/* On a phone the main action sits in a bar fixed to the bottom. */
+@media (max-width: 767.98px) {
+  .orders-bar-fixed {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+    margin: 0;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: var(--bs-body-bg);
+    border-top: 1px solid var(--bs-border-color);
+  }
+
+  .orders-bar-fixed > .btn {
+    flex: 1 1 auto;
+  }
+
+  .orders-has-bar {
+    padding-bottom: 7rem;
+  }
+}
+
+/* With the shared print styles (.no-print): a request prints with its
+   items, approvals and timeline, and without its buttons. */
+@media print {
+  .orders-bar,
+  .orders-no-print {
+    display: none !important;
+  }
+
+  .orders-has-bar {
+    padding-bottom: 0;
+  }
+
+  .orders-timeline > li {
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,55 @@
+<%# The request page's items (spec §3.1, §3.16) and the requester's and follower's actions. %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<% request_policy = policy(order_request) %>
+<section id="items" class="orders-phone mb-4">
+  <h2 class="h5">Items</h2>
+  <div class="list-group mb-2">
+    <% order_request.order_lines.each do |line| %>
+      <div class="list-group-item <%= "text-decoration-line-through text-muted" if line.cancelled? %>" id="<%= dom_id(line) %>">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <strong><%= line.display_name %></strong>
+          <% unless order_request.draft? %>
+            <span class="badge text-bg-light text-wrap"><%= order_line_status_text(line) %></span>
+          <% end %>
+        </div>
+        <div class="small text-muted">
+          <% unit = line.unit.presence || "each" %>
+          <%= line.quantity %> <%= unit %><%= " of #{line.units_per}" if line.units_per && line.units_per > 1 %>
+          ·
+          <%= case line.vendor_choice
+              when :vendor then line.vendor.name
+              when :other then "Other store: #{line.other_vendor_name}"
+              else "Store not chosen"
+              end %>
+          <% if line.vendor_part_number.present? %>· part <%= line.vendor_part_number %><% end %>
+          <% if line.manufacturer.present? || line.manufacturer_part_number.present? %>
+            · <%= [ line.manufacturer, line.manufacturer_part_number ].compact_blank.join(" ") %>
+          <% end %>
+          <% if line.unit_price_cents %>· <%= Money.new(line.unit_price_cents).format %> each<% end %>
+          <% if line.expected_on && line.backordered? %>· expected <%= l line.expected_on, format: :long %><% end %>
+        </div>
+        <% if line.url.present? %>
+          <div class="small text-truncate"><%= order_line_link(line) %></div>
+        <% end %>
+        <% if line.item %>
+          <div class="small"><%= order_line_item_link(line.item) %></div>
+        <% end %>
+        <% if request_policy.see_funding? && line.funding_source_id %>
+          <div class="small">Paid from <%= line.funding_source.name %></div>
+        <% end %>
+        <% if line.note.present? %><div class="small"><%= line.note %></div><% end %>
+        <% if line.photo.attached? %>
+          <div class="mt-2"><%= order_line_photo_thumbnail(line) %></div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+  <p class="text-end mb-0">
+    Total <strong><%= order_request_shown_total(order_request).format %></strong>
+    <% if request_policy.see_funding? && order_request.funding_source %>
+      <br><small class="text-muted">Paid from <%= order_request.funding_source.name %></small>
+    <% end %>
+  </p>
+
+  <%= render "orders/requests/actions", order_request: order_request %>
+</section>

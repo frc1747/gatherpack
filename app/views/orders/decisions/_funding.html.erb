@@ -1,0 +1,60 @@
+<%# The funding picture for an approver (spec §3.13): each source the request
+    uses, its restriction, and, for those who may see its numbers, what's
+    spent, committed and what would remain after this request. %>
+<div class="orders-decision-funding mb-3">
+  <h3 class="h6">Funding</h3>
+  <% if sources.empty? %>
+    <p class="text-muted mb-0">No funding source yet.</p>
+  <% end %>
+  <% sources.each do |source| %>
+    <div class="border rounded p-2 mb-2">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <strong><%= source.name %></strong>
+        <% if source.restricted? %>
+          <span class="badge text-bg-info">Restricted</span>
+        <% end %>
+      </div>
+      <% if source.restricted? %>
+        <p class="mb-1"><%= source.restriction %></p>
+      <% end %>
+      <% dates = [ Date.current, order_request.needed_by ].compact %>
+      <% unless dates.all? { |date| source.spendable_on?(date) } %>
+        <p class="text-danger mb-1">
+          Can only be spent
+          <%= source.starts_on ? "from #{l source.starts_on, format: :short}" : "" %>
+          <%= source.ends_on ? "until #{l source.ends_on, format: :short}" : "" %>
+        </p>
+      <% end %>
+      <% if policy(source).numbers? %>
+        <% numbers = source.numbers %>
+        <dl class="row small mb-0">
+          <% if source.amount_cents %>
+            <dt class="col-7">Amount</dt>
+            <dd class="col-5 text-end mb-0"><%= source.amount.format %></dd>
+          <% end %>
+          <dt class="col-7">Spent</dt>
+          <dd class="col-5 text-end mb-0"><%= source.spent.format %></dd>
+          <dt class="col-7">Committed</dt>
+          <dd class="col-5 text-end mb-0"><%= source.committed.format %></dd>
+          <% if source.spent_outside_cents.to_i.positive? %>
+            <dt class="col-7">Spent outside orders</dt>
+            <dd class="col-5 text-end mb-0"><%= source.spent_outside.format %></dd>
+          <% end %>
+          <% if order_request.submitted? %>
+            <dt class="col-7">This request</dt>
+            <dd class="col-5 text-end mb-0"><%= Money.new(numbers.request_cents(order_request)).format %></dd>
+          <% end %>
+          <% if source.amount_cents %>
+            <% after = numbers.remaining_after_cents(order_request) %>
+            <dt class="col-7"><%= order_request.submitted? ? "Left after this request" : "Left, with these items" %></dt>
+            <dd class="col-5 text-end mb-0 <%= 'text-danger fw-bold' if after.negative? %>"><%= Money.new(after).format %></dd>
+          <% end %>
+        </dl>
+        <% if numbers.over_after?(order_request) %>
+          <p class="text-danger small mb-0">This request would go over the amount.</p>
+        <% end %>
+      <% end %>
+      <%= order_request_slot :funding_budget, order_request: order_request, funding_source: source %>
+    </div>
+  <% end %>
+</div>

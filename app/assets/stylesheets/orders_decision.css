@@ -1,0 +1,45 @@
+/* The approver's decision on a request's page (spec §3.12). On a phone the
+   restriction tick, comment box and buttons sit in a bar fixed to the
+   bottom of the screen; on a wider screen they follow the page. */
+.orders-decision-bar .btn,
+.orders-line-edit summary,
+.orders-line-edit .btn {
+  min-height: 44px;
+}
+
+/* A tick big enough for a thumb, with its label beside it. */
+.orders-decision-tick .form-check-input {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.orders-decision-tick label {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.orders-line-edit summary {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+@media (max-width: 767.98px) {
+  .orders-decision-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1030;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: var(--bs-body-bg);
+    border-top: 1px solid var(--bs-border-color);
+    box-shadow: 0 -0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+  }
+
+  /* Room under the page so the bar never covers its end. */
+  body:has(.orders-decision-bar) {
+    padding-bottom: 14rem;
+  }
+}

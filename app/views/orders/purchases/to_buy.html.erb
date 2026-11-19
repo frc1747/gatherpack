@@ -1,0 +1,86 @@
+<% breadcrumb :orders_to_buy %>
+
+<div class="card mb-4">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h1>To buy</h1>
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Orders placed", orders_purchases_path(mine: 1), class: "btn btn-secondary" %>
+    </div>
+  </div>
+  <% if @groups.empty? %>
+    <div class="card-body text-muted">Nothing is waiting to be bought.</div>
+  <% end %>
+</div>
+
+<% @groups.each_with_index do |group, index| %>
+  <% form_id = "to_buy_#{index}" %>
+  <div class="card mb-4" id="<%= group.not_sure? ? "vendor_not_chosen" : "vendor_group_#{index}" %>">
+    <div class="card-header">
+      <h2 class="h5 mb-0">
+        <%= group.name %>
+        <% if group.key == :other %><small class="text-muted">(other store)</small><% end %>
+        <% if group.vendor&.preferred? %><span class="badge text-bg-success">Preferred</span><% end %>
+      </h2>
+      <% if group.not_sure? %>
+        <small class="text-muted">The requester wasn't sure where to buy these. Choose a vendor when you record the purchase.</small>
+      <% elsif group.vendor&.account_note.present? && policy(group.vendor).account_note? %>
+        <small class="text-muted"><%= group.vendor.account_note %></small>
+      <% end %>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th scope="col"><span class="visually-hidden">Buy</span></th>
+            <th scope="col">Item</th>
+            <th scope="col">Part</th>
+            <th scope="col" class="text-end">Qty</th>
+            <th scope="col" class="text-end">Estimate</th>
+            <th scope="col">Request</th>
+            <th scope="col">Needed by</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% group.lines.each do |line| %>
+            <tr id="<%= dom_id(line) %>">
+              <td>
+                <%= check_box_tag "line_ids[]", line.id, false, form: form_id, id: "buy_#{line.id}",
+                      class: "form-check-input", aria: { label: "Buy #{line.display_name}" } %>
+              </td>
+              <td>
+                <label for="buy_<%= line.id %>"><%= orders_external_link(line.display_name, line.url) %></label>
+                <% if line.note.present? %><br><small class="text-muted"><%= line.note %></small><% end %>
+              </td>
+              <td>
+                <small>
+                  <%= line.vendor_part_number %>
+                  <% if line.manufacturer.present? || line.manufacturer_part_number.present? %>
+                    <br><span class="text-muted"><%= [ line.manufacturer, line.manufacturer_part_number ].compact_blank.join(" ") %></span>
+                  <% end %>
+                </small>
+              </td>
+              <td class="text-end">
+                <%= line.quantity %>
+                <% if line.unit.present? %><small class="text-muted"><%= line.unit %><%= " of #{line.units_per}" if line.units_per %></small><% end %>
+              </td>
+              <td class="text-end"><%= orders_money(line.estimated_unit_price_cents && line.cost_cents) %></td>
+              <td>
+                <%= link_to line.order_request.display_title, orders_request_path(line.order_request) %>
+                <br><small class="text-muted"><%= line.order_request.team.name %></small>
+              </td>
+              <td><%= line.order_request.needed_by ? l(line.order_request.needed_by, format: :short) : "No rush" %></td>
+              <td class="text-end"><%= render "orders/purchases/line_actions", line: line %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted"><%= pluralize(group.lines.size, "item") %>, estimated <%= orders_money(group.total_cents) %></small>
+      <%= form_with url: new_orders_purchase_path, method: :get, id: form_id, data: { turbo: false } do %>
+        <%= submit_tag "Record purchase", name: nil, class: "btn btn-primary" %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
