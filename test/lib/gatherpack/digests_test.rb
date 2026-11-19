@@ -40,6 +40,8 @@ class GatherPack::DigestsTest < ActiveSupport::TestCase
   teardown do
     GatherPack::Digests.unregister(:test_tasks)
     GatherPack::Digests.unregister(:test_news)
+    GatherPack::Digests.unregister(:test_site)
+    GatherPack::Digests.unregister(:badges)
     Settings.instance.store = @original_store
     File.delete(@path) if File.exist?(@path)
   end
@@ -51,6 +53,17 @@ class GatherPack::DigestsTest < ActiveSupport::TestCase
   # 13:30 UTC is 7:30 in Chicago, after the default 7:00.
   def morning
     Time.utc(2026, 11, 17, 13, 30)
+  end
+
+  def choose(person, key, delivery)
+    NoticePreference.create!(person: person, key: key.to_s, delivery: delivery.to_s)
+  end
+
+  def infodump_body(person)
+    infodump = Infodump.new(person)
+    infodump.generate
+    infodump.send
+    sent_emails.last&.last
   end
 
   def sent_emails
@@ -229,5 +242,103 @@ class GatherPack::DigestsTest < ActiveSupport::TestCase
     DeliverDailyDigestsJob.perform_now(morning)
 
     assert_not DigestDelivery.exists?(old.id)
+  end
+
+  test "each is a site choice that leaves a section out of both summaries" do
+    turn_on
+    @delivery[:test_tasks] = :each
+    @delivery[:test_news] = :each
+    assert_equal :each, GatherPack::Digests[:test_tasks].delivery
+
+    DeliverDailyDigestsJob.perform_now(morning)
+    infodump = Infodump.new(@alice)
+    infodump.generate
+    infodump.send
+
+    assert_empty sent_emails
+    assert_empty @calls
+  end
+
+  test "delivery_for takes the person's own choice only while summaries are on" do
+    choose(@alice, :test_tasks, :each)
+
+    assert_equal :daily, GatherPack::Digests.delivery_for(:test_tasks, @alice)
+
+    turn_on
+    assert_equal :each, GatherPack::Digests.delivery_for(:test_tasks, @alice)
+    assert_equal :daily, GatherPack::Digests.delivery_for(:test_tasks, @bob)
+    assert_equal :weekly, GatherPack::Digests.delivery_for(:test_news, @alice)
+  end
+
+  test "delivery_for keeps the site's choice for a section people can't choose" do
+    turn_on
+    GatherPack::Digests.register(:test_site, label: "Site only", delivery: -> { :weekly }, build: ->(*) { }, personal: false)
+    choose(@alice, :test_site, :each)
+
+    assert_equal :weekly, GatherPack::Digests.delivery_for(:test_site, @alice)
+    assert_not_includes GatherPack::Digests.personal_entries.map(&:key), :test_site
+  end
+
+  test "delivery_for is off for a section nobody registered" do
+    turn_on
+
+    assert_equal :off, GatherPack::Digests.delivery_for(:test_unknown, @alice)
+  end
+
+  test "sections registered without personal: are personal" do
+    assert GatherPack::Digests[:test_tasks].personal
+  end
+
+  test "daily and weekly pick each person's sections by their own choice" do
+    turn_on
+    choose(@alice, :test_tasks, :weekly)
+    choose(@alice, :test_news, :daily)
+
+    DeliverDailyDigestsJob.perform_now(morning)
+    daily = sent_emails.last.last
+    assert_includes daily, "Something new"
+    assert_not_includes daily, "Two tasks"
+
+    weekly = infodump_body(@alice)
+    assert_includes weekly, "Two tasks"
+    assert_not_includes weekly, "Something new"
+  end
+
+  test "a person who chose each or off gets the section in neither summary" do
+    turn_on
+    choose(@alice, :test_tasks, :each)
+    choose(@alice, :test_news, :off)
+
+    DeliverDailyDigestsJob.perform_now(morning)
+    infodump = Infodump.new(@alice)
+    infodump.generate
+    infodump.send
+
+    assert_empty sent_emails
+  end
+
+  test "a person's daily choice sends the daily email when the site sends nothing daily" do
+    turn_on
+    @delivery[:test_tasks] = :weekly
+    assert_not GatherPack::Digests.entries.any?(&:daily?)
+
+    DeliverDailyDigestsJob.perform_now(morning)
+    assert_empty sent_emails
+
+    choose(@alice, :test_tasks, :daily)
+    DeliverDailyDigestsJob.perform_now(morning + 1.day)
+    assert_equal [ @alice.user.email ], sent_emails.map(&:second)
+  end
+
+  test "people choose only while summaries are on, and only for features that are on" do
+    assert_empty GatherPack::Digests.personal_entries
+
+    turn_on
+    GatherPack::Digests.register(:badges, label: "Badges", delivery: -> { :daily }, build: ->(*) { })
+    keys = %i[test_tasks test_news badges]
+    assert_equal keys, GatherPack::Digests.personal_entries.map(&:key) & keys
+
+    Settings[:feature_badges] = "false"
+    assert_equal %i[test_tasks test_news], GatherPack::Digests.personal_entries.map(&:key) & keys
   end
 end

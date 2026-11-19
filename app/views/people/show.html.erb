@@ -102,6 +102,7 @@
     <% else %>
       <%= link_to "Create Email/Password", new_person_user_path(@person), class: "btn btn-primary" %>
     <% end %>
+    <%= link_to "Email notices", email_notices_path, class: "btn btn-secondary" if @person == current_user.person && GatherPack::Digests.personal_entries.any? %>
     <%= link_to "Delete", @person, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@person).destroy? %>
   </div>
 </div>

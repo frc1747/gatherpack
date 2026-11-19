@@ -1,8 +1,9 @@
 # Sends each person one email with the summary sections set to go out daily
-# (GatherPack::Digests). Scheduled every few minutes in
-# config/recurring.d/digests.yml and sends once SEND_HOUR has passed in the
-# site's time zone (Settings time_zone), so a server clock in another zone or
-# a run missed at that minute doesn't matter.
+# for them, by the site's choice or their own (GatherPack::Digests).
+# Scheduled every few minutes in config/recurring.d/digests.yml and sends
+# once SEND_HOUR has passed in the site's time zone (Settings time_zone), so
+# a server clock in another zone or a run missed at that minute doesn't
+# matter.
 # DigestDelivery keeps it to one email per person per day.
 class DeliverDailyDigestsJob < ApplicationJob
   queue_as :default
@@ -17,7 +18,7 @@ class DeliverDailyDigestsJob < ApplicationJob
 
   def perform(now = Time.current)
     return unless GatherPack::Digests.enabled?
-    return if GatherPack::Digests.entries.none?(&:daily?)
+    return unless GatherPack::Digests.any_daily?
 
     due_at = self.class.due_at(now)
     return if now < due_at
