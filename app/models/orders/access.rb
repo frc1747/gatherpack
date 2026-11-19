@@ -37,7 +37,8 @@ module Orders
       admin? || managed_team_ids.include?(team_id)
     end
 
-    # Teams reached as an approver on the step (management included).
+    # Teams reached as an approver on the step: by its rows, not by
+    # managing a team.
     def approver_team_ids(step)
       @approver_team_ids ||= {}
       @approver_team_ids[step.key] ||= step.reach.team_ids(person).to_set
@@ -60,7 +61,7 @@ module Orders
       admin? || buyer_team_ids.include?(team_id)
     end
 
-    # Holds a buyer grant or manages a team, so has a To buy list at all.
+    # Has a buyer row reaching some team, so has a To buy list at all.
     def buyer?
       admin? || buyer_team_ids.any?
     end
@@ -111,10 +112,11 @@ module Orders
       person.present? && staff_for?(order_request.team_id)
     end
 
-    # The teams a person may make a request for: those they're on and those
-    # they manage (all for an admin).
+    # The teams a person may make a request for: those they're on, those
+    # they manage, and those orders_requesters' grant rows reach for them
+    # (all for an admin).
     def request_team_ids
-      @request_team_ids ||= admin? ? nil : member_team_ids | managed_team_ids
+      @request_team_ids ||= admin? ? nil : member_team_ids | managed_team_ids | requester_reach_team_ids
     end
 
     def may_request_for?(team_id)
@@ -122,13 +124,18 @@ module Orders
     end
 
     # May make requests at all (orders_requesters): everyone signed in when
-    # the setting is blank, else members of its teams and the teams below.
+    # the setting is blank, else members of its teams and the teams below,
+    # and those its grant rows reach any team for.
     def requester?
       return false if person.nil?
       return @requester unless @requester.nil?
 
       teams = Orders::Config.requester_teams
-      @requester = admin? || teams.nil? || member_of_any?(teams)
+      @requester = admin? || teams.nil? || member_of_any?(teams) || requester_reach_team_ids.any?
+    end
+
+    def requester_reach_team_ids
+      @requester_reach_team_ids ||= person.nil? ? Set.new : Orders::Config.requester_reach.granted_team_ids(person).to_set
     end
 
     # Sees every request that isn't a draft (orders_viewers), read only:

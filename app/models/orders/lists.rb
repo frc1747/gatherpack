@@ -30,7 +30,14 @@ module Orders
     def seed!
       PaymentMethod.seed_defaults!(PAYMENT_METHODS)
       seed_delivery_problem_kinds!
-      ApprovalStep.seed_defaults!(APPROVAL_STEPS)
+      seed_approval_steps!
+    end
+
+    # The starting step, approved by the managers of each request's team.
+    def seed_approval_steps!
+      return unless ApprovalStep.seed_defaults!(APPROVAL_STEPS)
+
+      ApprovalStep.ordered.each { |step| step.approvers.create!(kind: :own_team_managers) }
     end
 
     def seed_delivery_problem_kinds!
@@ -127,7 +134,7 @@ module Orders
     end
 
     def approval_steps_json
-      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge team]).map do |step|
+      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge manager_team team]).map do |step|
         minimum = step.minimum_cents / 100r
         { "key" => step.key, "name" => step.name, "minimum" => minimum.denominator == 1 ? minimum.to_i : minimum.to_f,
           "approvers" => step.approvers.map(&:line) }

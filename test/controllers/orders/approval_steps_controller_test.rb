@@ -30,7 +30,7 @@ class Orders::ApprovalStepsControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select "h1", "Approval Steps"
       assert_select "#approval_steps_active li", 2
-      assert_select "#approval_steps_active li:first-child", /Mentor\s+Every request\.\s+Approved by team managers, #{Regexp.escape(@world.approver_badge.name)} \(up to #{Regexp.escape(@world.club.name)}\)\./
+      assert_select "#approval_steps_active li:first-child", /Mentor\s+Every request\.\s+Approved by #{Regexp.escape(@world.approver_badge.name)} \(for #{Regexp.escape(@world.club.name)}\) and managers of each team\./
       assert_select "#approval_steps_active li:last-child", /Treasurer\s+Requests of \$500\.00 or more\./
       assert_select "#approval_steps_retired li", /Board/
       assert_select "#approval_steps_active button, #approval_steps_retired button", text: "Delete", count: 0
@@ -41,7 +41,7 @@ class Orders::ApprovalStepsControllerTest < ActionDispatch::IntegrationTest
     with_orders(@world) do
       sign_in @world.admin.user
       get new_orders_approval_step_url
-      assert_select "select[name='approval_step[approvers_attributes][0][team_id]'] option[value='']", "Up to: every team"
+      assert_select "select[name='approval_step[approvers_attributes][0][team_id]'] option[value='']", "For: every team"
 
       post orders_approval_steps_url, params: { approval_step: { name: "Treasurer", minimum: "750.25", approvers_attributes: {
         "0" => { badge_id: @world.funder_badge.id, team_id: "" } } } }
@@ -62,7 +62,7 @@ class Orders::ApprovalStepsControllerTest < ActionDispatch::IntegrationTest
 
       get edit_orders_approval_step_url(step)
       assert_select "select[name='approval_step[approvers_attributes][0][badge_id]'] option[selected]", @world.approver_badge.name
-      assert_select "select[name='approval_step[approvers_attributes][0][team_id]'] option[selected]", "Up to: #{@world.club.name}"
+      assert_select "select[name='approval_step[approvers_attributes][0][team_id]'] option[selected]", "For: #{@world.club.name}"
 
       patch orders_approval_step_url(step), params: { approval_step: { name: "Mentor", minimum: "0", key: "mentor", approvers_attributes: {
         "0" => { id: approver.id, badge_id: approver.badge_id, team_id: approver.team_id, _destroy: "1" },
@@ -71,7 +71,8 @@ class Orders::ApprovalStepsControllerTest < ActionDispatch::IntegrationTest
 
       step.reload
       assert_equal [ "Mentor", "approval" ], [ step.name, step.key ]
-      assert_equal [ [ @world.buyer_badge, @world.robotics ] ], step.approvers.map { |row| [ row.badge, row.team ] }
+      assert_equal [ [ "own_team_managers", nil, nil ], [ "badge", @world.buyer_badge, @world.robotics ] ],
+        step.approvers.map { |row| [ row.kind, row.badge, row.team ] }
     end
   end
 
@@ -136,6 +137,58 @@ class Orders::ApprovalStepsControllerTest < ActionDispatch::IntegrationTest
 
       patch restore_orders_approval_step_url(treasurer)
       assert_includes Orders::Config.approval_steps.map(&:key), "treasurer"
+    end
+  end
+
+  test "approver rows can be a badge, the managers of a team or the managers of the request's own team, and redraw as saved" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      post orders_approval_steps_url, params: { approval_step: { name: "Directors", minimum: "100", approvers_attributes: {
+        "0" => { kind: "team_managers", manager_team_id: @world.club.id, team_id: @world.robotics.id },
+        "1" => { kind: "own_team_managers", badge_id: @world.funder_badge.id, team_id: @world.art.id },
+        "2" => { kind: "badge", badge_id: "", team_id: "" },
+        "3" => { kind: "team_managers", manager_team_id: "", team_id: "" } } } }
+      assert_redirected_to orders_approval_steps_url
+
+      step = ApprovalStep.find_by!(name: "Directors")
+      assert_equal [ [ "team_managers", nil, @world.club, @world.robotics ], [ "own_team_managers", nil, nil, nil ] ],
+        step.approvers.map { |row| [ row.kind, row.badge, row.manager_team, row.team ] }
+
+      get orders_approval_steps_url
+      assert_select "##{ActionView::RecordIdentifier.dom_id(step)}",
+        /Approved by managers of #{Regexp.escape(@world.club.name)} \(for #{Regexp.escape(@world.robotics.name)}\) and managers of each team\./
+
+      get edit_orders_approval_step_url(step)
+      assert_select "fieldset[data-controller=orders-grant-rows] p", "Any of these:"
+      assert_select "select[name='approval_step[approvers_attributes][0][kind]'] option[selected][value=team_managers]", "Managers of a team"
+      assert_select "select[name='approval_step[approvers_attributes][0][manager_team_id]'] option[selected]", @world.club.name
+      assert_select "select[name='approval_step[approvers_attributes][0][team_id]'] option[selected]", "For: #{@world.robotics.name}"
+      assert_select "select[name='approval_step[approvers_attributes][1][kind]'] option[selected][value=own_team_managers]"
+      assert_select "select[name='approval_step[approvers_attributes][2][kind]'] option[selected][value=badge]"
+
+      patch orders_approval_step_url(step), params: { approval_step: { name: "Directors", minimum: "100" } }
+      assert_equal 2, step.reload.approvers.count, "saving unchanged keeps the rows"
+    end
+  end
+
+  test "an approver row is checked for what its kind needs" do
+    step = ApprovalStep.create!(name: "Checked", minimum_cents: 0)
+
+    assert_not step.approvers.build(kind: :badge).valid?
+    assert_not step.approvers.build(kind: :team_managers).valid?
+    own = step.approvers.build(kind: :own_team_managers, badge: @world.approver_badge, team: @world.art)
+    assert own.valid?
+    assert_equal [ nil, nil ], [ own.badge, own.team ]
+    assert_equal "Managers of each team", own.line
+  end
+
+  test "the screens no longer say team managers can always approve" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      [ orders_approval_steps_url, new_orders_approval_step_url, orders_settings_url ].each do |url|
+        get url
+        assert_no_match(/team managers (can )?always/i, response.body)
+      end
     end
   end
 end

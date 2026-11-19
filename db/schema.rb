@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_17_100200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_150100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -93,13 +93,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_100200) do
 
   create_table "approval_step_approvers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "approval_step_id", null: false
-    t.uuid "badge_id", null: false
+    t.uuid "badge_id"
     t.uuid "team_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["approval_step_id", "badge_id", "team_id"], name: "index_approval_step_approvers_uniqueness", unique: true
+    t.string "kind", default: "badge", null: false
+    t.uuid "manager_team_id"
+    t.index ["approval_step_id", "kind", "badge_id", "manager_team_id", "team_id"], name: "index_approval_step_approvers_uniqueness", unique: true, nulls_not_distinct: true
     t.index ["approval_step_id"], name: "index_approval_step_approvers_on_approval_step_id"
     t.index ["badge_id"], name: "index_approval_step_approvers_on_badge_id"
+    t.index ["manager_team_id"], name: "index_approval_step_approvers_on_manager_team_id"
     t.index ["team_id"], name: "index_approval_step_approvers_on_team_id"
   end
 
@@ -1002,6 +1005,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_100200) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "approval_step_approvers", "approval_steps", on_delete: :cascade
   add_foreign_key "approval_step_approvers", "badges", on_delete: :cascade
+  add_foreign_key "approval_step_approvers", "teams", column: "manager_team_id", on_delete: :cascade
   add_foreign_key "approval_step_approvers", "teams", on_delete: :cascade
   add_foreign_key "badge_assignments", "badges"
   add_foreign_key "badge_assignments", "people"
