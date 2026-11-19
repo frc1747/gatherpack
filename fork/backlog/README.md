@@ -62,7 +62,8 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-053](BL-053-event-type-starts-locked.md) | Events members shouldn't check themselves in to must be locked one at a time; let an event type start its events locked | fork-only | medium | shipped hbr.50 | 2026-11-17 |
 | [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | waiting | 2026-11-17 |
 | [BL-055](BL-055-order-form-pinned-buttons.md) | Order Settings (and Record delivery) Save/Cancel pinned to the bottom of the screen, unlike every other form | fork-only (bug) | low | waiting | 2026-11-18 |
-| [BL-056](BL-056-orders-buyer-digest-in-summaries.md) | Orders' buyer digest can't go in the Weekly Infodump; works differently from Inventory's Running Low Notices | fork-only (bug) | medium | waiting | 2026-11-18 |
+| [BL-056](BL-056-orders-inventory-email-choices.md) | Orders and Inventory emails: one model, a site default (each time, daily digest, Weekly Infodump, off) and each person's own choice | fork-only | high | in progress | 2026-11-18 |
+| [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | in progress | 2026-11-18 |
 
 ## Fields
 
