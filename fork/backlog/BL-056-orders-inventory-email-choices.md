@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | high |
-| Status | in progress (tasks 310-312) |
+| Status | in progress (tasks 330-332) |
 | Added | 2026-11-18 |
 | Commit checked | `hbr/integration` @ `b251e91d3` (hbr.50) |
 | Planned branches | `feature/digests` (personal choice), `feature/orders`, `feature/inventory` |

@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (security) |
 | Priority | high |
-| Status | in progress (tasks 312-313) |
+| Status | in progress (tasks 332-333) |
 | Added | 2026-11-18 |
 | Commit checked | `hbr/integration` @ `b251e91d3` (hbr.50) |
 | Planned branches | `feature/orders`, `feature/inventory` |
