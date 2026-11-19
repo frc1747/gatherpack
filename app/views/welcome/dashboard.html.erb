@@ -1,5 +1,7 @@
 <% breadcrumb :root %>
 
+<%= render "widgets/slot", placement: :top %>
+
 <div class="row">
   <div class="col-12 col-lg-6">
     <%= render "forms/to_complete" %>
@@ -50,6 +52,8 @@
         </div>
       <% end %>
     </div>
+
+    <%= render "widgets/slot", placement: :left %>
   </div>
   <div class="col-12 col-lg-6">
     <% if GatherPack::Features.enabled?(:events) %>
@@ -85,5 +89,7 @@
         </div>
       </div>
     <% end %>
+
+    <%= render "widgets/slot", placement: :right %>
   </div>
 </div>
