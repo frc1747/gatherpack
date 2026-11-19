@@ -197,6 +197,24 @@ feature/email-rate-limit-retry:
     dropping it.
   audience: Everyone
 
+feature/display-name-fallback:
+  title: People with only one name still show a name
+  emoji: "🪪"
+  description: >-
+    Someone added with just a first name (or just a last name) is shown by
+    that name everywhere, instead of a long ID, until a preferred name is
+    given.
+  audience: Everyone
+
+feature/pinned-form-buttons:
+  title: Save stays in reach on long forms
+  emoji: "📌"
+  description: >-
+    On a form longer than the screen, its Save and Cancel buttons stay at the
+    bottom of the window while you scroll, then settle at the end of the
+    form. Short forms look the same as before.
+  audience: Everyone
+
 feature/managed-lists:
   title: Lists you define
   emoji: "🗂️"
