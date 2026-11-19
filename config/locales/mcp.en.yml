@@ -1,0 +1,10 @@
+en:
+  doorkeeper:
+    scopes:
+      mcp_read: "Read your GatherPack data through an AI assistant"
+      mcp_write: "Make changes in GatherPack through an AI assistant"
+    errors:
+      messages:
+        invalid_request:
+          mcp_pkce_required: "AI assistant (MCP) clients must use PKCE with the S256 method."
+          mcp_confidential_client_required: "AI assistant (MCP) access is only available to confidential clients."
