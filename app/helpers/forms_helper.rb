@@ -247,6 +247,15 @@ module FormsHelper
     sanitize(md(text))
   end
 
+  # Who sent a logged reminder: a person, or the automatic one.
+  def form_reminder_sent_by_note(reminder)
+    if reminder.sent_by
+      " by #{reminder.sent_by.identifier_name}"
+    elsif reminder.filter["automatic"]
+      " (Automatic)"
+    end
+  end
+
   # How a logged reminder treated guardians, for "Last reminder: … to 19
   # people (9 guardians)". Older reminders didn't record it.
   def form_reminder_guardian_note(reminder)
