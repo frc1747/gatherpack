@@ -29,6 +29,10 @@ class Gateway::PostmarkSendingGateway < Gateway
       track_opens: false,
       message_stream: "outbound"
     )
+  rescue Postmark::HttpServerError => e
+    raise unless e.status_code == 429
+
+    raise Gateway::RateLimited, e.message
   end
 
   def handle_webhook(body, headers)
