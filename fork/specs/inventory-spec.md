@@ -128,7 +128,7 @@ One page, **Reorder**, for inventory managers and admins, listing items within t
 
 A movement needs both the item and the location to be visible to the person.
 
-**Inventory managers.** A setting, `inventory_managers`: a list of badge → team pairs, as for orders. A holder manages items and locations on the named team and every team below it, whatever teams they're in; no team named means every team (since hbr.42). Set on Inventory setup (an Inventory button under Purchasing on the main Setup page since hbr.45, admins only) with who can use inventory and running-low notices. Several pairs give the union. Managers of a team and admins can always manage its inventory.
+**Inventory managers.** A setting, `inventory_managers`: a list of rows, read as "any of these", one per line: `Badge > Team` / `Badge` (holders of an admin-assigned badge), `Managers of Team M > Team T` / `Managers of Team M` (M's own managers only, not those of teams above or below it), `Managers of each team` (managers of the item's team or a team above it). A badge or team row works for the named team and every team below it, or every team when none is named. Unknown lines grant nothing. Team managers manage inventory only through a row; a new site starts with `Managers of each team`, and upgrading sites get that row appended (BL-057). Admins always can. Set on Inventory setup (an Inventory button under Purchasing on the main Setup page, admins only) as rows with a Who and a For picker, with who can use inventory and Inventory Notices.
 
 `Inventory::Reach` implements it. It has the same shape as `Orders::Reach` and the sign-ups organizer grant, so the three can later be merged without changing behavior. Inventory doesn't depend on orders or sign-ups to do this; it carries its own copy.
 
@@ -150,11 +150,11 @@ Registered through `Settings.register` (from `feature/extension-registries`), in
 |---|---|---|
 | `feature_inventory` | Feature flag (auto-created by `GatherPack::Features.register`; referred to as `inventory_enabled` in planning) | off |
 | `inventory_users` | Teams whose members can use inventory | blank: everyone signed in |
-| `inventory_managers` | Badge → highest team pairs (§3.6) | none (admins and team managers only) |
+| `inventory_managers` | Grant rows (§3.6) | `Managers of each team` |
 | `inventory_member_kinds` | Movement kinds members may record (§3.2) | used, moved, counted |
 | `inventory_used_needs_reason` | Used needs a "What for?" | off |
 | `inventory_undo_minutes` | How long the recorder can undo their own movement | 10 |
-| `inventory_reorder_notice` | When managers hear an item went low: `off`, `each`, `daily` | daily |
+| `inventory_reorder_notice` | **Inventory Notices**: the site's choice for everything inventory emails: `each`, `daily`, `weekly` (Weekly Infodump, with Summaries), `off`. Each person can change it on Email notices (Summaries on) | daily |
 | (list) Stock Units | An item's stock unit is a row of Stock Units on Setup (each, box, pack, roll, foot, set to start; exactly one default, which new items take; the default can't be retired) | each |
 
 The flag gates everything: with it off, controllers redirect (forms' pattern), the menu entries disappear, and no notices or hooks fire from inventory's own events.
@@ -234,8 +234,9 @@ Mailer and reminder pattern as in forms and sign-ups, so notices reach people on
 
 | When | Who |
 |---|---|
-| An item goes on the reorder list | Inventory managers within reach of the item's team, per `inventory_reorder_notice` (daily digest by default) |
-| A count changes stock by more than half | Inventory managers within reach, in the same digest |
+| An item goes on the reorder list | Inventory managers within reach of the item's team, each by their Inventory Notices choice (site default, or their own on Email notices): `each` an email now, `daily`/`weekly` the summary section, `off` nothing |
+| A count changes stock by more than half | The same people, by the same choice |
+| A unit is marked Needs repair or Broken | The same people, by the same choice |
 
 Members get no notices. The daily digest is a recurring job in `config/recurring.d/inventory.yml` (from `feature/recurring-routes-seams`); it sends nothing when the flag is off or nothing changed.
 
