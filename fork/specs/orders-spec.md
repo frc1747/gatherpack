@@ -56,12 +56,12 @@ Ledgers and Budgets are optional. Orders works with both turned off. Where the m
 | Order request | One person's ask: who it's for (a team), when it's needed, why, and one or more lines |
 | Line | One thing to buy: description, manufacturer and part number, vendor and vendor part number, link, quantity, unit, estimated price |
 | Approval | One approver's decision on one step of a request: approved, changes requested, or declined, with a comment |
-| Approval step | A level of approval a request needs, a row admins manage (Setup › Orders and Inventory › Approval Steps): name, minimum total, approvers (badge up to a team, or every team). Every request needs the first step, which always has a $0 minimum. |
+| Approval step | A level of approval a request needs, a row admins manage (Setup › Orders and Inventory › Approval Steps): name, minimum total, approvers (grant rows, §3.7). Every request needs the first step, which always has a $0 minimum. |
 | Purchase | An order placed with one vendor by a buyer: order number, date, actual costs, shipping and tax, paid with, receipt file. Holds lines from one or more requests. |
 | Funding source | Where a request's money comes from: a budget or a restricted gift, kept in GatherPack or not, with an optional amount and, for a gift, its restriction |
 | Delivery | A quantity of a line that arrived, who received it, when, and in what condition |
 | Timeline | The readable history of a request: every submission, edit, approval, purchase, delivery and comment, with who and when |
-| Approver, buyer | People allowed to approve or to buy for teams within their reach, granted by badge (§3.7) |
+| Approver, buyer | People allowed to approve or to buy for teams within their reach, granted by rows (§3.7) |
 
 ## 3. Order requests (`feature/orders`)
 
@@ -116,7 +116,7 @@ The request page shows the request status and each line's status. Lists show the
 
 ### 3.3 Approval
 
-**Steps (managed list, hbr.48).** Approval Steps on Setup: ordered rows, each with a name, approvers (badge up to a team, or every team; §3.7) and a minimum total. The first step has no minimum, so every request needs it; a request also needs each later step whose minimum it meets. Each step has a stable `key`, so existing approvals keep matching when a step is renamed.
+**Steps (managed list, hbr.48).** Approval Steps on Setup: ordered rows, each with a name, approvers (grant rows, §3.7) and a minimum total. With no active step, admins and the managers of each request's team approve. A new site's first step is approved by "Managers of each team". The first step has no minimum, so every request needs it; a request also needs each later step whose minimum it meets. Each step has a stable `key`, so existing approvals keep matching when a step is renamed.
 
 **Deciding.** An approver on the current step chooses:
 - **Approve** (optional comment). Moves to the next step, or to `approved` after the last.
@@ -166,20 +166,20 @@ Registered through `Settings.register` (from `feature/extension-registries`):
 | Setting | Meaning | Default |
 |---|---|---|
 | `feature_orders` | Feature flag, the setting `GatherPack::Features.register` creates | off |
-| `orders_requesters` | Who can create requests: list of teams (members and below) | everyone signed in |
+| `orders_requesters` | Who can create requests: teams (members and below), or grant rows as for buyers | everyone signed in |
 | (list) Approval Steps | §3.3 | one step, "Approval" |
-| `orders_buyers` | Badge → team pairs (who buys), picked on Orders setup | none (admins only) |
+| `orders_buyers` | Grant rows (who buys), picked on Orders setup | none (admins only) |
 | `orders_price_tolerance` | Percentage and amount, §3.4 | 10%, $25 |
 | (list) Payment Methods | A row per way to pay, with a `reimburse` flag; at least one stays active | Team card; Paid personally (reimburse) |
 | (list) Delivery Problems | What can be wrong with a delivery; a delivery is good or has one | Damaged; Wrong item |
 | `orders_team_can_see` | Whether members of a request's team see its requests | on |
 | `orders_require_other_vendor_reason` | A line from "Other" needs a reason | off |
-| `orders_funding_managers` | Who manages funding sources: badge → highest team pairs (§3.13) | none (admins and team managers) |
+| `orders_funding_managers` | Who manages funding sources: grant rows (§3.13) | none (admins only) |
 | `orders_require_funding_source` | A funding source is needed before final approval | off |
 | `orders_requesters_pick_funding` | Requesters see and choose a funding source on the request form. Off: approvers set it (§3.13) | off |
 | `orders_close_after_days` | Received requests close after this many days | 14 |
 
-Approver, buyer and funding-manager grants are badge → team pairs. A holder of the badge reaches the named team and every team below it, whatever teams they're in; with no team named, every team. A pair naming a team that doesn't exist grants nothing. Several pairs give the union. (Simplified in hbr.42; sign-ups, commitments and checklists keep the older "their own teams up to the highest team" rule.) Admins and managers of a request's team can always approve and buy for it. Approver, buyer and funding-manager grants share one implementation, `Orders::Reach`, separate from the sign-ups organizer grant. Reach is by team, not by vendor: a buyer grant covers every vendor for its teams, and who holds which supplier account goes in the vendor's account note.
+Requester, approver, buyer and funding-manager grants are lists of rows, read as "any of these". A row names who: holders of a badge (`Badge`), the managers of a team (`Managers of Team`: that team's own managers only, not those of teams above or below it), or the managers of the request's own team (`Managers of each team`: its managers and the managers of the teams above it). It also names for which teams: `> Team` reaches that team and every team below it; none reaches every team (the own-team row takes no team). A row naming a badge or team that doesn't exist, or a line that doesn't read, grants nothing. Admins always can; managing a team grants nothing without a row (BL-057). On Orders setup and the approval step screen each row is a "Who" choice (A badge / Managers of a team / Managers of the request's own team) with its picker, then "For" (blank: every team). Sites upgraded from before BL-057 get a "Managers of each team" row on every step, in Who buys and in Funding managers, so nothing changes until an admin removes them; installs that run every migration from scratch get the same rows. Buyer rows also let a person edit purchases and manage vendors; approver or funding-manager rows let them set a request's funding source; any of the three shows estimated shipping. (Sign-ups, commitments and checklists keep the older "their own teams up to the highest team" rule.) All four share one implementation, `Orders::Reach`, separate from the sign-ups organizer grant. Reach is by team, not by vendor: a buyer grant covers every vendor for its teams, and who holds which supplier account goes in the vendor's account note.
 
 ### 3.8 Who sees and does what
 
@@ -190,7 +190,8 @@ Approver, buyer and funding-manager grants are badge → team pairs. A holder of
 | Members of the request's team (when `orders_team_can_see`) | The team's requests, without vendor account notes | Comment; receive |
 | Approvers | Requests within reach | §3.3 |
 | Buyers | Requests within reach, vendor account notes, all purchases they made | §3.4–3.6 |
-| Team managers and admins | Everything for their teams | Everything |
+| Team managers | Their teams' requests: see, edit, cancel, close, receive; approve, buy or manage funding only through a row | Their teams' requests |
+| Admins | Everything | Everything |
 
 Nobody sees anything new about a person beyond their name on a request they can see. There are no public requests: only signed-in people in `orders_requesters` can make one.
 
@@ -221,7 +222,7 @@ Mailer and reminder pattern as in forms and sign-ups, so notices reach a person 
 |---|---|
 | Submitted, or resubmitted | Approvers on the current step |
 | Approved on a step that isn't final | Approvers on the next step |
-| Final approval | Requester, watchers; buyers within reach (daily digest by default, setting for each one) |
+| Final approval | Requester, watchers; buyers within reach |
 | Changes requested, declined | Requester, watchers |
 | Ordered, backordered (with expected date) | Requester, watchers |
 | Received in full | Requester, watchers, the buyer |
@@ -229,6 +230,8 @@ Mailer and reminder pattern as in forms and sign-ups, so notices reach a person 
 | Needs re-approval | Final step's approvers |
 | `needed_by` is in 3 days and nothing is ordered | Approvers or buyers, whoever holds it |
 | Submitted and undecided for 5 days | Approvers on the current step, once |
+
+**How each person hears (BL-056).** Setting `orders_notices` ("Order Notices", Orders setup → Email): An email each time, In the daily digest (default), In the Weekly Infodump, Off. Each person can override it on Summaries' Email notices page (`Orders::Config.delivery_for`). Each time: the rows above as they happen. Daily/weekly: no event emails; the Orders summary section instead: Waiting for your approval, Waiting for you to approve again, Ready to buy, Delivery problems (buyers), Your requests (approved, changes requested, declined, ordered, delayed, everything has arrived). Off: nothing. "Needed in 3 days" goes right away to everyone but Off. With Summaries off, Orders' own 7:00 email carries the section (once a day per person, `order_summary_sends`), and weekly behaves as daily. The Buying notices page is retired; its choices were copied into Summaries' `notice_preferences`.
 
 ### 3.12 Experiences
 
@@ -272,7 +275,7 @@ Where a request's money comes from. Kept by orders, so it works whether the budg
 - Over the amount is flagged, not blocked. Approvers see the numbers and decide; the same holds for a linked Budget (§6).
 - A funding manager can move a purchased line to another source (a reallocation after the fact), with a reason. It's recorded in the timeline like any other change.
 
-**Funding managers.** A setting, `orders_funding_managers` (badge → highest team pairs, as for buyers), plus admins and team managers. They create and edit sources for teams within reach. Approvers and buyers can't, unless they also hold the grant.
+**Funding managers.** A setting, `orders_funding_managers` (grant rows, as for buyers), plus admins. They create and edit sources for teams within reach. Approvers and buyers can't, unless they also hold the grant.
 
 **Report.** Each source has a page: amount, spent, committed, remaining, and every line charged to it (date, item, vendor, request, approver, actual cost), with receipts attached to the purchases. Prints, and downloads as CSV. For a restricted gift, this page is the backing for the giver's report.
 
