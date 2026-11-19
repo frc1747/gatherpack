@@ -1,0 +1,8 @@
+<% if smooth_pages? %>
+  <% if smooth_refresh? %>
+    <%= tag.meta name: "turbo-refresh-method", content: "morph" %>
+    <%= tag.meta name: "turbo-refresh-scroll", content: "preserve" %>
+  <% end %>
+  <% turbo_exempts_page_from_preview if smooth_no_preview? %>
+  <%= stylesheet_link_tag "smooth_pages" %>
+<% end %>
