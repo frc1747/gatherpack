@@ -27,6 +27,7 @@ feature/mcp-signups
 feature/mcp-commitments
 feature/oauth-admin-fixes
 feature/seeds-membership-order
+feature/display-name-fallback
 feature/period-hours-date-bounds
 feature/blocked-delete-message
 feature/kiosk-period-less-punches
