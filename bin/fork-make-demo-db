@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Builds an anonymized demo database from a production dump. See
+# fork/demo_db/README.md for what it changes and how to run the demo.
+#
+#   bin/fork-make-demo-db --dump FILE --app DIR [--settings FILE] [--files TAR] [--db NAME]
+#
+# --app is a checkout of the release the dump came from (same schema version);
+# its storage/ folder becomes the demo's uploaded files and settings.
+set -euo pipefail
+
+usage() { echo "usage: bin/fork-make-demo-db --dump FILE --app DIR [--settings FILE] [--files TAR] [--db NAME]" >&2; exit 2; }
+refuse() { echo "fork-make-demo-db: refusing to run: $*" >&2; exit 1; }
+
+DB=gatherpack_demo DUMP="" APP="" SETTINGS="" FILES=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dump) DUMP="$2"; shift 2 ;;
+    --app) APP="$2"; shift 2 ;;
+    --settings) SETTINGS="$2"; shift 2 ;;
+    --files) FILES="$2"; shift 2 ;;
+    --db) DB="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+[[ -f "$DUMP" && -d "$APP" ]] || usage
+DUMP=$(realpath "$DUMP"); APP=$(realpath "$APP")
+SCRIPTS=$(cd "$(dirname "$0")/../fork/demo_db" && pwd)
+
+DEMO_HOME="${DEMO_HOME:-$HOME/dev/gatherpack-demo}"
+PG_CONTAINER="${PG_CONTAINER-gp-test-pg}"
+DATABASE_HOST="${DATABASE_HOST:-localhost}"
+DATABASE_USERNAME="${DATABASE_USERNAME:-postgres}"
+DATABASE_PASSWORD="${DATABASE_PASSWORD:-password}"
+export DEMO_PASSWORD="${DEMO_PASSWORD:-password123}"
+export DEMO_PROTECT_TEAM="${DEMO_PROTECT_TEAM:-Mentors}"
+export DEMO_PROTECT_EMAILS="${DEMO_PROTECT_EMAILS:-}"
+MAILPIT_URL="${MAILPIT_URL-http://localhost:8025}"
+
+# --- Never production -------------------------------------------------------------
+[[ "${RAILS_ENV:-development}" != production ]] || refuse "RAILS_ENV is production"
+[[ "$DB" =~ ^[a-z0-9_]+_demo$ && "$DB" != *production* ]] || refuse "--db must be a name ending in _demo"
+case "$DATABASE_HOST" in localhost|127.0.0.1|::1) ;; *) refuse "DATABASE_HOST $DATABASE_HOST isn't local" ;; esac
+if command -v docker >/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'gatherpack-web-1'; then
+  refuse "this machine runs the production containers"
+fi
+
+if [[ -n "$PG_CONTAINER" ]]; then
+  psql_() { docker exec -i "$PG_CONTAINER" psql -U "$DATABASE_USERNAME" -v ON_ERROR_STOP=1 -qAt "$@"; }
+  restore_() { docker exec -i "$PG_CONTAINER" pg_restore -U "$DATABASE_USERNAME" --no-owner --no-acl "$@"; }
+else
+  export PGHOST="$DATABASE_HOST" PGUSER="$DATABASE_USERNAME" PGPASSWORD="$DATABASE_PASSWORD"
+  psql_() { psql -v ON_ERROR_STOP=1 -qAt "$@"; }
+  restore_() { pg_restore --no-owner --no-acl "$@"; }
+fi
+[[ -z "$(psql_ -d postgres -c "select 1 from pg_database where datname = 'gatherpack_production'")" ]] \
+  || refuse "the database server holds gatherpack_production"
+# Only ever drop databases this script created.
+for db in "$DB" "${DB}_versions" "${DB}_source"; do
+  comment=$(psql_ -d postgres -c "select shobj_description(oid, 'pg_database') from pg_database where datname = '$db'")
+  exists=$(psql_ -d postgres -c "select 1 from pg_database where datname = '$db'")
+  [[ -z "$exists" || "$comment" == gatherpack-demo* ]] || refuse "$db exists and isn't a demo database"
+done
+
+# --- Seed: secret, so the fake names can't be traced back --------------------------
+mkdir -p -m 700 "$DEMO_HOME"
+if [[ -z "${DEMO_SEED:-}" ]]; then
+  [[ -f "$DEMO_HOME/seed" ]] || (umask 077 && head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$DEMO_HOME/seed")
+  DEMO_SEED=$(cat "$DEMO_HOME/seed")
+fi
+export DEMO_SEED DEMO_REPORT="$DEMO_HOME/flags.txt"
+
+echo "== 1. Create $DB, ${DB}_versions and ${DB}_source (an untouched copy for checking)"
+for db in "$DB" "${DB}_versions" "${DB}_source"; do
+  psql_ -d postgres -c "drop database if exists $db with (force)" -c "create database $db" -c "comment on database $db is 'gatherpack-demo: building'"
+done
+
+echo "== 2. Restore the dump"
+restore_ -d "$DB" < "$DUMP"
+restore_ -d "${DB}_source" < "$DUMP"
+psql_ -d "$DB" -c "update ar_internal_metadata set value = 'development' where key = 'environment'"
+dump_version=$(psql_ -d "$DB" -c "select max(version) from schema_migrations")
+app_version=$(grep -o 'define(version: [0-9_]*' "$APP/db/schema.rb" | tr -dc 0-9)
+[[ "$dump_version" == "$app_version" ]] || refuse "dump is at schema $dump_version but $APP is at $app_version; use the matching release"
+
+export RAILS_ENV=development
+export DATABASE_URL="postgres://$DATABASE_USERNAME:$DATABASE_PASSWORD@$DATABASE_HOST/$DB"
+export VERSIONS_DATABASE_URL="postgres://$DATABASE_USERNAME:$DATABASE_PASSWORD@$DATABASE_HOST/${DB}_versions"
+export DEMO_SOURCE_URL="postgres://$DATABASE_USERNAME:$DATABASE_PASSWORD@$DATABASE_HOST/${DB}_source"
+cd "$APP"
+
+echo "== 3. Empty audit history (the versions database holds every past value)"
+bin/rails db:schema:load:versions >/dev/null
+
+echo "== 4. Uploaded files and settings into $APP/storage"
+mkdir -p storage
+[[ -z "$FILES" ]] || tar -C storage -xf "$FILES"
+if [[ -n "$SETTINGS" ]]; then
+  [[ ! -f storage/settings.pstore ]] || mv storage/settings.pstore "storage/settings.pstore.bak-$(date +%Y%m%d-%H%M%S)"
+  ruby -rpstore -rjson -e '
+    h = JSON.parse(File.read(ARGV[0])).reject { |k, _| k.match?(/oauth_client|postmark|resend|secret|password|token\z|api_key/) }
+    s = PStore.new("storage/settings.pstore"); s.transaction { h.each { |k, v| s[k.to_sym] = v } }
+    puts "   #{h.size} settings"' "$SETTINGS"
+fi
+
+echo "== 5. Anonymize"
+bin/rails runner "$SCRIPTS/anonymize.rb"
+
+echo "== 6. Demo personas"
+bin/rails runner "$SCRIPTS/personas.rb"
+
+echo "== 7. Verify"
+psql_ -d postgres -c "comment on database $DB is 'gatherpack-demo: anonymized $(date -Iseconds)'" \
+  -c "comment on database ${DB}_versions is 'gatherpack-demo: anonymized'"
+if [[ -n "$MAILPIT_URL" ]] && curl -fsS "$MAILPIT_URL/api/v1/info" >/dev/null 2>&1; then export MAILPIT_URL; else unset MAILPIT_URL; echo "   (Mailpit not running: skipping the password reset check)"; fi
+status=0
+bin/rails runner "$SCRIPTS/verify.rb" || status=$?
+echo "== 7b. Pages and reports as the personas and protected accounts"
+bin/rails runner "$SCRIPTS/web_check.rb" || status=$?
+
+echo "== 8. Drop the untouched copy"
+psql_ -d postgres -c "drop database ${DB}_source with (force)"
+[[ $status -eq 0 ]] || { echo "Verification failed: $DB is not safe to share." >&2; exit $status; }
+echo "Done: $DB is ready. Flags to review: $DEMO_REPORT"
