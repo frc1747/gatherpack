@@ -205,6 +205,8 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.admin.user
       get orders_settings_url
       assert_select "form[action='#{orders_settings_path}'] input[type=submit][value=Save]"
+      assert_select "form[action='#{orders_settings_path}'] .card-footer input[type=submit][value=Save]"
+      assert_select ".fixed-bottom", 0
       assert_select "template", minimum: 1
       assert_select "section:not([data-controller]) select[name^='values'], section:not([data-controller]) input[name^='values']", minimum: 6
     end

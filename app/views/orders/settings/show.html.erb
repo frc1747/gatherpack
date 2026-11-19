@@ -58,11 +58,9 @@
         </section>
       <% end %>
     </div>
-  </div>
-
-  <div class="pb-5 mb-4"></div>
-  <div class="fixed-bottom bg-body border-top p-2 d-flex gap-2">
-    <%= link_to "Cancel", orders_requests_path, class: "btn btn-primary btn-lg" %>
-    <%= f.submit "Save", class: "btn btn-success btn-lg flex-grow-1" %>
+    <div class="card-footer">
+      <%= f.submit "Save", class: "btn btn-lg btn-success" %>
+      <%= link_to "Cancel", orders_requests_path, class: "btn btn-lg btn-primary" %>
+    </div>
   </div>
 <% end %>
