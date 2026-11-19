@@ -10,8 +10,10 @@
 # so opening the page and saving changes nothing. #save checks what it's
 # given and leaves the settings alone when anything is wrong.
 #
-# Where the settings pickers are available (Settings.input), the page draws
-# teams and badge grants with them; otherwise with one-per-line text boxes.
+# Who buys and who manages funding sources are grant rows (Orders::GrantRows,
+# read by Orders::Reach). Where the settings pickers are available
+# (Settings.input), the page draws the team lists with them; otherwise with
+# one-per-line text boxes.
 module Orders
   class SettingsEditor
     # Stands in for a Settings::Setting so a picker can draw a value that
@@ -21,12 +23,12 @@ module Orders
     FIELDS = {
       requesters: "Teams whose members (and members of the teams below) can ask. Leave empty for everyone signed in.",
       viewers: "Teams whose members (and members of the teams below) see every request, without approving or buying. Leave empty for nobody extra.",
-      buyers: "Team managers can always buy. Also:",
-      funding_managers: "Team managers can always manage funding sources. Also:"
+      buyers: "Add who buys, for example holders of a Buyer badge. Admins always can.",
+      funding_managers: "Add who manages funding sources, for example the managers of each team. Admins always can."
     }.freeze
 
-    # What the blank team choice of a badge grant means for orders.
-    BLANK_TEAM_LABEL = "Up to: every team".freeze
+    # What the blank "For" team of a grant row means for orders.
+    BLANK_TEAM_LABEL = "For: every team".freeze
 
     # The orders settings with a box of their own (not a badge grant or team
     # list, which have fields above), in the order the page draws them.
@@ -46,6 +48,9 @@ module Orders
     FIELD_SETTINGS = %i[orders_requesters orders_viewers orders_buyers orders_funding_managers].freeze
 
     TEAM_FIELDS = %i[requesters viewers].freeze
+
+    # Fields drawn as grant rows (Orders::GrantRows), pickers or not.
+    GRANT_FIELDS = %i[buyers funding_managers].freeze
 
     attr_reader :errors, :values
 
@@ -91,6 +96,8 @@ module Orders
 
     # The picker for one of FIELDS, drawn from the text the form holds.
     def picker(name)
+      return Orders::GrantRows.new(text(name)) if GRANT_FIELDS.include?(name)
+
       field = Field.new(setting_key: name.to_s, name: FIELDS.fetch(name), value: text(name), default_value: "")
       TEAM_FIELDS.include?(name) ? SettingInput::Teams.new(field) : SettingInput::BadgeGrants.new(field, badges: -> { Badge.added_by_admin })
     end
@@ -126,16 +133,17 @@ module Orders
     # A picker turns what it posts into the setting's text (and keeps the
     # saved text when nothing changed); a text box posts the text itself.
     def text_from(name, posted)
+      return Orders::GrantRows.text_from(posted, @saved_texts[name]) if GRANT_FIELDS.include?(name)
+
       self.class.pickers? ? picker(name).text_from(posted, @saved_texts[name]) : posted.to_s
     end
 
     def validate
       @errors = []
-      { requesters: "Who can ask", viewers: "Who sees every request" }.each do |name, label|
-        new_lines(name).each do |team_name|
-          errors << "#{label}: no team named \"#{team_name}\"." unless Team.exists?(name: team_name)
-        end
+      new_lines(:viewers).each do |team_name|
+        errors << "Who sees every request: no team named \"#{team_name}\"." unless Team.exists?(name: team_name)
       end
+      validate_requesters
       validate_grants(:buyers, "Who buys")
       validate_grants(:funding_managers, "Who manages funding sources")
       values.each { |key, value| validate_value(Settings.get(key), value) }
@@ -171,13 +179,29 @@ module Orders
 
     # Only lines that weren't saved before are checked, so a saved line whose
     # badge or team has since gone doesn't block saving the rest.
-    def validate_grants(name, label)
-      new_lines(name).each do |line|
-        badge_name, team_name = line.split(">", 2).map(&:strip)
-        errors << "#{label}: no badge given in \"#{line}\"." if badge_name.blank?
-        errors << "#{label}: no badge named \"#{badge_name}\" that admins assign." if badge_name.present? && !Badge.added_by_admin.exists?([ "LOWER(name) = ?", badge_name.downcase ])
-        errors << "#{label}: no team named \"#{team_name}\"." if team_name.present? && !Team.exists?(name: team_name)
+    def validate_grants(name, label, lines = new_lines(name))
+      lines.each do |line|
+        kind, who, team_name = Orders::Reach.parse_line(line)
+        case kind
+        when :team_managers
+          errors << "#{label}: no team given in \"#{line}\"." if who.blank?
+          errors << "#{label}: no team named \"#{who}\"." if who.present? && !Team.exists?(name: who)
+        when :badge
+          errors << "#{label}: no badge named \"#{who}\" that admins assign." unless Badge.added_by_admin.exists?([ "LOWER(name) = ?", who.downcase ])
+        end
+        errors << "#{label}: no team named \"#{team_name}\"." if kind != :own_team_managers && team_name.present? && !Team.exists?(name: team_name)
       end
+    end
+
+    # Who can ask: team names (their members may ask), or grant rows as for
+    # buyers. A line that names no team is read as a grant row.
+    def validate_requesters
+      lines = new_lines(:requesters).reject { |line| Team.exists?(name: line) }
+      single = lines.select { |line| Orders::Reach.parse_line(line) == [ :badge, line, nil ] }
+      single.each do |line|
+        errors << "Who can ask: no team or badge named \"#{line}\"." unless Badge.added_by_admin.exists?([ "LOWER(name) = ?", line.downcase ])
+      end
+      validate_grants(:requesters, "Who can ask", lines - single)
     end
 
     def new_lines(name)

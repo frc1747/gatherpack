@@ -45,16 +45,14 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     Orders::SettingsEditor.pickers?
   end
 
-  # Puts one new badge grant in a field's blank row (or its text box).
+  # Fills a grant field's blank row (the last) with a row.
+  def add_row(params, field, **row)
+    rows = params["settings"][field]["rows"]
+    rows[rows.keys.map(&:to_i).max.to_s].merge!(row.transform_keys(&:to_s))
+  end
+
   def add_grant(params, field, badge, team = @world.club)
-    if pickers?
-      rows = params["settings"][field]["rows"] ||= {}
-      index = (rows.keys.map(&:to_i).max || -1).to_s
-      rows[index] ||= {}
-      rows[index].merge!("badge" => badge.name, "team" => team.name)
-    else
-      params["settings"][field] = [ params["settings"][field], grant(badge, team) ].compact_blank.join("\n")
-    end
+    add_row(params, field, kind: "badge", badge: badge.name, team: team.name)
   end
 
   test "only admins see and change the setup" do
@@ -194,11 +192,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     with_orders(@world) do
       sign_in @world.admin.user
       params = open_form
-      if pickers?
-        params["settings"]["funding_managers"]["rows"]["0"]["remove"] = "1"
-      else
-        params["settings"]["funding_managers"] = ""
-      end
+      params["settings"]["funding_managers"]["rows"].each_value { |row| row["remove"] = "1" if row["line"].present? }
       add_grant(params, "funding_managers", @world.buyer_badge, @world.robotics)
       patch orders_settings_url, params: params
       assert_redirected_to orders_settings_url
@@ -211,7 +205,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       sign_in @world.admin.user
       get orders_settings_url
       assert_select "form[action='#{orders_settings_path}'] input[type=submit][value=Save]"
-      assert_select "template", minimum: 1 if pickers?
+      assert_select "template", minimum: 1
       assert_select "section:not([data-controller]) select[name^='values'], section:not([data-controller]) input[name^='values']", minimum: 6
     end
   end
@@ -234,8 +228,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
   test "each picker shows the saved values" do
     skip "needs the settings pickers" unless pickers?
 
-    with_orders(@world, orders_requesters: @world.robotics.name, orders_viewers: @world.art.name,
-      orders_buyers: grant(@world.buyer_badge, @world.robotics)) do
+    with_orders(@world, orders_requesters: @world.robotics.name, orders_viewers: @world.art.name) do
       sign_in @world.admin.user
       get orders_settings_url
 
@@ -243,16 +236,10 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_select "input[type=checkbox][name='settings[requesters][values][]'][value='#{@world.art.name}']:not([checked])"
       assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.art.name}'][checked]"
       assert_select "input[type=checkbox][name='settings[viewers][values][]'][value='#{@world.robotics.name}']:not([checked])"
-      assert_select "select[name='settings[buyers][rows][0][badge]'] option[selected]", @world.buyer_badge.name
-      assert_select "select[name='settings[buyers][rows][0][team]'] option[selected][value='#{@world.robotics.name}']",
-        "Up to: #{@world.robotics.name}"
-      assert_select "select[name='settings[buyers][rows][1][team]'] option[value='']", "Up to: every team"
-      assert_select "select[name$='[team]'] option[value='']", text: "Up to: every team", minimum: 2
-      assert_select "fieldset .form-text", /works up to the team picked, and the teams below it\. No team: every team\./
     end
   end
 
-  test "without the pickers each field is a text box with the saved lines" do
+  test "without the pickers the team lists are text boxes with the saved lines" do
     skip "the settings pickers draw these" if pickers?
 
     with_orders(@world, orders_requesters: @world.robotics.name, orders_viewers: @world.art.name) do
@@ -260,14 +247,94 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       get orders_settings_url
       assert_select "textarea[name='settings[requesters]']", text: @world.robotics.name
       assert_select "textarea[name='settings[viewers]']", text: @world.art.name
-      assert_select "textarea[name='settings[buyers]']", text: grant(@world.buyer_badge)
-      assert_select ".form-text", /the badge works for that team and the teams below it\. Badge name alone: every team\./
+      assert_select ".form-text", /One team name per line\. Or a row as for who buys/
+    end
+  end
+
+  test "who buys and who manages funding sources are drawn as grant rows, one per saved line" do
+    buyers = [ grant(@world.buyer_badge, @world.robotics), "Managers of #{@world.club.name} > #{@world.art.name}",
+      "Managers of #{@world.robotics.name}", Orders::Reach::OWN_TEAM_LINE ].join("\n")
+    with_orders(@world, orders_buyers: buyers) do
+      sign_in @world.admin.user
+      get orders_settings_url
+
+      assert_select "[data-controller=orders-grant-rows]", 2
+      assert_select "p", text: "Any of these:", minimum: 2
+      assert_select ".form-text", "Add who buys, for example holders of a Buyer badge. Admins always can."
+      assert_select "select[name='settings[buyers][rows][0][kind]'] option[selected][value=badge]", "A badge"
+      assert_select "select[name='settings[buyers][rows][0][badge]'] option[selected]", @world.buyer_badge.name
+      assert_select "select[name='settings[buyers][rows][0][team]'] option[selected][value='#{@world.robotics.name}']", "For: #{@world.robotics.name}"
+      assert_select "select[name='settings[buyers][rows][1][kind]'] option[selected][value=team_managers]", "Managers of a team"
+      assert_select "select[name='settings[buyers][rows][1][manager_team]'] option[selected]", @world.club.name
+      assert_select "select[name='settings[buyers][rows][1][team]'] option[selected][value='#{@world.art.name}']"
+      assert_select "select[name='settings[buyers][rows][2][team]'] option[selected]", 0
+      assert_select "select[name='settings[buyers][rows][3][kind]'] option[selected][value=own_team_managers]", "Managers of the request's own team"
+      assert_select "[data-for-kind='badge team_managers'] select[name='settings[buyers][rows][4][team]'] option[value='']", "For: every team"
+      assert_select "input[type=checkbox][name='settings[buyers][rows][3][remove]']"
+      assert_select "input[name='settings[buyers][rows][4][remove]']", 0
+
+      patch orders_settings_url, params: open_form
+      assert_redirected_to orders_settings_url
+      assert_equal buyers, Settings[:orders_buyers]
+    end
+  end
+
+  test "each kind of grant row is saved in the format Orders::Reach reads" do
+    with_orders(@world, orders_buyers: "", orders_funding_managers: "") do
+      sign_in @world.admin.user
+      [ [ { kind: "badge", badge: @world.buyer_badge.name, team: "" }, @world.buyer_badge.name ],
+        [ { kind: "team_managers", manager_team: @world.club.name, team: @world.art.name }, "Managers of #{@world.club.name} > #{@world.art.name}" ],
+        [ { kind: "own_team_managers", badge: @world.buyer_badge.name, team: @world.art.name }, Orders::Reach::OWN_TEAM_LINE ] ].each do |row, line|
+        params = open_form
+        params["settings"]["buyers"]["rows"].each_value { |each| each["remove"] = "1" if each["line"].present? }
+        add_row(params, "buyers", **row)
+        patch orders_settings_url, params: params
+        assert_redirected_to orders_settings_url
+        assert_equal line, Settings[:orders_buyers]
+      end
+
+      params = open_form
+      add_row(params, "funding_managers", kind: "team_managers", manager_team: "", team: "")
+      patch orders_settings_url, params: params
+      assert_equal "", Settings[:orders_funding_managers], "a row with no team is left out"
+    end
+  end
+
+  test "a managers row naming a team that doesn't exist is refused" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      before = Settings[:orders_buyers]
+      params = open_form
+      add_row(params, "buyers", kind: "team_managers", manager_team: "Atlantis")
+      patch orders_settings_url, params: params
+
+      assert_response :unprocessable_entity
+      assert_match "Who buys: no team named &quot;Atlantis&quot;.", response.body
+      assert_equal before, Settings[:orders_buyers]
+    end
+  end
+
+  test "who can ask takes badge and managers rows as well as teams" do
+    skip "the settings pickers draw who can ask" if pickers?
+
+    with_orders(@world) do
+      sign_in @world.admin.user
+      params = open_form
+      params["settings"]["requesters"] = [ @world.robotics.name, @world.buyer_badge.name, "Managers of #{@world.art.name}" ].join("\n")
+      patch orders_settings_url, params: params
+      assert_redirected_to orders_settings_url
+
+      params = open_form
+      params["settings"]["requesters"] = "Nobody Here"
+      patch orders_settings_url, params: params
+      assert_response :unprocessable_entity
+      assert_match "Who can ask: no team or badge named &quot;Nobody Here&quot;.", response.body
     end
   end
 
   test "saving the form unchanged leaves every setting's text as it was" do
     with_orders(@world, orders_requesters: "#{@world.robotics.name}\r\n#{@world.art.name}", orders_viewers: "#{@world.club.name}\r\n",
-      orders_buyers: "#{@world.buyer_badge.name}>#{@world.club.name}",
+      orders_buyers: "#{@world.buyer_badge.name}>#{@world.club.name}\r\nmanagers of #{@world.club.name}\r\nmanagers of each team",
       orders_price_tolerance: "5%, 10") do
       sign_in @world.admin.user
       before = %i[orders_requesters orders_viewers orders_buyers orders_price_tolerance].index_with { |key| Settings[key] }
@@ -299,12 +366,11 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       if pickers?
         params["settings"]["requesters"]["values"] = [ "", @world.robotics.name ]
         params["settings"]["viewers"]["values"] = [ "", @world.club.name, @world.art.name ]
-        params["settings"]["buyers"]["rows"]["0"]["remove"] = "1"
       else
         params["settings"]["requesters"] = @world.robotics.name
         params["settings"]["viewers"] = "#{@world.club.name}\n#{@world.art.name}"
-        params["settings"]["buyers"] = ""
       end
+      params["settings"]["buyers"]["rows"].each_value { |row| row["remove"] = "1" if row["line"].present? }
       add_grant(params, "buyers", @world.funder_badge, @world.robotics)
       patch orders_settings_url, params: params
       assert_redirected_to orders_settings_url
@@ -324,7 +390,7 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
       assert_equal "3%, 7", Settings[:orders_price_tolerance]
       assert_equal 30, Orders::Config.close_after_days
       assert_not Orders::Config.team_can_see?
-      assert_equal grant(@world.funder_badge), Settings[:orders_funding_managers]
+      assert_equal "#{grant(@world.funder_badge)}\n#{Orders::Reach::OWN_TEAM_LINE}", Settings[:orders_funding_managers]
     end
   end
 

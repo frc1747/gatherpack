@@ -20,9 +20,9 @@ module Orders
 
     # The active approval steps (ApprovalStep rows) in order, with their
     # approvers loaded. With none active, ApprovalStep.fallback: admins and
-    # team managers approve every request.
+    # the managers of each request's team approve every request.
     def approval_steps
-      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge team]).to_a
+      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge manager_team team]).to_a
       steps.presence || [ ApprovalStep.fallback ]
     end
 
@@ -51,10 +51,13 @@ module Orders
       Tolerance.new(percent: percent, amount_cents: amount_cents)
     end
 
+    # Who buys: grant rows (Orders::Reach). Blank: admins only.
     def buyers
       Orders::Reach.new(grant_lines(Settings[:orders_buyers]))
     end
 
+    # Who manages funding sources: grant rows (Orders::Reach). Blank: admins
+    # only.
     def funding_managers
       Orders::Reach.new(grant_lines(Settings[:orders_funding_managers]))
     end
@@ -66,6 +69,13 @@ module Orders
       return nil if names.empty?
 
       Team.where(name: names).to_a
+    end
+
+    # The lines of orders_requesters that don't name a team, read as grant
+    # rows (Orders::Reach): holders reach the teams they may ask for.
+    def requester_reach
+      lines = grant_lines(Settings[:orders_requesters])
+      Orders::Reach.new(lines - Team.where(name: lines).pluck(:name))
     end
 
     # The teams named in orders_viewers: their members (and members of the

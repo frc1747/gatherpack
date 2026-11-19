@@ -48,12 +48,13 @@ Rails.application.config.to_prepare do
   )
 
   Settings.register(:orders_requesters, :text, "Who Can Request", "", "Orders",
-    "Teams whose members (and members of the teams below) may ask for things to be bought. Blank: everyone signed in")
+    "Teams whose members (and members of the teams below) may ask for things to be bought, or rows as for Buyers. Blank: everyone signed in")
   Settings.register(:orders_viewers, :text, "Who Sees Every Request", "", "Orders",
     "Teams whose members (and members of the teams below) see every request that isn't a draft, and may comment " \
     "when team members can. Seeing doesn't let them approve, buy or receive. Blank: nobody extra")
   Settings.register(:orders_buyers, :text, "Buyers", "", "Orders",
-    "Who may buy without managing a team: badge holders, for a team and the teams below it, or for every team. Admins and the team's managers can always buy")
+    "Who buys, one row per line: Badge name, Managers of Team name (that team's own managers), or Managers of each team; add \"> Team name\" for that team and " \
+    "the teams below it, else every team. Admins always can. Blank: admins only")
   Settings.register(:orders_price_tolerance, :string, "Price Tolerance", Orders::Config::DEFAULT_TOLERANCE, "Orders",
     "How far a buyer's changes may raise an approved total without approving again: a percentage and an amount, " \
     "whichever is larger (for example \"10%, 25\")")
@@ -62,8 +63,7 @@ Rails.application.config.to_prepare do
   Settings.register(:orders_require_other_vendor_reason, :boolean, "Other Store Needs a Reason", "false", "Orders",
     "An item from a store that isn't listed needs a reason")
   Settings.register(:orders_funding_managers, :text, "Funding Managers", "", "Orders",
-    "Who manages funding sources without managing a team. One per line, as Badge name > Team name (that team and the teams below it; badge name alone: every team). " \
-    "Admins and team managers always can")
+    "Who manages funding sources, one row per line as for Buyers. Admins always can. Blank: admins only")
   Settings.register(:orders_require_funding_source, :boolean, "Require a Funding Source", "false", "Orders",
     "A request needs a funding source before its final approval")
   Settings.register(:orders_requesters_pick_funding, :boolean, "Requesters Pick Funding", "false", "Orders",
@@ -76,12 +76,12 @@ Rails.application.config.to_prepare do
 
   # Orders setup (Orders::SettingsEditor) draws every orders setting, with
   # the settings pickers where they exist, and the settings page links there
-  # while orders is on.
+  # while orders is on. Buyers and funding managers have no picker there:
+  # their grant rows (Orders::GrantRows) are drawn on Orders setup only, so
+  # the settings page shows them as text in the line format of their hints.
   if Settings.respond_to?(:input)
     Settings.input(:orders_requesters, :teams)
     Settings.input(:orders_viewers, :teams)
-    Settings.input(:orders_buyers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
-    Settings.input(:orders_funding_managers, :badge_grants, badges: -> { Badge.added_by_admin }, blank_team_label: Orders::SettingsEditor::BLANK_TEAM_LABEL)
     Settings.input(:orders_notices, :select, choices: Orders::Config::NOTICE_CHOICES)
     Settings.input(:orders_price_tolerance, :partial, partial: "orders/settings/price_tolerance",
       to_text: ->(posted, current) { Orders::PriceToleranceField.text_from(posted, current) }, default_label: Orders::Config::DEFAULT_TOLERANCE)

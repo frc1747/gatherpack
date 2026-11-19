@@ -31,7 +31,8 @@ class PurchasePolicy < ApplicationPolicy
   end
 
   # Order number, tracking, receipts, prices and shipping: its buyer, and
-  # buyers or managers reaching all of its requests' teams.
+  # buyers reaching all of its requests' teams (not their managers, who
+  # buy only through a buyer row).
   def update?
     full?
   end
@@ -46,7 +47,7 @@ class PurchasePolicy < ApplicationPolicy
 
     access = Orders::Access.for(person)
     access.admin? || record.buyer_id == person.id ||
-      record.order_requests.all? { |order_request| access.buyer_for?(order_request.team_id) || access.manages?(order_request.team_id) }
+      record.order_requests.all? { |order_request| access.buyer_for?(order_request.team_id) }
   end
 
   # The lines this viewer may see.

@@ -35,6 +35,7 @@ class Orders::ListsTest < ActiveSupport::TestCase
     assert_equal [ [ "Team card", false ], [ "Paid personally", true ] ], PaymentMethod.ordered.pluck(:name, :reimburse)
     assert_equal [ [ "Damaged", "damaged" ], [ "Wrong item", "wrong_item" ] ], DeliveryProblemKind.ordered.pluck(:name, :key)
     assert_equal [ [ "Approval", "approval", 0 ] ], ApprovalStep.ordered.pluck(:name, :key, :minimum_cents)
+    assert_equal [ "own_team_managers" ], ApprovalStep.find_by!(key: "approval").approvers.map(&:kind)
   end
 
   test "payment methods come from the defaults, the saved setting and the text purchases were paid with" do

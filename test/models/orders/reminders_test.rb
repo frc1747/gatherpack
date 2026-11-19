@@ -98,18 +98,18 @@ class Orders::RemindersTest < ActiveSupport::TestCase
     end
   end
 
-  test "with no buyer grants, an admin and a team manager hear of what's needed soon and get the digest" do
+  test "with no buyer rows, only admins hear of what's needed soon and get the digest; team managers don't" do
     with_notices(orders_buyers: "") do
       start approved_request(@world, needed_by: Date.current + 2)
       Orders::Reminders.needed_soon
-      assert_equal addresses(@world.manager, @world.admin), emailed
+      assert_equal addresses(@world.admin), emailed
     end
 
     with_notices(orders_buyers: "", orders_notices: "daily") do
       travel_to 2.days.from_now
       clear_enqueued_jobs
       Orders::Reminders.digest
-      assert_equal addresses(@world.manager, @world.admin), emailed
+      assert_equal addresses(@world.admin), emailed
     end
   end
 

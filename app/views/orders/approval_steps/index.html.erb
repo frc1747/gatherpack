@@ -8,7 +8,7 @@
     <p>
       The approvals a request needs, in order. Every request needs the first step, so it has no minimum;
       a request also needs each later step whose minimum its total reaches.
-      Admins and the managers of a request's team can always approve.
+      Admins can always approve; anyone else approves through a step's rows.
     </p>
     <p class="text-muted mb-0">
       Retired steps aren't needed for new requests; approvals already given keep their step's name.
@@ -29,7 +29,7 @@
       <%= render "orders/approval_steps/step", step: step, first: index.zero?, last: index == @steps.size - 1 %>
     <% end %>
     <% if @steps.empty? %>
-      <li class="list-group-item text-muted">No approval steps: admins and team managers approve every request.</li>
+      <li class="list-group-item text-muted">No approval steps: admins and the managers of each request's team approve every request.</li>
     <% end %>
   </ul>
 </div>
