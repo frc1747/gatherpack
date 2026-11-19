@@ -37,6 +37,21 @@ class OauthAdminTest < ApplicationSystemTestCase
     assert_equal @secret, evaluate_script("window.copiedText")
   end
 
+  test "copy writes a regenerated secret to the clipboard" do
+    visit current_path
+    assert_no_text "This secret will not be shown again"
+    accept_confirm { click_on "Regenerate" }
+    assert_text "This secret will not be shown again"
+    regenerated = secret_source.text
+    assert_not_equal @secret, regenerated
+
+    replace_clipboard "text => { window.copiedText = text; return Promise.resolve() }"
+    copy_button.click
+
+    assert_text "Copied"
+    assert_equal regenerated, evaluate_script("window.copiedText")
+  end
+
   test "copy reaches the real clipboard when the browser allows it" do
     page.driver.browser.execute_cdp("Browser.grantPermissions",
       permissions: %w[clipboardReadWrite clipboardSanitizedWrite],

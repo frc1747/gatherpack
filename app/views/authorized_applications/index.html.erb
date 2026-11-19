@@ -1,0 +1,35 @@
+<% breadcrumb :authorized_applications %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Authorized Applications</h1>
+  </div>
+  <div class="card-body">
+    <p>These applications can sign you in or read your details. Revoking one signs it out of your account until you authorize it again.</p>
+
+    <% if @oauth_applications.any? %>
+      <div class="table-responsive">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @oauth_applications.each do |app| %>
+              <tr>
+                <td><%= app.name %></td>
+                <td>
+                  <%= link_to "Revoke", authorized_application_path(app), class: "btn btn-sm btn-danger", data: { turbo_method: :delete, turbo_confirm: "Revoke #{app.name}'s access to your account?" } %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p class="text-body-secondary">You haven't authorized any applications.</p>
+    <% end %>
+  </div>
+</div>

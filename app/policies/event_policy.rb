@@ -9,6 +9,12 @@ class EventPolicy < ApplicationPolicy
     end
   end
 
+  # The same events Scope lists: an admin sees every event, anyone else the
+  # events of their teams.
+  def show?
+    user.admin? || (record.team.present? && person.all_teams.include?(record.team))
+  end
+
   def new?
     person.all_managed_teams.present? || user.admin
   end
@@ -19,6 +25,10 @@ class EventPolicy < ApplicationPolicy
 
   def update?
     person.all_managed_teams.include?(record.team) || user.admin
+  end
+
+  def destroy?
+    update?
   end
 
   def arrange?

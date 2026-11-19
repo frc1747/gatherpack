@@ -1,4 +1,4 @@
-class WelcomeController < ApplicationController
+class WelcomeController < InternalController
   def index
     if user_signed_in?
       @shortcuts = policy_scope(Shortcut).order(:updated_at)
@@ -9,6 +9,8 @@ class WelcomeController < ApplicationController
     end
   end
 
+  # Only links to other pages, which check their own policies.
   def setup
+    skip_authorization
   end
 end

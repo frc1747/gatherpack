@@ -8,29 +8,21 @@ class Mcp::Context
   UNFILTERED_SCOPES = %w[
     AdminPolicy::Scope
     ArchitectPolicy::Scope
-    BadgeAssignmentPolicy::Scope
+    AuditLogPolicy::Scope
     CheckinPolicy::Scope
-    LedgerEntryLinkPolicy::Scope
     LedgerPaymentPolicy::Scope
     LedgerTransferPolicy::Scope
-    OauthApplicationPolicy::Scope
-    UserPolicy::Scope
   ].freeze
 
   # ApplicationPolicy queries that only call another query.
   DELEGATING_QUERIES = { new?: :create?, edit?: :update?, destroy?: :update? }.freeze
 
-  # Queries a policy defines whose whole body calls a query only
-  # ApplicationPolicy implements, so they allow everyone too. Gate on a policy
-  # scope instead: the summary page, for one, relies on
-  # policy_scope(TimeClockPeriod), not on summary?.
-  FORWARDING_QUERIES = %w[
-    QuestionPolicy#upvote?
-    TeamPolicy#badges?
-    TeamPolicy#events?
-    TeamPolicy#pages?
-    TimeClockPeriodPolicy#summary?
-  ].freeze
+  # Queries a policy defines whose whole body calls a query that is a literal
+  # true, so they allow everyone. Gate on a policy scope instead: a question's
+  # pages, for one, rely on policy_scope(Question). Queries that forward to a
+  # real check, such as TeamPolicy#badges?, aren't listed, and nor is a literal
+  # true query called directly.
+  FORWARDING_QUERIES = %w[QuestionPolicy#upvote?].freeze
 
   attr_reader :user, :person, :scopes, :application, :request_id
 
@@ -121,7 +113,7 @@ class Mcp::Context
 
     owner = policy.method(query).owner
     if FORWARDING_QUERIES.include?("#{owner}##{query}")
-      raise Mcp::ToolBug, "#{owner}##{query} only calls a default query, so it allows everyone"
+      raise Mcp::ToolBug, "#{owner}##{query} only calls a query that allows everyone"
     end
 
     policy

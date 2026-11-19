@@ -13,7 +13,7 @@ class Mcp::SettingsBadgeTest < ActionDispatch::IntegrationTest
     build_mcp_world
     @other_badge = create_world_badge("Other Badge", team: @alpha)
     # Saves go through the settings controller; keep them out of the real store.
-    @restore_badge_setting = apply_settings(mcp_allowed_badge: "")
+    @restore_badge_setting = apply_settings(mcp_allowed_badge: "", mcp_write_enabled: "false")
   end
 
   teardown { @restore_badge_setting&.call }

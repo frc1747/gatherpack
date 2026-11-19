@@ -74,7 +74,7 @@
             <% end %>
           <% end %>
           <% e.receipts.each do |r| %>
-            <%= link_to i("file-invoice-dollar"), r, target: "_blank" %>
+            <%= link_to i("file-invoice-dollar"), ledger_ledger_entry_receipt_path(e.ledger, e, r), target: "_blank" %>
           <% end %>
         </div>
         <div class="col-12 col-lg-3">

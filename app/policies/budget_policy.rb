@@ -9,7 +9,24 @@ class BudgetPolicy < ApplicationPolicy
     end
   end
 
+  # Mirrors Scope: admins, and members of the budget period's team.
+  def show?
+    user.admin? || (record.budget_period.present? && person.teams.exists?(record.budget_period.team_id))
+  end
+
+  def new?
+    person.manager?
+  end
+
   def create?
-    person.user.admin || person.manager?
+    user.admin? || manages?(record.budget_period&.team)
+  end
+
+  def update?
+    create?
+  end
+
+  def destroy?
+    update?
   end
 end
