@@ -1,0 +1,34 @@
+<% breadcrumb :form_audience, @form %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %>: Who is asked</h1>
+    <div class="text-muted">
+      <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "No rules yet" %><%= ", narrowed to #{@form.audience_badge.name} badge holders" if @form.audience_badge %>
+    </div>
+  </div>
+  <div class="card-body">
+    <h2 class="h5"><%= pluralize(@people.size, "person", plural: "people") %> asked</h2>
+    <% if @people.empty? %>
+      <p class="text-muted">Nobody.</p>
+    <% else %>
+      <ul class="list-unstyled" style="columns: 3 14rem;">
+        <% @people.each do |person| %>
+          <li id="<%= dom_id person %>"><%= link_to person.identifier_name, person_path(person) %></li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <% if @former.any? %>
+      <h2 class="h5 mt-4">No longer asked, with a response kept</h2>
+      <ul class="list-unstyled">
+        <% @former.each do |person| %>
+          <li id="<%= dom_id person, :former %>"><%= link_to person.identifier_name, person_path(person) %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Back", edit_form_path(@form, tab: "audience"), class: "btn btn-warning" %>
+  </div>
+</div>
