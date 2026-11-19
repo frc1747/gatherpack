@@ -71,11 +71,6 @@
           <%= link_to "My requests", orders_requests_path(mine: 1), class: "d-block mt-2" %>
         </div>
       <% end %>
-      <% if Orders::Access.for(current_user.person).buyer? %>
-        <div class="card-footer">
-          <%= link_to "Buying notices", edit_orders_notice_preference_path %>
-        </div>
-      <% end %>
     </div>
   <% end %>
 <% end %>

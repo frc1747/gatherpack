@@ -23,15 +23,17 @@ class Orders::MenuAndPrefetchTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "buyers find Buying notices from To buy, and others don't" do
+  test "the Buying notices page is retired: no route, and no link from To buy or the dashboard" do
     with_orders(@world) do
+      assert_raises(ActionController::RoutingError) { Rails.application.routes.recognize_path("/orders/notice_preference/edit") }
+      assert_not Rails.application.routes.url_helpers.respond_to?(:edit_orders_notice_preference_path)
+
       sign_in @world.buyer.user
       get to_buy_orders_purchases_url
-      assert_select "a[href='#{edit_orders_notice_preference_path}']", text: "Buying notices"
-
-      sign_in @world.requester.user
-      get orders_requests_url
-      assert_select "a[href='#{edit_orders_notice_preference_path}']", 0
+      assert_response :success
+      assert_select "a", text: "Buying notices", count: 0
+      get root_url
+      assert_select "a", text: "Buying notices", count: 0
     end
   end
 

@@ -1,7 +1,8 @@
 module Orders
   # The approval steps (ApprovalStep, a managed list): like the shared list
   # screen (ManagedListsController), plus each step's minimum and approver
-  # rows. Every step has a key that approvals are stored under, so steps are
+  # rows (a badge, the managers of a team, or the managers of the request's
+  # own team). Every step has a key that approvals are stored under, so steps are
   # retired rather than deleted.
   class ApprovalStepsController < BaseController
     before_action :set_step, only: %i[edit update move retire restore]
@@ -9,7 +10,7 @@ module Orders
     # GET /orders/approval_steps
     def index
       steps = policy_scope(ApprovalStep, policy_scope_class: ManagedListPolicy::Scope)
-        .includes(approvers: %i[badge team])
+        .includes(approvers: %i[badge manager_team team])
       authorize ApprovalStep, policy_class: ManagedListPolicy
       @steps = steps.active.ordered
       @retired_steps = steps.retired.ordered
@@ -84,7 +85,7 @@ module Orders
     end
 
     def step_params
-      params.require(:approval_step).permit(:name, :minimum, approvers_attributes: %i[id badge_id team_id _destroy])
+      params.require(:approval_step).permit(:name, :minimum, approvers_attributes: %i[id kind badge_id manager_team_id team_id _destroy])
     end
   end
 end

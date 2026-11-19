@@ -44,7 +44,6 @@ namespace :orders do
       get :pattern_test
     end
   end
-  resource :notice_preference, only: %i[edit update]
   resources :funding_sources do
     member do
       get :report

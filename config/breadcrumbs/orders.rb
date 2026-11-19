@@ -65,8 +65,3 @@ crumb :orders_delivery_new do |order_request, line|
   link "Receive #{line.display_name}", new_orders_request_line_delivery_path(order_request, line)
   parent :order_request, order_request
 end
-
-crumb :orders_notice_preference do
-  link "Buying notices", edit_orders_notice_preference_path
-  parent :orders_requests
-end

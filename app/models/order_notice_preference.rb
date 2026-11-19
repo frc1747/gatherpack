@@ -1,6 +1,8 @@
-# A person's choice for the "ready to buy" notices (spec §3.11): a daily
-# digest of what's waiting, an email for each request as it's approved, or
-# none. Without a row, everyone who can buy gets the digest.
+# A buyer's old choice for the "ready to buy" notices, from the retired
+# Buying notices page. Nothing reads it now: a person's Orders choice is
+# Orders::Config.delivery_for, and the migration that retired the page copied
+# these rows into Summaries' notice_preferences where that table exists. The
+# table stays until it's dropped.
 class OrderNoticePreference < ApplicationRecord
   belongs_to :person
 

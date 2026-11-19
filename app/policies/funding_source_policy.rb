@@ -2,7 +2,7 @@
 # its numbers and restricted fields (giver, reference, documents, report
 # due) are for funding managers, admins, and approvers of a team that can
 # use the source. Funding managers
-# (orders_funding_managers, plus admins and team managers) create and edit
+# (orders_funding_managers rows, plus admins) create and edit
 # sources for teams within reach.
 class FundingSourcePolicy < ApplicationPolicy
   class Scope < ApplicationPolicy::Scope

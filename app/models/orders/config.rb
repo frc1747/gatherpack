@@ -11,14 +11,18 @@ module Orders
     end
 
     DEFAULT_TOLERANCE = "10%, 25"
+    NOTICES = %w[each daily weekly off].freeze
+    NOTICE_CHOICES = [ [ "An email each time", "each" ], [ "In the daily digest", "daily" ],
+      [ "In the Weekly Infodump", "weekly" ], [ "Off", "off" ] ].freeze
+    DEFAULT_NOTICES = "daily"
 
     module_function
 
     # The active approval steps (ApprovalStep rows) in order, with their
     # approvers loaded. With none active, ApprovalStep.fallback: admins and
-    # team managers approve every request.
+    # the managers of each request's team approve every request.
     def approval_steps
-      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge team]).to_a
+      steps = ApprovalStep.active.ordered.includes(approvers: %i[badge manager_team team]).to_a
       steps.presence || [ ApprovalStep.fallback ]
     end
 
@@ -47,10 +51,13 @@ module Orders
       Tolerance.new(percent: percent, amount_cents: amount_cents)
     end
 
+    # Who buys: grant rows (Orders::Reach). Blank: admins only.
     def buyers
       Orders::Reach.new(grant_lines(Settings[:orders_buyers]))
     end
 
+    # Who manages funding sources: grant rows (Orders::Reach). Blank: admins
+    # only.
     def funding_managers
       Orders::Reach.new(grant_lines(Settings[:orders_funding_managers]))
     end
@@ -62,6 +69,13 @@ module Orders
       return nil if names.empty?
 
       Team.where(name: names).to_a
+    end
+
+    # The lines of orders_requesters that don't name a team, read as grant
+    # rows (Orders::Reach): holders reach the teams they may ask for.
+    def requester_reach
+      lines = grant_lines(Settings[:orders_requesters])
+      Orders::Reach.new(lines - Team.where(name: lines).pluck(:name))
     end
 
     # The teams named in orders_viewers: their members (and members of the
@@ -85,6 +99,24 @@ module Orders
 
     def requesters_pick_funding?
       Settings[:orders_requesters_pick_funding] == true
+    end
+
+    # The site's orders_notices: :each, :daily, :weekly or :off.
+    def notices
+      value = Settings[:orders_notices].to_s.strip.downcase
+      (NOTICES.include?(value) ? value : DEFAULT_NOTICES).to_sym
+    end
+
+    # How the person hears about orders: :each (an email as things happen),
+    # :daily or :weekly (the Orders section of a summary) or :off. Their own
+    # choice where Summaries offers one, else the site's.
+    def delivery_for(person)
+      if defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:delivery_for)
+        value = GatherPack::Digests.delivery_for(:orders, person).to_s
+        return :daily if value == "both"
+        return value.to_sym if NOTICES.include?(value)
+      end
+      notices
     end
 
     def close_after_days

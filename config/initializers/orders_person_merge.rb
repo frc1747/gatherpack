@@ -18,6 +18,9 @@ Rails.application.config.to_prepare do
   # One row for each person: the kept person's choice stands, the other goes.
   merge.register :order_notice_preferences, :person_id, action: :delete, model: OrderNoticePreference,
     label: "Order notice choices"
+  # The day Orders' own summary last went out: the kept person's stands.
+  merge.register :order_summary_sends, :person_id, action: :delete, model: OrderSummarySend,
+    label: "Orders summary sends"
 
   # Polymorphic: points at an inventory item, never a person or a login.
   reason = "item_type/item_id points at inventory items, never a person or login"
