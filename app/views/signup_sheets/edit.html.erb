@@ -1,0 +1,26 @@
+<% breadcrumb @signup_sheet %>
+
+<%= simple_form_for(@signup_sheet) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Editing <%= @signup_sheet.identifier_name %></h1>
+    <%= link_to "Roster", roster_signup_sheet_path(@signup_sheet), class: "btn btn-sm btn-info" %>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", @signup_sheet, class: "btn btn-warning" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
+
+<h2 class="mt-4">Set up the sheet</h2>
+<p>Work down the list: what you need, on which dates, and who can sign up.</p>
+
+<%= render "manage_positions" %>
+<%= render "manage_dates" %>
+<%= render "manage_slots" %>
+<%= render "manage_organizers" %>
+<%= render "manage_audience" %>

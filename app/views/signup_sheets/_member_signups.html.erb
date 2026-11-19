@@ -1,0 +1,23 @@
+<% others, yours = signups.partition { |signup| signup.person_id != @viewer.id && signup.signed_up_by_id == @viewer.id } %>
+<div id="my_signups">
+  <% if yours.any? %>
+    <div class="card mb-3" id="your_places">
+      <div class="card-header">
+        <h2 class="h5 mb-0">Your places</h2>
+      </div>
+      <div class="card-body p-0">
+        <%= render partial: "member_signup", collection: yours, as: :signup, locals: { for_other: false } %>
+      </div>
+    </div>
+  <% end %>
+  <% if others.any? %>
+    <div class="card mb-3" id="places_for_others">
+      <div class="card-header">
+        <h2 class="h5 mb-0">Places you signed others up for</h2>
+      </div>
+      <div class="card-body p-0">
+        <%= render partial: "member_signup", collection: others, as: :signup, locals: { for_other: true } %>
+      </div>
+    </div>
+  <% end %>
+</div>
