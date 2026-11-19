@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (UX) |
 | Priority | medium |
-| Status | built; on Ditto (preview 7e09e7ede), not yet released |
+| Status | shipped hbr.51 |
 | Added | 2026-11-18; revised 2026-11-18 (owner: make the pinned bar the standard everywhere instead of removing it) |
 | Commit checked | `hbr/integration` @ `b251e91d3` (hbr.50) |
 | Planned branches | new `feature/pinned-form-buttons` (from `upstream/main`); `feature/orders` and `feature/inventory` (their own bars) |

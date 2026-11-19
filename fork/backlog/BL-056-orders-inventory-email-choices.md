@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | high |
-| Status | built; on Ditto (preview 7e09e7ede), not yet released |
+| Status | shipped hbr.51 |
 | Added | 2026-11-18 |
 | Commit checked | `hbr/integration` @ `b251e91d3` (hbr.50) |
 | Planned branches | `feature/digests` (personal choice), `feature/orders`, `feature/inventory` |
