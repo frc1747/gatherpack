@@ -154,7 +154,7 @@ Registered through `Settings.register` (from `feature/extension-registries`), in
 | `inventory_member_kinds` | Movement kinds members may record (§3.2) | used, moved, counted |
 | `inventory_used_needs_reason` | Used needs a "What for?" | off |
 | `inventory_undo_minutes` | How long the recorder can undo their own movement | 10 |
-| `inventory_reorder_notice` | **Inventory Notices**: the site's choice for everything inventory emails: `each`, `daily`, `weekly` (Weekly Infodump, with Summaries), `off`. Each person can change it on Email notices (Summaries on) | daily |
+| `inventory_reorder_notice` | **Inventory Notices**: the site's choice for everything inventory emails: `each`, `daily`, `weekly` (Weekly Infodump, with Summaries), `off`. Each person can change it in the Email card on their Notifications page (Summaries on) | daily |
 | (list) Stock Units | An item's stock unit is a row of Stock Units on Setup (each, box, pack, roll, foot, set to start; exactly one default, which new items take; the default can't be retired) | each |
 
 The flag gates everything: with it off, controllers redirect (forms' pattern), the menu entries disappear, and no notices or hooks fire from inventory's own events.
@@ -234,7 +234,7 @@ Mailer and reminder pattern as in forms and sign-ups, so notices reach people on
 
 | When | Who |
 |---|---|
-| An item goes on the reorder list | Inventory managers within reach of the item's team, each by their Inventory Notices choice (site default, or their own on Email notices): `each` an email now, `daily`/`weekly` the summary section, `off` nothing |
+| An item goes on the reorder list | Inventory managers within reach of the item's team, each by their Inventory Notices choice (site default, or their own on the Notifications page): `each` an email now, `daily`/`weekly` the summary section, `off` nothing |
 | A count changes stock by more than half | The same people, by the same choice |
 | A unit is marked Needs repair or Broken | The same people, by the same choice |
 

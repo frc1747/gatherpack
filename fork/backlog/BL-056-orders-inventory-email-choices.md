@@ -17,7 +17,7 @@ Orders and Inventory send email in two different ways. Inventory has a site sett
 Both features should work the same way:
 
 - **Each feature has a site default**, one of: An email each time, In the daily digest, In the Weekly Infodump, Off. The default for both is **In the daily digest**.
-- **Each person can override it, per feature**, on one **Email notices** page. A person who doesn't choose gets the site's choice. Someone can pick "each time" for Orders and "Weekly Infodump" for Inventory.
+- **Each person can override it, per feature**, in an **Email** card on their **Notifications** page (revised: no extra sidebar entry). A person who doesn't choose gets the site's choice. Someone can pick "each time" for Orders and "Weekly Infodump" for Inventory.
 
 ## Evidence
 
@@ -33,7 +33,7 @@ Both features should work the same way:
 - **Personal choice table** `notice_preferences`: `person_id` (FK, cascade), `key` (the registered digest key, string), `delivery` (string, one of `each daily weekly off`), timestamps; unique on `[person_id, key]`. Model `NoticePreference`. Person merge: the kept person's row wins; rows of the merged-away person move only where the kept person has none.
 - **`register(..., personal: true)`** (default true) marks a section that people may choose for themselves.
 - **`GatherPack::Digests.delivery_for(key, person)`**: the person's row when Summaries is on and the section is personal, else the site's `delivery`. Features call this to decide whether to email someone right away (`:each`). `daily_content` and `append_weekly` pick sections by `delivery_for` per person, not by the site value.
-- **Email notices page** (`/email_notices`, signed in, Summaries on, at least one personal section of an enabled feature): one row per personal section, labelled by the section's label, with radio choices "Use the site's choice (In the daily digest)", "An email each time", "In the daily digest", "In the Weekly Infodump", "Off". Saving "Use the site's choice" deletes the row. Reached from the person's own profile page (a link beside their notification settings, as upstream shows them) and from the account menu where the profile link is. Directions: "Choose how you hear about each feature. The daily digest comes once a day around 7:00; the Weekly Infodump is the weekly announcements email."
+- **Email notices page** (`/email_notices`, signed in, Summaries on, at least one personal section of an enabled feature): one row per personal section, labelled by the section's label, with radio choices "Use the site's choice (In the daily digest)", "An email each time", "In the daily digest", "In the Weekly Infodump", "Off". Saving "Use the site's choice" deletes the row. Revised: shown as an Email card on the Notifications page where that page takes other features' cards; standalone, reached from the person's own profile page. Directions: "Choose how you hear about each feature. The daily digest comes once a day around 7:00; the Weekly Infodump is the weekly announcements email."
 - With Summaries off nothing changes: no page, features use their site setting.
 
 ### Orders (`feature/orders`)
