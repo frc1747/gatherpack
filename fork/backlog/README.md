@@ -64,6 +64,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-055](BL-055-order-form-pinned-buttons.md) | Pinned Save/Cancel on every form (sticky button row), the standard Order Settings already uses | fork-only (UX) | medium | shipped hbr.51 | 2026-11-18 |
 | [BL-056](BL-056-orders-inventory-email-choices.md) | Orders and Inventory emails: one model, a site default (each time, daily digest, Weekly Infodump, off) and each person's own choice | fork-only | high | shipped hbr.51 | 2026-11-18 |
 | [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | shipped hbr.51 | 2026-11-18 |
+| [BL-058](BL-058-form-creator-audience-teams.md) | Form creators get an empty team picker on a form's Audience tab; let admins name other teams (e.g. Mentors) creators may ask | fork-only | medium | waiting | 2026-11-19 |
 
 ## Fields
 
