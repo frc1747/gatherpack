@@ -42,7 +42,7 @@ Decisions:
 - **Includes the teams below** each named team, the same way `creator_team_ids` treats a creator's own teams.
 - The "Include its managers" tick box works as usual for these teams.
 
-For HBR, after release: put Mentors in the new setting (configuration, prod, Corey's call).
+For HBR, after release: put Mentors in the new setting. The trade-off is accepted: whoever asks a team a question may read that team's answers.
 
 ## Tests
 
