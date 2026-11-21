@@ -6,7 +6,7 @@ class Event < ApplicationRecord
   belongs_to :team, optional: true
   belongs_to :time_clock_period, optional: true
 
-  has_many :checkins
+  has_many :checkins, dependent: :destroy
   has_many :checkin_field_responses, through: :checkins
 
   validates :name, presence: true
