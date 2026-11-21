@@ -19,5 +19,5 @@ end
 
 crumb :intake_spam_person do |person|
   link "Delete #{person.display_name}"
-  parent :intake_registrations
+  parent :membership_applications, person
 end

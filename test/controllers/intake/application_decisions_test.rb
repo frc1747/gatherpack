@@ -68,7 +68,7 @@ class Intake::ApplicationDecisionsTest < ActionDispatch::IntegrationTest
     sign_in @admin.user
     with_intake { get intake_spam_person_path(@applicant) }
 
-    assert_select ".breadcrumb-container a.breadcrumb-link", text: "Registrations"
+    assert_select ".breadcrumb-container a.breadcrumb-link", text: "Applications"
     assert_select ".breadcrumb-container", text: /Delete #{Regexp.escape(@applicant.display_name)}/
     assert_equal [ "Cancel", "Delete" ], css_select(".card-body .btn").map { |button| button.text.strip.presence || button["value"] }
     assert_select "a.btn-secondary", "Cancel"

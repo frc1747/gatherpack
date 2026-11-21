@@ -186,6 +186,16 @@ class Intake::MatchesAndGuardiansTest < ActionDispatch::IntegrationTest
     assert_match "too often", flash[:alert]
   end
 
+  test "a waiting guardian row has one job button and Change email under More" do
+    young_with_request
+    sign_in @leader.user
+    with_intake { get applications_team_path(@juniors) }
+
+    assert_select "[id^=intake_guardians] > div button.btn-outline-secondary", text: "Send again to guardian"
+    assert_select "[id^=intake_guardians] .dropdown-menu input[value='Change email']"
+    assert_select "[id^=intake_guardians] .btn-outline-primary", 0
+  end
+
   test "a manager links a guardian already on file, by login email or id" do
     young, row = young_with_request
     robin = create_intake_person("Robin", "Park", email: "robin.park@example.com")
