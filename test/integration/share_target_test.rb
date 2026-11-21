@@ -76,6 +76,25 @@ class ShareTargetTest < ActionDispatch::IntegrationTest
     assert_select "a", text: "Secret", count: 0
   end
 
+  test "the page has a breadcrumb back to Home when nothing can use the link" do
+    sign_in @user
+    get "/share", params: { url: "https://example.com" }
+
+    assert_select ".breadcrumb a[href=?]", root_path, text: "Home"
+    assert_select ".breadcrumb", text: /Share/
+  end
+
+  test "the page has a breadcrumb back to Home beside its share actions" do
+    GatherPack::ShareActions.register(:keep, label: "Keep it", path: ->(_) { "/keep" })
+    GatherPack::ShareActions.register(:toss, label: "Toss it", path: ->(_) { "/toss" })
+    sign_in @user
+    get "/share", params: { url: "https://example.com" }
+
+    assert_select ".breadcrumb a[href=?]", root_path, text: "Home"
+    assert_select ".breadcrumb", text: /Share/
+    assert_select ".card a.btn.btn-primary.btn-lg", count: 2
+  end
+
   test "the page verifies authorization" do
     assert ShareController <= InternalController
     assert SharePolicy.new(@user, :share).show?
