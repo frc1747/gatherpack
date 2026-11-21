@@ -1,0 +1,35 @@
+<%# locals: (actions:, wrapper_class: "card-footer") -%>
+<%# The action row: up to three buttons; past three, the first two ordinary
+    actions and a More menu holding the rest. Lifecycle actions (Archive,
+    Restore) come after the ordinary ones and destructive ones (Delete) last,
+    in More when there is one; destructive ones are red. At phone width only the first button and More
+    show; the buttons hidden there are the first items in More. %>
+<% shown = actions.select(&:visible?) %>
+<% destructive, rest = shown.partition(&:destructive?) %>
+<% lifecycle, plain = rest.partition(&:lifecycle?) %>
+<% if shown.size <= 3 %>
+  <% buttons, more = plain + lifecycle + destructive, [] %>
+<% else %>
+  <% buttons, more = plain.first(2), plain.drop(2) + lifecycle + destructive %>
+<% end %>
+<% phone_only = buttons.drop(1) %>
+<% if shown.any? %>
+  <div class="<%= wrapper_class %> d-flex flex-wrap align-items-start gap-2 screen-action-row">
+    <% buttons.each_with_index do |action, index| %>
+      <%= screen_action_button(action, style: ("danger" if action.destructive?), outer: ("d-none d-md-block" if index.positive?)) %>
+    <% end %>
+    <% if more.any? || phone_only.any? %>
+      <div class="dropdown <%= "d-md-none" if more.empty? %>">
+        <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <% phone_only.each do |action| %>
+            <li class="d-md-none"><%= screen_action_item(action) %></li>
+          <% end %>
+          <% more.each do |action| %>
+            <li><%= screen_action_item(action) %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+  </div>
+<% end %>
