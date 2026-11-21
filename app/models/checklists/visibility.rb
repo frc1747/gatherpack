@@ -128,7 +128,7 @@ module Checklists
 
     def grant_access(item)
       accesses = grants.filter_map do |grant|
-        next grant.access.to_sym if item.nil?
+        next (grant.access.to_sym if grant.overall?) if item.nil?
         next unless grant.item_ids.include?(item.id) || (item.parent_id && grant.item_ids.include?(item.parent_id))
         next unless ([ item ] + descendants(item)).all? { |entry| honours?(entry, grant) }
 

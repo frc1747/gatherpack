@@ -1,6 +1,6 @@
 # Lets holders of a badge, or members of a team (and the teams below it),
-# see a checklist's overall and the listed items for everyone it covers, at
-# status or full level (spec §10.2). Only admin-assigned badges can grant,
+# see the listed items for everyone a checklist covers, and its overall
+# when overall is set, at status or full level (spec §10.2). Only admin-assigned badges can grant,
 # so nobody grants themselves access.
 class ChecklistGrant < ApplicationRecord
   has_neat_id :chlg
@@ -19,6 +19,7 @@ class ChecklistGrant < ApplicationRecord
   validate :one_target
   validate :badge_added_by_admin
   validate :items_on_checklist
+  validate :shows_something
 
   def identifier_name
     "#{checklist&.title}: #{holder_name}"
@@ -30,6 +31,11 @@ class ChecklistGrant < ApplicationRecord
 
   def items
     checklist.checklist_items.where(id: item_ids)
+  end
+
+  # What it shows, for the access list: "Overall, Login and Forms".
+  def shown_labels
+    (overall? ? [ "Overall" ] : []) + items.order(:position).pluck(:label)
   end
 
   # The listed items and every item inside them: what the grant shows.
@@ -59,6 +65,10 @@ class ChecklistGrant < ApplicationRecord
 
   def badge_added_by_admin
     errors.add(:badge, "must be one only admins give") if badge && !badge.added_by_admin?
+  end
+
+  def shows_something
+    errors.add(:base, "Pick the overall or at least one item") unless overall? || item_ids.present?
   end
 
   def items_on_checklist

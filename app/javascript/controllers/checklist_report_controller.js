@@ -35,7 +35,7 @@ export default class extends Controller {
     }
 
     const name = this.nameTarget.value.trim().toLowerCase()
-    const notDone = this.notDoneTarget.checked
+    const notDone = this.hasNotDoneTarget && this.notDoneTarget.checked
     const ticks = {}
     this.tickTargets.filter((box) => box.checked).forEach((box) => {
       (ticks[box.dataset.column] ||= new Set()).add(box.value)
