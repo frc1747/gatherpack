@@ -160,9 +160,25 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
   test "dates typed beside an unchanged choice are kept" do
     sign_in @leader.user
     closes = 2.days.from_now.change(sec: 0)
-    with_intake { patch intake_registration_path(@registration), params: { taking: "open", intake_registration: { closes_at: closes.strftime("%Y-%m-%dT%H:%M") } } }
+    with_intake { patch intake_registration_path(@registration), params: { taking: "open", taking_was: "open", intake_registration: { closes_at: closes.strftime("%Y-%m-%dT%H:%M") } } }
 
     assert_equal closes.to_i, @registration.reload.closes_at.to_i
+  end
+
+  test "a new registration with a future opening time and the choice left alone stays not yet" do
+    sign_in @leader.user
+    opens = 5.days.from_now.change(sec: 0)
+
+    with_intake do
+      get new_intake_registration_path
+      assert_select "input[name=taking_was][value=open]"
+      post intake_registrations_path, params: { taking: "open", taking_was: "open", intake_registration: { team_id: @northwind.id, title: "Next season",
+        opens_at: opens.strftime("%Y-%m-%dT%H:%M"), apply_team_ids: [ @mentors.id ] } }
+    end
+
+    registration = Intake::Registration.find_by!(title: "Next season")
+    assert registration.not_yet_open?
+    assert_equal opens.to_i, registration.opens_at.to_i
   end
 
   test "the registration page says its state and ends with Edit, Waiting to finish, More; Delete last" do

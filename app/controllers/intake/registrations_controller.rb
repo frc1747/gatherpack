@@ -55,10 +55,9 @@ class Intake::RegistrationsController < InternalController
 
   # PATCH /registrations/:id
   def update
-    state = @registration.taking_state
     @registration.assign_attributes(registration_params)
     authorize @registration
-    apply_taking(state)
+    apply_taking
     if @registration.save
       redirect_to intake_registration_path(@registration), notice: "Registration saved."
     else
@@ -95,11 +94,11 @@ class Intake::RegistrationsController < InternalController
   private
 
   # The "Taking registrations" choice sets the dates, but only when it
-  # differs from what they already say, so dates typed beside an unchanged
-  # choice are kept.
-  def apply_taking(before = @registration.taking_state)
+  # differs from the choice the form showed (taking_was), so dates typed
+  # beside an unchanged choice are kept.
+  def apply_taking
     choice = params[:taking].to_s
-    @registration.take(choice) if choice.present? && choice != before
+    @registration.take(choice) if choice.present? && choice != params[:taking_was].to_s
   end
 
   def require_intake_feature

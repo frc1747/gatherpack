@@ -7,6 +7,7 @@
   <%= f.input :team_id, label: "Run by", collection: teams, label_method: :name, value_method: :id, hint: "This team's managers run the registration." %>
   <%= f.input :description, as: :text, input_html: { rows: 3 } %>
   <% taking = params[:taking].presence || f.object.taking_state %>
+  <%= hidden_field_tag :taking_was, f.object.taking_state, id: nil %>
   <fieldset class="mb-3">
     <legend class="form-label fs-6">Taking registrations</legend>
     <% [ [ "Not yet", "not_yet" ], [ "Yes, open now", "open" ], [ "No, closed", "closed" ] ].each do |label, value| %>
