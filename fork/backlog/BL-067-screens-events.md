@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | medium |
-| Status | waiting |
+| Status | done (feature/forms, feature/signups, feature/event-type-checkin-fields; not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/forms`, `feature/signups`, `feature/event-type-checkin-fields`; after BL-062 and BL-060 |

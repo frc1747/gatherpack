@@ -128,6 +128,8 @@ Sheets staff Events. Every slot is at an Event; sign-ups with no event are a non
 - **Check-in means showed up.** When someone checks in to an event, their active sign-ups to people positions at that event become `fulfilled`. After the event ends, an organizer can mark any sign-up `no_show`. A check-in never creates a sign-up. Deleting the check-in (upstream's Checkout, for someone leaving) leaves the sign-up fulfilled; an organizer fixes a mis-tap with Undo on the roster (decision 18).
 - **Items are marked by an organizer.** Bringing food doesn't mean staying, so a check-in doesn't fulfil item sign-ups. The roster has **Mark all brought** for an event's items, then the organizer marks the exceptions Not brought (decision 16) Mark all brought skips the organizer's own and their relatives' sign-ups, which another organizer marks (§3.6).
 
+Event panel (BL-067): One row per sheet: title, state in words, positions and fill, and one button (Sign up for members while open; Open for organizers). People who can make sheets for the event's team see 'New sign-up sheet for this event', which starts a sheet on the event's team with the event added, and 'No sign-up sheets for this event.' when there are none. The new sheet only takes an upcoming event the team can reach; otherwise saving fails with a message by Team.
+
 ### 3.6 Organizers
 
 Sheets are run by volunteers, not admins or team managers. Team management is the wrong tool: in upstream it grants editing of the team's people, memberships and events (`EventPolicy`, `Team#all_managers`).
