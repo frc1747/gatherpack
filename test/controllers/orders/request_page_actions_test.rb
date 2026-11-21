@@ -14,7 +14,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
   # The buttons in the action row outside More, and the items in More (the
   # phone-only copies of hidden buttons left out).
   def action_row
-    row = css_select(".card-footer .screen-action-row").sole
+    row = css_select(".card-footer.screen-action-row").sole
     buttons = row.element_children.filter_map do |node|
       button = node.name == "form" ? node.at_css("> button.btn") : node
       button.text.strip if button&.classes&.include?("btn")
@@ -25,9 +25,10 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
 
   def assert_one_job(expected)
     buttons, more = action_row
-    assert_equal [ expected ], buttons & JOBS, "job buttons outside More: #{buttons.inspect}"
-    assert_equal expected, buttons.first
+    assert_equal [ expected ], buttons, "buttons outside More"
     assert_empty more & JOBS
+    assert_equal "Print", more.reject { |label| label.in?([ "Delete draft", "Cancel request" ]) }.last
+    more
   end
 
   test "the requester's draft shows Finish request, with Delete draft last and its confirm" do
@@ -41,9 +42,9 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
       assert_select ".card-header .screen-state-line", "Draft"
       assert_one_job "Finish request"
       assert_select ".screen-action-row a.btn-primary[href=?]", edit_orders_request_path(order_request), "Finish request"
-      buttons, more = action_row
-      assert_equal "Delete draft", (more.presence || buttons).last
-      assert_select ".screen-action-row form[action=?][data-turbo-confirm=?]", orders_request_path(order_request), "Delete this draft?"
+      assert_equal [ "Print", "Delete draft" ], action_row.last
+      assert_select ".screen-action-row .dropdown-menu form[action=?][data-turbo-confirm=?]", orders_request_path(order_request), "Delete this draft?"
+      assert_select ".screen-action-row .dropdown-menu button.dropdown-item[type=button][data-controller=orders-print][data-action=?]", "orders-print#print", "Print"
       assert_select ".screen-action-row", text: /Cancel request|Edit/, count: 0
       # On a phone the requester's row sits in the bar fixed to the bottom.
       assert_select ".card-footer.orders-bar-fixed"
@@ -76,18 +77,27 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
 
       get orders_request_url(order_request)
 
-      buttons, more = action_row
-      assert_operator buttons.size + more.size, :>, 3
-      assert_equal 2, buttons.size
-      assert_equal [ "Approve" ], buttons & JOBS
-      assert_equal "Approve", buttons.first
-      assert_equal "Cancel request", more.last
-      assert_includes buttons + more, "Edit"
-      assert_includes more, "Follow"
+      more = assert_one_job("Approve")
+      assert_equal [ "Edit", "Follow", "Print", "Cancel request" ], more
       assert_select ".screen-action-row .dropdown-menu form[action=?][data-turbo-confirm=?]",
         cancel_orders_request_path(order_request), "Cancel this request? Nothing on it will be bought." do
         assert_select "button.text-danger", "Cancel request"
       end
+    end
+  end
+
+  test "with no job for the viewer every action is in More, Cancel request last" do
+    with_orders(@world) do
+      order_request = submitted_request(@world)
+      sign_in @world.requester.user
+
+      get orders_request_url(order_request)
+
+      buttons, more = action_row
+      assert_empty buttons
+      assert_equal "Cancel request", more.last
+      assert_includes more, "Order again"
+      assert_includes more, "Print"
     end
   end
 

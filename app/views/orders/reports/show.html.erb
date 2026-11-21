@@ -2,12 +2,12 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1><%= @report.title %></h1>
-  <%= button_tag "Print", type: "button", class: "btn btn-dark no-print", data: { controller: "print", action: "print#print" } %>
 </div>
 <p class="text-muted"><%= @report.description %>. As of <%= l Date.current, format: :long %>.</p>
 <div class="no-print">
   <%= render "shared/filter_bar", url: orders_report_path(@report.key),
-        table_actions: [ screen_action("Download CSV", orders_report_path(@report.key, format: :csv)) ] %>
+        table_actions: [ screen_action("Download CSV", orders_report_path(@report.key, format: :csv)),
+                         screen_action("Print", nil, style: :dark, data: { controller: "print", action: "print#print" }) ] %>
 </div>
 
 <% @report.tables.each do |table| %>

@@ -107,17 +107,18 @@ class Orders::ScreenStandardTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "reports put Download CSV at the right of the filter bar" do
+  test "reports put Download CSV and Print at the right of the filter bar" do
     with_orders(@world) do
       source = FundingSource.create!(team: @world.robotics, name: "Build budget")
       sign_in @world.admin.user
 
       get orders_report_url("open")
       assert_select ".screen-filter-bar .ms-auto a.btn-secondary[href=?]", orders_report_path("open", format: :csv), "Download CSV"
-      assert_select "button.btn-dark", "Print"
+      assert_select ".screen-filter-bar .ms-auto button.btn-dark[type=button][data-action=?]", "print#print", "Print"
 
       get report_orders_funding_source_url(source)
       assert_select ".screen-filter-bar .ms-auto a.btn-secondary[href=?]", report_orders_funding_source_path(source, format: :csv), "Download CSV"
+      assert_select ".screen-filter-bar .ms-auto button.btn-dark[data-controller=print]", "Print"
     end
   end
 end

@@ -3,9 +3,5 @@
     in a bar fixed to the bottom. %>
 <% mine = order_request.requested_by_id == current_user.person&.id %>
 <% fixed = mine && (order_request.draft? || order_request.changes_requested?) %>
-<div class="card-footer no-print d-flex flex-wrap align-items-start gap-2 <%= "orders-bar-fixed" if fixed %>">
-  <%= render "shared/action_row", actions: order_request_actions(order_request), wrapper_class: "flex-grow-1" %>
-  <button type="button" class="btn btn-dark d-none d-md-inline-block ms-auto" data-controller="orders-print" data-action="orders-print#print">
-    <i class="fa fa-print"></i> Print
-  </button>
-</div>
+<%= render "shared/action_row", actions: order_request_actions(order_request),
+      wrapper_class: [ "card-footer no-print", ("orders-bar-fixed" if fixed) ].compact.join(" ") %>

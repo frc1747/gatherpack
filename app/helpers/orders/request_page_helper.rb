@@ -24,8 +24,9 @@ module Orders
       text
     end
 
-    # The action row: the viewer's job first, then Edit, Order again and
-    # Follow, with Delete draft or Cancel request last.
+    # The action row: the viewer's job as the one button, then More with
+    # Edit, Order again, Follow and Print, and Delete draft or Cancel request
+    # last.
     def order_request_actions(order_request)
       request_policy = policy(order_request)
       person = current_user.person
@@ -36,11 +37,12 @@ module Orders
       [
         job,
         screen_action("Edit", edit_orders_request_path(order_request), style: :warning,
-          visible: request_policy.update? && !order_request.draft? && job&.label != "Update"),
+          more: true, visible: request_policy.update? && !order_request.draft? && job&.label != "Update"),
         screen_action("Order again", order_again_orders_request_path(order_request), method: :post,
-          visible: !order_request.draft? && request_policy.order_again?),
+          more: true, visible: !order_request.draft? && request_policy.order_again?),
         screen_action(following ? "Stop following" : "Follow", follow_orders_request_path(order_request),
-          method: following ? :delete : :post, visible: request_policy.follow?),
+          method: following ? :delete : :post, more: true, visible: request_policy.follow?),
+        screen_action("Print", nil, more: true, data: { controller: "orders-print", action: "orders-print#print" }),
         screen_action("Delete draft", orders_request_path(order_request), method: :delete, destructive: true,
           confirm: "Delete this draft?", visible: order_request.draft? && request_policy.destroy?),
         screen_action("Cancel request", cancel_orders_request_path(order_request), method: :post, destructive: true,
