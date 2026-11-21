@@ -23,6 +23,7 @@ class Intake::Registration < ApplicationRecord
   validates :opens_at, presence: true
   validates :slug, presence: true, uniqueness: true, format: { with: SLUG_FORMAT, message: "must be 4 to 64 lowercase letters, digits or dashes" }
   validate :closes_after_opening
+  validate :opens_later, if: -> { @taking == "not_yet" }
   validate :has_teams_to_apply_to
   validate :guardian_type_is_a_guardianship
   validate :kiosk_fields_are_custom
@@ -81,6 +82,29 @@ class Intake::Registration < ApplicationRecord
     closes_at.present? && closes_at <= at
   end
 
+  # What the dates say: "not_yet", "open" or "closed".
+  def taking_state(at = Time.current)
+    closed?(at) ? "closed" : (not_yet_open?(at) ? "not_yet" : "open")
+  end
+
+  # Applies the "Taking registrations" choice to the dates, since the dates
+  # are the state: "open" opens it now when it hasn't opened yet and drops a
+  # past closing time; "closed" closes it now (and pulls a later opening back,
+  # so it can still close); "not_yet" asks for an opening time to come.
+  def take(choice, at: Time.current)
+    @taking = choice.to_s
+    @taken_at = at
+    case @taking
+    when "open"
+      self.opens_at = at if opens_at.nil? || opens_at > at
+      self.closes_at = nil if closes_at && closes_at <= at
+    when "closed"
+      return if closed?(at)
+      self.opens_at = at - 1.minute if opens_at.nil? || opens_at >= at
+      self.closes_at = at
+    end
+  end
+
   def self_service_open?
     self_service? && open?
   end
@@ -131,6 +155,10 @@ class Intake::Registration < ApplicationRecord
   def closes_after_opening
     return unless opens_at && closes_at
     errors.add(:closes_at, "must be after it opens") if closes_at <= opens_at
+  end
+
+  def opens_later
+    errors.add(:opens_at, "must be a later time to wait for it") unless opens_at && opens_at > @taken_at
   end
 
   def has_teams_to_apply_to

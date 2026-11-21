@@ -47,7 +47,7 @@
           <%= f.label :birthday, person == @person ? "Your birthday" : "#{person.first_name}'s birthday", class: "form-label" %>
           <div class="d-flex gap-2">
             <%= f.date_field :birthday, required: true, max: Date.current, class: "form-control", style: "max-width: 14rem;" %>
-            <%= f.submit "Save", class: "btn btn-outline-primary" %>
+            <%= f.submit "Save", class: "btn btn-primary" %>
           </div>
         <% end %>
       <% end %>
@@ -94,7 +94,7 @@
           <div class="col-sm-6 mb-2"><%= f.label :last_name, "Last name", class: "form-label" %><%= f.text_field :last_name, required: true, class: "form-control" %></div>
         </div>
         <div class="mb-2"><%= f.label :birthday, "Birthday", class: "form-label" %><%= f.date_field :birthday, max: Date.current, class: "form-control", style: "max-width: 14rem;" %></div>
-        <%= f.submit "Add", class: "btn btn-outline-primary" %>
+        <%= f.submit "Add", class: "btn btn-primary" %>
       <% end %>
     </div>
   </div>

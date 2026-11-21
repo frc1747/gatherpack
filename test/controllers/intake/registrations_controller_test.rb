@@ -98,6 +98,103 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     assert @registration.reload.closed?
   end
 
+  test "the registration pages show a breadcrumb" do
+    @registration.update!(kiosk: true)
+    sign_in @leader.user
+
+    with_intake do
+      { intake_registrations_path => "Registrations", intake_registration_path(@registration) => "Join Northwind",
+        new_intake_registration_path => "New registration", edit_intake_registration_path(@registration) => "Join Northwind",
+        waiting_intake_registration_path(@registration) => "Waiting to finish" }.each do |path, last|
+        get path
+        assert_response :success, path
+        assert_select ".breadcrumb-container a.breadcrumb-link", text: "Home"
+        assert_select ".breadcrumb-container", text: /#{Regexp.escape(last)}/
+      end
+    end
+  end
+
+  test "choosing No, closed and saving closes the registration for joiners" do
+    sign_in @leader.user
+
+    with_intake do
+      get edit_intake_registration_path(@registration)
+      assert_select "input[type=radio][name=taking]", 3
+      assert_select "input[name=taking][value=open][checked]"
+
+      patch intake_registration_path(@registration), params: { taking: "closed", intake_registration: { title: @registration.title } }
+      assert_redirected_to intake_registration_path(@registration)
+
+      assert @registration.reload.closed?
+      get intake_join_path(@registration.slug)
+      assert_response :not_found
+      assert_match "Registration has closed.", response.body
+    end
+  end
+
+  test "choosing Yes, open now opens a registration that hasn't opened and drops a past closing time" do
+    @registration.update!(opens_at: 2.days.from_now, closes_at: 3.days.from_now)
+    sign_in @leader.user
+    with_intake { patch intake_registration_path(@registration), params: { taking: "open", intake_registration: { title: @registration.title } } }
+    assert @registration.reload.open?
+
+    @registration.update_columns(opens_at: 5.days.ago, closes_at: 1.day.ago)
+    with_intake { patch intake_registration_path(@registration), params: { taking: "open", intake_registration: { title: @registration.title } } }
+    assert @registration.reload.open?
+    assert_nil @registration.closes_at
+  end
+
+  test "choosing Not yet needs an opening time still to come" do
+    sign_in @leader.user
+    with_intake do
+      patch intake_registration_path(@registration), params: { taking: "not_yet", intake_registration: { title: @registration.title } }
+      assert_response :unprocessable_content
+      assert @registration.reload.open?
+
+      patch intake_registration_path(@registration), params: { taking: "not_yet", intake_registration: { opens_at: 3.days.from_now.strftime("%Y-%m-%dT%H:%M") } }
+      assert_redirected_to intake_registration_path(@registration)
+    end
+    assert @registration.reload.not_yet_open?
+  end
+
+  test "dates typed beside an unchanged choice are kept" do
+    sign_in @leader.user
+    closes = 2.days.from_now.change(sec: 0)
+    with_intake { patch intake_registration_path(@registration), params: { taking: "open", intake_registration: { closes_at: closes.strftime("%Y-%m-%dT%H:%M") } } }
+
+    assert_equal closes.to_i, @registration.reload.closes_at.to_i
+  end
+
+  test "the registration page says its state and ends with Edit, Waiting to finish, More; Delete last" do
+    @registration.update!(kiosk: true, closes_at: 10.days.from_now)
+    sign_in @leader.user
+
+    with_intake { get intake_registration_path(@registration) }
+
+    assert_match "Taking registrations until", response.body
+    assert_no_match "Close now", response.body
+    footer = css_select(".card-footer.screen-action-row").first
+    assert_equal [ "Edit", "Waiting to finish" ], footer.css("a.btn").map { |link| link.text.strip }
+    assert_equal "More", footer.at_css("button.dropdown-toggle").text.strip
+    items = footer.css(".dropdown-menu .dropdown-item").map { |item| item.text.strip }
+    assert_equal [ "Copy", "Delete" ], items.last(2)
+    assert_select ".dropdown-menu form[data-turbo-confirm] button.text-danger", "Delete"
+  end
+
+  test "the list filters archived registrations with a pill" do
+    with_settings(intake_archive_days: "30") do
+      @registration.update!(opens_at: 90.days.ago, closes_at: 60.days.ago)
+      sign_in @leader.user
+      with_intake do
+        get intake_registrations_path
+        assert_no_match "Join Northwind", response.body
+        assert_select "a", text: /Archived \(1\)/
+        get intake_registrations_path(status: "archived")
+        assert_match "Join Northwind", response.body
+      end
+    end
+  end
+
   test "sending again is limited per sign-up per day" do
     entry, = create_intake_entry
     sign_in @leader.user

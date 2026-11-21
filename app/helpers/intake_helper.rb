@@ -12,6 +12,21 @@ module IntakeHelper
     Badge.order(:name).select { |badge| BadgePolicy.new(current_user, badge).update? }
   end
 
+  # A registration's state in words, for its page and list: "Taking
+  # registrations until Sep 1", "Opens Sep 1", "Closed Sep 1".
+  def intake_registration_state(registration)
+    day = ->(time) { l(time.to_date, format: time.year == Time.current.year ? "%b %-d" : "%b %-d, %Y") }
+    if registration.closed?
+      "Closed #{day.(registration.closes_at)}"
+    elsif registration.not_yet_open?
+      "Not taking registrations yet. Opens #{day.(registration.opens_at)}"
+    elsif registration.closes_at
+      "Taking registrations until #{day.(registration.closes_at)}"
+    else
+      "Taking registrations"
+    end
+  end
+
   def intake_status_label(application)
     case application.status
     when "pending"
