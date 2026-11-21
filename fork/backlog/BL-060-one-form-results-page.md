@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (feature) |
 | Priority | medium |
-| Status | waiting |
+| Status | done (feature/forms, not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` (`feature/forms` @ `79caab721`) |
 | Planned branches | `feature/forms` (the pages are its own); connectors that link to the old pages follow |
