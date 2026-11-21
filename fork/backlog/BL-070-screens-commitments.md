@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | medium |
-| Status | waiting |
+| Status | done (feature/commitments, checklists-connectors, signup-credit; not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/commitments`, `feature/signup-credit`, `feature/checklists-connectors`; after BL-062 |
