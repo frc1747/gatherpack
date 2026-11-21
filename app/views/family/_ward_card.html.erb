@@ -25,9 +25,14 @@
       </div>
     <% end %>
 
-    <% if GatherPack::Features.enabled?(:signups) %>
+    <% if family_open_shifts?(card) %>
       <div data-family-row="open-shifts">
-        <%= render "my_gatherpack/todo_row", item: family_open_shifts_item, first: false %>
+        <div class="mg-row">
+          <span class="mg-row-icon"><%= i "users" %></span>
+          <div class="mg-row-body">
+            <div class="mg-row-title"><%= link_to "See open shifts", signup_sheets_path %></div>
+          </div>
+        </div>
       </div>
     <% end %>
 

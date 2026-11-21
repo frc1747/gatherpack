@@ -268,25 +268,52 @@ class FamilyPageTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "See open shifts is a row in each ward card while sign-ups are on" do
-    sibling = create_ward("Robin")
+  test "See open shifts is a row only in the cards of wards with a pooled count" do
+    pooled = create_ward("Robin")
+    create_ward("Sky")
+    add_rule(@checklist, :include, :person, person_id: pooled.id)
+    add_item(@checklist, :pooled, "Family Shifts", { group_relationship_type_id: @parent_of.id })
+    refresh(@checklist)
     sign_in @parent.user
 
     get family_path
 
-    [ @kid, sibling ].each do |ward|
-      assert_select "##{ward_card(ward)} [data-family-row=open-shifts] .mg-row a.mg-row-action.btn-outline-secondary[href=?]", signup_sheets_path, text: "See open shifts"
+    [ @kid, pooled ].each do |ward|
+      assert_select "##{ward_card(ward)} [data-family-row=open-shifts] .mg-row .mg-row-title a[href=?]", signup_sheets_path, text: "See open shifts"
     end
+    assert_select "[data-family-row=open-shifts]", count: 2
+    assert_select "[data-family-row=open-shifts] .mg-row-action", false
   end
 
-  test "no See open shifts row while sign-ups are off" do
+  test "no See open shifts row without a pooled count" do
+    sign_in @parent.user
+
+    get family_path
+
+    assert_select "[data-family-ward]"
+    assert_no_match "See open shifts", response.body
+  end
+
+  test "no See open shifts row while sign-ups are off, even with a pooled count" do
+    add_item(@checklist, :pooled, "Family Shifts", { group_relationship_type_id: @parent_of.id })
+    refresh(@checklist)
     sign_in @parent.user
 
     with_settings(feature_signups: "false") { get family_path }
 
-    assert_select "[data-family-ward]"
-    assert_select "[data-family-row=open-shifts]", false
+    assert_select "[data-family-owed]"
     assert_no_match "See open shifts", response.body
+  end
+
+  test "an empty card shows only Nothing to show yet" do
+    empty = create_ward("Sky")
+    sign_in @parent.user
+
+    get family_path
+
+    assert_select "##{ward_card(empty)} .mg-row", false
+    assert_select "##{ward_card(empty)} [data-family-row]", false
+    assert_select "##{ward_card(empty)} p", count: 1, text: "Nothing to show yet."
   end
 
   test "a sign-up on a sheet the guardian can't see stays off, as on the sheet page" do

@@ -49,9 +49,10 @@ module FamilyHelper
       at: signup.event.start_time, path: signup_sheet_path(signup.signup_sheet))
   end
 
-  # The row under a ward's sign-ups that leads to sheets with open shifts.
-  def family_open_shifts_item
-    MyGatherpack::Item.new(title: "Sign up for a shift", path: signup_sheets_path, action: "See open shifts", icon: "calendar-plus")
+  # A ward's card links to open shifts while sign-ups are on and the ward
+  # has a shift count the family owes together (see family_owed_items).
+  def family_open_shifts?(card)
+    GatherPack::Features.enabled?(:signups) && family_owed_items([ card ]).any?
   end
 
   def family_checklist_item(card, checklist, status)
