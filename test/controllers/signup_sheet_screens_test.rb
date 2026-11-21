@@ -141,13 +141,15 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a sheet with sign-ups offers Archive but not Delete, and Archive never sends DELETE" do
+  test "a sheet with sign-ups offers Archive in More but not Delete, and Archive never sends DELETE" do
     Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
     sign_in person(:worker).user
 
     get signup_sheet_path(@sheet)
     assert_select ".screen-action-row" do
-      assert_select "form[action=?][data-turbo-confirm=?]", archive_signup_sheet_path(@sheet), "Archive this sheet? It's hidden from lists; sign-ups are kept."
+      assert_select ".dropdown > button", text: "More"
+      assert_select ".dropdown-menu > li:not(.d-md-none) form[action=?][data-turbo-confirm=?]", archive_signup_sheet_path(@sheet),
+        "Archive this sheet? It's hidden from lists; sign-ups are kept."
       assert_select "button", text: "Delete", count: 0
       assert_select "input[name=_method][value=delete]", count: 0
     end
@@ -160,7 +162,8 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
 
     get signup_sheet_path(@sheet)
     assert_select ".screen-action-row" do
-      assert_select "form[action=?][data-turbo-confirm=?]", restore_signup_sheet_path(@sheet), "Restore this sheet? It comes back closed."
+      assert_select ".dropdown-menu > li:not(.d-md-none) form[action=?][data-turbo-confirm=?]", restore_signup_sheet_path(@sheet),
+        "Restore this sheet? It comes back closed."
       assert_select "button", text: "Archive", count: 0
       assert_select "button", text: "Delete", count: 0
     end
@@ -236,7 +239,9 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
 
     get roster_signup_sheet_path(@sheet)
     assert_select ".screen-filter-bar a", text: "Signed up (1)"
-    assert_select "button[data-action='print#print']", text: "Print"
+    assert_select ".screen-filter-bar .screen-table-actions button[type=button][data-action='print#print']", text: "Print"
+    assert_select ".screen-filter-bar select[name=event_id]"
+    assert_select ".screen-filter-bar select[name=signup_position_id]"
     assert_select ".screen-action-row a.btn-success", text: "Add a sign-up"
     assert_select ".screen-action-row a", text: "Message"
     assert_select "a", text: "Set up", count: 0

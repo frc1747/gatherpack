@@ -8,34 +8,29 @@
   <% brought_confirm = "Mark every item sign-up on #{brought_event.start_time.strftime("%a %b %-d")} brought? " \
        "Your own and your family's are left for another organizer to mark." %>
 <% end %>
-<% more_filters = capture do %>
-  <div class="row g-2">
-    <div class="col-md-4">
-      <%= label_tag :event_id, "Date", class: "form-label" %>
-      <%= select_tag :event_id, options_for_select(event_choices, params[:event_id]), include_blank: "All dates", class: "form-select" %>
-    </div>
-    <div class="col-md-4">
-      <%= label_tag :signup_position_id, "Position", class: "form-label" %>
-      <%= select_tag :signup_position_id, options_for_select(@positions.map { |position| [ position.name, position.id ] }, params[:signup_position_id]),
-            include_blank: "All positions", class: "form-select" %>
-    </div>
+<% filter_fields = capture do %>
+  <div>
+    <%= label_tag :event_id, "Date", class: "form-label" %>
+    <%= select_tag :event_id, options_for_select(event_choices, params[:event_id]), include_blank: "All dates", class: "form-select" %>
+  </div>
+  <div>
+    <%= label_tag :signup_position_id, "Position", class: "form-label" %>
+    <%= select_tag :signup_position_id, options_for_select(@positions.map { |position| [ position.name, position.id ] }, params[:signup_position_id]),
+          include_blank: "All positions", class: "form-select" %>
   </div>
 <% end %>
 
 <div class="card">
   <%= render "shared/page_header", title: "Roster: #{@signup_sheet.title}", state: state_line(signup_sheet_state(@signup_sheet)) %>
   <div class="card-body">
-    <div class="d-flex flex-wrap align-items-start gap-2 no-print">
-      <div class="flex-grow-1">
-        <%= render "shared/filter_bar", url: roster_signup_sheet_path(@signup_sheet),
-              params: params.permit(:event_id, :signup_position_id).to_h,
-              statuses: [ { label: "All", value: nil, count: @status_counts.values.sum } ] +
-                [ [ "Signed up", "active" ], [ "Fulfilled or brought", "fulfilled" ], [ "No-show or not brought", "no_show" ], [ "Cancelled", "cancelled" ] ]
-                  .map { |label, value| { label:, value:, count: @status_counts[value].to_i } },
-              more: more_filters, open: params.values_at(:event_id, :signup_position_id).any?(&:present?) %>
-      </div>
-      <%# Prints the page as it is, so it isn't a link like the kit's table actions. %>
-      <button type="button" class="btn btn-dark" data-controller="print" data-action="print#print">Print</button>
+    <div class="no-print">
+      <%= render "shared/filter_bar", url: roster_signup_sheet_path(@signup_sheet),
+            params: params.permit(:event_id, :signup_position_id).to_h, hidden: {},
+            statuses: [ { label: "All", value: nil, count: @status_counts.values.sum } ] +
+              [ [ "Signed up", "active" ], [ "Fulfilled or brought", "fulfilled" ], [ "No-show or not brought", "no_show" ], [ "Cancelled", "cancelled" ] ]
+                .map { |label, value| { label:, value:, count: @status_counts[value].to_i } },
+            fields: filter_fields, auto_submit: true,
+            table_actions: [ screen_action("Print", nil, style: :dark, data: { controller: "print", action: "print#print" }) ] %>
     </div>
 
     <% if @signups.any? %>
@@ -69,6 +64,6 @@
   <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
         screen_action("Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), style: :success, visible: !@signup_sheet.archived?),
         screen_action("Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id])),
-        screen_action("Mark all brought", brought_path, method: :patch, visible: offer_brought, confirm: brought_confirm)
+        screen_action("Mark all brought", brought_path, method: :patch, visible: offer_brought, confirm: brought_confirm, more: true)
       ] %>
 </div>

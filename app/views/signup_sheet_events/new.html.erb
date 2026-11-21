@@ -53,16 +53,14 @@
       Or tick events that already exist. These are the upcoming events of <%= @signup_sheet.team.name %> and the teams below it.
     </p>
     <% if @event_types.many? %>
-      <%= form_with url: new_signup_sheet_signup_sheet_event_path(@signup_sheet), method: :get, class: "row g-2 align-items-end mb-3" do |f| %>
-        <div class="col-md-4">
-          <%= f.label :event_type_id, "Event type", class: "form-label" %>
-          <%= f.select :event_type_id, @event_types.map { |type| [ type.name, type.id ] },
-                { include_blank: "All event types", selected: params[:event_type_id] }, class: "form-select" %>
-        </div>
-        <div class="col-auto">
-          <%= f.submit "Show", name: nil, class: "btn btn-secondary" %>
+      <% type_field = capture do %>
+        <div>
+          <%= label_tag :event_type_id, "Event type", class: "form-label" %>
+          <%= select_tag :event_type_id, options_for_select(@event_types.map { |type| [ type.name, type.id ] }, params[:event_type_id]),
+                include_blank: "All event types", class: "form-select" %>
         </div>
       <% end %>
+      <%= render "shared/filter_bar", url: new_signup_sheet_signup_sheet_event_path(@signup_sheet), fields: type_field, auto_submit: true %>
     <% end %>
   </div>
   <%= form_with url: signup_sheet_signup_sheet_events_path(@signup_sheet) do |f| %>

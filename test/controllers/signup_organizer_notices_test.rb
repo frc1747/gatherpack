@@ -56,7 +56,8 @@ class SignupOrganizerNoticesTest < ActionDispatch::IntegrationTest
     sign_in person(:worker).user
 
     get roster_signup_sheet_path(@sheet)
-    assert_select "form[action=?] button", mark_all_brought_signup_sheet_roster_signups_path(@sheet, event_id: @event.id), text: "Mark all brought"
+    assert_select ".screen-action-row .dropdown-menu > li:not(.d-md-none) form[action=?] button", mark_all_brought_signup_sheet_roster_signups_path(@sheet, event_id: @event.id),
+      text: "Mark all brought"
 
     @dessert.destroy!
     get roster_signup_sheet_path(@sheet)
