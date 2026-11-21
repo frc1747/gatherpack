@@ -74,7 +74,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-065](BL-065-screens-signups.md) | Sign-up sheets to the standard: Edit not "Set up", Taking sign-ups choice, setup tabs, "Cancel sign-up" for members | fork-only (screens) | high | done (feature/signups) | 2026-11-21 |
 | [BL-066](BL-066-screens-checklists.md) | Checklists to the standard: header buttons to an action row with More, Counting choice, setup tabs | fork-only (screens) | high | done (feature/checklists) | 2026-11-21 |
 | [BL-067](BL-067-screens-events.md) | Event page panels (forms, sign-ups) in one shape with one row button each | fork-only (screens) | medium | done (forms, signups) | 2026-11-21 |
-| [BL-068](BL-068-screens-profiles.md) | Profile tabs (Forms, Checklists, Commitments) and intake's application rows to the standard | fork-only (screens) | medium | waiting | 2026-11-21 |
+| [BL-068](BL-068-screens-profiles.md) | Profile tabs (Forms, Checklists, Commitments) and intake's application rows to the standard | fork-only (screens) | medium | done (profile tabs) | 2026-11-21 |
 | [BL-069](BL-069-screens-orders.md) | Orders to the standard: one job button and More on a request, line actions in More, settings footer | fork-only (screens) | medium | done (feature/orders) | 2026-11-21 |
 | [BL-070](BL-070-screens-commitments.md) | Commitments to the standard: Edit not "Set up", action row with More, setup tabs | fork-only (screens) | medium | done (feature/commitments) | 2026-11-21 |
 | [BL-071](BL-071-screens-inventory.md) | Inventory to the standard: item and place pages with Edit, one job and More; no repeated list links; setup footer | fork-only (screens) | medium | done (feature/inventory) | 2026-11-21 |
