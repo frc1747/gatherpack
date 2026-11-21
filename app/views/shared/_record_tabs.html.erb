@@ -1,0 +1,8 @@
+<%# locals: (tabs:) -%>
+<ul class="nav nav-underline">
+  <% tabs.each do |label, path| %>
+    <li class="nav-item">
+      <%= link_to label, path, class: "nav-link #{"active" if current_page?(path)}", aria: { current: ("page" if current_page?(path)) } %>
+    </li>
+  <% end %>
+</ul>
