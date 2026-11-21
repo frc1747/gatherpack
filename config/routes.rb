@@ -130,6 +130,7 @@ Rails.application.routes.draw do
       member do
         get "arrange"
         get "print"
+        get "duplicate"
         patch "field_update", to: "checkins#field_update"
       end
     end
