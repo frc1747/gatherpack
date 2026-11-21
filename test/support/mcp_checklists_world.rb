@@ -73,8 +73,9 @@ module McpChecklistsWorld
     item
   end
 
-  # Whether the report page just fetched has a row for the person.
+  # Whether the report page just fetched has a row for the person: a body row whose first cell,
+  # the Person column, names them.
   def page_shows?(person)
-    css_select("tr[data-name]").any? { |row| row["data-name"] == person.display_name.downcase }
+    css_select("tbody tr").any? { |row| row.at_css("td")&.text&.strip == person.display_name }
   end
 end
