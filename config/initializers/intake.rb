@@ -16,8 +16,11 @@ Rails.application.config.to_prepare do
       default_enabled: false,
       nav_section: "People",
       nav_position: 40,
+      # Only admins and team managers can open Registrations, so it's hidden
+      # from everyone else where menu items take a visible check.
       nav_items: [
-        GatherPack::Feature::NavItem.new(label: "Registrations", path: :intake_registrations_path, icon: "clipboard-list")
+        GatherPack::Feature::NavItem.new(label: "Registrations", path: :intake_registrations_path, icon: "clipboard-list",
+          **(GatherPack::Feature::NavItem.members.include?(:visible) ? { visible: ->(user) { Intake::RegistrationPolicy.new(user, Intake::Registration).index? } } : {}))
       ]
     )
   )
@@ -27,7 +30,10 @@ Rails.application.config.to_prepare do
   Settings.register(:intake_kiosk_users_team, :intake_team, "Registration Kiosk: Kiosk Accounts Team", "", "Intake",
     "Members of this team can open a registration kiosk (they must also manage the registration's team). Blank uses the time kiosk's team; if neither is set, any manager of the team can.")
   Settings.register(:intake_domain_hints, :string, "Email Domain Hints", "gmail.com, yahoo.com, outlook.com, hotmail.com, icloud.com, aol.com", "Intake",
-    "Comma-separated email domains. An address with a near miss of one gets a \"Did you mean\" hint.")
+    "Email domains people often use. An address that nearly matches one of them gets a \"Did you mean\" hint.")
+  # Draw it as a list of boxes where the settings pickers are available. The
+  # text it saves is the same comma-separated list the hint reads.
+  Settings.input(:intake_domain_hints, :list, separator: ", ") if Settings.respond_to?(:input)
   Settings.register(:intake_entry_cap, :integer, "Unfinished Sign-ups per Registration", "500", "Intake",
     "When a registration has this many sign-ups waiting for email confirmation, new ones are turned away until some finish or expire.")
   Settings.register(:intake_entry_days, :integer, "Days to Keep Unfinished Sign-ups", "7", "Intake",

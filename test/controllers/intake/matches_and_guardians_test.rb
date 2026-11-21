@@ -213,6 +213,47 @@ class Intake::MatchesAndGuardiansTest < ActionDispatch::IntegrationTest
     assert_includes robin.wards, other
   end
 
+  test "the guardian screen offers the person search, and picking someone links them" do
+    young, row = young_with_request
+    robin = create_intake_person("Robin", "Park", team: @juniors)
+
+    with_intake { get applications_team_path(@juniors) }
+
+    assert_select "form[action='#{intake_registration_guardians_path(@registration)}'] [data-controller~='hw-combobox']"
+    assert_select "input[name='guardian'][type=text]", false
+    assert_select "[data-hw-combobox-async-src-value*=?]", "scope=people"
+
+    get combo_search_path(scope: "people", attribute: "guardian", q: "Robin", format: :turbo_stream)
+    assert_includes response.body, robin.id
+
+    with_intake { post intake_registration_guardians_path(@registration), params: { ward_id: young.id, row_id: row.id, guardian: robin.id } }
+
+    assert_equal [ robin ], young.guardians.to_a
+  end
+
+  test "an email typed into the guardian field still links someone with no team" do
+    young, row = young_with_request
+    robin = create_intake_person("Robin", "Park", email: "robin.park@example.com")
+
+    with_intake { get applications_team_path(@juniors) }
+    assert_select "[data-hw-combobox-name-when-new-value=guardian]"
+
+    with_intake { post intake_registration_guardians_path(@registration), params: { ward_id: young.id, row_id: row.id, guardian: "robin.park@example.com" } }
+
+    assert_equal [ robin ], young.guardians.to_a
+  end
+
+  test "the guardian search offers no one outside the manager's people" do
+    outsider = create_intake_person("Robin", "Stranger")
+    teammate = create_intake_person("Robin", "Teammate", team: @juniors)
+
+    sign_in @juniors_leader.user
+    get combo_search_path(scope: "people", attribute: "guardian", q: "Robin", format: :turbo_stream)
+
+    assert_includes response.body, teammate.id
+    assert_not_includes response.body, outsider.id
+  end
+
   test "guardians can only be linked to the registration's applicants" do
     stranger = Person.create!(first_name: "Not", last_name: "Applying")
     robin = create_intake_person("Robin", "Park")
