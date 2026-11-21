@@ -163,17 +163,6 @@
           wrapper: { id: "responses", class: ("d-print-none" if @layout == "labels"), data: { form_results_target: "table" } },
           rows_after: havent_answered %>
 
-    <% if tallied.any? %>
-      <div class="d-flex justify-content-end no-print">
-        <%= link_to @totals_hidden ? "Show totals" : "Hide totals", form_path(@form, @options.merge(totals: @totals_hidden ? nil : "hidden").compact_blank),
-              class: "small", data: { form_results_target: "toggle", action: "form-results#toggleTotals" } %>
-      </div>
-      <%= tag.div id: "totals", hidden: @totals_hidden, data: { form_results_target: "totals" } do %>
-        <h2 class="h5">Totals</h2>
-        <%= render "totals", report: @report, questions: tallied, rows: @rows %>
-      <% end %>
-    <% end %>
-
     <% unless @rows.empty? && outside.empty? %>
       <%= tag.div class: [ "row g-2 d-none", ("d-print-flex" if @layout == "labels") ], id: "labels", data: { form_results_target: "labels" } do %>
         <% @rows.each do |row| %>
@@ -206,6 +195,17 @@
             </div>
           </div>
         <% end %>
+      <% end %>
+    <% end %>
+
+    <% if tallied.any? %>
+      <div class="d-flex justify-content-end no-print">
+        <%= link_to @totals_hidden ? "Show totals" : "Hide totals", form_path(@form, @options.merge(totals: @totals_hidden ? nil : "hidden").compact_blank),
+              class: "small", data: { form_results_target: "toggle", action: "form-results#toggleTotals" } %>
+      </div>
+      <%= tag.div id: "totals", hidden: @totals_hidden, data: { form_results_target: "totals" } do %>
+        <h2 class="h5">Totals</h2>
+        <%= render "totals", report: @report, questions: tallied, rows: @rows %>
       <% end %>
     <% end %>
   </div>

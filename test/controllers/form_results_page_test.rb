@@ -116,6 +116,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         get form_path(@form)
         assert_response :success
         assert_operator response.body.index('id="responses"'), :<, response.body.index('id="totals"')
+        assert_operator response.body.index('id="labels"'), :<, response.body.index('id="totals"'), "Totals print last in the Labels layout too"
         assert_select "#responses th", text: "Status"
         assert_select "#responses th", text: "Submitted"
         assert_select "input[type=checkbox][name=?][checked]", "show_status"
