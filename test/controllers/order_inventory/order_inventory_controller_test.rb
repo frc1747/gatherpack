@@ -240,6 +240,21 @@ class OrderInventory::OrderInventoryControllerTest < ActionDispatch::Integration
     end
   end
 
+  test "Order these has a breadcrumb back to Reorder and ends Cancel, Create draft request" do
+    with_both(@world, @stock) do
+      sign_in @world.buyer.user
+      get new_order_inventory_reorder_draft_url(items: { @stock.screws.id => 20 })
+      assert_response :success
+
+      assert_select ".breadcrumb a[href=?]", inventory_reorder_path, "Reorder"
+      assert_select ".breadcrumb", /Order these/
+      labels = css_select(".orders-bar-fixed .btn").map { |node| node.text.presence || node["value"] }
+      assert_equal [ "Cancel", "Create draft request" ], labels
+      assert_select ".orders-bar-fixed a.btn-secondary[href=?]", inventory_reorder_path, "Cancel"
+      assert_select ".orders-bar-fixed input.btn-primary[type=submit][value='Create draft request']"
+    end
+  end
+
   test "Order these leaves out items the viewer doesn't see and refuses a team they can't ask for" do
     with_both(@world, @stock) do
       art_item = Item.create!(team: @world.art, name: "Paint", reorder_point: 1)
