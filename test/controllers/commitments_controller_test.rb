@@ -37,7 +37,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
         post commitments_path, params: { commitment: commitment_params(team_id: @club.id) }
       end
       commitment = Commitment.find_by!(title: "Outreach")
-      assert_redirected_to edit_commitment_path(commitment, anchor: "sources")
+      assert_redirected_to edit_commitment_path(commitment, tab: "sources")
       assert_equal [ person(:organizer) ], commitment.organizers.to_a
 
       get edit_commitment_path(commitment)
@@ -46,7 +46,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
 
       post commitment_commitment_sources_path(commitment), params: { commitment_source: { kind: "checkins", subject_id: @outreach.id, per: 3, credits: 1, max_credits: 2 } }
-      assert_redirected_to edit_commitment_path(commitment, anchor: "sources")
+      assert_redirected_to edit_commitment_path(commitment, tab: "sources")
       source = commitment.commitment_sources.sole
       assert_equal [ @outreach, 3, 2 ], [ source.subject, source.per, source.max_credits ]
 
@@ -87,13 +87,13 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       get commitment_path(@commitment)
       assert_response :success
       assert_select "#progress tbody tr", 3
-      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:member), :progress)} td", text: "1"
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:member))} td", text: "1"
       assert_select "a[href=?]", person_path(person(:member)), count: 0
-      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)}", text: /#{Commitment::SELF_APPROVAL_REASON}/
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid))}", text: /#{Commitment::SELF_APPROVAL_REASON}/
 
-      get commitment_path(@commitment, filter: "met")
+      get commitment_path(@commitment, status: "met")
       assert_select "#progress tbody tr", 1
-      get commitment_path(@commitment, filter: "nothing_planned")
+      get commitment_path(@commitment, status: "nothing_planned")
       assert_select "#progress tbody tr", 2, "not met, with nothing planned"
 
       get person_commitments_path(person(:member))
@@ -247,9 +247,10 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       sign_in person(:admin).user
       get commitment_path(@commitment)
       assert_select "#progress tbody tr", 2
-      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)} td", text: /Kid World, Member World/
-      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)} td", text: "3"
-      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid), :progress)} td", text: "2"
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid))} td", text: "Kid World"
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid))} td", text: "Member World"
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid))} td", text: "3"
+      assert_select "tr##{ActionView::RecordIdentifier.dom_id(person(:kid))} td", text: "2"
 
       sign_in parent.user
       get commitments_path

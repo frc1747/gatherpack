@@ -27,7 +27,7 @@
           <%= f.label :person_id, "Who else runs this commitment", class: "form-label" %>
           <%= f.select :person_id, candidates.map { |person| [ person.display_name, person.id ] }, { prompt: "Pick someone…" }, class: "form-select", required: true %>
         </div>
-        <div class="col-auto"><%= f.submit "Add organizer", class: "btn btn-secondary" %></div>
+        <div class="col-auto"><%= f.submit "Add organizer", class: "btn btn-sm btn-outline-secondary" %></div>
       <% end %>
       <div class="form-text">Only people with an organizer badge for this team are listed.</div>
     <% else %>
