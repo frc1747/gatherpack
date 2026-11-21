@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | high |
-| Status | waiting |
+| Status | done (feature/checklists; dependents pick it up at sync; not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/checklists`, `feature/checklists-connectors`, `feature/my-gatherpack-checklists`; after BL-062 |
