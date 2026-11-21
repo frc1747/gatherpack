@@ -15,13 +15,13 @@ Every page template in the integration build was read by a script (395 templates
 | "Edit" styles | 5 | `btn-warning` 49, small row buttons 13, `btn-primary` 2, `btn-secondary` 1, `btn-link` 1; fork also says "Set up" (Sign-ups, Commitments) and "Edit code and details" |
 | "Cancel" styles | 5 | `btn-warning` 112 (same colour as Edit), `btn-link` 8, `btn-primary` 4, `btn-danger` 4, outline 3 |
 | Form footer order | | upstream puts Cancel before Save in 71 forms, Save first in 3; fork forms mix both |
-| State changed by a button | 14 pages | Forms Open/Close, Intake "Close now", Checklists Restore, Questions Reopen/Close (upstream) |
+| Open/closed state changed by a button | 3 pages | Forms Open/Close, Intake "Close now", Questions Reopen/Close (upstream). The script flagged 11 more pages; those are lifecycle actions (Archive, Restore, Retire), decisions (Approve, Withdraw) or a modal's Close, which the standard keeps as buttons |
 | State changed by a bare select | 2 | Sign-up sheet and Checklist status selects (Draft / Open / Closed / Archived, no effect said) |
 | Browser `turbo_confirm` dialogs | 70 pages | upstream mostly "Are you sure?"; fork mostly names the effect |
 | Record parts as tabs | 3 | `people/_show_shared`, `teams/_show_shared` (link tabs), `forms/edit` (link tabs per part) |
 | Long setup pages that stack every part | 3 | `signup_sheets/edit` (form, then positions, dates, slots, organizers, audience), `checklists/edit` (form, then items, rules, access), `commitments/edit` |
 | Lists or records without breadcrumbs | 9 | all five `intake/registrations` pages, `ledger_payments/new`, `order_inventory/reorder_drafts/new`, `orders/vendors/pattern_test`, `share/show` |
-| Tables without `table-responsive` | 19 | 18 fork (Forms tally, Intake registrations, Housekeeping, Sign-up sheet list, Commitments list); `theme_previews/show` |
+| Tables without `table-responsive` | 19 | all fork (Forms tally, Intake registrations, Housekeeping, Sign-up sheet list, Commitments list, Theme palette preview `theme_previews/show`); none upstream |
 | Settings forms on reading screens | 0 real | Filters only; `notification_settings` is a person's own settings page |
 | Own footer styles | 2 | `orders/settings` and `inventory/setup` copy upstream's Settings page (`btn-lg btn-success` Save, `btn-lg btn-primary` Cancel) |
 
@@ -46,7 +46,7 @@ The rules are in `fork-spec` "Screen design" (shape, placement, state, confirmat
 - **Forms end Cancel, then Save.** Upstream does it in 71 of 74 forms; the main button ends the row where the eye finishes. Action rows on lists and records start with their most-used action instead (Edit, then the page's job). Both are the same idea: the main button is where people look first for that kind of screen.
 - **Delete is last.** When a page has a More menu, Delete is its last item. A page with three actions or fewer and no More menu shows Delete as the last button in red, as upstream's record pages do. Fork pages with a More menu never show Delete outside it.
 - **Table actions sit with the table.** Print and Download CSV act on what the table shows, so they sit at the right of the filter bar above it, not in the page footer (BL-060's pattern).
-- **States are settings; decisions are buttons.** Whether something is open, active or published is part of how it's set up, so it's a labelled choice on its Edit page ("Taking sign-ups: Not yet / Yes, open now / No, closed"), and the record page says the state in words. Deciding on someone's request (Approve, Decline, Ask for changes) is the job of the record page for the person whose turn it is, so it stays a button, labelled with the effect.
+- **States are settings; lifecycle and decisions are buttons.** Whether something is open, published or counting is part of how it's set up, so it's a labelled choice on its Edit page ("Taking sign-ups: Not yet / Yes, open now / No, closed"), and the record page says the state in words. Archiving and restoring end or resume a record's life rather than tune it, so they're actions: the last items in More before Delete, each with a confirm naming the effect ("Archive this sheet? It's hidden from lists; sign-ups are kept."), on their own routes, never the `DELETE` route. Deciding on someone's request (Approve, Decline, Ask for changes) is the job of the record page for the person whose turn it is, so it stays a button, labelled with the effect.
 - **Browser dialogs stay for one-click actions.** An inline question needs a form to live in. Delete, Archive, Remove, Withdraw and Cancel request are single buttons with no form, so they keep `turbo_confirm`, and the dialog names the effect ("Delete this event and its 12 check-ins?"), never "Are you sure?". Everything that saves a form asks inline, above Save.
 - **Parts as tabs only past two.** A record with more than two parts (a person: overview, teams, relationships, forms…) gets link tabs, one URL per tab, like `people/_show_shared`. A setup page with more than two parts (a sign-up sheet: details, positions, dates, organizers, who can sign up) gets the same tabs, as `forms/edit` does. Fewer parts stay on one page.
 
@@ -149,7 +149,7 @@ Built once on `feature/screen-kit` from `upstream/main`, before any fix-up item 
 
 Helper `ScreenKitHelper` (`app/helpers/screen_kit_helper.rb`): `screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, destructive: false)` builds a `ScreenKit::Action`; `state_line(text, link_text: nil, link_path: nil)`.
 
-Stylesheet `screen_kit.css`, linked from the layout only while `feature_screen_standard` is on ("Standard buttons on built-in screens", default off): restyles Cancel on upstream forms as `btn-secondary` (`.card-footer:has([type=submit]) > a.btn-warning`, the same `:has()` approach as BL-055), and gives `table-responsive` behaviour to bare tables in `main`. This is the one behaviour change to upstream screens, so it has the flag.
+Stylesheet `screen_kit.css`, linked from the layout only while `feature_screen_standard` is on ("Standard buttons on built-in screens", default off): restyles Cancel on upstream forms as `btn-secondary` with one selector, `main form .card-footer > a.btn-warning:has(+ [type=submit])`: a yellow link directly before the submit, which is where upstream's 71 forms put Cancel (the same `:has()` approach as BL-055). It leaves other yellow links alone, such as Edit in `mailboxes/show`'s footer, which sits beside a search submit. This is the one look change to upstream screens, so it has the flag.
 
 Manifest position of `feature/screen-kit`: **open, for Corey.** It depends only on `upstream/main`; every fix-up branch depends on it.
 
@@ -187,7 +187,6 @@ Each difference between upstream's screens and the standard, and what happens to
 | Edit `btn-warning` first, Delete `btn-danger` last, no More menu on short footers | 19 record and type pages (`badges/show`, `event_types/show` …) | **Fork matches upstream** | rule allows a visible Delete when there's no More menu |
 | Forms end Cancel, then Save | 71 forms | **Fork matches upstream** | |
 | Cancel in `btn-warning` | 112 upstream forms | **Fork wrapper** | `screen_kit.css` under `feature_screen_standard`; no view edits |
-| Bare tables that overflow on phones | `theme_previews/show` and any upstream table without the wrapper | **Fork wrapper** | `screen_kit.css` |
 | Settings page Save `btn-lg btn-success`, Cancel `btn-lg btn-primary` | `settings/index` | **Fork matches upstream** | one admin page; fork setup pages stop copying it (BL-069, BL-071) |
 | "Are you sure?" dialog wording | 48 upstream dialogs | **Fork matches upstream** | wording only; not worth an edit each |
 | More than three actions on a record | `events/show` (Print, Arrange, Edit, Delete) | **Upstream edit** | 1 file, already in FORK.md for panels; Edit, Print, More (Arrange, Delete). For Corey to approve |
@@ -195,6 +194,7 @@ Each difference between upstream's screens and the standard, and what happens to
 | | `teams/show`, `ledgers/show`, `ledger_entries/show`, `budgets/show`, `time_clock_periods/show`, `calendar/index`, `questions/show` | **Fork matches upstream** | setup-audience or rarely used; not worth new upstream divergence |
 | Open/Close as buttons | `questions/show` (Reopen, Close) | **Fork matches upstream** | upstream Q&A only; not a fork feature |
 | "Edit Profile" instead of "Edit" | `people/show` | **Upstream edit** | with the `people/show` edit above |
+| No breadcrumb | `ledger_payments/new` (Pay Into a ledger, reached only from the ledger's page) | **Fork matches upstream** | left as is: adding one `breadcrumb` line would be a new upstream edit for one rarely used admin page |
 
 No change here assumes anything is offered upstream; that's Corey's call per change.
 

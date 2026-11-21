@@ -88,7 +88,7 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 | The record's job | Remind, Sign up, Approve | `btn-primary` (Approve `btn-success`, Decline `btn-danger`) |
 | Other visible actions | Download CSV, Duplicate, Copy | `btn-secondary` |
 | Print, Clear Search | Print, Clear Search | `btn-dark` |
-| More | More | `btn-secondary dropdown-toggle`; items `dropdown-item`, Delete/Archive `text-danger` |
+| More | More | `btn-secondary dropdown-toggle`; items `dropdown-item`, Delete `text-danger` |
 | Delete with no More menu | Delete | `btn-danger` |
 | Row buttons | Edit, Remove, Responses | `btn-sm btn-outline-secondary` (Remove `btn-sm btn-outline-danger`) |
 

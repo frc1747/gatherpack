@@ -30,14 +30,14 @@ Partials in `app/views/shared/` (locals as in the spec): `_page_header`, `_state
 
 Helper `app/helpers/screen_kit_helper.rb`: `screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, destructive: false)` returns a `ScreenKit::Action` (a `Data` struct in `app/models/screen_kit/action.rb`); `state_line(text, link_text: nil, link_path: nil)`.
 
-Stylesheet `app/assets/stylesheets/screen_kit.css`, linked only while `feature_screen_standard` is on (setting registered in `config/initializers/screen_kit.rb`, label "Standard buttons on built-in screens", default off): Cancel links in a form footer that holds a submit (`main form .card-footer:has([type=submit]) > a.btn-warning`) take `btn-secondary`'s colours through the `--bs-btn-*` variables; a bare `main table.table` not inside `.table-responsive` gets `display: block; overflow-x: auto` below the `md` breakpoint.
+Stylesheet `app/assets/stylesheets/screen_kit.css`, linked only while `feature_screen_standard` is on (setting registered in `config/initializers/screen_kit.rb`, label "Standard buttons on built-in screens", default off): a Cancel link takes `btn-secondary`'s colours through the `--bs-btn-*` variables. One selector, the same as the spec's: `main form .card-footer > a.btn-warning:has(+ [type=submit])`, a yellow link directly before the submit, which is Cancel's place in upstream's forms. Other yellow links in a footer with a submit (Edit beside "Search Messages" in `mailboxes/show.html.erb:27-32`) keep their colour. No table rule: every bare table found is a fork view, fixed in its own item.
 
 ## Tests
 
 - Helper/partial tests: three actions show three buttons and no More; five show two plus More holding three, Delete last; a `visible: false` action is left out; a destructive action with a confirm renders `button_to` with `data-turbo-confirm`.
 - `_state_line` with and without a link; `_inline_confirm` selects the default; `_people_table` empty state.
 - System test at phone width: only the first action and More are visible; More holds the rest.
-- Flag: `screen_kit.css` is linked only with `feature_screen_standard` on; with it on, an upstream edit page's Cancel computes to the secondary colour (system test on `badges/edit`).
+- Flag: `screen_kit.css` is linked only with `feature_screen_standard` on; with it on, an upstream edit page's Cancel computes to the secondary colour (system test on `badges/edit`), and Edit on `mailboxes/show` keeps `btn-warning`'s colour (system test).
 
 ## Fork notes
 
