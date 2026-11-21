@@ -34,6 +34,33 @@ class SignupEventPanelTest < ActionDispatch::IntegrationTest
     assert_select "#event_signups a.btn", text: "Sign up"
   end
 
+  test "each sheet is one row with its state in words and one button: Sign up for a member, Open for an organizer" do
+    other = create_world_sheet("Cleanup Crew")
+    other.signup_positions.create!(name: "Sweeper", capacity: 2)
+    sign_in person(:student).user
+
+    get event_path(@event)
+
+    assert_select "#event_signups .card-header", text: "Sign-up sheets"
+    assert_select "#event_signups .list-group-flush > .list-group-item", count: 2
+    [ @sheet, other ].each do |sheet|
+      row = "##{ActionView::RecordIdentifier.dom_id(sheet, :event_panel)}"
+      assert_select "#{row} .btn", count: 1
+      assert_select "#{row} a.btn.btn-sm.btn-primary", text: "Sign up"
+      assert_select row, text: /Taking sign-ups until Oct 24/
+    end
+    assert_select "#event_signups a", text: /New sign-up sheet/, count: 0
+    assert_select "#event_signups .card-footer", count: 0
+
+    sign_in person(:worker).user
+    get event_path(@event)
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@sheet, :event_panel)} .btn", count: 1
+    assert_select "##{ActionView::RecordIdentifier.dom_id(@sheet, :event_panel)} a.btn.btn-sm.btn-outline-secondary[href=?]",
+      signup_sheet_path(@sheet, anchor: ActionView::RecordIdentifier.dom_id(@event)), text: "Open"
+    assert_select "#event_signups .card-footer a.btn.btn-sm.btn-outline-secondary[href=?]", new_signup_sheet_path(event_id: @event.id),
+      text: "New sign-up sheet for this event"
+  end
+
   test "names stay hidden when the sheet shows them to organizers only" do
     @sheet.names_organizers!
     sign_in person(:student).user
@@ -64,21 +91,59 @@ class SignupEventPanelTest < ActionDispatch::IntegrationTest
 
     sign_in person(:worker).user
     get event_path(@event)
-    assert_select "#event_signups .badge", text: "Draft"
+    assert_select "#event_signups .list-group-item", text: /Not taking sign-ups yet/
     assert_select "#event_signups a.btn", text: "Sign up", count: 0
 
     @sheet.archived!
     get event_path(@event)
+    assert_select "#event_signups .list-group-item", count: 0
+    assert_select "#event_signups", text: /Snack Stand/, count: 0
+
+    sign_in person(:student).user
+    get event_path(@event)
     assert_select "#event_signups", count: 0
   end
 
-  test "an event on no sheet has no panel" do
+  test "an event on no sheet has no panel for members; people who make sheets see the empty line and New" do
     other = create_world_event("Practice", Time.zone.parse("2026-10-20 18:00"))
-    sign_in person(:worker).user
+    sign_in person(:student).user
 
     get event_path(other)
 
     assert_response :success
     assert_select "#event_signups", count: 0
+
+    sign_in person(:worker).user
+    get event_path(other)
+    assert_response :success
+    assert_select "#event_signups .list-group-item", count: 0
+    assert_select "#event_signups p.text-muted", text: "No sign-up sheets for this event."
+    assert_select "#event_signups .card-footer a[href=?]", new_signup_sheet_path(event_id: other.id), text: "New sign-up sheet for this event"
+  end
+
+  test "a sheet started from the event page starts on the event's team and adds the event" do
+    sign_in person(:worker).user
+
+    get new_signup_sheet_path(event_id: @event.id)
+    assert_response :success
+    assert_select "input[type=hidden][name=event_id][value=?]", @event.id
+    assert_select "select[name=?] option[selected][value=?]", "signup_sheet[team_id]", @club.id
+
+    assert_difference "SignupSheet.count", 1 do
+      post signup_sheets_path, params: { event_id: @event.id, signup_sheet: { title: "Raffle", team_id: @club.id, status: "draft", names_permission: "everyone" } }
+    end
+    sheet = SignupSheet.find_by!(title: "Raffle")
+    assert_redirected_to signup_sheet_path(sheet)
+    assert_equal [ @event ], sheet.events.to_a
+  end
+
+  test "a sheet doesn't take an event outside its team or one the person can't see" do
+    outside = create_world_event("Away Day", Time.zone.parse("2026-10-25 10:00"), team: @other_org)
+    sign_in person(:worker).user
+
+    post signup_sheets_path, params: { event_id: outside.id, signup_sheet: { title: "Raffle", team_id: @club.id, status: "draft", names_permission: "everyone" } }
+
+    sheet = SignupSheet.find_by!(title: "Raffle")
+    assert_empty sheet.events
   end
 end

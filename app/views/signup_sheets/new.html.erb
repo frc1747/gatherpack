@@ -6,6 +6,10 @@
     <h1>New sign-up sheet</h1>
   </div>
   <div class="card-body">
+    <% if @event %>
+      <%= hidden_field_tag :event_id, @event.id %>
+      <p class="text-muted">Saving adds <%= @event.name %> (<%= nice_date(@event.start_time) %>) to the sheet's dates.</p>
+    <% end %>
     <%= render "form", f: f %>
   </div>
   <div class="card-footer">

@@ -73,9 +73,12 @@ class SignupSheetsController < InternalController
   end
 
   # GET /signup_sheets/new
+  # With event_id (from the event page's Sign-up sheets panel), starts on
+  # that event's team and adds the event to the new sheet.
   def new
     authorize SignupSheet
-    team_id = params[:team_id].presence_in(@team_choices.map(&:id)) || @team_choices.first&.id
+    @event = event_from_params
+    team_id = (params[:team_id].presence || @event&.team_id).presence_in(@team_choices.map(&:id)) || @team_choices.first&.id
     @signup_sheet = SignupSheet.new(team_id: team_id)
   end
 
@@ -86,8 +89,9 @@ class SignupSheetsController < InternalController
   # POST /signup_sheets
   def create
     @signup_sheet = authorize SignupSheet.new(signup_sheet_params.merge(created_by: current_user.person))
+    @event = event_from_params
 
-    if @signup_sheet.save
+    if save_with_event
       redirect_to @signup_sheet, notice: "Sign-up sheet was successfully created."
     else
       render :new, status: :unprocessable_entity
@@ -140,6 +144,25 @@ class SignupSheetsController < InternalController
       @signup_sheet = SignupSheet.find(params[:id])
       authorize @signup_sheet, { "show" => :show?, "roster" => :roster?, "archive" => :archive?, "restore" => :restore? }.fetch(action_name, :manage?)
       @tab = params[:tab].presence_in(EDIT_TABS) || "details"
+    end
+
+    # An event the person can see, given as event_id.
+    def event_from_params
+      policy_scope(Event).find_by(id: params[:event_id]) if params[:event_id].present?
+    end
+
+    # Saves the new sheet and, when it was started from an event of its team
+    # or a team below it, adds that event.
+    def save_with_event
+      SignupSheet.transaction do
+        next false unless @signup_sheet.save
+
+        team = @signup_sheet.team
+        if @event && [ team.id, *team.all_descendant_ids ].include?(@event.team_id)
+          @signup_sheet.signup_sheet_events.create!(event: @event)
+        end
+        true
+      end
     end
 
     def set_team_choices
