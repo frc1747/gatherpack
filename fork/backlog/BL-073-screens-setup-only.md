@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | low |
-| Status | waiting |
+| Status | done (all eight branches; not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/person-fields`, `feature/managed-lists`, `feature/housekeeping`, `feature/widgets`, `feature/mcp`, `feature/person-merge`, `feature/phone-notifications`, `feature/theme-palette`; after BL-062 |

@@ -79,7 +79,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-070](BL-070-screens-commitments.md) | Commitments to the standard: Edit not "Set up", action row with More, setup tabs | fork-only (screens) | medium | waiting | 2026-11-21 |
 | [BL-071](BL-071-screens-inventory.md) | Inventory to the standard: item and place pages with Edit, one job and More; no repeated list links; setup footer | fork-only (screens) | medium | done (feature/inventory) | 2026-11-21 |
 | [BL-072](BL-072-screens-intake.md) | Intake leader pages: breadcrumbs, Taking registrations choice instead of "Close now", action row | fork-only (screens) | low | done (feature/intake) | 2026-11-21 |
-| [BL-073](BL-073-screens-setup-only.md) | Setup-only fork screens (person fields, managed lists, housekeeping, widgets, merge, MCP log) to the standard | fork-only (screens) | low | waiting | 2026-11-21 |
+| [BL-073](BL-073-screens-setup-only.md) | Setup-only fork screens (person fields, managed lists, housekeeping, widgets, merge, MCP log) to the standard | fork-only (screens) | low | done (setup-only branches) | 2026-11-21 |
 
 ## Fields
 
