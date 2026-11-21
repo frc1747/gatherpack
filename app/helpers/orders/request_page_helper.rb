@@ -40,6 +40,8 @@ module Orders
           more: true, visible: request_policy.update? && !order_request.draft? && job&.label != "Update"),
         screen_action("Order again", order_again_orders_request_path(order_request), method: :post,
           more: true, visible: !order_request.draft? && request_policy.order_again?),
+        screen_action("Duplicate", duplicate_orders_request_path(order_request), method: :post,
+          more: true, visible: request_policy.duplicate?),
         screen_action(following ? "Stop following" : "Follow", follow_orders_request_path(order_request),
           method: following ? :delete : :post, more: true, visible: request_policy.follow?),
         screen_action("Print", nil, more: true, data: { controller: "orders-print", action: "orders-print#print" }),

@@ -4,6 +4,7 @@
   <h1><%= @report.title %></h1>
 </div>
 <p class="text-muted"><%= @report.description %>. As of <%= l Date.current, format: :long %>.</p>
+<%= tag.div data: column_chooser_data("orders-report") do %>
 <div class="no-print">
   <%= render "shared/filter_bar", url: orders_report_path(@report.key),
         table_actions: [ screen_action("Download CSV", orders_report_path(@report.key, format: :csv)),
@@ -33,4 +34,5 @@
       </table>
     </div>
   </div>
+<% end %>
 <% end %>

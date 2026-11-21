@@ -110,6 +110,11 @@ class OrderRequestPolicy < ApplicationPolicy
     requester? || watcher? || team_member? || manager? || access.buyer_for?(record.team_id)
   end
 
+  # Anyone who may start a request for this one's team, who can see it.
+  def duplicate?
+    show? && access.requester? && access.may_request_for?(record.team_id)
+  end
+
   def order_again?
     requester? && access.requester?
   end

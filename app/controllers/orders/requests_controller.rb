@@ -110,6 +110,15 @@ module Orders
       redirect_to orders_request_path(@order_request), alert: e.record.errors.full_messages.to_sentence
     end
 
+    # POST /orders/requests/1/duplicate
+    # A new draft copy of the request, for the person, to check and save.
+    def duplicate
+      draft = @order_request.duplicate(by: current_person)
+      redirect_to edit_orders_request_path(draft), notice: "Duplicated. Check it, then save."
+    rescue ActiveRecord::RecordInvalid => e
+      redirect_to orders_request_path(@order_request), alert: e.record.errors.full_messages.to_sentence
+    end
+
     # POST /orders/requests/1/follow
     def follow
       @order_request.follow!(current_person)

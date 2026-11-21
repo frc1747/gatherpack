@@ -12,6 +12,7 @@
   <% end %>
 </div>
 
+<%= tag.div data: column_chooser_data("orders-to-buy") do %>
 <% @groups.each_with_index do |group, index| %>
   <% form_id = "to_buy_#{index}" %>
   <div class="card mb-4" id="<%= group.not_sure? ? "vendor_not_chosen" : "vendor_group_#{index}" %>">
@@ -31,7 +32,7 @@
       <table class="table table-sm align-middle mb-0">
         <thead>
           <tr>
-            <th scope="col"><span class="visually-hidden">Buy</span></th>
+            <th scope="col" data-column-chooser-fixed><span class="visually-hidden">Buy</span></th>
             <th scope="col">Item</th>
             <th scope="col">Part</th>
             <th scope="col" class="text-end">Qty</th>
@@ -83,4 +84,5 @@
       <% end %>
     </div>
   </div>
+<% end %>
 <% end %>

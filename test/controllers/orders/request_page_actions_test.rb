@@ -42,7 +42,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
       assert_select ".card-header .screen-state-line", "Draft"
       assert_one_job "Finish request"
       assert_select ".screen-action-row a.btn-primary[href=?]", edit_orders_request_path(order_request), "Finish request"
-      assert_equal [ "Print", "Delete draft" ], action_row.last
+      assert_equal [ "Duplicate", "Print", "Delete draft" ], action_row.last
       assert_select ".screen-action-row .dropdown-menu form[action=?][data-turbo-confirm=?]", orders_request_path(order_request), "Delete this draft?"
       assert_select ".screen-action-row .dropdown-menu button.dropdown-item[type=button][data-controller=orders-print][data-action=?]", "orders-print#print", "Print"
       assert_select ".screen-action-row", text: /Cancel request|Edit/, count: 0
@@ -81,7 +81,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
 
       buttons, more = action_row
       assert_empty buttons
-      assert_equal [ "Edit", "Follow", "Print", "Cancel request" ], more
+      assert_equal [ "Edit", "Duplicate", "Follow", "Print", "Cancel request" ], more
       assert_select ".screen-action-row .dropdown-menu form[action=?][data-turbo-confirm=?]",
         cancel_orders_request_path(order_request), "Cancel this request? Nothing on it will be bought." do
         assert_select "button.text-danger", "Cancel request"

@@ -20,6 +20,7 @@
   <% end %>
 </dl>
 
+<%= tag.div data: column_chooser_data("orders-funding-report") do %>
 <div class="no-print">
   <%= render "shared/filter_bar", url: report_orders_funding_source_path(@funding_source),
         table_actions: [ screen_action("Download CSV", report_orders_funding_source_path(@funding_source, format: :csv)),
@@ -63,3 +64,4 @@
     </table>
   </div>
 </div>
+<% end %>

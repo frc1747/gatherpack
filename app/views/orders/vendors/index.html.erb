@@ -5,7 +5,7 @@
     <h1>Vendors</h1>
     <%= link_to "New vendor", new_orders_vendor_path, class: "btn btn-success" if policy(Vendor).create? %>
   </div>
-  <div class="table-responsive">
+  <%= tag.div class: "table-responsive", data: column_chooser_data("orders-vendors") do %>
     <table class="table mb-0">
       <thead>
         <tr><th>Name</th><th>Website</th><th>Domains</th><th></th></tr>
@@ -24,5 +24,5 @@
         <% end %>
       </tbody>
     </table>
-  </div>
+  <% end %>
 </div>
