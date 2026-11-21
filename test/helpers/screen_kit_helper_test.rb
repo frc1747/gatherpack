@@ -365,4 +365,23 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select ".screen-table-actions > button.btn-dark[type=button][data-action='form-results#print']", text: "Print"
     assert_select ".screen-table-actions > a.btn-secondary[href='/forms/1.csv']", text: "Download CSV"
   end
+
+  test "filter_bar shows fields before the pills, inside the Show form" do
+    render "shared/filter_bar", url: "/seasons", fields: select_tag(:season, options_for_select([ "2026", "2025" ]), class: "form-select"),
+      statuses: [ { label: "All", count: 3, value: nil }, { label: "Open", count: 1, value: "open" } ]
+
+    assert_select "form[action='/seasons'] select[name=season] option", 2
+    assert_select "form input[type=submit][value=Show]:not([data-filter-bar-target])"
+    assert_select "form[data-controller]", 0
+    fields_then_pills = css_select("select[name=season], .screen-filter-pills a").map(&:name)
+    assert_equal [ "select", "a", "a" ], fields_then_pills
+  end
+
+  test "filter_bar's auto_submit wires the form to submit on change, keeping Show for no JavaScript" do
+    render "shared/filter_bar", url: "/seasons", fields: select_tag(:season, options_for_select([ "2026", "2025" ])), auto_submit: true
+
+    assert_select "form[data-controller=filter-bar][data-action='change->filter-bar#submit']" do
+      assert_select "input[type=submit][value=Show][data-filter-bar-target=show]:not([hidden])"
+    end
+  end
 end

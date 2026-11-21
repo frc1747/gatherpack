@@ -1,4 +1,4 @@
-<%# locals: (url:, teams: [], team: nil, statuses: [], status: controller.params[:status].presence, params: {}, hidden: nil, more: nil, open: false, table_actions: [], table_actions_html: nil, all_teams_label: "All teams", form_id: nil) -%>
+<%# locals: (url:, teams: [], team: nil, statuses: [], status: controller.params[:status].presence, params: {}, hidden: nil, more: nil, open: false, table_actions: [], table_actions_html: nil, all_teams_label: "All teams", form_id: nil, fields: nil, auto_submit: false) -%>
 <%# Filters above a table. teams: the teams to choose from (no team filter
     for one or none); statuses: { label:, count:, value: } pills, the first
     usually { label: "All", value: nil }, and a pill with no one in it is
@@ -11,26 +11,32 @@
     table_actions: actions on what the table shows (Print, Download CSV), at
     the right; table_actions_html: controls there that aren't links (a Print
     button, a layout choice; give inputs form: form_id to send them with
-    Show); all_teams_label: the team select's blank choice. %>
+    Show); all_teams_label: the team select's blank choice; fields: more
+    fields (HTML, e.g. a season select), always shown, sent with Show;
+    auto_submit: true shows a change to fields or the team at once and hides
+    Show (Show stays without JavaScript, and while More choices is there). %>
 <% pills = statuses.reject { |pill| pill[:value].present? && pill[:count]&.zero? && pill[:value].to_s != status.to_s } %>
 <% team_filter = teams.size > 1 %>
+<% show_form = team_filter || more.present? || fields.present? %>
 <% path, query = url_for(url).split("?", 2) %>
 <% kept = Rack::Utils.parse_nested_query(query).merge((hidden || params).to_h.stringify_keys).except("team_id", "status").compact_blank %>
 <div class="d-flex flex-wrap align-items-start gap-2 mb-3 screen-filter-bar">
   <div class="flex-grow-1">
-    <% if team_filter || more.present? %>
-      <%= form_with url: path, method: :get, id: form_id, class: "d-flex flex-wrap align-items-end gap-2" do %>
+    <% if show_form %>
+      <%= form_with url: path, method: :get, id: form_id, class: "d-flex flex-wrap align-items-end gap-2",
+            data: (auto_submit ? { controller: "filter-bar", action: "change->filter-bar#submit" } : {}) do %>
         <% kept.each do |name, value| %>
           <% Array(value).each do |item| %><%= hidden_field_tag(value.is_a?(Array) ? "#{name}[]" : name, item, id: nil) %><% end %>
         <% end %>
         <%= hidden_field_tag :status, status, id: nil if status.present? %>
+        <%= fields %>
         <% if team_filter %>
           <div>
             <%= label_tag :team_id, "Team", class: "form-label" %>
             <%= select_tag :team_id, options_from_collection_for_select(teams, :id, :name, team&.id), include_blank: all_teams_label, class: "form-select" %>
           </div>
         <% end %>
-        <%= submit_tag "Show", class: "btn btn-secondary", name: nil %>
+        <%= submit_tag "Show", class: "btn btn-secondary", name: nil, data: (auto_submit ? { filter_bar_target: "show" } : {}) %>
         <% if more.present? %>
           <details class="w-100 screen-filter-more" <%= "open" if open %>>
             <summary>More choices</summary>
@@ -40,7 +46,7 @@
       <% end %>
     <% end %>
     <% if pills.any? %>
-      <div class="d-flex flex-wrap gap-2 screen-filter-pills <%= "mt-2" if team_filter || more.present? %>">
+      <div class="d-flex flex-wrap gap-2 screen-filter-pills <%= "mt-2" if show_form %>">
         <% pills.each do |pill| %>
           <% active = pill[:value].to_s == status.to_s %>
           <%= link_to [ pill[:label], ("(#{pill[:count]})" if pill[:count]) ].compact.join(" "),
