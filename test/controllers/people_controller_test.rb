@@ -124,6 +124,18 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "with the standard screens on, your own profile offers neither Impersonate nor Delete" do
+    with_settings(feature_screen_standard: "true") do
+      sign_in @admin.user
+
+      get person_path(@admin)
+
+      assert_select ".screen-action-row > a.btn-warning", "Edit"
+      assert_select "form[action=?]", impersonate_person_path(@admin), count: 0
+      assert_select ".screen-action-row form[data-turbo-confirm]", count: 0
+    end
+  end
+
   private
 
   def create_person(email, first, last, admin: false, architect: false)

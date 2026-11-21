@@ -95,14 +95,14 @@
   <% if GatherPack::Features.enabled?(:screen_standard) %>
     <%= render "shared/action_row", actions: [
       screen_action("Edit", edit_person_path(@person), style: :warning, visible: policy(@person).update?),
-      screen_action("Impersonate", impersonate_person_path(@person), method: :post, more: true, visible: @person.user.present? && policy(@person).impersonate?),
+      screen_action("Impersonate", impersonate_person_path(@person), method: :post, more: true, visible: @person.user.present? && @person != current_user.person && policy(@person).impersonate?),
       (if @person.user&.id
         screen_action("Change Email/Password", edit_person_user_path(@person), more: true, visible: policy(@person.user).update?)
       else
         screen_action("Create Email/Password", new_person_user_path(@person), more: true, visible: policy(User).create?)
       end),
       screen_action("Email notices", email_notices_path, more: true, visible: @person == current_user.person && GatherPack::Digests.personal_entries.any? && !GatherPack::Digests.on_notifications_page?),
-      screen_action("Delete", @person, method: :delete, destructive: true, confirm: "Delete #{@person.identifier_name}?", visible: policy(@person).destroy?)
+      screen_action("Delete", @person, method: :delete, destructive: true, confirm: "Delete #{@person.identifier_name}?", visible: @person != current_user.person && policy(@person).destroy?)
     ] %>
   <% else %>
     <div class="card-footer">
