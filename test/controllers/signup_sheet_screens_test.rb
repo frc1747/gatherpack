@@ -340,12 +340,11 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the sheets list, roster and slots tables carry the column chooser" do
+  test "the sheets list and roster tables carry the column chooser" do
     sign_in person(:worker).user
     Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
 
-    { signup_sheets_path => "signups-sheets", roster_signup_sheet_path(@sheet) => "signups-roster",
-      signup_sheet_signup_slots_path(@sheet) => "signups-slots" }.each do |path, key|
+    { signup_sheets_path => "signups-sheets", roster_signup_sheet_path(@sheet) => "signups-roster" }.each do |path, key|
       get path
       assert_response :success
       assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=?]", key

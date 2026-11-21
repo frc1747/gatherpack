@@ -17,8 +17,10 @@ module SignupSheets
 
     def call
       SignupSheet.transaction do
+        # Relationship types that admins have since opened to members are left out.
+        trusted_ids = SignupSheet.trusted_relationship_types.where(id: @sheet.others_relationship_type_ids).ids
         copy = SignupSheet.create!(@sheet.attributes.slice(*COPIED_ATTRIBUTES)
-          .merge(title: "#{@sheet.title} (copy)", status: :draft, created_by: @created_by))
+          .merge(title: "#{@sheet.title} (copy)", status: :draft, created_by: @created_by, others_relationship_type_ids: trusted_ids))
         copy_positions(copy)
         copy_audience_rules(copy)
         copy_organizers(copy)
@@ -39,7 +41,7 @@ module SignupSheets
 
     def copy_audience_rules(copy)
       @sheet.signup_audience_rules.each do |rule|
-        copy.signup_audience_rules.create!(rule.attributes.except("id", "signup_sheet_id", "created_at", "updated_at"))
+        copy.signup_audience_rules.create!(rule.attributes.except("id", "signup_sheet_id", "created_at", "updated_at").merge("created_by_id" => @created_by&.id))
       end
     end
 

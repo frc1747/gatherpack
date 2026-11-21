@@ -11,14 +11,14 @@
       Untick On to drop a position from one date; people already signed up there stay signed up.
     </p>
     <% if @events.any? && @positions.any? %>
-      <%= tag.div class: "table-responsive", data: column_chooser_data("signups-slots") do %>
+      <div class="table-responsive">
         <table class="table align-middle">
           <thead>
             <tr>
-              <th data-column-chooser-fixed>Date</th>
+              <th>Date</th>
               <% @positions.each do |position| %>
                 <th>
-                  <span data-column-chooser-label><%= position.name %></span>
+                  <%= position.name %>
                   <div class="small fw-normal text-light opacity-75"><%= position.capacity ? "#{position.capacity} #{position.unit_label}" : "No limit" %></div>
                 </th>
               <% end %>
@@ -51,7 +51,7 @@
             <% end %>
           </tbody>
         </table>
-      <% end %>
+      </div>
     <% else %>
       <p class="text-warning-emphasis">Add positions and dates first; a slot appears for every position on every date.</p>
     <% end %>
