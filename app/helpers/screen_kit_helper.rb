@@ -7,8 +7,11 @@ module ScreenKitHelper
   # lifecycle: true (Archive, Restore) puts it in More, after the ordinary
   # actions; destructive: true (Delete) puts it last, in red. more: true puts
   # an ordinary action in More even when there's room for it as a button.
-  def screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, lifecycle: false, destructive: false, more: false)
-    ScreenKit::Action.new(label:, path:, style:, http_method: method, confirm:, visible:, lifecycle:, destructive:, more:)
+  # data: attributes for the rendered link or button. A nil path with data
+  # renders a plain <button type="button"> for page script, such as Print
+  # with data: { action: "form-results#print" }.
+  def screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, lifecycle: false, destructive: false, more: false, data: {})
+    ScreenKit::Action.new(label:, path:, style:, http_method: method, confirm:, visible:, lifecycle:, destructive:, more:, data:)
   end
 
   # The current state in words, with an optional link to where it's set.
@@ -43,10 +46,12 @@ module ScreenKitHelper
   private
 
   def screen_action_tag(action, classes, outer = nil)
-    if action.get?
-      link_to action.label, action.path, class: [ classes, outer ].compact.join(" "), data: { turbo_confirm: action.confirm }.compact
+    if action.script?
+      button_tag action.label, type: "button", class: [ classes, outer ].compact.join(" "), data: action.data
+    elsif action.get?
+      link_to action.label, action.path, class: [ classes, outer ].compact.join(" "), data: action.data.merge(turbo_confirm: action.confirm).compact
     else
-      button_to action.label, action.path, method: action.http_method, class: classes,
+      button_to action.label, action.path, method: action.http_method, class: classes, data: action.data,
         form: { class: [ "button_to", outer ].compact.join(" "), data: { turbo_confirm: action.confirm }.compact }
     end
   end

@@ -335,4 +335,34 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select "tr##{dom_id(person)} td", text: person.identifier_name
     assert_select "tr##{dom_id(person)} td a", 0
   end
+
+  test "screen_action passes data: to the link and to button_to's button" do
+    action_row screen_action("Edit", "/a", style: :warning, data: { turbo_frame: "_top" }),
+      screen_action("Copy", "/c", method: :post, data: { controller: "copy" }, confirm: "Copy this list?")
+
+    assert_select ".screen-action-row > a.btn[href='/a'][data-turbo-frame=_top]", text: "Edit"
+    assert_select ".screen-action-row > form[data-turbo-confirm='Copy this list?'] > button.btn[data-controller=copy]", text: "Copy"
+    assert_select "a[data-turbo-confirm]", 0
+  end
+
+  test "an action with no path is a plain button, as a row button and as a More item" do
+    print = screen_action("Print", nil, style: :dark, data: { action: "form-results#print" })
+    assert print.script?
+    assert_not screen_action("Edit", "/a").script?
+
+    action_row screen_action("Edit", "/a", style: :warning), print
+    assert_select ".screen-action-row > button.btn.btn-dark[type=button][data-action='form-results#print']", text: "Print"
+    assert_select ".screen-action-row form", 0
+
+    action_row screen_action("Edit", "/a", style: :warning), screen_action("Print", nil, data: { action: "form-results#print" }, more: true)
+    assert_select ".dropdown-menu li:not(.d-md-none) > button.dropdown-item[type=button][data-action='form-results#print']", text: "Print"
+  end
+
+  test "a filter bar takes a plain-button action among its table actions" do
+    render "shared/filter_bar", url: "/forms/1",
+      table_actions: [ screen_action("Print", nil, style: :dark, data: { action: "form-results#print" }), screen_action("Download CSV", "/forms/1.csv") ]
+
+    assert_select ".screen-table-actions > button.btn-dark[type=button][data-action='form-results#print']", text: "Print"
+    assert_select ".screen-table-actions > a.btn-secondary[href='/forms/1.csv']", text: "Download CSV"
+  end
 end
