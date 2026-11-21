@@ -60,7 +60,7 @@ class MyGatherpackHoursTest < ActionDispatch::IntegrationTest
     assert_select ".mg-hours-more .dropdown-item", count: 3
     assert_select ".mg-hours-more .dropdown-item[href=?]", time_clock_periods_path, text: "Time Clock Periods"
     assert_select ".mg-hours-more .dropdown-item[href=?]", flagged_time_clock_punches_path, text: "Flag Review"
-    assert_select ".mg-hours-more li[data-turbo=false] .dropdown-item[href=?]", time_kiosk_path, text: "Time Clock Kiosk"
+    assert_select ".mg-hours-more a.dropdown-item[data-turbo=false][href=?]", time_kiosk_path, text: "Time Clock Kiosk"
   end
 
   test "an admin gets all three in More without managing a team" do
