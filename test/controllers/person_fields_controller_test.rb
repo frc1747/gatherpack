@@ -96,6 +96,24 @@ class PersonFieldsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the keep out of email tick box saves and redraws" do
+    with_feature do
+      as(:admin) do
+        get edit_person_field_path(@allergies)
+        assert_select "label", text: /Keep out of email and notifications/
+        assert_select "input[type=checkbox][name='person_field[keep_out_of_email]']:not([checked])"
+        assert_select ".form-text", text: "Values and anything about this field stay on the site. Emails and notifications only say to sign in."
+
+        patch person_field_path(@allergies), params: { person_field: { keep_out_of_email: "1" } }
+        assert_redirected_to person_fields_path
+        assert @allergies.reload.keep_out_of_email?
+
+        get edit_person_field_path(@allergies)
+        assert_select "input[type=checkbox][name='person_field[keep_out_of_email]'][checked]"
+      end
+    end
+  end
+
   test "the key and type are fixed once there are values" do
     with_feature do
       as(:admin) { patch person_field_path(@allergies), params: { person_field: { key: "renamed", data_type: "text" } } }
