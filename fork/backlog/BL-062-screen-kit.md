@@ -7,7 +7,7 @@
 | Status | waiting |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
-| Planned branches | new `feature/screen-kit` from `upstream/main`; manifest position open for Corey |
+| Planned branches | new `feature/screen-kit` from `upstream/main`; manifest: right after `feature/search-and-add` |
 | Upstream issue / PR | none |
 
 ## Summary
@@ -42,5 +42,5 @@ Stylesheet `app/assets/stylesheets/screen_kit.css`, linked only while `feature_s
 ## Fork notes
 
 - Upstream files touched: one line in `app/views/layouts/application.html.erb` to render the flag's stylesheet partial (as `feature/pinned-form-buttons` does); placed away from other fork lines and checked by a trial merge. Record it in FORK.md.
-- Every later fix-up item depends on this branch. Its manifest position is Corey's call (it depends only on `upstream/main`).
+- Every later fix-up item depends on this branch. It sits right after `feature/search-and-add` in the manifest (depends only on `upstream/main`); each fix-up merges it into the feature branches it changes.
 - Update the `fork-spec` "Screen design" line that says to write the same markup until the kit is in the base, once it is.
