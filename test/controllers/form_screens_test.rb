@@ -204,6 +204,7 @@ class FormScreensTest < ActionDispatch::IntegrationTest
         assert_select "#managed_forms", text: /No forms match/
         get forms_path(q: { title_i_cont: "meal" })
         assert_select "##{dom_id @form}"
+        assert_select "#managed_forms .table-responsive[data-controller=column-chooser][data-column-chooser-key-value=forms-list]"
       end
 
       @form.form_badge_grants.create!(badge: @health_officer_badge, access: :read)
@@ -226,7 +227,10 @@ class FormScreensTest < ActionDispatch::IntegrationTest
         assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?][checked]", note.id
         assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?]:not([checked])", sandwich.id
         assert_select "#form-options input[type=hidden][name=totals][value=hidden]"
-        assert_select "#form-options input[type=submit][value=Show]", 1, "one Show applies the team and More choices alike"
+        assert_select "#form-options input[type=submit][value=Show]", 2, "Show by the team, and again at the end of More choices"
+        get form_path(@form, frame: "who_to_include")
+        assert_select "[data-filter-bar-wait][data-controller=form-population]", 1, "the two-step Who to include waits for Show"
+        get form_path(@form, columns_for: @form.id, question_ids: [ note.id ], totals: "hidden")
         all = css_select(".screen-filter-pills a").first
         assert_equal [ note.id ], Rack::Utils.parse_nested_query(all["href"].split("?").last)["question_ids"]
         assert_select ".screen-table-actions input[type=radio][name=layout][form=form-options]", 2

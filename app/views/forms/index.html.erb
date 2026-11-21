@@ -30,7 +30,7 @@
     </div>
     <div class="card-body">
       <p class="text-muted">Forms you can see everyone's answers to.</p>
-      <div class="table-responsive">
+      <div class="table-responsive" <%= tag.attributes(data: column_chooser_data("forms-shared")) %>>
         <table class="table table-striped align-middle" id="shared_forms">
           <thead>
             <tr><th>Form</th><th>Team</th><th>Status</th><th>Deadline</th></tr>
@@ -91,7 +91,7 @@
       <% if @managed.empty? %>
         <%= render "shared/empty_state", text: @q.conditions.any? ? "No forms match." : "No forms yet." %>
       <% else %>
-        <div class="table-responsive">
+        <div class="table-responsive" <%= tag.attributes(data: column_chooser_data("forms-list")) %>>
           <table class="table table-striped align-middle">
             <thead>
               <tr><th>Form</th><th>Team</th><th>Status</th><th>Deadline</th></tr>
