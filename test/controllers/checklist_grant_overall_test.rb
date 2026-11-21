@@ -73,7 +73,7 @@ class ChecklistGrantOverallTest < ActionDispatch::IntegrationTest
       assert_response :see_other
       assert_not @checklist.checklist_grants.sole.overall?
 
-      get edit_checklist_path(@checklist)
+      get edit_checklist_path(@checklist, tab: "access")
       assert_select "#access li span", text: /Crew members: Login\s+\(full\)/
       assert_select "#access input[type=checkbox][name='checklist_grant[overall]'][checked]"
     end

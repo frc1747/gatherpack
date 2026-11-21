@@ -1,7 +1,10 @@
 class ChecklistsController < InternalController
   include ChecklistsFeature
 
-  before_action :load_checklist, only: %i[ show edit update destroy copy_form copy preview refresh restore ]
+  # The Edit page's tabs: the details form, then each part's own records.
+  EDIT_TABS = %w[details items covers access reminders].freeze
+
+  before_action :load_checklist, only: %i[ show edit update destroy copy_form copy preview refresh archive restore ]
 
   # GET /checklists
   def index
@@ -16,7 +19,8 @@ class ChecklistsController < InternalController
     @organizer = policy(@checklist).update?
     @full_view = Checklists::Visibility.new(@checklist, current_user.person).full?
     @as_of = parse_date(params[:as_of]) if @organizer
-    @report = Checklists::Report.new(@checklist, current_user.person, as_of: @as_of)
+    @report = Checklists::Report.new(@checklist, current_user.person, as_of: @as_of,
+      team_id: params[:team_id].presence, status: params[:status].presence_in(Checklists::Report::FILTER_STATUSES))
   end
 
   # GET /checklists/new
@@ -24,8 +28,9 @@ class ChecklistsController < InternalController
     @checklist = authorize Checklist.new(status: :draft, starts_on: Date.current)
   end
 
-  # GET /checklists/1/edit
+  # GET /checklists/1/edit?tab=items
   def edit
+    @tab = params[:tab].presence_in(EDIT_TABS) || "details"
   end
 
   # POST /checklists
@@ -33,7 +38,7 @@ class ChecklistsController < InternalController
     @checklist = authorize Checklist.new(checklist_params.merge(created_by: current_user.person))
 
     if @checklist.save
-      redirect_to edit_checklist_path(@checklist, anchor: "items"), notice: "Checklist made. Add its items next."
+      redirect_to edit_checklist_path(@checklist, tab: "items"), notice: "Checklist made. Add its items next."
     else
       render :new, status: :unprocessable_entity
     end
@@ -41,6 +46,7 @@ class ChecklistsController < InternalController
 
   # PATCH/PUT /checklists/1
   def update
+    @tab = "details"
     @checklist.assign_attributes(checklist_params)
     if @checklist.valid? && needs_confirmation?
       @impact = Checklists::Impact.new(@checklist, viewer: current_user.person)
@@ -59,7 +65,7 @@ class ChecklistsController < InternalController
     if @checklist.destroy
       redirect_to checklists_url, notice: "Checklist deleted.", status: :see_other
     else
-      redirect_to edit_checklist_path(@checklist), alert: @checklist.errors.full_messages.to_sentence, status: :see_other
+      redirect_to @checklist, alert: @checklist.errors.full_messages.to_sentence, status: :see_other
     end
   end
 
@@ -108,6 +114,13 @@ class ChecklistsController < InternalController
     redirect_to @checklist, notice: "Results recomputed.", status: :see_other
   end
 
+  # POST /checklists/1/archive: read-only until restored; results and
+  # snapshots are kept.
+  def archive
+    @checklist.update!(status: :archived)
+    redirect_to @checklist, notice: "Checklist archived. It's read-only until restored.", status: :see_other
+  end
+
   # POST /checklists/1/restore: an archived checklist runs again.
   def restore
     @checklist.update!(status: :active)
@@ -134,6 +147,8 @@ class ChecklistsController < InternalController
   def checklist_params
     permitted = params.require(:checklist).permit(:title, :description, :team_id, :starts_on, :starts_within_amount,
       :starts_within_unit, :ends_on, :status, :read_level, :start_mode, :met_word, :pending_word, :not_met_word)
+    # Counting is Not yet (draft) or Yes (active); archiving has its own action.
+    permitted.delete(:status) unless permitted[:status].in?(%w[draft active])
     mode = permitted.delete(:start_mode)
     if mode == "within"
       permitted[:starts_on] = nil

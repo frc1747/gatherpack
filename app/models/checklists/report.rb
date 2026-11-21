@@ -3,13 +3,21 @@ module Checklists
   # per person the viewer may see, columns for the overall and each
   # top-level item the viewer sees for anyone. The viewer's own row and
   # their wards' come first as "Your family" when they see more than that.
+  # team_id and status narrow the rows shown (the page's filter bar): status
+  # is an overall status, or NOT_COMPLETE for not met or pending. The columns
+  # stay those of everyone the viewer sees.
   class Report
-    attr_reader :checklist, :viewer, :as_of
+    NOT_COMPLETE = "not_complete"
+    FILTER_STATUSES = (Checklists::STATUSES + [ NOT_COMPLETE ]).freeze
 
-    def initialize(checklist, viewer, as_of: nil)
+    attr_reader :checklist, :viewer, :as_of, :status
+
+    def initialize(checklist, viewer, as_of: nil, team_id: nil, status: nil)
       @checklist = checklist
       @viewer = viewer
       @as_of = as_of
+      @team_id = team_id
+      @status = status
     end
 
     def statuses
@@ -18,6 +26,36 @@ module Checklists
 
     def people
       @people ||= Person.where(id: statuses.keys).index_by(&:id)
+    end
+
+    # The checklist's team and the teams below it that hold someone in the
+    # report, for the team filter.
+    def teams
+      @teams ||= Team.where(id: Checklists.team_subtree_ids(checklist.team_id))
+        .where(id: Membership.where(person_id: statuses.keys).select(:team_id)).order(:name).to_a
+    end
+
+    # The team picked in the filter, when it's one of teams.
+    def team
+      @team ||= teams.find { |team| team.id == @team_id } if @team_id
+    end
+
+    # The rows in the picked team (and the teams below it), any status.
+    def in_team
+      @in_team ||= if team
+        ids = Membership.where(team_id: Checklists.team_subtree_ids(team.id), person_id: statuses.keys).distinct.pluck(:person_id).to_set
+        statuses.values.select { |row| ids.include?(row.person_id) }
+      else
+        statuses.values
+      end
+    end
+
+    # The rows shown: in the picked team, with the picked overall status.
+    def shown
+      @shown ||= begin
+        wanted = status == NOT_COMPLETE ? %w[not_met pending] : [ status ]
+        in_team.select { |row| people[row.person_id] && (status.nil? || wanted.include?(row.overall&.status)) }
+      end
     end
 
     def columns
@@ -59,7 +97,7 @@ module Checklists
     # [[heading, statuses]]: "Your family" and "Everyone" when the viewer
     # sees others too, else one unheaded section.
     def sections
-      everyone = sorted(statuses.values)
+      everyone = sorted(shown)
       family = everyone.select { |status| family_ids.include?(status.person_id) }
       others = everyone - family
       return [ [ nil, everyone ] ] if family.empty? || others.empty?
@@ -67,8 +105,9 @@ module Checklists
       [ [ "Your family", family ], [ "Everyone", others ] ]
     end
 
+    # How many people in the picked team have each overall status.
     def counts
-      statuses.values.filter_map(&:overall).group_by(&:status).transform_values(&:size)
+      in_team.filter_map(&:overall).group_by(&:status).transform_values(&:size)
     end
 
     # Whether the viewer may excuse this person (a manager or admin, never

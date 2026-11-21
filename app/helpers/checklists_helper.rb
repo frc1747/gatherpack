@@ -29,6 +29,24 @@ module ChecklistsHelper
     STATUS_CLASSES.fetch(status.to_s, "text-bg-light")
   end
 
+  # The checklist's state in words, for the state line on its page.
+  def checklist_state_text(checklist)
+    if checklist.active?
+      "Counting now"
+    elsif checklist.draft?
+      "Not counting yet: only the people who run it see it"
+    else
+      "Archived: read-only. Results stay as they were."
+    end
+  end
+
+  # A badge for a checklist that isn't counting, in the same words, for lists.
+  def checklist_state_badge(checklist)
+    return if checklist.active?
+
+    tag.span(checklist.draft? ? "Not counting yet" : "Archived", class: "badge text-bg-secondary")
+  end
+
   def checklist_window_text(record)
     start = if record.starts_within_amount.present?
       "within the last #{pluralize(record.starts_within_amount, record.starts_within_unit.to_s.singularize)}"

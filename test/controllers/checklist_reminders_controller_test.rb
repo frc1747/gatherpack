@@ -22,7 +22,7 @@ class ChecklistRemindersControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_no_match "Send Reminder", response.body
 
-      get edit_checklist_path(@checklist)
+      get edit_checklist_path(@checklist, tab: "reminders")
       assert_response :success
       assert_no_match "Scheduled reminders", response.body
 
@@ -71,7 +71,7 @@ class ChecklistRemindersControllerTest < ActionDispatch::IntegrationTest
       assert_empty sent_emails
       assert_equal 0, ChecklistReminder.count
 
-      get edit_checklist_path(@checklist)
+      get edit_checklist_path(@checklist, tab: "reminders")
       assert_match "Scheduled reminders", response.body
       patch checklist_checklist_reminder_settings_path(@checklist), params: { checklist: { email_level: "name_only" } }
       assert_equal "name_only", @checklist.reload.email_level
@@ -121,7 +121,7 @@ class ChecklistRemindersControllerTest < ActionDispatch::IntegrationTest
       grades_item = add_item(@checklist, :person_field, "Passing all classes", { field_id: grades.id, operator: "at_least", number: 2 })
       sign_in person(:club_manager).user
 
-      get edit_checklist_path(@checklist)
+      get edit_checklist_path(@checklist, tab: "reminders")
       assert_match "Email: just &quot;sign in&quot;, because it reads Grade Point Average, which is kept out of email", response.body
       assert_match "No scheduled reminders.", response.body
       assert_match "No reminders sent yet.", response.body
@@ -130,14 +130,14 @@ class ChecklistRemindersControllerTest < ActionDispatch::IntegrationTest
         checklist: { email_level: "name_only", reminders_scheduled: "1", reminder_every_days: "7", reminder_guardians: "1" },
         item_levels: { @safety_item.id => "sign_in", grades_item.id => "" }
       }
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "reminders")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "reminders")
       @checklist.reload
       assert_equal "name_only", @checklist.email_level
       assert_equal 7, @checklist.reminder_every_days
       assert @checklist.reminder_guardians?
       assert_equal "sign_in", @safety_item.reload.email_level
 
-      get edit_checklist_path(@checklist)
+      get edit_checklist_path(@checklist, tab: "reminders")
       assert_match "Reminders go every 7 days to people not complete, guardians too.", response.body
 
       patch checklist_checklist_reminder_settings_path(@checklist), params: { checklist: { reminders_scheduled: "1", reminder_every_days: "" } }

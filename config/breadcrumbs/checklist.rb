@@ -8,7 +8,7 @@ crumb :checklist do |checklist|
 end
 
 crumb :checklist_setup do |checklist|
-  link "Edit", edit_checklist_path(checklist, anchor: "items")
+  link "Edit", edit_checklist_path(checklist, tab: "items")
   parent :checklist, checklist
 end
 

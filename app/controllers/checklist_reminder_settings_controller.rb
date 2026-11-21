@@ -20,12 +20,12 @@ class ChecklistReminderSettingsController < InternalController
     end
 
     if saved
-      redirect_to edit_checklist_path(@checklist, anchor: "reminders"), notice: "Reminder settings saved.", status: :see_other
+      redirect_to edit_checklist_path(@checklist, tab: "reminders"), notice: "Reminder settings saved.", status: :see_other
     else
-      redirect_to edit_checklist_path(@checklist, anchor: "reminders"), alert: @checklist.errors.full_messages.to_sentence, status: :see_other
+      redirect_to edit_checklist_path(@checklist, tab: "reminders"), alert: @checklist.errors.full_messages.to_sentence, status: :see_other
     end
   rescue ActiveRecord::RecordInvalid => e
-    redirect_to edit_checklist_path(@checklist, anchor: "reminders"), alert: e.record.errors.full_messages.to_sentence, status: :see_other
+    redirect_to edit_checklist_path(@checklist, tab: "reminders"), alert: e.record.errors.full_messages.to_sentence, status: :see_other
   end
 
   private
