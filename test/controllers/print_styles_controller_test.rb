@@ -72,6 +72,15 @@ class PrintStylesControllerTest < ActionDispatch::IntegrationTest
     assert_includes bundled, "@media print"
   end
 
+  test "the default never hides card footers" do
+    css = Rails.root.join("app/assets/stylesheets/print_default.css").read.gsub(%r{/\*.*?\*/}m, "")
+    hiding = css.scan(/([^{}]+)\{([^{}]*)\}/).select do |selector, body|
+      selector.include?(".card-footer") && body.match?(/display:\s*none/)
+    end
+
+    assert_empty hiding, "event Print pages put check-in notes in card footers"
+  end
+
   private
 
   def create_user(email, admin: false)
