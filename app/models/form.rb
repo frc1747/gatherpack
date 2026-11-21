@@ -107,6 +107,17 @@ class Form < ApplicationRecord
     ((person.all_ancestor_teams.ids + below) & within).uniq
   end
 
+  # The teams a form creator may ask but not own forms for: those named in
+  # forms_creator_extra_audience_teams (one name per line) and the teams
+  # below them.
+  def self.creator_extra_audience_team_ids
+    names = Settings[:forms_creator_extra_audience_teams].to_s.lines.map { |line| line.strip.downcase }.compact_blank
+    return [] if names.empty?
+
+    named = Team.where("LOWER(teams.name) IN (?)", names).to_a
+    (named.map(&:id) + named.flat_map(&:all_descendant_ids)).uniq
+  end
+
   # Badges that give access to people's information: those with person
   # field or form badge grants, and the form creator badge (by name, whether
   # or not Badges are on). None of them can be a completion badge.
