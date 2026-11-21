@@ -110,6 +110,59 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "totals come after the table and the people who haven't answered" do
+    with_feature do
+      as(:pack_leader) do
+        get form_path(@form)
+        assert_response :success
+        assert_operator response.body.index('id="responses"'), :<, response.body.index('id="totals"')
+        assert_select "#responses th", text: "Status"
+        assert_select "#responses th", text: "Submitted"
+        assert_select "input[type=checkbox][name=?][checked]", "show_status"
+        assert_select "input[type=checkbox][name=?][checked]", "show_submitted"
+      end
+    end
+  end
+
+  test "Status and Submitted are column ticks that the table, the pills and the CSV follow" do
+    with_feature do
+      as(:pack_leader) do
+        columns = { columns_for: @form.id, question_ids: [ @sandwich.id, @note.id ] }
+
+        get form_path(@form, columns.merge(show_submitted: "1"))
+        assert_select "#responses th", text: "Status", count: 0
+        assert_select "#responses th", text: "Submitted"
+        assert_select "tr#person_#{person(:a1).id} td .badge", text: "Complete", count: 0
+        assert_select "input[type=checkbox][name=?]:not([checked])", "show_status"
+        assert_select "a[href*=?]", "show_submitted=1", text: /Complete/
+        assert_select "a[href*=?]", "show_status", text: /Complete/, count: 0
+        get form_path(@form, columns.merge(show_submitted: "1", format: :csv))
+        csv = CSV.parse(response.body)
+        assert_not_includes csv.first, "Status"
+        assert_includes csv.first, "Submitted at"
+
+        get form_path(@form, columns.merge(show_status: "1"))
+        assert_select "#responses th", text: "Status"
+        assert_select "#responses th", text: "Submitted", count: 0
+        get form_path(@form, columns.merge(show_status: "1", format: :csv))
+        csv = CSV.parse(response.body)
+        assert_includes csv.first, "Status"
+        %w[ Version Submitted\ by Submitted\ at Signed\ at ].each { |heading| assert_not_includes csv.first, heading }
+        assert_equal [ "Last name", "First name", "Status", "Sandwich", "Note" ], csv.first
+      end
+    end
+  end
+
+  test "Duplicate is an item in More" do
+    with_feature do
+      as(:admin) do
+        get form_path(@form)
+        assert_select "#actions .dropdown-menu li:not(.d-md-none) button", text: "Duplicate"
+        assert_select "#actions > .screen-action-row > form", text: /Duplicate/, count: 0
+      end
+    end
+  end
+
   test "the old results, tally and printable list links land on the form page with their options" do
     with_feature do
       as(:pack_leader) do
@@ -296,7 +349,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
     with_feature do
       as(:pack_leader) do
         everything = @form.answerable_questions.map(&:id)
-        get form_path(@form, team_id: @den_a.id, columns_for: @form.id, question_ids: everything)
+        get form_path(@form, team_id: @den_a.id, columns_for: @form.id, question_ids: everything, show_status: "1", show_submitted: "1")
         assert_select "details.screen-filter-more:not([open])"
         assert_select ".screen-filter-pills a[href=?]", form_path(@form, team_id: @den_a.id, status: "complete")
 

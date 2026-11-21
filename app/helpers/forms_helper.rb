@@ -381,16 +381,20 @@ module FormsHelper
     end.join("; ")
   end
 
-  # questions: and rows: narrow it to the columns and people on screen.
-  def form_results_csv(report, fields, questions: report.questions, rows: report.rows)
+  # questions: and rows: narrow it to the columns and people on screen;
+  # status: and submitted: leave out the Status column and the submission
+  # columns (Version to Signed at).
+  def form_results_csv(report, fields, questions: report.questions, rows: report.rows, status: true, submitted: true)
     require "csv"
     CSV.generate do |csv|
-      csv << form_csv_row([ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name))
+      csv << form_csv_row([ "Last name", "First name" ] + (status ? [ "Status" ] : []) +
+        (submitted ? [ "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] : []) + questions.map(&:label) + fields.map(&:name))
       rows.each do |row|
         submission = row.submission
         signatures = submission ? submission.standing_signatures.sort_by(&:signed_at) : []
-        csv << form_csv_row([ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
-          signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] +
+        csv << form_csv_row([ row.person.last_name, row.person.first_name ] + (status ? [ STATUS_LABELS.fetch(row.status) ] : []) +
+          (submitted ? [ submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
+            signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] : []) +
           questions.map { |question| form_csv_value(report.answer(row, question)) } +
           fields.map { |field| form_csv_value(report.profile(row, field)) })
       end
