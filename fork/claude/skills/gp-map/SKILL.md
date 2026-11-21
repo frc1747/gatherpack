@@ -77,7 +77,22 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 
 `layouts/application.html.erb` renders `_navbar` and `_sidebar` (the sidebar comes from the Features registry: sections People 10, Time 20, Finance 30, Communication 40, Content 50). Dashboard: `welcome#index` with `welcome/dashboard.html.erb`. Flash alerts: `application_helper#flash_to_class` (`notice` → `alert-info`). Search-and-add UI: `shared/_add_panel`, `_add_candidate(s)`.
 
-**Match upstream's look.** Before styling a screen, copy the nearest upstream or pre-existing fork screen. Button convention (from upstream and the fork before 2026-11-15): form submit/main action `btn-primary` (New X on an index `btn-success`); Cancel `btn-warning` (settings pages copy upstream's Save `btn-lg btn-success` / Cancel `btn-lg btn-primary`); Back/other actions `btn-secondary`; Edit `btn-warning`; destructive (Delete, Decline, Cancel request) `btn-danger`; Approve `btn-success`; Print and Clear Search `btn-dark`. Outline only for: small row buttons (`btn-sm btn-outline-*`), toggle groups (`btn-check` labels), and My GatherPack phone cards' secondary action (`btn-outline-secondary`). Full-size buttons are solid.
+**Buttons** (one word and style per action; placement rules: `fork-spec` "Screen design"; reasoning: `fork/specs/screen-standard-spec.md`):
+
+| Action | Word | Class |
+|---|---|---|
+| Form's main action | Save, or its effect (Send, Submit for approval) | `btn-primary` |
+| Leave a form | Cancel | `btn-secondary` (upstream's `btn-warning` Cancel is restyled by `screen_kit.css`) |
+| Add on a list | New <thing> | `btn-success` |
+| Change a record | Edit (never "Set up", "Edit Profile") | `btn-warning` |
+| The record's job | Remind, Sign up, Approve | `btn-primary` (Approve `btn-success`, Decline `btn-danger`) |
+| Other visible actions | Download CSV, Duplicate, Copy | `btn-secondary` |
+| Print, Clear Search | Print, Clear Search | `btn-dark` |
+| More | More | `btn-secondary dropdown-toggle`; items `dropdown-item`, Delete/Archive `text-danger` |
+| Delete with no More menu | Delete | `btn-danger` |
+| Row buttons | Edit, Remove, Responses | `btn-sm btn-outline-secondary` (Remove `btn-sm btn-outline-danger`) |
+
+Full-size buttons are solid. Outline only for row buttons, toggle groups (`btn-check`) and My GatherPack rows' secondary actions. No `btn-info`, `btn-light` or `btn-link` buttons on new screens. Site settings (`settings/index`) keep upstream's `btn-lg` pair.
 
 ## Tests
 

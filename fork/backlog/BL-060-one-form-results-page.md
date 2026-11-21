@@ -49,7 +49,9 @@ Leaders were afraid to press **Open** because nothing said what it did (send an 
   - **No, closed**: people can still read their answers but can't add or change them (leaders still can, when late entries are on).
   Saved with the rest of the page. Opening doesn't email anyone (checked: no hook or notice fires on the status change); reminders are separate. The Opens and Deadline times sit right under it, so "opens itself at this time" reads as the automatic version of the same choice.
 - **The form page says where it stands** in the header, in words: "Not taking answers yet", "Taking answers until Nov 30" or "Closed Nov 30", replacing the bare Draft/Open badge. When the form isn't open, that line links to the setting ("Start taking answers").
-- **Footer**, in this order: **Edit**, **Remind (n)** (when taking answers and someone's waiting). Everything else goes in a **More** dropdown: Preview as…, Duplicate, Archive, Delete. Print and CSV sit with the table (section 1), not in the footer.
+- **Footer**, in this order: **Edit** (`btn-warning`), **Remind (n)** (`btn-primary`, the page's job; when taking answers and someone's waiting). Everything else goes in a **More** dropdown (`btn-secondary`): Preview as…, Duplicate, Archive, Delete (last). Print (`btn-dark`) and Download CSV (`btn-secondary`) sit at the right of the filters above the table (section 1), not in the footer.
+- **The Edit page's footer** becomes Cancel (`btn-secondary`), Save; today it says "Back" in `btn-warning` (`forms/edit.html.erb:40`).
+- Words and styles follow the screen standard (`fork-spec` "Screen design", gp-map "Views"). The screen kit ([BL-062](BL-062-screen-kit.md)) may not exist yet: write the same markup by hand; [BL-064](BL-064-screens-forms.md) swaps it for the kit's partials.
 - Event panel rows keep one small **Responses** button (the form page) instead of Results and Tally.
 
 The open/close routes stay (MCP and the auto-open job use the same status); only the buttons go.

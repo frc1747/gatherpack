@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (design) |
 | Priority | high |
-| Status | waiting |
+| Status | done: standard in `fork-spec` "Screen design" and gp-map "Views"; plan and inventory in [`screen-standard-spec`](../specs/screen-standard-spec.md); fix-ups BL-062 to BL-073 |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | none for the audit itself (docs only); the fix-up work it plans gets its own items and branches |
