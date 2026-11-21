@@ -1,9 +1,7 @@
 <% breadcrumb :person_fields %>
 
 <div class="card">
-  <div class="card-header">
-    <h1>Person Fields</h1>
-  </div>
+  <%= render "shared/page_header", title: "Person Fields" %>
   <div class="card-body">
     <% guardian_levels = %w[ guardians family team ] %>
     <% if !@guardianship_configured && @person_fields.any? { |field| guardian_levels.include?(field.read_permission) || guardian_levels.include?(field.write_permission) } %>
@@ -13,8 +11,11 @@
       </div>
     <% end %>
 
+    <%= render "shared/filter_bar", url: person_fields_path, status: ("archived" if @archived),
+          statuses: [ { label: "Active", value: nil }, { label: "Archived", value: "archived", count: @archived_count } ] %>
+
     <% if @person_fields.empty? %>
-      <p class="text-muted">No person fields yet.</p>
+      <%= render "shared/empty_state", text: (@archived ? "No archived fields." : "No person fields yet.") %>
     <% else %>
       <div class="table-responsive">
         <table class="table table-striped align-middle">
@@ -57,16 +58,18 @@
                     <% if field.system? %><span class="badge text-bg-info">System</span><% end %>
                   </td>
                   <td class="text-nowrap">
-                    <%= button_to i("arrow-up"), move_person_field_path(field, direction: "up"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move up" %>
-                    <%= button_to i("arrow-down"), move_person_field_path(field, direction: "down"), method: :patch, class: "btn btn-sm btn-light", form_class: "d-inline", title: "Move down" %>
+                    <%= link_to "Edit", edit_person_field_path(field), class: "btn btn-sm btn-outline-secondary" %>
                     <% if field.archived? %>
-                      <%= button_to "Restore", restore_person_field_path(field), method: :patch, class: "btn btn-sm btn-success", form_class: "d-inline" %>
+                      <%= button_to "Restore", restore_person_field_path(field), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline" %>
                       <% if policy(field).destroy? %>
-                        <%= button_to "Delete", person_field_path(field), method: :delete, class: "btn btn-sm btn-danger", form_class: "d-inline",
+                        <%= button_to "Delete", person_field_path(field), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
                               data: { turbo_confirm: "Delete #{field.name} and its #{pluralize(field.person_field_values.count, "value")}? This can't be undone." } %>
                       <% end %>
                     <% else %>
-                      <%= button_to "Archive", archive_person_field_path(field), method: :patch, class: "btn btn-sm btn-warning", form_class: "d-inline" %>
+                      <%= button_to i("arrow-up"), move_person_field_path(field, direction: "up"), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline", title: "Move up" %>
+                      <%= button_to i("arrow-down"), move_person_field_path(field, direction: "down"), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline", title: "Move down" %>
+                      <%= button_to "Archive", archive_person_field_path(field), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline",
+                            data: { turbo_confirm: "Archive #{field.name}? It's hidden from profiles; its values are kept." } %>
                     <% end %>
                   </td>
                 </tr>
@@ -77,21 +80,12 @@
       </div>
     <% end %>
   </div>
-  <div class="card-footer">
-    <% if GatherPack::Features.enabled?(:person_fields) %>
-      <%= link_to "New Field", new_person_field_path, class: "btn btn-success" %>
-    <% end %>
-    <%= link_to "Preview as…", preview_person_fields_path, class: "btn btn-primary" %>
-    <% recommended = PersonField.recommended_privacy_changes %>
-    <% if recommended.any? %>
-      <%= button_to "Apply recommended privacy settings", apply_recommended_person_fields_path, class: "btn btn-info", form_class: "d-inline",
-            data: { turbo_confirm: recommended_privacy_confirmation(recommended) } %>
-    <% end %>
-    <%= link_to "Sections", person_field_groups_path, class: "btn btn-secondary" %>
-    <% if params[:archived] == "1" %>
-      <%= link_to "Hide archived", person_fields_path, class: "btn btn-dark" %>
-    <% else %>
-      <%= link_to "Show archived", person_fields_path(archived: "1"), class: "btn btn-dark" %>
-    <% end %>
-  </div>
+  <% recommended = PersonField.recommended_privacy_changes %>
+  <%= render "shared/action_row", actions: [
+        screen_action("New Field", new_person_field_path, style: :success, visible: GatherPack::Features.enabled?(:person_fields)),
+        screen_action("Preview as…", preview_person_fields_path, more: true),
+        screen_action("Apply recommended privacy settings", apply_recommended_person_fields_path, method: :post, more: true,
+          confirm: recommended_privacy_confirmation(recommended), visible: recommended.any?),
+        screen_action("Sections", person_field_groups_path, more: true)
+      ] %>
 </div>

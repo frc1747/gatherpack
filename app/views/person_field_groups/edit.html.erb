@@ -2,14 +2,12 @@
 
 <%= simple_form_for(@person_field_group) do |f| %>
   <div class="card">
-    <div class="card-header">
-      <h1>Editing <%= @person_field_group.name %></h1>
-    </div>
+    <%= render "shared/page_header", title: "Editing #{@person_field_group.name}" %>
     <div class="card-body">
       <%= render "form", f: f %>
     </div>
     <div class="card-footer">
-      <%= link_to "Cancel", person_field_groups_path, class: "btn btn-warning" %>
+      <%= link_to "Cancel", person_field_groups_path, class: "btn btn-secondary" %>
       <%= f.button :submit, class: "btn btn-primary" %>
     </div>
   </div>

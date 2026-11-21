@@ -1,9 +1,7 @@
 <% breadcrumb :person_field, @person_field %>
 
 <div class="card">
-  <div class="card-header">
-    <h1><%= @person_field.name %></h1>
-  </div>
+  <%= render "shared/page_header", title: @person_field.name %>
   <div class="card-body">
     <p><b>Key:</b> <%= @person_field.key %></p>
     <p><b>Type:</b> <%= person_field_type_label(@person_field) %></p>
@@ -15,8 +13,5 @@
     <% end %>
     <p><b>Values stored:</b> <%= @person_field.person_field_values.count %></p>
   </div>
-  <div class="card-footer">
-    <%= link_to "Edit", edit_person_field_path(@person_field), class: "btn btn-warning" %>
-    <%= link_to "Back", person_fields_path, class: "btn btn-secondary" %>
-  </div>
+  <%= render "shared/action_row", actions: [ screen_action("Edit", edit_person_field_path(@person_field), style: :warning) ] %>
 </div>

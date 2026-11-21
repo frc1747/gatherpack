@@ -2,9 +2,7 @@
 
 <%= simple_form_for @preview, as: :preview, url: preview_person_fields_path, method: :get do |f| %>
   <div class="card">
-    <div class="card-header">
-      <h1>Preview as…</h1>
-    </div>
+    <%= render "shared/page_header", title: "Preview as…" %>
     <div class="card-body">
       <p class="text-muted">See exactly which fields one person can see and edit on another person's profile, and why.</p>
       <div class="row">
@@ -27,6 +25,7 @@
       <% if @rows.empty? %>
         <p class="text-muted">No fields apply to <%= @subject.identifier_name %>.</p>
       <% else %>
+        <div class="table-responsive">
         <table class="table table-striped">
           <thead>
             <tr><th>Field</th><th>Can see</th><th>Can edit</th><th>Why</th></tr>
@@ -42,6 +41,7 @@
             <% end %>
           </tbody>
         </table>
+        </div>
       <% end %>
 
       <h3 class="mt-4">Profile as <%= @viewer.identifier_name %> sees it</h3>

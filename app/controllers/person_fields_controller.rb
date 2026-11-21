@@ -19,7 +19,10 @@ class PersonFieldsController < InternalController
     authorize PersonField
     scope = policy_scope(PersonField)
     scope = scope.system unless feature_enabled?
-    scope = scope.active unless params[:archived] == "1"
+    # The Archived pill sends status=archived; archived=1 is the older link.
+    @archived = params[:status] == "archived" || params[:archived] == "1"
+    @archived_count = scope.archived.count
+    scope = @archived ? scope.archived : scope.active
     @person_fields = scope.ordered.includes(:team, :person_field_group, person_field_badge_grants: :badge)
     @guardianship_configured = RelationshipType.guardianship_configured?
   end
