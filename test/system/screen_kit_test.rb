@@ -130,9 +130,11 @@ class ScreenKitTest < ApplicationSystemTestCase
     add_people_table
     within "#kit-table" do
       click_on "Columns"
-      assert_equal [ "Status", "Allergies" ], all(".dropdown-menu label").map(&:text)
+      assert_equal [ "Status", "Allergies", "Notes" ], all(".dropdown-menu label").map(&:text)
       uncheck "Allergies"
+      uncheck "Notes"
       assert_no_selector "th", text: "Allergies"
+      assert_no_selector "th", text: "Notes"
       assert_no_selector "td", text: "Peanuts"
       assert_selector "th", text: "Status"
       assert_selector "td", text: "Nadia Northwind"
@@ -165,6 +167,20 @@ class ScreenKitTest < ApplicationSystemTestCase
     assert_no_selector "#kit-table th", text: "Status"
   end
 
+  test "one column chooser hides the column in every table inside it" do
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    add_people_table(wrapper: ApplicationController.helpers.column_chooser_data("kit-sections"), tables: 2)
+    within "#kit-table" do
+      assert_selector ".dropdown", text: "Columns", count: 1
+      click_on "Columns"
+      uncheck "Allergies"
+      assert_no_selector "th", text: "Allergies"
+      assert_no_selector "td", text: "Peanuts"
+      assert_selector "td", text: "Nadia Northwind", count: 2
+    end
+  end
+
   test "changes inside a wait marker under More choices apply only with Show" do
     visit badge_types_path
     add_filter_bar more: <<~HTML.html_safe
@@ -191,7 +207,7 @@ class ScreenKitTest < ApplicationSystemTestCase
     within "#kit-table .screen-table-actions" do
       assert_selector ":first-child.dropdown > button.btn.btn-secondary.dropdown-toggle", text: "Columns"
       click_on "Columns"
-      assert_equal [ "Status", "Allergies" ], all(".dropdown-menu label").map(&:text)
+      assert_equal [ "Status", "Allergies", "Notes" ], all(".dropdown-menu label").map(&:text)
       uncheck "Status"
     end
     assert_no_selector "#kit-table th", text: "Status"
@@ -204,13 +220,13 @@ class ScreenKitTest < ApplicationSystemTestCase
   # Renders shared/_people_table with Status and Allergies columns and adds
   # it to the page; before: HTML put ahead of it, wrapper: data for an outer
   # div around both (else the table carries the chooser itself).
-  def add_people_table(before: "", wrapper: nil)
+  def add_people_table(before: "", wrapper: nil, tables: 1)
     row = Struct.new(:person, :allergy).new(Person.find_by!(first_name: "Nadia"), "Peanuts")
     table = ApplicationController.render(partial: "shared/people_table", locals: {
-      rows: [ row ], link: nil, status: ->(_) { "Going" }, columns: [ [ "Allergies", ->(r) { r.allergy } ] ],
+      rows: [ row ], link: nil, status: ->(_) { "Going" }, columns: [ [ "Allergies", ->(r) { r.allergy } ], [ '<span data-column-chooser-label>Notes</span> <button type="button">filter (2)</button>'.html_safe, ->(_) { "" } ] ],
       choose_columns: ("kit-people" unless wrapper)
     })
-    html = ApplicationController.helpers.tag.div(before.html_safe + table.html_safe, id: "kit-table", data: wrapper)
+    html = ApplicationController.helpers.tag.div(before.html_safe + (table * tables).html_safe, id: "kit-table", data: wrapper)
     execute_script(<<~JS, html)
       document.querySelector("main").insertAdjacentHTML("afterbegin", arguments[0])
     JS
