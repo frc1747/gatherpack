@@ -128,6 +128,7 @@ class Intake::Registration < ApplicationRecord
   def copy
     copy = self.class.new(attributes.slice("team_id", "title", "description", "self_service", "kiosk", "checklist_id",
       "gate_approval", "pick_one_required", "guardian_relationship_type_id", "kiosk_field_ids"))
+    copy.title = "#{title} (copy)"
     if closes_at
       gap = closes_at - opens_at
       copy.opens_at = opens_at + gap

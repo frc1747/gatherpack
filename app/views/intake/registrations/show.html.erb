@@ -40,7 +40,7 @@
   <%= render "shared/action_row", actions: [
     screen_action("Edit", edit_intake_registration_path(@registration), style: :warning),
     screen_action("Waiting to finish", waiting_intake_registration_path(@registration), visible: @registration.kiosk?),
-    screen_action("Copy", copy_intake_registration_path(@registration), more: true),
+    screen_action("Duplicate", copy_intake_registration_path(@registration), more: true),
     screen_action("Delete", intake_registration_path(@registration), method: :delete, destructive: true,
       confirm: "Delete this registration and its sign-ups? Applications stay.")
   ] %>

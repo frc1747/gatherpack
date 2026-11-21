@@ -92,6 +92,7 @@ class Intake::EntryTest < ActiveSupport::TestCase
     gap = @registration.closes_at - @registration.opens_at
 
     assert copy.new_record?
+    assert_equal "#{@registration.title} (copy)", copy.title
     assert_in_delta @registration.opens_at + gap, copy.opens_at, 1.second
     assert_equal @registration.apply_team_ids.sort, copy.apply_team_ids.sort
     assert_equal [ @joined_badge.id ], copy.badge_ids

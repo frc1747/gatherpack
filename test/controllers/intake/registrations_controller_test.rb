@@ -202,7 +202,7 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ "Edit", "Waiting to finish" ], footer.css("a.btn").map { |link| link.text.strip }
     assert_equal "More", footer.at_css("button.dropdown-toggle").text.strip
     items = footer.css(".dropdown-menu .dropdown-item").map { |item| item.text.strip }
-    assert_equal [ "Copy", "Delete" ], items.last(2)
+    assert_equal [ "Duplicate", "Delete" ], items.last(2)
     assert_select ".dropdown-menu form[data-turbo-confirm] button.text-danger", "Delete"
   end
 
@@ -237,7 +237,7 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
     with_intake { get copy_intake_registration_path(@registration) }
 
     assert_response :success
-    assert_select "input[name='intake_registration[title]'][value='Join Northwind']"
+    assert_select "input[name='intake_registration[title]'][value='Join Northwind (copy)']"
   end
 
   test "switched off, the staff screens are hidden" do
