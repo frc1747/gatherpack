@@ -2,7 +2,7 @@
 <% content_for :title, @location.name %>
 <% inventory_stylesheet %>
 
-<div class="inventory-phone">
+<div class="inventory-phone <%= "inventory-has-bar" if @countable %>">
   <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
@@ -98,5 +98,13 @@
         <% end %>
       </ul>
     <% end %>
+  <% end %>
+
+  <%# At a shelf on a phone, counting is one tap: the row above may have put
+      it in More. %>
+  <% if @countable %>
+    <div class="inventory-bar d-md-none">
+      <%= link_to "Count this place", count_inventory_location_path(@location), class: "btn btn-primary btn-lg" %>
+    </div>
   <% end %>
 </div>

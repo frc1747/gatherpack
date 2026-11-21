@@ -1,5 +1,6 @@
 <% breadcrumb :inventory_unit, @unit %>
 <% content_for :title, @unit.identifier_name %>
+<% inventory_stylesheet %>
 
 <div class="row"><div class="col-lg-8 col-xl-6">
   <% if (pending = inventory_pending_unit_undo(@unit)) %>

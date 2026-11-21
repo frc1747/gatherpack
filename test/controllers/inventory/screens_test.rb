@@ -71,10 +71,13 @@ class Inventory::ScreensTest < ActionDispatch::IntegrationTest
       end
       assert_equal [ "Count this place", "Add a place inside", "Add an item here", "Label" ], more_items
       assert_select ".dropdown-menu li.d-md-none", text: "Count this place"
-      assert_select ".inventory-bar", count: 0
+      # On a phone the job is also one large tap at the bottom.
+      assert_select ".inventory-has-bar .inventory-bar.d-md-none a.btn-primary.btn-lg[href=?]", count_inventory_location_path(@world.bin1),
+        text: "Count this place"
 
       shelf = Location.create!(team: @world.club, name: "Shelf", parent: @world.cabinet)
       get inventory_location_path(shelf)
+      assert_select ".inventory-bar", count: 0
       assert_select ".card-footer.screen-action-row > a.btn-warning", text: "Edit"
       assert_equal "Delete", more_items.last
       assert_select ".dropdown-menu form[action=?][data-turbo-confirm=?]", inventory_location_path(shelf), "Delete Shelf?" do
@@ -122,6 +125,8 @@ class Inventory::ScreensTest < ActionDispatch::IntegrationTest
       assert_equal @world.bin2, unit.reload.location
       follow_redirect!
       assert_select ".inventory-toast", text: /Moved to Bin 2/
+      # inventory.css keeps the message at the top and out of print.
+      assert_select "link[rel=stylesheet][href*=?]", "inventory"
       undo = css_select(".inventory-toast a[data-turbo-method=post]").sole
       assert_equal undo_inventory_unit_event_path(unit.events.last), undo["href"]
       assert_select "a.btn-warning[href=?]", edit_inventory_unit_path(unit), text: "Edit"
