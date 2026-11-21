@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | low |
-| Status | started (`feature/event-time-display`, see `FORK.md`) |
+| Status | live hbr.32 (`feature/event-time-display`, see `FORK.md`) |
 | Added | 2026-10-11 |
 | Upstream base checked | `86ab397` |
 | Branch | `feature/event-time-display` (from `upstream/main`) |

@@ -1,6 +1,6 @@
 # Spec: Order Requests
 
-Status: draft, 2026-11-15. Nothing is built.
+Status: built. In production since hbr.41 (`feature/orders`, `feature/order-inventory`, `feature/my-gatherpack-orders`, `feature/mcp-orders`); approval and polish fixes in hbr.42 (BL-047, BL-048); managed lists since hbr.48; notice choices and separate requesting, approving and buying roles since hbr.51 (BL-056, BL-057). `FORK.md` has each branch's state.
 
 This spec lives on `hbr/platform`, not on a feature branch. `feature/orders` is meant for upstream, so the feature branches themselves must not mention HBR.
 

@@ -1,6 +1,6 @@
 # Spec: Theming and a modern skin
 
-Status: rev. 2, 2026-11-08. Being built. Pitch: [`07-theming-and-modern-skin.md`](../pitches/07-theming-and-modern-skin.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+Status: rev. 2, 2026-11-08. Built and in production since hbr.35: phase 1 (`feature/view-overrides`, `feature/modern-skin`) and phase 3 (`feature/theme-palette`). Phase 2's coverage fixes have no branch of their own. Pitch: [`07-theming-and-modern-skin.md`](../pitches/07-theming-and-modern-skin.md). Code facts checked against integration `45405a02`. Decisions are in §12.
 
 Rev. 2: the Content Security Policy from the security series, the two intake layouts, and the sidebar slots seam.
 

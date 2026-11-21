@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | started (`feature/alert-flash-style`, see `FORK.md`) |
+| Status | live hbr.32 (`feature/alert-flash-style`, see `FORK.md`) |
 | Added | 2026-11-04 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Branch | `feature/alert-flash-style` (from `upstream/main`) |

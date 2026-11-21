@@ -1,6 +1,6 @@
 # Spec: App feel
 
-Status: rev. 3, 2026-11-08. Being built. Pitch: [`09-app-feel.md`](../pitches/09-app-feel.md). Code facts checked against integration `45405a02` and `turbo-rails` 2.0.23. Decisions are in §11.
+Status: rev. 3, 2026-11-08. Built and in production since hbr.35: frame links, smooth pages, local assets, install, phone notifications and form reminders (phases 1–4 and half of 5). Not built: monthly commitment reminders (§8.8; `feature/commitment-monthly-reminders` is parked, out of the manifest). Pitch: [`09-app-feel.md`](../pitches/09-app-feel.md). Code facts checked against integration `45405a02` and `turbo-rails` 2.0.23. Decisions are in §11.
 
 Rev. 3: Phase 0 no longer blocks the build; the opt-out count is redone at build time; sidebar additions use the slots seam.
 

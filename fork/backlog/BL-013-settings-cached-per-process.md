@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | started |
+| Status | done (upstream merged PR #544, 2026-11-09) |
 | Added | 2026-10-09 |
 | Upstream base checked | `86ab397` |
 | Branch | `feature/settings-read-through` (see `FORK.md`) |

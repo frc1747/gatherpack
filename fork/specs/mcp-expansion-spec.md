@@ -1,5 +1,7 @@
 # MCP server expansion spec
 
+Status: built. In production since hbr.26 on `feature/mcp` and its `feature/mcp-*` branches; later features add their own tools (`FORK.md`).
+
 Extends [`mcp-spec.md`](mcp-spec.md). That spec built the server, sign-in, registry, call log and a first set of tools. With those tools, an AI client can answer most questions about GatherPack's data but can make few of the changes an organization usually makes. This spec adds the missing writes and reads: the person record and its fields, logins, relationships, the time clock (including clocking everyone out at the end of a meeting), scan tokens, sign-up roster actions, commitment adjustments, form answers, and reads for the remaining features. It also lists what stays out of MCP, and why.
 
 Everything in `mcp-spec.md` still applies (§1 principles, §5 transport, §6 tool classes, §8 call log, §12 tests) unless a section below changes it.

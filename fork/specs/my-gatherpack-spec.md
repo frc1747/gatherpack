@@ -1,6 +1,6 @@
 # Spec: My GatherPack
 
-Status: rev. 5, 2026-11-15. Being built. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `45405a02`. Decisions are in §12.
+Status: rev. 5, 2026-11-15. Built and in production: menu, Home and its connectors, phone frame, Family page, phone hours, calendar and sign-up sheet (hbr.35); Activity page (§7a, hbr.41); pinned form buttons (BL-055, hbr.51); the §8.3 search, asterisk and table cleanups (BL-033–035, hbr.35). Not built: §8.3's split of My Forms from Manage Forms. Pitch: [`08-my-gatherpack.md`](../pitches/08-my-gatherpack.md). Code facts checked against integration `45405a02`. Decisions are in §12.
 
 Rev. 5 (BL-044): checklist lines on Home say the answer, not the formula, and each fact shows once (§6.4); Your Checklists becomes My Season (§6.2); a new activity page (§7a) with its own branch and flag (§4); demo personas for both (§11). Mock-up: [Home card mock-up](https://claude.ai/artifact/4uzkEM4KVvamz6fwF7JYhg) (private).
 

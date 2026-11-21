@@ -1,6 +1,6 @@
 # HBR rollout: Sign-up Sheets and Commitments
 
-Status: draft, 2026-10-11. Configuration and migration for HBR. The framework is [`signups-spec.md`](signups-spec.md); nothing here should require a change to it. If it does, change the framework spec first (its §1.1).
+Status: rolled out with hbr.17 (2026-10-12). Configuration and migration for HBR. The framework is [`signups-spec.md`](signups-spec.md); nothing here should require a change to it. If it does, change the framework spec first (its §1.1).
 
 Split from signups-spec rev. 4. Its HBR decisions are below, renumbered.
 

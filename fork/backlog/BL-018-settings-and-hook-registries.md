@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | started |
+| Status | live hbr.16 |
 | Added | 2026-10-11 |
 | Upstream base checked | `86ab397` |
 | Branch | `feature/extension-registries` (from `upstream/main`, commit `6f1c45d`) |

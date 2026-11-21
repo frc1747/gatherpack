@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | started (sheet and notices on `feature/signups` `890708dc`, card on `feature/signups-widget` `afd6bf83`, MCP `my_signups` on `feature/mcp-signups` `b562e86b`) |
+| Status | live hbr.32 (sheet and notices on `feature/signups` `890708dc`, card on `feature/signups-widget` `afd6bf83`, MCP `my_signups` on `feature/mcp-signups` `b562e86b`) |
 | Added | 2026-10-29 |
 | Upstream commit checked | `3fa5700` (`upstream/main`); code is on `feature/signups` `8f79447` and `feature/signups-widget` `8432bc6` |
 | Planned branch | `feature/signups` (lists and wording); `feature/signups-widget` picks the change up for the dashboard card |

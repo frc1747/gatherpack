@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | started (`feature/calendar-note-badge`, see `FORK.md`) |
+| Status | live hbr.41 (`feature/calendar-note-badge`, see `FORK.md`) |
 | Added | 2026-11-08 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Planned branch | `feature/calendar-note-badge` |

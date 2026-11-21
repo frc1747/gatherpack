@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | low |
-| Status | started (`feature/checklists-connectors`, see `FORK.md`) |
+| Status | shipped hbr.39 (`feature/checklists-connectors`, see `FORK.md`) |
 | Added | 2026-11-11 |
 | Commit checked | `hbr/integration` @ `f19a201d` (`v0.0.0-hbr.38`) |
 | Planned branch | `feature/checklists-connectors` (fix on the branch itself) |

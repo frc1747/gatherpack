@@ -1,5 +1,7 @@
 # Managed lists
 
+Status: built. In production since hbr.48, with lists registered by Inventory (place types, stock units, part conditions, reading types) and Orders (approval steps, payment methods, delivery problems).
+
 Rule: AGENT.md rule 13; fork-spec "Defined things". Branch `feature/managed-lists` (depends on `feature/recurring-routes-seams`), no flag (changes nothing until a feature registers a list).
 
 ## What it is

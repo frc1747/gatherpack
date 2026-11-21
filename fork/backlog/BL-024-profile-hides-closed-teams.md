@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | low |
-| Status | started (`feature/profile-all-teams`, see `FORK.md`) |
+| Status | live hbr.32 (`feature/profile-all-teams`, see `FORK.md`) |
 | Added | 2026-10-13 |
 | Upstream commit checked | `86ab397` (`upstream/main`) |
 | Planned branch | `feature/profile-all-teams` (from `upstream/main`) |

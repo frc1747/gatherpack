@@ -1,6 +1,6 @@
 # Spec: Inventory
 
-Status: draft. Nothing is built.
+Status: built. In production since hbr.41 (`feature/inventory`, `feature/order-inventory`, `feature/my-gatherpack-inventory`, `feature/mcp-orders`); managed lists since hbr.48; Inventory Notices and Inventory Managers by grant since hbr.51 (BL-056, BL-057). `FORK.md` has each branch's state.
 
 `feature/inventory` knows nothing about orders. The companion spec is [`orders-spec.md`](orders-spec.md); its §4 is the outline this spec fills in, and its §5 is the bridge, `feature/order-inventory`.
 

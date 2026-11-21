@@ -1,6 +1,6 @@
 # Spec: Time Kiosk Improvements
 
-Status: draft rev. 4, 2026-10-10. Phases 1–3 are planned. Phase 4 (kiosk devices) is recorded here but on hold until Corey starts it.
+Status: rev. 4, 2026-10-10. Phases 1 and 2 are built and in production since hbr.12 (`feature/kiosk-scanned-person`, `feature/kiosk-auto-clock-in`). Phase 3 was built another way: features add panels to the card after a scan through `feature/kiosk-scan-panels` (hbr.33), and checklists' "You still need" panel replaced the Reminders widget; there is no kiosk widget placement. Phase 4 (kiosk devices) is on hold until Corey starts it; BL-038 covers its device-token part.
 
 Rev. 4 states what Phase 1 does and doesn't protect against (§1, §1.1, §2.2): it ties kiosk actions to a card lookup, so edited URLs and links can't act; it doesn't stop someone who has a person's card number. No design change.
 
