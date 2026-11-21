@@ -147,7 +147,10 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     with_checklists do
       get new_commitment_commitment_source_path(@plain, kind: "checkins")
       assert_select ".breadcrumb", text: /Commitments.*Not on a checklist/m
-      assert_select "a[href=?]", edit_commitment_path(@plain, anchor: "sources"), text: "Cancel"
+      # The commitment's setup at its sources: an anchor here, the What
+      # counts tab once the commitment screens have setup tabs.
+      cancel = css_select("a").find { |link| link.text == "Cancel" }
+      assert_includes [ edit_commitment_path(@plain, anchor: "sources"), edit_commitment_path(@plain, tab: "sources") ], cancel&.[]("href")
     end
   end
 
@@ -188,6 +191,27 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
       assert_select ".list-group-item details summary", text: "Details"
       assert_select ".list-group-item details div.fw-semibold", text: "Done"
       assert_no_match "to go.", response.body, "no tally sentences"
+    end
+  end
+
+  test "a count item's sources show under What counts, and its pages leave with Cancel and save with Save" do
+    sign_in person(:admin).user
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    source = @commitment.commitment_sources.sole
+    with_checklists do
+      get edit_checklist_checklist_item_path(@checklist, @item)
+      assert_response :success
+      assert_select "h2", text: "What counts"
+      assert_select "#sources li##{ActionView::RecordIdentifier.dom_id(source)}", text: /Outreach/
+
+      [ new_commitment_commitment_source_path(@commitment, kind: "checkins"), edit_commitment_commitment_source_path(@commitment, source),
+        new_commitment_commitment_adjustment_path(@commitment) ].each do |path|
+        get path
+        assert_response :success
+        assert_select ".card-footer a.btn.btn-secondary", { text: "Cancel" }, path
+        assert_select ".card-footer [type=submit].btn-primary[value=Save]", { count: 1 }, path
+        assert_select ".btn-warning", { count: 0 }, path
+      end
     end
   end
 end
