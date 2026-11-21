@@ -213,7 +213,7 @@ One card per ward, in name order, with a heading line ("1 thing needs you" or "A
 | Checklists | `Checklists.status_for(checklist, [ward], viewer: user)`, which applies each item's "who sees it" | Existing checklist page |
 | Upcoming events | Events on the ward's teams, next 5 (§7.3) | Event page only if `policy_scope(Event)` already includes it |
 
-Below the cards, "What your family owes" shows pooled count items, with a link to open shifts.
+Below the cards, "What your family owes" shows pooled count items. While sign-ups are on, the card of each ward with a pooled count has a "See open shifts" row (a plain link to the sign-up sheets, not a to-do) after the ward's sign-ups.
 
 Forms, sign-ups and checklists go through policies and helpers, so those pages and this one always agree. A test checks each of those rows against the same person's profile. Events are the one row with its own rule (§7.3).
 

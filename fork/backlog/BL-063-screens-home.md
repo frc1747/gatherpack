@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | high |
-| Status | waiting |
+| Status | done (my-gatherpack, -family, -activity, phone-notifications, installable-app; not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/my-gatherpack`, `feature/my-gatherpack-family`, `feature/my-gatherpack-activity`, `feature/phone-notifications`, `feature/installable-app`; after BL-062 |

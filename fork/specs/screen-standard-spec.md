@@ -303,8 +303,8 @@ Key: **Owner** = fork branch that added it, `upstream`, or `upstream*` (upstream
 | `events/new` | upstream | 3 | set | h1 | footer: Cancel·W, Save*·P (2) | - | - | - | - | y |
 | `events/print` | upstream* | print | both | h1 | body: Update·P, Arrange·I (2) | - | - | - | - | y |
 | `events/show` | upstream* | 2 | both | h1sb | footer+body: Print·K, Arrange·I, Edit·W, Delete·D, New form for this ·Ss, Results·oPs +6 (12) | - | - | x1 | filter | y |
-| `family/_ward_card` | my-gatherpack-family | section | read | -b | body: item.path, item.path, Activity·oS (3) | - | - | - | - | n |
-| `family/show` | my-gatherpack-family | 2 | read | h1b | body: item.path, item.path, Activity·oS, item.path, See open shifts·oS (5) | - | - | - | - | y |
+| `family/_ward_card` | my-gatherpack-family | section | read | -b | body: item.path, item.path, Activity·oS, See open shifts·L (4) | - | - | - | - | n |
+| `family/show` | my-gatherpack-family | 2 | read | h1b | body: item.path, item.path, Activity·oS, item.path (4) | - | - | - | - | y |
 | `form_questions/edit` | forms | 3 | set | h1b | body: Cancel·W, Save*·P (2) | - | - | - | - | y |
 | `form_questions/new` | forms | 3 | set | h1b | body: Cancel·W, Save*·P (2) | - | - | - | - | y |
 | `form_responses/edit` | forms | 3 | read | h1s | footer+body: @submission.persis·W, Save*·S, Save*·P, based_on·Ds (4) | - | - | x1 | - | y |
