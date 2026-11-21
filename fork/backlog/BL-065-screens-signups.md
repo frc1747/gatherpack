@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | high |
-| Status | waiting |
+| Status | done (feature/signups, not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/signups`, `feature/signup-credit`, `feature/checklists-connectors` (the sheet panel); after BL-062 |
@@ -58,3 +58,5 @@ Status words: the enum stays (`draft`, `open`, `closed`, `archived`; MCP and the
 - No flag (`feature_signups` gates the feature). No upstream files touched.
 - MCP descriptions (`feature/mcp-signups`) still say "status"; leave the field, check they don't name the old button words.
 - Retake gphelp screenshots: sheet (member and organizer), roster, every setup tab.
+
+- Archived sheets are hidden from the list. People who run sheets get a "Which sheets" choice in the list's filter card that lists the archived sheets they run; Restore is on the sheet's page.
