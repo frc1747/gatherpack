@@ -336,6 +336,14 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select "tr##{dom_id(person)} td a", 0
   end
 
+  test "people_table with link: nil shows plain names" do
+    person = Person.create!(first_name: "Nadia", last_name: "Northwind")
+    render "shared/people_table", rows: [ Struct.new(:person).new(person) ], link: nil
+
+    assert_select "tr##{dom_id(person)} td", text: person.identifier_name
+    assert_select "tr##{dom_id(person)} td a", 0
+  end
+
   test "screen_action passes data: to the link and to button_to's button" do
     action_row screen_action("Edit", "/a", style: :warning, data: { turbo_frame: "_top" }),
       screen_action("Copy", "/c", method: :post, data: { controller: "copy" }, confirm: "Copy this list?")
