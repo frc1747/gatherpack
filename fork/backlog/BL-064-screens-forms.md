@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | high |
-| Status | waiting |
+| Status | done (feature/forms; feature/my-gatherpack-forms phone test follows at the next rebuild) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/forms`, `feature/my-gatherpack-forms`; after BL-062 and BL-060 |
