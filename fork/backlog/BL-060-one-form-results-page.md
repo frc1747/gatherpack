@@ -39,9 +39,20 @@ All in `feature/forms` (fork code), checked at `hbr/integration` `c4700b175`:
 
 Decision: one page, not tabs. Tabs would keep three screens under one URL; the point is that status and answers are the same list.
 
-### 2. Fewer buttons
+### 2. Fewer buttons, each where its job is
 
-Footer, in this order: **Edit**, **Remind (n)** (when open and someone's waiting), **Open** or **Close**. Everything else moves to a **More** dropdown: Preview as…, Duplicate, Archive, Delete. Print and CSV sit with the table (section 1), not in the footer. Event panel rows keep one small **Responses** button (the form page) instead of Results and Tally.
+Leaders were afraid to press **Open** because nothing said what it did (send an email? lock the questions?). Fix it with placement and plain labels, not a description beside the button.
+
+- **Taking answers moves into the form's setup.** The Open and Close buttons leave the footer. The Edit page's "When people can respond" section (`_responses_fields.html.erb`, beside Opens and Deadline) gets one radio choice, **Taking answers**:
+  - **Not yet**: only people who manage the form can see it (today's draft).
+  - **Yes, open now**: it appears in My forms for the people it asks.
+  - **No, closed**: people can still read their answers but can't add or change them (leaders still can, when late entries are on).
+  Saved with the rest of the page. Opening doesn't email anyone (checked: no hook or notice fires on the status change); reminders are separate. The Opens and Deadline times sit right under it, so "opens itself at this time" reads as the automatic version of the same choice.
+- **The form page says where it stands** in the header, in words: "Not taking answers yet", "Taking answers until Nov 30" or "Closed Nov 30", replacing the bare Draft/Open badge. When the form isn't open, that line links to the setting ("Start taking answers").
+- **Footer**, in this order: **Edit**, **Remind (n)** (when taking answers and someone's waiting). Everything else goes in a **More** dropdown: Preview as…, Duplicate, Archive, Delete. Print and CSV sit with the table (section 1), not in the footer.
+- Event panel rows keep one small **Responses** button (the form page) instead of Results and Tally.
+
+The open/close routes stay (MCP and the auto-open job use the same status); only the buttons go.
 
 ### 3. Old pages
 
@@ -66,7 +77,8 @@ No flag: it rearranges `feature/forms`' own screens, which is already behind `fe
 - Column tick boxes control table, print and CSV identically; CSV matches the old results CSV for the same options.
 - `results`, `tally`, `print_list?form_id=` redirect with options kept.
 - A shared-totals viewer still gets totals only, never answers, and is not redirected to the form page.
-- Footer shows only Edit / Remind / Open-or-Close for a manager; the More menu holds the rest; a reader without manage sees none of them.
+- Footer shows only Edit and Remind for a manager; the More menu holds the rest; a reader without manage sees none of them.
+- Taking answers on the Edit page: choosing "Yes, open now" on a form with nobody to ask shows the existing "Add someone to ask" error by the field and doesn't open it; each choice sets the status; the header line matches the status and deadline.
 
 ## Fork notes
 

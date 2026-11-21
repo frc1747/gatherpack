@@ -66,7 +66,7 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | shipped hbr.51 | 2026-11-18 |
 | [BL-058](BL-058-form-creator-audience-teams.md) | Form creators get an empty team picker on a form's Audience tab; let admins name other teams (e.g. Mentors) creators may ask | fork-only | medium | waiting | 2026-11-19 |
 | [BL-059](BL-059-checklist-reminders.md) | Checklist reminders by email (and to guardians), with a "keep out of email" rule on fields and checklists so protected records only say "sign in" | fork-only | medium | waiting | 2026-11-21 |
-| [BL-060](BL-060-one-form-results-page.md) | One page for a form's responses: status, answers and totals (hideable) together, print/CSV from it; footer cut to Edit, Remind, Open/Close plus a More menu | fork-only | medium | waiting | 2026-11-21 |
+| [BL-060](BL-060-one-form-results-page.md) | One page for a form's responses: status, answers and totals (hideable) together, print/CSV from it; Taking answers becomes a plain choice in the form's setup; footer cut to Edit, Remind and a More menu | fork-only | medium | waiting | 2026-11-21 |
 
 ## Fields
 

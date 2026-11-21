@@ -38,6 +38,8 @@ Two principles come before every rule below.
 **2. Simple first: dead simple for people reading, flexible for people setting up.** Most people only consume information: members, guardians, readers of a report. Their screens show the answer, not the machinery.
 - One screen per job. Don't split one list into status, results, totals and print views; show it once with sensible defaults, and let people hide parts they don't want (BL-060 is the pattern).
 - At most three visible actions on a page; the rest go in a **More** menu.
+- A control sits where the thing it changes is set up, not in a row of action buttons: whether a form takes answers is a choice on its setup page, next to its opening time and deadline.
+- Nobody should have to guess what a control does. Say the effect in the control itself ("Taking answers: Not yet / Yes, open now / No, closed") and show the current state in words on the page ("Taking answers until Nov 30"), rather than a bare state word on a button ("Open") or a description bolted on beside it.
 - No settings on consumer screens. Configuration lives on the feature's Setup or Edit page, with defaults that suit most groups, and rarely used choices behind a "More choices" disclosure.
 - Every new setting, button or option has to earn its place: first ask whether a good default would do, and whether an existing option can absorb it. Removing an option is a good change.
 - Keep the flexibility admins rely on; just keep it out of everyone else's way.
