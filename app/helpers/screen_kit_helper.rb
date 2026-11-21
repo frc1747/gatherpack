@@ -27,6 +27,18 @@ module ScreenKitHelper
     screen_action_tag(action, [ "dropdown-item", ("text-danger" if action.destructive?) ].compact.join(" "))
   end
 
+  # url with options merged into its query: the query it already has, then
+  # the page's options, then the given ones. Blank values are dropped.
+  def screen_filter_url(url, options = {}, **overrides)
+    uri = URI.parse(url_for(url))
+    query = Rack::Utils.parse_nested_query(uri.query)
+      .merge(options.to_h.stringify_keys)
+      .merge(overrides.stringify_keys)
+      .compact_blank
+    uri.query = query.to_query.presence
+    uri.to_s
+  end
+
   private
 
   def screen_action_tag(action, classes, outer = nil)

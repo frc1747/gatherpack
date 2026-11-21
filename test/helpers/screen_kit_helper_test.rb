@@ -107,14 +107,23 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select ".screen-state-line a[href='/forms/1/edit']", text: "Start taking answers"
   end
 
-  test "page_header shows the title, summary, state and tabs" do
+  test "page_header shows the title, summary, state and tabs past two parts" do
     render "shared/page_header", title: "Field trip permission", summary: "Asks Northwind Robotics",
-      state: state_line("Taking answers"), tabs: [ [ "Details", "/forms/1/edit" ], [ "Questions (6)", "/forms/1/questions" ] ]
+      state: state_line("Taking answers"),
+      tabs: [ [ "Details", "/forms/1/edit" ], [ "Questions (6)", "/forms/1/questions" ], [ "Who is asked (24)", "/forms/1/audience" ] ]
 
     assert_select ".card-header h1", text: "Field trip permission"
     assert_select ".card-header .text-muted", text: "Asks Northwind Robotics"
     assert_select ".card-header .screen-state-line", text: "Taking answers"
-    assert_select ".card-header ul.nav.nav-underline a.nav-link", 2
+    assert_select ".card-header ul.nav.nav-underline a.nav-link", 3
+  end
+
+  test "page_header shows no tabs for two parts" do
+    render "shared/page_header", title: "Field trip permission",
+      tabs: [ [ "Details", "/forms/1/edit" ], [ "Questions (6)", "/forms/1/questions" ] ]
+
+    assert_select ".card-header h1", text: "Field trip permission"
+    assert_select ".nav", 0
   end
 
   test "inline_confirm selects the default choice" do
@@ -171,5 +180,48 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_no_match "Excused", rendered
     assert_select ".ms-auto a.btn-dark", text: "Print"
     assert_select ".ms-auto a.btn-secondary", text: "Download CSV"
+  end
+
+  test "filter_bar keeps the page's other options in the pills and the Show button" do
+    teams = [ Team.new(id: SecureRandom.uuid, name: "Northwind"), Team.new(id: SecureRandom.uuid, name: "Northwind Juniors") ]
+    render "shared/filter_bar", url: "/forms/1", teams: teams, team: teams.last, status: "waiting",
+      params: { since: "2026-11-01", columns: [ "due", "version" ] },
+      statuses: [ { label: "All", count: 24, value: nil }, { label: "Complete", count: 18, value: "complete" } ]
+
+    complete = css_select("a").find { |a| a.text == "Complete (18)" }
+    assert_equal "/forms/1", complete["href"].split("?").first
+    assert_equal({ "since" => "2026-11-01", "columns" => [ "due", "version" ], "team_id" => teams.last.id, "status" => "complete" },
+      Rack::Utils.parse_nested_query(complete["href"].split("?").last))
+    all = Rack::Utils.parse_nested_query(css_select("a").find { |a| a.text == "All (24)" }["href"].split("?").last)
+    assert_not all.key?("status")
+    assert_equal "2026-11-01", all["since"]
+
+    assert_select "form[action='/forms/1']" do
+      assert_select "input[type=hidden][name=since][value='2026-11-01']"
+      assert_select "input[type=hidden][name='columns[]']", 2
+      assert_select "input[type=submit][value=Show].btn.btn-secondary"
+    end
+    assert_select "input[type=submit][value=Filter]", 0
+  end
+
+  test "filter_bar merges into a url that already has a query" do
+    render "shared/filter_bar", url: "/forms/1?tab=results", status: nil,
+      params: { since: "2026-11-01" }, more: "<input name='since'>".html_safe,
+      statuses: [ { label: "All", count: 24, value: nil }, { label: "Waiting", count: 6, value: "waiting" } ]
+
+    waiting = css_select("a").find { |a| a.text == "Waiting (6)" }["href"]
+    assert_equal "/forms/1", waiting.split("?").first
+    assert_equal({ "tab" => "results", "since" => "2026-11-01", "status" => "waiting" }, Rack::Utils.parse_nested_query(waiting.split("?").last))
+    assert_equal 1, waiting.count("?")
+
+    assert_select "form[action='/forms/1'] input[type=hidden][name=tab][value=results]"
+  end
+
+  test "filter_bar's More choices is closed unless told to start open" do
+    render "shared/filter_bar", url: "/forms/1", more: "<input name='since'>".html_safe
+    assert_select "details:not([open])", 1
+
+    render "shared/filter_bar", url: "/forms/1", more: "<input name='since' value='2026-11-01'>".html_safe, open: true
+    assert_select "details[open]", 1
   end
 end
