@@ -169,7 +169,10 @@ class SmoothPagesSystemTest < ApplicationSystemTestCase
     mark_sidebar
     first_id = sidebar_id
 
-    click_link "Impersonate"
+    # Impersonate sits in the footer's More menu when the screen kit's
+    # footers are in the build.
+    find(".screen-action-row .dropdown-toggle").click if page.has_css?(".screen-action-row .dropdown-toggle", wait: 0)
+    click_on "Impersonate"
 
     assert_selector ".impersonator-label", text: /impersonating/i, wait: 10
     assert_not sidebar_marked?
