@@ -57,4 +57,27 @@ class MyGatherpackActivitySystemTest < ApplicationSystemTestCase
       assert_text "Food drive"
     end
   end
+
+  test "choosing another season reloads the page with that season" do
+    visit activity_path
+    assert_no_selector "[data-activity-line]", text: "Spring fair"
+
+    select "2025–26", from: "Season"
+
+    assert_selector "[data-activity-line]", count: 1, text: "Spring fair"
+    assert_current_path activity_path(season: 2025)
+    assert_equal "2025", find("select[name=season]").value
+  end
+
+  test "with scripts off the Show button still shows the chosen season" do
+    visit activity_path
+    page.execute_script("document.querySelector('select[name=season]').removeAttribute('onchange')")
+    select "2025–26", from: "Season"
+    assert_no_selector "[data-activity-line]", text: "Spring fair"
+
+    page.execute_script("document.querySelector('form.mg-activity-season input[type=submit]').click()")
+
+    assert_selector "[data-activity-line]", count: 1, text: "Spring fair"
+    assert_current_path activity_path(season: 2025)
+  end
 end

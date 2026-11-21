@@ -10,8 +10,9 @@
     <%= form_with url: activity_path, method: :get, class: "mg-activity-season", data: { turbo_action: "advance" } do |form| %>
       <% unless own %><%= hidden_field_tag :person, @person.neat_id %><% end %>
       <%= label_tag :season, "Season", class: "visually-hidden" %>
-      <%= select_tag :season, options_for_select(@activity.seasons.map { |season| [ season.label, season.to_param ] }, @season.to_param), class: "form-select" %>
-      <%= form.submit "Show", name: nil, class: "btn btn-primary" %>
+      <%= select_tag :season, options_for_select(@activity.seasons.map { |season| [ season.label, season.to_param ] }, @season.to_param), class: "form-select", onchange: "this.form.requestSubmit()" %>
+      <%# Choosing a season shows it; the button is for when scripts are off. %>
+      <%= form.submit "Show", name: nil, class: "btn btn-secondary d-none" %>
     <% end %>
   </header>
 

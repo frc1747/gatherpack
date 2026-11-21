@@ -241,6 +241,15 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-activity-line]", text: /Spring fair/
   end
 
+  test "the season select submits on change, with a hidden Show button for when scripts are off" do
+    sign_in person(:member).user
+    get activity_path
+
+    assert_select "form.mg-activity-season select[name=season][onchange='this.form.requestSubmit()']"
+    assert_select "form.mg-activity-season input[type=submit][value=Show].btn-secondary.d-none"
+    assert_select "form.mg-activity-season .btn-primary", false
+  end
+
   test "a ward's page has no punches and no meetings, and links only events the guardian can open" do
     @meeting.checkins.create!(person: person(:kid))
     @outreach1.checkins.create!(person: person(:kid))
