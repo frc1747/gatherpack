@@ -189,13 +189,16 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
     assert_select "#my_signups button.btn-outline-danger[data-turbo-confirm=?]", "Cancel your sign-up for Sat Oct 24?", text: "Cancel sign-up"
     assert_select "#my_signups a.btn-outline-secondary", text: "Change"
 
+    # A jump of weeks can outlast an idle sign-in session, so sign in again after each one.
     travel_to @event.start_time - 1.hour
+    sign_in person(:student).user
     get signup_sheet_path(@sheet)
     assert_select "#my_signups button", text: "Cancel sign-up", count: 0
     delete signup_sheet_signup_path(@sheet, signup)
     assert signup.reload.active?
 
     travel_to Time.zone.parse("2026-10-01 12:00")
+    sign_in person(:student).user
     delete signup_sheet_signup_path(@sheet, signup)
     assert signup.reload.cancelled?
   end
