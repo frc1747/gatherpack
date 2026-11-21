@@ -32,7 +32,9 @@
         <div class="form-text"><%= link_to "Manage #{list.plural_label.downcase}", managed_list_path(list.key) %></div>
       <% end %>
     </fieldset>
-    <%= form.submit "Save readings", class: "btn btn-primary" %>
-    <%= link_to "Cancel", inventory_item_path(@item), class: "btn btn-warning" %>
+    <div class="d-flex flex-wrap gap-2 gp-form-actions">
+      <%= link_to "Cancel", inventory_item_path(@item), class: "btn btn-secondary" %>
+      <%= form.submit "Save readings", class: "btn btn-primary" %>
+    </div>
   <% end %>
 </div></div>

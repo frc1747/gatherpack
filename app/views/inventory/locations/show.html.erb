@@ -2,7 +2,7 @@
 <% content_for :title, @location.name %>
 <% inventory_stylesheet %>
 
-<div class="inventory-phone <%= "inventory-has-bar" if @countable %>">
+<div class="inventory-phone">
   <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
@@ -20,15 +20,18 @@
         <% if counted %><p class="mb-0 text-body-secondary">Last counted <%= time_ago_in_words(counted) %> ago</p><% end %>
       </div>
     <% end %>
-    <% if policy(@location).edit? %>
-      <div class="card-footer d-flex flex-wrap gap-2 inventory-no-print">
-        <%= link_to "Edit", edit_inventory_location_path(@location), class: "btn btn-warning" %>
-        <%= link_to "Add a place inside", new_inventory_location_path(parent_id: @location.id), class: "btn btn-secondary" unless @location.machine? %>
-        <%= link_to "Add an item here", new_inventory_item_path(location_id: @location.id), class: "btn btn-secondary" if policy(Item).new? && @location.storage? %>
-        <%= link_to "Label", inventory_labels_path(places: [ @location.id ]), class: "btn btn-secondary" if policy(@location).labels? %>
-        <%= link_to "Delete", inventory_location_path(@location), class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Delete #{@location.name}?" } if policy(@location).destroy? %>
-      </div>
-    <% end %>
+    <% editor = policy(@location).edit? %>
+    <%= render "shared/action_row", wrapper_class: "card-footer inventory-no-print", actions: [
+          screen_action("Edit", edit_inventory_location_path(@location), style: :warning, visible: editor),
+          screen_action("Count this place", count_inventory_location_path(@location), style: :primary, visible: @countable),
+          screen_action("Add a place inside", new_inventory_location_path(parent_id: @location.id), more: true,
+            visible: editor && !@location.machine?),
+          screen_action("Add an item here", new_inventory_item_path(location_id: @location.id), more: true,
+            visible: editor && policy(Item).new? && @location.storage?),
+          screen_action("Label", inventory_labels_path(places: [ @location.id ]), more: true, visible: editor && policy(@location).labels?),
+          screen_action("Delete", inventory_location_path(@location), method: :delete, destructive: true,
+            confirm: "Delete #{@location.name}?", visible: editor && policy(@location).destroy?)
+        ] %>
   </div>
 
   <% if @location.takes_installs? %>
@@ -95,13 +98,5 @@
         <% end %>
       </ul>
     <% end %>
-  <% end %>
-
-  <%= render "inventory/shared/manager_links" %>
-
-  <% if @countable %>
-    <div class="inventory-bar">
-      <%= link_to "Count this place", count_inventory_location_path(@location), class: "btn btn-primary btn-lg" %>
-    </div>
   <% end %>
 </div>

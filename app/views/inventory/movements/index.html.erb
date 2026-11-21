@@ -3,43 +3,48 @@
 <% inventory_stylesheet %>
 <% filters = params.permit(:kind, :location_id, :person_id, :from, :to).to_h %>
 
-<div class="card mb-3 inventory-no-print">
-  <div class="card-header"><h1 class="mb-0">Changes</h1></div>
-  <%= form_with url: inventory_movements_path, method: :get, class: "card-body row g-2 align-items-end" do %>
-    <div class="col-md">
-      <%= label_tag :kind, "Kind", class: "form-label" %>
-      <%= select_tag :kind, options_for_select(StockMovement::KINDS.map { |kind| [ inventory_kind_label(kind), kind ] }, params[:kind]), include_blank: "Any", class: "form-select" %>
-    </div>
-    <div class="col-md">
-      <%= label_tag :location_id, "Place", class: "form-label" %>
-      <%= select_tag :location_id, options_for_select(@places.map { |place| [ place.full_name, place.id ] }.sort, params[:location_id]), include_blank: "Any", class: "form-select" %>
-    </div>
-    <div class="col-md">
-      <%= label_tag :person_id, "Person", class: "form-label" %>
-      <%= select_tag :person_id, options_for_select(@people.map { |person| [ person.identifier_name, person.id ] }, params[:person_id]), include_blank: "Anyone", class: "form-select" %>
-    </div>
-    <div class="col-md">
-      <%= label_tag :from, "From", class: "form-label" %>
-      <%= date_field_tag :from, params[:from], class: "form-control" %>
-    </div>
-    <div class="col-md">
-      <%= label_tag :to, "To", class: "form-label" %>
-      <%= date_field_tag :to, params[:to], class: "form-control" %>
-    </div>
-    <div class="col-12 d-flex flex-wrap gap-2">
-      <%= submit_tag "Filter", name: nil, class: "btn btn-primary" %>
-      <%= link_to "Clear", inventory_movements_path, class: "btn btn-dark" %>
-      <%= link_to "Print", inventory_movements_path(filters.merge(print: 1)), class: "btn btn-dark" %>
-      <%= link_to "Download CSV", inventory_movements_path(filters.merge(format: :csv)), class: "btn btn-secondary", data: { turbo: false } %>
-    </div>
-  <% end %>
-</div>
-
 <% if params[:print].present? %>
   <div class="d-flex gap-2 mb-3 inventory-no-print" data-controller="inventory-print">
-    <button type="button" class="btn btn-primary" data-action="inventory-print#print">Print</button>
+    <h1 class="h3 mb-0 me-auto">Changes</h1>
+    <button type="button" class="btn btn-dark" data-action="inventory-print#print">Print</button>
   </div>
   <h1 class="d-none d-print-block">Changes</h1>
+<% else %>
+  <%= form_with url: inventory_movements_path, method: :get do %>
+    <div class="card mb-3 inventory-no-print">
+      <div class="card-header"><h1 class="mb-0">Changes</h1></div>
+      <div class="card-body row g-2 align-items-end">
+        <div class="col-md">
+          <%= label_tag :kind, "Kind", class: "form-label" %>
+          <%= select_tag :kind, options_for_select(StockMovement::KINDS.map { |kind| [ inventory_kind_label(kind), kind ] }, params[:kind]), include_blank: "Any", class: "form-select" %>
+        </div>
+        <div class="col-md">
+          <%= label_tag :location_id, "Place", class: "form-label" %>
+          <%= select_tag :location_id, options_for_select(@places.map { |place| [ place.full_name, place.id ] }.sort, params[:location_id]), include_blank: "Any", class: "form-select" %>
+        </div>
+        <div class="col-md">
+          <%= label_tag :person_id, "Person", class: "form-label" %>
+          <%= select_tag :person_id, options_for_select(@people.map { |person| [ person.identifier_name, person.id ] }, params[:person_id]), include_blank: "Anyone", class: "form-select" %>
+        </div>
+        <div class="col-md">
+          <%= label_tag :from, "From", class: "form-label" %>
+          <%= date_field_tag :from, params[:from], class: "form-control" %>
+        </div>
+        <div class="col-md">
+          <%= label_tag :to, "To", class: "form-label" %>
+          <%= date_field_tag :to, params[:to], class: "form-control" %>
+        </div>
+      </div>
+      <div class="card-footer d-flex flex-wrap gap-2">
+        <%= submit_tag "Search", name: nil, class: "btn btn-primary" %>
+        <%= link_to "Clear Search", inventory_movements_path, class: "btn btn-dark" %>
+        <div class="d-flex flex-wrap gap-2 ms-auto">
+          <%= link_to "Print", inventory_movements_path(filters.merge(print: 1)), class: "btn btn-dark" %>
+          <%= link_to "Download CSV", inventory_movements_path(filters.merge(format: :csv)), class: "btn btn-secondary", data: { turbo: false } %>
+        </div>
+      </div>
+    </div>
+  <% end %>
 <% end %>
 
 <p class="small text-body-secondary inventory-no-print">Counts that changed stock by more than a fifth are highlighted.</p>
@@ -50,4 +55,3 @@
     undone_ids: StockMovement.where(reverses_id: @movements.map(&:id)).pluck(:reverses_id).to_set, show_item: true %>
   <div class="inventory-no-print"><%= paginate @movements %></div>
 <% end %>
-<%= render "inventory/shared/manager_links" %>

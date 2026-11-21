@@ -37,7 +37,7 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
       assert_select "#unit_actions a", text: "Check"
       assert_select "#unit_actions a", text: "Mark for repair"
       assert_select "#unit_actions a", text: "Retire", count: 0
-      assert_select "a", text: "Edit code and details", count: 0
+      assert_select "a[href=?]", edit_inventory_unit_path(@unit), count: 0
     end
   end
 
@@ -45,7 +45,7 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
     as(@world.keeper) do
       get inventory_unit_path(@unit)
       assert_select "#unit_actions a", text: "Retire"
-      assert_select "a", text: "Edit code and details"
+      assert_select "a[href=?]", edit_inventory_unit_path(@unit), text: "Edit"
     end
   end
 
@@ -125,7 +125,8 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
       post take_off_inventory_unit_path(@unit), params: { location_id: @world.bin2.id }
       assert_redirected_to inventory_unit_path(@unit)
       assert_equal @world.bin2, @unit.reload.location
-      assert_equal "Taken off, now in Bin 2", flash[:notice]
+      follow_redirect!
+      assert_select ".inventory-toast", text: /Taken off, now in Bin 2/
     end
   end
 
@@ -158,7 +159,8 @@ class Inventory::UnitsControllerTest < ActionDispatch::IntegrationTest
 
       post mark_for_repair_inventory_unit_path(@unit), params: { condition: unit_condition("broken").id, note: "Shaft snapped" }
       assert_equal "broken", @unit.reload.unit_condition.key
-      assert_equal "Marked Broken", flash[:notice]
+      follow_redirect!
+      assert_select ".inventory-toast", text: /Marked Broken/
 
       post repaired_inventory_unit_path(@unit), params: { condition: unit_condition("good").id, note: "New shaft" }
       assert_equal "You are not allowed to do that", flash[:notice]

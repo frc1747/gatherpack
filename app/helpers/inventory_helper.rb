@@ -127,6 +127,16 @@ module InventoryHelper
     movement if movement&.undoable_by?(current_person)
   end
 
+  # The unit action just taken on the previous page, once: { text:, event: },
+  # with event nil when the person can no longer undo it.
+  def inventory_pending_unit_undo(unit)
+    pending = session.delete(:inventory_unit_undo)
+    return if pending.nil?
+
+    event = unit.events.find_by(id: pending["id"])
+    { text: pending["text"], event: (event if event && policy(event).undo?) }
+  end
+
   # A count that changed stock by more than a fifth.
   def inventory_big_count?(movement)
     return false unless movement.counted? && !movement.reversal?

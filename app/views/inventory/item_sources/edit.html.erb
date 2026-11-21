@@ -5,7 +5,7 @@
   <div class="card-header"><h1>Where to buy <%= @item.name %></h1></div>
   <div class="card-body"><%= render "form", item_source: @item_source %></div>
   <div class="card-footer">
-    <%= link_to "Remove", inventory_item_source_path(@item, @item_source), class: "btn btn-danger",
+    <%= link_to "Remove", inventory_item_source_path(@item, @item_source), class: "btn btn-sm btn-outline-danger",
       data: { turbo_method: :delete, turbo_confirm: "Remove #{@item_source.vendor_name}?" } %>
   </div>
 </div>

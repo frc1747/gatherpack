@@ -3,26 +3,29 @@
 <% inventory_stylesheet %>
 <% show_on_order = Inventory.extensions.on_order? %>
 
-<div class="card mb-3">
-  <div class="card-header"><h1 class="mb-0">Reorder</h1></div>
-  <div class="card-body">
-    <%= form_with url: inventory_reorder_path, method: :get, class: "row g-2 align-items-end" do %>
-      <% if @teams.size > 1 || params[:team_id].present? %>
+<%= form_with url: inventory_reorder_path, method: :get do %>
+  <div class="card mb-3">
+    <div class="card-header"><h1 class="mb-0">Reorder</h1></div>
+    <div class="card-body">
+      <div class="row g-2">
+        <% if @teams.size > 1 || params[:team_id].present? %>
+          <div class="col-md">
+            <%= label_tag :team_id, "Team", class: "form-label" %>
+            <%= select_tag :team_id, options_from_collection_for_select(@teams, :id, :name, params[:team_id]), include_blank: "All teams", class: "form-select" %>
+          </div>
+        <% end %>
         <div class="col-md">
-          <%= label_tag :team_id, "Team", class: "form-label" %>
-          <%= select_tag :team_id, options_from_collection_for_select(@teams, :id, :name, params[:team_id]), include_blank: "All teams", class: "form-select" %>
+          <%= label_tag :category, "Category", class: "form-label" %>
+          <%= select_tag :category, options_for_select(@categories, params[:category]), include_blank: "All categories", class: "form-select" %>
         </div>
-      <% end %>
-      <div class="col-md">
-        <%= label_tag :category, "Category", class: "form-label" %>
-        <%= select_tag :category, options_for_select(@categories, params[:category]), include_blank: "All categories", class: "form-select" %>
       </div>
-      <div class="col-md-auto">
-        <%= submit_tag "Filter", name: nil, class: "btn btn-primary" %>
-      </div>
-    <% end %>
+    </div>
+    <div class="card-footer">
+      <%= submit_tag "Search", name: nil, class: "btn btn-primary" %>
+      <%= link_to "Clear Search", inventory_reorder_path, class: "btn btn-dark" %>
+    </div>
   </div>
-</div>
+<% end %>
 
 <% if @reorder.rows.empty? %>
   <p class="text-body-secondary">Nothing is running low.</p>
@@ -78,9 +81,9 @@
 
     <div class="d-flex flex-wrap gap-2 my-3" id="reorder-actions">
       <% @actions.each do |action| %>
-        <%= button_tag action.label, type: "submit", name: "run", value: action.key, class: "btn btn-primary" %>
+        <%= button_tag action.label, type: "submit", name: "run", value: action.key,
+              class: "btn #{{ print: "btn-dark", csv: "btn-secondary" }.fetch(action.key, "btn-primary")}" %>
       <% end %>
     </div>
   <% end %>
 <% end %>
-<%= render "inventory/shared/manager_links" %>

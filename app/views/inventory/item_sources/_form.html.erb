@@ -10,7 +10,7 @@
     <%= render fields.partial, item_source: item_source, form: f %>
   <% end %>
   <div class="d-flex gap-2">
+    <%= link_to "Cancel", inventory_item_path(item_source.item), class: "btn btn-secondary" %>
     <%= f.button :submit, "Save", class: "btn btn-primary" %>
-    <%= link_to "Cancel", inventory_item_path(item_source.item), class: "btn btn-warning" %>
   </div>
 <% end %>

@@ -19,7 +19,7 @@ class Inventory::LocationsControllerTest < ActionDispatch::IntegrationTest
       assert_select "#place-items", text: /M4 screw/
       assert_select "#place-items a", text: "Used"
       assert_select "#place-items a", text: "Count"
-      assert_select ".inventory-bar a", text: "Count this place"
+      assert_select ".card-footer.screen-action-row a", text: "Count this place"
       assert_select "a", text: "Edit", count: 0
     end
   end

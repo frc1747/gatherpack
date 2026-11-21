@@ -165,6 +165,7 @@ class InventoryStockTest < ApplicationSystemTestCase
       click_on "Save place"
       assert_text "Electrical cart was added."
 
+      click_on "More"
       click_on "Add a place inside"
       fill_in "Name", with: "Drawer 1"
       fill_in "Code", with: "E-1"
@@ -172,6 +173,7 @@ class InventoryStockTest < ApplicationSystemTestCase
       assert_text "Drawer 1 was added."
       assert_text "Electrical cart › Drawer 1"
 
+      click_on "More"
       click_on "Add an item here"
       fill_in "Name", with: "Red wire"
       select "foot", from: "Stock unit"

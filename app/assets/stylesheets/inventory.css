@@ -117,6 +117,13 @@
   color: var(--bs-secondary-color);
 }
 
+/* The app hides overflow on any div holding a badge (_badges.scss), which
+   clips an action row's More menu on a card whose header shows one (a
+   place's code, an item's stock). Let the menu out while it's open. */
+div:has(.screen-action-row .dropdown-menu.show) {
+  overflow: visible;
+}
+
 /* The main action sits in a bar fixed to the bottom of the screen. */
 .inventory-bar {
   position: fixed;

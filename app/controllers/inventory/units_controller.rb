@@ -111,9 +111,16 @@ module Inventory
       authorize @unit if ACTIONS.include?(action_name) || %w[edit update].include?(action_name)
     end
 
-    # Back to the unit page, from which the action was taken.
+    # Back to the unit page, from which the action was taken. The message
+    # carries Undo there while the person may still undo the change.
     def done(message)
-      redirect_to inventory_unit_path(@unit), notice: message, status: :see_other
+      event = @unit.events.last
+      if event && policy(event).undo?
+        session[:inventory_unit_undo] = { "id" => event.id, "text" => message }
+        redirect_to inventory_unit_path(@unit), status: :see_other
+      else
+        redirect_to inventory_unit_path(@unit), notice: message, status: :see_other
+      end
     end
 
     # A machine (location_id, a place whose type takes installed parts) or another unit, by id (unit_id) or by its

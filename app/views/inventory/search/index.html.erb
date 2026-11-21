@@ -47,17 +47,12 @@
     <% end %>
   <% end %>
 
-  <div class="d-flex flex-wrap gap-2 my-3 inventory-no-print">
-    <% if Inventory.manager_pages(current_person).none? %>
+  <%# Members have no Places entry in the sidebar; managers do. %>
+  <% if Inventory.manager_pages(current_person).none? %>
+    <div class="my-3 inventory-no-print">
       <%= link_to inventory_locations_path, class: "btn btn-secondary" do %>
         <i class="fa-solid fa-warehouse"></i> Places
       <% end %>
-    <% end %>
-    <% LocationType.installable.each do |type| %>
-      <%= link_to inventory_machine_type_path(type), class: "btn btn-secondary" do %>
-        <i class="fa-solid fa-<%= Inventory::MACHINE_ICON %>"></i> <%= type.plural_name %>
-      <% end %>
-    <% end %>
-  </div>
-  <%= render "inventory/shared/manager_links" %>
+    </div>
+  <% end %>
 </div>

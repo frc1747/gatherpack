@@ -222,7 +222,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
     assert_equal :inventory_setup_path, item.path
   end
 
-  test "Machines is in the menu and on the Inventory page for anyone who can use inventory" do
+  test "Machines is in the menu for anyone who can use inventory, and the Inventory page doesn't repeat it" do
     nav = GatherPack::Features.all.find { |feature| feature.key == :inventory }.nav_items.find { |item| item.label == "Machines" }
     assert_kind_of Proc, nav.path
     with_inventory(@world) do
@@ -230,7 +230,7 @@ class Inventory::SetupControllerTest < ActionDispatch::IntegrationTest
       get inventory_root_path
       path = inventory_machine_type_path(location_type("machine"))
       assert_select ".nav-item a[href=?]", path, text: /Machines/
-      assert_select "a.btn[href=?]", path, text: /Machines/
+      assert_select "a.btn[href=?]", path, count: 0
     end
   end
 

@@ -19,7 +19,7 @@
     <div class="pb-5 mb-5"></div>
     <div class="fixed-bottom bg-body border-top p-2">
       <div class="d-flex gap-2">
-        <%= link_to "Cancel", inventory_unit_path(unit), class: "btn btn-lg btn-warning" %>
+        <%= link_to "Cancel", inventory_unit_path(unit), class: "btn btn-lg btn-secondary" %>
         <%= form.submit submit, class: "btn btn-lg #{local_assigns[:danger] ? "btn-danger" : "btn-primary"} flex-grow-1", data: { turbo_submits_with: "Saving…" } %>
       </div>
     </div>

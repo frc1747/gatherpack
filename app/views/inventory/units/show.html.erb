@@ -2,6 +2,10 @@
 <% content_for :title, @unit.identifier_name %>
 
 <div class="row"><div class="col-lg-8 col-xl-6">
+  <% if (pending = inventory_pending_unit_undo(@unit)) %>
+    <%= render "inventory/shared/undo_notice", text: pending[:text],
+          path: (undo_inventory_unit_event_path(pending[:event]) if pending[:event]) %>
+  <% end %>
   <div class="mb-3">
     <h1 class="h3 mb-1"><%= i("microchip") %> <%= @unit.identifier_name %> <%= unit_condition_badge(@unit) %></h1>
     <div><%= link_to @unit.item.name, inventory_item_path(@unit.item) %><%= " · #{@unit.name}" if @unit.name.present? && @unit.code.present? %></div>
@@ -104,7 +108,7 @@
     <dt class="col-5">In use since</dt><dd class="col-7"><%= l(@unit.in_service_on) if @unit.in_service_on %></dd>
   </dl>
   <% if policy(@unit).update? %>
-    <%= link_to "Edit code and details", edit_inventory_unit_path(@unit), class: "btn btn-warning mb-4" %>
+    <%= link_to "Edit", edit_inventory_unit_path(@unit), class: "btn btn-warning mb-4" %>
   <% end %>
 </div>
 </div>

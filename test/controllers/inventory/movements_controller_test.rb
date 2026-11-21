@@ -21,7 +21,7 @@ class Inventory::MovementsControllerTest < ActionDispatch::IntegrationTest
       assert_equal 6, @world.screws.stock_at(@world.bin1)
       follow_redirect!
       assert_select ".inventory-toast", text: /Used 4 from Bin 1/
-      assert_select ".inventory-toast button", text: "Undo"
+      assert_select ".inventory-toast a[data-turbo-method=post]", text: "Undo"
       # Before History, where the person sees it.
       assert_operator response.body.index("inventory-toast"), :<, response.body.index("inventory-history")
     end

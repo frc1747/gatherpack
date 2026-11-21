@@ -19,6 +19,9 @@
       <%= label_tag :note, "Note (optional)", class: "form-label" %>
       <%= text_field_tag :note, nil, class: "form-control form-control-lg", placeholder: "Where they came from" %>
     </div>
-    <%= form.submit "Add units", class: "btn btn-lg btn-primary" %>
+    <div class="d-flex flex-wrap gap-2 gp-form-actions">
+      <%= link_to "Cancel", inventory_item_path(@item), class: "btn btn-lg btn-secondary" %>
+      <%= form.submit "Add units", class: "btn btn-lg btn-primary" %>
+    </div>
   <% end %>
 </div></div>

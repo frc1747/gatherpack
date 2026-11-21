@@ -2,15 +2,20 @@
 <% content_for :title, "Inventory setup" %>
 <% inventory_stylesheet %>
 
-<div class="card mb-3">
-  <div class="card-header"><h1 class="mb-0">Inventory setup</h1></div>
-  <div class="card-body">
-    <% if Settings.respond_to?(:page) %>
+<% if Settings.respond_to?(:page) %>
+  <div class="card mb-3">
+    <div class="card-header"><h1 class="mb-0">Inventory setup</h1></div>
+    <div class="card-body">
       <%= render "settings/form", keys: Inventory::SetupController::KEYS, return_to: inventory_setup_path %>
-    <% else %>
-      <%= form_with url: inventory_setup_path, method: :patch do %>
-        <% Inventory::SetupController::GROUPS.each do |heading, keys| %>
-          <h2 class="h5 mt-4"><%= heading %></h2>
+    </div>
+  </div>
+<% else %>
+  <%= form_with url: inventory_setup_path, method: :patch do %>
+    <div class="card mb-3">
+      <div class="card-header"><h1 class="mb-0">Inventory setup</h1></div>
+      <div class="card-body">
+        <% Inventory::SetupController::GROUPS.each_with_index do |(heading, keys), index| %>
+          <h2 class="h5 <%= index.zero? ? "mt-0" : "mt-4" %>"><%= heading %></h2>
           <% keys.each do |key| %>
             <% setting = Settings.get(key) %>
             <div class="mb-3">
@@ -32,13 +37,14 @@
             </div>
           <% end %>
         <% end %>
-        <div class="sticky-bottom bg-body border-top py-2">
-          <%= submit_tag "Save", class: "btn btn-lg btn-success" %>
-        </div>
-      <% end %>
-    <% end %>
-  </div>
-</div>
+      </div>
+      <div class="card-footer d-flex flex-wrap gap-2 gp-form-actions" id="inventory_setup_actions">
+        <%= link_to "Cancel", setup_path, class: "btn btn-secondary" %>
+        <%= submit_tag "Save", class: "btn btn-primary" %>
+      </div>
+    </div>
+  <% end %>
+<% end %>
 
 <% lists = defined?(GatherPack::ManagedLists) ? Inventory::SetupController::LISTS.filter_map { |key| GatherPack::ManagedLists.find(key) } : [] %>
 <% if lists.any? %>

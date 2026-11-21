@@ -4,12 +4,15 @@
 <% labels = policy(:inventory).labels? %>
 
 <div class="card mb-3">
-  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-    <h1 class="mb-0">Places</h1>
-    <% if policy(Location).new? %>
+  <div class="card-header"><h1 class="mb-0">Places</h1></div>
+  <% if policy(Location).new? %>
+    <div class="card-footer">
       <%= link_to "New place", new_inventory_location_path, class: "btn btn-success" %>
-    <% end %>
-  </div>
+    </div>
+  <% end %>
+</div>
+
+<div class="card mb-3">
   <div class="card-body">
     <% if @roots.empty? %>
       <p class="text-body-secondary mb-0">No places yet.</p>
@@ -31,4 +34,3 @@
     <% end %>
   </div>
 </div>
-<%= render "inventory/shared/manager_links" %>
