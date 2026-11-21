@@ -1,0 +1,4 @@
+<%# The panels other features registered with TimeKiosk::ScanPanels.register, for the scanned person. %>
+<% TimeKiosk::ScanPanels.all.each do |panel| %>
+  <%= render partial: panel.partial, locals: { person: person } %>
+<% end %>

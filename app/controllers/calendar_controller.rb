@@ -1,8 +1,13 @@
-class CalendarController < ApplicationController
+class CalendarController < InternalController
   def index
+    # The page itself lists nothing; it loads its entries from #calendar.
+    skip_policy_scope
   end
 
   def calendar
+    # Every list below goes through policy_scope; there is no one record to
+    # authorize.
+    skip_authorization
     respond_to do |format|
       format.html { redirect_to calendar_index_path }
       format.json do
@@ -23,16 +28,19 @@ class CalendarController < ApplicationController
           @end_time_year = Date.parse(end_time).year
 
           ransacked_people = policy_scope(Person).ransack(
-            display_name_i_cont: params[:q][:name_i_cont]
+            { display_name_i_cont: params[:q][:name_i_cont] },
+            auth_object: current_user
           ).result(distinct: true)
           ransacked_people = ransacked_people.where(id: Team.find(params[:q][:team_id_eq]).all_people.select(:id)) if params[:q][:team_id_eq].present?
           ransacked_people = ransacked_people.where(id: params[:person_id]) if params[:person_id]
+          birthday_field = PersonField.system.find_by(system_source: "birthday")
+          ransacked_people = ransacked_people.where(id: birthday_field.readable_subjects_for(current_user.person).select(:id)) if birthday_field
           @birthdays = ransacked_people.where("DATE_PART('doy', birthday) >= ? AND DATE_PART('doy', birthday) <= ? AND DATE_PART('year', birthday) <= ?", @start_time_doy >= @end_time_doy ? 0 : @start_time_doy, @end_time_doy, @start_time_year)
             .or(ransacked_people.where("DATE_PART('doy', birthday) >= ? AND DATE_PART('doy', birthday) <= ? AND DATE_PART('year', birthday) <= ?", @start_time_doy >= @end_time_doy ? @start_time_doy : 367, 366, @start_time_year))
         end
 
         if params[:notes]
-          ransacked_notes = policy_scope(CalendarNote).ransack(params[:q]).result(distinct: true)
+          ransacked_notes = policy_scope(CalendarNote).ransack(params[:q], auth_object: current_user).result(distinct: true)
           ransacked_notes = ransacked_notes.where(noteable: params[:person_id]) if params[:person_id]
           @notes = ransacked_notes.where("start_time >= ? AND start_time <= ?", start_time, end_time)
             .or(ransacked_notes.where("start_time <= ? AND end_time >= ?", start_time, start_time))

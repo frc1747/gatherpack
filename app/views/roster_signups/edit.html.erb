@@ -1,0 +1,36 @@
+<% breadcrumb @signup_sheet %>
+<% signup_policy = policy(@signup) %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Sign-up for <%= @signup.person.display_name %></h1>
+    <%= roster_slot_label(@signup.signup_slot) %>, <%= roster_status_label(@signup) %>
+  </div>
+  <div class="card-body">
+    <%= simple_form_for @signup, url: signup_sheet_roster_signup_path(@signup_sheet, @signup), method: :patch do |f| %>
+      <%= f.error_notification message: @signup.errors.full_messages.to_sentence if @signup.errors.any? %>
+      <%= render "details_fields", f: f %>
+      <%= link_to "Back to the roster", roster_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= f.button :submit, "Save", class: "btn btn-primary" %>
+    <% end %>
+
+    <h2 class="h5 mt-4">Move to another slot</h2>
+    <% if signup_policy.move? %>
+      <% slots = @signup_sheet.signup_slots.includes(:event, :signup_position).where.not(id: @signup.signup_slot_id)
+           .sort_by { |slot| [ slot.event.start_time, slot.signup_position.position ] } %>
+      <%= simple_form_for @signup, url: move_signup_sheet_roster_signup_path(@signup_sheet, @signup), method: :patch do |f| %>
+        <%= f.input :signup_slot_id, label: "Move to", collection: slots.map { |slot| [ roster_slot_label(slot) + (slot.disabled? ? " (off)" : ""), slot.id ] },
+              include_blank: false, selected: nil %>
+        <div class="form-check mb-3">
+          <%= check_box_tag "signup[override_rules]", "1", @override_rules, id: "signup_move_override_rules", class: "form-check-input" %>
+          <%= label_tag "signup_move_override_rules", class: "form-check-label" do %>
+            Move even though they don't meet the new position's rules
+          <% end %>
+        </div>
+        <%= f.button :submit, "Move", class: "btn btn-secondary" %>
+      <% end %>
+    <% else %>
+      <p class="text-body-secondary"><%= signup_policy.self_approval_reason %></p>
+    <% end %>
+  </div>
+</div>

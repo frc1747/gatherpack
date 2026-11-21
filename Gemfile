@@ -86,6 +86,8 @@ gem "devise", "~> 5"
 
 gem "doorkeeper"
 
+gem "mcp", "~> 1.8"
+
 gem "simple_form", "~> 5"
 
 gem "omniauth", "~> 2"

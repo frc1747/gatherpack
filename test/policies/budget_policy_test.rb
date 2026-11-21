@@ -1,18 +1,78 @@
 require "test_helper"
 
 class BudgetPolicyTest < ActiveSupport::TestCase
-  def test_scope
+  setup do
+    # Robotics (run by @manager)
+    # └── Robotics Jr
+    # Drama (unrelated)
+    @robotics = Team.create!(name: "Robotics", team_type: team_types(:one))
+    @robotics_jr = Team.create!(name: "Robotics Jr", team_type: team_types(:one), parent: @robotics)
+    @drama = Team.create!(name: "Drama", team_type: team_types(:one))
+
+    @admin_user = User.create!(email: "admin@example.com", password: "Password1!", admin: true)
+    Person.create!(user: @admin_user, first_name: "Ada", last_name: "Admin")
+
+    @manager_user = User.create!(email: "manager@example.com", password: "Password1!")
+    @manager = Person.create!(user: @manager_user, first_name: "Mary", last_name: "Manager")
+    Membership.create!(person: @manager, team: @robotics, manager: true)
+
+    @member_user = User.create!(email: "member@example.com", password: "Password1!")
+    @member = Person.create!(user: @member_user, first_name: "Jo", last_name: "Member")
+    Membership.create!(person: @member, team: @robotics)
+
+    @robotics_period = BudgetPeriod.new(name: "Robotics 2026", team: @robotics)
+    @robotics_jr_period = BudgetPeriod.new(name: "Robotics Jr 2026", team: @robotics_jr)
+    @drama_period = BudgetPeriod.new(name: "Drama 2026", team: @drama)
   end
 
-  def test_show
+  test "managers and admins may open the new budget form, plain members may not" do
+    assert BudgetPolicy.new(@admin_user, Budget).new?
+    assert BudgetPolicy.new(@manager_user, Budget).new?
+    assert_not BudgetPolicy.new(@member_user, Budget).new?
   end
 
-  def test_create
+  test "an admin may create and update budgets in any budget period" do
+    assert BudgetPolicy.new(@admin_user, Budget.new(budget_period: @drama_period)).create?
+    assert BudgetPolicy.new(@admin_user, Budget.new(budget_period: @drama_period)).update?
   end
 
-  def test_update
+  test "a manager may create and update budgets in their teams' budget periods only" do
+    [ @robotics_period, @robotics_jr_period ].each do |period|
+      assert BudgetPolicy.new(@manager_user, Budget.new(budget_period: period)).create?
+      assert BudgetPolicy.new(@manager_user, Budget.new(budget_period: period)).update?
+    end
+    assert_not BudgetPolicy.new(@manager_user, Budget.new(budget_period: @drama_period)).create?
+    assert_not BudgetPolicy.new(@manager_user, Budget.new(budget_period: @drama_period)).update?
+    assert_not BudgetPolicy.new(@manager_user, Budget.new).create?
   end
 
-  def test_destroy
+  test "a plain member may not create, update or delete a budget" do
+    assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @robotics_period)).create?
+    assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @robotics_period)).update?
+    assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @robotics_period)).destroy?
+  end
+
+  test "admins and members of the budget period's team may see a budget" do
+    robotics_budget = Budget.new(budget_period: @robotics_period)
+
+    assert BudgetPolicy.new(@admin_user, Budget.new(budget_period: @drama_period)).show?
+    assert BudgetPolicy.new(@manager_user, robotics_budget).show?
+    assert BudgetPolicy.new(@member_user, robotics_budget).show?
+    assert_not BudgetPolicy.new(@member_user, Budget.new(budget_period: @drama_period)).show?
+  end
+
+  test "show? agrees with the scope" do
+    budgets = [ @robotics_period, @robotics_jr_period, @drama_period ].map do |period|
+      period.update!(starts_at: 1.month.ago, ends_at: 1.month.from_now)
+      Budget.create!(budget_period: period, amount: 100)
+    end
+
+    [ @admin_user, @manager_user, @member_user ].each do |user|
+      visible = BudgetPolicy::Scope.new(user, Budget).resolve.where(id: budgets).to_a
+      budgets.each do |budget|
+        assert_equal visible.include?(budget), BudgetPolicy.new(user, budget).show?,
+          "scope and show? disagree for #{user.email} on #{budget.budget_period.name}"
+      end
+    end
   end
 end

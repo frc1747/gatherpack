@@ -23,6 +23,12 @@
                                                 collection: ActiveSupport::TimeZone.all.map { |zone| [ zone.to_s, zone.tzinfo.name ] },
                                                 selected: setting.value,
                                                 wrapper_html: { class: "col" } %>
+              <% when :secret %>
+                <%= f.input setting.setting_key, as: :password,
+                                                label: setting.name,
+                                                placeholder: setting.value.present? ? "Set (leave blank to keep it)" : "Not set",
+                                                input_html: { value: nil, autocomplete: "new-password" },
+                                                wrapper_html: { class: "col" } %>
               <% else %>
                 <%= f.input setting.setting_key, as: setting.setting_type,
                                                 label: setting.name,

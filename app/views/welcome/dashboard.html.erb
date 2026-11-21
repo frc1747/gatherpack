@@ -2,6 +2,8 @@
 
 <div class="row">
   <div class="col-12 col-lg-6">
+    <%= render "forms/to_complete" %>
+
     <% if @shortcuts.any? %>
       <div class="card">
         <div class="card-header">
@@ -10,7 +12,7 @@
         <div class="card-body">
           <div class="toolbox">
             <% @shortcuts.each do |shortcut| %>
-              <%= tool_button shortcut.icon, shortcut.name, "btn", shortcut.target, style: "background-color: #{shortcut.color}; color: #{contrasting_color(shortcut.color)}" %>
+              <%= tool_button shortcut.icon, shortcut.name, "btn", shortcut.safe_target? ? shortcut.target : "#", style: "background-color: #{safe_color(shortcut.color)}; color: #{contrasting_color(shortcut.color)}" %>
             <% end %>
           </div>
         </div>
@@ -29,7 +31,7 @@
               <div class="card-header">
                 <h3>
                   <% if announcement.team %>
-                    <%= link_to i(announcement.team.team_type.icon), team_path(announcement.team), class: "badge rounded-pill", style: "background-color:#{announcement.team.color};color:#{contrasting_color(announcement.team.color)}", "data-turbo": "false", title: "Posted in #{announcement.team.name}" %>
+                    <%= link_to i(announcement.team.team_type.icon), team_path(announcement.team), class: "badge rounded-pill", style: "background-color:#{safe_color(announcement.team.color)};color:#{contrasting_color(announcement.team.color)}", "data-turbo": "false", title: "Posted in #{announcement.team.name}" %>
                   <% end %>
                   <%= link_to announcement.title, announcement %>
                 </h3>

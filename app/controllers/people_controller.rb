@@ -3,14 +3,15 @@ class PeopleController < InternalController
 
   # GET /people
   def index
-    @q = policy_scope(Person).ransack(params[:q])
+    @q = policy_scope(Person).ransack(params[:q], auth_object: current_user)
     @q.sorts = "last_name asc" if @q.sorts.empty?
     @people = @q.result(distinct: true).order(last_name: :asc, first_name: :asc).page(params[:page])
   end
 
   # GET /people/1
   def show
-    @teams = policy_scope(@person.all_ancestor_teams).includes(:team_type).order('team_type.name': :asc, name: :asc)
+    @teams = @person.all_ancestor_teams.includes(:team_type).order('team_type.name': :asc, name: :asc)
+    @linkable_team_ids = policy_scope(Team).where(id: @teams.map(&:id)).ids
     @badges = policy_scope(@person.badges).order(name: :asc)
     @tokens = policy_scope(@person.tokens).order(value: :asc)
     @ledgers = policy_scope(@person.ledgers).order(name: :asc)
@@ -38,6 +39,7 @@ class PeopleController < InternalController
   # POST /people
   def create
     @person = authorize Person.new(person_params)
+    @person.assign_field_values(person_field_value_params, acting: current_user.person)
 
     if @person.save
       if @person.email
@@ -53,7 +55,9 @@ class PeopleController < InternalController
 
   # PATCH/PUT /people/1
   def update
-    if @person.update(person_params)
+    @person.assign_attributes(person_params)
+    @person.assign_field_values(person_field_value_params, acting: current_user.person)
+    if @person.save
       redirect_to @person, notice: "Person was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -68,19 +72,19 @@ class PeopleController < InternalController
 
   def impersonate
     user = @person.user
-    impersonate_user(user)
+    begin_impersonation(user)
     redirect_back_or_to root_path
   end
 
   # Always allowed: it only returns an impersonating admin to themselves.
   def stop_impersonating
     skip_authorization
-    stop_impersonating_user
+    end_impersonation("stopped")
     redirect_back_or_to root_path
   end
 
   def recent_activity
-    @upcoming_events = policy_scope(@person.events).where("start_time > ?", Time.current)
+    @upcoming_events = policy_scope(@person.events).upcoming
     @recent_punches = policy_scope(@person.time_clock_punches).order(start_time: :desc).first(10)
     @recent_notes = policy_scope(@person.calendar_notes).order(start_time: :desc).first(3)
   end
@@ -88,7 +92,21 @@ class PeopleController < InternalController
   def calendar
   end
 
+  # Totals count only the punches, events and periods the viewer may see, so
+  # the page shows no more of someone's attendance than the person page does.
   def statistics
+    punches = policy_scope(@person.time_clock_punches)
+    checkins = @person.checkins.where(event: policy_scope(Event))
+    @show_punches = @person == current_user.person || punches.exists?
+    @hours = punches.sum(&:hours)
+    @checkin_count = checkins.count
+    @periods = policy_scope(@person.current_time_clock_periods).map do |period|
+      {
+        period: period,
+        hours: punches.where(time_clock_period: period).sum(&:hours),
+        checkin_count: checkins.joins(:event).where(event: { time_clock_period: period }).count
+      }
+    end
   end
 
   def relationships
@@ -107,7 +125,10 @@ class PeopleController < InternalController
     # admin-only. Managers may also assign teams and badges, but only ones they
     # control; memberships and badges outside that are left untouched.
     def person_params
-      fields = [ :first_name, :last_name, :display_name, :gender, :shirt_size, :phone_number, :address, :birthday, :dietary_restrictions, :avatar, :bio, :email ]
+      return {} if @person&.persisted? && !policy(@person).update_profile?
+
+      # Built-in details (phone, birthday, ...) arrive as person_field_values.
+      fields = [ :first_name, :last_name, :display_name, :avatar, :bio, :email ]
       if current_user.admin?
         fields += [ :user_id, team_ids: [], badge_ids: [] ]
       elsif @person && current_user.person&.can_manage(@person)
@@ -117,13 +138,20 @@ class PeopleController < InternalController
       current_user.admin? ? permitted : limit_to_manageable(permitted)
     end
 
+    # Only the person fields this user can write; anything else is dropped.
+    def person_field_value_params
+      keys = policy(@person).writable_person_fields.map { |field| field.type_multi_select? ? { field.key => [] } : field.key }
+      values = params.dig(:person, :person_field_values)
+      values.respond_to?(:permit) ? values.permit(*keys).to_h : {}
+    end
+
     def limit_to_manageable(permitted)
       if permitted.key?(:team_ids)
         manageable = current_user.person.all_managed_teams.pluck(:id)
         permitted[:team_ids] = merge_manageable_ids(@person.team_ids, permitted[:team_ids], manageable)
       end
       if permitted.key?(:badge_ids)
-        manageable = policy_scope(Badge).select { |badge| BadgePolicy.new(current_user, badge).update? }.map(&:id)
+        manageable = policy_scope(Badge).select { |badge| BadgeAssignmentPolicy.new(current_user, BadgeAssignment.new(badge: badge, person: @person)).create? }.map(&:id)
         permitted[:badge_ids] = merge_manageable_ids(@person.badge_ids, permitted[:badge_ids], manageable)
       end
       permitted
