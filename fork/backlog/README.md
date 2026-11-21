@@ -80,6 +80,10 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-071](BL-071-screens-inventory.md) | Inventory to the standard: item and place pages with Edit, one job and More; no repeated list links; setup footer | fork-only (screens) | medium | done (feature/inventory) | 2026-11-21 |
 | [BL-072](BL-072-screens-intake.md) | Intake leader pages: breadcrumbs, Taking registrations choice instead of "Close now", action row | fork-only (screens) | low | done (feature/intake) | 2026-11-21 |
 | [BL-073](BL-073-screens-setup-only.md) | Setup-only fork screens (person fields, managed lists, housekeeping, widgets, merge, MCP log) to the standard | fork-only (screens) | low | done (setup-only branches) | 2026-11-21 |
+| [BL-074](BL-074-form-results-review-fixes.md) | Form results: totals below the table; Status and Submitted as optional columns | fork-only (screens) | high | open | 2026-11-21 |
+| [BL-075](BL-075-table-columns-and-apply.md) | Columns chooser on every fork table (prints as shown); More choices apply at once, with Show at the bottom | fork-only (screens) | high | open | 2026-11-21 |
+| [BL-076](BL-076-print-style-setting.md) | Print style as a site setting on the Theme page, used by every printed page | fork-only (feature) | high | open | 2026-11-21 |
+| [BL-077](BL-077-duplicate-everywhere.md) | Duplicate in More on sign-up sheets, events, commitments, order requests, inventory items; Copy renamed | fork-only (feature) | high | open | 2026-11-21 |
 
 ## Fields
 
