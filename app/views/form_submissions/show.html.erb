@@ -63,27 +63,26 @@
     <% if @submission.form_signatures.empty? %>
       <p class="text-muted">None.</p>
     <% else %>
-      <table class="table table-sm">
-        <thead><tr><th>Signature</th><th>Signer</th><th>Typed name</th><th>Signed</th><th>Covers this version</th><th>Status</th></tr></thead>
-        <tbody>
-          <% @submission.form_signatures.sort_by(&:signed_at).each do |signature| %>
-            <tr id="<%= dom_id signature %>">
-              <td><%= signature.form_question.label %></td>
-              <td><%= signature.signer.identifier_name %> <small class="text-muted">(<%= signature.signed_as_leader? ? "paper form recorded by a leader" : signature.signer_role.humanize.downcase %>)</small></td>
-              <td><%= signature.typed_name %></td>
-              <td><%= nice_datetime(signature.signed_at) %></td>
-              <td><%= signature.matches?(@submission) ? "Yes" : "No: changed since signing" %></td>
-              <td><%= signature.standing? ? "Standing" : "Revoked #{nice_datetime(signature.revoked_at)}: #{signature.revoked_reason}" %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Signature</th><th>Signer</th><th>Typed name</th><th>Signed</th><th>Covers this version</th><th>Status</th></tr></thead>
+          <tbody>
+            <% @submission.form_signatures.sort_by(&:signed_at).each do |signature| %>
+              <tr id="<%= dom_id signature %>">
+                <td><%= signature.form_question.label %></td>
+                <td><%= signature.signer.identifier_name %> <small class="text-muted">(<%= signature.signed_as_leader? ? "paper form recorded by a leader" : signature.signer_role.humanize.downcase %>)</small></td>
+                <td><%= signature.typed_name %></td>
+                <td><%= nice_datetime(signature.signed_at) %></td>
+                <td><%= signature.matches?(@submission) ? "Yes" : "No: changed since signing" %></td>
+                <td><%= signature.standing? ? "Standing" : "Revoked #{nice_datetime(signature.revoked_at)}: #{signature.revoked_reason}" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
       <% if @access.subject_leader? %>
         <p class="form-text">Each signature also records the address and browser it came from, and a fingerprint of exactly what was signed (<code><%= @submission.content_digest.first(12) %>…</code>).</p>
       <% end %>
     <% end %>
-  </div>
-  <div class="card-footer">
-    <%= link_to "Back", form_response_path(@form, @subject), class: "btn btn-warning" %>
   </div>
 </div>

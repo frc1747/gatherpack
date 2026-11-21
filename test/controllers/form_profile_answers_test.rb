@@ -98,7 +98,7 @@ class FormProfileAnswersTest < ActionDispatch::IntegrationTest
         patch form_question_path(@form, @question), params: { form_question: { kind: "input" } }
         assert @question.reload.input?
         assert_equal @notes, @question.person_field
-        get results_form_path(@form, format: :csv)
+        get form_path(@form, format: :csv)
         assert_not_includes response.body, NOTE
       end
 
@@ -140,8 +140,8 @@ class FormProfileAnswersTest < ActionDispatch::IntegrationTest
     with_admin_only_question do
       @question.update_columns(person_field_id: nil, profile_mode: nil, data_type: "string")
       as(:den_a_leader) do
-        [ form_response_path(@form, person(:a1)), results_form_path(@form), results_form_path(@form, format: :csv),
-          print_list_forms_path(form_id: @form.id, columns_for: @form.id, question_ids: [ @question.id ]) ].each do |path|
+        [ form_response_path(@form, person(:a1)), form_path(@form), form_path(@form, format: :csv),
+          form_path(@form, columns_for: @form.id, question_ids: [ @question.id ], layout: "labels") ].each do |path|
           get path
           assert_response :success
           assert_not_includes response.body, NOTE, path

@@ -1,8 +1,22 @@
 <% form = f.object %>
 <h2 class="h5">When people can respond</h2>
+<% if form.archived? %>
+  <div class="mb-3">
+    <div class="form-label">Taking answers</div>
+    <div class="form-control-plaintext">No: this form is archived.</div>
+  </div>
+<% else %>
+  <%= f.input :status, as: :radio_buttons, label: "Taking answers",
+        collection: [ [ "draft", "Not yet: only people who manage the form can see it" ],
+                      [ "open", "Yes, open now: it appears in My forms for the people it asks" ],
+                      [ "closed", "No, closed: people can still read their answers but can't add or change them#{" (leaders still can)" if form.late_entry_leaders?}" ] ],
+        value_method: :first, label_method: :last, full_error: false %>
+  <%# The message alone, without "Status" in front of it. %>
+  <%= f.error :status, class: "invalid-feedback d-block mt-n2 mb-3" %>
+<% end %>
 <div class="row">
-  <div class="col-md-6"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form opens itself at this time." %></div>
-  <div class="col-md-6"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form closes itself at this time." %></div>
+  <div class="col-md-6"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form starts taking answers itself at this time." %></div>
+  <div class="col-md-6"><%= f.input :closes_at, label: "Deadline", hint: "Optional. The form stops taking answers itself at this time." %></div>
 </div>
 <% if GatherPack::Features.enabled?(:forms_auto_reminders) && form.closes_at %>
   <div class="row">

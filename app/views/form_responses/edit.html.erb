@@ -2,7 +2,6 @@
 <% access = FormAccess.new(current_user.person, @subject, @form) %>
 <% submitted = @errors.any? ? (params.dig(:form_response, :answers)&.to_unsafe_h || {}) : {} %>
 <% based_on = @submission.based_on || @response.active_submission %>
-<% response_policy = policy(@response) %>
 <% writable_count = @form.answerable_questions.count { |question| access.question_writable?(question) } %>
 
 <%= simple_form_for @response, url: form_response_path(@form, @subject), method: :patch do |f| %>
@@ -101,7 +100,7 @@
       <% end %>
     </div>
     <div class="card-footer">
-      <%= link_to @submission.persisted? ? "Back" : "Cancel", @response.persisted? ? form_response_path(@form, @subject) : forms_path, class: "btn btn-warning" %>
+      <%= link_to "Cancel", @response.persisted? ? form_response_path(@form, @subject) : forms_path, class: "btn btn-secondary" %>
       <% if writable_count.positive? || @form.answerable_questions.empty? %>
         <%= f.button :submit, "Save for later", name: "save", class: "btn btn-secondary" %>
         <%= f.button :submit, "Submit", name: "submit", class: "btn btn-primary" %>
@@ -110,9 +109,3 @@
   </div>
 <% end %>
 
-<% if @response.persisted? && @submission.persisted? && response_policy.discard? %>
-  <div class="mt-2 text-end">
-    <%= button_to based_on&.active? ? "Discard this update" : "Discard this draft", discard_form_response_path(@form, @subject), class: "btn btn-sm btn-danger", form_class: "d-inline",
-          data: { turbo_confirm: based_on&.active? ? "Discard this unsubmitted update? The submitted answers stay as they are." : "Discard this unsubmitted draft?" } %>
-  </div>
-<% end %>
