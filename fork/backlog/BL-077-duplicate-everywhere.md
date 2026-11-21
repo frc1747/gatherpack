@@ -21,7 +21,7 @@ One word, one place: **Duplicate**, an item in **More** (before Archive/Restore 
 | Sign-up sheet | `feature/signups` | sheet fields, positions with their rules, audience rules, organizers; not taking sign-ups | linked events, slots, sign-ups | `SignupSheets::Duplicator`, `post :duplicate`, opens Edit |
 | Event | new `feature/event-duplicate` | type, team, name, location, description, times, check-in limit, lock, time clock period | check-ins and answers, sign-up links | `get :duplicate` renders New prefilled (as intake does), so the date is chosen before saving |
 | Commitment | `feature/commitments` | fields, badges, organizers, sources in order | adjustments | `Commitments::Duplicator`, `post :duplicate`, opens Edit |
-| Order request | `feature/orders` | team, funding source, lines (item, vendor, quantity, price, notes), as a draft by the person duplicating | approvals, watchers, purchases, history | `post :duplicate`, opens the draft; label **Duplicate** |
+| Order request | `feature/orders` | the existing "Order again" renamed Duplicate and offered on drafts too: live lines at their last price, team, title "<name> (copy)", purpose | approvals, watchers, purchases, history | the existing `order_again` action; opens the draft |
 | Inventory item | `feature/inventory` | name, category, units, reorder settings, sources, reading types | stock levels, movements, units | `post :duplicate`, opens Edit |
 
 Permission: the same as creating that thing (`new?`/`create?` on its policy), plus being able to see the original.

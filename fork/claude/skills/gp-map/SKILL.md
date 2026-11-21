@@ -86,10 +86,11 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 | Add on a list | New <thing> | `btn-success` |
 | Change a record | Edit (never "Set up", "Edit Profile") | `btn-warning` |
 | The record's job | Remind, Sign up, Approve | `btn-primary` (Approve `btn-success`, Decline `btn-danger`) |
-| Other visible actions | Download CSV, Duplicate, Copy | `btn-secondary` |
+| Other visible actions | Download CSV | `btn-secondary` |
 | Print, Clear Search | Print, Clear Search | `btn-dark` |
-| Show a filter bar's choices | Show | `btn-secondary` (`shared/_filter_bar`; hidden when `auto_submit:` applies a choice at once, kept without JavaScript; list pages' filter cards keep upstream's Search) |
+| Show a filter bar's choices | Show | `btn-secondary` (`shared/_filter_bar`; fork-spec "Tables"; list filter cards keep Search) |
 | More | More | `btn-secondary dropdown-toggle`; items `dropdown-item`, Delete `text-danger` |
+| Columns, Duplicate | Columns, Duplicate | Columns `btn-secondary dropdown-toggle`; Duplicate in More (fork-spec) |
 | Delete with no More menu | Delete | `btn-danger` |
 | Row buttons | Edit, Remove, Responses | `btn-sm btn-outline-secondary` (Remove `btn-sm btn-outline-danger`) |
 
