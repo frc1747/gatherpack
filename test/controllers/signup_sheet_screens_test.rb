@@ -233,6 +233,64 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
     assert_select "tbody tr", 1
   end
 
+  test "on a sheet with several dates and none chosen, More has Mark all brought for each date" do
+    @sheet.signup_positions.create!(name: "Dessert", kind: :items, unit: "pies", capacity: 10)
+    later = create_world_event("Second Game", Time.zone.parse("2026-10-31 10:00"))
+    @sheet.signup_sheet_events.create!(event: later)
+    sign_in person(:worker).user
+
+    get roster_signup_sheet_path(@sheet)
+    assert_select ".screen-action-row .dropdown-menu > li:not(.d-md-none)" do
+      assert_select "form[action=?][data-turbo-confirm=?] button", mark_all_brought_signup_sheet_roster_signups_path(@sheet, event_id: @event.id),
+        "Mark every item sign-up on Sat Oct 24 brought? Your own and your family's are left for another organizer to mark.",
+        text: "Mark all brought: Oct 24"
+      assert_select "form[action=?] button", mark_all_brought_signup_sheet_roster_signups_path(@sheet, event_id: later.id), text: "Mark all brought: Oct 31"
+    end
+
+    get roster_signup_sheet_path(@sheet, event_id: later.id)
+    assert_select ".screen-action-row .dropdown-menu button", text: /Mark all brought/, count: 1
+    assert_select ".screen-action-row form[action=?] button", mark_all_brought_signup_sheet_roster_signups_path(@sheet, event_id: later.id),
+      text: "Mark all brought"
+  end
+
+  test "people who run sheets can list their archived sheets, to open and restore them" do
+    archived = create_world_sheet("Last Season", status: :archived, created_by: person(:worker))
+    sign_in person(:worker).user
+
+    get signup_sheets_path
+    assert_select "select[name=archived]"
+    assert_select "a", text: "Last Season", count: 0
+
+    get signup_sheets_path(archived: "1")
+    assert_select "tbody tr", 1
+    assert_select "tr##{ActionView::RecordIdentifier.dom_id(archived)}" do
+      assert_select "a[href=?]", signup_sheet_path(archived), text: "Last Season"
+      assert_select "td", text: "Archived"
+    end
+
+    get signup_sheet_path(archived)
+    assert_select "form[action=?]", restore_signup_sheet_path(archived)
+  end
+
+  test "a member gets no Archived choice and never sees archived sheets in the list" do
+    create_world_sheet("Last Season", status: :archived, created_by: person(:worker))
+    sign_in person(:student).user
+
+    get signup_sheets_path(archived: "1")
+    assert_select "select[name=archived]", count: 0
+    assert_select "a", text: "Last Season", count: 0
+    assert_select "a", text: "Snack Stand"
+  end
+
+  test "the Team filter offers only teams of sheets in the list" do
+    create_world_sheet("Closed Sale", team: @students, status: :closed)
+    sign_in person(:student).user
+
+    get signup_sheets_path
+    assert_select "select[name='q[team_id_eq]'] option", text: "Club"
+    assert_select "select[name='q[team_id_eq]'] option", text: "Students", count: 0
+  end
+
   test "the roster filters by status with counts, prints, and has no Set up" do
     Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
     sign_in person(:worker).user

@@ -11,14 +11,25 @@ class SignupSheetsController < InternalController
 
   # GET /signup_sheets
   # Open sheets, plus any the person runs; those with their sign-ups first,
-  # then by next date. Filtered by title and team (params[:q]).
+  # then by next date. Filtered by title and team (params[:q]). Archived
+  # sheets are left out; people who run sheets can list the archived ones
+  # they run instead (params[:archived]), to open and restore them.
   def index
     authorize SignupSheet
     person = current_user.person
-    @q = policy_scope(SignupSheet).visible.ransack(params[:q])
-    sheets = @q.result.includes(:team).to_a
-    @organized_ids = sheets.select { |sheet| sheet.organizer?(person) }.map(&:id)
-    @signup_sheets = sheets.select { |sheet| sheet.open? || @organized_ids.include?(sheet.id) }
+    sheets = policy_scope(SignupSheet).includes(:team).to_a
+    organized = sheets.select { |sheet| sheet.organizer?(person) }
+    @organized_ids = organized.map(&:id)
+    @runs_sheets = organized.any? || policy(SignupSheet).new?
+    @archived = @runs_sheets && params[:archived] == "1"
+    listed = if @archived
+      organized.select(&:archived?)
+    else
+      sheets.select { |sheet| !sheet.archived? && (sheet.open? || @organized_ids.include?(sheet.id)) }
+    end
+    @team_choices = listed.map(&:team).uniq.sort_by(&:name)
+    @q = SignupSheet.where(id: listed.map(&:id)).ransack(params[:q])
+    @signup_sheets = @q.result.includes(:team).to_a
 
     ids = @signup_sheets.map(&:id)
     @my_counts = signups_involving(Signup.live, person).joins(signup_slot: :signup_position)

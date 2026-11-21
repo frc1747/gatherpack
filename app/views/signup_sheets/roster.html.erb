@@ -1,13 +1,14 @@
 <% breadcrumb :signup_sheet_roster, @signup_sheet %>
 <% event_choices = @events.map { |event| [ "#{event.start_time.strftime("%b %-d")} #{event.name}", event.id ] } %>
-<%# Mark all brought works on one date: the one the roster shows, or the only one. %>
-<% brought_event = params[:event_id].present? ? @events.find { |event| event.id == params[:event_id] } : (@events.first if @events.one?) %>
-<% offer_brought = !@signup_sheet.archived? && brought_event.present? && @positions.any?(&:items?) %>
-<% if offer_brought %>
-  <% brought_path = mark_all_brought_signup_sheet_roster_signups_path(@signup_sheet, event_id: brought_event.id) %>
-  <% brought_confirm = "Mark every item sign-up on #{brought_event.start_time.strftime("%a %b %-d")} brought? " \
-       "Your own and your family's are left for another organizer to mark." %>
-<% end %>
+<%# Mark all brought, in More: for the date the roster shows, or one item per date. %>
+<% brought_events = params[:event_id].present? ? @events.select { |event| event.id == params[:event_id] } : @events.to_a %>
+<% brought_events = [] if @signup_sheet.archived? || @positions.none?(&:items?) %>
+<% brought_actions = brought_events.map do |event|
+     screen_action(brought_events.one? ? "Mark all brought" : "Mark all brought: #{event.start_time.strftime("%b %-d")}",
+       mark_all_brought_signup_sheet_roster_signups_path(@signup_sheet, event_id: event.id), method: :patch, more: true,
+       confirm: "Mark every item sign-up on #{event.start_time.strftime("%a %b %-d")} brought? " \
+         "Your own and your family's are left for another organizer to mark.")
+   end %>
 <% filter_fields = capture do %>
   <div>
     <%= label_tag :event_id, "Date", class: "form-label" %>
@@ -63,7 +64,6 @@
   </div>
   <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
         screen_action("Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), style: :success, visible: !@signup_sheet.archived?),
-        screen_action("Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id])),
-        screen_action("Mark all brought", brought_path, method: :patch, visible: offer_brought, confirm: brought_confirm, more: true)
-      ] %>
+        screen_action("Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id]))
+      ] + brought_actions %>
 </div>

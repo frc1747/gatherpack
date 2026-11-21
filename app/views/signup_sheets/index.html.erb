@@ -11,9 +11,15 @@
         <%= f.input :title_cont, label: "Sheet", required: false %>
       </div>
       <div class="col-md">
-        <%= f.input :team_id_eq, label: "Team", as: :select, required: false,
-              collection: Team.where(id: policy_scope(SignupSheet).visible.select(:team_id)).order(:name) %>
+        <%= f.input :team_id_eq, label: "Team", as: :select, required: false, collection: @team_choices %>
       </div>
+      <% if @runs_sheets %>
+        <div class="col-md mb-3">
+          <%= label_tag :archived, "Which sheets", class: "form-label" %>
+          <%= select_tag :archived, options_for_select([ [ "Current sheets", "" ], [ "Archived sheets you run", "1" ] ], @archived ? "1" : ""),
+                class: "form-select" %>
+        </div>
+      <% end %>
     </div>
   </div>
   <div class="card-footer">
@@ -45,7 +51,7 @@
           </table>
         </div>
       <% else %>
-        <%= render "shared/empty_state", text: "No sign-up sheets for you right now." %>
+        <%= render "shared/empty_state", text: @archived ? "No archived sheets." : "No sign-up sheets for you right now." %>
       <% end %>
     </div>
   </div>
