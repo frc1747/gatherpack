@@ -39,7 +39,7 @@
       </div>
       <div class="card-footer">
         <%= render "change_choice", form: @form if @tab == "details" %>
-        <%= link_to "Back", form_path(@form), class: "btn btn-warning" %>
+        <%= link_to "Cancel", form_path(@form), class: "btn btn-secondary" %>
         <%= f.button :submit, "Save", class: "btn btn-primary" %>
       </div>
     </div>

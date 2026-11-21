@@ -64,7 +64,7 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
         assert_select "td", text: "ParentA1 World"
         assert_select "div", text: /I give permission/
 
-        get results_form_path(@form)
+        get form_path(@form)
         assert_select "td", text: /ParentA1 World/
       end
     end
@@ -233,7 +233,7 @@ class FormConsentFlowTest < ActionDispatch::IntegrationTest
         assert_select "small", text: /Waiting for a guardian/
         assert_select "a", text: /No longer asked \(1\)/
         get tally_form_path(@form)
-        assert_response :success
+        assert_redirected_to form_path(@form), "people who see the answers get the totals on the form page"
         get preview_form_path(@form, preview: { viewer_id: person(:parent_a1).id, subject_id: person(:a1).id })
         assert_select "td", text: /Can sign \(guardian\)/
       end

@@ -1,44 +1,145 @@
 <% breadcrumb :form, @form %>
-<% manage = policy(@form).manage? %>
+<% form_policy = policy(@form) %>
+<% manage = form_policy.manage? %>
 <% counts = @report.status_counts %>
+<% tallied = @report.questions.select { |question| form_tallyable?(question) } %>
+<% more_open = @version == :latest || @options.key?(:columns_for) || @selected_fields.any? || @population.source == "answered" %>
 
-<div class="card">
+<div class="card" data-controller="form-results" data-form-results-hidden-value="<%= @totals_hidden %>">
   <div class="card-header">
-    <h1><%= @form.title %> <%= form_state_badge(@form) %></h1>
+    <h1><%= @form.title %></h1>
     <div class="text-muted">
       <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge && Form.badges_enabled? %>, <%= @form.audience_badge.name %> badge holders only<% end %>
       <% if @form.event %>· For <%= GatherPack::Features.enabled?(:events) ? link_to(@form.event.name, event_path(@form.event)) : @form.event.name %><% end %>
-      · <%= form_due(@form) %>
+      <% if @form.closes_at %>· Due <%= nice_datetime(@form.closes_at) %><% end %>
       <% if @form.completion_badge && Form.badges_enabled? %>· Completion badge: <%= @form.completion_badge.name %><% end %>
     </div>
+    <% setting = manage && (@form.draft? || @form.closed?) %>
+    <%= render "state_line", text: form_taking_answers(@form),
+          link_text: ("Start taking answers" if setting), link_path: (edit_form_path(@form, tab: "responses") if setting) %>
   </div>
   <div class="card-body">
     <% if @form.description.present? %>
-      <div class="mb-3"><%= form_markdown(@form.description) %></div>
+      <div class="mb-3 no-print"><%= form_markdown(@form.description) %></div>
     <% end %>
 
-    <%= render "team_filter", teams: @teams, team: @team, url: form_path(@form), keep: { status: @status } %>
-
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <%= link_to "All (#{@report.rows.size})", form_path(@form, team_id: @team&.id), class: "btn btn-sm #{@status ? "btn-outline-secondary" : "btn-secondary"}" %>
-      <% FormReport::STATUSES.each do |status| %>
-        <% next if counts[status].zero? %>
-        <%= link_to "#{FormsHelper::STATUS_LABELS.fetch(status)} (#{counts[status]})", form_path(@form, team_id: @team&.id, status: status),
-              class: "btn btn-sm #{@status == status ? "btn-secondary" : "btn-outline-secondary"}" %>
+    <% if tallied.any? %>
+      <div class="d-flex justify-content-end no-print">
+        <%= link_to @totals_hidden ? "Show totals" : "Hide totals", form_path(@form, @options.merge(totals: @totals_hidden ? nil : "hidden").compact_blank),
+              class: "small", data: { form_results_target: "toggle", action: "form-results#toggleTotals" } %>
+      </div>
+      <%= tag.div id: "totals", hidden: @totals_hidden, data: { form_results_target: "totals" } do %>
+        <h2 class="h5">Totals</h2>
+        <%= render "totals", report: @report, questions: tallied, rows: @rows %>
       <% end %>
-    </div>
+    <% end %>
 
-    <% rows = @status ? @report.rows.select { |row| row.status == @status } : @report.rows %>
-    <% if rows.empty? %>
+    <%= form_with url: form_path(@form), method: :get, class: "no-print", id: "form-options" do %>
+      <%= hidden_field_tag :status, @status, id: nil if @status %>
+      <%= hidden_field_tag :totals, "hidden", id: nil if @totals_hidden %>
+      <% if @teams.size > 1 %>
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-auto">
+            <%= label_tag :team_id, "Team", class: "form-label" %>
+            <%= select_tag :team_id, options_from_collection_for_select(@teams, :id, :name, @team&.id), include_blank: "All of #{@teams.first.name}", class: "form-select" %>
+          </div>
+          <div class="col-auto"><%= submit_tag "Show", class: "btn btn-secondary", name: nil %></div>
+        </div>
+      <% end %>
+
+      <div class="d-flex flex-wrap gap-2 mb-2" id="status-filter">
+        <%= link_to "All (#{@report.rows.size})", form_path(@form, @options.except(:status)), class: "btn btn-sm #{@status ? "btn-outline-secondary" : "btn-secondary"}" %>
+        <% FormReport::STATUSES.each do |status| %>
+          <% next if counts[status].zero? %>
+          <%= link_to "#{FormsHelper::STATUS_LABELS.fetch(status)} (#{counts[status]})", form_path(@form, @options.merge(status: status)),
+                class: "btn btn-sm #{@status == status ? "btn-secondary" : "btn-outline-secondary"}" %>
+        <% end %>
+      </div>
+
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <details id="more-choices" <%= "open" if more_open %>>
+          <summary>More choices</summary>
+          <div class="border rounded p-3 mt-2">
+            <h2 class="h6">Show</h2>
+            <div class="mb-3">
+              <div class="form-check">
+                <%= radio_button_tag :version, "active", @version == :active, class: "form-check-input" %>
+                <%= label_tag :version_active, "Active (submitted)", class: "form-check-label" %>
+              </div>
+              <div class="form-check">
+                <%= radio_button_tag :version, "latest", @version == :latest, class: "form-check-input" %>
+                <%= label_tag :version_latest, "Latest, including updates in progress", class: "form-check-label" %>
+              </div>
+            </div>
+
+            <h2 class="h6">Columns</h2>
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <div class="form-label">Answers</div>
+                <%= hidden_field_tag :columns_for, @form.id %>
+                <%= render "forms/tick_list", groups: [ [ nil, @report.questions.map { |question| { name: "question_ids[]", value: question.id, id: "question_ids_#{question.id}", label: question.label, checked: @questions.include?(question) } } ] ] %>
+                <% if @report.questions.empty? %><div class="form-text">This form has no questions to show.</div><% end %>
+              </div>
+              <% if @profile_fields.any? %>
+                <div class="col-md-6">
+                  <div class="form-label">Profile details</div>
+                  <% field_groups = @profile_fields.group_by(&:person_field_group).map do |group, fields|
+                       [ group&.name, fields.map { |field| { name: "field_ids[]", value: field.id, id: "field_ids_#{field.id}", label: field.name, checked: @selected_fields.include?(field) } } ]
+                     end %>
+                  <%= render "forms/tick_list", groups: field_groups %>
+                </div>
+              <% end %>
+            </div>
+
+            <h2 class="h6">Who to include</h2>
+            <div class="mb-3"><%= render "population_fields", population: @population, forms: @source_forms %></div>
+            <% if @population.ready? %>
+              <% if @population.hidden_count.positive? %>
+                <p class="text-muted">Not included: <%= pluralize(@population.hidden_count, "person", plural: "people") %> whose answer to "<%= @population.question.label %>" you can't see.</p>
+              <% end %>
+            <% else %>
+              <p class="text-warning-emphasis"><%= @population.missing %></p>
+            <% end %>
+
+            <%= submit_tag "Show", class: "btn btn-secondary", name: nil %>
+          </div>
+        </details>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto" id="table-actions">
+          <div class="form-check form-check-inline mb-0">
+            <%= radio_button_tag :layout, "list", @layout == "list", class: "form-check-input", data: { action: "form-results#chooseLayout" } %>
+            <%= label_tag :layout_list, "Table", class: "form-check-label" %>
+          </div>
+          <div class="form-check form-check-inline mb-0">
+            <%= radio_button_tag :layout, "labels", @layout == "labels", class: "form-check-input", data: { action: "form-results#chooseLayout" } %>
+            <%= label_tag :layout_labels, "Labels", class: "form-check-label" %>
+          </div>
+          <button type="button" class="btn btn-dark" data-action="form-results#print">Print</button>
+          <%= link_to "Download CSV", form_path(@form, @options.except(:layout, :totals).merge(format: :csv)), class: "btn btn-secondary" %>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @population.source == "answered" && @population.ready? %>
+      <p>People: <%= @population.description %></p>
+    <% end %>
+
+    <% if @rows.empty? %>
       <p class="text-muted">Nobody here.</p>
     <% else %>
-      <div class="table-responsive">
-        <table class="table table-striped align-middle">
+      <%= tag.div class: [ "table-responsive", ("d-print-none" if @layout == "labels") ], id: "responses", data: { form_results_target: "table" } do %>
+        <table class="table table-striped table-sm align-middle">
           <thead>
-            <tr><th>Person</th><th>Status</th><th>Version</th><th>Submitted</th><th>Last reminded</th></tr>
+            <tr>
+              <th>Person</th>
+              <th>Status</th>
+              <th>Submitted</th>
+              <% @questions.each do |question| %><th><%= question.label %></th><% end %>
+              <% @selected_fields.each do |field| %><th class="table-info"><%= field.name %></th><% end %>
+            </tr>
           </thead>
           <tbody>
-            <% rows.each do |row| %>
+            <% @rows.each do |row| %>
               <tr id="<%= dom_id row.person %>">
                 <td><%= link_to row.person.identifier_name, form_response_path(@form, row.person) %></td>
                 <td>
@@ -48,41 +149,78 @@
                   <% if row.response_status == "waiting" && (pending = row.response.open_submission) %>
                     <br><small class="text-muted">Waiting for <%= pending.waiting_for.to_sentence %></small>
                   <% end %>
+                  <% if row.response&.last_reminded_at %>
+                    <br><small class="text-muted">Reminded <%= nice_date(row.response.last_reminded_at) %></small>
+                  <% end %>
                 </td>
-                <td><%= row.submission ? "##{row.submission.number}" : "—" %></td>
-                <td><%= row.submission&.submitted_at ? "#{nice_datetime(row.submission.submitted_at)} by #{row.submission.submitted_by&.identifier_name}" : "—" %></td>
-                <td><%= row.response&.last_reminded_at ? nice_datetime(row.response.last_reminded_at) : "—" %></td>
+                <td>
+                  <% if (submission = row.submission) %>
+                    #<%= submission.number %><% if submission.submitted_at %> · <%= nice_date(submission.submitted_at) %><%= " by #{submission.submitted_by.identifier_name}" if submission.submitted_by %><% end %>
+                    <% unless submission.active? %><span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(submission.status) %></span><% end %>
+                    <% if submission.submitted_at && submission.form_version < @form.content_version %>
+                      <span class="badge text-bg-light" title="The form has changed since">Form version <%= submission.form_version %></span>
+                    <% end %>
+                    <% if @form.signature_questions.any? && (signed = form_signed_summary(submission)).present? %>
+                      <br><small class="text-muted">Signed: <%= signed %></small>
+                    <% end %>
+                  <% else %>
+                    —
+                  <% end %>
+                </td>
+                <% @questions.each do |question| %>
+                  <td>
+                    <% if @report.readable?(row, question) %>
+                      <%= form_answer_display(question, @report.answer(row, question)) if row.submission %>
+                      <% if @report.changed_since_signed?(row, question) %>
+                        <span class="badge text-bg-warning" title="Profile now: <%= form_csv_value(row.person.field_value(question.person_field)) %>">Profile changed</span>
+                      <% end %>
+                    <% else %>
+                      <span class="text-muted" title="You can't see this answer">·</span>
+                    <% end %>
+                  </td>
+                <% end %>
+                <% @selected_fields.each do |field| %>
+                  <td class="table-info"><%= row.access.field_access.readable?(field) ? person_field_display(field, row.person.field_value(field)) : "·" %></td>
+                <% end %>
               </tr>
             <% end %>
           </tbody>
         </table>
-      </div>
-    <% end %>
-  </div>
-  <div class="card-footer">
-    <%= link_to "Results", results_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
-    <%= link_to "Tally", tally_form_path(@form, team_id: @team&.id), class: "btn btn-primary" %>
-    <%= link_to "Printable list", print_list_forms_path(form_id: @form.id, event_id: @form.event_id), class: "btn btn-primary" %>
-    <% if manage %>
-      <%= link_to "Edit", edit_form_path(@form), class: "btn btn-secondary" %>
-      <%= link_to "Preview as…", preview_form_path(@form), class: "btn btn-secondary" %>
-      <% if @form.draft? || @form.closed? %>
-        <%= button_to "Open", open_form_path(@form), class: "btn btn-success", form_class: "d-inline" %>
       <% end %>
-      <% if @form.open? %>
-        <%= button_to "Close", close_form_path(@form), class: "btn btn-dark", form_class: "d-inline", data: { turbo_confirm: "Close this form? People won't be able to respond#{@form.late_entry_leaders? ? " (leaders still can)" : ""}." } %>
-        <% waiting = @report.rows.count { |row| !%w[ complete no_longer_asked ].include?(row.status) } %>
-        <% if waiting.positive? %>
-          <%= link_to "Remind (#{waiting})", reminder_form_path(@form, team_id: @team&.id), class: "btn btn-warning" %>
+
+      <%= tag.div class: [ "row g-2 d-none", ("d-print-flex" if @layout == "labels") ], id: "labels", data: { form_results_target: "labels" } do %>
+        <% @rows.each do |row| %>
+          <div class="col-6 col-lg-4">
+            <div class="border rounded p-2 h-100" style="page-break-inside: avoid;">
+              <div class="fw-bold"><%= row.person.identifier_name %></div>
+              <% @questions.each do |question| %>
+                <% value = @report.answer(row, question) %>
+                <% next if value.blank? %>
+                <div><small class="text-muted"><%= question.label %>:</small> <%= form_csv_value(value) %></div>
+              <% end %>
+              <% @selected_fields.each do |field| %>
+                <% value = @report.profile(row, field) %>
+                <% next if value.blank? %>
+                <div><small class="text-muted"><%= field.name %>:</small> <%= form_csv_value(value) %></div>
+              <% end %>
+            </div>
+          </div>
         <% end %>
       <% end %>
-      <%= button_to "Duplicate", duplicate_form_path(@form), class: "btn btn-secondary", form_class: "d-inline" %>
-      <% unless @form.archived? %>
-        <%= button_to "Archive", archive_form_path(@form), class: "btn btn-outline-dark", form_class: "d-inline", data: { turbo_confirm: "Archive this form? It's hidden from lists; responses are kept." } %>
-      <% end %>
-      <% if policy(@form).destroy? %>
-        <%= button_to "Delete", form_path(@form), method: :delete, class: "btn btn-danger", form_class: "d-inline", data: { turbo_confirm: "Delete this form? It has no submitted responses." } %>
-      <% end %>
+    <% end %>
+  </div>
+  <div class="card-footer no-print">
+    <% if manage %>
+      <% waiting = @remind_report.rows.count { |row| !%w[ complete no_longer_asked ].include?(row.status) } %>
+      <% actions = [
+           { label: "Edit", path: edit_form_path(@form), style: :warning, in_row: true },
+           ({ label: "Remind (#{waiting})", path: reminder_form_path(@form, team_id: @team&.id), style: :primary, in_row: true } if @form.open? && waiting.positive?),
+           { label: "Preview as…", path: preview_form_path(@form) },
+           { label: "Duplicate", path: duplicate_form_path(@form), method: :post },
+           ({ label: "Archive", path: archive_form_path(@form), method: :post, lifecycle: true, confirm: "Archive this form? It's hidden from lists; responses are kept." } unless @form.archived?),
+           ({ label: "Delete", path: form_path(@form), method: :delete, destructive: true, confirm: "Delete this form? It has no submitted responses." } if form_policy.destroy?)
+         ].compact %>
+      <%= render "actions", actions: actions %>
     <% end %>
     <% if (last = @form.form_reminders.order(:sent_at).last) %>
       <div class="form-text mt-2">Last reminder: <%= nice_datetime(last.sent_at) %> to <%= pluralize(last.recipient_count, "person", plural: "people") %><%= form_reminder_guardian_note(last) %><%= " by #{last.sent_by.identifier_name}" if last.sent_by %>.</div>

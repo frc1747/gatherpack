@@ -186,6 +186,16 @@ module FormsHelper
     tag.span(form.status.humanize, class: "badge #{classes.fetch(form.status)}")
   end
 
+  # Whether the form takes answers, in words, for the form page's header.
+  def form_taking_answers(form)
+    case form.status
+    when "draft" then "Not taking answers yet"
+    when "open" then form.closes_at ? "Taking answers until #{nice_date(form.closes_at)}" : "Taking answers"
+    when "closed" then form.closes_at&.past? ? "Closed #{nice_date(form.closes_at)}" : "Closed"
+    else "Archived"
+    end
+  end
+
   def form_due(form)
     return "No deadline" unless form.closes_at
     form.open? ? "Due #{nice_datetime(form.closes_at)}" : "Closed #{nice_datetime(form.closes_at)}"
@@ -359,12 +369,12 @@ module FormsHelper
     end.join("; ")
   end
 
-  def form_results_csv(report, fields)
+  # questions: and rows: narrow it to the columns and people on screen.
+  def form_results_csv(report, fields, questions: report.questions, rows: report.rows)
     require "csv"
-    questions = report.questions
     CSV.generate do |csv|
       csv << form_csv_row([ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name))
-      report.rows.each do |row|
+      rows.each do |row|
         submission = row.submission
         signatures = submission ? submission.standing_signatures.sort_by(&:signed_at) : []
         csv << form_csv_row([ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,

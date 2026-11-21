@@ -25,12 +25,41 @@ class FormsController < InternalController
       .order(Arel.sql("status = 1 DESC"), :title).select { |form| policy(form).show? }
   end
 
-  # GET /forms/1
+  # GET /forms/1?team_id=&status=&version=&who=&question_id=&answers[question_id][]=&columns_for=&question_ids[]=&field_ids[]=&layout=&totals=
+  # Everyone the form asks (or the people chosen under "Who to include",
+  # FormPopulation), with their status, answers and the totals, as a table,
+  # labels or CSV.
   def show
+    viewer = current_user.person
     @teams = helpers.form_team_choices(@form)
     @team = @teams.detect { |team| team.id == params[:team_id] }
-    @report = FormReport.new(@form, viewer: current_user.person, team: @team)
     @status = FormReport::STATUSES.include?(params[:status]) ? params[:status] : nil
+    @version = params[:version] == "latest" ? :latest : :active
+    @layout = params[:layout] == "labels" ? "labels" : "list"
+    @totals_hidden = params[:totals] == "hidden"
+
+    load_population_choices
+    @population = FormPopulation.from_params(params, viewer: viewer, form: @form, forms: @source_forms, events: policy_scope(Event))
+    only = @population.ids if @population.source == "answered"
+    @report = FormReport.new(@form, viewer: viewer, team: @team, version: @version, only: only)
+    # Remind always covers everyone asked in the team, as its page does.
+    @remind_report = only ? FormReport.new(@form, viewer: viewer, team: @team) : @report
+    @rows = @status ? @report.rows.select { |row| row.status == @status } : @report.rows
+
+    # Every question and no profile details, until the column tick boxes
+    # for this form are sent. Profile columns from an old results link count.
+    @questions = @report.questions
+    @questions = @questions.select { |question| Array(params[:question_ids]).include?(question.id) } if params[:columns_for] == @form.id
+    @profile_fields = helpers.form_profile_field_choices(viewer)
+    @selected_fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
+    @options = show_options
+
+    respond_to do |format|
+      format.html
+      format.csv do
+        send_data helpers.form_results_csv(@report, @selected_fields, questions: @questions, rows: @rows), filename: "#{@form.key}-#{Date.current.iso8601}.csv", type: "text/csv"
+      end
+    end
   end
 
   # GET /forms/new
@@ -44,6 +73,8 @@ class FormsController < InternalController
   end
 
   EDIT_TABS = %w[ details questions audience permissions responses ].freeze
+  # The "Taking answers" choices on the Responses tab.
+  TAKING_ANSWERS = %w[ draft open closed ].freeze
 
   # GET /forms/1/edit?tab=questions
   def edit
@@ -70,7 +101,7 @@ class FormsController < InternalController
     form_policy = policy(@form)
     # A form run only by its creator stays an event form of one of their teams.
     allowed = form_policy.creator_only? ? form_policy.create? : form_policy.manage?
-    if allowed && @form.save
+    if allowed && @form.valid? && openable_if_opening? && @form.save
       notice = "Form was saved."
       notice += helpers.form_published_notice(params[:reconfirm] == "1") if @form.publish_changes!(reconfirm: params[:reconfirm] == "1")
       redirect_to edit_form_path(@form, tab: @tab), notice: notice, status: :see_other
@@ -151,68 +182,29 @@ class FormsController < InternalController
   end
 
   # GET /forms/1/results
+  # The form page shows the answers now; old links land there.
   def results
-    @teams = helpers.form_team_choices(@form)
-    @team = @teams.detect { |team| team.id == params[:team_id] }
-    @version = params[:version] == "latest" ? :latest : :active
-    @report = FormReport.new(@form, viewer: current_user.person, team: @team, version: @version)
-    @profile_fields = helpers.form_profile_field_choices(current_user.person)
-    @selected_fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
-
-    respond_to do |format|
-      format.html
-      format.csv do
-        send_data helpers.form_results_csv(@report, @selected_fields), filename: "#{@form.key}-#{Date.current.iso8601}.csv", type: "text/csv"
-      end
-    end
+    redirect_to form_path(@form, format: (:csv if request.format.csv?), params: request.query_parameters)
   end
 
   # GET /forms/1/tally
-  # Counts everyone the form asks by default, or the people chosen as on the
-  # printable list (FormPopulation).
+  # The totals are on the form page. People the form only shares its totals
+  # with get them here: everyone asked, no names, no filters.
   def tally
-    unless policy(@form).show?
-      # Shared totals only: everyone asked, no names, no filters.
-      @shared = true
-      @report = FormReport.new(@form, viewer: current_user.person, shared_totals: true)
-      @questions = @report.questions
-      return
-    end
+    return redirect_to form_path(@form, params: request.query_parameters) if policy(@form).show?
 
-    load_population_choices
-    @population = FormPopulation.from_params(params, viewer: current_user.person, form: @form, forms: @source_forms, events: policy_scope(Event))
-    @report = if @population.source == "asked"
-      FormReport.new(@form, viewer: current_user.person, team: @population.team)
-    else
-      FormReport.new(@form, viewer: current_user.person, only: @population.ids)
-    end
-    @questions = @report.questions.select { |question| helpers.form_tallyable?(question) }
+    @report = FormReport.new(@form, viewer: current_user.person, shared_totals: true)
+    @questions = @report.questions
   end
 
-  # GET /forms/print_list?form_id=&who=&team_id=&question_id=&answers[question_id][]=&question_ids[]=&field_ids[]=
-  # People (FormPopulation) with one form's answers.
+  # GET /forms/print_list?form_id=&event_id=
+  # Picks a form, then sends you to its page, where the list is printed.
   def print_list
     authorize Form, :index?
-    viewer = current_user.person
     load_population_choices
     @forms = @source_forms
-    @form = @forms.detect { |form| form.id == params[:form_id] }
-    @layout = params[:layout] == "labels" ? "labels" : "list"
-    @population = FormPopulation.from_params(params, viewer: viewer, form: @form, forms: @source_forms, events: policy_scope(Event))
-    return unless @form
-
-    @choices = @form.answerable_questions.reject(&:intent?)
-    @profile_fields = helpers.form_profile_field_choices(viewer)
-    # Columns ticked for another form (before "Answers from" changed) don't
-    # carry over; the new form starts from its choice and yes/no questions.
-    if params[:columns_for] == @form.id
-      questions = @choices.select { |question| Array(params[:question_ids]).include?(question.id) }
-      fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
-    else
-      questions = @choices.select { |question| %w[ select multi_select boolean ].include?(question.value_type.data_type) }
-      fields = []
-    end
-    @list = FormPrintList.new(form: @form, viewer: viewer, source: @population, questions: questions, fields: fields)
+    form = @forms.detect { |candidate| candidate.id == params[:form_id] }
+    redirect_to form_path(form, params: request.query_parameters.except("form_id")) if form
   end
 
   # GET /forms/1/preview
@@ -224,6 +216,22 @@ class FormsController < InternalController
   end
 
   private
+    # The page's current choices, for links that change one of them.
+    def show_options
+      columns = { columns_for: @form.id, question_ids: @questions.map(&:id) } if params[:columns_for] == @form.id
+      population = { who: "answered", question_form_id: @population.question&.form_id, question_id: @population.question&.id,
+        answers: @population.question && { @population.question.id => @population.answers } } if @population.source == "answered"
+      { team_id: @team&.id, status: @status, version: (@version == :latest ? "latest" : nil), field_ids: @selected_fields.map(&:id),
+        layout: (@layout == "labels" ? "labels" : nil), totals: (@totals_hidden ? "hidden" : nil) }.merge(columns || {}, population || {}).compact_blank
+    end
+
+    # Choosing "Yes, open now" needs someone to ask, as Open did.
+    def openable_if_opening?
+      return true unless @form.will_save_change_to_status? && @form.open? && !@form.openable?
+      @form.errors.add(:status, "Add someone to ask before opening the form.")
+      false
+    end
+
     def load_population_choices
       @source_forms = Form.where(status: %i[ open closed ]).includes(:team, :event, :form_questions).order(:title).select { |form| policy(form).show? }
     end
@@ -258,6 +266,9 @@ class FormsController < InternalController
       permitted << :completion_badge_id if current_user.admin? && badges
       permitted.delete(:audience_badge_id) unless badges
       permitted << :key if @form.nil? || @form.new_record?
+      # Taking answers, on the Responses tab. Archiving is its own action,
+      # and an archived form isn't reopened from here.
+      permitted << :status if @form&.persisted? && !@form.archived? && TAKING_ANSWERS.include?(params.dig(:form, :status))
       # Who is asked and who may answer decide who gets a completion badge
       # (FormPolicy#change_audience?).
       permitted -= [ :respond_permission, :audience_badge_id ] if @form&.persisted? && policy(@form).audience_locked?

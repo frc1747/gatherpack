@@ -29,10 +29,7 @@
                     <%= counts.reject { |status, count| count.zero? || status == "no_longer_asked" }.map { |status, count| "#{FormsHelper::STATUS_LABELS.fetch(status)}: #{count}" }.join(" · ") %>
                   </small>
                 </span>
-                <span>
-                  <%= link_to "Results", results_form_path(form), class: "btn btn-sm btn-outline-primary" %>
-                  <%= link_to "Tally", tally_form_path(form), class: "btn btn-sm btn-outline-primary" %>
-                </span>
+                <%= link_to "Responses", form_path(form), class: "btn btn-sm btn-outline-secondary" %>
               </div>
             <% else %>
               <% subjects.each do |subject| %>
@@ -77,7 +74,7 @@
         <% if managed.any? %>
           <%# Answers from the event's first form with something to show besides "Are you coming?"; people start from who said Yes. %>
           <% answers_form = managed.detect { |form| form.answerable_questions.any? { |question| !question.intent? } } || managed.first %>
-          <%= link_to "Printable list for this event", print_list_forms_path(event_id: event.id, form_id: answers_form.id), class: "btn btn-sm btn-secondary" %>
+          <%= link_to "Printable list for this event", form_path(answers_form, event_id: event.id), class: "btn btn-sm btn-secondary" %>
         <% end %>
         <% if can_add %>
           <%= link_to "New form for this event", new_form_path(event_id: event.id), class: "btn btn-sm btn-outline-secondary" %>
