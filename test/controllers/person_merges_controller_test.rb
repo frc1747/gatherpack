@@ -43,6 +43,20 @@ class PersonMergesControllerTest < ActionDispatch::IntegrationTest
     assert Person.exists?(@keep.id)
   end
 
+  test "the merge page cancels, previews and merges in that order" do
+    sign_in @admin
+    get new_person_merge_path
+
+    assert_select ".card-footer a.btn-secondary[href=?]", people_path, text: "Cancel"
+    assert_select ".card-footer input.btn-secondary[value=Preview]"
+    assert_select ".btn-warning, .btn-primary", count: 0
+
+    get new_person_merge_path(person_merger: { keep_nid: @keep.neat_id, drop_nid: @drop.neat_id })
+    assert_select ".table-responsive table"
+    assert_select ".card-footer input.btn-danger[value=Merge][data-turbo-confirm]"
+    assert_operator response.body.index("value=\"Preview\""), :<, response.body.index("value=\"Merge\"")
+  end
+
   test "a non-admin can't preview or merge" do
     manager = User.create!(email: "merge-manager@example.com", password: "Password1!")
     Person.create!(user: manager, first_name: "Max", last_name: "Manager")

@@ -2,11 +2,9 @@
 
 <%= simple_form_for(@person_merger, url: new_person_merge_path, method: :get) do |f| %>
   <div class="card mb-3">
-    <div class="card-header">
-      <h1>Merge People</h1>
-    </div>
+    <%= render "shared/page_header", title: "Merge People",
+          summary: "Use this when one person has two records. Everything on the second record moves to the first, and the second record is deleted." %>
     <div class="card-body">
-      <p>Use this when one person has two records. Everything on the second record moves to the first, and the second record is deleted.</p>
       <%= f.error_notification %>
       <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
       <div class="row">
@@ -24,8 +22,8 @@
       <% end %>
     </div>
     <div class="card-footer">
-      <%= link_to "Cancel", people_path, class: "btn btn-warning" %>
-      <%= f.button :submit, "Preview", class: "btn btn-primary" %>
+      <%= link_to "Cancel", people_path, class: "btn btn-secondary" %>
+      <%= f.button :submit, "Preview", class: "btn btn-secondary" %>
     </div>
   </div>
 <% end %>
@@ -49,6 +47,7 @@
 
       <% changes = @person_merger.changes.select(&:any?) %>
       <% if changes.any? %>
+        <div class="table-responsive">
         <table class="table table-striped">
           <thead>
             <tr>
@@ -75,6 +74,7 @@
             <% end %>
           </tbody>
         </table>
+        </div>
         <% changes.select(&:warning).each do |change| %>
           <div class="alert alert-warning"><b><%= change.label %>:</b> <%= change.warning %></div>
         <% end %>
