@@ -9,8 +9,10 @@ class ManagedListsController < InternalController
   def index
     rows = policy_scope(@list.model, policy_scope_class: ManagedListPolicy::Scope)
     authorize @list.model, policy_class: ManagedListPolicy
-    @rows = rows.active.ordered
-    @retired_rows = rows.retired.ordered
+    @retired = params[:status] == "retired"
+    @active_count = rows.active.count
+    @retired_count = rows.retired.count
+    @rows = (@retired ? rows.retired : rows.active).ordered
   end
 
   # GET /lists/:list/rows/new

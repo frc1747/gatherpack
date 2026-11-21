@@ -35,6 +35,9 @@ class ManagedListsControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", "Test Units"
     assert_match "The units test things are counted in.", response.body
     assert_select "#managed_list_active li", count: 2
+    assert_select "#managed_list_retired", count: 0
+
+    get managed_list_path(:test_units, status: "retired")
     assert_select "#managed_list_retired li", count: 1
     assert_select "#managed_list_retired", text: /Crate/
   end
