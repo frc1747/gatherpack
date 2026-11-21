@@ -7,13 +7,13 @@
 <div class="mg-home mg-activity" data-activity-page>
   <header class="mg-home-header">
     <h1 class="mg-greeting"><%= title %></h1>
-    <%= form_with url: activity_path, method: :get, class: "mg-activity-season", data: { turbo_action: "advance" } do |form| %>
-      <% unless own %><%= hidden_field_tag :person, @person.neat_id %><% end %>
-      <%= label_tag :season, "Season", class: "visually-hidden" %>
-      <%= select_tag :season, options_for_select(@activity.seasons.map { |season| [ season.label, season.to_param ] }, @season.to_param), class: "form-select", onchange: "this.form.requestSubmit()" %>
-      <%# Choosing a season shows it; the button is for when scripts are off. %>
-      <%= form.submit "Show", name: nil, class: "btn btn-secondary d-none" %>
+    <% season_field = capture do %>
+      <div class="mg-activity-season">
+        <%= label_tag :season, "Season", class: "visually-hidden" %>
+        <%= select_tag :season, options_for_select(@activity.seasons.map { |season| [ season.label, season.to_param ] }, @season.to_param), class: "form-select" %>
+      </div>
     <% end %>
+    <%= render "shared/filter_bar", url: activity_path, params: (own ? {} : { person: @person.neat_id }), fields: season_field, auto_submit: true %>
   </header>
 
   <div class="row">

@@ -71,11 +71,12 @@ class MyGatherpackActivitySystemTest < ApplicationSystemTestCase
 
   test "with scripts off the Show button still shows the chosen season" do
     visit activity_path
-    page.execute_script("document.querySelector('select[name=season]').removeAttribute('onchange')")
+    assert_no_button "Show"
+    page.execute_script("const form = document.querySelector('.screen-filter-bar form'); form.removeAttribute('data-action'); form.removeAttribute('data-controller')")
     select "2025–26", from: "Season"
     assert_no_selector "[data-activity-line]", text: "Spring fair"
 
-    page.execute_script("document.querySelector('form.mg-activity-season input[type=submit]').click()")
+    page.execute_script("document.querySelector('.screen-filter-bar input[type=submit]').click()")
 
     assert_selector "[data-activity-line]", count: 1, text: "Spring fair"
     assert_current_path activity_path(season: 2025)

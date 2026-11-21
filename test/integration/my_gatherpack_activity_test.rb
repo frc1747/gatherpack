@@ -241,13 +241,20 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_select "[data-activity-line]", text: /Spring fair/
   end
 
-  test "the season select submits on change, with a hidden Show button for when scripts are off" do
+  test "the season is a filter bar field that applies on change, with Show for when scripts are off" do
     sign_in person(:member).user
     get activity_path
 
-    assert_select "form.mg-activity-season select[name=season][onchange='this.form.requestSubmit()']"
-    assert_select "form.mg-activity-season input[type=submit][value=Show].btn-secondary.d-none"
-    assert_select "form.mg-activity-season .btn-primary", false
+    assert_select ".screen-filter-bar form[data-controller=filter-bar][data-action='change->filter-bar#submit'] select[name=season]"
+    assert_select ".screen-filter-bar input[type=submit][value=Show].btn-secondary[data-filter-bar-target=show]"
+    assert_select ".screen-filter-bar .btn-primary", false
+  end
+
+  test "a ward's season filter keeps the ward" do
+    sign_in person(:parent).user
+    get activity_path(person: person(:kid).neat_id)
+
+    assert_select ".screen-filter-bar form input[type=hidden][name=person][value=?]", person(:kid).neat_id
   end
 
   test "a ward's page has no punches and no meetings, and links only events the guardian can open" do
