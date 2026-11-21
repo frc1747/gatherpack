@@ -3,9 +3,13 @@ module Checklists
   # per person the viewer may see, columns for the overall and each
   # top-level item the viewer sees for anyone. The viewer's own row and
   # their wards' come first as "Your family" when they see more than that.
-  # team_id and status narrow the rows shown (the page's filter bar); the
-  # columns stay those of everyone the viewer sees.
+  # team_id and status narrow the rows shown (the page's filter bar): status
+  # is an overall status, or NOT_COMPLETE for not met or pending. The columns
+  # stay those of everyone the viewer sees.
   class Report
+    NOT_COMPLETE = "not_complete"
+    FILTER_STATUSES = (Checklists::STATUSES + [ NOT_COMPLETE ]).freeze
+
     attr_reader :checklist, :viewer, :as_of, :status
 
     def initialize(checklist, viewer, as_of: nil, team_id: nil, status: nil)
@@ -48,7 +52,10 @@ module Checklists
 
     # The rows shown: in the picked team, with the picked overall status.
     def shown
-      @shown ||= in_team.select { |row| people[row.person_id] && (status.nil? || row.overall&.status == status) }
+      @shown ||= begin
+        wanted = status == NOT_COMPLETE ? %w[not_met pending] : [ status ]
+        in_team.select { |row| people[row.person_id] && (status.nil? || wanted.include?(row.overall&.status)) }
+      end
     end
 
     def columns

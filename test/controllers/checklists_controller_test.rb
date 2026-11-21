@@ -530,7 +530,23 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       @checklist.checklist_rules.first.update_column(:team_id, nil)
       get checklist_path(@checklist)
       assert_match "Setup problems", response.body
-      assert_select ".alert a[href=?]", edit_checklist_path(@checklist), text: "Fix them on the Edit page"
+      assert_select ".alert a[href=?]", edit_checklist_path(@checklist, tab: "covers"), text: "Fix them on the Edit page"
+
+      @safety_item.update_column(:kind, "gone")
+      get checklist_path(@checklist)
+      assert_select ".alert a[href=?]", edit_checklist_path(@checklist, tab: "items"), text: "Fix them on the Edit page", message: "the first problem's tab"
+    end
+  end
+
+  test "a checklist due for archiving says to archive it from More, with no Edit link" do
+    required = create_world_checklist("Required", starts_on: Date.new(2025, 9, 1), ends_on: Date.new(2026, 6, 30))
+    add_item(@checklist, :checklist, "Required", { checklist_id: required.id })
+    with_settings(feature_checklists: "true", checklists_archive_after: "2026-07-01") do
+      sign_in person(:admin).user
+      get checklist_path(required)
+      assert_select ".alert li", text: /still requires it\. Archive it from More\.\z/
+      assert_select ".alert a", text: "Fix them on the Edit page", count: 0
+      assert_select ".dropdown-menu form[action=?] button", archive_checklist_path(required), text: "Archive"
     end
   end
 

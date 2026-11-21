@@ -181,6 +181,13 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
       assert_select "tbody tr", 1
       assert_select "tbody tr a", text: "Member World"
 
+      get checklist_path(@checklist)
+      not_complete = css_select("tbody tr").size - 1
+      assert_select ".screen-filter-pills a[href*='status=not_complete']", text: "Not complete (#{not_complete})"
+      get checklist_path(@checklist, status: "not_complete")
+      assert_select "tbody tr", not_complete
+      assert_select "tbody tr a", text: "Member World", count: 0
+
       get checklist_path(@checklist, as_of: "2026-10-01", status: "met")
       assert_select ".screen-filter-pills a[href*='as_of=2026-10-01']", minimum: 1
     end

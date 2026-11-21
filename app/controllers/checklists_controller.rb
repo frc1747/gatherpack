@@ -20,7 +20,7 @@ class ChecklistsController < InternalController
     @full_view = Checklists::Visibility.new(@checklist, current_user.person).full?
     @as_of = parse_date(params[:as_of]) if @organizer
     @report = Checklists::Report.new(@checklist, current_user.person, as_of: @as_of,
-      team_id: params[:team_id].presence, status: params[:status].presence_in(Checklists::STATUSES))
+      team_id: params[:team_id].presence, status: params[:status].presence_in(Checklists::Report::FILTER_STATUSES))
   end
 
   # GET /checklists/new

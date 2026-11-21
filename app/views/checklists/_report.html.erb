@@ -5,7 +5,8 @@
 <% order = %w[not_met pending met exempt] %>
 <% counts = report.counts %>
 <% statuses = if report.overall?
-     [ { label: "All", count: report.in_team.size, value: nil } ] +
+     [ { label: "All", count: report.in_team.size, value: nil },
+       { label: "Not #{checklist.word_for("met").downcase}", count: counts["not_met"].to_i + counts["pending"].to_i, value: Checklists::Report::NOT_COMPLETE } ] +
        order.map { |status| { label: checklist.word_for(status), count: counts[status].to_i, value: status } }
    else
      []
