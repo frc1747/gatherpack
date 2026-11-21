@@ -58,6 +58,10 @@ class Form < ApplicationRecord
     [ "title", "key", "status", "closes_at", "updated_at" ]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   # Opens and closes forms whose dates have passed. Run by FormScheduleJob.
   # A form with no include rule asks nobody, so it stays a draft.
   def self.apply_schedule!

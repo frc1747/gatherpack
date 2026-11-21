@@ -158,9 +158,9 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
     with_feature do
       as(:pack_leader) do
         get form_path(@form)
-        assert_select "#actions > a.btn.btn-warning", text: "Edit"
-        assert_select "#actions > a.btn.btn-primary", text: /\ARemind \(\d+\)\z/
-        assert_select "#actions > a, #actions > form", count: 2
+        assert_select "#actions > .screen-action-row > a.btn.btn-warning", text: "Edit"
+        assert_select "#actions > .screen-action-row > a.btn.btn-primary", text: /\ARemind \(\d+\)\z/
+        assert_select "#actions > .screen-action-row > a, #actions > .screen-action-row > form", count: 2
         assert_select "#actions .dropdown-toggle.btn-secondary", text: "More"
         assert_select "#actions .dropdown-menu li:not(.d-md-none)", count: 3
         %w[ Results Tally Open Close ].each { |word| assert_select "a, button", text: word, count: 0 }
@@ -173,7 +173,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         items = css_select("#actions .dropdown-menu li:not(.d-md-none)").map { |item| item.text.strip }
         assert_equal [ "Preview as…", "Duplicate", "Archive", "Delete" ], items
         assert_select "#actions .dropdown-menu button.text-danger", text: "Delete"
-        assert_select "#actions .dropdown-menu button[data-turbo-confirm]", text: "Archive"
+        assert_select "#actions .dropdown-menu form[data-turbo-confirm] button", text: "Archive"
         assert_select "#actions .dropdown-menu button.text-danger", text: "Archive", count: 0
         assert_select "#actions .dropdown-menu li.d-md-none", text: /Remind/, msg: "on phones Remind folds into More"
       end
@@ -185,7 +185,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         assert_select "tr#person_#{person(:a1).id}"
         assert_select "#actions", count: 0
         assert_select "a", text: "Edit", count: 0
-        assert_select "#state-line a", count: 0
+        assert_select ".screen-state-line a", count: 0
       end
     end
   end
@@ -195,8 +195,8 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
     with_feature do
       as(:pack_leader) do
         get form_path(form)
-        assert_select "#state-line", text: /Not taking answers yet/
-        assert_select "#state-line a[href=?]", edit_form_path(form, tab: "responses"), text: "Start taking answers"
+        assert_select ".screen-state-line", text: /Not taking answers yet/
+        assert_select ".screen-state-line a[href=?]", edit_form_path(form, tab: "responses"), text: "Start taking answers"
 
         get edit_form_path(form, tab: "responses")
         assert_select "input[type=radio][name=?]", "form[status]", count: 3
@@ -221,14 +221,14 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         assert form.reload.open?
         assert_empty form.form_reminders
         get form_path(form)
-        assert_select "#state-line", text: /Taking answers until #{Regexp.escape(deadline.strftime("%B %-d, %Y"))}/
-        assert_select "#state-line a", count: 0
+        assert_select ".screen-state-line", text: /Taking answers until #{Regexp.escape(deadline.strftime("%B %-d, %Y"))}/
+        assert_select ".screen-state-line a", count: 0
 
         patch form_path(form), params: { tab: "responses", form: { status: "closed" } }
         assert form.reload.closed?
         get form_path(form)
-        assert_select "#state-line", text: /Closed/
-        assert_select "#state-line a", text: "Start taking answers"
+        assert_select ".screen-state-line", text: /Closed/
+        assert_select ".screen-state-line a", text: "Start taking answers"
 
         patch form_path(form), params: { tab: "responses", form: { status: "draft" } }
         assert form.reload.draft?
@@ -287,7 +287,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
       as(:pack_leader) do
         get form_path(@form)
         assert_select ".card-header", text: /Due/, count: 0
-        assert_select "#state-line", text: /Closed #{Regexp.escape(2.days.ago.strftime("%B %-d, %Y"))}/
+        assert_select ".screen-state-line", text: /Closed #{Regexp.escape(2.days.ago.strftime("%B %-d, %Y"))}/
       end
     end
   end

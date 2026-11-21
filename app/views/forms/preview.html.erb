@@ -34,27 +34,29 @@
           <%= @access.can_respond? ? "Can fill it in #{form_respondent_role(@access)}." : "Can see it but not fill it in." %>
           <% if @access.can_respond? && !@access.can_submit? %>(Not right now: the form is <%= @form.status %>.)<% end %>
         </p>
-        <table class="table table-striped">
-          <thead>
-            <tr><th>Question</th><th>Can see</th><th>Can answer</th></tr>
-          </thead>
-          <tbody>
-            <% @form.answerable_questions.each do |question| %>
-              <tr>
-                <td><%= question.label %><% if question.profile_backed? %> <small class="text-muted">(<%= question.person_field.name %>)</small><% end %></td>
-                <td><%= @access.question_readable?(question) ? "✓" : "—" %></td>
-                <td><%= @access.question_writable?(question) ? "✓" : "—" %></td>
-              </tr>
-            <% end %>
-            <% @form.signature_questions.each do |question| %>
-              <tr>
-                <td><%= i "signature" %> <%= question.label %> <small class="text-muted">(signature)</small></td>
-                <td>✓</td>
-                <td><%= (role = @access.signing_role(question)) ? "Can sign (#{role == :leader ? "paper form" : role})" : "—" %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr><th>Question</th><th>Can see</th><th>Can answer</th></tr>
+            </thead>
+            <tbody>
+              <% @form.answerable_questions.each do |question| %>
+                <tr>
+                  <td><%= question.label %><% if question.profile_backed? %> <small class="text-muted">(<%= question.person_field.name %>)</small><% end %></td>
+                  <td><%= @access.question_readable?(question) ? "✓" : "—" %></td>
+                  <td><%= @access.question_writable?(question) ? "✓" : "—" %></td>
+                </tr>
+              <% end %>
+              <% @form.signature_questions.each do |question| %>
+                <tr>
+                  <td><%= i "signature" %> <%= question.label %> <small class="text-muted">(signature)</small></td>
+                  <td>✓</td>
+                  <td><%= (role = @access.signing_role(question)) ? "Can sign (#{role == :leader ? "paper form" : role})" : "—" %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
       <% end %>
     </div>
   </div>

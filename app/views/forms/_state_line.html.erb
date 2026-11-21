@@ -1,5 +1,0 @@
-<%# Where the form stands, in words, with a link to the setting that changes it.
-    Same locals as the planned shared/_state_line: text:, link_text:, link_path:. %>
-<div class="text-muted" id="state-line">
-  <%= text %><% if local_assigns[:link_text] && local_assigns[:link_path] %> · <%= link_to link_text, link_path, class: "no-print" %><% end %>
-</div>

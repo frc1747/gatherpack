@@ -14,14 +14,16 @@ class FormsController < InternalController
   before_action :require_feature
   before_action :set_form, except: %i[ index new create print_list ]
 
-  # GET /forms
+  # GET /forms?q[title_i_cont]=
   def index
     authorize Form
     @entries = helpers.form_entries_for(current_user.person)
-    @managed = policy_scope(Form).visible.includes(:team).order(Arel.sql("status = 1 DESC"), :title)
+    managed = policy_scope(Form).visible
+    @q = managed.ransack(params[:q])
+    @managed = @q.result.includes(:team).order(Arel.sql("status = 1 DESC"), :title)
     # Forms the viewer can see others' answers to without running them (a
     # badge grant or a wide read level), so they have a way to get there.
-    @shared = Form.where(status: %i[ open closed ]).where.not(id: @managed.select(:id)).includes(:team)
+    @shared = Form.where(status: %i[ open closed ]).where.not(id: managed.select(:id)).includes(:team)
       .order(Arel.sql("status = 1 DESC"), :title).select { |form| policy(form).show? }
   end
 

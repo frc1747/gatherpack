@@ -8,16 +8,18 @@
     <% questions.each do |question| %>
       <div class="col-12 col-md-6 col-xl-4 mb-3" style="page-break-inside: avoid;">
         <%= content_tag local_assigns[:heading] || :h3, question.label, class: "h6" %>
-        <table class="table table-sm">
-          <tbody>
-            <% report.tally(question, rows: rows).each do |value, count| %>
-              <tr class="<%= "text-muted" if value.nil? %>">
-                <td><%= form_tally_label(value) %></td>
-                <td class="text-end"><%= count %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <tbody>
+              <% report.tally(question, rows: rows).each do |value, count| %>
+                <tr class="<%= "text-muted" if value.nil? %>">
+                  <td><%= form_tally_label(value) %></td>
+                  <td class="text-end"><%= count %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
       </div>
     <% end %>
   </div>

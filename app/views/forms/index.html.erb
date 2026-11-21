@@ -20,6 +20,16 @@
   </div>
 </div>
 
+<% creator = policy(Form.new).new? %>
+<% printable_list = capture do %>
+  <div class="dropdown d-inline-block">
+    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+    <ul class="dropdown-menu">
+      <li><%= link_to "Printable list", print_list_forms_path, class: "dropdown-item" %></li>
+    </ul>
+  </div>
+<% end %>
+
 <% if @shared.any? %>
   <div class="card mt-3">
     <div class="card-header">
@@ -45,22 +55,48 @@
         </table>
       </div>
     </div>
-    <% unless policy(Form.new).new? %>
-      <div class="card-footer">
-        <%= link_to "Printable list", print_list_forms_path, class: "btn btn-secondary" %>
-      </div>
+    <% unless creator %>
+      <div class="card-footer"><%= printable_list %></div>
     <% end %>
   </div>
 <% end %>
 
-<% if policy(Form.new).new? %>
-  <div class="card mt-3">
-    <div class="card-header">
-      <h2>Manage Forms</h2>
+<% if creator %>
+  <%= search_form_for @q, url: forms_path, html: { id: "form_search" } do |f| %>
+    <div class="card mt-3">
+      <div class="card-header">
+        <h2>Manage Forms</h2>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <%= label_tag :q_title_i_cont, "Title", class: "form-label" %>
+            <%= f.search_field :title_i_cont, class: "form-control" %>
+          </div>
+        </div>
+        <% if current_user.admin? && GatherPack::Features.enabled?(:badges) %>
+          <div class="form-text mt-2">
+            <% if (creator_badge = Form.creator_badge) %>
+              Holders of the <%= creator_badge.name %> badge can also create event forms for their own teams, and run only the forms they created.
+            <% else %>
+              Only admins and team managers create forms. To let others (say, student leaders) create event forms, set a Form Creator Badge in Settings.
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+      <div class="card-footer">
+        <%= link_to "New Form", new_form_path, class: "btn btn-success" %>
+        <%= f.submit "Search", class: "btn btn-primary", name: nil %>
+        <%= link_to "Clear Search", forms_path, class: "btn btn-dark" %>
+        <%= printable_list %>
+      </div>
     </div>
-    <div class="card-body">
+  <% end %>
+
+  <div class="card mt-3">
+    <div class="card-body" id="managed_forms">
       <% if @managed.empty? %>
-        <p class="text-muted">No forms yet.</p>
+        <%= render "shared/empty_state", text: @q.conditions.any? ? "No forms match." : "No forms yet." %>
       <% else %>
         <div class="table-responsive">
           <table class="table table-striped align-middle">
@@ -80,19 +116,6 @@
           </table>
         </div>
       <% end %>
-    </div>
-    <div class="card-footer">
-      <%= link_to "New Form", new_form_path, class: "btn btn-primary" %>
-      <% if current_user.admin? && GatherPack::Features.enabled?(:badges) %>
-        <div class="form-text mt-2">
-          <% if (creator_badge = Form.creator_badge) %>
-            Holders of the <%= creator_badge.name %> badge can also create event forms for their own teams, and run only the forms they created.
-          <% else %>
-            Only admins and team managers create forms. To let others (say, student leaders) create event forms, set a Form Creator Badge in Settings.
-          <% end %>
-        </div>
-      <% end %>
-      <%= link_to "Printable list", print_list_forms_path, class: "btn btn-secondary" %>
     </div>
   </div>
 <% end %>
