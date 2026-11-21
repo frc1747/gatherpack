@@ -27,11 +27,11 @@ GatherPack::Feature.prepend(CommitmentsFollowChecklists)
 
 Rails.application.config.to_prepare do
   Settings.register(:commitments_organizers, :text, "Commitment Organizers", "", "Commitments",
-    "Who may create and run commitments without managing a team. One per line, as Badge name > Highest team name. " \
-    "Holders of the badge (one only admins assign) can run commitments for the teams they belong to at or below that team, " \
-    "and the teams below their own. Leave out \"> Highest team name\" to allow only the teams they're directly in and the teams below those. " \
+    "Who may create and run commitments without managing a team. " \
+    "Holders of a badge (one only admins assign) can run commitments for the teams they belong to at or below the team you pick, " \
+    "and the teams below their own. Pick no team to allow only the teams they're directly in and the teams below those. " \
     "When Checklists is on, the Checklist Organizers setting is read instead, and this one is the fallback while that one is blank")
-
+  Settings.input(:commitments_organizers, :badge_grants, badges: -> { Badge.added_by_admin }) if Settings.respond_to?(:input)
 
   GatherPack::HookCatalog.register_targets("commitments", "commitment_organizers", "commitment_sources", "commitment_adjustments")
 
