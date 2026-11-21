@@ -14,7 +14,10 @@
     Show); all_teams_label: the team select's blank choice; fields: more
     fields (HTML, e.g. a season select), always shown, sent with Show;
     auto_submit: true shows a change to fields or the team at once and hides
-    Show (Show stays without JavaScript, and while More choices is there). %>
+    Show (Show stays without JavaScript, and while More choices is there).
+    A change under More choices always applies at once; More choices also
+    has its own Show at the bottom. The table actions start with an empty
+    column-chooser slot, which a Columns chooser around the bar fills. %>
 <% pills = statuses.reject { |pill| pill[:value].present? && pill[:count]&.zero? && pill[:value].to_s != status.to_s } %>
 <% team_filter = teams.size > 1 %>
 <% show_form = team_filter || more.present? || fields.present? %>
@@ -24,7 +27,7 @@
   <div class="flex-grow-1">
     <% if show_form %>
       <%= form_with url: path, method: :get, id: form_id, class: "d-flex flex-wrap align-items-end gap-2",
-            data: (auto_submit ? { controller: "filter-bar", action: "change->filter-bar#submit" } : {}) do %>
+            data: (auto_submit || more.present? ? { controller: "filter-bar", action: "change->filter-bar#submit", filter_bar_auto_value: (true if auto_submit) }.compact : {}) do %>
         <% kept.each do |name, value| %>
           <% Array(value).each do |item| %><%= hidden_field_tag(value.is_a?(Array) ? "#{name}[]" : name, item, id: nil) %><% end %>
         <% end %>
@@ -41,6 +44,7 @@
           <details class="w-100 screen-filter-more" <%= "open" if open %>>
             <summary>More choices</summary>
             <div class="mt-2"><%= more %></div>
+            <%= submit_tag "Show", class: "btn btn-secondary btn-sm mt-2", name: nil %>
           </details>
         <% end %>
       <% end %>
@@ -60,10 +64,13 @@
   <% table_actions = table_actions.select(&:visible?) %>
   <% if table_actions.any? || table_actions_html.present? %>
     <div class="d-flex flex-wrap align-items-center gap-2 ms-auto screen-table-actions">
+      <div style="display: contents" data-column-chooser-target="slot"></div>
       <%= table_actions_html %>
       <% table_actions.each do |action| %>
         <%= screen_action_button(action) %>
       <% end %>
     </div>
+  <% else %>
+    <div class="ms-auto" data-column-chooser-target="slot"></div>
   <% end %>
 </div>

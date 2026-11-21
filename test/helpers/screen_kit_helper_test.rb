@@ -307,6 +307,51 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select ".screen-table-actions", 0
   end
 
+  test "filter_bar's More choices apply on change and end with their own Show" do
+    render "shared/filter_bar", url: "/forms/1", more: "<input name='since'>".html_safe
+
+    assert_select "form[data-controller=filter-bar][data-action='change->filter-bar#submit']:not([data-filter-bar-auto-value])" do
+      assert_select "> input[type=submit][value=Show].btn.btn-secondary:not(.btn-sm)"
+      assert_select "details > :last-child[type=submit][value=Show].btn.btn-secondary.btn-sm.mt-2"
+    end
+  end
+
+  test "filter_bar's auto_submit with More choices marks the whole form to apply at once" do
+    render "shared/filter_bar", url: "/forms/1", auto_submit: true, more: "<input name='since'>".html_safe
+
+    assert_select "form[data-controller=filter-bar][data-filter-bar-auto-value=true]"
+    assert_select "details input[type=submit][value=Show]", 1
+  end
+
+  test "filter_bar always has an empty column chooser slot in its table actions" do
+    render "shared/filter_bar", url: "/forms/1", table_actions: [ screen_action("Download CSV", "/forms/1.csv") ]
+    assert_select ".screen-table-actions > [data-column-chooser-target=slot]:first-child:empty"
+
+    render "shared/filter_bar", url: "/forms/1"
+    assert_select ".screen-filter-bar > [data-column-chooser-target=slot]:empty", 1
+    assert_select "form [data-column-chooser-target=slot]", 0
+  end
+
+  test "column_chooser_data gives a hand-written wrapper the chooser and keeps its own controller" do
+    assert_equal({ controller: "column-chooser", column_chooser_key_value: "orders-report" }, column_chooser_data("orders-report"))
+    assert_equal({ controller: "form-results column-chooser", column_chooser_key_value: "form-results", form_results_target: "table" },
+      column_chooser_data("form-results", controller: "form-results", form_results_target: "table"))
+  end
+
+  test "people_table's choose_columns: adds the chooser and keeps Person fixed" do
+    row = Struct.new(:person, :allergy).new(Person.create!(first_name: "Nadia", last_name: "Northwind"), "Peanuts")
+    render "shared/people_table", rows: [ row ], choose_columns: "signups-roster",
+      wrapper: { data: { form_results_target: "table" } }, columns: [ [ "Allergies", ->(r) { r.allergy } ] ]
+
+    assert_select "div.table-responsive[data-controller=column-chooser][data-column-chooser-key-value=signups-roster][data-form-results-target=table]"
+    assert_select "th[data-column-chooser-fixed]", text: "Person"
+    assert_select "th:not([data-column-chooser-fixed])", text: "Allergies"
+
+    render "shared/people_table", rows: [ row ]
+    assert_select "[data-controller=column-chooser]", 0
+    assert_select "th[data-column-chooser-fixed]", 0
+  end
+
   test "people_table takes table classes, wrapper options, column options and rows after" do
     person = Person.create!(first_name: "Nadia", last_name: "Northwind")
     other = Person.create!(first_name: "Omar", last_name: "Northwind")
