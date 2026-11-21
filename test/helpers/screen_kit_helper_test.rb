@@ -18,6 +18,7 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert action.visible?
     assert_not action.lifecycle?
     assert_not action.destructive?
+    assert_not action.more?
   end
 
   test "three actions show three buttons and no More" do
@@ -67,6 +68,48 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_equal [ "Edit", "Delete" ], buttons.map { |button| button.text.strip }
     assert_includes buttons.last["class"], "btn-danger"
     assert_select ".dropdown:not(.d-md-none)", 0
+  end
+
+  test "Archive goes in More even with three actions or fewer, and Delete follows it there" do
+    action_row screen_action("Delete", "/x", method: :delete, destructive: true, confirm: "Delete this sheet?"),
+      screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true, confirm: "Archive this sheet? It's hidden from lists; sign-ups are kept.")
+
+    buttons = css_select(".screen-action-row > a.btn, .screen-action-row > form > button.btn")
+    assert_equal [ "Edit" ], buttons.map { |button| button.text.strip }
+    assert_select ".dropdown:not(.d-md-none) > button.dropdown-toggle", text: "More"
+    assert_equal [ "Archive", "Delete" ], more_items.map { |li| li.text.strip }
+    assert_select ".dropdown-menu li:last-child .dropdown-item.text-danger", text: "Delete"
+  end
+
+  test "Restore alone with Edit still makes a More" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Restore", "/restore", method: :post, lifecycle: true, confirm: "Restore this sheet? It shows in lists again.")
+
+    assert_select ".screen-action-row > a.btn", 1
+    assert_equal [ "Restore" ], more_items.map { |li| li.text.strip }
+  end
+
+  test "more: true puts an ordinary action in More, before lifecycle and destructive ones" do
+    action = screen_action("Mark all brought", "/brought", method: :post, more: true)
+    assert action.more?
+    assert_not screen_action("Edit", "/a").more?
+
+    action_row screen_action("Edit", "/a", style: :warning), action,
+      screen_action("Delete", "/x", method: :delete, destructive: true, confirm: "Delete this list?")
+
+    buttons = css_select(".screen-action-row > a.btn, .screen-action-row > form > button.btn")
+    assert_equal [ "Edit" ], buttons.map { |button| button.text.strip }
+    assert_equal [ "Mark all brought", "Delete" ], more_items.map { |li| li.text.strip }
+  end
+
+  test "more: true keeps the first two other ordinary actions as buttons" do
+    action_row screen_action("Edit", "/a", style: :warning), screen_action("Mark all brought", "/brought", method: :post, more: true),
+      screen_action("Sign up", "/b", style: :primary), screen_action("Duplicate", "/c")
+
+    buttons = css_select(".screen-action-row > a.btn, .screen-action-row > form > button.btn")
+    assert_equal [ "Edit", "Sign up" ], buttons.map { |button| button.text.strip }
+    assert_equal [ "Mark all brought", "Duplicate" ], more_items.map { |li| li.text.strip }
   end
 
   test "an action that isn't visible is left out" do
@@ -223,5 +266,130 @@ class ScreenKitHelperTest < ActionView::TestCase
 
     render "shared/filter_bar", url: "/forms/1", more: "<input name='since' value='2026-11-01'>".html_safe, open: true
     assert_select "details[open]", 1
+  end
+
+  test "filter_bar's hidden: is what Show keeps, while the pills keep params:" do
+    teams = [ Team.new(id: SecureRandom.uuid, name: "Northwind"), Team.new(id: SecureRandom.uuid, name: "Northwind Juniors") ]
+    render "shared/filter_bar", url: "/forms/1?tab=results", teams: teams, team: teams.first, status: "waiting",
+      params: { totals: "hidden", columns: [ "due", "version" ] }, hidden: { totals: "hidden" },
+      more: "<input type='checkbox' name='columns[]' value='due' checked>".html_safe,
+      statuses: [ { label: "All", count: 24, value: nil }, { label: "Waiting", count: 6, value: "waiting" } ]
+
+    waiting = Rack::Utils.parse_nested_query(css_select("a").find { |a| a.text == "Waiting (6)" }["href"].split("?").last)
+    assert_equal({ "tab" => "results", "totals" => "hidden", "columns" => [ "due", "version" ], "team_id" => teams.first.id, "status" => "waiting" }, waiting)
+
+    assert_select "form[action='/forms/1']" do
+      assert_select "input[type=hidden][name=totals][value=hidden]"
+      assert_select "input[type=hidden][name=tab][value=results]"
+      assert_select "input[type=hidden][name=status][value=waiting]"
+      assert_select "input[type=hidden][name='columns[]']", 0
+      assert_select "details input[type=checkbox][name='columns[]']", 1
+    end
+  end
+
+  test "filter_bar takes non-link table controls, a form id and its own blank team choice" do
+    teams = [ Team.new(id: SecureRandom.uuid, name: "Northwind"), Team.new(id: SecureRandom.uuid, name: "Northwind Juniors") ]
+    render "shared/filter_bar", url: "/forms/1", teams: teams, form_id: "form-options", all_teams_label: "All of Northwind",
+      table_actions_html: tag.button("Print", type: "button", class: "btn btn-dark", data: { action: "form-results#print" }),
+      table_actions: [ screen_action("Download CSV", "/forms/1.csv") ]
+
+    assert_select "form#form-options select[name=team_id] option:first-child", text: "All of Northwind"
+    assert_select ".screen-table-actions > button.btn-dark[data-action='form-results#print']", text: "Print"
+    assert_select ".screen-table-actions > button + a.btn-secondary", text: "Download CSV"
+    assert_select "form .screen-table-actions", 0
+  end
+
+  test "filter_bar shows a table control slot with no link actions" do
+    render "shared/filter_bar", url: "/forms/1", table_actions_html: tag.button("Print", type: "button", class: "btn btn-dark")
+    assert_select ".screen-table-actions button", text: "Print"
+
+    render "shared/filter_bar", url: "/forms/1"
+    assert_select ".screen-table-actions", 0
+  end
+
+  test "people_table takes table classes, wrapper options, column options and rows after" do
+    person = Person.create!(first_name: "Nadia", last_name: "Northwind")
+    other = Person.create!(first_name: "Omar", last_name: "Northwind")
+    row = Struct.new(:person, :allergy).new(person, "Peanuts")
+
+    render "shared/people_table", rows: [ row ], link: ->(r) { "/forms/1/responses/#{r.person.id}" },
+      table_class: "table table-striped table-sm align-middle",
+      wrapper: { id: "responses", class: "d-print-none", data: { form_results_target: "table" } },
+      columns: [ [ "Allergies", ->(r) { r.allergy }, { class: "table-info" } ] ],
+      rows_after: tag.tr(tag.td("Omar Northwind"), id: dom_id(other))
+
+    assert_select "div.table-responsive.d-print-none#responses[data-form-results-target=table] table.table-sm"
+    assert_select "th.table-info", text: "Allergies"
+    assert_select "tr##{dom_id(person)} td.table-info", text: "Peanuts"
+    assert_select "tr##{dom_id(person)} td a[href='/forms/1/responses/#{person.id}']", text: person.identifier_name
+    assert_select "tbody tr:last-child##{dom_id(other)}", text: "Omar Northwind"
+  end
+
+  test "people_table shows rows after even with no rows, and a nil link is plain text" do
+    person = Person.create!(first_name: "Nadia", last_name: "Northwind")
+    render "shared/people_table", rows: [], rows_after: tag.tr(tag.td("Omar Northwind"))
+    assert_select "table tbody tr", text: "Omar Northwind"
+    assert_select "p.text-muted", 0
+
+    render "shared/people_table", rows: [ Struct.new(:person).new(person) ], link: ->(_) { nil }
+    assert_select "tr##{dom_id(person)} td", text: person.identifier_name
+    assert_select "tr##{dom_id(person)} td a", 0
+  end
+
+  test "people_table with link: nil shows plain names" do
+    person = Person.create!(first_name: "Nadia", last_name: "Northwind")
+    render "shared/people_table", rows: [ Struct.new(:person).new(person) ], link: nil
+
+    assert_select "tr##{dom_id(person)} td", text: person.identifier_name
+    assert_select "tr##{dom_id(person)} td a", 0
+  end
+
+  test "screen_action passes data: to the link and to button_to's button" do
+    action_row screen_action("Edit", "/a", style: :warning, data: { turbo_frame: "_top" }),
+      screen_action("Copy", "/c", method: :post, data: { controller: "copy" }, confirm: "Copy this list?")
+
+    assert_select ".screen-action-row > a.btn[href='/a'][data-turbo-frame=_top]", text: "Edit"
+    assert_select ".screen-action-row > form[data-turbo-confirm='Copy this list?'] > button.btn[data-controller=copy]", text: "Copy"
+    assert_select "a[data-turbo-confirm]", 0
+  end
+
+  test "an action with no path is a plain button, as a row button and as a More item" do
+    print = screen_action("Print", nil, style: :dark, data: { action: "form-results#print" })
+    assert print.script?
+    assert_not screen_action("Edit", "/a").script?
+
+    action_row screen_action("Edit", "/a", style: :warning), print
+    assert_select ".screen-action-row > button.btn.btn-dark[type=button][data-action='form-results#print']", text: "Print"
+    assert_select ".screen-action-row form", 0
+
+    action_row screen_action("Edit", "/a", style: :warning), screen_action("Print", nil, data: { action: "form-results#print" }, more: true)
+    assert_select ".dropdown-menu li:not(.d-md-none) > button.dropdown-item[type=button][data-action='form-results#print']", text: "Print"
+  end
+
+  test "a filter bar takes a plain-button action among its table actions" do
+    render "shared/filter_bar", url: "/forms/1",
+      table_actions: [ screen_action("Print", nil, style: :dark, data: { action: "form-results#print" }), screen_action("Download CSV", "/forms/1.csv") ]
+
+    assert_select ".screen-table-actions > button.btn-dark[type=button][data-action='form-results#print']", text: "Print"
+    assert_select ".screen-table-actions > a.btn-secondary[href='/forms/1.csv']", text: "Download CSV"
+  end
+
+  test "filter_bar shows fields before the pills, inside the Show form" do
+    render "shared/filter_bar", url: "/seasons", fields: select_tag(:season, options_for_select([ "2026", "2025" ]), class: "form-select"),
+      statuses: [ { label: "All", count: 3, value: nil }, { label: "Open", count: 1, value: "open" } ]
+
+    assert_select "form[action='/seasons'] select[name=season] option", 2
+    assert_select "form input[type=submit][value=Show]:not([data-filter-bar-target])"
+    assert_select "form[data-controller]", 0
+    fields_then_pills = css_select("select[name=season], .screen-filter-pills a").map(&:name)
+    assert_equal [ "select", "a", "a" ], fields_then_pills
+  end
+
+  test "filter_bar's auto_submit wires the form to submit on change, keeping Show for no JavaScript" do
+    render "shared/filter_bar", url: "/seasons", fields: select_tag(:season, options_for_select([ "2026", "2025" ])), auto_submit: true
+
+    assert_select "form[data-controller=filter-bar][data-action='change->filter-bar#submit']" do
+      assert_select "input[type=submit][value=Show][data-filter-bar-target=show]:not([hidden])"
+    end
   end
 end
