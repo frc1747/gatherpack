@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
-// A Columns dropdown for the table inside this element: one tick box per
+// A Columns dropdown for the tables inside this element (listed from the
+// first one's headings): one tick box per
 // heading, and unticking one hides that column's heading and cells. The
 // choice is remembered per viewer under key (by heading text, so a column
 // added later shows) and applied on load, so Print shows the same columns.
@@ -8,6 +9,13 @@ import { Controller } from "@hotwired/stimulus"
 // and aren't listed. At least one listed column stays ticked. The dropdown
 // goes in the slot target (a filter bar's table actions) when there is one,
 // else just above the table.
+// A heading's name in the list: the text of an element inside it marked
+// data-column-chooser-label (for headings that also hold controls, such as a
+// filter menu), else all its text.
+function headingText(cell) {
+  return (cell.querySelector("[data-column-chooser-label]") || cell).textContent.trim()
+}
+
 export default class extends Controller {
   static targets = [ "slot" ]
   static values = { key: String }
@@ -19,7 +27,7 @@ export default class extends Controller {
 
     this.headings = [ ...headingRow.cells ]
     this.choices = this.headings
-      .map((cell, index) => ({ index, text: cell.textContent.trim(), fixed: cell.hasAttribute("data-column-chooser-fixed") }))
+      .map((cell, index) => ({ index, text: headingText(cell), fixed: cell.hasAttribute("data-column-chooser-fixed") }))
       .filter((choice) => !choice.fixed && choice.text !== "")
     if (this.choices.length === 0) return
 
@@ -46,11 +54,19 @@ export default class extends Controller {
   // private
 
   apply() {
-    const hiddenIndexes = new Set(this.choices.filter((choice) => this.hidden.has(choice.text)).map((choice) => choice.index))
-    const rows = [ this.table.tHead, ...this.table.tBodies, this.table.tFoot ].filter(Boolean).flatMap((section) => [ ...section.rows ])
-    for (const row of rows) {
-      if (row.cells.length !== this.headings.length) continue
-      for (const [ index, cell ] of [ ...row.cells ].entries()) cell.classList.toggle("d-none", hiddenIndexes.has(index))
+    // Every table inside this element (a report split into sections repeats
+    // the same headings), matched by heading text.
+    for (const table of this.element.querySelectorAll("table")) {
+      const headings = [ ...(table.tHead?.rows[0]?.cells || []) ]
+      const hiddenIndexes = new Set(headings
+        .map((cell, index) => ({ index, text: headingText(cell), fixed: cell.hasAttribute("data-column-chooser-fixed") }))
+        .filter((heading) => !heading.fixed && this.hidden.has(heading.text))
+        .map((heading) => heading.index))
+      const rows = [ table.tHead, ...table.tBodies, table.tFoot ].filter(Boolean).flatMap((section) => [ ...section.rows ])
+      for (const row of rows) {
+        if (row.cells.length !== headings.length) continue
+        for (const [ index, cell ] of [ ...row.cells ].entries()) cell.classList.toggle("d-none", hiddenIndexes.has(index))
+      }
     }
 
     const boxes = [ ...this.menu.querySelectorAll("input[type=checkbox]") ]
