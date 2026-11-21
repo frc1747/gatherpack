@@ -6,6 +6,17 @@
   <%= f.input :title, hint: "People see this at the top of the page." %>
   <%= f.input :team_id, label: "Run by", collection: teams, label_method: :name, value_method: :id, hint: "This team's managers run the registration." %>
   <%= f.input :description, as: :text, input_html: { rows: 3 } %>
+  <% taking = params[:taking].presence || f.object.taking_state %>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">Taking registrations</legend>
+    <% [ [ "Not yet", "not_yet" ], [ "Yes, open now", "open" ], [ "No, closed", "closed" ] ].each do |label, value| %>
+      <div class="form-check form-check-inline">
+        <%= radio_button_tag :taking, value, taking == value, id: "taking_#{value}", class: "form-check-input" %>
+        <%= label_tag "taking_#{value}", label, class: "form-check-label" %>
+      </div>
+    <% end %>
+    <div class="form-text">Yes opens it now if it hasn't opened. No closes it now. Not yet needs an opening time still to come.</div>
+  </fieldset>
   <div class="row">
     <div class="col-md"><%= f.input :opens_at, as: :string, label: "Opens", input_html: { type: "datetime-local", value: f.object.opens_at&.strftime("%Y-%m-%dT%H:%M") } %></div>
     <div class="col-md"><%= f.input :closes_at, as: :string, label: "Closes", hint: "Blank: stays open.", input_html: { type: "datetime-local", value: f.object.closes_at&.strftime("%Y-%m-%dT%H:%M") } %></div>

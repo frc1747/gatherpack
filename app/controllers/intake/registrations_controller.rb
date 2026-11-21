@@ -1,6 +1,6 @@
 # Staff screens for registrations: the list, setup (dates, teams, placement
 # lists), and the entries screen (counts by day, unfinished sign-ups, Delete
-# selected, Close now).
+# selected). Closing is the Taking registrations choice on the edit page.
 class Intake::RegistrationsController < InternalController
   before_action :require_intake_feature
   before_action :set_team, only: %i[index new]
@@ -11,8 +11,9 @@ class Intake::RegistrationsController < InternalController
     authorize Intake::Registration
     registrations = policy_scope(Intake::Registration).includes(:team).order(opens_at: :desc)
     registrations = registrations.where(team: @team) if @team
-    registrations = registrations.not_archived unless params[:archived] == "1"
-    @registrations = registrations
+    archived = registrations.where.not(id: registrations.not_archived.select(:id))
+    @archived_count = archived.count
+    @registrations = params[:status] == "archived" ? archived : registrations.not_archived
   end
 
   # GET /registrations/:id
@@ -40,6 +41,7 @@ class Intake::RegistrationsController < InternalController
   def create
     @registration = Intake::Registration.new(registration_params.merge(created_by: current_user.person))
     authorize @registration
+    apply_taking
     if @registration.save
       redirect_to intake_registration_path(@registration), notice: "Registration created."
     else
@@ -53,8 +55,10 @@ class Intake::RegistrationsController < InternalController
 
   # PATCH /registrations/:id
   def update
+    state = @registration.taking_state
     @registration.assign_attributes(registration_params)
     authorize @registration
+    apply_taking(state)
     if @registration.save
       redirect_to intake_registration_path(@registration), notice: "Registration saved."
     else
@@ -89,6 +93,14 @@ class Intake::RegistrationsController < InternalController
   end
 
   private
+
+  # The "Taking registrations" choice sets the dates, but only when it
+  # differs from what they already say, so dates typed beside an unchanged
+  # choice are kept.
+  def apply_taking(before = @registration.taking_state)
+    choice = params[:taking].to_s
+    @registration.take(choice) if choice.present? && choice != before
+  end
 
   def require_intake_feature
     redirect_to root_path, notice: "Registration isn't turned on." unless Intake.enabled?

@@ -1,24 +1,10 @@
+<% breadcrumb :intake_registration, @registration %>
+
 <div class="card mb-3">
-  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <h1 class="mb-0"><%= @registration.title %></h1>
-    <div class="d-flex gap-2 flex-wrap">
-      <%= link_to "Edit", edit_intake_registration_path(@registration), class: "btn btn-primary" %>
-      <%= link_to "Copy", copy_intake_registration_path(@registration), class: "btn btn-outline-primary" %>
-      <% if @registration.kiosk? %>
-        <%= link_to "Waiting to finish", waiting_intake_registration_path(@registration), class: "btn btn-outline-primary" %>
-      <% end %>
-      <% unless @registration.closed? %>
-        <%= button_to "Close now", close_intake_registration_path(@registration), method: :patch, class: "btn btn-warning",
-          form: { data: { turbo_confirm: "Close this registration now? The link will say registration has closed." } } %>
-      <% end %>
-      <%= button_to "Delete", intake_registration_path(@registration), method: :delete, class: "btn btn-danger",
-        form: { data: { turbo_confirm: "Delete this registration and its sign-ups? Applications stay." } } %>
-    </div>
-  </div>
+  <%= render "shared/page_header", title: @registration.title, summary: @registration.description.presence,
+    state: state_line(intake_registration_state(@registration), link_text: "Change", link_path: edit_intake_registration_path(@registration)) %>
   <div class="card-body">
     <dl class="row mb-0">
-      <dt class="col-sm-3">Status</dt>
-      <dd class="col-sm-9"><%= @registration.open? ? "Open" : (@registration.not_yet_open? ? "Not open yet" : "Closed") %></dd>
       <dt class="col-sm-3">Dates</dt>
       <dd class="col-sm-9"><%= l @registration.opens_at, format: :long %> to <%= @registration.closes_at ? l(@registration.closes_at, format: :long) : "no end" %></dd>
       <dt class="col-sm-3">Run by</dt>
@@ -51,20 +37,27 @@
       </dd>
     </dl>
   </div>
+  <%= render "shared/action_row", actions: [
+    screen_action("Edit", edit_intake_registration_path(@registration), style: :warning),
+    screen_action("Waiting to finish", waiting_intake_registration_path(@registration), visible: @registration.kiosk?),
+    screen_action("Copy", copy_intake_registration_path(@registration), more: true),
+    screen_action("Delete", intake_registration_path(@registration), method: :delete, destructive: true,
+      confirm: "Delete this registration and its sign-ups? Applications stay.")
+  ] %>
 </div>
 
 <div class="card mb-3">
   <div class="card-header"><h2 class="h5 mb-0">Sign-ups by day (last 30 days)</h2></div>
   <div class="card-body">
     <% if @entries_by_day.any? %>
-      <table class="table table-sm mb-0">
+      <div class="table-responsive"><table class="table table-sm mb-0">
         <thead><tr><th>Day</th><th>Started</th><th>Email confirmed</th></tr></thead>
         <tbody>
           <% @entries_by_day.each do |day, count| %>
             <tr><td><%= l day.to_date, format: :long %></td><td><%= count %></td><td><%= @verified_by_day[day] || 0 %></td></tr>
           <% end %>
         </tbody>
-      </table>
+      </table></div>
     <% else %>
       <p class="text-muted mb-0">No sign-ups yet.</p>
     <% end %>
@@ -76,7 +69,7 @@
   <div class="card-body">
     <% if @unverified_entries.any? %>
       <%= form_with url: entries_intake_registration_path(@registration), method: :delete, data: { turbo_confirm: "Delete the selected sign-ups?" } do %>
-        <table class="table table-sm align-middle">
+        <div class="table-responsive"><table class="table table-sm align-middle">
           <thead><tr><th></th><th>Name</th><th>Started</th><th>Network</th><th></th></tr></thead>
           <tbody>
             <% @unverified_entries.each do |entry| %>
@@ -89,7 +82,7 @@
               </tr>
             <% end %>
           </tbody>
-        </table>
+        </table></div>
         <%= submit_tag "Delete selected", class: "btn btn-outline-danger" %>
       <% end %>
     <% else %>
