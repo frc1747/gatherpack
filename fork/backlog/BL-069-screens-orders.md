@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | medium |
-| Status | waiting |
+| Status | done (feature/orders, feature/order-inventory, not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/orders`, `feature/order-inventory`; after BL-062 |

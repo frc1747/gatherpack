@@ -334,6 +334,10 @@ A draft isn't a to-do: an abandoned one would nag forever. It appears under Your
 
 **Performance.** Home has a budget ([`my-gatherpack-spec.md`](my-gatherpack-spec.md) §6.3). `WaitingOn` must work out each request's current step in one pass over the requests and their approvals, not with a query per request, and is memoized for the request so the sections share it.
 
+### 3.15a Request page and form (screen standard, BL-069)
+
+The request page's footer is the screen kit's action row: one job button for the viewer (Finish request, Update, Open To buy or Receive), then More with Edit, Order again, Follow and Print, and Delete draft or Cancel request last. An approver gets no job button: the decision bar on the page (Approve, Ask for changes, Decline) is the job. The header states the request in words ('Waiting for approval by <step>', 'Ordered <date>'). The request form saves itself while new or a draft, so it ends Close (saves anything pending, then goes to My requests), Save draft, Submit for approval; forms that don't save themselves end Cancel, Save (or Send back for approval).
+
 ### 3.16 Requester experience
 
 Most requesters are high-school students on a phone. The test for this section: a student who has the vendor's page open can ask for a part in under a minute, and a student with no link at all can still ask.
