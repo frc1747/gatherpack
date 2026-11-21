@@ -4,7 +4,7 @@
   <%= render "shared/page_header", title: @list.configuration["title"],
         summary: "Taken #{l(@list.recorded_at, format: :long)} by #{@list.recorded_by&.display_name || "someone"}. This list doesn't change.",
         state: (tag.div(@list.note) if @list.note.present?) %>
-  <div class="card-body">
+  <div class="card-body" <%= tag.attributes(data: column_chooser_data("checklists-list")) %>>
     <div class="no-print">
       <%= render "shared/filter_bar", url: checklist_checklist_list_path(@list.checklist, @list),
             table_actions: [ screen_action("Print", nil, style: :dark, data: { action: "checklist-report#print" }) ] %>
