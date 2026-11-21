@@ -1,0 +1,12 @@
+<%# locals: (title:, summary: nil, state: nil, tabs: []) -%>
+<%# tabs: [label, path] pairs, shown only past two parts. %>
+<div class="card-header">
+  <h1><%= title %></h1>
+  <% if summary.present? %>
+    <div class="text-muted"><%= summary %></div>
+  <% end %>
+  <%= state %>
+  <% if tabs.size > 2 %>
+    <div class="mt-2"><%= render "shared/record_tabs", tabs: %></div>
+  <% end %>
+</div>
