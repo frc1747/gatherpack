@@ -72,6 +72,25 @@ class HousekeepingScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "moving people: a table that scrolls, then Cancel before the action on both steps" do
+    alumni = create_world_team("Alumni", parent: @club)
+    with_housekeeping do
+      sign_in person(:club_manager).user
+
+      get team_move_people_path(@members)
+      assert_response :success
+      assert_select ".table-responsive table input[name='ids[]'][value=?]", person(:member).id
+      assert_select "input.btn-secondary[value=Find]"
+      assert_select "a.btn-secondary[href=?] + input.btn-primary[value=?]", team_memberships_path(@members), "Check the move"
+      assert_select ".btn-link", count: 0
+
+      post preview_team_move_people_path(@members), params: { to_team_id: alumni.id, ids: [ person(:member).id ] }
+      assert_response :success
+      assert_select "a.btn-secondary[href=?] + input.btn-primary[value=?]", team_move_people_path(@members), "Move 1"
+      assert_select ".btn-link", count: 0
+    end
+  end
+
   private
 
   def with_housekeeping(**settings, &block)

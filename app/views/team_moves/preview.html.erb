@@ -26,8 +26,10 @@
       <% @move.ready.each do |person| %>
         <%= hidden_field_tag "ids[]", person.id, id: nil %>
       <% end %>
-      <%= submit_tag "Move #{@move.ready.size}", class: "btn btn-primary" if @move.ready.any? %>
-      <%= link_to "Cancel", team_move_people_path(@team), class: "btn btn-link" %>
+      <div class="d-flex flex-wrap gap-2">
+        <%= link_to "Cancel", team_move_people_path(@team), class: "btn btn-secondary" %>
+        <%= submit_tag "Move #{@move.ready.size}", class: "btn btn-primary" if @move.ready.any? %>
+      </div>
     <% end %>
   </div>
 </div>
