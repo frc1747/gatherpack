@@ -31,7 +31,7 @@ Two principles come before every rule below.
 
 **1. Consistency: every feature looks and works the same.** Someone who has learned one screen should already know the next.
 - Same kind of screen, same layout: a list page, a record page, a setup page and a form each have one shape across all features (header card with title and one-line summary, filters, then the table or content, then actions). Before designing, find the nearest existing screen of the same kind, fork or upstream, and copy its layout, button order and words.
-- Same action, same word and place: Edit, Print, Download CSV, Remind, Archive, More. Primary action first; destructive ones last, in the More menu.
+- Same action, same word, style and place: the words and styles are in gp-map "Views", the places in "The standard" below.
 - Same pieces: status badges, filters, tick lists, empty states ("Nobody here."), the people table. If a feature needs one that doesn't exist, build it once as a shared partial and use it everywhere, rather than a near-copy.
 - When a new screen and an old one disagree, fix the old one to match (or note it in the backlog), don't add a third style.
 
@@ -44,16 +44,31 @@ Two principles come before every rule below.
 - Every new setting, button or option has to earn its place: first ask whether a good default would do, and whether an existing option can absorb it. Removing an option is a good change.
 - Keep the flexibility admins rely on; just keep it out of everyone else's way.
 
+### The standard, by screen kind
+
+Reasoning, sketches, the screen kit and upstream's exceptions: `fork/specs/screen-standard-spec.md`. Words and button styles: gp-map "Views". Use the screen kit partials (`shared/_page_header`, `_state_line`, `_action_row`, `_inline_confirm`, `_filter_bar`, `_people_table`, `_empty_state`, `_record_tabs`) once `feature/screen-kit` is in the base; until then write the same markup.
+
+- **Layers.** 1 list, 2 record, 3 edit/new, 4 feature setup (its types, lists and settings, reached from the main Setup page), 5 site settings. Every layer has a breadcrumb; it's the one way back (no Back buttons on records; forms have Cancel).
+- **Page shape.** Header card: `h1` title, one-line summary, the state in words (record pages). Then filters, then the content, then the action row in the card footer.
+- **Lists (1).** Upstream's filter card: fields, then New <thing>, Search, Clear Search in its footer. Results below in `table-responsive`, with an empty-state line ("Nothing here yet.", "Nobody here.").
+- **Records (2).** Footer action row: Edit first, then the page's one job action (Remind, Sign up, Approve), then **More** for everything else. Delete is the last More item; with no More menu (three actions or fewer) it's the last button. Actions on a table (Print, Download CSV) sit at the right of its filter bar. More than two parts: link tabs under the header (`people/_show_shared`).
+- **Edit pages (3).** Fields, then Cancel, Save (Save last; pinned per BL-055). A setup with more than two parts uses link tabs, one save per tab (`forms/edit`), not a stack of sections. Rare choices behind "More choices".
+- **Feature setup (4).** A vocabulary is a list page ("Defined things" below); feature-wide settings are an edit page. Never on a reading screen.
+- **State** (open/closed, published, counting) is a labelled radio choice on the Edit page that says its effect, and the record page shows it in words with a link to the choice. Never a state button, never a bare status select. **Archive and Restore** are lifecycle actions, not states: never in that choice; the last items in More before Delete, each with a confirm naming the effect, on their own routes (never `DELETE`). **Decisions** on someone's request (Approve, Decline, Ask for changes) are buttons on the record for the person whose turn it is.
+- **Confirming.** Saving a form asks inline (below). One-click buttons with no form (Delete, Archive, Restore, Remove, Withdraw, Cancel request) use `turbo_confirm`, worded with the effect ("Delete this event and its 12 check-ins?"), never "Are you sure?".
+- **Other kinds.** Print view: controls at the top, hidden when printing. One-step action page: the thing, the question, Cancel and a button named for the effect. My GatherPack row: one solid action, the rest outline. Public page: one card, one primary button.
+- **Phone.** The action row keeps its first action and More (the rest move into More); tables scroll sideways; filters fold behind a Search/Filters button.
+
 - **Copy:** directions say what to do, in order, in one or two plain sentences, with a concrete example when the use isn't obvious. No abstract taglines ("little wisps of AI garbage") or insider terms ("basis", "intent", "on file"). Label fields by the question they answer ("Who to include", "Columns"). Button words shouldn't sound permanent when the action is safe ("Take Snapshot", not "Record this list").
 - **Name features for what they do in general**, not after the first use case.
 - **Start from the thing the page is about**, then plain radio choices with their settings inline; progressive pickers that reveal without a reload; tick boxes over multi-selects; one general option over several special cases.
-- **Warnings sit by the action:** a short question just above Save with inline choices (safe default selected), applied by the save. No page-top alerts with immediate-action buttons.
+- **Warnings sit by the action:** a short question just above Save with inline choices (safe default selected), applied by the save (`shared/_inline_confirm`). No page-top alerts with immediate-action buttons.
 - **Several choices mean "any of".** When a screen lets someone add more than one team, badge or rule of a kind, the model must treat them the way the screen reads (normally any-of), or the screen must block a second one. Say it on screen ("Any of these teams").
 - **Signed up is not done.** Planned or signed-up records go under their own **Upcoming** heading (soonest first), apart from **Done** (confirmed only, newest first); "Still open" is a third list.
 - **Status words** default to Complete / In Progress / Not Started, and can be overridden per checklist and per item. Don't argue finer distinctions against plain words the owner picks.
 - **Guardian parts only when a guardian is reached:** split counts and wording into "themselves" and "guardians" only when the real recipients include guardians. Steer guardians with wording, not new permission settings.
 - **Native over config:** surface a feature the way the nearest existing feature does (native card, profile tab), even if that costs a one-line `render` in an upstream view (recorded in `FORK.md`). Never a second mechanism such as an admin-built widget.
-- **Match upstream's look:** copy the nearest upstream screen. Buttons follow gp-map "Views" (full-size solid; outline only for small row buttons, toggle groups, My GatherPack card secondary actions).
+- **Match upstream's look:** copy the nearest upstream screen. Buttons follow gp-map "Views".
 - Don't use demo data that makes a feature look pointless.
 
 ## Defined things (types, units, conditions, categories)
