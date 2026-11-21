@@ -81,7 +81,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
 
       buttons, more = action_row
       assert_empty buttons
-      assert_equal [ "Edit", "Duplicate", "Follow", "Print", "Cancel request" ], more
+      assert_equal [ "Edit", "Follow", "Print", "Cancel request" ], more
       assert_select ".screen-action-row .dropdown-menu form[action=?][data-turbo-confirm=?]",
         cancel_orders_request_path(order_request), "Cancel this request? Nothing on it will be bought." do
         assert_select "button.text-danger", "Cancel request"
@@ -99,7 +99,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
       buttons, more = action_row
       assert_empty buttons
       assert_equal "Cancel request", more.last
-      assert_includes more, "Order again"
+      assert_includes more, "Duplicate"
       assert_includes more, "Print"
     end
   end

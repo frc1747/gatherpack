@@ -195,29 +195,13 @@ module Orders
       end
     end
 
-    # A new draft for the person with this request's lines (at their last
-    # known price) and its team, title and purpose.
-    def order_again(by:, team: self.team)
+    # Duplicate: a new draft for the person with this request's lines (at
+    # their last known price) and its team, purpose, funding source (when
+    # given) and a title ending "(copy)".
+    def order_again(by:, team: self.team, funding_source: nil)
       lines = live_lines.map(&:reorder_attributes)
-      OrderRequest.draft_for(person: by, team: team, lines: lines, title: title, purpose: purpose)
-    end
-
-    # A new draft for the person with a copy of this request and its lines:
-    # same team and funding source, the lines' own fields as the requester
-    # filled them in. Approvals, followers, purchases, receipts and the
-    # timeline stay behind.
-    def duplicate(by:)
-      transaction do
-        copy = OrderRequest.create!(
-          requested_by: by, team: team, funding_source: funding_source, status: :draft,
-          title: "#{display_title} (copy)", purpose: purpose, needed_by: needed_by,
-          estimated_shipping_cents: estimated_shipping_cents
-        )
-        order_lines.each do |line|
-          copy.order_lines.create!(line.attributes.slice(*OrderLine::EDITABLE_FIELDS, "position", "funding_source_id"))
-        end
-        copy
-      end
+      OrderRequest.draft_for(person: by, team: team, lines: lines, title: "#{display_title} (copy)", purpose: purpose,
+        funding_source: funding_source)
     end
 
     # Records every open line on the request (or, with purchase:, only that

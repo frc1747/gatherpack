@@ -8,7 +8,6 @@ namespace :orders do
       post :cancel
       post :close
       post :order_again
-      post :duplicate
       post :follow
       delete :follow, action: :unfollow
       post :comment

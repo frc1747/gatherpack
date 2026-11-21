@@ -322,17 +322,36 @@ class Orders::RequesterTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "order again makes a new draft with the same items" do
+  test "duplicate makes a new draft copy with the same items, team and funding source" do
     with_orders(@world) do
-      order_request = approved_request(@world, lines: [ { description: "Gear", price: 3 } ])
+      source = FundingSource.create!(team: @world.robotics, name: "Parts Fund", kind: :general)
+      order_request = approved_request(@world, title: "Gears", funding_source: source, lines: [ { description: "Gear", price: 3 } ])
 
       assert_difference -> { OrderRequest.count } do
-        post order_again_orders_request_url(order_request)
+        with_settings(orders_settings(@world, orders_requesters_pick_funding: "true")) do
+          post order_again_orders_request_url(order_request)
+        end
       end
       draft = OrderRequest.order(:created_at).last
       assert_redirected_to edit_orders_request_url(draft)
+      assert_equal "Duplicated. Check it, then save.", flash[:notice]
       assert draft.draft?
+      assert_equal "Gears (copy)", draft.title
+      assert_equal source, draft.funding_source
       assert_equal [ "Gear" ], draft.order_lines.map(&:description)
+      assert_empty draft.order_approvals
+      assert_empty draft.events
+    end
+  end
+
+  test "duplicate works on a draft, and leaves the funding source off for someone who can't pick it" do
+    with_orders(@world) do
+      source = FundingSource.create!(team: @world.robotics, name: "Parts Fund", kind: :general)
+      draft = draft_request(@world, funding_source: source)
+      post order_again_orders_request_url(draft)
+      copy = OrderRequest.order(:created_at).last
+      assert_not_equal draft, copy
+      assert_nil copy.funding_source
     end
   end
 

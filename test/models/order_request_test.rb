@@ -128,7 +128,7 @@ class OrderRequestTest < ActiveSupport::TestCase
     end
   end
 
-  test "order again copies the lines into a new draft at their last price" do
+  test "duplicate copies the lines into a new draft at their last price, titled as a copy" do
     with_orders(@world) do
       order_request = approved_request(@world, lines: [ { description: "Gear", price: 10, quantity: 4 } ])
       buy(@world, order_request.order_lines.to_a, prices: { order_request.order_lines.first.id => 1250 })
@@ -136,6 +136,7 @@ class OrderRequestTest < ActiveSupport::TestCase
       copy = order_request.reload.order_again(by: @world.teammate)
 
       assert copy.draft?
+      assert_equal "#{order_request.display_title} (copy)", copy.title
       assert_equal @world.teammate, copy.requested_by
       line = copy.order_lines.first
       assert_equal [ "Gear", 4, 1250 ], [ line.description, line.quantity, line.estimated_unit_price_cents ]

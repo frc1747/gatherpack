@@ -99,21 +99,14 @@ module Orders
     end
 
     # POST /orders/requests/1/order_again
-    # A new draft with the same items, for the same team when the requester
-    # can still ask for it.
+    # Duplicate: a new draft with the same items, for the same team when the
+    # requester can still ask for it, and the same funding source when they
+    # may pick funding.
     def order_again
       access = Orders::Access.for(current_person)
       team = access.may_request_for?(@order_request.team_id) ? @order_request.team : default_team
-      draft = @order_request.order_again(by: current_person, team: team)
-      redirect_to edit_orders_request_path(draft), notice: "A new draft with the same items. Check it, then submit it."
-    rescue ActiveRecord::RecordInvalid => e
-      redirect_to orders_request_path(@order_request), alert: e.record.errors.full_messages.to_sentence
-    end
-
-    # POST /orders/requests/1/duplicate
-    # A new draft copy of the request, for the person, to check and save.
-    def duplicate
-      draft = @order_request.duplicate(by: current_person)
+      funding_source = @order_request.funding_source if policy(@order_request).see_funding? && @order_request.funding_source&.usable_by?(team)
+      draft = @order_request.order_again(by: current_person, team: team, funding_source: funding_source)
       redirect_to edit_orders_request_path(draft), notice: "Duplicated. Check it, then save."
     rescue ActiveRecord::RecordInvalid => e
       redirect_to orders_request_path(@order_request), alert: e.record.errors.full_messages.to_sentence

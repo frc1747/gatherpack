@@ -25,7 +25,7 @@ module Orders
     end
 
     # The action row: the viewer's job, if any, as the one button, then More with
-    # Edit, Order again, Follow and Print, and Delete draft or Cancel request
+    # Edit, Duplicate, Follow and Print, and Delete draft or Cancel request
     # last.
     def order_request_actions(order_request)
       request_policy = policy(order_request)
@@ -38,10 +38,8 @@ module Orders
         job,
         screen_action("Edit", edit_orders_request_path(order_request), style: :warning,
           more: true, visible: request_policy.update? && !order_request.draft? && job&.label != "Update"),
-        screen_action("Order again", order_again_orders_request_path(order_request), method: :post,
-          more: true, visible: !order_request.draft? && request_policy.order_again?),
-        screen_action("Duplicate", duplicate_orders_request_path(order_request), method: :post,
-          more: true, visible: request_policy.duplicate?),
+        screen_action("Duplicate", order_again_orders_request_path(order_request), method: :post,
+          more: true, visible: request_policy.order_again?),
         screen_action(following ? "Stop following" : "Follow", follow_orders_request_path(order_request),
           method: following ? :delete : :post, more: true, visible: request_policy.follow?),
         screen_action("Print", nil, more: true, data: { controller: "orders-print", action: "orders-print#print" }),

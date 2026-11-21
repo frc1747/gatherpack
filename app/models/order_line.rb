@@ -171,7 +171,7 @@ class OrderLine < ApplicationRecord
     changes.slice(*EDITABLE_FIELDS, "actual_unit_price_cents", "expected_on")
   end
 
-  # Attributes for the same line on a new request ("Order again").
+  # Attributes for the same line on a new request ("Duplicate").
   def reorder_attributes
     attributes.slice(*EDITABLE_FIELDS)
       .merge("estimated_unit_price_cents" => unit_price_cents)
