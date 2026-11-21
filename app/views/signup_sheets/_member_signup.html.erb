@@ -26,11 +26,11 @@
   </div>
   <div>
     <% if signup_policy.update? %>
-      <%= link_to "Change", edit_signup_sheet_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-primary" %>
+      <%= link_to "Change", edit_signup_sheet_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-outline-secondary" %>
     <% end %>
     <% if signup_policy.destroy? %>
-      <%= button_to "Cancel", signup_sheet_signup_path(@signup_sheet, signup), method: :delete, class: "btn btn-sm btn-danger",
-            form_class: "d-inline", data: { turbo_confirm: signup_cancel_confirmation(signup, viewer: @viewer) } %>
+      <%= button_to "Cancel sign-up", signup_sheet_signup_path(@signup_sheet, signup), method: :delete, class: "btn btn-sm btn-outline-danger",
+            form_class: "d-inline", data: { turbo_confirm: signup_member_cancel_confirmation(signup, viewer: @viewer) } %>
     <% elsif signup.active? && [ signup.person_id, signup.signed_up_by_id ].include?(@viewer.id) %>
       <span class="small text-body-secondary">Ask an organizer to cancel</span>
     <% end %>

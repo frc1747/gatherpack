@@ -30,11 +30,11 @@ class SignupPositionsController < InternalController
   def update
     if params[:move].present?
       move(params[:move])
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "positions"), status: :see_other
     elsif kind_change_refused?
       render :edit, status: :unprocessable_entity
     elsif @signup_position.update(update_params)
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), notice: "#{@signup_position.name} saved.", status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "positions"), notice: "#{@signup_position.name} saved.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
     end
@@ -43,9 +43,9 @@ class SignupPositionsController < InternalController
   # DELETE /signup_sheets/1/signup_positions/1
   def destroy
     if @signup_position.destroy
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), notice: "#{@signup_position.name} removed.", status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "positions"), notice: "#{@signup_position.name} removed.", status: :see_other
     else
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "positions"), alert: @signup_position.errors.full_messages.to_sentence, status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "positions"), alert: @signup_position.errors.full_messages.to_sentence, status: :see_other
     end
   end
 

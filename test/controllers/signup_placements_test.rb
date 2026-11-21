@@ -123,15 +123,15 @@ class SignupPlacementsTest < ActionDispatch::IntegrationTest
     assert_select "#places_for_others", count: 0
   end
 
-  test "the member list's Cancel names the taker, without claiming they'll be told" do
+  test "the member list's Cancel sign-up names the taker and the date, without claiming they'll be told" do
     Membership.create!(person: person(:parent), team: @students)
     Signup.place!(slot: @slot, person: person(:parent), signed_up_by: person(:parent))
     Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:parent))
     sign_in person(:parent).user
 
     get signup_sheet_path(@sheet)
-    assert_select "#your_places button[data-turbo-confirm=?]", "Cancel this sign-up?", text: "Cancel"
-    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Game Day?", text: "Cancel"
+    assert_select "#your_places button[data-turbo-confirm=?]", "Cancel your sign-up for Sat Oct 24?", text: "Cancel sign-up"
+    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Student's place in Cashier, Game Day, Sat Oct 24?", text: "Cancel sign-up"
   end
 
   test "Cancel gives the date when the sheet has more than one, so same-named events differ" do
@@ -152,7 +152,7 @@ class SignupPlacementsTest < ActionDispatch::IntegrationTest
     sign_in person(:parent).user
 
     get signup_sheet_path(@sheet)
-    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Mononym's place in Cashier, Game Day?"
+    assert_select "#places_for_others button[data-turbo-confirm=?]", "Cancel Mononym's place in Cashier, Game Day, Sat Oct 24?"
 
     delete signup_sheet_signup_path(@sheet, signup)
     assert_equal "Mononym's place was cancelled.", flash[:notice]

@@ -50,6 +50,10 @@ class SignupSheet < ApplicationRecord
     [ "title", "status", "team_id", "updated_at" ]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   def identifier_name
     title
   end

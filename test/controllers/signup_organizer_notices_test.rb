@@ -56,11 +56,11 @@ class SignupOrganizerNoticesTest < ActionDispatch::IntegrationTest
     sign_in person(:worker).user
 
     get roster_signup_sheet_path(@sheet)
-    assert_select "form#mark_all_brought"
+    assert_select "form[action=?] button", mark_all_brought_signup_sheet_roster_signups_path(@sheet, event_id: @event.id), text: "Mark all brought"
 
     @dessert.destroy!
     get roster_signup_sheet_path(@sheet)
-    assert_select "form#mark_all_brought", count: 0
+    assert_select "button", text: "Mark all brought", count: 0
   end
 
   test "only the sheet's organizers can Mark all brought" do

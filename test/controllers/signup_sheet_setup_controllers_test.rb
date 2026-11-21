@@ -19,14 +19,19 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     @restore_settings&.call
   end
 
-  test "the setup page shows every section to an organizer" do
+  test "the setup page shows every section to an organizer, one tab each, with slots on Dates" do
     sign_in person(:worker).user
 
-    get edit_signup_sheet_path(@sheet)
-    assert_response :success
-    %w[ positions dates slots organizers audience ].each { |section| assert_select "##{section}" }
+    { "details" => %w[ signup_sheet_title ], "positions" => %w[ positions ], "dates" => %w[ dates slots ],
+      "organizers" => %w[ organizers ], "audience" => %w[ audience ] }.each do |tab, sections|
+      get edit_signup_sheet_path(@sheet, tab: tab)
+      assert_response :success
+      assert_select ".card-header .nav-link", 5
+      assert_select ".card-header .nav-link.active[href=?]", edit_signup_sheet_path(@sheet, tab: tab)
+      sections.each { |section| assert_select "##{section}" }
+    end
+    get edit_signup_sheet_path(@sheet, tab: "positions")
     assert_select "#positions", text: /Cashier/
-    assert_select "a[href=?]", roster_signup_sheet_path(@sheet)
   end
 
   test "an organizer adds, edits, reorders and removes positions" do
@@ -72,7 +77,7 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
 
     # The disabled radios aren't sent, only the collection's hidden blank.
     patch signup_sheet_signup_position_path(@sheet, @position), params: { signup_position: { kind: "", name: "Till" } }
-    assert_redirected_to edit_signup_sheet_path(@sheet, anchor: "positions")
+    assert_redirected_to edit_signup_sheet_path(@sheet, tab: "positions")
     assert @position.reload.people?
     assert_equal "Till", @position.name
     @position.update!(name: "Cashier")
@@ -104,7 +109,7 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     post rules_path, params: { signup_position_rule: { kind: "team", team_ids: [ "", @concessions.id, @students.id ] } }
     assert_equal [ "Needs the Alcohol License badge", "Age 18 or older", "In Concessions or Students" ], @position.signup_position_rules.reload.map(&:description)
 
-    get edit_signup_sheet_path(@sheet)
+    get edit_signup_sheet_path(@sheet, tab: "positions")
     assert_select "#positions li", text: /Needs the Alcohol License badge/
 
     rule = @position.signup_position_rules.first
@@ -178,7 +183,7 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     assert_difference "SignupSheetEvent.count" do
       post signup_sheet_signup_sheet_events_path(@sheet), params: { event_ids: [ practice.id ] }
     end
-    assert_redirected_to edit_signup_sheet_path(@sheet, anchor: "dates")
+    assert_redirected_to edit_signup_sheet_path(@sheet, tab: "dates")
     assert slot_for(@position, practice)
 
     sheet_event = @sheet.signup_sheet_events.find_by!(event: practice)
@@ -270,7 +275,7 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     BadgeAssignment.create!(badge: @organizer_badge, person: person(:concessions_manager))
     sign_in person(:worker).user
 
-    get edit_signup_sheet_path(@sheet)
+    get edit_signup_sheet_path(@sheet, tab: "organizers")
     assert_select "#organizers select option", text: person(:concessions_manager).display_name
     assert_select "#organizers select option", text: person(:student).display_name, count: 0
 
@@ -310,7 +315,7 @@ class SignupSheetSetupControllersTest < ActionDispatch::IntegrationTest
     assert_not @sheet.open_to?(person(:student2))
     assert_not @sheet.open_to?(person(:concessions_manager))
 
-    get edit_signup_sheet_path(@sheet)
+    get edit_signup_sheet_path(@sheet, tab: "audience")
     assert_select "#audience li", text: /Include Students \(members only, not managers\)/
 
     assert_difference "SignupAudienceRule.count", -1 do

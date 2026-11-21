@@ -36,7 +36,7 @@ class SignupAudienceRulesController < InternalController
     end
 
     def edit_path
-      edit_signup_sheet_path(@signup_sheet, anchor: "audience")
+      edit_signup_sheet_path(@signup_sheet, tab: "audience")
     end
 
     # Organizers can only include people and badges in their reach

@@ -35,7 +35,7 @@ class SignupDatesControllerTest < ActionDispatch::IntegrationTest
         "1" => { date: "2026-11-07", start_time: "", end_time: "", name: "", location: "" },
         "2" => { date: "", start_time: "", end_time: "", name: "", location: "" } } }
     end
-    assert_redirected_to edit_signup_sheet_path(@sheet, anchor: "dates")
+    assert_redirected_to edit_signup_sheet_path(@sheet, tab: "dates")
 
     home, picnic = @sheet.events.order(:start_time).to_a
     assert_equal [ "Home game", "Field 2", @club, event_types(:two) ], [ home.name, home.location, home.team, home.event_type ]
@@ -46,7 +46,7 @@ class SignupDatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal event_types(:two), @sheet.reload.event_type
     assert_equal 2, @cashier.signup_slots.count
 
-    get edit_signup_sheet_path(@sheet)
+    get edit_signup_sheet_path(@sheet, tab: "dates")
     assert_select "#dates", text: /Sat Nov 7, 2026, time not set yet/
   end
 
@@ -104,7 +104,7 @@ class SignupDatesControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name='date[start_time]']:not([value])"
 
     patch signup_sheet_signup_sheet_event_path(@sheet, sheet_event), params: { date: { date: "2026-11-07", start_time: "11:00", end_time: "15:00", name: "Picnic lunch", location: "Park" } }
-    assert_redirected_to edit_signup_sheet_path(@sheet, anchor: "dates")
+    assert_redirected_to edit_signup_sheet_path(@sheet, tab: "dates")
 
     picnic.reload
     assert_equal [ "Picnic lunch", "Park", Time.zone.parse("2026-11-07 11:00"), Time.zone.parse("2026-11-07 15:00") ],
@@ -130,8 +130,9 @@ class SignupDatesControllerTest < ActionDispatch::IntegrationTest
     sheet_event = @sheet.signup_sheet_events.create!(event: attached)
     sign_in person(:worker).user
 
-    get edit_signup_sheet_path(@sheet)
-    assert_select "##{ActionView::RecordIdentifier.dom_id(sheet_event)} a", text: "Change", count: 0
+    get edit_signup_sheet_path(@sheet, tab: "dates")
+    assert_select "##{ActionView::RecordIdentifier.dom_id(sheet_event)}"
+    assert_select "##{ActionView::RecordIdentifier.dom_id(sheet_event)} a", text: "Edit", count: 0
 
     get edit_signup_sheet_signup_sheet_event_path(@sheet, sheet_event)
     assert_redirected_to root_path

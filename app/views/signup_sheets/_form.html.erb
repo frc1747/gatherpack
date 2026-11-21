@@ -17,16 +17,24 @@
   <%= f.input :contact, hint: "Who to ask about this sheet, for example a name and email.",
         input_html: { autocomplete: "off", data: { bwignore: true } } %>
 
-  <div class="row">
-    <div class="col-12 col-md-4">
-      <%= f.input :status, as: :select, collection: SignupSheet.statuses.keys.map { |status| [ status.humanize, status ] }, include_blank: false,
-            hint: "Members can sign up while it's open." %>
+  <% if f.object.archived? %>
+    <div class="mb-3">
+      <div class="form-label">Taking sign-ups</div>
+      <div class="form-control-plaintext">No: this sheet is archived. Restore it on the sheet's page to choose again.</div>
     </div>
-    <div class="col-12 col-md-4">
+  <% else %>
+    <%= f.input :status, as: :radio_buttons, label: "Taking sign-ups", collection: signup_sheet_taking_choices,
+          value_method: :first, label_method: :last, full_error: false %>
+    <%# The message alone, without "Status" in front of it. %>
+    <%= f.error :status, class: "invalid-feedback d-block mt-n2 mb-3" %>
+  <% end %>
+
+  <div class="row">
+    <div class="col-12 col-md-6">
       <%= f.input :names_permission, as: :select, label: "Who sees names",
             collection: [ [ "Everyone who can sign up", "everyone" ], [ "Organizers only", "organizers" ] ], include_blank: false %>
     </div>
-    <div class="col-12 col-md-4">
+    <div class="col-12 col-md-6">
       <%= f.input :cancel_cutoff_hours, label: "Members can cancel until", hint: "Hours before the event starts. 0 means until it starts." %>
     </div>
   </div>

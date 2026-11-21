@@ -39,6 +39,35 @@ module SignupSheetsHelper
     told ? "#{question} They'll be told." : question
   end
 
+  # What a member's Cancel sign-up asks, always with the date.
+  def signup_member_cancel_confirmation(signup, viewer:)
+    date = signup.event.start_time.strftime("%a %b %-d")
+    return "Cancel your sign-up for #{date}?" if signup.person_id == viewer.id
+
+    "Cancel #{signup_taker_name(signup)}'s place in #{signup.signup_position.name}, #{signup.event.name}, #{date}?"
+  end
+
+  # The sheet's state in words, for its page and the list: whether it's
+  # taking sign-ups, and until its last upcoming date. last_date: that date,
+  # when the caller has it already (nil for none).
+  def signup_sheet_state(sheet, last_date: :find)
+    case sheet.status
+    when "draft" then "Not taking sign-ups yet"
+    when "closed" then "Closed"
+    when "archived" then "Archived"
+    else
+      last_date = sheet.events.where(start_time: Time.current..).maximum(:start_time) if last_date == :find
+      last_date ? "Taking sign-ups until #{last_date.in_time_zone.strftime("%b %-d")}" : "Taking sign-ups"
+    end
+  end
+
+  # The Taking sign-ups choices on the setup page, as [status, label].
+  def signup_sheet_taking_choices
+    [ [ "draft", "Not yet: only organizers see it" ],
+      [ "open", "Yes, open now: members who can sign up see it" ],
+      [ "closed", "No, closed: people can see their sign-ups, not change them" ] ]
+  end
+
   # A person's name as an on-behalf-of choice, followed by the hints other
   # features add (Signups.extensions), such as what they still owe.
   def signup_on_behalf_of_label(sheet, person)

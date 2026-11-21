@@ -1,31 +1,52 @@
 <% breadcrumb :signup_sheets %>
 
+<%= search_form_for @q, data: { controller: "turbo_search", turbo_frame: "results" } do |f| %>
 <div class="card">
   <div class="card-header">
     <h1>Sign-up Sheets</h1>
   </div>
   <div class="card-body">
-    <% if @signup_sheets.any? %>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Sheet</th>
-            <th>Team</th>
-            <th>Next date</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <%= render partial: "sheet_row", collection: @signup_sheets, as: :signup_sheet %>
-        </tbody>
-      </table>
-    <% else %>
-      <p>No sign-up sheets for you right now.</p>
-    <% end %>
-  </div>
-  <% if policy(SignupSheet).new? %>
-    <div class="card-footer">
-      <%= link_to "New Sign-up Sheet", new_signup_sheet_path, class: "btn btn-success" %>
+    <div class="row">
+      <div class="col-md">
+        <%= f.input :title_cont, label: "Sheet", required: false %>
+      </div>
+      <div class="col-md">
+        <%= f.input :team_id_eq, label: "Team", as: :select, required: false,
+              collection: Team.where(id: policy_scope(SignupSheet).visible.select(:team_id)).order(:name) %>
+      </div>
     </div>
-  <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "New Sign-up Sheet", new_signup_sheet_path, class: "btn btn-success" if policy(SignupSheet).new? %>
+    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+  </div>
 </div>
+<% end %>
+
+<%= turbo_frame_tag "results", target: "_top" do %>
+  <div class="card mt-3">
+    <div class="card-body">
+      <% if @signup_sheets.any? %>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Sheet</th>
+                <th>Team</th>
+                <th>Status</th>
+                <th>Next date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= render partial: "sheet_row", collection: @signup_sheets, as: :signup_sheet %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <%= render "shared/empty_state", text: "No sign-up sheets for you right now." %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

@@ -14,7 +14,7 @@
               <strong><%= sheet_event.event.name %></strong><%= ", #{sheet_event.event.location}" if sheet_event.event.location.present? %>
             </span>
             <span>
-              <%= link_to "Change", edit_signup_sheet_signup_sheet_event_path(@signup_sheet, sheet_event), class: "btn btn-sm btn-warning" if policy(sheet_event).update? %>
+              <%= link_to "Edit", edit_signup_sheet_signup_sheet_event_path(@signup_sheet, sheet_event), class: "btn btn-sm btn-outline-secondary" if policy(sheet_event).update? %>
               <%= button_to "Remove", signup_sheet_signup_sheet_event_path(@signup_sheet, sheet_event), method: :delete,
                     class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
                     data: { turbo_confirm: "Remove #{sheet_event.event.name} from the sheet? The event itself stays." } %>

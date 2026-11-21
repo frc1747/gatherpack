@@ -94,7 +94,11 @@ Rails.application.routes.draw do
   # Drawn even while Sign-up Sheets are turned off; the controllers send
   # people away then (SignupsFeature).
   resources :signup_sheets do
-    member { get :roster }
+    member do
+      get :roster
+      post :archive
+      post :restore
+    end
     resources :signup_positions, except: %i[index show] do
       resources :signup_position_rules, only: %i[create update destroy]
     end

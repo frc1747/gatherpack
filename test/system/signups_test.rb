@@ -26,7 +26,7 @@ class SignupsTest < ApplicationSystemTestCase
     end
     assert_text "1 of 3 filled"
 
-    accept_confirm { click_on "Cancel" }
+    accept_confirm("Cancel your sign-up for Sat Oct 24?") { click_on "Cancel sign-up" }
 
     assert_text "Your sign-up was cancelled."
     assert_no_selector "#my_signups"
@@ -51,7 +51,9 @@ class SignupsTest < ApplicationSystemTestCase
     restore = apply_settings(signups_organizers: "Sheet Organizer > Club")
     sign_in person(:worker).user
     @sheet.signup_sheet_organizers.create!(person: person(:worker))
-    visit edit_signup_sheet_path(@sheet)
+    visit signup_sheet_path(@sheet)
+    click_on "Edit"
+    click_on "Dates"
 
     click_on "Add dates"
     find("select[name=dates_event_type_id] option[value='#{event_types(:one).id}']").select_option
@@ -65,7 +67,7 @@ class SignupsTest < ApplicationSystemTestCase
     within "#dates" do
       assert_text "Sat Nov 7, 2026, time not set yet"
       within find("li", text: "Picnic") do
-        click_on "Change"
+        click_on "Edit"
       end
     end
     fill_in "Starts", with: Time.zone.parse("2026-11-07 11:00")

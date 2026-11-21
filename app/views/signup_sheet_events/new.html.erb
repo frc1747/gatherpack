@@ -1,4 +1,4 @@
-<% breadcrumb @signup_sheet %>
+<% breadcrumb :edit_signup_sheet, @signup_sheet %>
 
 <h1>Add dates to <%= @signup_sheet.title %></h1>
 
@@ -38,7 +38,7 @@
       <%= f.button "More rows", name: "more", value: "1", class: "btn btn-outline-secondary btn-sm" if @rows.size < SignupSheetEventsController::MAX_ROWS %>
     </div>
     <div class="card-footer">
-      <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, anchor: "dates"), class: "btn btn-warning" %>
+      <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, tab: "dates"), class: "btn btn-secondary" %>
       <%= f.submit "Add these dates", class: "btn btn-primary" %>
     </div>
   <% end %>
@@ -60,8 +60,7 @@
                 { include_blank: "All event types", selected: params[:event_type_id] }, class: "form-select" %>
         </div>
         <div class="col-auto">
-          <%= f.submit "Filter", name: nil, class: "btn btn-secondary" %>
-          <%= link_to "Clear", new_signup_sheet_signup_sheet_event_path(@signup_sheet), class: "btn btn-link" if params[:event_type_id].present? %>
+          <%= f.submit "Show", name: nil, class: "btn btn-secondary" %>
         </div>
       <% end %>
     <% end %>

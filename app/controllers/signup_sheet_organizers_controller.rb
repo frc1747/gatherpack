@@ -39,6 +39,6 @@ class SignupSheetOrganizersController < InternalController
     end
 
     def edit_path
-      edit_signup_sheet_path(@signup_sheet, anchor: "organizers")
+      edit_signup_sheet_path(@signup_sheet, tab: "organizers")
     end
 end

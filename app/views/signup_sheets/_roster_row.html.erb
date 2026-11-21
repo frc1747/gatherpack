@@ -38,7 +38,7 @@
       <% else %>
         <div class="small text-body-secondary text-wrap"><%= signup_policy.self_approval_reason %></div>
       <% end %>
-      <%= link_to signup_policy.move? ? "Edit or move" : "Edit", edit_signup_sheet_roster_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-warning" %>
+      <%= link_to signup_policy.move? ? "Edit or move" : "Edit", edit_signup_sheet_roster_signup_path(@signup_sheet, signup), class: "btn btn-sm btn-outline-secondary" %>
       <%= button_to "Cancel", signup_sheet_roster_signup_path(@signup_sheet, signup), method: :delete,
             class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
             data: { turbo_confirm: signup_cancel_confirmation(signup, viewer: current_user.person, told: signup_taker_told?(signup)) } %>

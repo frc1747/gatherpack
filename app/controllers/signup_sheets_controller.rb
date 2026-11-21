@@ -1,24 +1,31 @@
 class SignupSheetsController < InternalController
   include SignupsFeature
 
-  before_action :set_signup_sheet, only: %i[ show edit update destroy roster ]
+  before_action :set_signup_sheet, only: %i[ show edit update destroy roster archive restore ]
   before_action :set_team_choices, only: %i[ new create edit update ]
+
+  # The setup page's tabs; slots are set on the Dates tab.
+  EDIT_TABS = %w[ details positions dates organizers audience ].freeze
+  # The "Taking sign-ups" choices. Archiving is its own action.
+  TAKING_SIGNUPS = %w[ draft open closed ].freeze
 
   # GET /signup_sheets
   # Open sheets, plus any the person runs; those with their sign-ups first,
-  # then by next date.
+  # then by next date. Filtered by title and team (params[:q]).
   def index
     authorize SignupSheet
     person = current_user.person
-    sheets = policy_scope(SignupSheet).visible.includes(:team).to_a
+    @q = policy_scope(SignupSheet).visible.ransack(params[:q])
+    sheets = @q.result.includes(:team).to_a
     @organized_ids = sheets.select { |sheet| sheet.organizer?(person) }.map(&:id)
     @signup_sheets = sheets.select { |sheet| sheet.open? || @organized_ids.include?(sheet.id) }
 
     ids = @signup_sheets.map(&:id)
     @my_counts = signups_involving(Signup.live, person).joins(signup_slot: :signup_position)
       .where(signup_positions: { signup_sheet_id: ids }).group("signup_positions.signup_sheet_id").count
-    @next_dates = SignupSheetEvent.joins(:event).where(signup_sheet_id: ids, events: { start_time: Time.current.. })
-      .group(:signup_sheet_id).minimum("events.start_time")
+    upcoming = SignupSheetEvent.joins(:event).where(signup_sheet_id: ids, events: { start_time: Time.current.. }).group(:signup_sheet_id)
+    @next_dates = upcoming.minimum("events.start_time")
+    @last_dates = upcoming.maximum("events.start_time")
     @signup_sheets.sort_by! do |sheet|
       [ @my_counts[sheet.id].to_i.positive? ? 0 : 1, @next_dates[sheet.id]&.to_f || Float::INFINITY, sheet.title.downcase ]
     end
@@ -50,6 +57,7 @@ class SignupSheetsController < InternalController
       .order("events.start_time", "signup_positions.position", "signups.created_at")
     @signups = @signups.where(signup_slots: { event_id: params[:event_id] }) if params[:event_id].present?
     @signups = @signups.where(signup_slots: { signup_position_id: params[:signup_position_id] }) if params[:signup_position_id].present?
+    @status_counts = @signups.unscope(:order).group(:status).count
     @signups = @signups.where(status: params[:status]) if params[:status].to_s.in?(Signup.statuses.keys)
   end
 
@@ -60,7 +68,7 @@ class SignupSheetsController < InternalController
     @signup_sheet = SignupSheet.new(team_id: team_id)
   end
 
-  # GET /signup_sheets/1/edit
+  # GET /signup_sheets/1/edit?tab=dates
   def edit
   end
 
@@ -88,8 +96,24 @@ class SignupSheetsController < InternalController
     end
   end
 
+  # POST /signup_sheets/1/archive
+  # Hides the sheet from lists; its sign-ups are kept.
+  def archive
+    @signup_sheet.archived!
+    redirect_to @signup_sheet, notice: "Sheet archived.", status: :see_other
+  end
+
+  # POST /signup_sheets/1/restore
+  # Brings an archived sheet back closed, until someone chooses to take
+  # sign-ups again.
+  def restore
+    @signup_sheet.closed!
+    redirect_to @signup_sheet, notice: "Sheet restored. It isn't taking sign-ups.", status: :see_other
+  end
+
   # DELETE /signup_sheets/1
-  # A sheet with sign-ups is archived instead.
+  # A sheet with sign-ups is archived instead. The sheet page only offers
+  # Delete when it can delete; Archive has its own action.
   def destroy
     if policy(@signup_sheet).destroy?
       @signup_sheet.destroy!
@@ -103,7 +127,8 @@ class SignupSheetsController < InternalController
   private
     def set_signup_sheet
       @signup_sheet = SignupSheet.find(params[:id])
-      authorize @signup_sheet, { "show" => :show?, "roster" => :roster? }.fetch(action_name, :manage?)
+      authorize @signup_sheet, { "show" => :show?, "roster" => :roster?, "archive" => :archive?, "restore" => :restore? }.fetch(action_name, :manage?)
+      @tab = params[:tab].presence_in(EDIT_TABS) || "details"
     end
 
     def set_team_choices
@@ -121,8 +146,11 @@ class SignupSheetsController < InternalController
         .or(signups.where(signed_up_by_id: person.id, placed_by_organizer: false))
     end
 
+    # Taking sign-ups sets the status, but never to or from archived.
     def signup_sheet_params
-      params.require(:signup_sheet).permit(:team_id, :title, :description, :contact, :status, :names_permission,
-        :on_behalf_of_mode, :cancel_cutoff_hours, others_relationship_type_ids: [])
+      permitted = [ :team_id, :title, :description, :contact, :names_permission, :on_behalf_of_mode, :cancel_cutoff_hours,
+        { others_relationship_type_ids: [] } ]
+      permitted << :status if !@signup_sheet&.archived? && TAKING_SIGNUPS.include?(params.dig(:signup_sheet, :status))
+      params.require(:signup_sheet).permit(*permitted)
     end
 end

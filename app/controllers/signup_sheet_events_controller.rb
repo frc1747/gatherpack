@@ -51,7 +51,7 @@ class SignupSheetEventsController < InternalController
         @signup_sheet.signup_sheet_events.create!(event: event, created_by_sheet: true)
       end
     end
-    redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "dates"),
+    redirect_to edit_signup_sheet_path(@signup_sheet, tab: "dates"),
       notice: "#{helpers.pluralize(events.size, "date")} added. Each position now has a slot on each date.", status: :see_other
   end
 
@@ -68,7 +68,7 @@ class SignupSheetEventsController < InternalController
     return render :edit, status: :unprocessable_entity unless @row.valid?
 
     if @event.update(@row.event_attributes(@event.name))
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "dates"), notice: "#{@event.name} saved.", status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "dates"), notice: "#{@event.name} saved.", status: :see_other
     else
       @event.errors.each { |error| @row.errors.add(:base, error.full_message) }
       render :edit, status: :unprocessable_entity
@@ -89,7 +89,7 @@ class SignupSheetEventsController < InternalController
     SignupSheetEvent.transaction do
       events.each { |event| @signup_sheet.signup_sheet_events.create!(event: event) }
     end
-    redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "dates"),
+    redirect_to edit_signup_sheet_path(@signup_sheet, tab: "dates"),
       notice: "#{helpers.pluralize(events.size, "date")} added. Each position now has a slot on each date.", status: :see_other
   end
 
@@ -98,9 +98,9 @@ class SignupSheetEventsController < InternalController
     @signup_sheet_event = authorize @signup_sheet.signup_sheet_events.find(params[:id])
 
     if @signup_sheet_event.destroy
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "dates"), notice: "#{@signup_sheet_event.event.name} removed from the sheet.", status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "dates"), notice: "#{@signup_sheet_event.event.name} removed from the sheet.", status: :see_other
     else
-      redirect_to edit_signup_sheet_path(@signup_sheet, anchor: "dates"), alert: @signup_sheet_event.errors.full_messages.to_sentence, status: :see_other
+      redirect_to edit_signup_sheet_path(@signup_sheet, tab: "dates"), alert: @signup_sheet_event.errors.full_messages.to_sentence, status: :see_other
     end
   end
 

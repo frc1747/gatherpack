@@ -1,4 +1,4 @@
-<% breadcrumb @signup_sheet %>
+<% breadcrumb :signup_sheet_roster, @signup_sheet %>
 
 <div class="card">
   <div class="card-header">
@@ -30,7 +30,7 @@
       </div>
     </div>
     <div class="card-footer">
-      <%= link_to "Cancel", roster_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= link_to "Cancel", roster_signup_sheet_path(@signup_sheet), class: "btn btn-secondary" %>
       <%= f.submit "Send", class: "btn btn-primary" %>
     </div>
   <% end %>

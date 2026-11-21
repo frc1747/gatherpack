@@ -54,6 +54,15 @@ class SignupSheetPolicy < ApplicationPolicy
     organizer? && !record.signups.exists?
   end
 
+  # Archive and Restore are lifecycle actions, apart from Taking sign-ups.
+  def archive?
+    organizer? && !record.archived?
+  end
+
+  def restore?
+    organizer? && record.archived?
+  end
+
   # Whether this person may put a sheet under the team.
   def team_in_reach?(team_id)
     team_id.present? && SignupSheet.creatable_team_ids(person).include?(team_id)

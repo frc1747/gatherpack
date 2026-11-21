@@ -1,4 +1,4 @@
-<% breadcrumb @signup_sheet %>
+<% breadcrumb :edit_signup_sheet, @signup_sheet %>
 
 <%= form_with url: update_all_signup_sheet_signup_slots_path(@signup_sheet), method: :patch do |f| %>
 <div class="card">
@@ -57,7 +57,7 @@
     <% end %>
   </div>
   <div class="card-footer">
-    <%= link_to "Back to the sheet", edit_signup_sheet_path(@signup_sheet, anchor: "slots"), class: "btn btn-warning" %>
+    <%= link_to "Cancel", edit_signup_sheet_path(@signup_sheet, tab: "dates"), class: "btn btn-secondary" %>
     <%= f.submit "Save", class: "btn btn-primary" if @events.any? && @positions.any? %>
   </div>
 </div>

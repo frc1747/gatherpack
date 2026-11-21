@@ -28,10 +28,10 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     assert_select "tbody tr:last-child##{ActionView::RecordIdentifier.dom_id(alpha)}"
     assert_select "a", text: "Draft Sheet", count: 0
     assert_select "a", text: "Other Org Sheet", count: 0
-    assert_select "a", text: "Set up", count: 0
+    assert_select "a", text: "Edit", count: 0
   end
 
-  test "organizers also see their draft sheets, marked, with Set up" do
+  test "organizers also see their draft sheets, marked, with Edit" do
     draft = create_world_sheet("Draft Sheet", status: :draft)
     sign_in person(:concessions_manager).user
     get signup_sheets_path
@@ -40,8 +40,8 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     sign_in person(:admin).user
     get signup_sheets_path
     assert_select "tr##{ActionView::RecordIdentifier.dom_id(draft)}" do
-      assert_select ".badge", text: "Draft"
-      assert_select "a[href=?]", edit_signup_sheet_path(draft), text: "Set up"
+      assert_select "td", text: "Not taking sign-ups yet"
+      assert_select "a[href=?]", edit_signup_sheet_path(draft, tab: "details"), text: "Edit"
     end
   end
 
@@ -115,7 +115,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     get signup_sheet_path(@sheet)
     assert_select "#my_signups", text: /Taken for you by Student World/
     assert_select "#my_signups a", text: "Change", count: 0
-    assert_select "#my_signups button", text: "Cancel", count: 0
+    assert_select "#my_signups button", text: "Cancel sign-up", count: 0
     patch signup_sheet_signup_path(@sheet, signup), params: { signup: { note: "Mine" } }
     delete signup_sheet_signup_path(@sheet, signup)
     assert signup.reload.active?
@@ -233,7 +233,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     sign_in person(:student).user
 
     get signup_sheet_path(@sheet)
-    assert_select "#my_signups button", text: "Cancel"
+    assert_select "#my_signups button[data-turbo-confirm=?]", "Cancel your sign-up for Sat Oct 24?", text: "Cancel sign-up"
     assert_no_difference "Signup.count" do
       delete signup_sheet_signup_path(@sheet, signup)
     end
@@ -243,7 +243,7 @@ class SignupsControllerTest < ActionDispatch::IntegrationTest
     late = Signup.place!(slot: @slot, person: person(:student), signed_up_by: person(:student))
     travel_to @event.start_time + 1.minute
     get signup_sheet_path(@sheet)
-    assert_select "#my_signups button", text: "Cancel", count: 0
+    assert_select "#my_signups button", text: "Cancel sign-up", count: 0
     assert_select "#my_signups", text: /Ask an organizer to cancel/
     delete signup_sheet_signup_path(@sheet, late)
     assert late.reload.active?

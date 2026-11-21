@@ -1,51 +1,42 @@
-<% breadcrumb @signup_sheet %>
-
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <h1 class="mb-0">Roster: <%= @signup_sheet.title %></h1>
-    <div class="no-print">
-      <%= link_to "Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), class: "btn btn-success" unless @signup_sheet.archived? %>
-      <%= link_to "Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id]), class: "btn btn-primary" %>
-      <button type="button" class="btn btn-secondary" data-controller="print" data-action="print#print">Print</button>
-      <%= link_to "Set up", edit_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+<% breadcrumb :signup_sheet_roster, @signup_sheet %>
+<% event_choices = @events.map { |event| [ "#{event.start_time.strftime("%b %-d")} #{event.name}", event.id ] } %>
+<%# Mark all brought works on one date: the one the roster shows, or the only one. %>
+<% brought_event = params[:event_id].present? ? @events.find { |event| event.id == params[:event_id] } : (@events.first if @events.one?) %>
+<% offer_brought = !@signup_sheet.archived? && brought_event.present? && @positions.any?(&:items?) %>
+<% if offer_brought %>
+  <% brought_path = mark_all_brought_signup_sheet_roster_signups_path(@signup_sheet, event_id: brought_event.id) %>
+  <% brought_confirm = "Mark every item sign-up on #{brought_event.start_time.strftime("%a %b %-d")} brought? " \
+       "Your own and your family's are left for another organizer to mark." %>
+<% end %>
+<% more_filters = capture do %>
+  <div class="row g-2">
+    <div class="col-md-4">
+      <%= label_tag :event_id, "Date", class: "form-label" %>
+      <%= select_tag :event_id, options_for_select(event_choices, params[:event_id]), include_blank: "All dates", class: "form-select" %>
+    </div>
+    <div class="col-md-4">
+      <%= label_tag :signup_position_id, "Position", class: "form-label" %>
+      <%= select_tag :signup_position_id, options_for_select(@positions.map { |position| [ position.name, position.id ] }, params[:signup_position_id]),
+            include_blank: "All positions", class: "form-select" %>
     </div>
   </div>
-  <div class="card-body">
-    <%= form_with url: roster_signup_sheet_path(@signup_sheet), method: :get, class: "row g-2 align-items-end mb-3 no-print" do |f| %>
-      <div class="col-md-3">
-        <%= f.label :event_id, "Date", class: "form-label" %>
-        <%= f.select :event_id, @events.map { |event| [ "#{event.start_time.strftime("%b %-d")} #{event.name}", event.id ] },
-              { include_blank: "All dates", selected: params[:event_id] }, class: "form-select" %>
-      </div>
-      <div class="col-md-3">
-        <%= f.label :signup_position_id, "Position", class: "form-label" %>
-        <%= f.select :signup_position_id, @positions.map { |position| [ position.name, position.id ] },
-              { include_blank: "All positions", selected: params[:signup_position_id] }, class: "form-select" %>
-      </div>
-      <div class="col-md-3">
-        <%= f.label :status, "Status", class: "form-label" %>
-        <%= f.select :status, [ [ "Signed up", "active" ], [ "Fulfilled or brought", "fulfilled" ], [ "No-show or not brought", "no_show" ], [ "Cancelled", "cancelled" ] ],
-              { include_blank: "Any status", selected: params[:status] }, class: "form-select" %>
-      </div>
-      <div class="col-auto">
-        <%= f.submit "Filter", name: nil, class: "btn btn-secondary" %>
-        <%= link_to "Clear", roster_signup_sheet_path(@signup_sheet), class: "btn btn-link" %>
-      </div>
-    <% end %>
+<% end %>
 
-    <% if !@signup_sheet.archived? && @positions.any?(&:items?) && @events.any? %>
-      <%= form_with url: mark_all_brought_signup_sheet_roster_signups_path(@signup_sheet), method: :patch, id: "mark_all_brought", class: "row g-2 align-items-end mb-3 no-print" do |f| %>
-        <div class="col-md-3">
-          <%= f.label :event_id, "Items at", class: "form-label", for: "mark_all_brought_event_id" %>
-          <%= f.select :event_id, @events.map { |event| [ "#{event.start_time.strftime("%b %-d")} #{event.name}", event.id ] },
-                { selected: params[:event_id] }, id: "mark_all_brought_event_id", class: "form-select" %>
-        </div>
-        <div class="col-auto">
-          <%= f.submit "Mark all brought", class: "btn btn-outline-success", data: { turbo_confirm: "Mark every item sign-up at this date brought? You can then mark what didn't come." } %>
-        </div>
-        <div class="col-12 form-text mt-0">Your own and your family's sign-ups are left for another organizer to mark.</div>
-      <% end %>
-    <% end %>
+<div class="card">
+  <%= render "shared/page_header", title: "Roster: #{@signup_sheet.title}", state: state_line(signup_sheet_state(@signup_sheet)) %>
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-start gap-2 no-print">
+      <div class="flex-grow-1">
+        <%= render "shared/filter_bar", url: roster_signup_sheet_path(@signup_sheet),
+              params: params.permit(:event_id, :signup_position_id).to_h,
+              statuses: [ { label: "All", value: nil, count: @status_counts.values.sum } ] +
+                [ [ "Signed up", "active" ], [ "Fulfilled or brought", "fulfilled" ], [ "No-show or not brought", "no_show" ], [ "Cancelled", "cancelled" ] ]
+                  .map { |label, value| { label:, value:, count: @status_counts[value].to_i } },
+              more: more_filters, open: params.values_at(:event_id, :signup_position_id).any?(&:present?) %>
+      </div>
+      <%# Prints the page as it is, so it isn't a link like the kit's table actions. %>
+      <button type="button" class="btn btn-dark" data-controller="print" data-action="print#print">Print</button>
+    </div>
 
     <% if @signups.any? %>
       <div class="table-responsive">
@@ -72,7 +63,12 @@
         </table>
       </div>
     <% else %>
-      <p>No sign-ups<%= " match these filters" if params.values_at(:event_id, :signup_position_id, :status).any?(&:present?) %>.</p>
+      <%= render "shared/empty_state", text: "No sign-ups#{" match these filters" if params.values_at(:event_id, :signup_position_id, :status).any?(&:present?)}." %>
     <% end %>
   </div>
+  <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
+        screen_action("Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), style: :success, visible: !@signup_sheet.archived?),
+        screen_action("Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id])),
+        screen_action("Mark all brought", brought_path, method: :patch, visible: offer_brought, confirm: brought_confirm)
+      ] %>
 </div>

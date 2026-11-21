@@ -1,4 +1,4 @@
-<% breadcrumb @signup_sheet %>
+<% breadcrumb :signup_sheet_roster, @signup_sheet %>
 <% signup_policy = policy(@signup) %>
 
 <div class="card">
@@ -10,7 +10,7 @@
     <%= simple_form_for @signup, url: signup_sheet_roster_signup_path(@signup_sheet, @signup), method: :patch do |f| %>
       <%= f.error_notification message: @signup.errors.full_messages.to_sentence if @signup.errors.any? %>
       <%= render "details_fields", f: f %>
-      <%= link_to "Back to the roster", roster_signup_sheet_path(@signup_sheet), class: "btn btn-warning" %>
+      <%= link_to "Cancel", roster_signup_sheet_path(@signup_sheet), class: "btn btn-secondary" %>
       <%= f.button :submit, "Save", class: "btn btn-primary" %>
     <% end %>
 

@@ -130,7 +130,7 @@ class SignupAudienceReachTest < ActionDispatch::IntegrationTest
     create_world_badge("Grill Crew", team: @concessions)
     sign_in person(:worker).user
 
-    get edit_signup_sheet_path(@sheet)
+    get edit_signup_sheet_path(@sheet, tab: "audience")
     assert_response :success
     assert_select "#audience select[name='signup_audience_rule[person_id]']" do
       assert_select "option", text: person(:student).display_name
@@ -143,7 +143,7 @@ class SignupAudienceReachTest < ActionDispatch::IntegrationTest
     end
 
     sign_in person(:admin).user
-    get edit_signup_sheet_path(@sheet)
+    get edit_signup_sheet_path(@sheet, tab: "audience")
     assert_select "#audience select[name='signup_audience_rule[person_id]']", count: 0
     assert_select "#audience select[name='signup_audience_rule[badge_id]'] option", text: "Other Org Team Badge"
   end
