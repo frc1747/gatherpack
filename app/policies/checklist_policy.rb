@@ -81,6 +81,10 @@ class ChecklistPolicy < ApplicationPolicy
     record.organizer?(person)
   end
 
+  def archive?
+    !record.archived? && record.organizer?(person)
+  end
+
   def restore?
     record.archived? && record.organizer?(person)
   end

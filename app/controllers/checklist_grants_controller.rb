@@ -5,7 +5,7 @@ class ChecklistGrantsController < InternalController
 
   # POST /checklists/1/grants
   def create
-    grant = authorize @checklist.checklist_grants.new(params.require(:checklist_grant).permit(:badge_id, :team_id, :access, item_ids: []))
+    grant = authorize @checklist.checklist_grants.new(params.require(:checklist_grant).permit(:badge_id, :team_id, :access, :overall, item_ids: []))
     grant.created_by = current_user.person
     refused = grant.access.present? ? grant.refused_items(current_user.person) : []
     if refused.any?

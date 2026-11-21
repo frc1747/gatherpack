@@ -29,7 +29,6 @@ class ChecklistAttendanceRulesTest < ApplicationSystemTestCase
       within(rows.call.first) do
         find("input[aria-label='Rule name']").fill_in(with: "Summer")
         find("input[aria-label='Share of meeting hours']").fill_in(with: "10")
-        find("input[aria-label='Counted together with']").fill_in(with: "Fall")
         click_on "Fill in"
       end
 

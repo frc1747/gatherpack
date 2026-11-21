@@ -3,12 +3,16 @@ import { Controller } from "@hotwired/stimulus"
 // Sorting and filtering the checklist report in the page. The rows hold
 // only what the viewer may see, so sorting and filtering can't reveal more.
 // Ticks under one heading mean "any of these"; headings, number bounds and
-// the name filter combine.
+// the name filter combine. Each "table" target wraps one section's table;
+// a cell's sort value, status and measures sit on its [data-cell] element,
+// and the Person cell sorts and filters by its text.
 export default class extends Controller {
-  static targets = ["table", "name", "notDone", "tick", "bound"]
+  static targets = ["table", "name", "tick", "bound"]
 
   sort(event) {
-    const header = event.currentTarget.closest("th")
+    const header = event.target.closest("th")
+    if (!header || event.target.closest(".dropdown")) return
+
     const table = header.closest("table")
     const index = Array.from(header.parentElement.children).indexOf(header)
     const ascending = header.dataset.direction !== "asc"
@@ -18,8 +22,8 @@ export default class extends Controller {
     const body = table.tBodies[0]
     const rows = Array.from(body.rows)
     rows.sort((a, b) => {
-      const x = a.cells[index].dataset.value || ""
-      const y = b.cells[index].dataset.value || ""
+      const x = this.cellData(a.cells[index]).value ?? a.cells[index].textContent.trim()
+      const y = this.cellData(b.cells[index]).value ?? b.cells[index].textContent.trim()
       const result = isNaN(x) || isNaN(y) ? x.localeCompare(y) : Number(x) - Number(y)
       return ascending ? result : -result
     })
@@ -35,27 +39,34 @@ export default class extends Controller {
     }
 
     const name = this.nameTarget.value.trim().toLowerCase()
-    const notDone = this.notDoneTarget.checked
     const ticks = {}
     this.tickTargets.filter((box) => box.checked).forEach((box) => {
       (ticks[box.dataset.column] ||= new Set()).add(box.value)
     })
     const bounds = this.boundTargets.filter((input) => input.value !== "")
 
-    this.tableTargets.forEach((table) => {
+    this.tableTargets.forEach((wrapper) => {
+      const table = wrapper.matches("table") ? wrapper : wrapper.querySelector("table")
       Array.from(table.tBodies[0].rows).forEach((row) => {
-        const shown = (!name || row.dataset.name.includes(name)) &&
-          (!notDone || row.cells[1].dataset.status !== "met") &&
-          Object.entries(ticks).every(([column, values]) => values.has(row.cells[column].dataset.status)) &&
+        const shown = (!name || row.cells[0].textContent.trim().toLowerCase().includes(name)) &&
+          Object.entries(ticks).every(([column, values]) => values.has(this.cellData(row.cells[column]).status)) &&
           bounds.every((input) => this.withinBound(row.cells[input.dataset.column], input))
         row.classList.toggle("d-none", !shown)
       })
     })
   }
 
+  print() {
+    window.print()
+  }
+
+  cellData(cell) {
+    return cell?.querySelector("[data-cell]")?.dataset || {}
+  }
+
   withinBound(cell, input) {
     let measures = {}
-    try { measures = JSON.parse(cell.dataset.measures || "{}") } catch { measures = {} }
+    try { measures = JSON.parse(this.cellData(cell).measures || "{}") } catch { measures = {} }
     const value = Number(measures[input.dataset.key])
     if (Number.isNaN(value) || measures[input.dataset.key] === undefined) return false
     return input.dataset.bound === "min" ? value >= Number(input.value) : value <= Number(input.value)

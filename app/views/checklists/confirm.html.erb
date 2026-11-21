@@ -12,8 +12,8 @@
           <%= hidden_field_tag "#{scope}[#{key}]", value %>
         <% end %>
       <% end %>
-      <%= submit_tag "Go ahead", class: "btn btn-warning" %>
-      <%= link_to "Cancel", cancel, class: "btn btn-link" %>
+      <%= link_to "Cancel", cancel, class: "btn btn-secondary" %>
+      <%= submit_tag "Make this change", class: "btn btn-primary" %>
     <% end %>
   </div>
 </div>

@@ -1,9 +1,15 @@
 <% breadcrumb @checklist %>
+<% tab_path = ->(key) { key == "details" && params[:tab].blank? ? edit_checklist_path(@checklist) : edit_checklist_path(@checklist, tab: key) } %>
+<% tabs = [ [ "Details", tab_path.("details") ], [ "Items (#{@checklist.checklist_items.size})", tab_path.("items") ],
+            [ "Who it covers", tab_path.("covers") ], [ "Access", tab_path.("access") ] ] %>
 
 <div class="card">
-  <div class="card-header"><h1>Edit <%= @checklist.title_was %></h1></div>
-  <div class="card-body"><%= render "form", checklist: @checklist, impact: @impact %></div>
+  <%= render "shared/page_header", title: "Edit #{@checklist.title_was}", tabs: %>
 </div>
 
-<%# The parts below show what's saved, not the basics form's unsaved changes. %>
-<%= render "setup", checklist: @checklist.changed? ? Checklist.find(@checklist.id) : @checklist %>
+<% if @tab == "details" %>
+  <div class="card mt-3"><%= render "form", checklist: @checklist, impact: @impact %></div>
+<% else %>
+  <%# A part's tab shows what's saved. %>
+  <%= render "setup", checklist: @checklist, tab: @tab %>
+<% end %>
