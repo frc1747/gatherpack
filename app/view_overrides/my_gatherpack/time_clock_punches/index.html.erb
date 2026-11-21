@@ -30,19 +30,27 @@
       </div>
     </div>
   </div>
+  <% periods = screen_action("Time Clock Periods", time_clock_periods_path) %>
+  <% flag_review = screen_action("Flag Review", flagged_time_clock_punches_path, visible: policy(TimeClockPunch).flagged?) %>
+  <% kiosk = screen_action("Time Clock Kiosk", time_kiosk_path, visible: manager?) %>
   <div class="card-footer">
     <%= link_to "New Time Clock Punch", new_time_clock_punch_path, class: "btn btn-success" if policy(TimeClockPunch.new).new? %>
-    <%= link_to "Time Clock Periods", time_clock_periods_path, class: "btn btn-info" %>
-    <% if policy(TimeClockPunch).flagged? %>
-      <%= link_to "Flag Review", flagged_time_clock_punches_path, class: "btn btn-warning" %>
-    <% end %>
     <span class="collapse d-md-inline-block punch-filters">
       <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
       <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
     </span>
-    <% if manager? %>
-      <%= link_to "Time Clock Kiosk", time_kiosk_path, class: "btn btn-warning", data: { turbo: false } %>
-    <% end %>
+    <div class="dropdown d-inline-block mg-hours-more">
+      <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <% [ periods, flag_review ].select(&:visible?).each do |action| %>
+          <li><%= screen_action_item(action) %></li>
+        <% end %>
+        <%# The kiosk has its own layout, so it opens as a full page load. %>
+        <% if kiosk.visible? %>
+          <li data-turbo="false"><%= screen_action_item(kiosk) %></li>
+        <% end %>
+      </ul>
+    </div>
   </div>
 </div>
 <% end %>
