@@ -18,8 +18,9 @@ class FormPopulation
 
   # Builds a population for the form from request params. forms: the forms
   # the viewer may see results for; events: an Event scope the viewer may
-  # see. With only an event (the event panel's link), it starts from who said
-  # Yes to the event's "Are you coming?" question, if a form on it asks.
+  # see. With only an event (the event panel's Responses link on the event's
+  # other forms), it starts from who said Yes to the event's "Are you coming?"
+  # question, if a form on it asks.
   # Links from before rev. 7 used `basis`; `expected` maps the same way.
   def self.from_params(params, viewer:, form:, forms:, events:)
     question = questions_from(forms).detect { |candidate| candidate.id == params[:question_id] }
