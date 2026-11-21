@@ -18,6 +18,7 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert action.visible?
     assert_not action.lifecycle?
     assert_not action.destructive?
+    assert_not action.more?
   end
 
   test "three actions show three buttons and no More" do
@@ -67,6 +68,48 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_equal [ "Edit", "Delete" ], buttons.map { |button| button.text.strip }
     assert_includes buttons.last["class"], "btn-danger"
     assert_select ".dropdown:not(.d-md-none)", 0
+  end
+
+  test "Archive goes in More even with three actions or fewer, and Delete follows it there" do
+    action_row screen_action("Delete", "/x", method: :delete, destructive: true, confirm: "Delete this sheet?"),
+      screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true, confirm: "Archive this sheet? It's hidden from lists; sign-ups are kept.")
+
+    buttons = css_select(".screen-action-row > a.btn, .screen-action-row > form > button.btn")
+    assert_equal [ "Edit" ], buttons.map { |button| button.text.strip }
+    assert_select ".dropdown:not(.d-md-none) > button.dropdown-toggle", text: "More"
+    assert_equal [ "Archive", "Delete" ], more_items.map { |li| li.text.strip }
+    assert_select ".dropdown-menu li:last-child .dropdown-item.text-danger", text: "Delete"
+  end
+
+  test "Restore alone with Edit still makes a More" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Restore", "/restore", method: :post, lifecycle: true, confirm: "Restore this sheet? It shows in lists again.")
+
+    assert_select ".screen-action-row > a.btn", 1
+    assert_equal [ "Restore" ], more_items.map { |li| li.text.strip }
+  end
+
+  test "more: true puts an ordinary action in More, before lifecycle and destructive ones" do
+    action = screen_action("Mark all brought", "/brought", method: :post, more: true)
+    assert action.more?
+    assert_not screen_action("Edit", "/a").more?
+
+    action_row screen_action("Edit", "/a", style: :warning), action,
+      screen_action("Delete", "/x", method: :delete, destructive: true, confirm: "Delete this list?")
+
+    buttons = css_select(".screen-action-row > a.btn, .screen-action-row > form > button.btn")
+    assert_equal [ "Edit" ], buttons.map { |button| button.text.strip }
+    assert_equal [ "Mark all brought", "Delete" ], more_items.map { |li| li.text.strip }
+  end
+
+  test "more: true keeps the first two other ordinary actions as buttons" do
+    action_row screen_action("Edit", "/a", style: :warning), screen_action("Mark all brought", "/brought", method: :post, more: true),
+      screen_action("Sign up", "/b", style: :primary), screen_action("Duplicate", "/c")
+
+    buttons = css_select(".screen-action-row > a.btn, .screen-action-row > form > button.btn")
+    assert_equal [ "Edit", "Sign up" ], buttons.map { |button| button.text.strip }
+    assert_equal [ "Mark all brought", "Duplicate" ], more_items.map { |li| li.text.strip }
   end
 
   test "an action that isn't visible is left out" do

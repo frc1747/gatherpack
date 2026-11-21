@@ -4,10 +4,11 @@ module ScreenKitHelper
   # One action for shared/_action_row or a filter bar's table actions.
   # style: a Bootstrap button colour (:warning for Edit, :primary for the
   # page's job). visible: false leaves it out (pass the policy check).
-  # lifecycle: true (Archive, Restore) puts it after the ordinary actions;
-  # destructive: true (Delete) puts it last, in red.
-  def screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, lifecycle: false, destructive: false)
-    ScreenKit::Action.new(label:, path:, style:, http_method: method, confirm:, visible:, lifecycle:, destructive:)
+  # lifecycle: true (Archive, Restore) puts it in More, after the ordinary
+  # actions; destructive: true (Delete) puts it last, in red. more: true puts
+  # an ordinary action in More even when there's room for it as a button.
+  def screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, lifecycle: false, destructive: false, more: false)
+    ScreenKit::Action.new(label:, path:, style:, http_method: method, confirm:, visible:, lifecycle:, destructive:, more:)
   end
 
   # The current state in words, with an optional link to where it's set.
