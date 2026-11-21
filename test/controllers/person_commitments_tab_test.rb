@@ -27,6 +27,29 @@ class PersonCommitmentsTabTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the tab shows each commitment's progress under the profile tabs" do
+    with_feature do
+      sign_in person(:member).user
+
+      get person_commitments_path(person(:member))
+      assert_select ".navtab a.nav-link.active", text: "Commitments"
+      assert_select ".card-header h1", text: "#{person(:member).identifier_name}: Commitments"
+      assert_select "##{dom_id(@commitment, :progress)} a[href=?]", commitment_path(@commitment), text: @commitment.title
+    end
+  end
+
+  test "the tab says so when the person has no commitments" do
+    @commitment.destroy!
+    with_feature do
+      sign_in person(:member).user
+
+      get person_commitments_path(person(:member))
+      assert_response :success
+      assert_select ".navtab .nav-underline", 1
+      assert_select "p.text-muted", text: "No commitments."
+    end
+  end
+
   test "a parent related through the grouping relationship sees the tab on the child's profile" do
     with_feature do
       sign_in person(:organizer).user

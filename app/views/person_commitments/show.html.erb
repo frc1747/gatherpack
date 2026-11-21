@@ -1,11 +1,14 @@
 <%= render "people/show_shared" %>
 
-<h1 class="mb-3"><%= @person.display_name %>'s commitments</h1>
-
-<% if @progress.any? %>
-  <% @progress.each do |progress| %>
-    <%= render "commitments/progress", progress: progress %>
-  <% end %>
-<% else %>
-  <p>Nothing owed right now.</p>
-<% end %>
+<div class="card">
+  <%= render "shared/page_header", title: "#{@person.identifier_name}: Commitments" %>
+  <div class="card-body">
+    <% if @progress.any? %>
+      <% @progress.each do |progress| %>
+        <%= render "commitments/progress", progress: progress %>
+      <% end %>
+    <% else %>
+      <%= render "shared/empty_state", text: "No commitments." %>
+    <% end %>
+  </div>
+</div>
