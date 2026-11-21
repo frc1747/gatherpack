@@ -12,11 +12,11 @@ class CheckinFieldsControllerTest < ActionDispatch::IntegrationTest
 
   test "Delete says how many answers go with the field" do
     get checkin_field_url(checkin_fields(:one))
-    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Are you sure? This also deletes 1 check-in answer."
+    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Delete this check-in field and its 1 check-in answer?"
 
     checkin_field_responses(:one).update!(response: "")
     get checkin_field_url(checkin_fields(:one))
-    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Are you sure?"
+    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Delete this check-in field?"
   end
 
   test "admin deletes a field that has responses, and its responses go with it" do

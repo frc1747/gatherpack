@@ -26,7 +26,7 @@ class EventTypesControllerTest < ActionDispatch::IntegrationTest
     events(:one).update_column(:event_type_id, event_types(:two).id)
 
     get event_type_url(event_type)
-    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Are you sure? This also deletes 1 check-in answer."
+    assert_select "a[data-turbo-method=delete][data-turbo-confirm=?]", "Delete this event type and its 1 check-in answer?"
 
     assert_difference [ "EventType.count", "CheckinField.count", "CheckinFieldResponse.count" ], -1 do
       delete event_type_url(event_type)
