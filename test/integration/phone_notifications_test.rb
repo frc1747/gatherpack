@@ -267,6 +267,15 @@ class PhoneNotificationsTest < ActionDispatch::IntegrationTest
     assert_select "form[action='#{test_notifications_path}'] button", text: "Send a test notification"
   end
 
+  test "the settings page has a header card and a solid test button" do
+    get notifications_path
+
+    assert_select ".card > .card-header h1", text: "Notifications"
+    assert_select ".card > .card-header .text-muted", text: "Choose what you hear about and where."
+    assert_select "form[action='#{test_notifications_path}'] button.btn.btn-secondary", text: "Send a test notification"
+    assert_select "form[action='#{test_notifications_path}'] button.btn-outline-secondary", false
+  end
+
   test "the settings page says when nothing is set up" do
     @gateway.destroy!
 

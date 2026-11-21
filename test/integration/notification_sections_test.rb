@@ -35,6 +35,7 @@ class NotificationSectionsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", "Notifications"
+    assert_select ".card > .card-header h1", "Notifications"
     assert_select "#test-card"
     assert_select "input#push_this_device", false
     assert_select "[data-controller='push-notifications']", false

@@ -4,9 +4,7 @@
 <div class="card mb-3" data-controller="push-notifications"
      data-push-notifications-url-value="<%= push_subscription_path %>"
      data-push-notifications-public-key-value="<%= @gateway&.public_key %>">
-  <div class="card-header">
-    <h1>Notifications</h1>
-  </div>
+  <%= render "shared/page_header", title: "Notifications", summary: "Choose what you hear about and where." %>
   <div class="card-body">
     <% if @gateway %>
       <div class="form-check form-switch">
@@ -19,7 +17,7 @@
       <p class="mt-2 mb-0" hidden data-push-notifications-target="blocked">Notifications are blocked for this site. You can turn them on in your browser's settings.</p>
       <p class="mt-2 mb-0" hidden data-push-notifications-target="unsupported">This browser can't receive notifications.</p>
       <p class="mt-2 mb-0 text-danger" hidden data-push-notifications-target="problem">That didn't work. Try again.</p>
-      <%= button_to "Send a test notification", test_notifications_path, class: "btn btn-outline-secondary mt-3" %>
+      <%= button_to "Send a test notification", test_notifications_path, class: "btn btn-secondary mt-3" %>
     <% else %>
       <p class="mb-0">Phone notifications aren't set up yet.</p>
     <% end %>
@@ -62,7 +60,9 @@
 
 <% if @sections.any? %>
   <% unless @phone %>
-    <h1 class="mb-3">Notifications</h1>
+    <div class="card mb-3">
+      <%= render "shared/page_header", title: "Notifications", summary: "Choose what you hear about and where." %>
+    </div>
   <% end %>
   <% @sections.each do |section| %>
     <%= render section.partial %>
