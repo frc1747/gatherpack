@@ -55,7 +55,7 @@ class ManagedListsScreensTest < ActionDispatch::IntegrationTest
 
     get managed_list_path(:test_units, status: "retired")
     assert_select ".screen-filter-pills a[aria-current=true]", text: "Retired (2)"
-    assert_select "##{dom_id(@box)} form[action=?] button.btn-outline-secondary", restore_managed_list_row_path(:test_units, @box), text: "Restore"
+    assert_select "##{dom_id(@box)} form[action=?][data-turbo-confirm] button.btn-outline-secondary", restore_managed_list_row_path(:test_units, @box), text: "Restore"
 
     patch restore_managed_list_row_path(:test_units, @box)
     assert @box.reload.active?

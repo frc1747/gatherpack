@@ -36,7 +36,8 @@
       <%= button_to "Retire", retire_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style,
             form: { data: { turbo_confirm: "Retire #{row.name}? Records that use it keep it, but it can't be picked for new ones." } } %>
     <% else %>
-      <%= button_to "Restore", restore_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style %>
+      <%= button_to "Restore", restore_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style,
+            form: { data: { turbo_confirm: "Restore #{row.name}? It can be picked for new records again." } } %>
     <% end %>
     <% if row_more.any? %>
       <div class="dropdown">
