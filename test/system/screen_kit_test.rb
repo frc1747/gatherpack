@@ -89,6 +89,29 @@ class ScreenKitTest < ApplicationSystemTestCase
     assert_equal button_colour("btn-secondary"), background_of("main form:not(#mailbox-search) .card-footer > a", text: "Cancel")
   end
 
+  test "an auto-submitting filter bar hides Show and shows a new choice at once" do
+    visit badge_types_path
+    add_filter_bar auto_submit: true
+    within "#kit-filter" do
+      assert_no_button "Show"
+      select "2025", from: "season"
+    end
+    assert_current_path badge_types_path(season: "2025")
+  end
+
+  test "a filter bar with More choices keeps Show, and its fields wait for it" do
+    visit badge_types_path
+    add_filter_bar auto_submit: true, more: "<label><input type='checkbox' name='late' value='1'> Late</label>".html_safe
+    within "#kit-filter" do
+      assert_button "Show"
+      find("summary").click
+      check "Late"
+    end
+    assert_current_path badge_types_path
+    within("#kit-filter") { click_on "Show" }
+    assert_current_path "#{badge_types_path}?season=2026&late=1"
+  end
+
   private
 
   # Renders shared/_action_row and adds it to the current page, so the test
@@ -102,6 +125,18 @@ class ScreenKitTest < ApplicationSystemTestCase
       const card = document.createElement("div")
       card.id = "kit-row"
       card.className = "card"
+      card.innerHTML = arguments[0]
+      document.querySelector("main").prepend(card)
+    JS
+  end
+
+  # Renders shared/_filter_bar with a season select and adds it to the page.
+  def add_filter_bar(**locals)
+    fields = ApplicationController.helpers.select_tag(:season, ApplicationController.helpers.options_for_select([ "2026", "2025" ]))
+    html = ApplicationController.render(partial: "shared/filter_bar", locals: { url: badge_types_path, status: nil, fields: fields, **locals })
+    execute_script(<<~JS, html)
+      const card = document.createElement("div")
+      card.id = "kit-filter"
       card.innerHTML = arguments[0]
       document.querySelector("main").prepend(card)
     JS
