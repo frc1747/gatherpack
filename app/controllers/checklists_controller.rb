@@ -92,7 +92,7 @@ class ChecklistsController < InternalController
     end
 
     left_out = copier.empty_rules.size
-    notice = "Copied as a draft. Check it, then make it active."
+    notice = "Duplicated as a draft. Check it, then make it active."
     notice += " #{left_out} #{"rule".pluralize(left_out)} naming something deleted #{left_out == 1 ? "was" : "were"} left out." if left_out.positive?
     redirect_to copy, notice: notice, status: :see_other
   rescue ActiveRecord::RecordInvalid => e

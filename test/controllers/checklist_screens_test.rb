@@ -30,7 +30,7 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
         assert_select "form[action=?] button.btn-secondary", checklist_checklist_lists_path(@checklist), text: "Take Snapshot"
         assert_select "button.dropdown-toggle", text: "More"
         assert_select ".dropdown-menu .dropdown-item", text: "Recompute"
-        assert_select ".dropdown-menu .dropdown-item", text: "Copy"
+        assert_select ".dropdown-menu .dropdown-item", text: "Duplicate"
       end
       assert_select ".card-header a.btn, .card-header button.btn", 0, "no buttons left in the header"
 
@@ -130,7 +130,7 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
         "Restore this checklist? It starts counting again.", text: "Restore"
       assert_select "form[action=?]", archive_checklist_path(@checklist), 0
       assert_select "a[href=?]", edit_checklist_path(@checklist), 0
-      assert_select ".dropdown-menu .dropdown-item", text: "Copy"
+      assert_select ".dropdown-menu .dropdown-item", text: "Duplicate"
 
       post restore_checklist_path(@checklist)
       assert_redirected_to checklist_path(@checklist)
@@ -143,7 +143,7 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
       sign_in person(:club_manager).user
       get checklist_path(@checklist)
       items = css_select(".dropdown-menu li:not(.d-md-none) .dropdown-item").map { |node| node.text.strip }
-      assert_equal %w[Recompute Copy Archive Delete], items
+      assert_equal %w[Recompute Duplicate Archive Delete], items
       assert_select ".dropdown-menu form[action=?][data-turbo-confirm=?] button.dropdown-item.text-danger", checklist_path(@checklist),
         "Delete Trip and all its results?", text: "Delete"
 
@@ -298,9 +298,9 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
       sign_in person(:admin).user
       get copy_checklist_path(@checklist)
       assert_select ".table-responsive table", minimum: 1
-      assert_equal [ "Cancel", "Copy" ], css_select("form[method=post] a.btn, form[method=post] input[type=submit]").map { |node| node.text.presence || node["value"] }
+      assert_equal [ "Cancel", "Duplicate" ], css_select("form[method=post] a.btn, form[method=post] input[type=submit]").map { |node| node.text.presence || node["value"] }
       assert_select "a.btn-secondary[href=?]", checklist_path(@checklist), text: "Cancel"
-      assert_select "input.btn-primary[value=Copy]"
+      assert_select "input.btn-primary[value=Duplicate]"
 
       post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
       assert_response :unprocessable_entity
