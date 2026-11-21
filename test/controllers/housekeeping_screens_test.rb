@@ -23,6 +23,7 @@ class HousekeepingScreensTest < ActionDispatch::IntegrationTest
 
       assert_response :success
       assert_select ".breadcrumb a[href=?]", events_path, text: "Events"
+      assert_select ".table-responsive[data-controller=column-chooser][data-column-chooser-key-value=housekeeping-events]"
       assert_select "a", text: /Back to/, count: 0
       assert_select ".btn-link", text: /Back/, count: 0
       assert_select ".table-responsive table"
