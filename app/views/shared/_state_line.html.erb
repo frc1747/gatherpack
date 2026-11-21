@@ -1,0 +1,4 @@
+<%# locals: (text:, link_text: nil, link_path: nil) -%>
+<div class="text-muted screen-state-line">
+  <%= text %><% if link_text.present? && link_path.present? %> · <%= link_to link_text, link_path %><% end %>
+</div>
