@@ -99,20 +99,123 @@ class ScreenKitTest < ApplicationSystemTestCase
     assert_current_path badge_types_path(season: "2025")
   end
 
-  test "a filter bar with More choices keeps Show, and its fields wait for it" do
+  test "a filter bar's More choices apply as soon as they change, and keep a Show of their own" do
     visit badge_types_path
     add_filter_bar auto_submit: true, more: "<label><input type='checkbox' name='late' value='1'> Late</label>".html_safe
     within "#kit-filter" do
-      assert_button "Show"
+      assert_button "Show", count: 1
       find("summary").click
+      assert_button "Show", count: 2
       check "Late"
     end
-    assert_current_path badge_types_path
-    within("#kit-filter") { click_on "Show" }
     assert_current_path "#{badge_types_path}?season=2026&late=1"
   end
 
+  test "without auto_submit, top-row fields wait for Show while More choices apply at once" do
+    visit badge_types_path
+    add_filter_bar more: "<label>Since <input type='text' name='since'></label>".html_safe
+    within "#kit-filter" do
+      select "2025", from: "season"
+      find("summary").click
+      fill_in "Since", with: "2026-11-01"
+    end
+    assert_current_path badge_types_path
+    find("#kit-filter summary").click
+    assert_current_path "#{badge_types_path}?season=2025&since=2026-11-01"
+  end
+
+  test "the column chooser hides a column, remembers it, and keeps Person and the last column" do
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    add_people_table
+    within "#kit-table" do
+      click_on "Columns"
+      assert_equal [ "Status", "Allergies" ], all(".dropdown-menu label").map(&:text)
+      uncheck "Allergies"
+      assert_no_selector "th", text: "Allergies"
+      assert_no_selector "td", text: "Peanuts"
+      assert_selector "th", text: "Status"
+      assert_selector "td", text: "Nadia Northwind"
+      assert_field "Status", checked: true, disabled: true
+    end
+
+    visit badge_types_path
+    add_people_table
+    within "#kit-table" do
+      assert_selector "th", text: "Status"
+      assert_no_selector "th", text: "Allergies"
+      assert_no_selector "td", text: "Peanuts"
+      click_on "Columns"
+      check "Allergies"
+      assert_selector "td", text: "Peanuts"
+      assert_field "Status", checked: true, disabled: false
+    end
+  end
+
+  test "the column chooser goes in a filter bar's table actions when the wrapper holds both" do
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: { url: badge_types_path, status: nil })
+    add_people_table(before: filter, wrapper: ApplicationController.helpers.column_chooser_data("kit-people"))
+    within "#kit-table .screen-filter-bar" do
+      assert_selector ".dropdown.ms-auto", text: "Columns"
+      click_on "Columns"
+      uncheck "Status"
+    end
+    assert_no_selector "#kit-table th", text: "Status"
+  end
+
+  test "changes inside a wait marker under More choices apply only with Show" do
+    visit badge_types_path
+    add_filter_bar more: <<~HTML.html_safe
+      <label><input type="checkbox" name="late" value="1"> Late</label>
+      <div data-filter-bar-wait><label>Form <select name="form"><option></option><option>Intake</option></select></label></div>
+    HTML
+    within "#kit-filter" do
+      find("summary").click
+      select "Intake", from: "Form"
+    end
+    assert_current_path badge_types_path
+    within("#kit-filter details") { click_on "Show" }
+    assert_current_path "#{badge_types_path}?season=2026&form=Intake"
+  end
+
+  test "a people table under a filter bar with table actions puts Columns in the bar and keeps Person" do
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: {
+      url: badge_types_path, status: nil,
+      table_actions: [ ScreenKit::Action.new(label: "Download CSV", path: "/people.csv", style: :secondary) ]
+    })
+    add_people_table(before: filter, wrapper: ApplicationController.helpers.column_chooser_data("kit-people"))
+    within "#kit-table .screen-table-actions" do
+      assert_selector ":first-child.dropdown > button.btn.btn-secondary.dropdown-toggle", text: "Columns"
+      click_on "Columns"
+      assert_equal [ "Status", "Allergies" ], all(".dropdown-menu label").map(&:text)
+      uncheck "Status"
+    end
+    assert_no_selector "#kit-table th", text: "Status"
+    assert_selector "#kit-table th", text: "Person"
+    assert_selector "#kit-table .dropdown", count: 1
+  end
+
   private
+
+  # Renders shared/_people_table with Status and Allergies columns and adds
+  # it to the page; before: HTML put ahead of it, wrapper: data for an outer
+  # div around both (else the table carries the chooser itself).
+  def add_people_table(before: "", wrapper: nil)
+    row = Struct.new(:person, :allergy).new(Person.find_by!(first_name: "Nadia"), "Peanuts")
+    table = ApplicationController.render(partial: "shared/people_table", locals: {
+      rows: [ row ], link: nil, status: ->(_) { "Going" }, columns: [ [ "Allergies", ->(r) { r.allergy } ] ],
+      choose_columns: ("kit-people" unless wrapper)
+    })
+    html = ApplicationController.helpers.tag.div(before.html_safe + table.html_safe, id: "kit-table", data: wrapper)
+    execute_script(<<~JS, html)
+      document.querySelector("main").insertAdjacentHTML("afterbegin", arguments[0])
+    JS
+  end
+
 
   # Renders shared/_action_row and adds it to the current page, so the test
   # needs no screen of its own.
