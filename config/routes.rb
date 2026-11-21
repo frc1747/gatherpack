@@ -188,6 +188,7 @@ Rails.application.routes.draw do
   resource :skin_preview, only: [ :create, :destroy ]
   resource :theme_preview, path: "theme/preview", only: [ :show ]
   resource :theme_palette_import, path: "theme/palette_import", only: [ :create ]
+  resource :print_style, path: "theme/print_style", only: [ :update ]
 
   get "search" => "search#index", :as => :search
   get "search/combo" => "search#combo", :as => :combo_search

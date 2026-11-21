@@ -1,0 +1,137 @@
+/* The default print style: how any page looks on paper.
+   Everything is inside @page or @media print, so screens are untouched.
+   Margins suit both US Letter and A4. A page prints landscape when it
+   contains an element with the class "print-landscape". */
+
+@page {
+  margin: 0.6in 0.6in 0.7in;
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font: 8pt sans-serif;
+    color: #666;
+  }
+}
+
+@page landscape {
+  size: landscape;
+  margin: 0.5in 0.5in 0.6in;
+}
+
+@media print {
+  main:has(.print-landscape) { page: landscape; }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 9.5pt;
+  }
+
+  /* Screen controls stay off the paper. */
+  .sidebar,
+  nav,
+  .btn,
+  .dropdown,
+  .alert,
+  .screen-filter-bar,
+  .breadcrumb,
+  .breadcrumb-container,
+  .no-print { display: none !important; }
+
+  /* The content uses the full sheet: no sidebar column, no offsets. */
+  main {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body > .container-fluid,
+  body > .container-fluid > .row,
+  div:has(> main) {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Cards become plain paper. */
+  .card {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    color: #000 !important;
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  .card > .card-header {
+    background: none !important;
+    border: 0 !important;
+    border-bottom: 2px solid #000 !important;
+    padding: 0 0 4pt !important;
+    margin-bottom: 8pt;
+  }
+  .card > .card-header h1 {
+    font-size: 16pt;
+    margin: 0;
+  }
+  .card > .card-body { padding: 0 !important; }
+  .card > .card-footer { display: none !important; }
+
+  h2, .h4 { font-size: 12pt; margin-top: 0; }
+  h3, .h6 { font-size: 10pt; }
+  h2, h3, .h4, .h6 { break-after: avoid; page-break-after: avoid; }
+  p, li { orphans: 3; widows: 3; }
+
+  a, a:visited {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+
+  /* Tables: full width, no scroll box, header repeats on every page. */
+  .table-responsive { overflow: visible !important; }
+  table.table {
+    width: 100% !important;
+    font-size: 8.5pt;
+    border-collapse: collapse;
+    margin-bottom: 8pt;
+  }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  table.table th {
+    --bs-table-bg: #e8e8e8 !important;
+    background: #e8e8e8 !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border-bottom: 1.5px solid #000 !important;
+    vertical-align: bottom;
+  }
+  table.table th, table.table td {
+    padding: 2pt 4pt !important;
+    border-top: 0;
+  }
+  table.table td {
+    color: #000 !important;
+    border-bottom: 0.5px solid #ccc !important;
+  }
+  table.table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-bg-type: #f2f2f2 !important;
+    background-color: #f2f2f2 !important;
+  }
+
+  /* Keep status colors (badges, flagged rows) instead of letting the browser drop them. */
+  .badge, tr[class*="table-"] > *, table.table-striped > tbody > tr > * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .badge {
+    font-size: 7.5pt;
+    font-weight: 600;
+    padding: 1.5pt 4pt;
+    border: 0.5px solid rgba(0, 0, 0, 0.25);
+  }
+
+  .text-muted { color: #555 !important; }
+}
