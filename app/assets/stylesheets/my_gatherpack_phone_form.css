@@ -105,14 +105,6 @@
     white-space: nowrap;
   }
 
-  /* Discard sits under the form, outside it. The response page posts to the same route, so it needs the fill-out form on the page. */
-  body:has(.phone-tabs):has(:is(form[id^='new_form_response'], form[id^='edit_form_response'])) form[action$='/discard'] .btn {
-    min-height: 48px;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    font-size: 1rem;
-  }
-
   /* Submit is the main action, so it gets the most room. */
   body:has(.phone-tabs) :is(form[id^='new_form_response'], form[id^='edit_form_response']) .card-footer .btn-primary {
     flex-grow: 2;

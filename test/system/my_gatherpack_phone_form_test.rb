@@ -80,21 +80,18 @@ class MyGatherpackPhoneFormSystemTest < ApplicationSystemTestCase
     assert_bar_pinned
   end
 
-  test "Discard is a large control" do
+  test "Discard draft sits on the response page" do
     sign_in person(:a1).user
     visit edit_form_response_path(@form, person(:a1))
     fill_in "form_question_#{@name.key}", with: "Pat Smith"
     click_button "Save for later"
     assert_text "Your answers were saved"
+
+    # The fill-in page no longer offers Discard; the response page's action row does.
     visit edit_form_response_path(@form, person(:a1))
-
-    assert_button "Discard this draft"
-    assert_operator evaluate_script("document.querySelector(\"form[action$='/discard'] .btn\").getBoundingClientRect().height"), :>=, 44
-
-    # The response page posts to the same route, and keeps its own small button.
+    assert_no_button "Discard this draft"
     visit form_response_path(@form, person(:a1))
     assert_button "Discard draft"
-    assert_operator evaluate_script("document.querySelector(\"form[action$='/discard'] .btn\").getBoundingClientRect().height"), :<, 44
   end
 
   test "with the flag off the original form still saves, with no phone styling" do
