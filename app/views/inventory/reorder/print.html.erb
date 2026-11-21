@@ -2,7 +2,8 @@
 <% content_for :title, "Reorder list" %>
 <% inventory_stylesheet %>
 
-<div class="d-flex gap-2 mb-3 inventory-no-print" data-controller="inventory-print">
+<div <%= tag.attributes(data: column_chooser_data("inventory-reorder-print")) %>>
+<div class="d-flex gap-2 mb-3 inventory-no-print" data-controller="inventory-print" data-column-chooser-target="slot">
   <button type="button" class="btn btn-dark" data-action="inventory-print#print">Print</button>
 </div>
 
@@ -11,7 +12,6 @@
 <% if @rows.empty? %>
   <p>Nothing to order.</p>
 <% else %>
-  <div <%= tag.attributes(data: column_chooser_data("inventory-reorder")) %>>
   <% @rows.group_by { |item, _quantity| item.preferred_source&.vendor_name.presence || Inventory::Reorder::NO_SOURCE }.each do |vendor, rows| %>
     <h2 class="h4"><%= vendor %></h2>
     <div class="table-responsive">
@@ -34,5 +34,5 @@
       </table>
     </div>
   <% end %>
-  </div>
 <% end %>
+</div>

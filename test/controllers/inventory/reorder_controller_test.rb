@@ -128,13 +128,28 @@ class Inventory::ReorderControllerTest < ActionDispatch::IntegrationTest
     assert_raises(ArgumentError) { Inventory::Extensions.new.register_reorder_action(:x, label: "X", path: ->(_rows) { "/" }, method: :delete) }
   end
 
-  test "the reorder list and its print view carry the same column chooser key" do
+  test "the reorder list's chooser has a slot above the vendor tables and keeps the Order and How many columns fixed" do
     with_inventory(@world) do
       sign_in @world.keeper.user
       get inventory_reorder_path
-      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder] table.reorder-group", 2
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder]" do
+        assert_select "[data-column-chooser-target=slot]", 1
+        assert_select "table.reorder-group", 2
+        assert_select "table.reorder-group:first-of-type th[data-column-chooser-fixed]", text: "Order"
+        assert_select "th[data-column-chooser-fixed]", text: "How many", minimum: 1
+        assert_select "th:not([data-column-chooser-fixed])", text: /\AOrder\z|\AHow many\z/, count: 0
+      end
+    end
+  end
+
+  test "the print view has its own chooser key, with the Print row as its slot" do
+    with_inventory(@world) do
+      sign_in @world.keeper.user
       get inventory_reorder_path(print: 1, items: { @wire.id => 7 })
-      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder] table", text: /Red wire/
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder-print]" do
+        assert_select "[data-column-chooser-target=slot][data-controller=inventory-print]", 1
+        assert_select "table", text: /Red wire/
+      end
     end
   end
 end

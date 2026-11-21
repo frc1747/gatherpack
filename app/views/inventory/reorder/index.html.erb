@@ -34,19 +34,20 @@
     <%= hidden_field_tag :team_id, params[:team_id] if params[:team_id].present? %>
     <%= hidden_field_tag :category, params[:category] if params[:category].present? %>
     <div <%= tag.attributes(data: column_chooser_data("inventory-reorder")) %>>
+    <div class="d-flex" data-column-chooser-target="slot"></div>
     <% @reorder.groups.each do |vendor, rows| %>
       <h2 class="h4 mt-3"><%= vendor %></h2>
       <div class="table-responsive">
         <table class="table align-middle reorder-group">
           <thead>
             <tr>
-              <th class="text-center">Order</th>
+              <th class="text-center" data-column-chooser-fixed>Order</th>
               <th data-column-chooser-fixed>Item</th>
               <th class="text-end">In stock</th>
               <th class="text-end">Order more at</th>
               <% if show_on_order %><th class="text-end">On order</th><% end %>
               <th>Where to buy</th>
-              <th style="width: 8rem">How many</th>
+              <th style="width: 8rem" data-column-chooser-fixed>How many</th>
             </tr>
           </thead>
           <tbody>
