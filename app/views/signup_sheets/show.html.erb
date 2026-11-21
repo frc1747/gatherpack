@@ -17,6 +17,7 @@
   <%= render "shared/action_row", actions: [
         screen_action("Edit", edit_signup_sheet_path(@signup_sheet, tab: "details"), style: :warning, visible: sheet_policy.update?),
         screen_action("Roster", roster_signup_sheet_path(@signup_sheet), visible: sheet_policy.roster?),
+        screen_action("Duplicate", duplicate_signup_sheet_path(@signup_sheet), method: :post, more: true, visible: sheet_policy.duplicate?),
         screen_action("Archive", archive_signup_sheet_path(@signup_sheet), method: :post, lifecycle: true, visible: sheet_policy.archive?,
           confirm: "Archive this sheet? It's hidden from lists; sign-ups are kept."),
         screen_action("Restore", restore_signup_sheet_path(@signup_sheet), method: :post, lifecycle: true, visible: sheet_policy.restore?,

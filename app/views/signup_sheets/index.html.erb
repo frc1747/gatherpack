@@ -34,11 +34,11 @@
   <div class="card mt-3">
     <div class="card-body">
       <% if @signup_sheets.any? %>
-        <div class="table-responsive">
+        <%= tag.div class: "table-responsive", data: column_chooser_data("signups-sheets") do %>
           <table class="table">
             <thead>
               <tr>
-                <th>Sheet</th>
+                <th data-column-chooser-fixed>Sheet</th>
                 <th>Team</th>
                 <th>Status</th>
                 <th>Next date</th>
@@ -49,7 +49,7 @@
               <%= render partial: "sheet_row", collection: @signup_sheets, as: :signup_sheet %>
             </tbody>
           </table>
-        </div>
+        <% end %>
       <% else %>
         <%= render "shared/empty_state", text: @archived ? "No archived sheets." : "No sign-up sheets for you right now." %>
       <% end %>

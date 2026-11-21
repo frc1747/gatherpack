@@ -23,7 +23,7 @@
 
 <div class="card">
   <%= render "shared/page_header", title: "Roster: #{@signup_sheet.title}", state: state_line(signup_sheet_state(@signup_sheet)) %>
-  <div class="card-body">
+  <%= tag.div class: "card-body", data: column_chooser_data("signups-roster") do %>
     <div class="no-print">
       <%= render "shared/filter_bar", url: roster_signup_sheet_path(@signup_sheet),
             params: params.permit(:event_id, :signup_position_id).to_h, hidden: {},
@@ -41,7 +41,7 @@
             <tr>
               <th>Date</th>
               <th>Position</th>
-              <th>Person</th>
+              <th data-column-chooser-fixed>Person</th>
               <th>Quantity</th>
               <th>Answer</th>
               <th>On behalf of</th>
@@ -61,7 +61,7 @@
     <% else %>
       <%= render "shared/empty_state", text: "No sign-ups#{" match these filters" if params.values_at(:event_id, :signup_position_id, :status).any?(&:present?)}." %>
     <% end %>
-  </div>
+  <% end %>
   <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
         screen_action("Add a sign-up", new_signup_sheet_roster_signup_path(@signup_sheet), style: :success, visible: !@signup_sheet.archived?),
         screen_action("Message", new_signup_sheet_signup_message_path(@signup_sheet, event_id: params[:event_id]))

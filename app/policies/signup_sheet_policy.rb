@@ -63,6 +63,11 @@ class SignupSheetPolicy < ApplicationPolicy
     organizer? && record.archived?
   end
 
+  # Whoever can see the sheet and create one for its team.
+  def duplicate?
+    show? && create?
+  end
+
   # Whether this person may put a sheet under the team.
   def team_in_reach?(team_id)
     team_id.present? && SignupSheet.creatable_team_ids(person).include?(team_id)

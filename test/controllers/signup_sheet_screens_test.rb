@@ -128,7 +128,9 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
       assert_select "> a.btn-warning[href=?]", edit_signup_sheet_path(@sheet, tab: "details"), text: "Edit"
       assert_select "> a.btn-secondary[href=?]", roster_signup_sheet_path(@sheet), text: "Roster"
       assert_select ".dropdown > button", text: "More"
-      assert_select ".dropdown-menu > li:not(.d-md-none)", 2
+      assert_select ".dropdown-menu > li:not(.d-md-none)", 3
+      assert_select ".dropdown-menu > li:not(.d-md-none) form[action=?] button", duplicate_signup_sheet_path(@sheet), text: "Duplicate"
+      assert_equal %w[ Duplicate Archive Delete ], css_select(".dropdown-menu > li:not(.d-md-none)").map { |item| item.text.strip }
       assert_select ".dropdown-menu > li:not(.d-md-none) form[action=?][method=post][data-turbo-confirm=?]", archive_signup_sheet_path(@sheet),
         "Archive this sheet? It's hidden from lists; sign-ups are kept." do
         assert_select "input[name=_method]", count: 0
@@ -309,5 +311,44 @@ class SignupSheetScreensTest < ActionDispatch::IntegrationTest
 
     get roster_signup_sheet_path(@sheet, status: "cancelled")
     assert_select "#roster", count: 0
+  end
+
+  test "Duplicate copies the sheet and goes to the copy's setup page" do
+    sign_in person(:worker).user
+
+    assert_difference "SignupSheet.count", 1 do
+      post duplicate_signup_sheet_path(@sheet)
+    end
+    copy = SignupSheet.where.not(id: @sheet.id).sole
+    assert_redirected_to edit_signup_sheet_path(copy, tab: "details")
+    assert_equal "Duplicated. Check it, then save.", flash[:notice]
+    assert_equal "#{@sheet.title} (copy)", copy.title
+    assert copy.draft?
+    assert_equal [ "Cashier" ], copy.signup_positions.map(&:name)
+    assert_includes copy.organizers, person(:worker)
+  end
+
+  test "Duplicate is refused to someone who can't create sheets for the team or can't see the sheet" do
+    [ :student, :outsider ].each do |name|
+      sign_in person(name).user
+      assert_no_difference "SignupSheet.count" do
+        post duplicate_signup_sheet_path(@sheet)
+      end
+      assert_not_equal 200, response.status
+      get signup_sheet_path(@sheet)
+      assert_select "form[action=?]", duplicate_signup_sheet_path(@sheet), count: 0
+    end
+  end
+
+  test "the sheets list, roster and slots tables carry the column chooser" do
+    sign_in person(:worker).user
+    Signup.place!(slot: slot_for(@cashier), person: person(:student), signed_up_by: person(:student))
+
+    { signup_sheets_path => "signups-sheets", roster_signup_sheet_path(@sheet) => "signups-roster",
+      signup_sheet_signup_slots_path(@sheet) => "signups-slots" }.each do |path, key|
+      get path
+      assert_response :success
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=?]", key
+    end
   end
 end

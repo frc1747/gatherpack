@@ -98,6 +98,7 @@ Rails.application.routes.draw do
       get :roster
       post :archive
       post :restore
+      post :duplicate
     end
     resources :signup_positions, except: %i[index show] do
       resources :signup_position_rules, only: %i[create update destroy]

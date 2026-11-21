@@ -1,7 +1,7 @@
 class SignupSheetsController < InternalController
   include SignupsFeature
 
-  before_action :set_signup_sheet, only: %i[ show edit update destroy roster archive restore ]
+  before_action :set_signup_sheet, only: %i[ show edit update destroy roster archive restore duplicate ]
   before_action :set_team_choices, only: %i[ new create edit update ]
 
   # The setup page's tabs; slots are set on the Dates tab.
@@ -126,6 +126,14 @@ class SignupSheetsController < InternalController
     redirect_to @signup_sheet, notice: "Sheet restored. It isn't taking sign-ups.", status: :see_other
   end
 
+  # POST /signup_sheets/1/duplicate
+  # Copies the sheet's setup (not its dates or sign-ups) and goes to the
+  # copy's setup page.
+  def duplicate
+    copy = SignupSheets::Duplicator.call(@signup_sheet, created_by: current_user.person)
+    redirect_to edit_signup_sheet_path(copy, tab: "details"), notice: "Duplicated. Check it, then save.", status: :see_other
+  end
+
   # DELETE /signup_sheets/1
   # A sheet with sign-ups is archived instead. The sheet page only offers
   # Delete when it can delete; Archive has its own action.
@@ -142,7 +150,7 @@ class SignupSheetsController < InternalController
   private
     def set_signup_sheet
       @signup_sheet = SignupSheet.find(params[:id])
-      authorize @signup_sheet, { "show" => :show?, "roster" => :roster?, "archive" => :archive?, "restore" => :restore? }.fetch(action_name, :manage?)
+      authorize @signup_sheet, { "show" => :show?, "roster" => :roster?, "archive" => :archive?, "restore" => :restore?, "duplicate" => :duplicate? }.fetch(action_name, :manage?)
       @tab = params[:tab].presence_in(EDIT_TABS) || "details"
     end
 
