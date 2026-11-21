@@ -25,6 +25,12 @@
       </div>
     <% end %>
 
+    <% if GatherPack::Features.enabled?(:signups) %>
+      <div data-family-row="open-shifts">
+        <%= render "my_gatherpack/todo_row", item: family_open_shifts_item, first: false %>
+      </div>
+    <% end %>
+
     <% if card.checklists.any? %>
       <div data-family-row="checklists">
         <% card.checklists.each do |checklist, status| %>

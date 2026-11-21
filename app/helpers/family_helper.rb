@@ -49,6 +49,11 @@ module FamilyHelper
       at: signup.event.start_time, path: signup_sheet_path(signup.signup_sheet))
   end
 
+  # The row under a ward's sign-ups that leads to sheets with open shifts.
+  def family_open_shifts_item
+    MyGatherpack::Item.new(title: "Sign up for a shift", path: signup_sheets_path, action: "See open shifts", icon: "calendar-plus")
+  end
+
   def family_checklist_item(card, checklist, status)
     open_items = status.explained.select { |entry| MyGatherpackChecklistsHelper::UNFINISHED.include?(entry.status) }
     MyGatherpack::Item.new(title: checklist.title, detail: [ status.overall&.text, open_items.map { |entry| entry.item.label }.to_sentence.presence ].compact.join(" · "),

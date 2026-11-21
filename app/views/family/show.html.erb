@@ -15,9 +15,6 @@
       <h2 class="mg-heading">What your family owes</h2>
       <div class="card mg-list">
         <%= render partial: "my_gatherpack/todo_row", collection: owed, as: :item, locals: { first: false } %>
-        <% if GatherPack::Features.enabled?(:signups) %>
-          <div class="p-3 border-top"><%= link_to "See open shifts", signup_sheets_path, class: "btn btn-outline-secondary w-100" %></div>
-        <% end %>
       </div>
     </section>
   <% end %>

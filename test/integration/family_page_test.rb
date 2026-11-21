@@ -268,6 +268,27 @@ class FamilyPageTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "See open shifts is a row in each ward card while sign-ups are on" do
+    sibling = create_ward("Robin")
+    sign_in @parent.user
+
+    get family_path
+
+    [ @kid, sibling ].each do |ward|
+      assert_select "##{ward_card(ward)} [data-family-row=open-shifts] .mg-row a.mg-row-action.btn-outline-secondary[href=?]", signup_sheets_path, text: "See open shifts"
+    end
+  end
+
+  test "no See open shifts row while sign-ups are off" do
+    sign_in @parent.user
+
+    with_settings(feature_signups: "false") { get family_path }
+
+    assert_select "[data-family-ward]"
+    assert_select "[data-family-row=open-shifts]", false
+    assert_no_match "See open shifts", response.body
+  end
+
   test "a sign-up on a sheet the guardian can't see stays off, as on the sheet page" do
     sheet = create_sheet("Staff Only", team: @crew, relatives: false)
     position = sheet.signup_positions.create!(name: "Lead", capacity: 5)
@@ -400,7 +421,8 @@ class FamilyPageTest < ActionDispatch::IntegrationTest
 
     assert_select "[data-family-owed] .mg-row", count: 1
     assert_select "[data-family-owed] .mg-row-detail", text: /1 of 3.*Kid and Robin/
-    assert_select "[data-family-owed] a[href=?]", signup_sheets_path, text: "See open shifts"
+    assert_select "##{ward_card(@kid)} [data-family-row=open-shifts] a[href=?]", signup_sheets_path, text: "See open shifts"
+    assert_select "[data-family-owed] a[href=?]", signup_sheets_path, false
   end
 
   test "a count that isn't pooled isn't under what the family owes" do
