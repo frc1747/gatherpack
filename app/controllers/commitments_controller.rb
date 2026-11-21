@@ -80,9 +80,13 @@ class CommitmentsController < InternalController
 
   # POST /commitments/1/duplicate
   # A copy of the commitment (Commitments::Duplicator), opened on its Edit page.
+  # A commitment that no longer passes its own checks (a relationship type
+  # members can now add, say) isn't copied; the page says what to fix.
   def duplicate
     copy = Commitments::Duplicator.new(@commitment, created_by: current_user.person).duplicate
     redirect_to edit_commitment_path(copy, tab: "details"), notice: "Duplicated. Check it, then save.", status: :see_other
+  rescue ActiveRecord::RecordInvalid => error
+    redirect_to @commitment, alert: "Couldn't duplicate: #{error.record.errors.full_messages.to_sentence}. Fix it on Edit, then duplicate again.", status: :see_other
   end
 
   # POST /commitments/1/message

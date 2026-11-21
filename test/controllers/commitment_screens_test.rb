@@ -197,6 +197,19 @@ class CommitmentScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "Duplicate says what to fix when the commitment no longer passes its checks" do
+    with_feature do
+      sign_in person(:admin).user
+      @commitment.update!(group_relationship_type: @parent_of)
+      @parent_of.update!(permission: :added_by_user)
+      assert_no_difference -> { Commitment.count } do
+        post duplicate_commitment_path(@commitment)
+      end
+      assert_redirected_to commitment_path(@commitment)
+      assert_match(/\ACouldn't duplicate: .+Fix it on Edit, then duplicate again\.\z/, flash[:alert])
+    end
+  end
+
   test "Duplicate is refused to people who can't run commitments for the team" do
     with_feature do
       sign_in person(:member).user

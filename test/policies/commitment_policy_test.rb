@@ -103,11 +103,21 @@ class CommitmentPolicyTest < ActiveSupport::TestCase
     CommitmentPolicy.new(person(name).user, record)
   end
 
-  test "duplicating takes seeing the commitment and running one for its team" do
+  test "duplicating takes running the commitment and creating for its team" do
     with_feature do
       assert policy(:admin, @commitment).duplicate?
-      assert_not policy(:member, @commitment).duplicate?, "can see it but can't run commitments for the team"
+      assert_not policy(:member, @commitment).duplicate?, "can see it but doesn't run it"
       assert_not policy(:outsider, @commitment).duplicate?
+    end
+  end
+
+  test "an organizer duplicates only for a team they can create for" do
+    with_feature_and_grants do
+      @commitment.commitment_organizers.create!(person: person(:organizer))
+      assert policy(:organizer, @commitment).duplicate?
+
+      crew = create_world_commitment("Crew shifts", team: @crew, owing_team: @crew)
+      assert_not policy(:organizer, crew).duplicate?, "organizes nothing there"
     end
   end
 end
