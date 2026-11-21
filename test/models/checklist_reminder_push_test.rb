@@ -30,7 +30,14 @@ class ChecklistReminderPushTest < ActiveSupport::TestCase
     FakePushChannel.sent = []
     FakePushChannel.available = true
     FakePushChannel.failing = false
-    @sender_class = Class.new(Checklists::ReminderSender) { prepend Checklists::ReminderPushConnector }
+    # Where the phone notifications seam is merged, the initializer has
+    # already prepended the connector to ReminderSender itself.
+    @sender_class =
+      if Checklists::ReminderSender.ancestors.include?(Checklists::ReminderPushConnector)
+        Checklists::ReminderSender
+      else
+        Class.new(Checklists::ReminderSender) { prepend Checklists::ReminderPushConnector }
+      end
   end
 
   teardown do
