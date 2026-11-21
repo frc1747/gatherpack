@@ -147,10 +147,9 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     with_checklists do
       get new_commitment_commitment_source_path(@plain, kind: "checkins")
       assert_select ".breadcrumb", text: /Commitments.*Not on a checklist/m
-      # The commitment's setup at its sources: an anchor here, the What
-      # counts tab once the commitment screens have setup tabs.
+      # The commitment's setup at its What counts tab.
       cancel = css_select("a").find { |link| link.text == "Cancel" }
-      assert_includes [ edit_commitment_path(@plain, anchor: "sources"), edit_commitment_path(@plain, tab: "sources") ], cancel&.[]("href")
+      assert_equal edit_commitment_path(@plain, tab: "sources"), cancel&.[]("href")
     end
   end
 
