@@ -4,6 +4,7 @@ namespace :inventory do
   root "search#index"
   get "stock", to: "search#index", as: :stock
   resources :items do
+    post :duplicate, on: :member
     resource :tracking, controller: "item_tracking", only: %i[create destroy]
     resource :readings, controller: "item_readings", only: %i[edit update]
     resources :sources, controller: "item_sources", except: %i[index show]

@@ -126,4 +126,55 @@ class Inventory::ItemsControllerTest < ActionDispatch::IntegrationTest
       end
     end
   end
+
+  test "a manager duplicates an item and lands on the copy's Edit page" do
+    with_inventory(@world) do
+      sign_in @world.keeper.user
+      assert_difference -> { Item.count } => 1 do
+        post duplicate_inventory_item_path(@world.screws)
+      end
+      copy = Item.find_by!(name: "M4 screw (copy)")
+      assert_redirected_to edit_inventory_item_path(copy)
+      assert_equal "Duplicated. Check it, then save.", flash[:notice]
+    end
+  end
+
+  test "a member can't duplicate an item" do
+    with_inventory(@world) do
+      sign_in @world.member.user
+      assert_no_difference -> { Item.count } do
+        post duplicate_inventory_item_path(@world.screws)
+      end
+      assert_response :redirect
+      assert_not_equal "Duplicated. Check it, then save.", flash[:notice]
+    end
+  end
+
+  test "someone who can't see the item can't duplicate it" do
+    with_inventory(@world) do
+      sign_in @world.outsider.user
+      assert_no_difference -> { Item.count } do
+        post duplicate_inventory_item_path(@world.screws)
+      end
+    end
+  end
+
+  test "the item page offers Duplicate in More, before Delete, to a manager only" do
+    with_inventory(@world) do
+      sign_in @world.keeper.user
+      get inventory_item_path(@world.screws)
+      assert_select ".screen-action-row .dropdown-menu form[action=?]", duplicate_inventory_item_path(@world.screws)
+      labels = css_select(".screen-action-row .dropdown-menu li").map { |li| li.text.strip }
+      assert_operator labels.index("Duplicate"), :<, labels.index("Delete")
+      assert_select ".screen-action-row > form[action=?]", duplicate_inventory_item_path(@world.screws), count: 0
+    end
+  end
+
+  test "the items list carries the column chooser" do
+    with_inventory(@world) do
+      sign_in @world.keeper.user
+      get inventory_items_path
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-items] table#items"
+    end
+  end
 end

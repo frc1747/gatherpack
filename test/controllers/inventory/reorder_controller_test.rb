@@ -127,4 +127,14 @@ class Inventory::ReorderControllerTest < ActionDispatch::IntegrationTest
   test "register_reorder_action refuses a method other than get or post" do
     assert_raises(ArgumentError) { Inventory::Extensions.new.register_reorder_action(:x, label: "X", path: ->(_rows) { "/" }, method: :delete) }
   end
+
+  test "the reorder list and its print view carry the same column chooser key" do
+    with_inventory(@world) do
+      sign_in @world.keeper.user
+      get inventory_reorder_path
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder] table.reorder-group", 2
+      get inventory_reorder_path(print: 1, items: { @wire.id => 7 })
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder] table", text: /Red wire/
+    end
+  end
 end

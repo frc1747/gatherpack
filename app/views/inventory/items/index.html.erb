@@ -29,11 +29,11 @@
   </div>
 <% end %>
 
-<div class="table-responsive">
+<div class="table-responsive" data-controller="column-chooser" data-column-chooser-key-value="inventory-items">
   <table class="table table-hover align-middle" id="items">
     <thead>
       <tr>
-        <th><%= sort_link @q, :name, "Item" %></th>
+        <th data-column-chooser-fixed><%= sort_link @q, :name, "Item" %></th>
         <th><%= sort_link @q, :category, "Category" %></th>
         <th>Part number</th>
         <th>Home</th>

@@ -4,7 +4,7 @@ module Inventory
   class ItemsController < BaseController
     HISTORY = 50
 
-    before_action :set_item, only: %i[show edit update destroy]
+    before_action :set_item, only: %i[show edit update destroy duplicate]
 
     # GET /inventory/items
     def index
@@ -60,6 +60,12 @@ module Inventory
       else
         render :edit, status: :unprocessable_entity
       end
+    end
+
+    # POST /inventory/items/1/duplicate
+    def duplicate
+      copy = Inventory::ItemDuplicator.call(@item)
+      redirect_to edit_inventory_item_path(copy), notice: "Duplicated. Check it, then save.", status: :see_other
     end
 
     # DELETE /inventory/items/1

@@ -36,6 +36,11 @@ class ItemPolicy < ApplicationPolicy
     person.present? && access.manages?(record.team_id)
   end
 
+  # A copy is a new item: whoever may see the original and add items to its team.
+  def duplicate?
+    show? && create?
+  end
+
   # Items with history can't be deleted (make them inactive instead).
   def destroy?
     update? && !record.stock_movements.exists? && !record.item_units.exists?

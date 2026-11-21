@@ -44,6 +44,7 @@
             screen_action("Edit", edit_inventory_item_path(@item), style: :warning),
             screen_action("Label", inventory_labels_path(items: [ @item.id ]), more: true, visible: policy(:inventory).labels?),
             screen_action("Add where to buy", new_inventory_item_source_path(@item), more: true, visible: policy(@item).update?),
+            screen_action("Duplicate", duplicate_inventory_item_path(@item), method: :post, more: true, visible: policy(@item).duplicate?),
             screen_action("Delete", inventory_item_path(@item), method: :delete, destructive: true,
               confirm: "Delete #{@item.name}?", visible: policy(@item).destroy?)
           ] %>

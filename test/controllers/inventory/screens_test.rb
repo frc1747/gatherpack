@@ -30,7 +30,7 @@ class Inventory::ScreensTest < ActionDispatch::IntegrationTest
         assert_select "> a.btn-warning[href=?]", edit_inventory_item_path(washers), text: "Edit"
         assert_select ".dropdown > button", text: "More"
       end
-      assert_equal [ "Label", "Add where to buy", "Delete" ], more_items
+      assert_equal [ "Label", "Add where to buy", "Duplicate", "Delete" ], more_items
       assert_select ".dropdown-menu form[action=?][data-turbo-confirm=?]", inventory_item_path(washers), "Delete Washer?" do
         assert_select "input[name=_method][value=delete]"
         assert_select "button.text-danger", text: "Delete"
@@ -44,7 +44,7 @@ class Inventory::ScreensTest < ActionDispatch::IntegrationTest
       # With history it can't be deleted, so More holds the rest.
       stock!(@world, 10)
       get inventory_item_path(@world.screws)
-      assert_equal [ "Label", "Add where to buy" ], more_items
+      assert_equal [ "Label", "Add where to buy", "Duplicate" ], more_items
     end
   end
 
