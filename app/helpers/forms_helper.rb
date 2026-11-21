@@ -101,6 +101,18 @@ module FormsHelper
     end
   end
 
+  # An entry's job button for the viewer, as [label, path]: Sign, or Fill in,
+  # Continue or Review while it's to do; nil when there's nothing to do.
+  def form_entry_job(entry)
+    if entry.needs_viewer_signature?
+      [ "Sign", form_response_path(entry.form, entry.subject) ]
+    elsif entry.to_do?
+      response = entry.response
+      label = response&.needs_reconfirmation? ? "Review" : (response&.open_submission ? "Continue" : "Fill in")
+      [ label, edit_form_response_path(entry.form, entry.subject) ]
+    end
+  end
+
   LeaderTodo = Struct.new(:form, :people, keyword_init: true)
 
   # For forms that ask for it (leader_todo), the submitted responses waiting

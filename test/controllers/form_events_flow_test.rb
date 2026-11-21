@@ -198,11 +198,12 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the event panel's printable list starts from who said yes" do
+  test "the form page for an event starts from who said yes; the event panel opens forms with Responses" do
     with_feature do
       as(:pack_leader) do
         get event_path(@event)
-        assert_select "#event-forms a[href=?]", form_path(@poll, event_id: @event.id), text: "Printable list for this event"
+        assert_select "#event-forms a", text: "Printable list for this event", count: 0
+        assert_select "#event-forms a.btn[href=?]", form_path(@poll), text: "Responses"
         get form_path(@poll, event_id: @event.id)
         assert_select "h1", text: "Coming Saturday?"
         assert_select "p", text: /People: 1 who answered Yes to "Are you coming\?"/
