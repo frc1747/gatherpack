@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | high |
-| Status | waiting |
+| Status | done (feature/screen-kit, not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | new `feature/screen-kit` from `upstream/main`; manifest: right after `feature/search-and-add` |

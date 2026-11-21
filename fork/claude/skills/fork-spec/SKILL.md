@@ -46,7 +46,7 @@ Two principles come before every rule below.
 
 ### The standard, by screen kind
 
-Reasoning, sketches, the screen kit and upstream's exceptions: `fork/specs/screen-standard-spec.md`. Words and button styles: gp-map "Views". Use the screen kit partials (`shared/_page_header`, `_state_line`, `_action_row`, `_inline_confirm`, `_filter_bar`, `_people_table`, `_empty_state`, `_record_tabs`) once `feature/screen-kit` is in the base; until then write the same markup.
+Reasoning, sketches, the screen kit and upstream's exceptions: `fork/specs/screen-standard-spec.md`. Words and button styles: gp-map "Views". Use the screen kit partials (`shared/_page_header`, `_state_line`, `_action_row`, `_inline_confirm`, `_filter_bar`, `_people_table`, `_empty_state`, `_record_tabs`) and `screen_action`; never a near-copy of their markup.
 
 - **Layers.** 1 list, 2 record, 3 edit/new, 4 feature setup (its types, lists and settings, reached from the main Setup page), 5 site settings. Every layer has a breadcrumb; it's the one way back (no Back buttons on records; forms have Cancel).
 - **Page shape.** Header card: `h1` title, one-line summary, the state in words (record pages). Then filters, then the content, then the action row in the card footer.

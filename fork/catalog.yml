@@ -652,6 +652,18 @@ feature/checklists-connectors:
     the items a leader marked to show there.
   audience: Leaders who build checklists, forms and sign-up sheets; everyone sees their progress
 
+feature/screen-kit:
+  title: Standard screens
+  emoji: "🧩"
+  description: >-
+    Shared pieces every screen uses: a header with its state in words, an
+    action row with a More menu, filters and people tables. An option greys
+    the Cancel button on built-in forms so Cancel no longer looks like Edit.
+  audience: Everyone
+  settings:
+    - name: Standard buttons on built-in screens
+      key: feature_screen_standard
+
 feature/checklists-reminders:
   title: Checklist reminders
   emoji: "📬"
