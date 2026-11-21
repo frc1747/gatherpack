@@ -158,10 +158,45 @@ class ScreenKitTest < ApplicationSystemTestCase
     filter = ApplicationController.render(partial: "shared/filter_bar", locals: { url: badge_types_path, status: nil })
     add_people_table(before: filter, wrapper: ApplicationController.helpers.column_chooser_data("kit-people"))
     within "#kit-table .screen-filter-bar" do
+      assert_selector ".dropdown.ms-auto", text: "Columns"
       click_on "Columns"
       uncheck "Status"
     end
     assert_no_selector "#kit-table th", text: "Status"
+  end
+
+  test "changes inside a wait marker under More choices apply only with Show" do
+    visit badge_types_path
+    add_filter_bar more: <<~HTML.html_safe
+      <label><input type="checkbox" name="late" value="1"> Late</label>
+      <div data-filter-bar-wait><label>Form <select name="form"><option></option><option>Intake</option></select></label></div>
+    HTML
+    within "#kit-filter" do
+      find("summary").click
+      select "Intake", from: "Form"
+    end
+    assert_current_path badge_types_path
+    within("#kit-filter details") { click_on "Show" }
+    assert_current_path "#{badge_types_path}?season=2026&form=Intake"
+  end
+
+  test "a people table under a filter bar with table actions puts Columns in the bar and keeps Person" do
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: {
+      url: badge_types_path, status: nil,
+      table_actions: [ ScreenKit::Action.new(label: "Download CSV", path: "/people.csv", style: :secondary) ]
+    })
+    add_people_table(before: filter, wrapper: ApplicationController.helpers.column_chooser_data("kit-people"))
+    within "#kit-table .screen-table-actions" do
+      assert_selector ":first-child.dropdown > button.btn.btn-secondary.dropdown-toggle", text: "Columns"
+      click_on "Columns"
+      assert_equal [ "Status", "Allergies" ], all(".dropdown-menu label").map(&:text)
+      uncheck "Status"
+    end
+    assert_no_selector "#kit-table th", text: "Status"
+    assert_selector "#kit-table th", text: "Person"
+    assert_selector "#kit-table .dropdown", count: 1
   end
 
   private

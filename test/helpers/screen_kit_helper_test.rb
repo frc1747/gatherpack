@@ -338,6 +338,13 @@ class ScreenKitHelperTest < ActionView::TestCase
       column_chooser_data("form-results", controller: "form-results", form_results_target: "table"))
   end
 
+  test "filter_bar passes a wait marker in More choices through to the page" do
+    render "shared/filter_bar", url: "/forms/1",
+      more: "<div data-filter-bar-wait><select name='question_form_id'></select><select name='question_id'></select></div>".html_safe
+
+    assert_select "form[data-controller=filter-bar] details [data-filter-bar-wait] select", 2
+  end
+
   test "people_table's choose_columns: adds the chooser and keeps Person fixed" do
     row = Struct.new(:person, :allergy).new(Person.create!(first_name: "Nadia", last_name: "Northwind"), "Peanuts")
     render "shared/people_table", rows: [ row ], choose_columns: "signups-roster",
@@ -349,7 +356,7 @@ class ScreenKitHelperTest < ActionView::TestCase
 
     render "shared/people_table", rows: [ row ]
     assert_select "[data-controller=column-chooser]", 0
-    assert_select "th[data-column-chooser-fixed]", 0
+    assert_select "th[data-column-chooser-fixed]", text: "Person"
   end
 
   test "people_table takes table classes, wrapper options, column options and rows after" do

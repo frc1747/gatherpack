@@ -15,8 +15,10 @@
     fields (HTML, e.g. a season select), always shown, sent with Show;
     auto_submit: true shows a change to fields or the team at once and hides
     Show (Show stays without JavaScript, and while More choices is there).
-    A change under More choices always applies at once; More choices also
-    has its own Show at the bottom. The table actions start with an empty
+    A change under More choices always applies at once, except inside an
+    element marked data-filter-bar-wait (a choice made in steps, such as a
+    form then its question), which waits for Show; More choices also has
+    its own Show at the bottom. The table actions start with an empty
     column-chooser slot, which a Columns chooser around the bar fills. %>
 <% pills = statuses.reject { |pill| pill[:value].present? && pill[:count]&.zero? && pill[:value].to_s != status.to_s } %>
 <% team_filter = teams.size > 1 %>
@@ -71,6 +73,6 @@
       <% end %>
     </div>
   <% else %>
-    <div class="ms-auto" data-column-chooser-target="slot"></div>
+    <div style="display: contents" data-column-chooser-target="slot"></div>
   <% end %>
 </div>

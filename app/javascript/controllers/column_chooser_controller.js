@@ -66,7 +66,7 @@ export default class extends Controller {
 
     const button = document.createElement("button")
     button.type = "button"
-    button.className = "btn btn-sm btn-outline-secondary dropdown-toggle"
+    button.className = "btn btn-secondary dropdown-toggle"
     button.textContent = "Columns"
     button.setAttribute("data-bs-toggle", "dropdown")
     button.setAttribute("data-bs-auto-close", "outside")
@@ -103,6 +103,8 @@ export default class extends Controller {
   place() {
     if (this.hasSlotTarget) {
       this.slotTarget.querySelectorAll("[data-column-chooser-menu]").forEach((menu) => menu.remove())
+      // A slot outside the table actions sits on its own at the right.
+      if (!this.slotTarget.closest(".screen-table-actions")) this.menu.classList.add("ms-auto")
       this.slotTarget.append(this.menu)
       this.placed = this.menu
     } else {

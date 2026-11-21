@@ -9,7 +9,8 @@
     class: added to table-responsive); rows_after: more rows (HTML) at the end
     of the body, such as a group of people listed apart; choose_columns: a
     key (such as "signups-roster") to offer a Columns chooser, remembered per
-    viewer under that key, with Person always shown. %>
+    viewer under that key. Person is always shown, also when a chooser on
+    an outer wrapper (column_chooser_data) covers the table. %>
 <% if rows.empty? && rows_after.blank? %>
   <%= render "shared/empty_state", text: empty %>
 <% else %>
@@ -18,7 +19,7 @@
     <table class="<%= table_class %>">
       <thead>
         <tr>
-          <%= tag.th "Person", data: ({ column_chooser_fixed: "" } if choose_columns) %>
+          <th data-column-chooser-fixed>Person</th>
           <% if status %><th>Status</th><% end %>
           <% columns.each do |header, _, options| %><%= tag.th header, **(options || {}) %><% end %>
         </tr>
