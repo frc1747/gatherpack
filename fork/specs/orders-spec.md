@@ -203,7 +203,7 @@ Orders knows nothing about inventory or ledgers. Other features attach through:
 - **Notifications.** `order_request_changed.gatherpack` (any status change, with from and to) and `order_line_received.gatherpack` (a delivery recorded: line, quantity, condition, person), following `person_field_changed.gatherpack`.
 - **Receiving extensions.** A small registry, `Orders.receiving_extensions`. An extension adds fields to the receive dialog for a line ("Put away in: [location]", "Track this item: ☐") and is called with the delivery after it's saved. `feature/order-inventory` fills it. With no extension registered, the dialog is quantity, date, condition and note.
 - **Line entry extensions.** A registry, `Orders.line_entry_extensions`. An extension adds a picker above the line form on New request ("Pick from what we stock") and returns line attributes to fill in, including `item`. Fields stay editable and typing a line by hand is always available underneath. `feature/order-inventory` fills it. With none registered, the form starts with the link box (§3.16).
-- **Line links.** A line has an optional polymorphic `item` (`item_type`, `item_id`). Orders only displays it (name and link). Inventory sets it when a request is made from an item, and "Order again" keeps it.
+- **Line links.** A line has an optional polymorphic `item` (`item_type`, `item_id`). Orders only displays it (name and link). Inventory sets it when a request is made from an item, and "Duplicate" keeps it.
 - **Creating requests.** `OrderRequest.draft_for(person:, team:, lines:)` is the supported way for another feature to start a request (inventory's reorder). It makes a draft the person then submits; nothing skips approval.
 
 ### 3.10 Timeline and audit
@@ -336,7 +336,7 @@ A draft isn't a to-do: an abandoned one would nag forever. It appears under Your
 
 ### 3.15a Request page and form (screen standard, BL-069)
 
-The request page's footer is the screen kit's action row: one job button for the viewer (Finish request, Update, Open To buy or Receive), then More with Edit, Order again, Follow and Print, and Delete draft or Cancel request last. An approver gets no job button: the decision bar on the page (Approve, Ask for changes, Decline) is the job. The header states the request in words ('Waiting for approval by <step>', 'Ordered <date>'). The request form saves itself while new or a draft, so it ends Close (saves anything pending, then goes to My requests), Save draft, Submit for approval; forms that don't save themselves end Cancel, Save (or Send back for approval).
+The request page's footer is the screen kit's action row: one job button for the viewer (Finish request, Update, Open To buy or Receive), then More with Edit, Duplicate (a new draft of the same lines at their last price, "<name> (copy)"; drafts too), Follow and Print, and Delete draft or Cancel request last. An approver gets no job button: the decision bar on the page (Approve, Ask for changes, Decline) is the job. The header states the request in words ('Waiting for approval by <step>', 'Ordered <date>'). The request form saves itself while new or a draft, so it ends Close (saves anything pending, then goes to My requests), Save draft, Submit for approval; forms that don't save themselves end Cancel, Save (or Send back for approval).
 
 ### 3.16 Requester experience
 

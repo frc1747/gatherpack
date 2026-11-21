@@ -677,6 +677,17 @@ feature/record-footers:
     - name: Standard buttons on built-in screens
       key: feature_screen_standard
 
+feature/event-duplicate:
+  title: Duplicate events
+  emoji: "🗓️"
+  description: >-
+    An event's More menu offers Duplicate, which opens a new event filled in
+    from the old one so only the date needs changing.
+  audience: People who create events
+  settings:
+    - name: Duplicate events
+      key: feature_event_duplicate
+
 feature/checklists-reminders:
   title: Checklist reminders
   emoji: "📬"
