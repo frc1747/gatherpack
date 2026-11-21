@@ -28,7 +28,7 @@ class CommitmentScreensTest < ActionDispatch::IntegrationTest
         assert_select "button.btn.btn-primary[data-bs-toggle=collapse][data-bs-target='#message']", text: "Remind (3)"
         assert_select ".dropdown-toggle", text: "More"
         items = css_select(".dropdown-menu > li:not(.d-md-none)")
-        assert_equal [ "Add an adjustment", "Delete" ], items.map { |item| item.text.strip }
+        assert_equal [ "Add an adjustment", "Duplicate", "Delete" ], items.map { |item| item.text.strip }
         assert_select items.last, "form[action=?][data-turbo-confirm=?] button.dropdown-item.text-danger",
           commitment_path(@commitment), "Delete this commitment and its adjustments?"
       end
@@ -179,6 +179,42 @@ class CommitmentScreensTest < ActionDispatch::IntegrationTest
       assert_select "h1", text: "Commitments"
       assert_select ".table-responsive table tr##{ActionView::RecordIdentifier.dom_id(@commitment)}"
       assert_select ".card-footer a.btn-success", text: "New Commitment"
+    end
+  end
+
+  test "Duplicate copies the commitment and opens the copy's Edit page" do
+    with_feature do
+      sign_in person(:admin).user
+      get commitment_path(@commitment)
+      assert_select ".dropdown-menu form[action=?] button.dropdown-item", duplicate_commitment_path(@commitment), text: "Duplicate"
+
+      assert_difference -> { Commitment.count } => 1, -> { CommitmentSource.count } => 1 do
+        post duplicate_commitment_path(@commitment)
+      end
+      copy = Commitment.find_by!(title: "Shifts (copy)")
+      assert_redirected_to edit_commitment_path(copy, tab: "details")
+      assert_equal "Duplicated. Check it, then save.", flash[:notice]
+    end
+  end
+
+  test "Duplicate is refused to people who can't run commitments for the team" do
+    with_feature do
+      sign_in person(:member).user
+      assert_no_difference -> { Commitment.count } do
+        post duplicate_commitment_path(@commitment)
+      end
+      assert_redirected_to root_path
+    end
+  end
+
+  test "the commitment tables carry the column chooser and its key" do
+    with_feature do
+      sign_in person(:admin).user
+      get commitment_path(@commitment)
+      assert_select "[data-controller~='column-chooser'][data-column-chooser-key-value='commitments-progress'] #progress table"
+
+      get commitments_path
+      assert_select ".table-responsive[data-controller~='column-chooser'][data-column-chooser-key-value='commitments-list'] table"
     end
   end
 end

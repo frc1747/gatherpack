@@ -21,11 +21,11 @@
 <% if @run.any? || policy(Commitment).new? %>
   <h2 class="h4 mt-4">Commitments you run</h2>
   <% if @run.any? %>
-    <div class="table-responsive">
+    <div class="table-responsive" <%= tag.attributes(data: column_chooser_data("commitments-list")) %>>
       <table class="table table-striped align-middle">
         <thead>
           <tr>
-            <th>Commitment</th>
+            <th data-column-chooser-fixed>Commitment</th>
             <th>Team</th>
             <th>Who owes</th>
             <th>Period</th>

@@ -24,6 +24,7 @@
           screen_action("Remind (#{@open_count})", nil, style: :primary, visible: !@rows.nil? && policy(@commitment).message? && @open_count.to_i.positive?,
             data: { bs_toggle: "collapse", bs_target: "#message" }),
           screen_action("Add an adjustment", new_commitment_commitment_adjustment_path(@commitment), more: true),
+          screen_action("Duplicate", duplicate_commitment_path(@commitment), method: :post, more: true, visible: policy(@commitment).duplicate?),
           screen_action("Delete", commitment_path(@commitment), method: :delete, destructive: true,
             confirm: "Delete this commitment and its adjustments?")
         ] %>

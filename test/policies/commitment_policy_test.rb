@@ -102,4 +102,12 @@ class CommitmentPolicyTest < ActiveSupport::TestCase
   def policy(name, record)
     CommitmentPolicy.new(person(name).user, record)
   end
+
+  test "duplicating takes seeing the commitment and running one for its team" do
+    with_feature do
+      assert policy(:admin, @commitment).duplicate?
+      assert_not policy(:member, @commitment).duplicate?, "can see it but can't run commitments for the team"
+      assert_not policy(:outsider, @commitment).duplicate?
+    end
+  end
 end

@@ -4,7 +4,7 @@ class CommitmentsController < InternalController
   STATUSES = { "met" => "Met", "not_met" => "Not met", "nothing_planned" => "Nothing planned" }.freeze
   EDIT_TABS = %w[ details sources organizers ].freeze
 
-  before_action :set_commitment, only: %i[ show edit update destroy message ]
+  before_action :set_commitment, only: %i[ show edit update destroy message duplicate ]
   before_action :set_choices, only: %i[ new create edit update ]
 
   # GET /commitments
@@ -78,6 +78,13 @@ class CommitmentsController < InternalController
     redirect_to commitments_url, notice: "Commitment was successfully destroyed.", status: :see_other
   end
 
+  # POST /commitments/1/duplicate
+  # A copy of the commitment (Commitments::Duplicator), opened on its Edit page.
+  def duplicate
+    copy = Commitments::Duplicator.new(@commitment, created_by: current_user.person).duplicate
+    redirect_to edit_commitment_path(copy, tab: "details"), notice: "Duplicated. Check it, then save.", status: :see_other
+  end
+
   # POST /commitments/1/message
   # Emails everyone who hasn't met the commitment, one message each so no
   # one sees anyone else's address (Commitments::Message). Without a subject
@@ -99,7 +106,7 @@ class CommitmentsController < InternalController
   private
     def set_commitment
       @commitment = Commitment.find(params[:id])
-      authorize @commitment, { "show" => :show?, "message" => :message? }.fetch(action_name, :manage?)
+      authorize @commitment, { "show" => :show?, "message" => :message?, "duplicate" => :duplicate? }.fetch(action_name, :manage?)
     end
 
     def set_choices

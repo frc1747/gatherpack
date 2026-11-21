@@ -1,4 +1,5 @@
 <%# Everyone's progress, one row per person or group, for organizers: names and numbers only. %>
+<div <%= tag.attributes(data: column_chooser_data("commitments-progress")) %>>
 <div class="no-print">
   <%= render "shared/filter_bar", url: commitment_path(@commitment), teams: @teams, team: @team, status: @status, auto_submit: true,
         statuses: [ { label: "All", value: nil, count: @status_counts.values_at("met", "not_met").sum } ] +
@@ -20,3 +21,4 @@
       table_class: "table table-striped table-sm align-middle",
       status: ->(row) { commitment_status_badge(row) },
       empty: (@team || @status ? "Nobody matches these choices." : "Nobody here.") %>
+</div>

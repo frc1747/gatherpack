@@ -35,6 +35,11 @@ class CommitmentPolicy < ApplicationPolicy
     team_in_reach?(record.team_id)
   end
 
+  # Anyone who can see the commitment and run one for its team.
+  def duplicate?
+    show? && team_in_reach?(record.team_id)
+  end
+
   # Settings, sources, organizers and adjustments.
   def update?
     organizer?
