@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | low |
-| Status | waiting |
+| Status | done (feature/intake, feature/intake-checklist; not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `hbr/integration` @ `c4700b175` |
 | Planned branches | `feature/intake`, `feature/intake-checklist`; after BL-062 |
