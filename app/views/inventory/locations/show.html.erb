@@ -2,7 +2,9 @@
 <% content_for :title, @location.name %>
 <% inventory_stylesheet %>
 
-<div class="inventory-phone <%= "inventory-has-bar" if @countable %>">
+<% editor = policy(@location).edit? %>
+<% count_bar = @countable && editor %>
+<div class="inventory-phone <%= "inventory-has-bar" if count_bar %>">
   <%= render "inventory/shared/undo_toast" %>
   <div class="card mb-3">
     <div class="card-header">
@@ -20,7 +22,6 @@
         <% if counted %><p class="mb-0 text-body-secondary">Last counted <%= time_ago_in_words(counted) %> ago</p><% end %>
       </div>
     <% end %>
-    <% editor = policy(@location).edit? %>
     <%= render "shared/action_row", wrapper_class: "card-footer inventory-no-print", actions: [
           screen_action("Edit", edit_inventory_location_path(@location), style: :warning, visible: editor),
           screen_action("Count this place", count_inventory_location_path(@location), style: :primary, visible: @countable),
@@ -100,9 +101,10 @@
     <% end %>
   <% end %>
 
-  <%# At a shelf on a phone, counting is one tap: the row above may have put
-      it in More. %>
-  <% if @countable %>
+  <%# At a shelf on a phone, counting is one tap. Edit comes first in the row
+      above for someone who can edit, which puts Count in More on a phone;
+      for anyone else Count is already the row's first button. %>
+  <% if count_bar %>
     <div class="inventory-bar d-md-none">
       <%= link_to "Count this place", count_inventory_location_path(@location), class: "btn btn-primary btn-lg" %>
     </div>

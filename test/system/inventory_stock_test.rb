@@ -102,10 +102,8 @@ class InventoryStockTest < ApplicationSystemTestCase
         assert_text "M4 nut"
         assert_text "M4 screw"
       end
-      within(".inventory-bar") do
-        assert_tappable find_link("Count this place")
-        click_on "Count this place"
-      end
+      assert_tappable find_link("Count this place")
+      click_on "Count this place"
 
       assert_text "1 of 2"
       assert_selector "h2", text: "M4 nut"

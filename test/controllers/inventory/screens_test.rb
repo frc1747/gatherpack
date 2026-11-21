@@ -48,6 +48,19 @@ class Inventory::ScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a member's place page has Count this place first in the row and no second Count bar" do
+    with_inventory(@world) do
+      stock!(@world, 10)
+      sign_in @world.member.user
+      get inventory_location_path(@world.bin1)
+      assert_select ".card-footer.screen-action-row > a.btn-primary:first-child[href=?]", count_inventory_location_path(@world.bin1),
+        text: "Count this place"
+      assert_select ".screen-action-row .dropdown", count: 0
+      assert_select ".inventory-bar", count: 0
+      assert_select "a", text: "Count this place", count: 1
+    end
+  end
+
   test "a member sees no footer on the item page" do
     with_inventory(@world) do
       stock!(@world, 10)
@@ -71,7 +84,7 @@ class Inventory::ScreensTest < ActionDispatch::IntegrationTest
       end
       assert_equal [ "Count this place", "Add a place inside", "Add an item here", "Label" ], more_items
       assert_select ".dropdown-menu li.d-md-none", text: "Count this place"
-      # On a phone the job is also one large tap at the bottom.
+      # Count is in More on a phone, so it's also one large tap at the bottom.
       assert_select ".inventory-has-bar .inventory-bar.d-md-none a.btn-primary.btn-lg[href=?]", count_inventory_location_path(@world.bin1),
         text: "Count this place"
 
