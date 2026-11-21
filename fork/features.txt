@@ -93,3 +93,4 @@ feature/event-type-starts-locked
 feature/email-rate-limit-retry
 feature/pinned-form-buttons
 feature/ruby-4.0.10
+feature/checklists-reminders

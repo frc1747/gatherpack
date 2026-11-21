@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (feature) |
 | Priority | medium |
-| Status | waiting |
+| Status | done (feature/checklists-reminders + feature/person-fields, not yet released) |
 | Added | 2026-11-21 |
 | Commit checked | `feature/checklists` @ `9bb274287`, `feature/person-fields` @ `b5aed6cbe` |
 | Planned branches | new `feature/checklists-reminders`; a small change on `feature/person-fields` |

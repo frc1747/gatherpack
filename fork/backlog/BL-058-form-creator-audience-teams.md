@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug + small feature) |
 | Priority | medium |
-| Status | waiting |
+| Status | done (feature/forms, not yet released) |
 | Added | 2026-11-19 |
 | Commit checked | `hbr/integration` @ `c4700b175` (hbr.51) |
 | Planned branches | `feature/forms` |

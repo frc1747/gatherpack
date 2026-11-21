@@ -652,6 +652,16 @@ feature/checklists-connectors:
     the items a leader marked to show there.
   audience: Leaders who build checklists, forms and sign-up sheets; everyone sees their progress
 
+feature/checklists-reminders:
+  title: Checklist reminders
+  emoji: "📬"
+  description: >-
+    Organizers remind everyone who hasn't finished a checklist, by hand or on
+    a schedule, and can include guardians. A preview shows the exact email.
+    Fields marked "Keep out of email and notifications" and the checklist's
+    own setting decide how much an email may say, down to just "sign in".
+  audience: Leaders who run checklists; members and guardians get the reminders
+
 feature/housekeeping:
   title: Housekeeping
   emoji: "🧹"
