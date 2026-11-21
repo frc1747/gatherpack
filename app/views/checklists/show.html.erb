@@ -13,6 +13,7 @@
       <div class="d-flex gap-2 flex-wrap no-print">
         <% if @organizer %>
           <%= link_to "Edit", edit_checklist_path(@checklist), class: "btn btn-warning" %>
+          <%= render "checklist_reminders/button", checklist: @checklist %>
           <%= button_to "Take Snapshot", checklist_checklist_lists_path(@checklist), class: "btn btn-secondary", form_class: "d-inline" %>
           <%= button_to "Recompute", refresh_checklist_path(@checklist), class: "btn btn-outline-secondary", form_class: "d-inline" %>
         <% end %>

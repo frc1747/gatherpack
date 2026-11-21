@@ -1,0 +1,22 @@
+<%# Reminder sections from Checklists::ReminderMessage#sections: only what the email levels allow. %>
+<% sections.each do |section| %>
+  <% if section["heading"] %>
+    <h3 style="margin-bottom: 4px;"><%= section["heading"] %></h3>
+  <% end %>
+  <% if section["text"] %>
+    <p><%= section["text"] %></p>
+  <% end %>
+  <% if section["lines"].any? %>
+    <ul>
+      <% section["lines"].each do |line| %>
+        <li>
+          <strong><%= line["name"] %></strong>: <%= line["word"] %><% if line["summary"] %> (<%= line["summary"] %>)<% end %>
+          <% if line["link_url"] %> <a href="<%= line["link_url"] %>"><%= line["link_label"] %></a><% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+  <% if section["more"] %>
+    <p><%= section["more"] %></p>
+  <% end %>
+<% end %>
