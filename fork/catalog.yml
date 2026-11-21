@@ -664,6 +664,19 @@ feature/screen-kit:
     - name: Standard buttons on built-in screens
       key: feature_screen_standard
 
+feature/record-footers:
+  title: Tidy event and person buttons
+  emoji: "🧹"
+  description: >-
+    The buttons under an event and a person put Edit first and tuck the rest
+    (Arrange, Impersonate, email and password, Delete) into a More menu, the
+    same way the fork's own pages do. Part of "Standard buttons on built-in
+    screens".
+  audience: Everyone
+  settings:
+    - name: Standard buttons on built-in screens
+      key: feature_screen_standard
+
 feature/checklists-reminders:
   title: Checklist reminders
   emoji: "📬"

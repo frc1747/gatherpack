@@ -149,7 +149,7 @@ Built once on `feature/screen-kit` from `upstream/main`, before any fix-up item 
 
 Helper `ScreenKitHelper` (`app/helpers/screen_kit_helper.rb`): `screen_action(label, path, style: :secondary, method: :get, confirm: nil, visible: true, lifecycle: false, destructive: false, more: false, data: {})` builds a `ScreenKit::Action`. In More come ordinary items, then lifecycle items such as Archive and Restore (not red, each with a confirm naming the effect), then destructive items last, `text-danger`. `lifecycle:` and `more: true` always put the action in More. `data:` goes on the rendered link or button. A nil `path` renders a plain `<button type="button">` for page script (Print with `data: { action: "form-results#print" }`), as a row button, a More item or a table action. With three actions or fewer and no More, a phone-only More holds the buttons hidden at phone width. Also `state_line(text, link_text: nil, link_path: nil)`.
 
-Stylesheet `screen_kit.css`, linked from the layout only while `feature_screen_standard` is on ("Standard buttons on built-in screens", default off): restyles Cancel on upstream forms as `btn-secondary` with one selector, `main form .card-footer > a.btn-warning:has(+ [type=submit])`: a yellow link directly before the submit, which is where upstream's 71 forms put Cancel (the same `:has()` approach as BL-055). It leaves other yellow links alone, such as Edit in `mailboxes/show`'s footer, which sits beside a search submit. This is the one look change to upstream screens, so it has the flag.
+Stylesheet `screen_kit.css`, linked from the layout only while `feature_screen_standard` is on ("Standard buttons on built-in screens", default off): restyles Cancel on upstream forms as `btn-secondary` with one selector, `main form .card-footer > a.btn-warning:has(+ [type=submit])`: a yellow link directly before the submit, which is where upstream's 71 forms put Cancel (the same `:has()` approach as BL-055). It leaves other yellow links alone, such as Edit in `mailboxes/show`'s footer, which sits beside a search submit. It and `feature/record-footers` (the event and person footers) are the look changes to upstream screens, so both sit behind the flag.
 
 Manifest position of `feature/screen-kit`: **open, for Corey.** It depends only on `upstream/main`; every fix-up branch depends on it.
 
@@ -189,11 +189,11 @@ Each difference between upstream's screens and the standard, and what happens to
 | Cancel in `btn-warning` | 112 upstream forms | **Fork wrapper** | `screen_kit.css` under `feature_screen_standard`; no view edits |
 | Settings page Save `btn-lg btn-success`, Cancel `btn-lg btn-primary` | `settings/index` | **Fork matches upstream** | one admin page; fork setup pages stop copying it (BL-069, BL-071) |
 | "Are you sure?" dialog wording | 48 upstream dialogs | **Fork matches upstream** | wording only; not worth an edit each |
-| More than three actions on a record | `events/show` (Print, Arrange, Edit, Delete) | **Upstream edit** | 1 file, already in FORK.md for panels; Edit, Print, More (Arrange, Delete). For Corey to approve |
-| | `people/show` (Impersonate, Edit Profile, Change Email, …) | **Upstream edit** | 1 file, already touched by person-fields; Edit Profile first, rest in More. For Corey to approve |
+| More than three actions on a record | `events/show` (Print, Arrange, Edit, Delete) | **Upstream edit** | `feature/record-footers` under `feature_screen_standard`, approved by Corey (fork only, not offered upstream): Edit, Print, More (Arrange, Delete) |
+| | `people/show` (Impersonate, Edit Profile, Change Email, …) | **Upstream edit** | `feature/record-footers` under `feature_screen_standard`, approved by Corey (fork only, not offered upstream): Edit first, the rest in More, Delete last |
 | | `teams/show`, `ledgers/show`, `ledger_entries/show`, `budgets/show`, `time_clock_periods/show`, `calendar/index`, `questions/show` | **Fork matches upstream** | setup-audience or rarely used; not worth new upstream divergence |
 | Open/Close as buttons | `questions/show` (Reopen, Close) | **Fork matches upstream** | upstream Q&A only; not a fork feature |
-| "Edit Profile" instead of "Edit" | `people/show` | **Upstream edit** | with the `people/show` edit above |
+| "Edit Profile" instead of "Edit" | `people/show` | **Upstream edit** | `feature/record-footers`: now "Edit" |
 | No breadcrumb | `ledger_payments/new` (Pay Into a ledger, reached only from the ledger's page) | **Fork matches upstream** | left as is: adding one `breadcrumb` line would be a new upstream edit for one rarely used admin page |
 
 No change here assumes anything is offered upstream; that's Corey's call per change.
