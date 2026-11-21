@@ -21,14 +21,7 @@
 </div>
 
 <% creator = policy(Form.new).new? %>
-<% printable_list = capture do %>
-  <div class="dropdown d-inline-block">
-    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
-    <ul class="dropdown-menu">
-      <li><%= link_to "Printable list", print_list_forms_path, class: "dropdown-item" %></li>
-    </ul>
-  </div>
-<% end %>
+<% printable_list = [ screen_action("Printable list", print_list_forms_path, more: true) ] %>
 
 <% if @shared.any? %>
   <div class="card mt-3">
@@ -56,7 +49,7 @@
       </div>
     </div>
     <% unless creator %>
-      <div class="card-footer"><%= printable_list %></div>
+      <%= render "shared/action_row", actions: printable_list %>
     <% end %>
   </div>
 <% end %>
@@ -88,7 +81,7 @@
         <%= link_to "New Form", new_form_path, class: "btn btn-success" %>
         <%= f.submit "Search", class: "btn btn-primary", name: nil %>
         <%= link_to "Clear Search", forms_path, class: "btn btn-dark" %>
-        <%= printable_list %>
+        <%= render "shared/action_row", actions: printable_list, wrapper_class: "d-inline-flex align-middle" %>
       </div>
     </div>
   <% end %>

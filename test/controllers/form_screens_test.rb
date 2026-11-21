@@ -216,6 +216,26 @@ class FormScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the form page's filter bar keeps column choices in the pills but not as hidden copies" do
+    sandwich = @form.form_questions.first
+    note = @form.form_questions.create!(kind: :input, label: "Note", data_type: :string)
+    with_feature do
+      as(:pack_leader) do
+        get form_path(@form, columns_for: @form.id, question_ids: [ note.id ], totals: "hidden")
+        assert_select "#form-options input[type=hidden][name='question_ids[]']", 0, "Show sends only the ticked boxes"
+        assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?][checked]", note.id
+        assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?]:not([checked])", sandwich.id
+        assert_select "#form-options input[type=hidden][name=totals][value=hidden]"
+        all = css_select(".screen-filter-pills a").first
+        assert_equal [ note.id ], Rack::Utils.parse_nested_query(all["href"].split("?").last)["question_ids"]
+        assert_select ".screen-table-actions input[type=radio][name=layout][form=form-options]", 2
+        assert_select ".screen-table-actions button.btn-dark[type=button][data-action='form-results#print']", text: "Print"
+        assert_select ".screen-table-actions a.btn-secondary", text: "Download CSV"
+        assert_select "#responses.table-responsive[data-form-results-target=table] table.table-sm"
+      end
+    end
+  end
+
   test "the preview and audience pages have no Back button" do
     with_feature do
       as(:pack_leader) do

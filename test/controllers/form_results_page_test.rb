@@ -48,7 +48,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         assert_select "tr#person_#{person(:a1).id}"
         assert_select "#totals tr", text: /Big John\s+0\b/
         assert_select "#totals tr", text: /Slim 4\s+1\b/
-        assert_select "#status-filter a[href=?]", form_path(@form, team_id: @den_a.id, status: "complete"), text: "Complete (1)"
+        assert_select ".screen-filter-pills a[href=?]", form_path(@form, team_id: @den_a.id, status: "complete"), text: "Complete (1)"
       end
     end
   end
@@ -80,11 +80,11 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", @sandwich.id
         assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", @note.id
         assert_select "input[type=checkbox][name=?][value=?]:not([checked])", "field_ids[]", allergies.id
-        assert_select "details#more-choices:not([open])"
+        assert_select "details.screen-filter-more:not([open])"
 
         columns = { columns_for: @form.id, question_ids: [ @note.id ], field_ids: [ allergies.id ] }
         get form_path(@form, columns)
-        assert_select "details#more-choices[open]"
+        assert_select "details.screen-filter-more[open]"
         assert_select "#responses th", text: "Note"
         assert_select "#responses th", text: "Food Allergies"
         assert_select "#responses th", text: "Sandwich", count: 0
@@ -297,13 +297,13 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
       as(:pack_leader) do
         everything = @form.answerable_questions.map(&:id)
         get form_path(@form, team_id: @den_a.id, columns_for: @form.id, question_ids: everything)
-        assert_select "details#more-choices:not([open])"
-        assert_select "#status-filter a[href=?]", form_path(@form, team_id: @den_a.id, status: "complete")
+        assert_select "details.screen-filter-more:not([open])"
+        assert_select ".screen-filter-pills a[href=?]", form_path(@form, team_id: @den_a.id, status: "complete")
 
         get form_path(@form, columns_for: @form.id, question_ids: [ @note.id ])
-        assert_select "details#more-choices[open]"
+        assert_select "details.screen-filter-more[open]"
         get form_path(@form, version: "latest")
-        assert_select "details#more-choices[open]"
+        assert_select "details.screen-filter-more[open]"
       end
     end
   end

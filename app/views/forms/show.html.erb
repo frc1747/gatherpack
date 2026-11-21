@@ -30,99 +30,84 @@
       <% end %>
     <% end %>
 
-    <%= form_with url: form_path(@form), method: :get, class: "no-print", id: "form-options" do %>
-      <%= hidden_field_tag :status, @status, id: nil if @status %>
-      <%= hidden_field_tag :totals, "hidden", id: nil if @totals_hidden %>
-      <% if @teams.size > 1 %>
-        <div class="row g-2 align-items-end mb-3">
-          <div class="col-auto">
-            <%= label_tag :team_id, "Team", class: "form-label" %>
-            <%= select_tag :team_id, options_from_collection_for_select(@teams, :id, :name, @team&.id), include_blank: "All of #{@teams.first.name}", class: "form-select" %>
-          </div>
-          <div class="col-auto"><%= submit_tag "Show", class: "btn btn-secondary", name: nil %></div>
+    <% more = capture do %>
+    <div class="border rounded p-3 mt-2">
+      <h2 class="h6">Show</h2>
+      <div class="mb-3">
+        <div class="form-check">
+          <%= radio_button_tag :version, "active", @version == :active, class: "form-check-input" %>
+          <%= label_tag :version_active, "Active (submitted)", class: "form-check-label" %>
         </div>
-      <% end %>
+        <div class="form-check">
+          <%= radio_button_tag :version, "latest", @version == :latest, class: "form-check-input" %>
+          <%= label_tag :version_latest, "Latest, including updates in progress", class: "form-check-label" %>
+        </div>
+      </div>
 
-      <div class="d-flex flex-wrap gap-2 mb-2" id="status-filter">
-        <%= link_to "All (#{@report.rows.size})", form_path(@form, @options.except(:status)), class: "btn btn-sm #{@status ? "btn-outline-secondary" : "btn-secondary"}" %>
-        <% FormReport::STATUSES.each do |status| %>
-          <% next if counts[status].zero? %>
-          <%= link_to "#{FormsHelper::STATUS_LABELS.fetch(status)} (#{counts[status]})", form_path(@form, @options.merge(status: status)),
-                class: "btn btn-sm #{@status == status ? "btn-secondary" : "btn-outline-secondary"}" %>
+      <h2 class="h6">Columns</h2>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <div class="form-label">Answers</div>
+          <%= hidden_field_tag :columns_for, @form.id %>
+          <%= render "forms/tick_list", groups: [ [ nil, @report.questions.map { |question| { name: "question_ids[]", value: question.id, id: "question_ids_#{question.id}", label: question.label, checked: @questions.include?(question) } } ] ] %>
+          <% if @report.questions.empty? %><div class="form-text">This form has no questions to show.</div><% end %>
+        </div>
+        <% if @profile_fields.any? %>
+          <div class="col-md-6">
+            <div class="form-label">Profile details</div>
+            <% field_groups = @profile_fields.group_by(&:person_field_group).map do |group, fields|
+                 [ group&.name, fields.map { |field| { name: "field_ids[]", value: field.id, id: "field_ids_#{field.id}", label: field.name, checked: @selected_fields.include?(field) } } ]
+               end %>
+            <%= render "forms/tick_list", groups: field_groups %>
+          </div>
         <% end %>
       </div>
 
-      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <details id="more-choices" <%= "open" if more_open %>>
-          <summary>More choices</summary>
-          <div class="border rounded p-3 mt-2">
-            <h2 class="h6">Show</h2>
-            <div class="mb-3">
-              <div class="form-check">
-                <%= radio_button_tag :version, "active", @version == :active, class: "form-check-input" %>
-                <%= label_tag :version_active, "Active (submitted)", class: "form-check-label" %>
-              </div>
-              <div class="form-check">
-                <%= radio_button_tag :version, "latest", @version == :latest, class: "form-check-input" %>
-                <%= label_tag :version_latest, "Latest, including updates in progress", class: "form-check-label" %>
-              </div>
-            </div>
+      <h2 class="h6">Who to include</h2>
+      <div class="mb-3">
+        <% if @source_forms %>
+          <%= render "population_fields", population: @population, forms: @source_forms %>
+        <% else %>
+          <%= turbo_frame_tag "who_to_include", src: form_path(@form, frame: "who_to_include"), loading: :lazy do %>
+            <p class="text-muted mb-0">Loading…</p>
+          <% end %>
+        <% end %>
+      </div>
+      <% if @population.ready? %>
+        <% if @population.hidden_count.positive? %>
+          <p class="text-muted">Not included: <%= pluralize(@population.hidden_count, "person", plural: "people") %> whose answer to "<%= @population.question.label %>" you can't see.</p>
+        <% end %>
+      <% else %>
+        <p class="text-warning-emphasis"><%= @population.missing %></p>
+      <% end %>
 
-            <h2 class="h6">Columns</h2>
-            <div class="row g-2 mb-3">
-              <div class="col-md-6">
-                <div class="form-label">Answers</div>
-                <%= hidden_field_tag :columns_for, @form.id %>
-                <%= render "forms/tick_list", groups: [ [ nil, @report.questions.map { |question| { name: "question_ids[]", value: question.id, id: "question_ids_#{question.id}", label: question.label, checked: @questions.include?(question) } } ] ] %>
-                <% if @report.questions.empty? %><div class="form-text">This form has no questions to show.</div><% end %>
-              </div>
-              <% if @profile_fields.any? %>
-                <div class="col-md-6">
-                  <div class="form-label">Profile details</div>
-                  <% field_groups = @profile_fields.group_by(&:person_field_group).map do |group, fields|
-                       [ group&.name, fields.map { |field| { name: "field_ids[]", value: field.id, id: "field_ids_#{field.id}", label: field.name, checked: @selected_fields.include?(field) } } ]
-                     end %>
-                  <%= render "forms/tick_list", groups: field_groups %>
-                </div>
-              <% end %>
-            </div>
-
-            <h2 class="h6">Who to include</h2>
-            <div class="mb-3">
-              <% if @source_forms %>
-                <%= render "population_fields", population: @population, forms: @source_forms %>
-              <% else %>
-                <%= turbo_frame_tag "who_to_include", src: form_path(@form, frame: "who_to_include"), loading: :lazy do %>
-                  <p class="text-muted mb-0">Loading…</p>
-                <% end %>
-              <% end %>
-            </div>
-            <% if @population.ready? %>
-              <% if @population.hidden_count.positive? %>
-                <p class="text-muted">Not included: <%= pluralize(@population.hidden_count, "person", plural: "people") %> whose answer to "<%= @population.question.label %>" you can't see.</p>
-              <% end %>
-            <% else %>
-              <p class="text-warning-emphasis"><%= @population.missing %></p>
-            <% end %>
-
-            <%= submit_tag "Show", class: "btn btn-secondary", name: nil %>
-          </div>
-        </details>
-
-        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto" id="table-actions">
-          <div class="form-check form-check-inline mb-0">
-            <%= radio_button_tag :layout, "list", @layout == "list", class: "form-check-input", data: { action: "form-results#chooseLayout" } %>
-            <%= label_tag :layout_list, "Table", class: "form-check-label" %>
-          </div>
-          <div class="form-check form-check-inline mb-0">
-            <%= radio_button_tag :layout, "labels", @layout == "labels", class: "form-check-input", data: { action: "form-results#chooseLayout" } %>
-            <%= label_tag :layout_labels, "Labels", class: "form-check-label" %>
-          </div>
-          <button type="button" class="btn btn-dark" data-action="form-results#print">Print</button>
-          <%= link_to "Download CSV", form_path(@form, @options.except(:layout, :totals).merge(format: :csv)), class: "btn btn-secondary" %>
-        </div>
+      <%= submit_tag "Show", class: "btn btn-secondary", name: nil %>
+    </div>
+    <% end %>
+    <% layout_choice = capture do %>
+      <div class="form-check form-check-inline mb-0">
+        <%= radio_button_tag :layout, "list", @layout == "list", class: "form-check-input", form: "form-options", data: { action: "form-results#chooseLayout" } %>
+        <%= label_tag :layout_list, "Table", class: "form-check-label" %>
+      </div>
+      <div class="form-check form-check-inline mb-0">
+        <%= radio_button_tag :layout, "labels", @layout == "labels", class: "form-check-input", form: "form-options", data: { action: "form-results#chooseLayout" } %>
+        <%= label_tag :layout_labels, "Labels", class: "form-check-label" %>
       </div>
     <% end %>
+    <% statuses = [ { label: "All", count: @report.rows.size, value: nil } ] +
+         FormReport::STATUSES.map { |status| { label: FormsHelper::STATUS_LABELS.fetch(status), count: counts[status], value: status } } %>
+    <div class="no-print">
+      <%= render "shared/filter_bar", url: form_path(@form), form_id: "form-options",
+            teams: @teams, team: @team, all_teams_label: "All of #{@teams.first&.name}",
+            statuses: statuses, status: @status,
+            params: @options.except(:team_id, :status), hidden: { totals: ("hidden" if @totals_hidden) },
+            more: more, open: more_open,
+            table_actions_html: layout_choice,
+            table_actions: [
+              screen_action("Print", nil, style: :dark, data: { action: "form-results#print" }),
+              screen_action("Download CSV", form_path(@form, @options.except(:layout, :totals).merge(format: :csv)))
+            ] %>
+    </div>
 
     <% if @population.source == "answered" && @population.ready? %>
       <p>People: <%= @population.description %></p>
@@ -131,85 +116,61 @@
       <% end %>
     <% end %>
     <% outside = @outside || [] %>
-
-    <% if @rows.empty? && outside.empty? %>
-      <p class="text-muted">Nobody here.</p>
-    <% else %>
-      <%= tag.div class: [ "table-responsive", ("d-print-none" if @layout == "labels") ], id: "responses", data: { form_results_target: "table" } do %>
-        <table class="table table-striped table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Status</th>
-              <th>Submitted</th>
-              <% @questions.each do |question| %><th><%= question.label %></th><% end %>
-              <% @selected_fields.each do |field| %><th class="table-info"><%= field.name %></th><% end %>
-            </tr>
-          </thead>
-          <tbody>
-            <% @rows.each do |row| %>
-              <tr id="<%= dom_id row.person %>">
-                <td><%= link_to row.person.identifier_name, form_response_path(@form, row.person) %></td>
-                <td>
-                  <%= form_status_badge(row.status) %>
-                  <% if row.response&.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
-                  <% if row.status == "no_longer_asked" %><span class="badge text-bg-light"><%= FormsHelper::STATUS_LABELS.fetch(row.response_status) %></span><% end %>
-                  <% if row.response_status == "waiting" && (pending = row.response.open_submission) %>
-                    <br><small class="text-muted">Waiting for <%= pending.waiting_for.to_sentence %></small>
-                  <% end %>
-                  <% if row.response&.last_reminded_at %>
-                    <br><small class="text-muted">Reminded <%= nice_date(row.response.last_reminded_at) %></small>
-                  <% end %>
-                </td>
-                <td>
-                  <% if (submission = row.submission) %>
-                    #<%= submission.number %><% if submission.submitted_at %> · <%= nice_date(submission.submitted_at) %><%= " by #{submission.submitted_by.identifier_name}" if submission.submitted_by %><% end %>
-                    <% unless submission.active? %><span class="badge text-bg-light"><%= FormsHelper::SUBMISSION_STATUS_LABELS.fetch(submission.status) %></span><% end %>
-                    <% if submission.submitted_at && submission.form_version < @form.content_version %>
-                      <span class="badge text-bg-light" title="The form has changed since">Form version <%= submission.form_version %></span>
-                    <% end %>
-                    <% if @form.signature_questions.any? && (signed = form_signed_summary(submission)).present? %>
-                      <br><small class="text-muted">Signed: <%= signed %></small>
-                    <% end %>
-                  <% else %>
-                    —
-                  <% end %>
-                </td>
-                <% @questions.each do |question| %>
-                  <td>
-                    <% if @report.readable?(row, question) %>
-                      <%= form_answer_display(question, @report.answer(row, question)) if row.submission %>
-                      <% if @report.changed_since_signed?(row, question) %>
-                        <span class="badge text-bg-warning" title="Profile now: <%= form_csv_value(row.person.field_value(question.person_field)) %>">Profile changed</span>
-                      <% end %>
-                    <% else %>
-                      <span class="text-muted" title="You can't see this answer">·</span>
-                    <% end %>
-                  </td>
-                <% end %>
-                <% @selected_fields.each do |field| %>
-                  <td class="table-info"><%= row.access.field_access.readable?(field) ? person_field_display(field, row.person.field_value(field)) : "·" %></td>
-                <% end %>
-              </tr>
+    <% status_cell = lambda do |row|
+         pending = row.response_status == "waiting" && row.response.open_submission
+         safe_join([
+           form_status_badge(row.status),
+           (tag.span("Update in progress", class: "badge text-bg-light") if row.response&.update_in_progress?),
+           (tag.span(FormsHelper::STATUS_LABELS.fetch(row.response_status), class: "badge text-bg-light") if row.status == "no_longer_asked"),
+           (safe_join([ tag.br, tag.small("Waiting for #{pending.waiting_for.to_sentence}", class: "text-muted") ]) if pending),
+           (safe_join([ tag.br, tag.small("Reminded #{nice_date(row.response.last_reminded_at)}", class: "text-muted") ]) if row.response&.last_reminded_at)
+         ].compact, " ")
+       end %>
+    <% submitted_cell = lambda do |row|
+         submission = row.submission
+         next "—" unless submission
+         signed = form_signed_summary(submission) if @form.signature_questions.any?
+         safe_join([
+           [ "##{submission.number}", (" · #{nice_date(submission.submitted_at)}#{" by #{submission.submitted_by.identifier_name}" if submission.submitted_by}" if submission.submitted_at) ].join,
+           (tag.span(FormsHelper::SUBMISSION_STATUS_LABELS.fetch(submission.status), class: "badge text-bg-light") unless submission.active?),
+           (tag.span("Form version #{submission.form_version}", class: "badge text-bg-light", title: "The form has changed since") if submission.submitted_at && submission.form_version < @form.content_version),
+           (safe_join([ tag.br, tag.small("Signed: #{signed}", class: "text-muted") ]) if signed.present?)
+         ].compact, " ")
+       end %>
+    <% answer_cell = lambda do |row, question|
+         next tag.span("·", class: "text-muted", title: "You can't see this answer") unless @report.readable?(row, question)
+         safe_join([
+           (form_answer_display(question, @report.answer(row, question)) if row.submission),
+           (tag.span("Profile changed", class: "badge text-bg-warning", title: "Profile now: #{form_csv_value(row.person.field_value(question.person_field))}") if @report.changed_since_signed?(row, question))
+         ].compact, " ")
+       end %>
+    <% columns = [ [ "Submitted", submitted_cell ] ] +
+         @questions.map { |question| [ question.label, ->(row) { answer_cell.call(row, question) } ] } +
+         @selected_fields.map { |field| [ field.name, ->(row) { row.access.field_access.readable?(field) ? person_field_display(field, row.person.field_value(field)) : "·" }, { class: "table-info" } ] } %>
+    <% havent_answered = capture do %>
+      <% if outside.any? %>
+        <tr class="table-light" id="havent-answered"><th colspan="<%= 3 + @questions.size + @selected_fields.size %>">Haven't answered (<%= outside.size %>)</th></tr>
+        <% outside.each do |line| %>
+          <tr id="<%= dom_id line.person %>">
+            <td><%= line.person.identifier_name %></td>
+            <td>—</td>
+            <td>—</td>
+            <% @questions.each do %><td></td><% end %>
+            <% @selected_fields.each do |field| %>
+              <td class="table-info"><%= @outside_list.profile_readable?(line, field) ? person_field_display(field, @outside_list.profile(line, field)) : "·" %></td>
             <% end %>
-            <% if outside.any? %>
-              <tr class="table-light" id="havent-answered"><th colspan="<%= 3 + @questions.size + @selected_fields.size %>">Haven't answered (<%= outside.size %>)</th></tr>
-              <% outside.each do |line| %>
-                <tr id="<%= dom_id line.person %>">
-                  <td><%= line.person.identifier_name %></td>
-                  <td>—</td>
-                  <td>—</td>
-                  <% @questions.each do %><td></td><% end %>
-                  <% @selected_fields.each do |field| %>
-                    <td class="table-info"><%= @outside_list.profile_readable?(line, field) ? person_field_display(field, @outside_list.profile(line, field)) : "·" %></td>
-                  <% end %>
-                </tr>
-              <% end %>
-            <% end %>
-          </tbody>
-        </table>
+          </tr>
+        <% end %>
       <% end %>
+    <% end %>
 
+    <%= render "shared/people_table", rows: @rows, status: status_cell, columns: columns,
+          link: ->(row) { form_response_path(@form, row.person) },
+          table_class: "table table-striped table-sm align-middle",
+          wrapper: { id: "responses", class: ("d-print-none" if @layout == "labels"), data: { form_results_target: "table" } },
+          rows_after: havent_answered %>
+
+    <% unless @rows.empty? && outside.empty? %>
       <%= tag.div class: [ "row g-2 d-none", ("d-print-flex" if @layout == "labels") ], id: "labels", data: { form_results_target: "labels" } do %>
         <% @rows.each do |row| %>
           <div class="col-6 col-lg-4">
