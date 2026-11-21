@@ -103,10 +103,21 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
     sign_in @admin.user
 
     get person_path(architect)
-    assert_select "a[href=?]", impersonate_person_path(architect), count: 0
+    assert_select "form[action=?]", impersonate_person_path(architect), count: 0
 
     get person_path(@member)
-    assert_select "a[href=?]", impersonate_person_path(@member)
+    assert_select "form[action=?]", impersonate_person_path(@member)
+  end
+
+  test "the person footer shows Edit, with the rest in More and Delete last" do
+    sign_in @admin.user
+
+    get person_path(@member)
+
+    assert_select ".screen-action-row > a.btn-warning", "Edit"
+    assert_select ".screen-action-row > a", count: 1
+    assert_select ".screen-action-row .dropdown-menu button", "Impersonate"
+    assert_select ".screen-action-row .dropdown-menu li:last-child form[data-turbo-confirm=?]", "Delete #{@member.identifier_name}?"
   end
 
   private

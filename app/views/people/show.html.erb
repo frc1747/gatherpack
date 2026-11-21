@@ -92,15 +92,15 @@
       </div>
     </div>
   </div>
-  <div class="card-footer">
-    <%= link_to "Impersonate", impersonate_person_path(@person), data: { turbo_method: :post }, class: "btn btn-dark" if @person.user.present? && policy(@person).impersonate? %>
-    <%= link_to "Edit Profile", edit_person_path(@person), class: "btn btn-warning" if policy(@person).update? %>
-    <% if @person.user&.id %>
-      <%= link_to "Change Email/Password", edit_person_user_path(@person), class: "btn btn-primary" if policy(@person.user).update? %>
-    <% elsif policy(User).create? %>
-      <%= link_to "Create Email/Password", new_person_user_path(@person), class: "btn btn-primary" %>
-    <% end %>
-    <%= link_to "Email notices", email_notices_path, class: "btn btn-secondary" if @person == current_user.person && GatherPack::Digests.personal_entries.any? && !GatherPack::Digests.on_notifications_page? %>
-    <%= link_to "Delete", @person, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@person).destroy? %>
-  </div>
+  <%= render "shared/action_row", actions: [
+    screen_action("Edit", edit_person_path(@person), style: :warning, visible: policy(@person).update?),
+    screen_action("Impersonate", impersonate_person_path(@person), method: :post, more: true, visible: @person.user.present? && policy(@person).impersonate?),
+    (if @person.user&.id
+      screen_action("Change Email/Password", edit_person_user_path(@person), more: true, visible: policy(@person.user).update?)
+    else
+      screen_action("Create Email/Password", new_person_user_path(@person), more: true, visible: policy(User).create?)
+    end),
+    screen_action("Email notices", email_notices_path, more: true, visible: @person == current_user.person && GatherPack::Digests.personal_entries.any? && !GatherPack::Digests.on_notifications_page?),
+    screen_action("Delete", @person, method: :delete, destructive: true, confirm: "Delete #{@person.identifier_name}?", visible: policy(@person).destroy?)
+  ] %>
 </div>
