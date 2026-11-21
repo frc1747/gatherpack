@@ -1,0 +1,13 @@
+<%# locals: (question:, name:, choices:, selected: nil) -%>
+<%# The question just above Save. choices: [label, value] pairs; selected is
+    the safe default. The controller reads params[name] when it saves. %>
+<div class="mb-3 screen-inline-confirm">
+  <p class="mb-1"><%= question %></p>
+  <% choices.each do |label, value| %>
+    <% id = "#{name}_#{value}".parameterize(separator: "_") %>
+    <div class="form-check form-check-inline">
+      <%= radio_button_tag name, value, value.to_s == selected.to_s, id:, class: "form-check-input" %>
+      <%= label_tag id, label, class: "form-check-label" %>
+    </div>
+  <% end %>
+</div>
