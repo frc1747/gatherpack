@@ -51,7 +51,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "an approver of a waiting request gets Approve and the decision bar" do
+  test "an approver of a waiting request has the decision bar as their job, and no job button" do
     with_orders(@world) do
       order_request = submitted_request(@world)
       sign_in @world.mentor.user
@@ -59,8 +59,10 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
       get orders_request_url(order_request)
 
       assert_select ".card-header .screen-state-line", /\AWaiting for approval by /
-      assert_one_job "Approve"
-      assert_select ".screen-action-row a.btn-success[href=?]", orders_request_path(order_request, anchor: "decision")
+      buttons, more = action_row
+      assert_empty buttons
+      assert_empty (buttons + more) & JOBS
+      assert_select ".screen-action-row a[href*=decision]", 0
       assert_select ".orders-decision-bar" do
         assert_select "button.btn-success[value=approved]", "Approve"
         assert_select "button.btn-secondary[value=changes_requested]", "Ask for changes"
@@ -77,7 +79,8 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
 
       get orders_request_url(order_request)
 
-      more = assert_one_job("Approve")
+      buttons, more = action_row
+      assert_empty buttons
       assert_equal [ "Edit", "Follow", "Print", "Cancel request" ], more
       assert_select ".screen-action-row .dropdown-menu form[action=?][data-turbo-confirm=?]",
         cancel_orders_request_path(order_request), "Cancel this request? Nothing on it will be bought." do
@@ -132,7 +135,7 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the request form ends Cancel, Save draft, Submit for approval" do
+  test "a draft's form ends Close, Save draft, Submit for approval" do
     with_orders(@world) do
       order_request = draft_request(@world)
       sign_in @world.requester.user
@@ -140,8 +143,8 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
       get edit_orders_request_url(order_request)
 
       labels = css_select(".orders-bar-fixed .btn").map { |node| node.text.strip }
-      assert_equal [ "Cancel", "Save draft", "Submit for approval" ], labels
-      assert_select ".orders-bar-fixed a.btn-secondary[href=?]", orders_request_path(order_request), "Cancel"
+      assert_equal [ "Close", "Save draft", "Submit for approval" ], labels
+      assert_select ".orders-bar-fixed a.btn-secondary[href=?][data-action=?]", orders_requests_path(mine: 1), "order-form#close", "Close"
       assert_select ".orders-bar-fixed button.btn-secondary:not([name=submit_request])", "Save draft"
       assert_select ".orders-bar-fixed button.btn-primary[name=submit_request]", "Submit for approval"
 
@@ -149,6 +152,34 @@ class Orders::RequestPageActionsTest < ActionDispatch::IntegrationTest
       assert_redirected_to edit_orders_request_url(order_request)
       assert order_request.reload.draft?
       assert_equal "Saved as a draft", order_request.purpose
+    end
+  end
+
+  test "a new request's form offers Close, and opening it makes no draft" do
+    with_orders(@world) do
+      sign_in @world.requester.user
+
+      assert_no_difference -> { OrderRequest.count } do
+        get new_orders_request_url
+      end
+
+      labels = css_select(".orders-bar-fixed .btn").map { |node| node.text.strip }
+      assert_equal [ "Close", "Save draft", "Submit for approval" ], labels
+      assert_select ".orders-bar-fixed a[data-action=?]", "order-form#close"
+    end
+  end
+
+  test "a form that doesn't save itself keeps Cancel, back to the request" do
+    with_orders(@world) do
+      order_request = submitted_request(@world)
+      order_request.decide!(:changes_requested, by: @world.mentor, comment: "Which size?")
+      sign_in @world.requester.user
+
+      get edit_orders_request_url(order_request)
+
+      labels = css_select(".orders-bar-fixed .btn").map { |node| node.text.strip }
+      assert_equal [ "Cancel", "Save", "Send back for approval" ], labels
+      assert_select ".orders-bar-fixed a.btn-secondary[href=?]:not([data-action])", orders_request_path(order_request), "Cancel"
     end
   end
 end

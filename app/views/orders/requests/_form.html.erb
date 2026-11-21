@@ -83,7 +83,12 @@
 
   <div class="orders-bar orders-bar-fixed">
     <span class="orders-bar-status small text-muted" data-order-form-target="status" role="status" aria-live="polite"></span>
-    <%= link_to "Cancel", order_request.persisted? ? orders_request_path(order_request) : orders_requests_path(mine: 1), class: "btn btn-secondary" %>
+    <% if autosave %>
+      <%# The form saves itself, so leaving keeps what was typed: Close saves anything pending first. %>
+      <%= link_to "Close", orders_requests_path(mine: 1), class: "btn btn-secondary", data: { action: "order-form#close" } %>
+    <% else %>
+      <%= link_to "Cancel", orders_request_path(order_request), class: "btn btn-secondary" %>
+    <% end %>
     <% if order_request.new_record? || order_request.draft? %>
       <%= f.button "Save draft", type: "submit", class: "btn btn-secondary" %>
       <%= f.button "Submit for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>

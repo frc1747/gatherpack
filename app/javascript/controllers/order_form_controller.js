@@ -117,6 +117,16 @@ export default class extends Controller {
     }
   }
 
+  // Close: the form saves itself, so save anything not saved yet, then go
+  // to the link (My requests). Nothing typed means nothing is saved.
+  close(event) {
+    event.preventDefault()
+    const url = event.currentTarget.href
+    clearTimeout(this.timer)
+    const pending = this.dirty ? this.save() : this.saving
+    Promise.resolve(pending).then(() => window.Turbo ? window.Turbo.visit(url) : window.location.assign(url))
+  }
+
   setStatus(text, problem = false) {
     if (!this.hasStatusTarget) return
     this.statusTarget.textContent = text

@@ -79,6 +79,13 @@
   .orders-has-bar {
     padding-bottom: 7rem;
   }
+
+  /* Receiving screens: phone-sized buttons and fields on a phone only. */
+  .orders-phone-only .btn,
+  .orders-phone-only .form-control,
+  .orders-phone-only .form-select {
+    min-height: 44px;
+  }
 }
 
 /* With the shared print styles (.no-print): a request prints with its

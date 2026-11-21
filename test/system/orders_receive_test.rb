@@ -53,6 +53,18 @@ class OrdersReceiveTest < ApplicationSystemTestCase
     end
   end
 
+  test "on a wide screen To receive keeps standard-size pills and buttons" do
+    with_orders(@world) do
+      ordered_request
+      login_as(@world.requester.user, scope: :user)
+      page.driver.browser.manage.window.resize_to(1400, 1000)
+
+      visit orders_deliveries_path
+      assert_operator find_link("All I can receive").native.size.height, :<, 44
+      assert_operator find_link("Receive", match: :first).native.size.height, :<, 44
+    end
+  end
+
   test "marking everything on a request received from its page on a phone" do
     with_orders(@world) do
       order_request = ordered_request

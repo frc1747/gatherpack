@@ -38,7 +38,7 @@ class Orders::ScreenStandardTest < ActionDispatch::IntegrationTest
       sign_in @world.requester.user
 
       get orders_deliveries_url
-      assert_select ".orders-phone .screen-filter-bar a[aria-current=true]", "All I can receive"
+      assert_select ".orders-phone-only .screen-filter-bar a[aria-current=true]", "All I can receive"
       assert_select ".screen-filter-bar a[href=?]", orders_deliveries_path(status: "mine"), "Only mine"
       assert_select ".btn-lg", 0
 

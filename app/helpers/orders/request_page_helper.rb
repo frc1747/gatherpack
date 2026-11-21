@@ -24,7 +24,7 @@ module Orders
       text
     end
 
-    # The action row: the viewer's job as the one button, then More with
+    # The action row: the viewer's job, if any, as the one button, then More with
     # Edit, Order again, Follow and Print, and Delete draft or Cancel request
     # last.
     def order_request_actions(order_request)
@@ -51,7 +51,8 @@ module Orders
     end
 
     # The one thing the viewer is here to do, or nil: finish a draft, fix
-    # one sent back, decide, buy or receive.
+    # one sent back, buy or receive. An approver's job is the decision bar
+    # on the page itself, so deciding has no button here.
     def order_request_job(order_request)
       request_policy = policy(order_request)
       person = current_user.person
@@ -59,8 +60,6 @@ module Orders
         screen_action("Finish request", edit_orders_request_path(order_request), style: :primary)
       elsif request_policy.update? && order_request.changes_requested? && order_request.requested_by_id == person&.id
         screen_action("Update", edit_orders_request_path(order_request), style: :primary)
-      elsif person && order_request.decision_step && order_request.can_decide?(person)
-        screen_action("Approve", orders_request_path(order_request, anchor: "decision"), style: :success)
       elsif order_request_to_buy?(order_request)
         screen_action("Open To buy", to_buy_orders_purchases_path, style: :primary)
       elsif order_request_to_receive?(order_request)

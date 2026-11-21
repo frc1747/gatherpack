@@ -58,6 +58,34 @@ class OrderRequestsSystemTest < ApplicationSystemTestCase
     ActionController::Base.allow_forgery_protection = was
   end
 
+  test "Close on a new request with nothing typed makes no draft" do
+    with_orders(@world) do
+      sign_in @world.requester.user
+      visit new_orders_request_path
+
+      click_on "Close"
+
+      assert_current_path orders_requests_path(mine: 1)
+      assert_equal 0, OrderRequest.where(requested_by: @world.requester).count
+    end
+  end
+
+  test "Close right after typing saves what was typed before leaving" do
+    with_orders(@world) do
+      sign_in @world.requester.user
+      visit new_orders_request_path
+
+      fill_in "What is it?", with: "Spare gear"
+      # Before the autosave delay runs out.
+      click_on "Close"
+
+      assert_current_path orders_requests_path(mine: 1)
+      draft = OrderRequest.find_by!(requested_by: @world.requester)
+      assert draft.draft?
+      assert_equal "Spare gear", draft.order_lines.sole.description
+    end
+  end
+
   test "at 390 px a pasted link fills in the store and part number, saves a draft and submits" do
     with_orders(@world) do
       sign_in @world.requester.user
