@@ -47,9 +47,6 @@
           </table>
         </div>
       </details>
-      <% if lines.any? { |line| line.approved? && line.purchase_id.nil? } %>
-        <%= link_to "Open To buy", to_buy_orders_purchases_path, class: "btn btn-lg btn-primary" %>
-      <% end %>
     <% end %>
   </section>
 <% end %>

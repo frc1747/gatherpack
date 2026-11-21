@@ -5,11 +5,12 @@ module Orders
     before_action :set_line, only: %i[new create]
 
     # GET /orders/deliveries
-    # Items to receive, by purchase; mine=1 limits them to the viewer's own
-    # and followed requests.
+    # Items to receive, by purchase; mine=1 (or status=mine, the filter
+    # pill) limits them to the viewer's own and followed requests.
     def index
       authorize OrderRequest
-      @receiving = Orders::Receiving.new(current_user, policy_scope(OrderRequest), mine: params[:mine].present?)
+      @mine = params[:mine].present? || params[:status] == "mine"
+      @receiving = Orders::Receiving.new(current_user, policy_scope(OrderRequest), mine: @mine)
     end
 
     # GET /orders/requests/1/lines/2/deliveries/new

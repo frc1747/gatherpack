@@ -9,13 +9,15 @@ module Orders
     before_action :set_purchase, only: %i[show edit update make_vendor]
 
     # GET /orders/purchases
-    # mine=1 limits them to the viewer's own purchases.
+    # status=mine (or mine=1) limits them to the viewer's own purchases;
+    # status=not_in_ledger (or not_in_ledger=1) to those without an entry.
     def index
       authorize Purchase
+      @filter = purchases_filter
       @purchases = policy_scope(Purchase).includes(:vendor, :buyer, order_lines: :order_request)
         .order(Purchase.arel_table[:ordered_on].desc.nulls_last, created_at: :desc)
-      @purchases = @purchases.where(buyer: current_user.person) if params[:mine].present?
-      @purchases = @purchases.where(ledger_entry_id: nil) if params[:not_in_ledger].present? && Orders::LedgerRecording.ledger_on?
+      @purchases = @purchases.where(buyer: current_user.person) if @filter == "mine"
+      @purchases = @purchases.where(ledger_entry_id: nil) if @filter == "not_in_ledger"
       @purchases = @purchases.page(params[:page])
     end
 
@@ -90,6 +92,14 @@ module Orders
     end
 
     private
+
+    def purchases_filter
+      filter = params[:status].presence
+      filter ||= "mine" if params[:mine].present?
+      filter ||= "not_in_ledger" if params[:not_in_ledger].present?
+      filter = nil if filter == "not_in_ledger" && !Orders::LedgerRecording.ledger_on?
+      filter if filter.in?(%w[mine not_in_ledger])
+    end
 
     def set_purchase
       @purchase = policy_scope(Purchase).includes(:vendor, :buyer, order_lines: [ :vendor, { order_request: :team } ])

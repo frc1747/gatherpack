@@ -17,6 +17,11 @@ crumb :orders_vendor do |vendor|
   parent :orders_vendors
 end
 
+crumb :orders_vendor_pattern_test do
+  link "Try a link", pattern_test_orders_vendors_path
+  parent :orders_vendors
+end
+
 crumb :orders_funding_sources do
   link "Funding sources", orders_funding_sources_path
   parent :orders_requests

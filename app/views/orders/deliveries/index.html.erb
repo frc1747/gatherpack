@@ -1,14 +1,15 @@
 <% breadcrumb :orders_deliveries %>
 
-<%# Phone-first: one column, big buttons. Each order lists what's still to arrive. %>
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
+<%# Phone-first: one column, buttons phone sized (orders-phone). Each order lists what's still to arrive. %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<% mine = (1 if @mine) %>
+<div class="card orders-phone">
+  <div class="card-header">
     <h1>To receive</h1>
-    <% if params[:mine].present? %>
-      <%= link_to "Show all I can receive", orders_deliveries_path, class: "btn btn-secondary btn-lg" %>
-    <% else %>
-      <%= link_to "Only mine", orders_deliveries_path(mine: 1), class: "btn btn-secondary btn-lg" %>
-    <% end %>
+  </div>
+  <div class="card-body pb-0">
+    <%= render "shared/filter_bar", url: orders_deliveries_path, status: ("mine" if @mine),
+          statuses: [ { label: "All I can receive", value: nil }, { label: "Only mine", value: "mine" } ] %>
   </div>
 
   <% if @receiving.groups.empty? %>
@@ -26,8 +27,8 @@
           </small>
         </div>
         <% if group.purchase && group.lines.any? { |line| !line.problem? } %>
-          <%= button_to "Mark all received", mark_all_received_orders_purchase_path(group.purchase, from: "list", mine: params[:mine].presence),
-                method: :post, class: "btn btn-primary btn-lg" %>
+          <%= button_to "Mark all received", mark_all_received_orders_purchase_path(group.purchase, from: "list", mine: mine),
+                method: :post, class: "btn btn-primary" %>
         <% end %>
       </div>
       <div class="list-group">
@@ -41,8 +42,8 @@
                 <%= order_line_status_text(line) %>
               </small>
             </span>
-            <%= link_to "Receive", new_orders_request_line_delivery_path(line.order_request, line, from: "list", mine: params[:mine].presence),
-                  class: "btn btn-primary btn-lg" %>
+            <%= link_to "Receive", new_orders_request_line_delivery_path(line.order_request, line, from: "list", mine: mine),
+                  class: "btn btn-primary" %>
           </div>
         <% end %>
       </div>

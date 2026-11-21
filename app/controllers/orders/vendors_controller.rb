@@ -31,7 +31,9 @@ module Orders
       @url = params[:url].to_s.strip
       @matched_vendor = Vendor.for_url(@url) if @url.present?
       @part_number = probe.part_number_from(@url) unless @pattern_error
-      render layout: false
+      # In the vendor form's frame it's bare; opened on its own it has the
+      # page around it and a breadcrumb.
+      render layout: !turbo_frame_request?
     end
 
     # POST /orders/vendors

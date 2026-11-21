@@ -1,6 +1,7 @@
 <% breadcrumb :orders_delivery_new, @order_request, @line %>
+<% content_for :head, stylesheet_link_tag("orders") %>
 
-<div class="card">
+<div class="card orders-phone">
   <div class="card-header">
     <h1>Receive <%= @line.display_name %></h1>
     <small class="text-muted">
@@ -44,8 +45,8 @@
 
     <%# The form's buttons; Pinned form buttons keeps them in view on a long form. %>
     <div class="gp-form-actions d-flex gap-2 mt-3">
-      <%= f.submit "Record delivery", class: "btn btn-primary btn-lg" %>
-      <%= link_to "Cancel", (params[:from] == "list" ? orders_deliveries_path(mine: params[:mine].presence) : orders_request_path(@order_request)), class: "btn btn-warning btn-lg" %>
+      <%= link_to "Cancel", (params[:from] == "list" ? orders_deliveries_path(mine: params[:mine].presence) : orders_request_path(@order_request)), class: "btn btn-secondary" %>
+      <%= f.submit "Record delivery", class: "btn btn-primary" %>
     </div>
   <% end %>
 </div>

@@ -83,13 +83,15 @@
 
   <div class="orders-bar orders-bar-fixed">
     <span class="orders-bar-status small text-muted" data-order-form-target="status" role="status" aria-live="polite"></span>
+    <%= link_to "Cancel", order_request.persisted? ? orders_request_path(order_request) : orders_requests_path(mine: 1), class: "btn btn-secondary" %>
     <% if order_request.new_record? || order_request.draft? %>
+      <%= f.button "Save draft", type: "submit", class: "btn btn-secondary" %>
       <%= f.button "Submit for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>
     <% elsif order_request.changes_requested? %>
       <%= f.button "Save", type: "submit", class: "btn btn-secondary" %>
       <%= f.button "Send back for approval", type: "submit", name: "submit_request", value: "1", class: "btn btn-primary" %>
     <% else %>
-      <%= f.button "Save changes", type: "submit", class: "btn btn-primary" %>
+      <%= f.button "Save", type: "submit", class: "btn btn-primary" %>
     <% end %>
   </div>
 <% end %>

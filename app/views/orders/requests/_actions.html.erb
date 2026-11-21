@@ -1,36 +1,11 @@
-<%# The requester's and follower's buttons on the request page (spec §3.8). On a phone the requester's main action sits in a bar fixed to the bottom. %>
-<% request_policy = policy(order_request) %>
+<%# The request page's action row (spec §3.8): the viewer's one job, then
+    More. On a phone the requester's row on a draft, or one sent back, sits
+    in a bar fixed to the bottom. %>
 <% mine = order_request.requested_by_id == current_user.person&.id %>
-<% cancellable = order_request.status.in?(%w[submitted changes_requested approved]) && order_request.order_lines.none?(&:purchase_id) %>
-<div class="orders-bar no-print <%= "orders-bar-fixed" if mine && (order_request.draft? || order_request.changes_requested?) %>">
-  <% if request_policy.update? %>
-    <% if order_request.draft? %>
-      <%= link_to "Finish request", edit_orders_request_path(order_request), class: "btn btn-primary" %>
-    <% elsif order_request.changes_requested? %>
-      <%= link_to "Update", edit_orders_request_path(order_request), class: "btn btn-primary" %>
-    <% else %>
-      <%= link_to "Change", edit_orders_request_path(order_request), class: "btn btn-warning" %>
-    <% end %>
-  <% end %>
-  <% if order_request.draft? && request_policy.destroy? %>
-    <%= button_to "Delete draft", orders_request_path(order_request), method: :delete, class: "btn btn-danger",
-          form_class: "d-flex", form: { data: { turbo_confirm: "Delete this draft?" } } %>
-  <% end %>
-  <% if cancellable && request_policy.cancel? %>
-    <%= button_to "Cancel request", cancel_orders_request_path(order_request), class: "btn btn-danger",
-          form_class: "d-flex", form: { data: { turbo_confirm: "Cancel this request? Nothing on it will be bought." } } %>
-  <% end %>
-  <% if !order_request.draft? && request_policy.order_again? %>
-    <%= button_to "Order again", order_again_orders_request_path(order_request), class: "btn btn-secondary", form_class: "d-flex" %>
-  <% end %>
-  <% if request_policy.follow? %>
-    <% if order_request.watched_by?(current_user.person) %>
-      <%= button_to "Stop following", follow_orders_request_path(order_request), method: :delete, class: "btn btn-secondary", form_class: "d-flex" %>
-    <% else %>
-      <%= button_to "Follow", follow_orders_request_path(order_request), class: "btn btn-secondary", form_class: "d-flex" %>
-    <% end %>
-  <% end %>
-  <button type="button" class="btn btn-dark" data-controller="orders-print" data-action="orders-print#print">
+<% fixed = mine && (order_request.draft? || order_request.changes_requested?) %>
+<div class="card-footer no-print d-flex flex-wrap align-items-start gap-2 <%= "orders-bar-fixed" if fixed %>">
+  <%= render "shared/action_row", actions: order_request_actions(order_request), wrapper_class: "flex-grow-1" %>
+  <button type="button" class="btn btn-dark d-none d-md-inline-block ms-auto" data-controller="orders-print" data-action="orders-print#print">
     <i class="fa fa-print"></i> Print
   </button>
 </div>

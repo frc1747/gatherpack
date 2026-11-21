@@ -16,7 +16,7 @@
         <%= i "arrow-down" %>
       <% end %>
     <% end %>
-    <%= link_to "Edit", edit_orders_approval_step_path(step), class: "btn btn-sm btn-outline-warning d-inline-flex align-items-center", style: style %>
+    <%= link_to "Edit", edit_orders_approval_step_path(step), class: "btn btn-sm btn-outline-secondary d-inline-flex align-items-center", style: style %>
     <% if step.active? %>
       <%= button_to "Retire", retire_orders_approval_step_path(step), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style %>
     <% else %>

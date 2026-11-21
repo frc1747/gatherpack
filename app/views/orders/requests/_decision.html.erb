@@ -115,7 +115,7 @@
           <div class="d-flex flex-wrap gap-2">
             <%= form.button "Approve", name: "decision", value: "approved", class: "btn btn-success flex-fill" %>
             <% unless reapproval %>
-              <%= form.button "Ask for changes", name: "decision", value: "changes_requested", formnovalidate: true, class: "btn btn-warning flex-fill" %>
+              <%= form.button "Ask for changes", name: "decision", value: "changes_requested", formnovalidate: true, class: "btn btn-secondary flex-fill" %>
             <% end %>
             <%= form.button "Decline", name: "decision", value: "declined", formnovalidate: true, class: "btn btn-danger flex-fill" %>
           </div>

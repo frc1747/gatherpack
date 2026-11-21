@@ -188,6 +188,26 @@ class Orders::SettingsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the form ends Cancel, then Save, in its card footer, and saves from there" do
+    with_orders(@world) do
+      sign_in @world.admin.user
+      params = open_form
+
+      # Pinned form buttons pins a form's card footer that holds its submit.
+      footer = css_select("form[action='#{orders_settings_path}'] .card > .card-footer").sole
+      assert_equal [ "Cancel", "Save" ], footer.css(".btn").map { |node| node.text.presence || node["value"] }
+      assert_equal "btn btn-secondary", footer.at_css("a.btn")["class"]
+      assert_equal "btn btn-primary", footer.at_css("input[type=submit]")["class"]
+      assert_select "button[data-orders-grant-rows-target=add].btn-sm.btn-outline-secondary", text: "Add a row", minimum: 1
+      assert_select "form[action='#{orders_settings_path}'] .btn-lg, form[action='#{orders_settings_path}'] .btn-success", 0
+
+      params["values"]["orders_close_after_days"] = "21"
+      patch orders_settings_url, params: params
+      assert_redirected_to orders_settings_url
+      assert_equal 21, Settings[:orders_close_after_days].to_i
+    end
+  end
+
   test "who manages funding sources is saved in the format the app reads" do
     with_orders(@world) do
       sign_in @world.admin.user

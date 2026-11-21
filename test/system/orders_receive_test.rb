@@ -35,7 +35,7 @@ class OrdersReceiveTest < ApplicationSystemTestCase
       assert_text "Parts Depot"
       assert_operator find_link("Receive", match: :first).native.size.height, :>=, 44
 
-      assert_operator find_link("Show all I can receive").native.size.height, :>=, 44
+      assert_operator find_link("All I can receive").native.size.height, :>=, 44
       click_on "Receive", match: :first
       assert_text "Receive Gear"
       fill_in "How many came?", with: "2"
