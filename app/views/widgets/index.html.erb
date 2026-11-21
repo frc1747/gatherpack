@@ -1,9 +1,7 @@
 <% breadcrumb :widgets %>
 
 <div class="card">
-  <div class="card-header">
-    <h1>Widgets</h1>
-  </div>
+  <%= render "shared/page_header", title: "Widgets" %>
   <div class="card-body">
     <p>Widgets are sections on the dashboard. They show in order within each place, lowest number first.</p>
 
@@ -11,6 +9,7 @@
       <h2 class="h5 mt-4"><%= widget_placement_label(placement) %></h2>
       <% widgets = @widgets.fetch(placement, []) %>
       <% if widgets.any? %>
+        <div class="table-responsive">
         <table class="table table-striped">
           <thead>
             <tr>
@@ -33,12 +32,11 @@
             <% end %>
           </tbody>
         </table>
+        </div>
       <% else %>
-        <p class="text-muted">None.</p>
+        <%= render "shared/empty_state", text: "None." %>
       <% end %>
     <% end %>
   </div>
-  <div class="card-footer">
-    <%= link_to "New Widget", new_widget_path, class: "btn btn-success" if policy(Widget).new? %>
-  </div>
+  <%= render "shared/action_row", actions: [ screen_action("New Widget", new_widget_path, style: :success, visible: policy(Widget).new?) ] %>
 </div>

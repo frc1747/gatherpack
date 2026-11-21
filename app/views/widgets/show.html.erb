@@ -1,9 +1,7 @@
 <% breadcrumb @widget %>
 
 <div class="card">
-  <div class="card-header">
-    <h1><%= @widget.identifier_name %></h1>
-  </div>
+  <%= render "shared/page_header", title: @widget.identifier_name %>
   <div class="card-body">
     <p>
       <%= widget_placement_label(@widget.placement) %>, order <%= @widget.position %>.
@@ -18,8 +16,9 @@
       </div>
     </div>
   </div>
-  <div class="card-footer">
-    <%= link_to "Edit", edit_widget_path(@widget), class: "btn btn-warning" if policy(@widget).edit? %>
-    <%= link_to "Delete", @widget, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: "Are you sure?" } if policy(@widget).destroy? %>
-  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("Edit", edit_widget_path(@widget), style: :warning, visible: policy(@widget).edit?),
+        screen_action("Delete", widget_path(@widget), method: :delete, destructive: true, visible: policy(@widget).destroy?,
+          confirm: "Delete #{@widget.title}? It leaves the dashboard for good.")
+      ] %>
 </div>
