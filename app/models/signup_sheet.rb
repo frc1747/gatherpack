@@ -112,6 +112,15 @@ class SignupSheet < ApplicationRecord
     end.uniq
   end
 
+  # Events a sheet may still take: those from the start of today on.
+  def self.upcoming_events(events)
+    events.where(start_time: Time.current.beginning_of_day..)
+  end
+
+  def self.upcoming_event?(event)
+    event.start_time >= Time.current.beginning_of_day
+  end
+
   # The teams a person may create a sheet for: all for admins, the teams
   # they manage (and those below), and the reach of their grants.
   def self.creatable_team_ids(person)

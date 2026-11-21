@@ -2,12 +2,12 @@
     the viewer may see, with its state in words, its positions, how full they
     are, names to people allowed to see them, and one button: Sign up for
     members, Open for organizers. People who can make sheets for the event's
-    team get a New link, and the empty line when there are none. Rendered
-    from events/show. %>
+    team get a New link on upcoming events, and the empty line when there
+    are none. Rendered from events/show. %>
 <% viewer = current_user&.person %>
 <% if GatherPack::Features.enabled?(:signups) && viewer %>
   <% sheets = event.signup_sheets.visible.includes(:team).order(:title).select { |sheet| policy(sheet).show? } %>
-  <% can_add = event.team_id.present? && SignupSheet.creatable_team_ids(viewer).include?(event.team_id) %>
+  <% can_add = event.team_id.present? && SignupSheet.upcoming_event?(event) && SignupSheet.creatable_team_ids(viewer).include?(event.team_id) %>
   <% if sheets.any? || can_add %>
     <div class="card mt-3" id="event_signups">
       <div class="card-header">

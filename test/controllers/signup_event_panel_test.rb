@@ -137,13 +137,43 @@ class SignupEventPanelTest < ActionDispatch::IntegrationTest
     assert_equal [ @event ], sheet.events.to_a
   end
 
-  test "a sheet doesn't take an event outside its team or one the person can't see" do
+  test "a new sheet that can't take its event fails with the reason by Team" do
+    raffle = { title: "Raffle", status: "draft", names_permission: "everyone" }
     outside = create_world_event("Away Day", Time.zone.parse("2026-10-25 10:00"), team: @other_org)
     sign_in person(:worker).user
 
-    post signup_sheets_path, params: { event_id: outside.id, signup_sheet: { title: "Raffle", team_id: @club.id, status: "draft", names_permission: "everyone" } }
+    assert_no_difference "SignupSheet.count" do
+      post signup_sheets_path, params: { event_id: @event.id, signup_sheet: raffle.merge(team_id: @concessions.id) }
+    end
+    assert_response :unprocessable_entity
+    assert_select ".invalid-feedback", text: "Team must be Club or a team above it to add Game Day to the sheet"
+    assert_select "input[type=hidden][name=event_id][value=?]", @event.id
 
-    sheet = SignupSheet.find_by!(title: "Raffle")
-    assert_empty sheet.events
+    assert_no_difference "SignupSheet.count" do
+      post signup_sheets_path, params: { event_id: outside.id, signup_sheet: raffle.merge(team_id: @club.id) }
+    end
+    assert_response :unprocessable_entity
+    assert_select ".invalid-feedback", text: "Team can't take that event"
+  end
+
+  test "a past event offers no New link and a new sheet can't take it" do
+    past = create_world_event("Kickoff", Time.zone.parse("2026-10-01 10:00"))
+    sign_in person(:worker).user
+
+    get event_path(past)
+    assert_response :success
+    assert_select "#event_signups", count: 0
+
+    get new_signup_sheet_path(event_id: past.id)
+    assert_response :success
+    assert_select "input[name=event_id]", count: 0
+    assert_select "p", text: /Saving adds/, count: 0
+
+    assert_no_difference "SignupSheet.count" do
+      post signup_sheets_path, params: { event_id: past.id, signup_sheet: { title: "Raffle", team_id: @club.id, status: "draft", names_permission: "everyone" } }
+    end
+    assert_response :unprocessable_entity
+    assert_select ".invalid-feedback", text: "Team can't take Kickoff: it has already happened"
+    assert_select "input[name=event_id]", count: 0
   end
 end

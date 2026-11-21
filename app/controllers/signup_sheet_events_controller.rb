@@ -136,8 +136,7 @@ class SignupSheetEventsController < InternalController
     # organizer can already see and that aren't on the sheet yet.
     def attachable_events
       team = @signup_sheet.team
-      policy_scope(Event).where(team_id: [ team.id ] + team.all_descendant_ids)
-        .where(start_time: Time.current.beginning_of_day..)
+      SignupSheet.upcoming_events(policy_scope(Event)).where(team_id: [ team.id ] + team.all_descendant_ids)
         .where.not(id: @signup_sheet.signup_sheet_events.select(:event_id))
         .order(:start_time)
     end

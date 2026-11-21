@@ -77,7 +77,7 @@ class SignupSheetsController < InternalController
   # that event's team and adds the event to the new sheet.
   def new
     authorize SignupSheet
-    @event = event_from_params
+    @event = event_from_params(upcoming: true)
     team_id = (params[:team_id].presence || @event&.team_id).presence_in(@team_choices.map(&:id)) || @team_choices.first&.id
     @signup_sheet = SignupSheet.new(team_id: team_id)
   end
@@ -146,23 +146,44 @@ class SignupSheetsController < InternalController
       @tab = params[:tab].presence_in(EDIT_TABS) || "details"
     end
 
-    # An event the person can see, given as event_id.
-    def event_from_params
-      policy_scope(Event).find_by(id: params[:event_id]) if params[:event_id].present?
+    # An event the person can see, given as event_id. The new page offers
+    # only an upcoming one; create checks the rest (event_error).
+    def event_from_params(upcoming: false)
+      return if params[:event_id].blank?
+
+      events = policy_scope(Event)
+      events = SignupSheet.upcoming_events(events) if upcoming
+      events.find_by(id: params[:event_id])
     end
 
-    # Saves the new sheet and, when it was started from an event of its team
-    # or a team below it, adds that event.
+    # Saves the new sheet and, when it was started from an event, adds that
+    # event, or fails with a message by Team when the sheet can't take it.
     def save_with_event
-      SignupSheet.transaction do
-        next false unless @signup_sheet.save
+      return @signup_sheet.save if params[:event_id].blank?
 
-        team = @signup_sheet.team
-        if @event && [ team.id, *team.all_descendant_ids ].include?(@event.team_id)
-          @signup_sheet.signup_sheet_events.create!(event: @event)
-        end
-        true
+      @signup_sheet.valid?
+      error = event_error
+      @signup_sheet.errors.add(:team_id, error) if error
+      return false if @signup_sheet.errors.any?
+
+      SignupSheet.transaction do
+        @signup_sheet.save!
+        @signup_sheet.signup_sheet_events.create!(event: @event)
       end
+      true
+    end
+
+    # Why the new sheet can't take @event, as Add dates would refuse it: an
+    # event the person can't see, one already past, or one outside the
+    # sheet's team and the teams below it.
+    def event_error
+      return "can't take that event" if @event.nil?
+      return "can't take #{@event.name}: it has already happened" unless SignupSheet.upcoming_event?(@event)
+
+      team = @signup_sheet.team
+      return if team.nil? || [ team.id, *team.all_descendant_ids ].include?(@event.team_id)
+
+      "must be #{@event.team.name} or a team above it to add #{@event.name} to the sheet"
     end
 
     def set_team_choices
