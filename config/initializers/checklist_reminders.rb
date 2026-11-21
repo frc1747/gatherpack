@@ -29,4 +29,15 @@ Rails.application.config.to_prepare do
   Checklists::Kinds::Checklist.singleton_class.prepend(Checklists::EmailCeiling::ChecklistItem)
 
   Checklists::ReminderDigest.register if defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:register)
+
+  # Phone notifications, where that seam is merged: each reminder email is
+  # followed by one, for people who turned on the Checklists topic.
+  if defined?(GatherPack::PushChannel)
+    Checklists::ReminderSender.prepend(Checklists::ReminderPushConnector)
+    if defined?(GatherPack::PushTopics)
+      GatherPack::PushTopics.register(Checklists::ReminderPushConnector::TOPIC, label: "Checklists",
+        hint: "When an organizer sends a reminder, or one is scheduled", default_on: false,
+        available: -> { ChecklistReminder.enabled? })
+    end
+  end
 end

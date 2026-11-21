@@ -70,6 +70,25 @@ class ChecklistEmailLevelTest < ActiveSupport::TestCase
     end
   end
 
+  test "a group's note names the real cause: the checklist, or the level set on the group" do
+    with_reminders do
+      group = add_item(@checklist, :any_of, "Kit")
+      add_item(@checklist, :has_login, "Shirt size", {}, parent: group)
+      add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, parent: group)
+
+      @checklist.update!(email_level: "name_only")
+      assert_equal "Email: name only, because the checklist allows no more", Checklists::EmailLevel.note(group.reload)
+
+      @checklist.update!(email_level: "everything")
+      group.update!(email_level: "name_only")
+      assert_equal "Email: name only, because it's set on this item", Checklists::EmailLevel.note(group.reload)
+
+      group.update!(email_level: nil)
+      group.children.find_by!(label: "Safety").update!(email_level: "name_only")
+      assert_equal "Email: name only, because it holds Safety (name only)", Checklists::EmailLevel.note(group.reload)
+    end
+  end
+
   test "an item showing another checklist says no more than that checklist's reminders" do
     with_reminders do
       other = create_world_checklist("Academic", email_level: "sign_in")

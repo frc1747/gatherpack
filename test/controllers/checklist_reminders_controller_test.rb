@@ -56,6 +56,28 @@ class ChecklistRemindersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a draft can't be reminded, but its Reminders section can be set up" do
+    with_reminders do
+      @checklist.update!(status: :draft)
+      sign_in person(:club_manager).user
+
+      get checklist_path(@checklist)
+      assert_response :success
+      assert_no_match "Send Reminder", response.body
+      get new_checklist_checklist_reminder_path(@checklist)
+      assert_response :redirect
+      post checklist_checklist_reminders_path(@checklist), params: { reminder: { who: "everyone" }, send: "1" }
+      assert_response :redirect
+      assert_empty sent_emails
+      assert_equal 0, ChecklistReminder.count
+
+      get edit_checklist_path(@checklist)
+      assert_match "Scheduled reminders", response.body
+      patch checklist_checklist_reminder_settings_path(@checklist), params: { checklist: { email_level: "name_only" } }
+      assert_equal "name_only", @checklist.reload.email_level
+    end
+  end
+
   test "the preview is exactly what's sent, for the person and their guardian" do
     with_reminders do
       sign_in person(:club_manager).user

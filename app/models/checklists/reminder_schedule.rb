@@ -34,7 +34,7 @@ module Checklists
     def next_on(from = self.class.today)
       return unless on? && checklist.active?
 
-      day = from
+      day = [ from, checklist.starts_on ].compact.max
       day += 1 if last_on && last_on >= day
       candidates = []
       candidates << [ day, last_on ? last_on + every : day ].max if every.positive?

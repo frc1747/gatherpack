@@ -40,7 +40,10 @@ module Checklists
     end
 
     # A group's summary names its items, so it's held at its strictest
-    # item's level.
+    # item's level: what each item's data allows and the level set on the
+    # item itself (an item that is a group brings its own items' the same
+    # way). Levels the items only inherit, from the checklist or this
+    # group, aren't counted here, so the note names the real cause.
     module AnyOf
       def email_ceiling(item)
         EmailLevel.strictest(super, strictest_child(item)&.level)
@@ -58,7 +61,10 @@ module Checklists
       Child = Data.define(:item, :level)
 
       def strictest_child(item)
-        children = item.children.map { |child| Child.new(item: child, level: EmailLevel.for(child)) }
+        children = item.children.map do |child|
+          own = child.email_level if EmailLevel.valid?(child.email_level)
+          Child.new(item: child, level: EmailLevel.strictest(EmailLevel.ceiling(child), own))
+        end
         children.max_by { |child| EmailLevel::LEVELS.index(child.level) }
       end
     end

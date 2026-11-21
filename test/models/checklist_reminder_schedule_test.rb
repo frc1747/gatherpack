@@ -45,6 +45,12 @@ class ChecklistReminderScheduleTest < ActiveSupport::TestCase
     assert_not schedule.due?(Date.new(2026, 12, 1))
   end
 
+  test "before the checklist starts, the next reminder is on its first day" do
+    @checklist.update!(reminders_scheduled: true, reminder_every_days: 7)
+    assert_equal Date.new(2026, 11, 1), schedule.next_on(Date.new(2026, 10, 20))
+    assert schedule.due?(Date.new(2026, 11, 1))
+  end
+
   test "only active checklists" do
     @checklist.update!(reminders_scheduled: true, reminder_every_days: 1, status: :draft)
     assert_not schedule.due?(Date.new(2026, 11, 10))
