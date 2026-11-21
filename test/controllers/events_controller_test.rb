@@ -1,7 +1,9 @@
 require "test_helper"
+require_relative "../support/settings_test_helper"
 
 class EventsControllerTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
+  include SettingsTestHelper
 
   setup do
     host! "localhost"
@@ -178,7 +180,7 @@ class EventsControllerTest < ActionDispatch::IntegrationTest
     get event_url(events(:one))
 
     assert_response :success
-    assert_select "form[data-turbo-confirm=?]", "Delete this event and its 1 check-in?"
+    assert_select "a[data-turbo-confirm=?]", "Delete this event and its 1 check-in?"
   end
 
   test "delete confirm pluralizes the number of check-ins" do
@@ -188,27 +190,29 @@ class EventsControllerTest < ActionDispatch::IntegrationTest
 
     get event_url(events(:one))
 
-    assert_select "form[data-turbo-confirm=?]", "Delete this event and its 2 check-ins?"
+    assert_select "a[data-turbo-confirm=?]", "Delete this event and its 2 check-ins?"
   end
 
-  test "delete confirm names the event without check-ins" do
+  test "delete confirm stays generic without check-ins" do
     sign_in @admin_user
     events(:one).checkins.destroy_all
 
     get event_url(events(:one))
 
-    assert_select "form[data-turbo-confirm=?]", "Delete this event?"
+    assert_select "a[data-turbo-confirm=?]", "Are you sure?"
   end
 
-  test "the event footer shows Edit and Print, with Arrange and Delete in More" do
-    sign_in @admin_user
-    get event_url(events(:one))
+  test "with the standard screens on, the event footer shows Edit and Print, with Arrange and Delete in More" do
+    with_settings(feature_screen_standard: "true") do
+      sign_in @admin_user
+      get event_url(events(:one))
 
-    assert_select ".screen-action-row > a.btn-warning", "Edit"
-    assert_select ".screen-action-row > a.btn-dark", "Print"
-    assert_select ".screen-action-row .dropdown-menu li", count: 3 # Print at phone width, Arrange, Delete
-    assert_select ".screen-action-row .dropdown-menu a", "Arrange"
-    assert_select ".screen-action-row .dropdown-menu li:last-child button.text-danger", "Delete"
+      assert_select ".screen-action-row > a.btn-warning", "Edit"
+      assert_select ".screen-action-row > a.btn-dark", "Print"
+      assert_select ".screen-action-row .dropdown-menu li", count: 3 # Print at phone width, Arrange, Delete
+      assert_select ".screen-action-row .dropdown-menu a", "Arrange"
+      assert_select ".screen-action-row .dropdown-menu li:last-child button.text-danger", "Delete"
+    end
   end
 
   private

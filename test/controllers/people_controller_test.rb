@@ -1,7 +1,9 @@
 require "test_helper"
+require_relative "../support/settings_test_helper"
 
 class PeopleControllerTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
+  include SettingsTestHelper
 
   setup do
     host! "localhost"
@@ -103,21 +105,23 @@ class PeopleControllerTest < ActionDispatch::IntegrationTest
     sign_in @admin.user
 
     get person_path(architect)
-    assert_select "form[action=?]", impersonate_person_path(architect), count: 0
+    assert_select "a[href=?]", impersonate_person_path(architect), count: 0
 
     get person_path(@member)
-    assert_select "form[action=?]", impersonate_person_path(@member)
+    assert_select "a[href=?]", impersonate_person_path(@member)
   end
 
-  test "the person footer shows Edit, with the rest in More and Delete last" do
-    sign_in @admin.user
+  test "with the standard screens on, the person footer shows Edit, with the rest in More and Delete last" do
+    with_settings(feature_screen_standard: "true") do
+      sign_in @admin.user
 
-    get person_path(@member)
+      get person_path(@member)
 
-    assert_select ".screen-action-row > a.btn-warning", "Edit"
-    assert_select ".screen-action-row > a", count: 1
-    assert_select ".screen-action-row .dropdown-menu button", "Impersonate"
-    assert_select ".screen-action-row .dropdown-menu li:last-child form[data-turbo-confirm=?]", "Delete #{@member.identifier_name}?"
+      assert_select ".screen-action-row > a.btn-warning", "Edit"
+      assert_select ".screen-action-row > a", count: 1
+      assert_select ".screen-action-row .dropdown-menu button", "Impersonate"
+      assert_select ".screen-action-row .dropdown-menu li:last-child form[data-turbo-confirm=?]", "Delete #{@member.identifier_name}?"
+    end
   end
 
   private
