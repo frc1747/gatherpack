@@ -27,7 +27,7 @@ class ChecklistReportFilterWordsTest < ActionDispatch::IntegrationTest
       get checklist_path(@checklist)
 
       column = css_select("thead th").index { |heading| heading.text.include?("Attendance") }
-      cell = css_select("tbody tr").filter_map { |row| row.css("td")[column] }.find { |td| td["data-status"] == "not_met" }
+      cell = css_select("tbody tr").filter_map { |row| row.css("td")[column]&.at_css("[data-cell]") }.find { |td| td["data-status"] == "not_met" }
       assert_equal "Below minimum", cell.at_css(".badge").text.strip
 
       option = css_select("input[data-checklist-report-target=tick][data-column='#{column}'][value=not_met]").map { |box| box.parent.text.squish }

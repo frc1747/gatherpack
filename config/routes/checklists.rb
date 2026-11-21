@@ -5,6 +5,7 @@ resources :checklists do
     post :copy
     post :preview
     post :refresh
+    post :archive
     post :restore
   end
   resources :checklist_items, path: "items", except: %i[index show] do

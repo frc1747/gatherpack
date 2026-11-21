@@ -1,0 +1,16 @@
+<%# locals: (entry:, order:, title: nil, item: nil, person_id: nil, checklist: nil, report: nil) -%>
+<%# A report cell: its status pill, carrying what sorting and filtering read (the status's
+    place in order, the status, the measures); with item, an item's excuse or Excuse link. %>
+<%= tag.div title: title, data: { cell: true, value: entry ? order.index(entry.status) : 9, status: entry&.status, measures: entry&.measures.to_h.to_json } do %>
+  <% if entry %>
+    <%= checklist_status_badge(entry) %>
+    <% if item && entry.excuse && entry.excuse["by"] %>
+      <div class="small text-body-secondary">Excused by <%= entry.excuse["by"] %>, <%= l(Date.iso8601(entry.excuse["at"]), format: :long) %><%= ": #{entry.excuse["reason"]}" if entry.excuse["reason"] %></div>
+      <% if entry.excuse["id"] && !checklist.archived? %>
+        <%= button_to "Remove excuse", checklist_checklist_excuse_path(checklist, entry.excuse["id"]), method: :delete, class: "btn btn-link btn-sm p-0 no-print", form_class: "d-block" %>
+      <% end %>
+    <% elsif item && (entry.not_met? || entry.pending?) && !checklist.archived? && report.excusable?(person_id) %>
+      <%= link_to "Excuse", new_checklist_checklist_excuse_path(checklist, item_id: item.id, person_id: person_id), class: "d-block small no-print" %>
+    <% end %>
+  <% end %>
+<% end %>

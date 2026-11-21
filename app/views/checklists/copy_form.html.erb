@@ -19,6 +19,7 @@
 
       <h2 class="h5">Dates</h2>
       <p class="small text-body-secondary">Check each new date. Dates like "within the last 12 months" stay as they are.</p>
+      <div class="table-responsive">
       <table class="table table-sm">
         <thead><tr><th>Date</th><th>Now</th><th>In the copy</th></tr></thead>
         <tbody>
@@ -31,11 +32,13 @@
           <% end %>
         </tbody>
       </table>
+      </div>
 
       <% replacements = @copier.replacements %>
       <% if replacements.any? %>
         <h2 class="h5">Named with a year</h2>
         <p class="small text-body-secondary">Pick what the copy should use instead, or keep the same one.</p>
+        <div class="table-responsive">
         <table class="table table-sm">
           <thead><tr><th>Now</th><th>In the copy</th></tr></thead>
           <tbody>
@@ -52,6 +55,7 @@
             <% end %>
           </tbody>
         </table>
+        </div>
       <% end %>
 
       <% empty = @copier.empty_rules %>
@@ -62,8 +66,8 @@
         </div>
       <% end %>
       <p class="small text-body-secondary">The copy starts as a draft, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
-      <%= submit_tag "Make the copy", class: "btn btn-primary" %>
-      <%= link_to "Cancel", @checklist, class: "btn btn-link" %>
+      <%= link_to "Cancel", @checklist, class: "btn btn-secondary" %>
+      <%= submit_tag "Copy", class: "btn btn-primary" %>
     <% end %>
   </div>
 </div>

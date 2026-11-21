@@ -227,11 +227,11 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       sign_in person(:club_manager).user
       post checklists_path, params: { checklist: { title: "Season", team_id: @members.id, status: "draft", start_mode: "date", starts_on: "2026-09-01", read_level: "family" } }
       checklist = Checklist.find_by!(title: "Season")
-      assert_redirected_to edit_checklist_path(checklist, anchor: "items")
+      assert_redirected_to edit_checklist_path(checklist, tab: "items")
       assert_includes checklist.organizers, person(:club_manager)
 
       post checklist_checklist_items_path(checklist), params: { checklist_item: { kind: "badge", label: "Safety", counts: "1", start_mode: "checklist", config: { badge_ids: [ @safety.id ], within_dates: "0" } } }
-      assert_redirected_to edit_checklist_path(checklist, anchor: "items")
+      assert_redirected_to edit_checklist_path(checklist, tab: "items")
       assert_equal [ @safety.id ], checklist.checklist_items.first.config["badge_ids"]
     end
   end
@@ -260,7 +260,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       assert_equal [ @safety.id ], @safety_item.reload.config["badge_ids"]
 
       patch checklist_checklist_item_path(@checklist, @safety_item), params: { confirmed: "1", checklist_item: { label: "Safety", config: { badge_ids: [ @viewer_badge.id ] } } }
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "items")
       assert_equal [ @viewer_badge.id ], @safety_item.reload.config["badge_ids"]
     end
   end
@@ -281,12 +281,12 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     with_feature do
       sign_in person(:admin).user
       post checklist_checklist_rules_path(@checklist), params: { confirmed: "1", checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:rookie).id } }
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "covers")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "covers")
       assert_not_includes Checklists.people_covered_by(@checklist.reload), person(:rookie)
 
       rule = @checklist.checklist_rules.find_by(person: person(:rookie))
       delete checklist_checklist_rule_path(@checklist, rule), params: { confirmed: "1" }
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "covers")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "covers")
       assert_includes Checklists.people_covered_by(@checklist.reload), person(:rookie)
     end
   end
@@ -357,7 +357,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
         before = ChecklistResult.where(checklist: @checklist).order(:id).pluck(:id, :status, :computed_at)
 
         post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
-        assert_redirected_to edit_checklist_path(@checklist, anchor: "covers")
+        assert_redirected_to edit_checklist_path(@checklist, tab: "covers")
         assert_equal "Rule added. It applies when you Recompute.", flash[:notice]
         rule = @checklist.checklist_rules.find_by!(person: person(:member))
 
@@ -366,7 +366,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
         assert_not ChecklistRule.exists?(rule.id)
 
         patch checklist_checklist_item_path(@checklist, @safety_item), params: { checklist_item: { label: "Renamed", config: { badge_ids: [ @viewer_badge.id ] } } }
-        assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
+        assert_redirected_to edit_checklist_path(@checklist, tab: "items")
         assert_equal [ @viewer_badge.id ], @safety_item.reload.config["badge_ids"]
 
         assert_equal before, ChecklistResult.where(checklist: @checklist).order(:id).pluck(:id, :status, :computed_at)
@@ -432,26 +432,37 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
   test "the Add item menu escapes the card that holds it and stays readable" do
     with_feature do
       sign_in person(:admin).user
-      get edit_checklist_path(@checklist)
+      get edit_checklist_path(@checklist, tab: "items")
       assert_select "#items .dropdown-toggle[data-bs-popper-config=?]", '{"strategy":"fixed"}'
       assert_select "#items ul.dropdown-menu.dropdown-menu-dark"
     end
   end
 
-  test "the Edit page holds the whole setup, in order, and the checklist page only results" do
+  test "the Edit page holds the setup on its tabs, one part each, and the checklist page only results" do
     with_feature do
       sign_in person(:admin).user
-      get edit_checklist_path(@checklist)
-      assert_response :success
-      ids = css_select("form.simple_form, #items, #covers, #access, #organizers, form[action='#{checklist_path(@checklist)}'] input[name=_method][value=delete]")
-        .map { |node| { "form" => "basics", "input" => "delete" }.fetch(node.name, node["id"]) }
-      assert_equal %w[basics items covers access organizers delete], ids
+      parts = ->(path) do
+        get path
+        assert_response :success
+        css_select("form.simple_form[action='#{checklist_path(@checklist)}'], #items, #covers, #access, #organizers")
+          .map { |node| node.name == "form" ? "details" : node["id"] }
+      end
+      assert_equal %w[details], parts.(edit_checklist_path(@checklist))
+      assert_select ".nav-link.active", text: "Details"
+      assert_select ".nav-link[href=?]", edit_checklist_path(@checklist, tab: "items"), text: "Items (2)"
+      assert_select ".nav-link[href=?]", edit_checklist_path(@checklist, tab: "covers"), text: "Who it covers"
+      assert_select ".nav-link[href=?]", edit_checklist_path(@checklist, tab: "access"), text: "Access"
+      assert_equal %w[items], parts.(edit_checklist_path(@checklist, tab: "items"))
+      assert_select ".nav-link.active", text: "Items (2)"
       assert_select "#items a[href=?]", edit_checklist_checklist_item_path(@checklist, @safety_item)
+      assert_equal %w[covers], parts.(edit_checklist_path(@checklist, tab: "covers"))
       assert_select "#covers [data-controller=checklist-preview]"
+      assert_equal %w[access organizers], parts.(edit_checklist_path(@checklist, tab: "access"))
+      assert_equal %w[details], parts.(edit_checklist_path(@checklist, tab: "nonsense"))
+      assert_select "form[action=?] input[name=_method][value=delete]", checklist_path(@checklist), 0, "Delete is on the checklist page's More"
 
       get checklist_path(@checklist)
       assert_select "#items, #covers, #access, #organizers", 0
-      assert_select "button", text: "Delete checklist", count: 0
       assert_select "a[href=?]", edit_checklist_path(@checklist), text: "Edit"
     end
   end
@@ -460,15 +471,15 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     with_feature do
       sign_in person(:admin).user
       get new_checklist_checklist_item_path(@checklist, kind: "has_login")
-      assert_select "a[href=?]", edit_checklist_path(@checklist, anchor: "items"), text: "Cancel"
+      assert_select "a[href=?]", edit_checklist_path(@checklist, tab: "items"), text: "Cancel"
 
       delete checklist_checklist_item_path(@checklist, @login_item), params: { confirmed: "1" }
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "items")
 
       post checklist_checklist_organizers_path(@checklist), params: { checklist_organizer: { person_id: person(:club_manager).id } }
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "organizers")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "access")
       delete checklist_checklist_organizer_path(@checklist, @checklist.checklist_organizers.find_by!(person: person(:club_manager)))
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "organizers")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "access")
     end
   end
 
@@ -498,7 +509,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       sign_in person(:admin).user
       post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { effect: "exclude", target_type: "person", person_id: person(:member).id } }
       assert_response :unprocessable_entity
-      assert_select "a[href=?]", edit_checklist_path(@checklist, anchor: "covers"), text: "Cancel"
+      assert_select "a[href=?]", edit_checklist_path(@checklist, tab: "covers"), text: "Cancel"
 
       post checklist_checklist_rules_path(@checklist), params: { checklist_rule: { item_id: @safety_item.id, effect: "include", target_type: "person", person_id: person(:member2).id } }
       assert_response :unprocessable_entity
@@ -506,7 +517,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
 
       delete checklist_checklist_item_path(@checklist, @safety_item)
       assert_response :unprocessable_entity
-      assert_select "a[href=?]", edit_checklist_path(@checklist, anchor: "items"), text: "Cancel"
+      assert_select "a[href=?]", edit_checklist_path(@checklist, tab: "items"), text: "Cancel"
     end
   end
 
@@ -514,7 +525,7 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     with_feature do
       sign_in person(:admin).user
       get edit_checklist_checklist_item_path(@checklist, @safety_item)
-      assert_select ".breadcrumb a[href=?]", edit_checklist_path(@checklist, anchor: "items"), text: "Edit"
+      assert_select ".breadcrumb a[href=?]", edit_checklist_path(@checklist, tab: "items"), text: "Edit"
 
       @checklist.checklist_rules.first.update_column(:team_id, nil)
       get checklist_path(@checklist)
