@@ -1,7 +1,9 @@
 <% verb = { archive: "Archive", restore: "Restore", copy: "Copy" }.fetch(@action) %>
 <% change = @copy || @preview %>
+<% breadcrumb :housekeeping_preview, @type, params[:archived].present?, verb %>
+
 <div class="card">
-  <div class="card-header"><h1>Check before you <%= verb.downcase %></h1></div>
+  <%= render "shared/page_header", title: "Check before you #{verb.downcase}" %>
   <div class="card-body">
     <p class="fw-semibold"><%= change.sentence %></p>
 
@@ -17,6 +19,7 @@
       <% if @copy %>
         <h2 class="h5">Dates</h2>
         <p class="small text-body-secondary">Each copy's dates move by the same amount. Dates like "within the last 12 months" stay as they are. You can change any of them in the copy afterwards.</p>
+        <div class="table-responsive">
         <table class="table table-sm">
           <thead><tr><th>Copy of</th><th>Date</th><th>Now</th><th>In the copy</th></tr></thead>
           <tbody>
@@ -35,6 +38,7 @@
             <% end %>
           </tbody>
         </table>
+        </div>
 
         <% if (links = @copy.links).any? %>
           <h2 class="h5">Copied together</h2>
@@ -60,6 +64,7 @@
         <% if replacements.any? %>
           <h2 class="h5">Named with a year</h2>
           <p class="small text-body-secondary">Pick what the copies should use instead, or keep the same one.</p>
+          <div class="table-responsive">
           <table class="table table-sm">
             <thead><tr><th>Now</th><th>In the copies</th></tr></thead>
             <tbody>
@@ -76,6 +81,7 @@
               <% end %>
             </tbody>
           </table>
+          </div>
         <% end %>
       <% elsif change.ready.any? %>
         <ul>
@@ -94,10 +100,12 @@
         </ul>
       <% end %>
 
-      <% if change.ready.any? %>
-        <%= submit_tag "#{verb} #{change.ready.size}", class: "btn btn-primary" %>
-      <% end %>
-      <%= link_to "Cancel", housekeeping_list_path(@type.key, archived: params[:archived].presence, older: @older_than&.to_config || { mode: "" }), class: "btn btn-link" %>
+      <div class="d-flex flex-wrap gap-2">
+        <%= link_to "Cancel", housekeeping_list_path(@type.key, archived: params[:archived].presence, older: @older_than&.to_config || { mode: "" }), class: "btn btn-secondary" %>
+        <% if change.ready.any? %>
+          <%= submit_tag "#{verb} #{change.ready.size}", class: "btn btn-primary" %>
+        <% end %>
+      </div>
     <% end %>
   </div>
 </div>

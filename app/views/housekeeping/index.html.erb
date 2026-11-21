@@ -1,8 +1,7 @@
-<% back = @type.list_path && respond_to?(@type.list_path) ? public_send(@type.list_path) : nil %>
+<% breadcrumb :housekeeping_list, @type, @archived %>
+
 <div class="card">
-  <div class="card-header">
-    <h1><%= @archived ? "Archived" : "Old" %> <%= @type.label.downcase %></h1>
-  </div>
+  <%= render "shared/page_header", title: "#{@archived ? "Archived" : "Old"} #{@type.label.downcase}" %>
   <div class="card-body">
     <%= form_with url: housekeeping_list_path(@type.key), method: :get, data: { turbo: false } do %>
       <%= render "checklists/relative_date_field", name: "older", field_id: "older", legend: "Ended",
@@ -11,8 +10,7 @@
         <%= check_box_tag :archived, "1", @archived, class: "form-check-input" %>
         <%= label_tag :archived, "Archived ones", class: "form-check-label" %>
       </div>
-      <%= submit_tag "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
-      <%= link_to "Back to #{@type.label.downcase}", back, class: "btn btn-link mt-2" if back %>
+      <%= submit_tag "Find", name: nil, class: "btn btn-secondary mt-2" %>
     <% end %>
     <%= form_with url: housekeeping_default_path(@type.key), method: :post, class: "mt-2 small" do %>
       <%= hidden_field_tag :archived, "1" if @archived %>
@@ -28,6 +26,7 @@
 <%= form_with url: housekeeping_preview_path(@type.key), method: :post, class: "mt-3", data: { controller: "select-all" } do %>
   <%= hidden_field_tag :archived, "1" if @archived %>
   <%= housekeeping_older_fields(@older_than) %>
+  <div class="table-responsive">
   <table class="table table-sm align-middle">
     <thead>
       <tr>
@@ -52,6 +51,7 @@
       <% end %>
     </tbody>
   </table>
+  </div>
   <%= paginate @records %>
 
   <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -62,7 +62,7 @@
     <% end %>
     <% if @type.copyable? %>
       <span class="ms-3">or</span>
-      <%= button_tag "Copy selected", name: "act", value: "copy", class: "btn btn-outline-primary" %>
+      <%= button_tag "Copy selected", name: "act", value: "copy", class: "btn btn-secondary" %>
       <%= label_tag :shift_months, "with dates moved by", class: "form-label mb-0" %>
       <%= number_field_tag :shift_months, 12, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em" %>
       <span>months</span>
