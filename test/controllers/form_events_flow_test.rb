@@ -198,16 +198,21 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the form page for an event starts from who said yes; the event panel opens forms with Responses" do
+  test "Responses on the event's other forms starts from who said yes; the intent form's own Responses doesn't" do
+    lunch = create_world_form("Lunch Order", team: @den_a, include: [ @den_a ], respond: "self_and_leaders", read: "family", event: @event)
     with_feature do
       as(:pack_leader) do
         get event_path(@event)
         assert_select "#event-forms a", text: "Printable list for this event", count: 0
         assert_select "#event-forms a.btn[href=?]", form_path(@poll), text: "Responses"
-        get form_path(@poll, event_id: @event.id)
-        assert_select "h1", text: "Coming Saturday?"
+        link = css_select("#event-forms .list-group-item").detect { |row| row.text.include?("Lunch Order") }.at_css("a.btn")
+        assert_equal "Responses", link.text
+
+        get link["href"]
+        assert_select "h1", text: "Lunch Order"
         assert_select "p", text: /People: 1 who answered Yes to "Are you coming\?"/
         assert_select "td", text: "A1 World", msg: "a list of names even with no columns"
+        assert_equal form_path(lunch, event_id: @event.id), link["href"]
 
         get print_list_forms_path(event_id: @event.id)
         assert_select "input[type=hidden][name=event_id][value=?]", @event.id

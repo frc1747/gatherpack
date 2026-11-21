@@ -20,7 +20,9 @@
             <%= link_to form.title, form_path(form) %><br>
             <small class="text-muted"><%= [ form_taking_answers(form), *count_words ].join(" · ") %></small>
           </span>
-          <%= link_to "Responses", form_path(form), class: "btn btn-sm btn-outline-secondary" %>
+          <%# The event's other forms start from who said Yes to its "Are you coming?". %>
+          <% responses_path = event_forms.intent_form && form != event_forms.intent_form ? form_path(form, event_id: event.id) : form_path(form) %>
+          <%= link_to "Responses", responses_path, class: "btn btn-sm btn-outline-secondary" %>
         </div>
       <% else %>
         <% subjects.each do |subject| %>
