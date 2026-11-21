@@ -60,7 +60,8 @@
                   <td class="text-nowrap">
                     <%= link_to "Edit", edit_person_field_path(field), class: "btn btn-sm btn-outline-secondary" %>
                     <% if field.archived? %>
-                      <%= button_to "Restore", restore_person_field_path(field), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline" %>
+                      <%= button_to "Restore", restore_person_field_path(field), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline",
+                            form: { data: { turbo_confirm: "Restore #{field.name}? It shows on profiles again with its values." } } %>
                       <% if policy(field).destroy? %>
                         <%= button_to "Delete", person_field_path(field), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
                               data: { turbo_confirm: "Delete #{field.name} and its #{pluralize(field.person_field_values.count, "value")}? This can't be undone." } %>

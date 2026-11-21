@@ -52,7 +52,7 @@ class PersonFieldsScreensTest < ActionDispatch::IntegrationTest
         get person_fields_path(status: "archived")
         assert_select ".screen-filter-pills a[aria-current=true]", text: "Archived (1)"
         assert_select "tr#person_field_#{@allergies.id}" do
-          assert_select "form[action=?] button.btn-outline-secondary", restore_person_field_path(@allergies), text: "Restore"
+          assert_select "form[action=?][data-turbo-confirm] button.btn-outline-secondary", restore_person_field_path(@allergies), text: "Restore"
         end
 
         patch restore_person_field_path(@allergies)
