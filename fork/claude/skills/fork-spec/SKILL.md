@@ -18,7 +18,7 @@ All of these except task briefs are pushed straight to `hbr/platform`.
 
 ## Rules for every document
 
-- **Decide, don't ask.** No "open questions" or "decisions for the owner" lists. Pick the sensible default and record it as a decision; where organizations could reasonably differ, make it a setting with that default. Brief designer agents the same way.
+- **Decide, don't ask.** No "open questions" or "decisions for the owner" lists. Pick the sensible default and record it as a decision. Make it a setting only where organizations really differ and no default fits most of them (see "Simple first" below). Brief designer agents the same way.
 - **No timing.** No dates, phase deadlines, freezes or release targets: order and dependencies only. Dates that are configuration data (a commitment's due date) are fine.
 - **Start with what it does.** No status, branch, spec-link or "meant for upstream" headers, and no upstream intent unless the owner said so for that feature. Pitches describe only the feature: summary, problem, what it does, how it's built, adoption options. No "we/our", no people's names.
 - **No real names.** Describe people by role ("a couple signing up together"). Sample data and mockups use the Northwind made-up people.
@@ -26,6 +26,21 @@ All of these except task briefs are pushed straight to `hbr/platform`.
 - **Hooks section** in every spec (see `fork-feature`).
 
 ## Screen design
+
+Two principles come before every rule below.
+
+**1. Consistency: every feature looks and works the same.** Someone who has learned one screen should already know the next.
+- Same kind of screen, same layout: a list page, a record page, a setup page and a form each have one shape across all features (header card with title and one-line summary, filters, then the table or content, then actions). Before designing, find the nearest existing screen of the same kind, fork or upstream, and copy its layout, button order and words.
+- Same action, same word and place: Edit, Print, Download CSV, Remind, Archive, More. Primary action first; destructive ones last, in the More menu.
+- Same pieces: status badges, filters, tick lists, empty states ("Nobody here."), the people table. If a feature needs one that doesn't exist, build it once as a shared partial and use it everywhere, rather than a near-copy.
+- When a new screen and an old one disagree, fix the old one to match (or note it in the backlog), don't add a third style.
+
+**2. Simple first: dead simple for people reading, flexible for people setting up.** Most people only consume information: members, guardians, readers of a report. Their screens show the answer, not the machinery.
+- One screen per job. Don't split one list into status, results, totals and print views; show it once with sensible defaults, and let people hide parts they don't want (BL-060 is the pattern).
+- At most three visible actions on a page; the rest go in a **More** menu.
+- No settings on consumer screens. Configuration lives on the feature's Setup or Edit page, with defaults that suit most groups, and rarely used choices behind a "More choices" disclosure.
+- Every new setting, button or option has to earn its place: first ask whether a good default would do, and whether an existing option can absorb it. Removing an option is a good change.
+- Keep the flexibility admins rely on; just keep it out of everyone else's way.
 
 - **Copy:** directions say what to do, in order, in one or two plain sentences, with a concrete example when the use isn't obvious. No abstract taglines ("little wisps of AI garbage") or insider terms ("basis", "intent", "on file"). Label fields by the question they answer ("Who to include", "Columns"). Button words shouldn't sound permanent when the action is safe ("Take Snapshot", not "Record this list").
 - **Name features for what they do in general**, not after the first use case.
