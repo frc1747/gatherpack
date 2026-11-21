@@ -257,6 +257,14 @@ class PersonFieldTest < ActiveSupport::TestCase
     assert_not system.destroy
   end
 
+  test "a field can be kept out of email and notifications" do
+    field = create_world_field("Grades", read: "family")
+
+    assert_not field.keep_out_of_email?
+    field.update!(keep_out_of_email: true)
+    assert field.reload.keep_out_of_email?
+  end
+
   test "definition changes are hookable" do
     expected = %w[ person_fields person_field_values person_field_badge_grants ].flat_map do |table|
       %w[ create update destroy ].map { |action| "#{table} - #{action}" }

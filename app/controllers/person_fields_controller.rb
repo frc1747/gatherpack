@@ -120,7 +120,7 @@ class PersonFieldsController < InternalController
 
     def person_field_params
       permitted = [ :name, :help_text, :read_permission, :write_permission, :person_field_group_id, :position,
-        :required, :show_on_profile, :team_id, :choices_text, :min, :max, :pattern, :pattern_hint, badge_access: {} ]
+        :required, :show_on_profile, :keep_out_of_email, :team_id, :choices_text, :min, :max, :pattern, :pattern_hint, badge_access: {} ]
       permitted += [ :key ] if @person_field.nil? || @person_field.new_record?
       permitted += [ :data_type ] if @person_field.nil? || @person_field.person_field_values.none?
       params.require(:person_field).permit(*permitted)

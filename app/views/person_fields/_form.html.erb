@@ -58,6 +58,8 @@
     <div class="col-md-6"><%= f.input :show_on_profile, hint: "Off hides the field from profile pages only. It stays on the edit form (for people allowed to see it), and Reports and Hooks can always use it." %></div>
   </div>
 
+  <%= f.input :keep_out_of_email, label: "Keep out of email and notifications", hint: "Values and anything about this field stay on the site. Emails and notifications only say to sign in." %>
+
   <div class="row">
     <div class="col-md-6">
       <%= f.input :read_permission, label: "Who can see this", collection: person_field_level_options(guardianship), include_blank: false,
