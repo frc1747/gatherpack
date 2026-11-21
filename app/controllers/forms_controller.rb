@@ -38,13 +38,26 @@ class FormsController < InternalController
     @layout = params[:layout] == "labels" ? "labels" : "list"
     @totals_hidden = params[:totals] == "hidden"
 
-    load_population_choices
-    @population = FormPopulation.from_params(params, viewer: viewer, form: @form, forms: @source_forms, events: policy_scope(Event))
+    # "Who to include" offers every form the viewer can see results for;
+    # that list is only built when it's chosen from, or for the lazy frame
+    # under More choices.
+    if params[:frame] == "who_to_include"
+      load_population_choices
+      @population = FormPopulation.new(source: "asked", viewer: viewer, form: @form)
+      return render "who_to_include", layout: false
+    end
+    if POPULATION_PARAMS.any? { |key| params[key].present? }
+      load_population_choices
+      @population = FormPopulation.from_params(params, viewer: viewer, form: @form, forms: @source_forms, events: policy_scope(Event))
+    else
+      @population = FormPopulation.new(source: "asked", viewer: viewer, form: @form)
+    end
     only = @population.ids if @population.source == "answered"
     @report = FormReport.new(@form, viewer: viewer, team: @team, version: @version, only: only)
     # Remind always covers everyone asked in the team, as its page does.
     @remind_report = only ? FormReport.new(@form, viewer: viewer, team: @team) : @report
     @rows = @status ? @report.rows.select { |row| row.status == @status } : @report.rows
+    load_outside_people(viewer) if only
 
     # Every question and no profile details, until the column tick boxes
     # for this form are sent. Profile columns from an old results link count.
@@ -75,6 +88,8 @@ class FormsController < InternalController
   EDIT_TABS = %w[ details questions audience permissions responses ].freeze
   # The "Taking answers" choices on the Responses tab.
   TAKING_ANSWERS = %w[ draft open closed ].freeze
+  # Params that pick people under "Who to include" (FormPopulation).
+  POPULATION_PARAMS = %i[ who question_id event_id ].freeze
 
   # GET /forms/1/edit?tab=questions
   def edit
@@ -101,7 +116,7 @@ class FormsController < InternalController
     form_policy = policy(@form)
     # A form run only by its creator stays an event form of one of their teams.
     allowed = form_policy.creator_only? ? form_policy.create? : form_policy.manage?
-    if allowed && @form.valid? && openable_if_opening? && @form.save
+    if allowed && @form.valid? && taking_answers_allowed? && @form.save
       notice = "Form was saved."
       notice += helpers.form_published_notice(params[:reconfirm] == "1") if @form.publish_changes!(reconfirm: params[:reconfirm] == "1")
       redirect_to edit_form_path(@form, tab: @tab), notice: notice, status: :see_other
@@ -218,18 +233,40 @@ class FormsController < InternalController
   private
     # The page's current choices, for links that change one of them.
     def show_options
-      columns = { columns_for: @form.id, question_ids: @questions.map(&:id) } if params[:columns_for] == @form.id
+      columns = { columns_for: @form.id, question_ids: @questions.map(&:id) } if @questions != @report.questions
       population = { who: "answered", question_form_id: @population.question&.form_id, question_id: @population.question&.id,
         answers: @population.question && { @population.question.id => @population.answers } } if @population.source == "answered"
       { team_id: @team&.id, status: @status, version: (@version == :latest ? "latest" : nil), field_ids: @selected_fields.map(&:id),
         layout: (@layout == "labels" ? "labels" : nil), totals: (@totals_hidden ? "hidden" : nil) }.merge(columns || {}, population || {}).compact_blank
     end
 
-    # Choosing "Yes, open now" needs someone to ask, as Open did.
-    def openable_if_opening?
-      return true unless @form.will_save_change_to_status? && @form.open? && !@form.openable?
-      @form.errors.add(:status, "Add someone to ask before opening the form.")
+    # A "Taking answers" choice that the form's own times would undo:
+    # FormScheduleJob opens a draft past its Opens time and closes an open
+    # form past its Deadline. "Yes, open now" also needs someone to ask.
+    def taking_answers_allowed?
+      return true unless @form.will_save_change_to_status?
+      message = if @form.open? && !@form.openable?
+        "Add someone to ask before opening the form."
+      elsif @form.open? && @form.closes_at&.past?
+        "The deadline has passed: move it first."
+      elsif @form.draft? && @form.opens_at&.past?
+        "Opens is in the past: change it or choose No, closed."
+      end
+      return true unless message
+      @form.errors.add(:status, message)
       false
+    end
+
+    # People picked under "Who to include" that this form's table can't
+    # list: those it doesn't ask (shown as "Haven't answered") and those
+    # whose answers the viewer can't see (counted). Nobody silently drops.
+    def load_outside_people(viewer)
+      split = FormPrintList.new(form: @form, viewer: viewer, source: @population)
+      in_team = @team ? @team.descendant_people.ids.to_set : nil
+      keep = ->(line) { in_team.nil? || in_team.include?(line.person.id) }
+      @outside = @status ? [] : split.no_choice.reject(&:row).select(&keep)
+      @outside_list = split
+      @not_shown_count = split.hidden.count(&keep)
     end
 
     def load_population_choices

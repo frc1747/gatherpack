@@ -237,10 +237,132 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         patch form_path(form), params: { tab: "responses", form: { status: "open" } }
         assert form.reload.archived?, "archiving is its own action, not undone here"
       end
+    end
+  end
 
+  test "only people who manage the form change whether it takes answers" do
+    draft = create_world_form("Trip", status: :draft)
+    with_feature do
       as(:den_a_leader) do
+        patch form_path(draft), params: { tab: "responses", form: { status: "open" } }
+        assert draft.reload.draft?, "Den A's leader doesn't manage the Pack form"
+        patch form_path(@form), params: { tab: "responses", form: { status: "closed" } }
+        assert @form.reload.open?
+      end
+      as(:pack_leader) do
+        patch form_path(draft), params: { tab: "responses", form: { status: "open" } }
+        assert draft.reload.open?, "the same change from someone who manages it"
+      end
+    end
+  end
+
+  test "taking answers refuses a choice the form's own times would undo" do
+    form = create_world_form("Trip")
+    form.update_columns(opens_at: 1.day.ago)
+    with_feature do
+      as(:pack_leader) do
+        patch form_path(form), params: { tab: "responses", form: { status: "draft" } }
+        assert_response :unprocessable_entity
+        assert_select ".invalid-feedback", text: "Opens is in the past: change it or choose No, closed."
+        assert form.reload.open?
+
+        patch form_path(form), params: { tab: "responses", form: { status: "draft", opens_at: 2.days.from_now.iso8601 } }
+        assert form.reload.draft?, "a new Opens time lets it wait"
+
+        form.update_columns(status: Form.statuses[:closed], opens_at: nil, closes_at: 1.hour.ago)
         patch form_path(form), params: { tab: "responses", form: { status: "open" } }
-        assert form.reload.archived?, "only people who manage the form"
+        assert_response :unprocessable_entity
+        assert_select ".invalid-feedback", text: "The deadline has passed: move it first."
+        assert form.reload.closed?
+
+        patch form_path(form), params: { tab: "responses", form: { status: "open", closes_at: 3.days.from_now.iso8601 } }
+        assert form.reload.open?
+      end
+    end
+  end
+
+  test "the header gives the date once, in the state line" do
+    @form.update_columns(status: Form.statuses[:closed], closes_at: 2.days.ago)
+    with_feature do
+      as(:pack_leader) do
+        get form_path(@form)
+        assert_select ".card-header", text: /Due/, count: 0
+        assert_select "#state-line", text: /Closed #{Regexp.escape(2.days.ago.strftime("%B %-d, %Y"))}/
+      end
+    end
+  end
+
+  test "more choices stays closed while everything in it is the default" do
+    with_feature do
+      as(:pack_leader) do
+        everything = @form.answerable_questions.map(&:id)
+        get form_path(@form, team_id: @den_a.id, columns_for: @form.id, question_ids: everything)
+        assert_select "details#more-choices:not([open])"
+        assert_select "#status-filter a[href=?]", form_path(@form, team_id: @den_a.id, status: "complete")
+
+        get form_path(@form, columns_for: @form.id, question_ids: [ @note.id ])
+        assert_select "details#more-choices[open]"
+        get form_path(@form, version: "latest")
+        assert_select "details#more-choices[open]"
+      end
+    end
+  end
+
+  test "who to include loads its choices only when they're asked for" do
+    with_feature do
+      as(:pack_leader) do
+        get form_path(@form)
+        assert_select "input[name=who]", count: 0
+        assert_select "turbo-frame#who_to_include[loading=lazy][src=?]", form_path(@form, frame: "who_to_include")
+
+        get form_path(@form, frame: "who_to_include")
+        assert_response :success
+        assert_select "turbo-frame#who_to_include input[type=radio][name=who][value=asked][checked]"
+        assert_select "turbo-frame#who_to_include select#question_form_id option", text: "Meal Choices"
+        assert_no_match(/<html/, response.body, "just the frame")
+
+        get form_path(@form, who: "answered", question_id: @sandwich.id, answers: { @sandwich.id => [ "Slim 4" ] })
+        assert_select "turbo-frame#who_to_include", count: 0
+        assert_select "input[type=radio][name=who][value=answered][checked]"
+      end
+    end
+  end
+
+  test "people picked from another form that this form doesn't ask are listed as not answered" do
+    snacks = create_world_form("Snacks", include: [ @den_a ])
+    add_choice(snacks, "Snack", [ "Chips" ])
+    respond(snacks, :a1, as: :a1, answers: { "snack" => "Chips" })
+    picked = { who: "answered", question_form_id: @form.id, question_id: @sandwich.id, answers: { @sandwich.id => [ "Slim 4", "Big John" ] } }
+    with_feature do
+      as(:pack_leader) do
+        get form_path(snacks, picked)
+        assert_select "p", text: /People: 2 who answered/
+        assert_select "tr#person_#{person(:a1).id} td", text: "Chips"
+        assert_select "#havent-answered", text: "Haven't answered (1)"
+        assert_select "tr#person_#{person(:b1).id} td", text: "B1 World"
+        assert_select "#labels .fw-bold", text: "B1 World"
+
+        get form_path(snacks, picked.merge(team_id: @den_a.id))
+        assert_select "#havent-answered", count: 0, msg: "the team filter applies to them too"
+        get form_path(snacks, picked.merge(status: "complete"))
+        assert_select "#havent-answered", count: 0, msg: "they have no status to match"
+      end
+    end
+  end
+
+  test "people picked whose answers on this form the viewer can't see are counted" do
+    poll = create_world_form("Lunch Poll", read: "everyone")
+    lunch = add_choice(poll, "Lunch", [ "Yes", "No" ])
+    respond(poll, :a1, as: :a1, answers: { "lunch" => "Yes" })
+    respond(poll, :b1, as: :b1, answers: { "lunch" => "Yes" })
+    private_meals = create_world_form("Private Meals", respond: "self", read: "self_and_leaders")
+    with_feature do
+      as(:den_a_leader) do
+        get form_path(private_meals, who: "answered", question_form_id: poll.id, question_id: lunch.id, answers: { lunch.id => [ "Yes" ] })
+        assert_response :success
+        assert_select "tr#person_#{person(:a1).id}"
+        assert_select "tr#person_#{person(:b1).id}", count: 0
+        assert_select "#not-shown", text: "Not shown: 1 person whose answers you can't see."
       end
     end
   end

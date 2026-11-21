@@ -71,7 +71,7 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
         get print_list_forms_path(form_id: @meals.id, layout: "labels")
         follow_redirect!
         assert_response :success
-        assert_select "input[type=radio][name=who][value=asked][checked]"
+        assert_select "turbo-frame#who_to_include[src=?]", form_path(@meals, frame: "who_to_include"), msg: "everyone asked; other choices load when More choices opens"
         assert_select "input[type=radio][name=layout][value=labels][checked]"
         assert_select "#labels.d-print-flex .fw-bold", text: "A1 World"
 

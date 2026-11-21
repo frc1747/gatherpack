@@ -11,7 +11,6 @@
     <div class="text-muted">
       <%= @form.form_audience_rules.map(&:description).to_sentence.presence || "Asks nobody yet" %><% if @form.audience_badge && Form.badges_enabled? %>, <%= @form.audience_badge.name %> badge holders only<% end %>
       <% if @form.event %>· For <%= GatherPack::Features.enabled?(:events) ? link_to(@form.event.name, event_path(@form.event)) : @form.event.name %><% end %>
-      <% if @form.closes_at %>· Due <%= nice_datetime(@form.closes_at) %><% end %>
       <% if @form.completion_badge && Form.badges_enabled? %>· Completion badge: <%= @form.completion_badge.name %><% end %>
     </div>
     <% setting = manage && (@form.draft? || @form.closed?) %>
@@ -92,7 +91,15 @@
             </div>
 
             <h2 class="h6">Who to include</h2>
-            <div class="mb-3"><%= render "population_fields", population: @population, forms: @source_forms %></div>
+            <div class="mb-3">
+              <% if @source_forms %>
+                <%= render "population_fields", population: @population, forms: @source_forms %>
+              <% else %>
+                <%= turbo_frame_tag "who_to_include", src: form_path(@form, frame: "who_to_include"), loading: :lazy do %>
+                  <p class="text-muted mb-0">Loading…</p>
+                <% end %>
+              <% end %>
+            </div>
             <% if @population.ready? %>
               <% if @population.hidden_count.positive? %>
                 <p class="text-muted">Not included: <%= pluralize(@population.hidden_count, "person", plural: "people") %> whose answer to "<%= @population.question.label %>" you can't see.</p>
@@ -122,9 +129,13 @@
 
     <% if @population.source == "answered" && @population.ready? %>
       <p>People: <%= @population.description %></p>
+      <% if @not_shown_count.to_i.positive? %>
+        <p class="text-muted" id="not-shown">Not shown: <%= pluralize(@not_shown_count, "person", plural: "people") %> whose answers you can't see.</p>
+      <% end %>
     <% end %>
+    <% outside = @outside || [] %>
 
-    <% if @rows.empty? %>
+    <% if @rows.empty? && outside.empty? %>
       <p class="text-muted">Nobody here.</p>
     <% else %>
       <%= tag.div class: [ "table-responsive", ("d-print-none" if @layout == "labels") ], id: "responses", data: { form_results_target: "table" } do %>
@@ -184,6 +195,20 @@
                 <% end %>
               </tr>
             <% end %>
+            <% if outside.any? %>
+              <tr class="table-light" id="havent-answered"><th colspan="<%= 3 + @questions.size + @selected_fields.size %>">Haven't answered (<%= outside.size %>)</th></tr>
+              <% outside.each do |line| %>
+                <tr id="<%= dom_id line.person %>">
+                  <td><%= line.person.identifier_name %></td>
+                  <td>—</td>
+                  <td>—</td>
+                  <% @questions.each do %><td></td><% end %>
+                  <% @selected_fields.each do |field| %>
+                    <td class="table-info"><%= @outside_list.profile_readable?(line, field) ? person_field_display(field, @outside_list.profile(line, field)) : "·" %></td>
+                  <% end %>
+                </tr>
+              <% end %>
+            <% end %>
           </tbody>
         </table>
       <% end %>
@@ -200,6 +225,19 @@
               <% end %>
               <% @selected_fields.each do |field| %>
                 <% value = @report.profile(row, field) %>
+                <% next if value.blank? %>
+                <div><small class="text-muted"><%= field.name %>:</small> <%= form_csv_value(value) %></div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+        <% outside.each do |line| %>
+          <div class="col-6 col-lg-4">
+            <div class="border rounded p-2 h-100" style="page-break-inside: avoid;">
+              <div class="fw-bold"><%= line.person.identifier_name %></div>
+              <div><small class="text-muted">Haven't answered</small></div>
+              <% @selected_fields.each do |field| %>
+                <% value = @outside_list.profile(line, field) %>
                 <% next if value.blank? %>
                 <div><small class="text-muted"><%= field.name %>:</small> <%= form_csv_value(value) %></div>
               <% end %>

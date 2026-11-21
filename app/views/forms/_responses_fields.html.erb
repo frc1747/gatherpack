@@ -10,7 +10,9 @@
         collection: [ [ "draft", "Not yet: only people who manage the form can see it" ],
                       [ "open", "Yes, open now: it appears in My forms for the people it asks" ],
                       [ "closed", "No, closed: people can still read their answers but can't add or change them#{" (leaders still can)" if form.late_entry_leaders?}" ] ],
-        value_method: :first, label_method: :last %>
+        value_method: :first, label_method: :last, full_error: false %>
+  <%# The message alone, without "Status" in front of it. %>
+  <%= f.error :status, class: "invalid-feedback d-block mt-n2 mb-3" %>
 <% end %>
 <div class="row">
   <div class="col-md-6"><%= f.input :opens_at, label: "Opens", hint: "Optional. The form starts taking answers itself at this time." %></div>
