@@ -67,7 +67,19 @@ This list is for work that hasn't started. Once an item has a branch, it moves t
 | [BL-058](BL-058-form-creator-audience-teams.md) | Form creators get an empty team picker on a form's Audience tab; let admins name other teams (e.g. Mentors) creators may ask | fork-only | medium | waiting | 2026-11-19 |
 | [BL-059](BL-059-checklist-reminders.md) | Checklist reminders by email (and to guardians), with a "keep out of email" rule on fields and checklists so protected records only say "sign in" | fork-only | medium | waiting | 2026-11-21 |
 | [BL-060](BL-060-one-form-results-page.md) | One page for a form's responses: status, answers and totals (hideable) together, print/CSV from it; Taking answers becomes a plain choice in the form's setup; footer cut to Edit, Remind and a More menu | fork-only | medium | waiting | 2026-11-21 |
-| [BL-061](BL-061-screen-audit-and-standard.md) | Audit every screen (fork and upstream) by layer and audience, write one standard per screen kind (layout, button placement and words, state changes, where configuration lives), and plan the fix-up items | fork-only | high | waiting | 2026-11-21 |
+| [BL-061](BL-061-screen-audit-and-standard.md) | Audit every screen (fork and upstream) by layer and audience, write one standard per screen kind (layout, button placement and words, state changes, where configuration lives), and plan the fix-up items | fork-only | high | done | 2026-11-21 |
+| [BL-062](BL-062-screen-kit.md) | Screen kit: shared partials (header and state line, action row with More, inline confirm, filter bar, people table, tabs) and grey Cancel on upstream forms behind a flag; first of the screen fix-ups | fork-only (screens) | high | waiting | 2026-11-21 |
+| [BL-063](BL-063-screens-home.md) | Home and My GatherPack screens to the screen standard (Hours footer into More, Activity filter, Family shifts row) | fork-only (screens) | high | waiting | 2026-11-21 |
+| [BL-064](BL-064-screens-forms.md) | Forms screens to the standard after BL-060: one job button and More on a response page, reminder and edit footers, forms list | fork-only (screens) | high | waiting | 2026-11-21 |
+| [BL-065](BL-065-screens-signups.md) | Sign-up sheets to the standard: Edit not "Set up", Taking sign-ups choice, setup tabs, "Cancel sign-up" for members | fork-only (screens) | high | waiting | 2026-11-21 |
+| [BL-066](BL-066-screens-checklists.md) | Checklists to the standard: header buttons to an action row with More, Counting choice, setup tabs | fork-only (screens) | high | waiting | 2026-11-21 |
+| [BL-067](BL-067-screens-events.md) | Event page panels (forms, sign-ups) in one shape with one row button each | fork-only (screens) | medium | waiting | 2026-11-21 |
+| [BL-068](BL-068-screens-profiles.md) | Profile tabs (Forms, Checklists, Commitments) and intake's application rows to the standard | fork-only (screens) | medium | waiting | 2026-11-21 |
+| [BL-069](BL-069-screens-orders.md) | Orders to the standard: one job button and More on a request, line actions in More, settings footer | fork-only (screens) | medium | waiting | 2026-11-21 |
+| [BL-070](BL-070-screens-commitments.md) | Commitments to the standard: Edit not "Set up", action row with More, setup tabs | fork-only (screens) | medium | waiting | 2026-11-21 |
+| [BL-071](BL-071-screens-inventory.md) | Inventory to the standard: item and place pages with Edit, one job and More; no repeated list links; setup footer | fork-only (screens) | medium | waiting | 2026-11-21 |
+| [BL-072](BL-072-screens-intake.md) | Intake leader pages: breadcrumbs, Taking registrations choice instead of "Close now", action row | fork-only (screens) | low | waiting | 2026-11-21 |
+| [BL-073](BL-073-screens-setup-only.md) | Setup-only fork screens (person fields, managed lists, housekeeping, widgets, merge, MCP log) to the standard | fork-only (screens) | low | waiting | 2026-11-21 |
 
 ## Fields
 
