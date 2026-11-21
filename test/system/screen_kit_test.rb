@@ -181,6 +181,17 @@ class ScreenKitTest < ApplicationSystemTestCase
     end
   end
 
+  test "the column chooser keeps stored names that aren't on this page" do
+    visit badge_types_path
+    execute_script(%q(localStorage.setItem("columns:kit-people", JSON.stringify(["Shirt size"]))))
+    add_people_table
+    within "#kit-table" do
+      click_on "Columns"
+      uncheck "Allergies"
+    end
+    assert_equal [ "Shirt size", "Allergies" ], JSON.parse(evaluate_script(%q(localStorage.getItem("columns:kit-people"))))
+  end
+
   test "changes inside a wait marker under More choices apply only with Show" do
     visit badge_types_path
     add_filter_bar more: <<~HTML.html_safe

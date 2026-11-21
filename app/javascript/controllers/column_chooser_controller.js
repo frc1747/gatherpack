@@ -31,7 +31,11 @@ export default class extends Controller {
       .filter((choice) => !choice.fixed && choice.text !== "")
     if (this.choices.length === 0) return
 
-    this.hidden = new Set(this.load().filter((text) => this.choices.some((choice) => choice.text === text)))
+    // Stored names not on this page (a column shown only sometimes, another
+    // page sharing the key) are kept, so saving here doesn't forget them.
+    const stored = this.load()
+    this.elsewhere = stored.filter((text) => !this.choices.some((choice) => choice.text === text))
+    this.hidden = new Set(stored.filter((text) => this.choices.some((choice) => choice.text === text)))
     if (this.choices.every((choice) => this.hidden.has(choice.text))) this.hidden.clear()
 
     this.menu = this.buildMenu()
@@ -150,8 +154,9 @@ export default class extends Controller {
 
   save() {
     try {
-      if (this.hidden.size === 0) window.localStorage.removeItem(this.storageKey)
-      else window.localStorage.setItem(this.storageKey, JSON.stringify([ ...this.hidden ]))
+      const names = [ ...this.elsewhere, ...this.hidden ]
+      if (names.length === 0) window.localStorage.removeItem(this.storageKey)
+      else window.localStorage.setItem(this.storageKey, JSON.stringify(names))
     } catch {
       // Storage may be off (private window); the choice lasts until the page changes.
     }
