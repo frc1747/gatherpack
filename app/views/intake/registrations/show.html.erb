@@ -1,0 +1,92 @@
+<% breadcrumb :intake_registration, @registration %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: @registration.title, summary: @registration.description.presence,
+    state: state_line(intake_registration_state(@registration), link_text: "Change", link_path: edit_intake_registration_path(@registration)) %>
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Dates</dt>
+      <dd class="col-sm-9"><%= l @registration.opens_at, format: :long %> to <%= @registration.closes_at ? l(@registration.closes_at, format: :long) : "no end" %></dd>
+      <dt class="col-sm-3">Run by</dt>
+      <dd class="col-sm-9"><%= as_badge @registration.team %></dd>
+      <% if @registration.self_service? %>
+        <dt class="col-sm-3">Link</dt>
+        <dd class="col-sm-9"><code><%= intake_join_url(@registration.slug) %></code></dd>
+        <dt class="col-sm-3">Bot check</dt>
+        <dd class="col-sm-9"><%= Intake::BotCheck.installed? ? Intake::BotCheck.adapter.name : "No bot check" %> (a hidden field and a minimum time always run)</dd>
+      <% end %>
+      <% if @registration.kiosk? %>
+        <dt class="col-sm-3">Kiosk</dt>
+        <dd class="col-sm-9"><%= link_to intake_kiosk_url(@registration.slug), intake_kiosk_path(@registration.slug) %> (open it on the kiosk account)</dd>
+      <% end %>
+      <dt class="col-sm-3">Teams</dt>
+      <dd class="col-sm-9"><%= safe_join(@registration.apply_teams.map { |team| as_badge team }, " ") %></dd>
+      <% preview = { "Also adds to" => @registration.also_add_teams.pluck(:name), "Also gives" => @registration.badges.pluck(:name),
+        "Approver picks one of" => @registration.pick_one_teams.pluck(:name), "Adds guardians to" => @registration.guardian_also_add_teams.pluck(:name) } %>
+      <% preview.each do |label, names| %>
+        <% next if names.empty? %>
+        <dt class="col-sm-3"><%= label %></dt>
+        <dd class="col-sm-9"><%= names.to_sentence %></dd>
+      <% end %>
+      <dt class="col-sm-3">Applications</dt>
+      <dd class="col-sm-9">
+        <%= %w[pending approved denied].map { |status| "#{@application_counts[MembershipApplication.statuses[status]] || @application_counts[status] || 0} #{status}" }.join(", ") %>
+        <% @registration.apply_teams.select(&:requires_approval?).each do |team| %>
+          · <%= link_to "Review #{team.name}", applications_team_path(team) %>
+        <% end %>
+      </dd>
+    </dl>
+  </div>
+  <%= render "shared/action_row", actions: [
+    screen_action("Edit", edit_intake_registration_path(@registration), style: :warning),
+    screen_action("Waiting to finish", waiting_intake_registration_path(@registration), visible: @registration.kiosk?),
+    screen_action("Duplicate", copy_intake_registration_path(@registration), more: true),
+    screen_action("Delete", intake_registration_path(@registration), method: :delete, destructive: true,
+      confirm: "Delete this registration and its sign-ups? Applications stay.")
+  ] %>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><h2 class="h5 mb-0">Sign-ups by day (last 30 days)</h2></div>
+  <div class="card-body">
+    <% if @entries_by_day.any? %>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Day</th><th>Started</th><th>Email confirmed</th></tr></thead>
+        <tbody>
+          <% @entries_by_day.each do |day, count| %>
+            <tr><td><%= l day.to_date, format: :long %></td><td><%= count %></td><td><%= @verified_by_day[day] || 0 %></td></tr>
+          <% end %>
+        </tbody>
+      </table></div>
+    <% else %>
+      <p class="text-muted mb-0">No sign-ups yet.</p>
+    <% end %>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><h2 class="h5 mb-0">Waiting for email confirmation</h2></div>
+  <div class="card-body">
+    <% if @unverified_entries.any? %>
+      <%= form_with url: entries_intake_registration_path(@registration), method: :delete, data: { turbo_confirm: "Delete the selected sign-ups?" } do %>
+        <div class="table-responsive"><table class="table table-sm align-middle">
+          <thead><tr><th></th><th>Name</th><th>Started</th><th>Network</th><th></th></tr></thead>
+          <tbody>
+            <% @unverified_entries.each do |entry| %>
+              <tr>
+                <td><%= check_box_tag "entry_ids[]", entry.id, false, id: "entry_#{entry.id}", class: "form-check-input", aria: { label: "Select #{entry.first_name}" } %></td>
+                <td><%= entry.first_name %> <%= entry.last_name %></td>
+                <td><%= time_ago_in_words(entry.created_at) %> ago</td>
+                <td><%= entry.created_ip_prefix || "—" %></td>
+                <td><%= link_to "Send again", resend_intake_registration_entry_path(@registration, entry), data: { turbo_method: :post }, class: "btn btn-sm btn-outline-secondary" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table></div>
+        <%= submit_tag "Delete selected", class: "btn btn-outline-danger" %>
+      <% end %>
+    <% else %>
+      <p class="text-muted mb-0">Nobody is waiting.</p>
+    <% end %>
+  </div>
+</div>

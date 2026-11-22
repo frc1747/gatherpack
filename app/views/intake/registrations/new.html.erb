@@ -1,0 +1,12 @@
+<% breadcrumb :intake_registration, @registration %>
+
+<div class="card">
+  <div class="card-header"><h1 class="mb-0">New Registration</h1></div>
+  <div class="card-body">
+    <%= simple_form_for @registration, url: intake_registrations_path do |f| %>
+      <%= render "form", f: f %>
+      <%= link_to "Cancel", intake_registrations_path, class: "btn btn-secondary" %>
+      <%= f.button :submit, "Create Registration", class: "btn-primary" %>
+    <% end %>
+  </div>
+</div>
