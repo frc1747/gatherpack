@@ -160,7 +160,7 @@
     <%= render "shared/people_table", rows: @rows, status: (status_cell if @show_status), columns: columns,
           link: ->(row) { form_response_path(@form, row.person) },
           table_class: "table table-striped table-sm align-middle",
-          wrapper: { id: "responses", class: ("d-print-none" if @layout == "labels"), data: { form_results_target: "table" } },
+          wrapper: { id: "responses", class: ("d-print-none" if @layout == "labels"), data: { form_results_target: "table", controller: "table-filter" } },
           rows_after: havent_answered %>
 
     <% unless @rows.empty? && outside.empty? %>
