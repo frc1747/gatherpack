@@ -47,21 +47,38 @@ module Checklists
         model.include(Watched) unless model < Watched
       end
 
+      # Inside Checklists.batch the record waits for changed_all.
       def changed(record)
-        name = record.class.name
-        if (population = POPULATION[name])
-          people = population.call(record)
-          Checklists.mark(Checklist.refreshable.to_a, people) if people == :all || people.any?
-        end
+        return Checklists.current_batch << record if Checklists.current_batch
+
+        changed_all([ record ])
+      end
+
+      # Marks once for many changed records: the population's people, then
+      # each kind's, with each checklist read and marked once.
+      def changed_all(records)
+        population = records.filter_map { |record| POPULATION[record.class.name]&.call(record) }
+        mark_union(Checklist.refreshable.to_a, population) if population.any?
 
         Checklists.item_kinds.each do |kind_name, kind|
           kind.invalidations.each do |model, people|
-            next unless record.is_a?(model)
+            matching = records.select { |record| record.is_a?(model) }
+            next if matching.empty?
 
             checklists = Checklist.refreshable.where(id: ChecklistItem.where(kind: kind_name).select(:checklist_id)).to_a
-            Checklists.mark(checklists, people.call(record))
+            mark_union(checklists, matching.map { |record| people.call(record) })
           end
         end
+      end
+
+      private
+
+      # Each entry is :all or person ids.
+      def mark_union(checklists, entries)
+        return if checklists.empty?
+
+        people = entries.include?(:all) ? :all : entries.flatten.compact.uniq
+        Checklists.mark(checklists, people) if people == :all || people.any?
       end
     end
   end

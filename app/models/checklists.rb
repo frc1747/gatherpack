@@ -129,6 +129,34 @@ module Checklists
       Person.where(id: Checklists::Population.new(checklist).person_ids)
     end
 
+    # Holds back the marking a change sets off (Invalidation.changed) until
+    # the block ends, then marks once for everything it changed, so a bulk
+    # operation (moving 150 people, say) costs a few queries per checklist,
+    # not a few per checklist per change (spec risks: write storms).
+    #
+    #   Checklists.batch { people.each { |person| ... } }
+    def batch
+      return yield if Thread.current[:checklists_batch]
+
+      begin
+        Thread.current[:checklists_batch] = []
+        yield
+      ensure
+        changes = Thread.current[:checklists_batch]
+        Thread.current[:checklists_batch] = nil
+        begin
+          Invalidation.changed_all(changes) if changes.present?
+        rescue StandardError => e
+          Rails.logger.error("Checklists couldn't mark results after a batch of changes: #{e.class}: #{e.message}")
+        end
+      end
+    end
+
+    # The batch collecting changes, or nil outside one.
+    def current_batch
+      Thread.current[:checklists_batch]
+    end
+
     # Marks people's stored results for recomputation and queues one refresh
     # per checklist, 30 seconds out, so a burst of changes is one run.
     # person_ids :all marks the whole checklist.
