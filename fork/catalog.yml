@@ -700,6 +700,14 @@ feature/print-style:
     - name: Print style
       key: print_css
 
+feature/brakeman-8.1.1:
+  title: Security scanner update
+  emoji: "🛡️"
+  description: >-
+    Updates the security scanner the release checks run, so a release can
+    be published. Nothing looks different.
+  audience: No one (release checks)
+
 feature/checklists-reminders:
   title: Checklist reminders
   emoji: "📬"
