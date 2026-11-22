@@ -192,6 +192,33 @@ class ScreenKitTest < ApplicationSystemTestCase
     assert_equal [ "Shirt size", "Allergies" ], JSON.parse(evaluate_script(%q(localStorage.getItem("columns:kit-people"))))
   end
 
+  test "applying a choice keeps the page where it was scrolled to" do
+    page.driver.browser.manage.window.resize_to(1200, 700)
+    visit badge_types_path
+    tall = "<div id='kit-tall' style='height: 2000px'></div>"
+    execute_script("document.querySelector('main').insertAdjacentHTML('afterbegin', arguments[0])", tall)
+    add_filter_bar more: "<label><input type='checkbox' name='late' value='1'> Late</label>".html_safe
+    execute_script("document.querySelector('main').append(document.getElementById('kit-filter'))")
+    find("#kit-filter summary").click
+    execute_script("document.getElementById('kit-filter').scrollIntoView()")
+    before = evaluate_script("window.scrollY")
+    assert_operator before, :>, 500
+    check "Late"
+    assert_current_path "#{badge_types_path}?season=2026&late=1"
+
+    # The page that comes back has its own filter bar; the kit's controller
+    # restores the place when it connects.
+    execute_script("document.querySelector('main').insertAdjacentHTML('afterbegin', arguments[0])", tall)
+    add_filter_bar more: "<label><input type='checkbox' name='late' value='1'> Late</label>".html_safe
+    after = nil
+    20.times do
+      after = evaluate_script("window.scrollY")
+      break if (after - before).abs <= 5
+      sleep 0.05
+    end
+    assert_in_delta before, after, 5, "height #{evaluate_script('document.documentElement.scrollHeight')}"
+  end
+
   test "changes inside a wait marker under More choices apply only with Show" do
     visit badge_types_path
     add_filter_bar more: <<~HTML.html_safe
