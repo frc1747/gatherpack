@@ -1,0 +1,12 @@
+<%# locals: (text:, path: nil) -%>
+<%# The confirmation after a change, drawn like the layout's flash, with Undo
+    as its own link when path is given. It sticks to the top of a phone
+    screen while the page scrolls. %>
+<div class="inventory-toast alert alert-info alert-dismissible fade show shadow" role="status">
+  <i class="bi flex-shrink-0 me-2 fa-solid fa-circle-info"></i>
+  <%= text %>
+  <% if path %>
+    <%= link_to "Undo", path, class: "alert-link d-inline-block ms-1 py-2", data: { turbo_method: :post } %>
+  <% end %>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
