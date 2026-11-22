@@ -24,6 +24,11 @@
         <a href="<%= statistics_person_path(@person) %>" class="nav-link <%= "active" if current_page?(statistics_person_path(@person)) %>">Statistics</a>
       </li>
     <% end %>
+    <% if person_forms_tab?(@person) %>
+      <li class="nav-item">
+        <a href="<%= person_forms_path(@person) %>" class="nav-link <%= "active" if current_page?(person_forms_path(@person)) %>">Forms</a>
+      </li>
+    <% end %>
 
   </ul>
 </div>
