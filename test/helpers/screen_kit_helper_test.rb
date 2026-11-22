@@ -332,9 +332,9 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select "form [data-column-chooser-target=slot]", 0
   end
 
-  test "column_chooser_data gives a hand-written wrapper the chooser and keeps its own controller" do
-    assert_equal({ controller: "column-chooser", column_chooser_key_value: "orders-report" }, column_chooser_data("orders-report"))
-    assert_equal({ controller: "form-results column-chooser", column_chooser_key_value: "form-results", form_results_target: "table" },
+  test "column_chooser_data gives a hand-written wrapper the chooser and the table filter, and keeps its own controller" do
+    assert_equal({ controller: "column-chooser table-filter", column_chooser_key_value: "orders-report" }, column_chooser_data("orders-report"))
+    assert_equal({ controller: "form-results column-chooser table-filter", column_chooser_key_value: "form-results", form_results_target: "table" },
       column_chooser_data("form-results", controller: "form-results", form_results_target: "table"))
   end
 
@@ -345,17 +345,17 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select "form[data-controller=filter-bar] details [data-filter-bar-wait] select", 2
   end
 
-  test "people_table's choose_columns: adds the chooser and keeps Person fixed" do
+  test "people_table's choose_columns: adds the chooser and the table filter, and keeps Person fixed" do
     row = Struct.new(:person, :allergy).new(Person.create!(first_name: "Nadia", last_name: "Northwind"), "Peanuts")
     render "shared/people_table", rows: [ row ], choose_columns: "signups-roster",
       wrapper: { data: { form_results_target: "table" } }, columns: [ [ "Allergies", ->(r) { r.allergy } ] ]
 
-    assert_select "div.table-responsive[data-controller=column-chooser][data-column-chooser-key-value=signups-roster][data-form-results-target=table]"
+    assert_select "div.table-responsive[data-controller='column-chooser table-filter'][data-column-chooser-key-value=signups-roster][data-form-results-target=table]"
     assert_select "th[data-column-chooser-fixed]", text: "Person"
     assert_select "th:not([data-column-chooser-fixed])", text: "Allergies"
 
     render "shared/people_table", rows: [ row ]
-    assert_select "[data-controller=column-chooser]", 0
+    assert_select "[data-controller]", 0
     assert_select "th[data-column-chooser-fixed]", text: "Person"
   end
 

@@ -9,7 +9,7 @@
     class: added to table-responsive); rows_after: more rows (HTML) at the end
     of the body, such as a group of people listed apart; choose_columns: a
     key (such as "signups-roster") to offer a Columns chooser, remembered per
-    viewer under that key. Person is always shown, also when a chooser on
+    viewer under that key, and sorting and filtering by the headings. Person is always shown, also when a chooser on
     an outer wrapper (column_chooser_data) covers the table. %>
 <% if rows.empty? && rows_after.blank? %>
   <%= render "shared/empty_state", text: empty %>
