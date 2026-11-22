@@ -134,7 +134,7 @@
          next tag.span("·", class: "text-muted", title: "You can't see this answer") unless @report.readable?(row, question)
          safe_join([
            (form_answer_display(question, @report.answer(row, question)) if row.submission),
-           (tag.span("Profile changed", class: "badge text-bg-warning", title: "Profile now: #{form_csv_value(row.person.field_value(question.person_field))}") if @report.changed_since_signed?(row, question))
+           (safe_join([ tag.br, tag.small("Profile now: #{form_csv_value(row.person.field_value(question.person_field)).presence || "blank"}", class: "text-warning-emphasis", title: "The profile was changed after this was submitted") ]) if @report.changed_since_signed?(row, question))
          ].compact, " ")
        end %>
     <% columns = (@show_submitted ? [ [ "Submitted", submitted_cell ] ] : []) +

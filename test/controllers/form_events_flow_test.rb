@@ -114,7 +114,7 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a long tick list keeps every box in the form and never hides a ticked one" do
+  test "a long tick list shows every box, in its own order, in columns" do
     with_feature do
       as(:pack_leader) do
         questions = (1..11).map { |number| @meals.form_questions.create!(label: "Note #{number}", data_type: :string) }
@@ -124,21 +124,17 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
         assert_response :success
 
         assert_select "input[type=checkbox][name=?]", "question_ids[]", count: 12
-        assert_select "button[hidden]", text: "Show all 12", count: 1
         ticked.each { |question| assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", question.id }
-        assert_select "[data-tick-list-target=extra] input[checked]", count: 0
-
-        # Two ticked boxes plus the first four: Sandwich and Notes 1 to 3.
-        assert_select "[data-tick-list-target=extra] input[name=?]", "question_ids[]", count: 6
-        [ @sandwich, *questions.first(3) ].each do |question|
-          assert_select "[data-tick-list-target=extra] input[value=?]", question.id, count: 0
-        end
-        assert_select "[data-tick-list-target=extra] input[value=?]", questions[3].id
+        values = css_select("input[type=checkbox][name='question_ids[]']").map { |box| box["value"] }
+        assert_equal [ @sandwich, *questions ].map { |question| question.id.to_s }, values, "ticking a box doesn't move it"
+        assert_select "button", text: /Show all/, count: 0
+        assert_select "[hidden] input[type=checkbox]", count: 0
+        assert_select "div[style*=columns]"
       end
     end
   end
 
-  test "a long list of answers keeps the ticked answer visible and still picks people by it" do
+  test "a long list of answers shows every answer and still picks people by it" do
     with_feature do
       as(:pack_leader) do
         choices = (1..10).map { |number| "Choice #{number}" }
@@ -150,14 +146,12 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
         name = "answers[#{question.id}][]"
         assert_select "input[type=checkbox][name=?]", name, count: 10
         assert_select "input[type=checkbox][name=?][value=?][checked]", name, "Choice 10"
-        assert_select "[data-tick-list-target=extra] input[name=?]", name, count: 4
-        assert_select "[data-tick-list-target=extra] input[name=?][checked]", name, count: 0
-        assert_select "button", text: "Show all 10", count: 1
+        assert_select "button", text: /Show all/, count: 0
       end
     end
   end
 
-  test "a short tick list has no Show all and no columns" do
+  test "a short tick list has no columns" do
     with_feature do
       as(:pack_leader) do
         7.times { |number| @meals.form_questions.create!(label: "Note #{number}", data_type: :string) }
@@ -166,9 +160,6 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
         assert_response :success
 
         assert_select "input[type=checkbox][name=?]", "question_ids[]", count: 8
-        assert_select "button", text: /Show all/, count: 0
-        assert_select "[data-controller=tick-list]", count: 0
-        assert_select "[data-tick-list-target]", count: 0
         assert_select "div[style*=columns]", count: 0
       end
     end
