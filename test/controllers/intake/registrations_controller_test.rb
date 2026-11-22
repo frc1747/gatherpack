@@ -17,7 +17,7 @@ class Intake::RegistrationsControllerTest < ActionDispatch::IntegrationTest
       get intake_registrations_path
       assert_response :success
       assert_match "Join Northwind", response.body
-      assert_select ".table-responsive[data-controller=column-chooser][data-column-chooser-key-value=intake-registrations]"
+      assert_select ".table-responsive[data-controller~=column-chooser][data-column-chooser-key-value=intake-registrations]"
 
       assert_difference -> { Intake::Registration.count } do
         post intake_registrations_path, params: { intake_registration: { team_id: @northwind.id, title: "Mentors", opens_at: "2026-12-01T09:00",
