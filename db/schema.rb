@@ -255,6 +255,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.index ["team_id"], name: "index_commitments_on_team_id"
   end
 
+  create_table "digest_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.date "delivered_on", null: false
+    t.boolean "sent", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["delivered_on"], name: "index_digest_deliveries_on_delivered_on"
+    t.index ["person_id", "delivered_on"], name: "index_digest_deliveries_on_person_id_and_delivered_on", unique: true
+  end
+
   create_table "event_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name"
@@ -619,6 +629,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.index ["person_id"], name: "index_memberships_on_person_id"
     t.index ["team_id", "person_id"], name: "index_memberships_on_team_id_and_person_id", unique: true
     t.index ["team_id"], name: "index_memberships_on_team_id"
+  end
+
+  create_table "notice_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.string "key", null: false
+    t.string "delivery", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id", "key"], name: "index_notice_preferences_on_person_id_and_key", unique: true
   end
 
   create_table "oauth_access_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1222,8 +1241,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
   add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
-  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
+  add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
   add_foreign_key "commitment_organizers", "people", on_delete: :cascade
   add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
@@ -1233,6 +1252,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "commitments", "relationship_types", column: "group_relationship_type_id"
   add_foreign_key "commitments", "teams"
   add_foreign_key "commitments", "teams", column: "owing_team_id"
+  add_foreign_key "digest_deliveries", "people", on_delete: :cascade
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
@@ -1279,6 +1299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "memberships", "people"
   add_foreign_key "memberships", "teams"
   add_foreign_key "memberships", "teams", column: "inherited_id"
+  add_foreign_key "notice_preferences", "people", on_delete: :cascade
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
