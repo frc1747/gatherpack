@@ -12,12 +12,21 @@ import { Controller } from "@hotwired/stimulus"
 // Headings with no text or marked data-table-filter-skip, and columns whose
 // cells hold form fields, get neither. Inside data-table-filter="off" nothing
 // is added. Rows with a different cell count from the headings (separators)
-// are never hidden and sort last.
+// are never hidden and stay in place; the rows between two sort on their own.
+// A hidden row's fields are disabled, so a form around the table leaves them
+// out; footer rows (totals of every row) hide while any filter is on.
 const SEARCH_AFTER = 12
 const FIELDS = "input:not([type=hidden]), select, textarea"
+const CONTROLS = "a, button, .dropdown, " + FIELDS
 
+// As the Columns chooser reads it: the labelled element's text, else the
+// heading's text without the funnel menu.
 function headingText(cell) {
-  return (cell.querySelector("[data-column-chooser-label]") || cell).textContent.trim()
+  const label = cell.querySelector("[data-column-chooser-label]")
+  if (label) return label.textContent.trim()
+  return [ ...cell.childNodes ]
+    .filter((node) => !(node.nodeType === Node.ELEMENT_NODE && node.matches("[data-table-filter-menu]")))
+    .map((node) => node.textContent).join("").trim()
 }
 
 function cellValue(cell) {
@@ -51,7 +60,7 @@ export default class extends Controller {
     this.element.querySelectorAll("[data-table-filter-menu], [data-table-filter-arrow], [data-table-filter-clear]").forEach((node) => node.remove())
     this.anchor = this.tables[0].closest(".table-responsive") || this.tables[0]
     if (this.anchor.previousElementSibling?.matches("[data-table-filter-clear]")) this.anchor.previousElementSibling.remove()
-    for (const row of this.bodyRows()) this.show(row, true)
+    for (const row of [ ...this.bodyRows(), ...this.footRows() ]) this.show(row, true)
 
     this.filters = new Map() // heading text -> Set of ticked values
     this.sorted = null
@@ -67,6 +76,10 @@ export default class extends Controller {
 
   bodyRows(table) {
     return (table ? [ table ] : this.tables).flatMap((t) => [ ...t.tBodies ].flatMap((body) => [ ...body.rows ]))
+  }
+
+  footRows() {
+    return this.tables.flatMap((table) => [ ...(table.tFoot?.rows || []) ])
   }
 
   // Columns by heading text: their headings, their cell index in each table,
@@ -95,33 +108,42 @@ export default class extends Controller {
     return columns
   }
 
+  // The heading's name becomes the sort target: its labelled element, else a
+  // span around its text when that holds the whole name. A heading whose name
+  // shares the cell with a link or button sorts on a click anywhere in it
+  // outside those, so the Columns chooser still reads its full text.
   decorate(heading, text, column) {
     let label = heading.querySelector("[data-column-chooser-label]")
     if (!label) {
-      label = document.createElement("span")
-      label.setAttribute("data-column-chooser-label", "")
-      label.setAttribute("data-table-filter-label", "")
-      const nodes = [ ...heading.childNodes ].filter((node) => !(node.nodeType === Node.ELEMENT_NODE && node.matches("a, button, .dropdown, " + FIELDS)))
-      heading.prepend(label)
-      label.append(...nodes)
-    }
-    // A heading whose name is a link (a server-side sort) keeps only that.
-    if (label.textContent.trim() !== "") {
-      label.setAttribute("role", "button")
-      label.tabIndex = 0
-      label.onclick = () => this.sort(text)
-      label.onkeydown = (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return
-        event.preventDefault()
-        this.sort(text)
+      const nodes = [ ...heading.childNodes ].filter((node) => !(node.nodeType === Node.ELEMENT_NODE && node.matches(CONTROLS)))
+      const wrapped = nodes.map((node) => node.textContent).join("").trim()
+      if (wrapped !== "" && wrapped === heading.textContent.trim()) {
+        label = document.createElement("span")
+        label.setAttribute("data-column-chooser-label", "")
+        label.setAttribute("data-table-filter-label", "")
+        heading.prepend(label)
+        label.append(...nodes)
       }
+    }
+    const target = label || heading
+    target.tabIndex = 0
+    if (label) label.setAttribute("role", "button")
+    target.onclick = (event) => {
+      if (!label && event.target.closest(CONTROLS)) return
+      this.sort(text)
+    }
+    target.onkeydown = (event) => {
+      if ((event.key !== "Enter" && event.key !== " ") || event.target !== target) return
+      event.preventDefault()
+      this.sort(text)
     }
     // Icons are redrawn, not restyled: Font Awesome swaps each <i> for an <svg>.
     const arrow = document.createElement("span")
     arrow.className = "ms-1"
     arrow.setAttribute("data-table-filter-arrow", "")
     arrow.setAttribute("aria-hidden", "true")
-    label.after(arrow)
+    if (label) label.after(arrow)
+    else heading.append(arrow)
     arrow.after(this.buildMenu(text, column))
   }
 
@@ -213,13 +235,24 @@ export default class extends Controller {
         }))
       }
     }
+    for (const row of this.footRows()) this.show(row, this.filters.size === 0)
     this.placeClearLink()
     this.clearLink.hidden = this.filters.size === 0
   }
 
+  // Fields the filter disabled are marked, so ones disabled before stay so.
   show(row, shown) {
     row.hidden = !shown
     row.classList.toggle("table-filter-hidden", !shown)
+    for (const field of row.querySelectorAll("input, select, textarea, button")) {
+      if (shown && field.hasAttribute("data-table-filter-disabled")) {
+        field.disabled = false
+        field.removeAttribute("data-table-filter-disabled")
+      } else if (!shown && !field.disabled) {
+        field.disabled = true
+        field.setAttribute("data-table-filter-disabled", "")
+      }
+    }
   }
 
   sort(text) {
@@ -230,10 +263,19 @@ export default class extends Controller {
       if (index === undefined) continue
       const width = table.tHead.rows[0].cells.length
       for (const body of table.tBodies) {
-        const rows = [ ...body.rows ]
-        const sortable = rows.filter((row) => row.cells.length === width)
-        sortable.sort((a, b) => (ascending ? 1 : -1) * compare(sortKey(a.cells[index]), sortKey(b.cells[index])))
-        body.append(...sortable, ...rows.filter((row) => row.cells.length !== width))
+        const order = []
+        let block = []
+        const flush = () => {
+          block.sort((a, b) => (ascending ? 1 : -1) * compare(sortKey(a.cells[index]), sortKey(b.cells[index])))
+          order.push(...block)
+          block = []
+        }
+        for (const row of body.rows) {
+          if (row.cells.length === width) block.push(row)
+          else { flush(); order.push(row) }
+        }
+        flush()
+        body.append(...order)
       }
     }
     for (const [ name, column ] of this.columns) {

@@ -11,9 +11,13 @@ import { Controller } from "@hotwired/stimulus"
 // else just above the table.
 // A heading's name in the list: the text of an element inside it marked
 // data-column-chooser-label (for headings that also hold controls, such as a
-// filter menu), else all its text.
+// filter menu), else all its text but a table-filter funnel menu's.
 function headingText(cell) {
-  return (cell.querySelector("[data-column-chooser-label]") || cell).textContent.trim()
+  const label = cell.querySelector("[data-column-chooser-label]")
+  if (label) return label.textContent.trim()
+  return [ ...cell.childNodes ]
+    .filter((node) => !(node.nodeType === Node.ELEMENT_NODE && node.matches("[data-table-filter-menu]")))
+    .map((node) => node.textContent).join("").trim()
 }
 
 export default class extends Controller {

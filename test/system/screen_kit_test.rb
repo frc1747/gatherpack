@@ -254,18 +254,19 @@ class ScreenKitTest < ApplicationSystemTestCase
   end
 
   test "clicking a heading sorts its rows, again reverses, and numbers and dates compare as such" do
-    add_filter_table [ [ "Ben", "$1,200", "2026-03-01", "Build" ], [ "ana", "$90", "2025-12-24", "Code" ], [ "Cleo", "$5", "2026-01-15", "" ] ]
+    add_filter_table [ [ "Ben", "$1,200", "2026-03-01", "Build" ], [ "ana", "$90", "2025-12-24", "Code" ], [ "Cleo", "$5", "2026-01-15", "" ] ],
+      after: [ [ "Zed", "$3", "2024-01-01", "Build" ], [ "Abe", "$40", "2027-01-01", "Code" ] ]
     within "#kit-filter-table" do
       find("[role=button]", text: "Name").click
-      assert_equal %w[ana Ben Cleo Later], first_cells
+      assert_equal %w[ana Ben Cleo Later Abe Zed], first_cells
       assert_selector "th[aria-sort=ascending] [data-table-filter-arrow] .fa-arrow-up"
       find("[role=button]", text: "Name").click
-      assert_equal %w[Cleo Ben ana Later], first_cells
+      assert_equal %w[Cleo Ben ana Later Zed Abe], first_cells
       assert_selector "th[aria-sort=descending] [data-table-filter-arrow] .fa-arrow-down"
       find("[role=button]", text: "Amount").click
-      assert_equal %w[Cleo ana Ben Later], first_cells
+      assert_equal %w[Cleo ana Ben Later Zed Abe], first_cells
       find("[role=button]", text: "Due").click
-      assert_equal %w[ana Cleo Ben Later], first_cells
+      assert_equal %w[ana Cleo Ben Later Zed Abe], first_cells
       assert_selector "th[aria-sort]", count: 1
     end
   end
@@ -379,6 +380,67 @@ class ScreenKitTest < ApplicationSystemTestCase
     end
   end
 
+  test "a heading holding a link or a button keeps its full name for Columns and sorts outside the control" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ] ],
+      headings: [ '<a href="#by-name">Name</a>'.html_safe, "Amount", "Due", 'Team <button type="button" id="team-help">?</button>'.html_safe ]
+    within "#kit-filter-table" do
+      assert_no_selector "th:first-child [data-table-filter-label], th:nth-child(4) [data-table-filter-label]"
+      assert_selector "th:nth-child(2) [data-table-filter-label][role=button]", text: "Amount"
+      click_on "Columns"
+      assert_equal [ "Name", "Amount", "Due", "Team ?" ], all("[data-column-chooser-menu] .dropdown-menu label").map(&:text)
+      uncheck "Name"
+      assert_no_selector "th", text: "Name"
+      assert_no_selector "td", text: "Ben"
+      check "Name"
+      find("#team-help").click
+      assert_no_selector "th[aria-sort]"
+      execute_script("arguments[0].click()", find("th", text: "Team"))
+      assert_selector "th[aria-sort=ascending]", text: "Team"
+      assert_equal %w[Ben Ana Later], first_cells
+      execute_script("arguments[0].click()", find("th", text: "Name"))
+      assert_equal %w[Ana Ben Later], first_cells
+      open_filter "Name"
+      check "Ben (1)"
+      assert_equal %w[Ben Later], first_cells
+    end
+  end
+
+  test "a row the filter hides leaves its fields out of the form, and gets them back on Clear" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ] ], extra: true, form: true
+    within "#kit-filter-table" do
+      open_filter "Team"
+      check "Code (1)"
+      assert_equal %w[Ana Later], first_cells
+      assert_selector "tr[hidden] input[type=checkbox][disabled]", visible: :all
+      click_on "Order"
+    end
+    assert_current_path "#{badge_types_path}?#{{ "bring" => [ "Ana" ] }.to_query}"
+  end
+
+  test "Clear filters gives a hidden row's fields back as they were" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ] ], extra: true
+    execute_script("document.querySelector('#kit-filter-table tbody input[value=Ana]').disabled = true")
+    within "#kit-filter-table" do
+      open_filter "Team"
+      check "Code (1)"
+      click_on "Clear filters"
+      assert_selector "tbody input[value=Ben]:not([disabled])"
+      assert_selector "tbody input[value=Ana][disabled]"
+    end
+  end
+
+  test "footer rows hide while any filter is on and come back on Clear" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ] ], foot: true
+    within "#kit-filter-table" do
+      assert_selector "tfoot td", text: "Total"
+      open_filter "Team"
+      check "Code (1)"
+      assert_no_selector "tfoot td", text: "Total"
+      click_on "Clear filters"
+      assert_selector "tfoot td", text: "Total"
+    end
+  end
+
   private
 
   # Renders shared/_people_table with Status and Allergies columns and adds
@@ -397,23 +459,30 @@ class ScreenKitTest < ApplicationSystemTestCase
   end
 
 
-  # A hand-written table with Name, Amount, Due and Team headings and a
-  # separator row at the end, in a wrapper with the Columns chooser (and so
-  # the table filter). rows: [name, amount, due, team]; extra: true adds a
-  # tick-box column, a skip-marked one and one with no heading text; off: true
-  # marks the table's own wrapper data-table-filter="off".
-  def add_filter_table(rows, tables: 1, extra: false, off: false)
+  # A hand-written table with Name, Amount, Due and Team headings (or the
+  # given headings) and a "Later" separator row, in a wrapper with the Columns
+  # chooser (and so the table filter). rows: [name, amount, due, team]; after:
+  # more such rows below the separator (a group listed apart); extra: true adds
+  # a ticked box per row, a skip-marked column and one with no heading text;
+  # foot: true adds a Total footer; form: true wraps it in a form with an
+  # Order button; off: true marks the table's wrapper data-table-filter="off".
+  def add_filter_table(rows, tables: 1, extra: false, off: false, after: [], foot: false, form: false, headings: [ "Name", "Amount", "Due", "Team" ])
     helpers = ApplicationController.helpers
-    headings = [ "Name", "Amount", "Due", "Team" ]
     headings += [ "Bring", "Notes", "" ] if extra
     head = helpers.tag.thead(helpers.tag.tr(helpers.safe_join(headings.map { |heading| helpers.tag.th(heading, data: { table_filter_skip: (true if heading == "Notes") }) })))
-    body = helpers.tag.tbody(helpers.safe_join(rows.map do |row|
-      cells = row.map { |cell| helpers.tag.td(cell) }
-      cells += [ helpers.tag.td(helpers.check_box_tag("bring")), helpers.tag.td("Soon"), helpers.tag.td("x") ] if extra
-      helpers.tag.tr(helpers.safe_join(cells))
-    end) + helpers.tag.tr(helpers.tag.td("Later", colspan: headings.size)))
+    row_tags = ->(list) do
+      helpers.safe_join(list.map do |row|
+        cells = row.map { |cell| helpers.tag.td(cell) }
+        cells += [ helpers.tag.td(helpers.check_box_tag("bring[]", row.first, true, id: nil)), helpers.tag.td("Soon"), helpers.tag.td("x") ] if extra
+        helpers.tag.tr(helpers.safe_join(cells))
+      end)
+    end
+    body = helpers.tag.tbody(row_tags.call(rows) + helpers.tag.tr(helpers.tag.td("Later", colspan: headings.size)) + row_tags.call(after))
+    body += helpers.tag.tfoot(helpers.tag.tr(helpers.tag.td("Total") + helpers.tag.td("99", colspan: headings.size - 1))) if foot
     table = helpers.tag.div(helpers.tag.table(head + body, class: "table"), class: "table-responsive", data: (off ? { table_filter: "off" } : {}))
-    html = helpers.tag.div((table * tables).html_safe, id: "kit-filter-table", data: helpers.column_chooser_data("kit-filter"))
+    content = (table * tables).html_safe
+    content = helpers.tag.form(content + helpers.tag.button("Order", type: "submit", class: "btn btn-primary"), action: badge_types_path, method: "get") if form
+    html = helpers.tag.div(content, id: "kit-filter-table", data: helpers.column_chooser_data("kit-filter"))
     visit badge_types_path
     execute_script("localStorage.clear()")
     execute_script(<<~JS, html)
