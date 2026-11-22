@@ -1,0 +1,28 @@
+<% breadcrumb :root %>
+<% own = @activity.own? %>
+<% title = own ? "Your activity" : "#{activity_first_name(@person)}'s activity" %>
+<% content_for :title, title %>
+<% content_for :head, stylesheet_link_tag("my_gatherpack_home", "my_gatherpack_activity") %>
+
+<div class="mg-home mg-activity" data-activity-page>
+  <header class="mg-home-header">
+    <h1 class="mg-greeting"><%= title %></h1>
+    <% season_field = capture do %>
+      <div class="mg-activity-season">
+        <%= label_tag :season, "Season", class: "visually-hidden" %>
+        <%= select_tag :season, options_for_select(@activity.seasons.map { |season| [ season.label, season.to_param ] }, @season.to_param), class: "form-select" %>
+      </div>
+    <% end %>
+    <%= render "shared/filter_bar", url: activity_path, params: (own ? {} : { person: @person.neat_id }), fields: season_field, auto_submit: true %>
+  </header>
+
+  <div class="row">
+    <div class="col-12 col-lg-8">
+      <%= render "my_gatherpack/activity/done", activity: @activity %>
+    </div>
+    <div class="col-12 col-lg-4">
+      <%= render "my_gatherpack/activity/checklists", activity: @activity %>
+      <%= render "my_gatherpack/activity/coming_up", activity: @activity %>
+    </div>
+  </div>
+</div>
