@@ -20,6 +20,9 @@ Hbr::SampleData.feature "feature/checklists-reminders" do |s|
 
   medical = PersonField.find_by!(key: "medical_notes")
   medical.update!(keep_out_of_email: true) unless medical.keep_out_of_email?
+  # Chloe stays eligible (the checklists sample data expects it): she has notes.
+  chloe = s.person("Chloe")
+  chloe.set_field_value(medical, "No known conditions.") if chloe.field_value(medical).blank?
 
   checklist = Checklist.find_by!(title: "Trip Eligibility")
   item = ChecklistItem.find_or_initialize_by(checklist: checklist, label: "Medical notes on file")
@@ -38,4 +41,5 @@ Hbr::SampleData.feature "feature/checklists-reminders" do |s|
   s.expect("the medical notes item says only \"sign in\"") { Checklists::EmailLevel.for(item.reload) == "sign_in" }
   s.expect("the schedule is on") { Checklists::ReminderSchedule.new(checklist.reload).on? }
   s.expect("a reminder is logged") { checklist.checklist_reminders.exists? }
+  s.expect("Chloe is still eligible") { checklist.checklist_results.find_by(person: chloe, item_id: nil)&.met? }
 end
