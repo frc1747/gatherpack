@@ -1,0 +1,67 @@
+<% breadcrumb :orders_funding_source, @funding_source %>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1><%= @funding_source.name %></h1>
+</div>
+
+<dl class="row">
+  <dt class="col-sm-3">Team</dt><dd class="col-sm-9"><%= @funding_source.team.name %></dd>
+  <% if @funding_source.restricted? %>
+    <dt class="col-sm-3">Restriction</dt><dd class="col-sm-9"><%= @funding_source.restriction %></dd>
+    <dt class="col-sm-3">Giver</dt><dd class="col-sm-9"><%= [ @funding_source.giver, @funding_source.reference ].compact_blank.join(", ").presence || "None" %></dd>
+  <% end %>
+  <dt class="col-sm-3">Amount</dt><dd class="col-sm-9"><%= @funding_source.amount ? @funding_source.amount.format : "No limit" %></dd>
+  <dt class="col-sm-3">Spent</dt><dd class="col-sm-9"><%= @funding_source.spent.format %></dd>
+  <dt class="col-sm-3">Committed</dt><dd class="col-sm-9"><%= @funding_source.committed.format %></dd>
+  <dt class="col-sm-3">Remaining</dt><dd class="col-sm-9"><%= @funding_source.remaining ? @funding_source.remaining.format : "No limit set" %></dd>
+  <% if @funding_source.spent_outside_cents.positive? %>
+    <dt class="col-sm-3">Spent outside orders</dt>
+    <dd class="col-sm-9"><%= @funding_source.spent_outside.format %><%= " as of #{l(@funding_source.spent_outside_as_of, format: :long)}" if @funding_source.spent_outside_as_of %></dd>
+  <% end %>
+</dl>
+
+<%= tag.div data: column_chooser_data("orders-funding-report") do %>
+<div class="no-print">
+  <%= render "shared/filter_bar", url: report_orders_funding_source_path(@funding_source),
+        table_actions: [ screen_action("Download CSV", report_orders_funding_source_path(@funding_source, format: :csv)),
+                         screen_action("Print", nil, style: :dark, data: { controller: "print", action: "print#print" }) ] %>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <% Orders::FundingReport::HEADERS.each do |header| %><th><%= header %></th><% end %>
+          <th class="no-print">Receipts</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @report.rows.each do |row| %>
+          <tr>
+            <td><%= l(row.date, format: :short) if row.date %></td>
+            <td><%= row.item %></td>
+            <td><%= row.line.quantity %></td>
+            <td><%= row.vendor_name %></td>
+            <td><%= link_to row.request.display_title, orders_request_path(row.request) %></td>
+            <td><%= row.approver&.display_name %></td>
+            <td><%= Money.new(row.cost_cents).format %></td>
+            <td><%= Money.new(row.extras_cents).format %></td>
+            <td><%= Money.new(row.total_cents).format %></td>
+            <td class="no-print">
+              <% row.receipts.each do |receipt| %>
+                <%= link_to receipt.filename.to_s, rails_blob_path(receipt, disposition: "attachment") %><br>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+        <% if @report.rows.empty? %>
+          <tr><td colspan="10" class="text-muted">Nothing has been bought from this source yet.</td></tr>
+        <% end %>
+      </tbody>
+      <tfoot>
+        <tr><th colspan="8">Total</th><th><%= Money.new(@report.total_cents).format %></th><th class="no-print"></th></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+<% end %>

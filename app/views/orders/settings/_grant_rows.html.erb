@@ -1,0 +1,20 @@
+<%# Grant rows for an orders role (Orders::GrantRows): any of these may act.
+    Each row is a "Who" (a badge, the managers of a team, or the managers of
+    the request's own team) and a "For" team. Without JavaScript every picker
+    shows and one blank row is added per save. Locals: name (a key of
+    Orders::SettingsEditor::GRANT_FIELDS), rows (Orders::GrantRows). %>
+<div data-controller="orders-grant-rows">
+  <div class="form-text mb-2"><%= Orders::SettingsEditor::FIELDS.fetch(name) %></div>
+  <div class="form-text mb-2">Managers of a team: that team's own managers, not those of the teams above or below it. Managers of the request's own team include managers of the teams above it. A team under "For" covers the teams below it too.</div>
+  <p class="mb-2">Any of these:</p>
+  <div data-orders-grant-rows-target="list">
+    <% rows.rows.each_with_index do |row, index| %>
+      <%= render "orders/settings/grant_row", name: name, rows: rows, index: index, row: row %>
+    <% end %>
+    <%= render "orders/settings/grant_row", name: name, rows: rows, index: rows.rows.size, row: nil %>
+  </div>
+  <template data-orders-grant-rows-target="template">
+    <%= render "orders/settings/grant_row", name: name, rows: rows, index: "NEW_ROW", row: nil %>
+  </template>
+  <button type="button" class="btn btn-sm btn-outline-secondary" hidden data-orders-grant-rows-target="add" data-action="orders-grant-rows#add">Add a row</button>
+</div>

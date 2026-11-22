@@ -1,0 +1,18 @@
+<%# Paste a link and see what the vendor and pattern pull out of it. %>
+<div class="card mt-3">
+  <div class="card-header"><h2 class="h5 mb-0">Try a link</h2></div>
+  <div class="card-body">
+    <%= form_with url: pattern_test_orders_vendors_path, method: :get, data: { turbo_frame: "pattern_test_result" } do |test| %>
+      <div class="mb-2">
+        <%= label_tag :url, "Product link", class: "form-label" %>
+        <%= url_field_tag :url, nil, class: "form-control", placeholder: "Paste a product link" %>
+      </div>
+      <div class="mb-2">
+        <%= label_tag :pattern, "Pattern to try", class: "form-label" %>
+        <%= text_field_tag :pattern, vendor.part_number_pattern, class: "form-control" %>
+      </div>
+      <%= test.submit "Test", class: "btn btn-secondary" %>
+    <% end %>
+    <%= turbo_frame_tag "pattern_test_result" %>
+  </div>
+</div>

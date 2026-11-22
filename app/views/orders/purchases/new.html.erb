@@ -1,0 +1,82 @@
+<% breadcrumb :orders_new_purchase %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Record purchase</h1>
+    <div><%= @group.name %> · <%= pluralize(@group.lines.size, "item") %></div>
+  </div>
+  <div class="card-body">
+    <% if @errors.present? %>
+      <div class="alert alert-danger"><%= @errors.to_sentence %></div>
+    <% end %>
+
+    <%= simple_form_for @purchase, url: orders_purchases_path, html: { multipart: true, data: { turbo: false } } do |f| %>
+      <% @group.lines.each do |line| %>
+        <%= hidden_field_tag "line_ids[]", line.id, id: nil %>
+      <% end %>
+
+      <% if @group.not_sure? %>
+        <fieldset class="mb-3" id="vendor_prompt">
+          <legend class="h6">Where did you buy these?</legend>
+          <div class="row">
+            <div class="col-12 col-md-6">
+              <%= f.input :vendor_id, collection: policy_scope(Vendor).active.listed, include_blank: "Choose a vendor",
+                    label: "Vendor", selected: params.dig(:purchase, :vendor_id), required: false %>
+            </div>
+            <div class="col-12 col-md-6">
+              <%= f.input :other_vendor_name, label: "Or another store's name", required: false,
+                    input_html: { value: params.dig(:purchase, :other_vendor_name) } %>
+            </div>
+          </div>
+        </fieldset>
+      <% end %>
+
+      <div class="table-responsive mb-3">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Item</th>
+              <th scope="col">Request</th>
+              <th scope="col" class="text-end">Qty</th>
+              <th scope="col" class="text-end">Estimate each</th>
+              <th scope="col" style="min-width: 9rem;">Price each</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @group.lines.each do |line| %>
+              <tr>
+                <td>
+                  <%= orders_external_link(line.display_name, line.url) %>
+                  <% if line.vendor_part_number.present? %><br><small class="text-muted"><%= line.vendor_part_number %></small><% end %>
+                </td>
+                <td>
+                  <%= line.order_request.display_title %>
+                  <br><small class="text-muted"><%= line.order_request.team.name %></small>
+                </td>
+                <td class="text-end"><%= line.quantity %> <small class="text-muted"><%= line.unit %></small></td>
+                <td class="text-end"><%= orders_money(line.estimated_unit_price_cents) %></td>
+                <td>
+                  <label class="visually-hidden" for="price_<%= line.id %>">Price each for <%= line.display_name %></label>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">$</span>
+                    <%= number_field_tag "prices[#{line.id}]",
+                          params.dig(:prices, line.id) || orders_price_value(line.unit_price_cents),
+                          step: "0.01", min: 0, inputmode: "decimal", id: "price_#{line.id}", class: "form-control" %>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <%= render "orders/purchases/fields", f: f %>
+      <%= render "orders/purchases/ledger_choice" %>
+
+      <div class="d-flex gap-2">
+        <%= f.button :submit, "Record purchase", class: "btn btn-primary" %>
+        <%= link_to "Back to To buy", to_buy_orders_purchases_path, class: "btn btn-secondary" %>
+      </div>
+    <% end %>
+  </div>
+</div>

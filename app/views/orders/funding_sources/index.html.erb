@@ -1,0 +1,30 @@
+<% breadcrumb :orders_funding_sources %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h1>Funding sources</h1>
+    <%= link_to "New funding source", new_orders_funding_source_path, class: "btn btn-success" if policy(FundingSource).create? %>
+  </div>
+  <%= tag.div class: "table-responsive", data: column_chooser_data("orders-funding-sources") do %>
+    <table class="table mb-0">
+      <thead>
+        <tr><th>Name</th><th>Team</th><th>Kind</th><th class="text-end">Remaining</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% @funding_sources.each do |source| %>
+          <tr class="<%= "text-muted" unless source.active? %>">
+            <td><%= link_to source.name, orders_funding_source_path(source) %></td>
+            <td><%= source.team.name %></td>
+            <td><%= source.kind.humanize %></td>
+            <td class="text-end">
+              <% if policy(source).numbers? && source.remaining %>
+                <%= source.remaining.format %>
+              <% end %>
+            </td>
+            <td><%= tag.span "Not in use", class: "badge text-bg-secondary" unless source.active? %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

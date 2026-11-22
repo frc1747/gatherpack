@@ -92,6 +92,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.index ["team_id"], name: "index_announcements_on_team_id"
   end
 
+  create_table "approval_step_approvers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "approval_step_id", null: false
+    t.uuid "badge_id"
+    t.uuid "team_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.string "kind", default: "badge", null: false
+    t.uuid "manager_team_id"
+    t.index ["approval_step_id", "kind", "badge_id", "manager_team_id", "team_id"], name: "index_approval_step_approvers_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["approval_step_id"], name: "index_approval_step_approvers_on_approval_step_id"
+    t.index ["badge_id"], name: "index_approval_step_approvers_on_badge_id"
+    t.index ["manager_team_id"], name: "index_approval_step_approvers_on_manager_team_id"
+    t.index ["team_id"], name: "index_approval_step_approvers_on_team_id"
+  end
+
+  create_table "approval_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.integer "minimum_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_approval_steps_on_lower_name", unique: true
+    t.index ["key"], name: "index_approval_steps_on_key", unique: true
+  end
+
   create_table "badge_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "badge_id", null: false
     t.datetime "created_at", null: false
@@ -424,6 +452,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.index ["team_id"], name: "index_commitments_on_team_id"
   end
 
+  create_table "delivery_problem_kinds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_delivery_problem_kinds_on_lower_name", unique: true
+    t.index ["key"], name: "index_delivery_problem_kinds_on_key", unique: true
+  end
+
   create_table "digest_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "person_id", null: false
     t.date "delivered_on", null: false
@@ -627,6 +667,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.index ["key"], name: "index_forms_on_key", unique: true
     t.index ["status"], name: "index_forms_on_status"
     t.index ["team_id"], name: "index_forms_on_team_id"
+  end
+
+  create_table "funding_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.string "name", null: false
+    t.integer "kind", default: 0, null: false
+    t.integer "amount_cents"
+    t.date "starts_on"
+    t.date "ends_on"
+    t.text "restriction"
+    t.string "giver"
+    t.string "reference"
+    t.date "report_due_on"
+    t.integer "spent_outside_cents", default: 0, null: false
+    t.date "spent_outside_as_of"
+    t.uuid "budget_id"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["budget_id"], name: "index_funding_sources_on_budget_id"
+    t.index ["team_id"], name: "index_funding_sources_on_team_id"
   end
 
   create_table "gateways", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -979,6 +1040,140 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.text "view"
   end
 
+  create_table "order_approvals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_request_id", null: false
+    t.string "step_key", null: false
+    t.uuid "approver_id", null: false
+    t.integer "decision", null: false
+    t.text "comment"
+    t.datetime "cleared_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["approver_id"], name: "index_order_approvals_on_approver_id"
+    t.index ["order_request_id"], name: "index_order_approvals_on_order_request_id"
+  end
+
+  create_table "order_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_line_id", null: false
+    t.integer "quantity", null: false
+    t.uuid "received_by_id", null: false
+    t.date "received_on", null: false
+    t.text "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "delivery_problem_kind_id"
+    t.index ["delivery_problem_kind_id"], name: "index_order_deliveries_on_delivery_problem_kind_id"
+    t.index ["order_line_id"], name: "index_order_deliveries_on_order_line_id"
+    t.index ["received_by_id"], name: "index_order_deliveries_on_received_by_id"
+  end
+
+  create_table "order_lines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_request_id", null: false
+    t.integer "position", default: 0, null: false
+    t.text "description"
+    t.string "manufacturer"
+    t.string "manufacturer_part_number"
+    t.uuid "vendor_id"
+    t.string "other_vendor_name"
+    t.string "other_vendor_reason"
+    t.string "vendor_part_number"
+    t.string "url"
+    t.integer "quantity", default: 1, null: false
+    t.string "unit"
+    t.integer "units_per"
+    t.integer "estimated_unit_price_cents"
+    t.integer "actual_unit_price_cents"
+    t.integer "status", default: 0, null: false
+    t.uuid "purchase_id"
+    t.uuid "funding_source_id"
+    t.date "expected_on"
+    t.string "item_type"
+    t.uuid "item_id"
+    t.text "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["funding_source_id"], name: "index_order_lines_on_funding_source_id"
+    t.index ["item_type", "item_id"], name: "index_order_lines_on_item"
+    t.index ["order_request_id"], name: "index_order_lines_on_order_request_id"
+    t.index ["purchase_id"], name: "index_order_lines_on_purchase_id"
+    t.index ["status"], name: "index_order_lines_on_status"
+    t.index ["vendor_id"], name: "index_order_lines_on_vendor_id"
+  end
+
+  create_table "order_notice_marks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_request_id", null: false
+    t.string "kind", null: false
+    t.string "detail"
+    t.datetime "sent_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_request_id", "kind"], name: "index_order_notice_marks_on_order_request_id_and_kind", unique: true
+    t.index ["order_request_id"], name: "index_order_notice_marks_on_order_request_id"
+  end
+
+  create_table "order_notice_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.integer "buyer_notices", default: 0, null: false
+    t.date "digest_sent_on"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_order_notice_preferences_on_person_id", unique: true
+  end
+
+  create_table "order_request_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_request_id", null: false
+    t.uuid "order_line_id"
+    t.uuid "actor_id"
+    t.string "action", null: false
+    t.string "step_key"
+    t.jsonb "field_changes", default: {}, null: false
+    t.text "comment"
+    t.datetime "created_at", null: false
+    t.index ["actor_id"], name: "index_order_request_events_on_actor_id"
+    t.index ["order_line_id"], name: "index_order_request_events_on_order_line_id"
+    t.index ["order_request_id", "created_at"], name: "index_order_request_events_on_order_request_id_and_created_at"
+    t.index ["order_request_id"], name: "index_order_request_events_on_order_request_id"
+  end
+
+  create_table "order_request_watchers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "order_request_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_request_id", "person_id"], name: "index_order_request_watchers_on_order_request_id_and_person_id", unique: true
+    t.index ["order_request_id"], name: "index_order_request_watchers_on_order_request_id"
+    t.index ["person_id"], name: "index_order_request_watchers_on_person_id"
+  end
+
+  create_table "order_requests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "team_id", null: false
+    t.uuid "requested_by_id", null: false
+    t.string "title"
+    t.text "purpose"
+    t.date "needed_by"
+    t.integer "status", default: 0, null: false
+    t.uuid "funding_source_id"
+    t.integer "estimated_shipping_cents", default: 0, null: false
+    t.integer "approved_total_cents"
+    t.datetime "submitted_at"
+    t.datetime "approved_at"
+    t.datetime "closed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["funding_source_id"], name: "index_order_requests_on_funding_source_id"
+    t.index ["requested_by_id"], name: "index_order_requests_on_requested_by_id"
+    t.index ["status"], name: "index_order_requests_on_status"
+    t.index ["team_id"], name: "index_order_requests_on_team_id"
+  end
+
+  create_table "order_summary_sends", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "person_id", null: false
+    t.date "sent_on", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_order_summary_sends_on_person_id", unique: true
+  end
+
   create_table "pages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.text "content"
     t.datetime "created_at", null: false
@@ -989,6 +1184,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "updated_at", null: false
     t.string "viewer", default: "user"
     t.index ["team_id"], name: "index_pages_on_team_id"
+  end
+
+  create_table "payment_methods", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "plural"
+    t.string "key"
+    t.integer "position", default: 0, null: false
+    t.boolean "active", default: true, null: false
+    t.boolean "reimburse", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_payment_methods_on_lower_name", unique: true
+    t.index ["key"], name: "index_payment_methods_on_key", unique: true
   end
 
   create_table "people", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1061,6 +1269,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.index ["person_field_group_id"], name: "index_person_fields_on_person_field_group_id"
     t.index ["system_source"], name: "index_person_fields_on_system_source", unique: true
     t.index ["team_id"], name: "index_person_fields_on_team_id"
+  end
+
+  create_table "purchases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "vendor_id"
+    t.string "other_vendor_name"
+    t.uuid "buyer_id", null: false
+    t.string "vendor_order_number"
+    t.date "ordered_on"
+    t.integer "shipping_cents", default: 0, null: false
+    t.integer "tax_cents", default: 0, null: false
+    t.uuid "reimburse_to_id"
+    t.string "tracking_url"
+    t.date "expected_on"
+    t.uuid "ledger_entry_id"
+    t.text "note"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "payment_method_id"
+    t.index ["buyer_id"], name: "index_purchases_on_buyer_id"
+    t.index ["ledger_entry_id"], name: "index_purchases_on_ledger_entry_id"
+    t.index ["payment_method_id"], name: "index_purchases_on_payment_method_id"
+    t.index ["reimburse_to_id"], name: "index_purchases_on_reimburse_to_id"
+    t.index ["vendor_id"], name: "index_purchases_on_vendor_id"
   end
 
   create_table "push_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1520,6 +1751,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "vendors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "website"
+    t.string "domains", default: [], null: false, array: true
+    t.string "part_number_pattern"
+    t.text "account_note"
+    t.boolean "preferred", default: false, null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_vendors_on_name"
+  end
+
   create_table "widgets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "title"
     t.boolean "show_title", default: true, null: false
@@ -1542,6 +1786,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "account_relationships", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "approval_step_approvers", "approval_steps", on_delete: :cascade
+  add_foreign_key "approval_step_approvers", "badges", on_delete: :cascade
+  add_foreign_key "approval_step_approvers", "teams", column: "manager_team_id", on_delete: :cascade
+  add_foreign_key "approval_step_approvers", "teams", on_delete: :cascade
   add_foreign_key "badge_assignments", "badges"
   add_foreign_key "badge_assignments", "people"
   add_foreign_key "badges", "badge_types"
@@ -1625,6 +1873,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "forms", "events", on_delete: :nullify
   add_foreign_key "forms", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "forms", "teams"
+  add_foreign_key "funding_sources", "budgets"
+  add_foreign_key "funding_sources", "teams"
   add_foreign_key "housekeeping_preferences", "people", on_delete: :cascade
   add_foreign_key "housekeeping_purges", "people", on_delete: :nullify
   add_foreign_key "intake_entries", "intake_registrations", column: "registration_id", on_delete: :cascade
@@ -1664,6 +1914,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "users", column: "resource_owner_id"
+  add_foreign_key "order_approvals", "order_requests"
+  add_foreign_key "order_approvals", "people", column: "approver_id"
+  add_foreign_key "order_deliveries", "delivery_problem_kinds"
+  add_foreign_key "order_deliveries", "order_lines"
+  add_foreign_key "order_deliveries", "people", column: "received_by_id"
+  add_foreign_key "order_lines", "funding_sources"
+  add_foreign_key "order_lines", "order_requests"
+  add_foreign_key "order_lines", "purchases"
+  add_foreign_key "order_lines", "vendors"
+  add_foreign_key "order_notice_marks", "order_requests"
+  add_foreign_key "order_notice_preferences", "people"
+  add_foreign_key "order_request_events", "order_lines"
+  add_foreign_key "order_request_events", "order_requests"
+  add_foreign_key "order_request_events", "people", column: "actor_id"
+  add_foreign_key "order_request_watchers", "order_requests"
+  add_foreign_key "order_request_watchers", "people"
+  add_foreign_key "order_requests", "funding_sources"
+  add_foreign_key "order_requests", "people", column: "requested_by_id"
+  add_foreign_key "order_requests", "teams"
+  add_foreign_key "order_summary_sends", "people", on_delete: :cascade
   add_foreign_key "person_field_badge_grants", "badges", on_delete: :cascade
   add_foreign_key "person_field_badge_grants", "person_fields"
   add_foreign_key "person_field_values", "people"
@@ -1671,6 +1941,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   add_foreign_key "person_field_values", "person_fields"
   add_foreign_key "person_fields", "person_field_groups"
   add_foreign_key "person_fields", "teams"
+  add_foreign_key "purchases", "ledger_entries"
+  add_foreign_key "purchases", "payment_methods"
+  add_foreign_key "purchases", "people", column: "buyer_id"
+  add_foreign_key "purchases", "people", column: "reimburse_to_id"
+  add_foreign_key "purchases", "vendors"
   add_foreign_key "push_preferences", "users", on_delete: :cascade
   add_foreign_key "push_subscriptions", "users", on_delete: :cascade
   add_foreign_key "questions", "people"

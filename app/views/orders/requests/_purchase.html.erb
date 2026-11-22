@@ -1,0 +1,52 @@
+<%# Where this request's items were ordered, and for its buyers the item
+    actions (delayed, quantity, split, cancel). Fills the request page's
+    purchase slot. %>
+<% lines = order_request.order_lines.reject(&:pending?) %>
+<% purchases = lines.filter_map(&:purchase).uniq %>
+<% buyer = policy(order_request).buy? && order_request.status.in?(%w[approved ordering received]) %>
+
+<% if purchases.any? || (buyer && lines.any?) %>
+  <section class="mb-3" id="order_request_purchases">
+    <h2 class="h5">Ordered</h2>
+
+    <% if purchases.any? %>
+      <div class="list-group mb-2">
+        <% purchases.sort_by { |purchase| purchase.ordered_on || Date.new(0) }.each do |purchase| %>
+          <% own = lines.select { |line| line.purchase_id == purchase.id } %>
+          <%= link_to orders_purchase_path(purchase), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2" do %>
+            <span>
+              <strong><%= purchase.vendor_name %></strong>
+              <br>
+              <small class="text-muted">
+                <%= pluralize(own.size, "item") %>
+                <% if purchase.ordered_on %>· ordered <%= l purchase.ordered_on, format: :short %><% end %>
+                <% if purchase.expected_on %>· expected <%= l purchase.expected_on, format: :short %><% end %>
+              </small>
+            </span>
+            <small><%= purchase_status_text(own) %></small>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if buyer && lines.any? %>
+      <details class="mb-2" id="buyer_line_actions">
+        <summary class="btn btn-lg btn-secondary mb-2">Buyer: change items</summary>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <tbody>
+              <% lines.each do |line| %>
+                <tr id="buy_<%= dom_id(line) %>">
+                  <td><%= line.display_name %></td>
+                  <td class="text-end"><%= line.quantity %></td>
+                  <td><%= order_line_status_text(line) %></td>
+                  <td class="text-end"><%= render "orders/purchases/line_actions", line: line, large: true %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    <% end %>
+  </section>
+<% end %>
