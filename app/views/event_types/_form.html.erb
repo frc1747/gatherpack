@@ -3,4 +3,8 @@
 
 <div class="form-inputs">
   <%= f.input :name %>
+  <% if EventTypes::StartsLocked.enabled? %>
+    <%= f.input :starts_locked, label: "New events start locked",
+          hint: "Only admins and the team's managers can check people in to new events of this type. A manager can still unlock one event." %>
+  <% end %>
 </div>
