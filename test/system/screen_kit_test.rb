@@ -250,7 +250,133 @@ class ScreenKitTest < ApplicationSystemTestCase
     end
     assert_no_selector "#kit-table th", text: "Status"
     assert_selector "#kit-table th", text: "Person"
-    assert_selector "#kit-table .dropdown", count: 1
+    assert_selector "#kit-table .dropdown", text: "Columns", count: 1
+  end
+
+  test "clicking a heading sorts its rows, again reverses, and numbers and dates compare as such" do
+    add_filter_table [ [ "Ben", "$1,200", "2026-03-01", "Build" ], [ "ana", "$90", "2025-12-24", "Code" ], [ "Cleo", "$5", "2026-01-15", "" ] ]
+    within "#kit-filter-table" do
+      find("[role=button]", text: "Name").click
+      assert_equal %w[ana Ben Cleo Later], first_cells
+      assert_selector "th[aria-sort=ascending] [data-table-filter-arrow] .fa-arrow-up"
+      find("[role=button]", text: "Name").click
+      assert_equal %w[Cleo Ben ana Later], first_cells
+      assert_selector "th[aria-sort=descending] [data-table-filter-arrow] .fa-arrow-down"
+      find("[role=button]", text: "Amount").click
+      assert_equal %w[Cleo ana Ben Later], first_cells
+      find("[role=button]", text: "Due").click
+      assert_equal %w[ana Cleo Ben Later], first_cells
+      assert_selector "th[aria-sort]", count: 1
+    end
+  end
+
+  test "ticking values in a heading's funnel shows only rows with any of them" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ], [ "Cleo", "3", "", "Build" ], [ "Dev", "4", "", "" ] ]
+    within "#kit-filter-table" do
+      open_filter "Team"
+      assert_equal [ "Build (2)", "Code (1)", "(blank) (1)" ], all("[data-table-filter-menu=Team] label").map(&:text)
+      assert_no_selector "[data-table-filter-menu=Team] input[type=search]"
+      check "Build (2)"
+      assert_equal %w[Ben Cleo Later], first_cells
+      assert_selector "[aria-label='Filter Team']:not(.opacity-50)"
+      check "(blank) (1)"
+      assert_equal %w[Ben Cleo Dev Later], first_cells
+      uncheck "Build (2)"
+      uncheck "(blank) (1)"
+      assert_equal %w[Ben Ana Cleo Dev Later], first_cells
+      assert_selector "[aria-label='Filter Team'].opacity-50"
+    end
+  end
+
+  test "past 12 values the funnel keeps its tick boxes and adds a search box that narrows them" do
+    names = %w[Ana Ben Cleo Dev Eli Fay Gus Hal Ida Jon Kai Lea Max]
+    add_filter_table names.map { |name| [ name, "1", "", "Build" ] }
+    within "#kit-filter-table" do
+      open_filter "Name"
+      assert_selector "[data-table-filter-menu=Name] label", count: 13
+      find("input[aria-label='Search Name']").set("e")
+      assert_equal [ "Ben (1)", "Cleo (1)", "Dev (1)", "Eli (1)", "Lea (1)" ], all("[data-table-filter-menu=Name] label", visible: true).map(&:text)
+      assert_equal names + [ "Later" ], first_cells
+      check "Cleo (1)"
+      check "Lea (1)"
+      assert_equal %w[Cleo Lea Later], first_cells
+      open_filter "Team"
+      assert_no_selector "[data-table-filter-menu=Team] input[type=search]"
+    end
+  end
+
+  test "filters on two columns combine, and Clear filters beside Columns shows every row again" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ], [ "Cleo", "1", "", "Code" ] ]
+    assert_no_selector "#kit-filter-table a", text: "Clear filters"
+    within "#kit-filter-table" do
+      open_filter "Team"
+      check "Code (2)"
+      open_filter "Amount"
+      check "1 (2)"
+      assert_equal %w[Cleo Later], first_cells
+      assert_selector ".dropdown + a", text: "Clear filters"
+      click_on "Columns"
+      uncheck "Due"
+      assert_no_selector "th", text: "Due"
+      click_on "Clear filters"
+      assert_equal %w[Ben Ana Cleo Later], first_cells
+      assert_no_selector "a", text: "Clear filters"
+      assert_no_selector "[data-table-filter-tick]:checked", visible: :all
+      assert_no_selector "th", text: "Due"
+    end
+  end
+
+  test "headings over form fields, marked to skip or without text get no funnel and don't sort" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ] ], extra: true
+    within "#kit-filter-table" do
+      assert_selector "[data-table-filter-menu]", count: 4
+      assert_no_selector "[aria-label='Filter Bring']"
+      assert_no_selector "[aria-label='Filter Notes']"
+      assert_no_selector "th:last-child [role=button]"
+      find("th", text: "Notes").click
+      assert_no_selector "th[aria-sort]"
+    end
+  end
+
+  test "a wrapper marked data-table-filter off gets no sorting or filtering" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ] ], off: true
+    within "#kit-filter-table" do
+      assert_selector ".dropdown", text: "Columns"
+      assert_no_selector "[data-table-filter-menu]"
+      assert_no_selector "th [role=button]"
+    end
+  end
+
+  test "sections in one wrapper share the funnel's values and filter together" do
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ] ], tables: 2
+    within "#kit-filter-table" do
+      assert_selector "[aria-label='Filter Team']", count: 2
+      first("[aria-label='Filter Team']").click
+      assert_equal [ "Build (2)", "Code (2)" ], all("[data-table-filter-menu=Team] label", visible: true).map(&:text)
+      first("label", text: "Code (2)").check
+      assert_equal %w[Ana Later Ana Later], first_cells
+      assert_selector "[data-table-filter-tick=Team][value=Code]:checked", count: 2, visible: :all
+    end
+  end
+
+  test "in a filter bar's table actions, Clear filters follows Columns, and a labelled heading sorts by its label" do
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: {
+      url: badge_types_path, status: nil,
+      table_actions: [ ScreenKit::Action.new(label: "Download CSV", path: "/people.csv", style: :secondary) ]
+    })
+    add_people_table(before: filter, wrapper: ApplicationController.helpers.column_chooser_data("kit-people"))
+    within "#kit-table" do
+      open_filter "Allergies"
+      check "Peanuts (1)"
+      assert_selector ".screen-table-actions .dropdown + a", text: "Clear filters"
+      find("th [data-column-chooser-label]", text: "Notes").click
+      assert_selector "th[aria-sort=ascending]", text: "Notes"
+      assert_selector "th", text: "Person"
+      open_filter "Person"
+      assert_selector "label", text: "Nadia Northwind (1)"
+    end
   end
 
   private
@@ -270,6 +396,39 @@ class ScreenKitTest < ApplicationSystemTestCase
     JS
   end
 
+
+  # A hand-written table with Name, Amount, Due and Team headings and a
+  # separator row at the end, in a wrapper with the Columns chooser (and so
+  # the table filter). rows: [name, amount, due, team]; extra: true adds a
+  # tick-box column, a skip-marked one and one with no heading text; off: true
+  # marks the table's own wrapper data-table-filter="off".
+  def add_filter_table(rows, tables: 1, extra: false, off: false)
+    helpers = ApplicationController.helpers
+    headings = [ "Name", "Amount", "Due", "Team" ]
+    headings += [ "Bring", "Notes", "" ] if extra
+    head = helpers.tag.thead(helpers.tag.tr(helpers.safe_join(headings.map { |heading| helpers.tag.th(heading, data: { table_filter_skip: (true if heading == "Notes") }) })))
+    body = helpers.tag.tbody(helpers.safe_join(rows.map do |row|
+      cells = row.map { |cell| helpers.tag.td(cell) }
+      cells += [ helpers.tag.td(helpers.check_box_tag("bring")), helpers.tag.td("Soon"), helpers.tag.td("x") ] if extra
+      helpers.tag.tr(helpers.safe_join(cells))
+    end) + helpers.tag.tr(helpers.tag.td("Later", colspan: headings.size)))
+    table = helpers.tag.div(helpers.tag.table(head + body, class: "table"), class: "table-responsive", data: (off ? { table_filter: "off" } : {}))
+    html = helpers.tag.div((table * tables).html_safe, id: "kit-filter-table", data: helpers.column_chooser_data("kit-filter"))
+    visit badge_types_path
+    execute_script("localStorage.clear()")
+    execute_script(<<~JS, html)
+      document.querySelector("main").insertAdjacentHTML("afterbegin", arguments[0])
+    JS
+  end
+
+  def open_filter(name)
+    find("[aria-label='Filter #{name}']", match: :first).click
+  end
+
+  # The first cell of each row shown, in order, across every table.
+  def first_cells
+    all("tbody tr", visible: true).map { |row| row.find("td", match: :first).text }
+  end
 
   # Renders shared/_action_row and adds it to the current page, so the test
   # needs no screen of its own.
