@@ -84,6 +84,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-075](BL-075-table-columns-and-apply.md) | Columns chooser on every fork table (prints as shown); More choices apply at once, with Show at the bottom | fork-only (screens) | high | done (feature/screen-kit + adopting branches) | 2026-11-21 |
 | [BL-076](BL-076-print-style-setting.md) | Print style as a site setting on the Theme page, used by every printed page | fork-only (feature) | high | done (feature/print-style) | 2026-11-21 |
 | [BL-077](BL-077-duplicate-everywhere.md) | Duplicate in More on sign-up sheets, events, commitments, order requests, inventory items; Copy renamed | fork-only (feature) | high | done (signups, commitments, orders, inventory, event-duplicate; checklists, intake renamed) | 2026-11-21 |
+| [BL-078](BL-078-column-filters.md) | Sort and filter any fork table by its columns (heading sort, funnel value filters), shared kit | fork-only (screens) | high | open | 2026-11-21 |
 
 ## Fields
 
