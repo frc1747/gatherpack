@@ -310,6 +310,8 @@ Rails.application.routes.draw do
   resource :color_mode, only: [ :update ]
   resource :skin_preview, only: [ :create, :destroy ]
 
+  get "share" => "share#show", :as => :share
+
   get "search" => "search#index", :as => :search
   get "search/combo" => "search#combo", :as => :combo_search
 
