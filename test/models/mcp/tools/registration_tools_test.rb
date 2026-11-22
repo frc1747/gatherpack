@@ -180,7 +180,7 @@ class Mcp::Tools::RegistrationToolsTest < ActionDispatch::IntegrationTest
     assert @registration.reload.open?
   end
 
-  test "copy_registration makes a new one with the dates given, as Copy then save does" do
+  test "copy_registration makes a new one with the dates given, as Duplicate then save does" do
     opens = 40.days.from_now.change(usec: 0)
     result = nil
     assert_difference("Intake::Registration.count", 1) do
@@ -188,7 +188,7 @@ class Mcp::Tools::RegistrationToolsTest < ActionDispatch::IntegrationTest
     end
 
     copy = registration_from(result.value["id"])
-    assert_equal @registration.title, copy.title
+    assert_equal "#{@registration.title} (copy)", copy.title
     assert_equal opens, copy.opens_at
     assert_in_delta opens + (@registration.closes_at - @registration.opens_at), copy.closes_at, 0.01
     assert_not_equal @registration.slug, copy.slug

@@ -16,7 +16,7 @@ class Mcp::Tools::CopyRegistration < Mcp::Tool
   include Mcp::IntakeRecords
 
   tool_name "copy_registration"
-  description "Copy a registration, as Copy does on its page, with the dates you give: opens_at, and closes_at (default: the same length as the original, or none). " \
+  description "Copy a registration, as Duplicate does on its page, with the dates you give: opens_at, and closes_at (default: the same length as the original, or none). " \
     "Only the teams you manage, the badges you may give and a checklist you run carry over. Returns the new registration."
   scope :write
   feature :intake

@@ -15,7 +15,7 @@ class Mcp::Tools::CopyChecklist < Mcp::Tool
   include Mcp::ChecklistRecords
 
   tool_name "copy_checklist"
-  description "Copy a checklist you run as a new draft (as Copy does: dates shifted, items, rules, grants and organizers; not excuses or results), " \
+  description "Copy a checklist you run as a new draft (as Duplicate does: dates shifted, items, rules, grants and organizers; not excuses or results), " \
     "with names that carry a year swapped for the next year's where one exists. A checklist you can't see is \"Not found\"; one you don't run is \"Not allowed\". " \
     "Returns the draft and any year-named references left unchanged (kept). Make it active on the page."
   scope :write
