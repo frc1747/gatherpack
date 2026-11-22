@@ -688,6 +688,18 @@ feature/event-duplicate:
     - name: Duplicate events
       key: feature_event_duplicate
 
+feature/print-style:
+  title: Print style
+  emoji: "🖨️"
+  description: >-
+    Printed pages get a clean print look: no menus or buttons, black on
+    white, table headings repeated on every page and page numbers. Admins
+    can change the style on the Theme page or clear it.
+  audience: Everyone who prints
+  settings:
+    - name: Print style
+      key: print_css
+
 feature/checklists-reminders:
   title: Checklist reminders
   emoji: "📬"
