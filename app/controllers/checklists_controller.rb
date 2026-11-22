@@ -2,7 +2,7 @@ class ChecklistsController < InternalController
   include ChecklistsFeature
 
   # The Edit page's tabs: the details form, then each part's own records.
-  EDIT_TABS = %w[details items covers access].freeze
+  EDIT_TABS = %w[details items covers access reminders].freeze
 
   before_action :load_checklist, only: %i[ show edit update destroy copy_form copy preview refresh archive restore ]
 

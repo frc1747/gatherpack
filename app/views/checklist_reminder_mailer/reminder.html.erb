@@ -1,0 +1,7 @@
+<p><%= @payload["greeting"] %></p>
+<% if @payload["note"] %>
+  <%= simple_format(h(@payload["note"])) %>
+<% end %>
+<p>Here's what's still to finish.</p>
+<%= render "checklist_reminder_mailer/sections", sections: @payload["sections"] %>
+<p><a href="<%= @payload["button_url"] %>" style="display: inline-block; padding: 8px 16px; background: #0d6efd; color: #ffffff; text-decoration: none; border-radius: 4px;"><%= @payload["button_label"] %></a></p>

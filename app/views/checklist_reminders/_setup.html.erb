@@ -1,0 +1,83 @@
+<%# The Reminders section of a checklist's Edit page, while reminders are on: what reminders may say, and the schedule. %>
+<% if ChecklistReminderPolicy.new(current_user, checklist).update? %>
+  <div class="card mt-3" id="reminders">
+    <div class="card-header"><h2 class="h4 mb-0">Reminders</h2></div>
+    <%= form_with model: checklist, url: checklist_checklist_reminder_settings_path(checklist), method: :patch do |f| %>
+      <div class="card-body">
+        <%= render "checklist_reminders/state_line", text: checklist_reminder_schedule_text(checklist) %>
+        <%= render "checklist_reminders/state_line", text: checklist_last_reminder_text(checklist),
+          link_text: ("Send Reminder" if checklist.active?), link_path: new_checklist_checklist_reminder_path(checklist) %>
+
+        <fieldset class="mt-3 mb-3">
+          <legend class="form-label fs-6 fw-semibold">What reminders may say</legend>
+          <% { "everything" => "The item's name, its status and its summary (\"No shirt size on file\"), with a link to fix it.",
+               "name_only" => "The item's name and status, no summary or detail.",
+               "sign_in" => "Items aren't named, only counted (\"1 more item. Sign in to see it.\"), and neither is the checklist." }.each do |level, effect| %>
+            <div class="form-check">
+              <%= f.radio_button :email_level, level, class: "form-check-input" %>
+              <%= f.label :"email_level_#{level}", class: "form-check-label" do %>
+                <%= Checklists::EmailLevel.label(level) %>: <span class="text-body-secondary"><%= effect %></span>
+              <% end %>
+            </div>
+          <% end %>
+          <div class="form-text">The most any item may say. An item can say less, and an item that reads a profile field kept out of email always says only "sign in".</div>
+        </fieldset>
+
+        <% flatten = ->(list, depth) { list.flat_map { |item| [ [ item, depth ] ] + flatten.(item.children.to_a, depth + 1) } } %>
+        <% items = flatten.(checklist.top_level_items.includes(children: :children).to_a, 0) %>
+        <% if items.any? %>
+          <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>Item</th><th>This item may say</th><th>In reminders</th></tr></thead>
+              <tbody>
+                <% items.each do |item, depth| %>
+                  <tr>
+                    <td><span style="padding-left: <%= depth * 1.5 %>em"><%= item.label %></span></td>
+                    <td>
+                      <%= select_tag "item_levels[#{item.id}]",
+                        options_for_select([ [ "Same as the checklist", "" ] ] + Checklists::EmailLevel.options.drop(1), item.email_level.to_s),
+                        class: "form-select form-select-sm w-auto", "aria-label": "What reminders may say about #{item.label}" %>
+                    </td>
+                    <td class="small text-body-secondary"><%= Checklists::EmailLevel.note(item) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+
+        <fieldset class="mb-2">
+          <legend class="form-label fs-6 fw-semibold">Scheduled reminders</legend>
+          <div class="form-check mb-2">
+            <%= f.check_box :reminders_scheduled, class: "form-check-input" %>
+            <%= f.label :reminders_scheduled, "Send reminders on a schedule to everyone not #{checklist.word_for("met").downcase}", class: "form-check-label" %>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap mb-2 ms-4">
+            <%= f.label :reminder_every_days, "Every", class: "form-label mb-0" %>
+            <%= f.number_field :reminder_every_days, min: 1, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em" %>
+            <span>days</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap mb-2 ms-4">
+            <%= f.label :reminder_days_before_end, "And", class: "form-label mb-0" %>
+            <%= f.number_field :reminder_days_before_end, min: 1, autocomplete: "off", class: "form-control form-control-sm", style: "width: 6em" %>
+            <span>days before the checklist ends</span>
+          </div>
+          <div class="form-check ms-4">
+            <%= f.check_box :reminder_guardians, class: "form-check-input" %>
+            <%= f.label :reminder_guardians, "Also send to guardians", class: "form-check-label" %>
+          </div>
+          <% if Checklists::ReminderDigest.available? %>
+            <div class="form-check ms-4">
+              <%= f.check_box :reminder_via_digest, class: "form-check-input" %>
+              <%= f.label :reminder_via_digest, "Send through the summary email to people who chose it for checklist reminders", class: "form-check-label" %>
+            </div>
+          <% end %>
+          <div class="form-text">Leave a box blank to skip it. Each person gets at most one checklist reminder a day; several due on one day go in one email.</div>
+        </fieldset>
+      </div>
+      <div class="card-footer d-flex gap-2">
+        <%= f.submit "Save", class: "btn btn-primary" %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
