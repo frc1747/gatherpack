@@ -20,14 +20,14 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
     Capybara.always_include_port = @saved_include_port
   end
 
-  test "on desktop the sidebar carries the site name, every section is open, and search leaves it only on Home" do
+  test "on desktop the sidebar carries the site name, every section is open, and search stays in it on every page" do
     login = create_login("Morgan")
     sign_in login
     visit root_path
 
-    assert_selector ".mg-home-tools input[type=search]"
+    assert_no_selector ".mg-home-tools input[type=search]"
     within ".sidebar" do
-      assert_no_selector "input[type=search]"
+      assert_selector "input[type=search]"
     end
 
     visit person_path(login.person)

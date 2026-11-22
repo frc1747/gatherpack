@@ -151,11 +151,6 @@ body:has(.mg-home) .breadcrumb-container {
   display: none;
 }
 
-// Search moves to the top right of the home page.
-body:has(.mg-home-tools .mg-search) [data-site-search] {
-  display: none;
-}
-
 // viewport-fit=cover drops the browser's side margins, so a notched phone in
 // landscape (which gets the md layout) keeps them here.
 body:has(.phone-tabs) {

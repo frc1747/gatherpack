@@ -160,10 +160,11 @@ class MyGatherpackHomeTest < ActionDispatch::IntegrationTest
     MyGatherpack.instance_variable_get(:@account_links).delete(:example)
   end
 
-  test "home has search at the top and hides the sidebar's" do
+  test "home has no search of its own; the sidebar's stays, as on every page" do
     get root_path
 
-    assert_select ".mg-home-tools form[role=search][action=?] input[name=q]", search_path
+    assert_select ".mg-home-tools form[role=search]", 0
+    assert_select "[data-site-search] input[name=q]"
   end
 
   test "a to-do row is marked when it's due soon, and carries one link with its label" do
