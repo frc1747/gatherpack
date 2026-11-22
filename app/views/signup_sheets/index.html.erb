@@ -1,0 +1,58 @@
+<% breadcrumb :signup_sheets %>
+
+<%= search_form_for @q, data: { controller: "turbo_search", turbo_frame: "results" } do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Sign-up Sheets</h1>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md">
+        <%= f.input :title_cont, label: "Sheet", required: false %>
+      </div>
+      <div class="col-md">
+        <%= f.input :team_id_eq, label: "Team", as: :select, required: false, collection: @team_choices %>
+      </div>
+      <% if @runs_sheets %>
+        <div class="col-md mb-3">
+          <%= label_tag :archived, "Which sheets", class: "form-label" %>
+          <%= select_tag :archived, options_for_select([ [ "Current sheets", "" ], [ "Archived sheets you run", "1" ] ], @archived ? "1" : ""),
+                class: "form-select" %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  <div class="card-footer">
+    <%= link_to "New Sign-up Sheet", new_signup_sheet_path, class: "btn btn-success" if policy(SignupSheet).new? %>
+    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+  </div>
+</div>
+<% end %>
+
+<%= turbo_frame_tag "results", target: "_top" do %>
+  <div class="card mt-3">
+    <div class="card-body">
+      <% if @signup_sheets.any? %>
+        <%= tag.div class: "table-responsive", data: column_chooser_data("signups-sheets") do %>
+          <table class="table">
+            <thead>
+              <tr>
+                <th data-column-chooser-fixed>Sheet</th>
+                <th>Team</th>
+                <th>Status</th>
+                <th>Next date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= render partial: "sheet_row", collection: @signup_sheets, as: :signup_sheet %>
+            </tbody>
+          </table>
+        <% end %>
+      <% else %>
+        <%= render "shared/empty_state", text: @archived ? "No archived sheets." : "No sign-up sheets for you right now." %>
+      <% end %>
+    </div>
+  </div>
+<% end %>
