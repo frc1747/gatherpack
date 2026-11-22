@@ -31,7 +31,7 @@
   <body>
     <header class="navbar navbar-expand-lg bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">
+        <a class="navbar-brand" href="<%= kiosk_account? ? time_kiosk_path : "/" %>">
           <% if Theme.instance.logo.attached? %>
             <%= image_tag Theme.instance.logo, alt: Settings[:title] %>
           <% else %>
@@ -39,26 +39,35 @@
           <% end %>
           <%= Settings[:title] %>
         </a>
+        <%# A kiosk account can't reach the app's other pages, so its ways out are here. %>
+        <div class="d-flex gap-2">
+          <% if current_user != true_user %>
+            <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: { turbo: false }, class: "btn btn-danger btn-sm" %>
+          <% end %>
+          <% if kiosk_account? %>
+            <%= button_to "Sign out", destroy_user_session_path, method: :delete, data: { turbo: false }, class: "btn btn-outline-light btn-sm" %>
+          <% end %>
+        </div>
       </div>
 
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0 d-flex align-items-center">
         <% if current_user != true_user %>
           <div class="nav-item d-flex align-items-center px-1 lh-1 text-white text-end">
-            <%= true_user.person.identifier_name %>
+            <%= true_user.person&.identifier_name || true_user.email %>
           </div>
           <div class="nav-item d-flex align-items-center px-1">
-            <%= image_tag(get_avatar_url_512(true_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+            <%= image_tag(get_avatar_url_512(true_user.person&.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
           </div>
           <div class="nav-item px-1 text-center w-100 text-white">
             impersonating
           </div>
         <% end %>
         <div class="nav-item d-flex align-items-center px-1 lh-1 text-white text-end">
-          <%= current_user.person.identifier_name %>
+          <%= current_user.person&.identifier_name || current_user.email %>
         </div>
         <div class="nav-item d-flex align-items-center px-1 pe-3">
-          <%= image_tag(get_avatar_url_512(current_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+          <%= image_tag(get_avatar_url_512(current_user.person&.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
         </div>
       </ul>
     </div>

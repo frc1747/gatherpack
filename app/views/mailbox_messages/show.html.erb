@@ -14,7 +14,7 @@
           <h2>Attachments</h2>
           <ul>
             <% @mailbox_message.attachments.each do |att| %>
-              <li><%= link_to att.filename, att %></li>
+              <li><%= link_to att.filename, mailbox_mailbox_message_attachment_path(@mailbox, @mailbox_message, att) %></li>
             <% end %>
           </ul>
         <% end %>

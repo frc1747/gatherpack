@@ -17,10 +17,15 @@ class Budget < ApplicationRecord
     "#{budget_period.identifier_name} #{ledger_tags.map { |t| t.name.split(":").last }.join(", ")}"
   end
 
+  # Entries in the ledgers of the budget period's own team that carry every
+  # one of the budget's tags. Other teams' ledgers, sub-teams' included, may
+  # use the same tags, but their money belongs to their own budgets, and the
+  # totals have to match what everyone who may see the budget may list.
   def ledger_entries
     return @ledger_entries if @ledger_entries
     tag_ids = ledger_tags.pluck(:id)
     @ledger_entries = LedgerEntry.joins(:ledger_taggings)
+      .where(ledger_id: Ledger.where(team_id: budget_period.team_id).select(:id))
       .where(ledger_taggings: { ledger_tag_id: tag_ids })
       .where(ledger_entries: { created_at: budget_period.starts_at..budget_period.ends_at })
       .group("ledger_entries.id")

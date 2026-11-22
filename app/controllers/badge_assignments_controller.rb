@@ -9,13 +9,13 @@ class BadgeAssignmentsController < InternalController
     authorize @badge, policy_class: BadgeAssignmentPolicy
     @q = policy_scope(@badge.badge_assignments).ransack(params[:q])
     @badge_assignments = @q.result(distinct: true).includes(:person).order("people.last_name ASC, people.first_name ASC").page(params[:page])
-    @can_assign = policy(BadgeAssignment.new(badge: @badge)).create?
+    @can_assign = policy(BadgeAssignment.new(badge: @badge)).new?
     load_badge_candidates if @can_assign
   end
 
   # GET /badge_assignments/candidates
   def candidates
-    authorize BadgeAssignment.new(badge: @badge), :create?
+    authorize BadgeAssignment.new(badge: @badge), :new?
     load_badge_candidates
   end
 
@@ -49,7 +49,11 @@ class BadgeAssignmentsController < InternalController
 
   # PATCH/PUT /badge_assignments/1
   def update
-    if @badge_assignment.update(badge_assignment_params)
+    # The new holder must be someone the user may give this badge to as well.
+    @badge_assignment.assign_attributes(badge_assignment_params)
+    authorize @badge_assignment
+
+    if @badge_assignment.save
       redirect_to [ @badge, @badge_assignment ], notice: "Badge assignment was successfully updated.", status: :see_other
     else
       render :edit, status: :unprocessable_entity
@@ -93,8 +97,9 @@ class BadgeAssignmentsController < InternalController
       load_candidates(eligible_people.order(:last_name, :first_name), :first_name_or_last_name_or_display_name_i_cont)
     end
 
-    # Only allow a list of trusted parameters through.
+    # Only allow a list of trusted parameters through. The badge always comes
+    # from the URL, so an assignment can't be moved to another badge.
     def badge_assignment_params
-      params.require(:badge_assignment).permit(:badge_id, :person_id)
+      params.require(:badge_assignment).permit(:person_id)
     end
 end
