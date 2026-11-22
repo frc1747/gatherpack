@@ -88,7 +88,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-079](BL-079-team-move-preview.md) | Moving people to another team fails at the preview ("Form responses must redirect") | fork-only (bug) | high | open | 2026-11-22 |
 | [BL-080](BL-080-signed-out-message.md) | No "Signed out successfully." after signing out (the sign-in redirect drops it) | fork-only (bug) | low | open | 2026-11-22 |
 | [BL-081](BL-081-test-isolation.md) | Tests read the checkout's real settings file, and a sign-up rule test depends on row order | fork-only (tests) | medium | open | 2026-11-22 |
-| [BL-082](BL-082-hbr52-polish.md) | hbr.52 polish: copy wording, shared reorder columns, CSV follows filters, print-style default label, breadcrumb, signer wording, team picker setting | fork-only (screens) | low | open | 2026-11-22 |
+| [BL-082](BL-082-hbr52-polish.md) | hbr.52 polish: copy wording, shared reorder columns, CSV follows filters, print-style default label, breadcrumb, signer wording, team picker setting, Reminders tab select and Summaries option | fork-only (screens) | low | open | 2026-11-22 |
 | [BL-083](BL-083-touch-friendly-menus.md) | More and other dropdown menus get phone-sized spacing (44px tap targets on touch screens), with Delete set apart | fork-only (screens) | medium | open | 2026-11-22 |
 
 ## Fields
