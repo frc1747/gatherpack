@@ -19,8 +19,8 @@
     </div>
   <% end %>
 <% end %>
-<%# One Columns chooser for every section's table; it sits in the filter bar. %>
-<div <%= tag.attributes(data: column_chooser_data("checklists-report")) %>>
+<%# One Columns chooser for every section's table; it sits in the filter bar. The report sorts and filters in its own headings, so the shared table filter is off. %>
+<div <%= tag.attributes(data: column_chooser_data("checklists-report", table_filter: "off")) %>>
 <div class="no-print">
   <%= render "shared/filter_bar", url: checklist_path(checklist), teams: report.teams, team: report.team,
         all_teams_label: "Everyone", statuses: statuses, status: report.status,

@@ -25,7 +25,7 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
       sign_in person(:club_manager).user
       get checklist_path(@checklist)
       assert_response :success
-      assert_select "[data-controller=column-chooser][data-column-chooser-key-value=checklists-report] .screen-filter-bar [data-column-chooser-target=slot]"
+      assert_select "[data-column-chooser-key-value=checklists-report][data-table-filter=off] .screen-filter-bar [data-column-chooser-target=slot]"
       assert_select "[data-column-chooser-label]", minimum: 1
       assert_select ".card-footer.screen-action-row" do
         assert_select "a.btn-warning[href=?]", edit_checklist_path(@checklist), text: "Edit"
