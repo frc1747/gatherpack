@@ -94,3 +94,6 @@ feature/email-rate-limit-retry
 feature/pinned-form-buttons
 feature/ruby-4.0.10
 feature/checklists-reminders
+feature/record-footers
+feature/event-duplicate
+feature/print-style
