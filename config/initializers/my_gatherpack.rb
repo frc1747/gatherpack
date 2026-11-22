@@ -4,7 +4,12 @@ Rails.application.config.to_prepare do
       key: :my_gatherpack,
       label: "My GatherPack",
       description: "A short menu of what each person uses, with management tools set apart",
-      default_enabled: false
+      default_enabled: false,
+      nav_section: "People",
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Family", path: :family_path, icon: "children",
+          visible: ->(user) { FamilyPolicy.new(user, :family).show? })
+      ]
     )
   )
 
