@@ -317,7 +317,7 @@ class ChecklistScreensTest < ActionDispatch::IntegrationTest
       post checklist_checklist_lists_path(@checklist)
       list = @checklist.checklist_lists.last
       get checklist_checklist_list_path(@checklist, list)
-      assert_select ".card-body[data-controller=column-chooser][data-column-chooser-key-value=checklists-list] table"
+      assert_select ".card-body[data-controller~=column-chooser][data-column-chooser-key-value=checklists-list] table"
       assert_select ".card-header h1", text: "Trip"
       assert_select ".card-header .text-muted", text: /\ATaken #{Regexp.escape(I18n.l(list.recorded_at, format: :long))} by Admin World/
       assert_select ".screen-table-actions button", text: "Print"
