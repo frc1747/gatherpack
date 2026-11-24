@@ -38,7 +38,7 @@ The help site's hbr.52 review found places where hbr.52 doesn't match its backlo
 
 ## Tests
 
-Each fix with its branch's tests: the copy wording (1), one shared column key (2), a CSV of a filtered table having only the filtered rows (3), the Settings page not printing the stylesheet (4), the response breadcrumb including the form (6), the waiting text (7), the team picker saving ids and the migration converting names (8), and, with Summaries off, no summary tick box on the Reminders tab and reminders sent as plain email (10).
+Each fix with its branch's tests: the copy wording (1), one shared column key (2), a CSV of a filtered table having only the filtered rows (3), the Settings page not printing the stylesheet (4), the response breadcrumb including the form (6), the waiting text (7), the setting drawn with the teams picker where `Settings.input` exists (8), and, with Summaries off, no summary tick box on the Reminders tab and reminders sent as plain email (10).
 
 ## Fork notes
 
