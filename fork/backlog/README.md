@@ -91,6 +91,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-082](BL-082-hbr52-polish.md) | hbr.52 polish: copy wording, shared reorder columns, CSV follows filters, print-style default label, breadcrumb, signer wording, team picker setting, Reminders tab select and Summaries option | fork-only (screens) | low | open | 2026-11-22 |
 | [BL-083](BL-083-touch-friendly-menus.md) | More and other dropdown menus get phone-sized spacing (44px tap targets on touch screens), with Delete set apart | fork-only (screens) | medium | open | 2026-11-22 |
 | [BL-084](BL-084-sidebar-by-job.md) | Sidebar sorted by job: Sign-ups, Forms and Checklists together, report Pages in the menu, Manage in folding parts, per-person pins | fork-only (screens) | medium | open | 2026-11-23 |
+| [BL-085](BL-085-home-orders-activity-button.md) | Home: "See all your activity" looks like part of Your orders; Your orders says nothing when there are no requests | fork-only (screens) | medium | open | 2026-11-23 |
 
 ## Fields
 
