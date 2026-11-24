@@ -24,7 +24,8 @@ The feature is a framework with four layers. Each layer is generic. What an orga
 
 Examples this must handle without code changes:
 
-- **Dues per student.** One invoice per student containing the "Membership Dues" product. Result: paid / partly paid / overdue / open / not invoiced. Visible to the student, their guardians and their leaders. The status is written to a hidden profile field that eligibility checks read.
+- **Dues per member, in stages.** One invoice per member containing a dues product. The rule tracks the balance remaining against dated milestones: some paid by one date, all paid by a later one. Result: Paid / Partly paid / Not yet paid / Overdue / Not invoiced, plus the balance remaining. Visible to the member, their guardians and their leaders, and copied into a hidden profile field that other features (an eligibility checklist) test.
+- **Credits of any kind.** Scholarships, fundraising credit or a refund applied to the invoice lower the balance remaining exactly as a payment does. The rule doesn't care where the money came from.
 - **Dues per family.** One invoice per household covering every child. The same rule, with the customer linked to several people.
 - **A second fee.** "Travel fee 2027": a new rule filtered on a different product/service.
 - **Totals.** "Amount given in 2026", summed from sales receipts and invoices for a donor, visible to admins only.
@@ -303,9 +304,9 @@ Unique on `(gateway_id, entity_type, external_id)`. GIN index on `data`. Model: 
 | `name` | string, required | "2027 Membership Dues" |
 | `key` | string, unique | `membership_dues_2027`, generated from the name, fixed once created (like `PersonField#key`). For Reports, Hooks and widgets. |
 | `description` | text | Shown to everyone who can see results. |
-| `kind` | string, required | `invoice_status`, `amount`, `count`, `custom` (6.3) |
+| `kind` | string, required | `balance`, `amount`, `count`, `custom` (6.3) |
 | `filters` | jsonb | 6.4 |
-| `settings` | jsonb | Kind-specific: status labels, grace days, `measure`, `show_pay_links` |
+| `settings` | jsonb | Kind-specific: status labels, `grace_days`, `unapplied_credit`, `measure`, `show_pay_links` |
 | `code` | text | `custom` only. Architects only. |
 | `team_id` | uuid, optional | "Applies to": members of this team and its descendants get a result even with no records (`not_invoiced`, or 0). With no team, only linked people get results. |
 | `read_permission` | `AudienceLevels` enum | Who sees a person's result. Default `admin`. |
@@ -322,27 +323,45 @@ Badge grants: `accounting_rule_badge_grants` (`rule_id`, `badge_id`, `amounts` b
 
 Each kind receives a person's matching records (6.4) and returns a result: `value` (string), `amount_cents` (integer or nil), `details` (hash).
 
-**`invoice_status`.** Uses `Invoice` records. Each invoice goes through `financial_view` (QBO: `TotalAmt`, `Balance`, `DueDate`; voided invoices, which QBO leaves with a zero total, are skipped).
+**`balance`** (shown as "Balance remaining"). Uses `Invoice` records. Each invoice goes through `financial_view` (QBO: `TotalAmt`, `Balance`, `DueDate`; voided invoices, which QBO leaves with a zero total, are skipped). Across a person's matching invoices:
+
+- **charged** = the sum of their totals;
+- **balance remaining** = the sum of their balances. QBO lowers an invoice's balance whenever anything is applied to it: a payment, a credit memo, a scholarship or fundraising credit, a discount. So every kind of credit counts the same way, with nothing to set up;
+- **paid** = charged − balance remaining.
+
+`amount_cents` is the balance remaining. `details` holds charged, paid, each invoice (id, number, date, due date, total, balance, pay link) and each milestone with whether it's met.
+
+**Milestones** say how much must be paid by when. `accounting_rule_milestones`, prefix `arm`, several per rule, edited as rows on the rule form:
+
+| Column | Type | Notes |
+|---|---|---|
+| `rule_id` | uuid, required | |
+| `name` | string, required | "Deposit", "Paid in full" |
+| `due_on` | date, required | |
+| `balance_at_most_cents` | bigint | One of these two. "Balance at most $250 by Jan 15." |
+| `balance_at_most_percent` | integer | "Balance at most 50% of the charge by Jan 15." 0 means paid in full. |
+| `position` | integer | Kept in `due_on` order. |
+
+A milestone is met when the balance remaining is at or below its limit. A rule with no milestones uses each invoice's own due date as a single "paid in full" milestone, which is what most organizations need.
 
 | Value | When | Default label |
 |---|---|---|
 | `not_invoiced` | No matching invoices. | Not invoiced |
-| `paid` | Every matching invoice has a zero balance. | Paid |
-| `overdue` | Any invoice has a balance and its due date + `grace_days` (default 0) is past. | Overdue |
-| `partial` | Not overdue, and any invoice with a balance has had some payment. | Partly paid |
-| `open` | Not overdue, and the invoices with a balance have no payments yet. | Not yet due |
+| `paid` | Balance remaining is zero. | Paid |
+| `overdue` | A milestone whose `due_on` + `grace_days` (default 0) has passed isn't met. | Overdue |
+| `partial` | Not overdue, something is paid, and a balance remains. | Partly paid |
+| `unpaid` | Not overdue, and nothing is paid yet. | Not yet paid |
 
-An invoice's balance drops only when a payment or credit is applied to it. Organizations that receive bulk payouts (from an online donation or payment platform) and credit each customer by hand can have money on a customer's account that isn't applied to an invoice yet. The value still follows the invoices: guessing which invoice unapplied money belongs to would be wrong whenever a person has more than one fee. Instead, the evaluation adds up the linked customers' unapplied payments (`Payment.UnappliedAmt`) and open credit memos (`CreditMemo.Balance`) into `details.unapplied_credit_cents`. When that's above zero and the result isn't `paid`:
+Checked in that order (`not_invoiced`, `paid`, `overdue`, then the rest). Labels can be renamed per rule in `settings.labels` (for example "No dues invoice yet"). Where a result is `overdue`, the screens name the missed milestone ("Overdue: Deposit") and, when amounts may be seen, what it takes to catch up ("$150 to meet Deposit"). When it's on schedule, they show the next milestone ("Next: $300 by Mar 1").
 
-- the profile card and statement say "A payment of $X is waiting to be applied" to anyone who can see amounts, so a family who paid isn't told they're overdue without explanation;
-- the rule page shows admins an "Unapplied credit" mark and offers it as a filter, so the treasurer has a work list of credits to apply in QBO;
-- `AccountingRuleChange` carries `unapplied_credit_cents`, so a hook can skip "overdue" messages to people with credit waiting.
+**Credit not applied to an invoice.** Money can sit on a customer's account without being applied to an invoice, for example when bulk payouts from an online payment platform are credited by hand. The evaluation adds the linked customers' unapplied payments (`Payment.UnappliedAmt`) and open credit memos (`CreditMemo.Balance`) into `details.unapplied_credit_cents`. The rule's `unapplied_credit` setting says what to do with it:
 
-Payments are in the default `synced_entities`, so this needs no setup.
+- `show` (default): the balance remaining follows the invoices only. Unapplied money can't be tied to one charge, so taking it off would be a guess whenever a person has more than one. Instead, the profile card and statement say "A payment of $X is waiting to be applied" to anyone who can see amounts, and the rule page gives admins an "Unapplied credit" mark and filter: a work list of credit to apply in the accounting system.
+- `count`: the unapplied amount is taken off this rule's balance remaining before milestones are checked. For organizations where a person only ever has one kind of charge. The rule form says so beside the choice.
 
-Precedence when invoices differ: `overdue` > `partial` > `open` > `paid`. Labels can be renamed per rule in `settings.labels` (for example "No dues invoice yet"). `amount_cents` is the total balance. `details` lists each invoice: id, number, date, due date, total, balance, pay link.
+`AccountingRuleChange` carries `unapplied_credit_cents` either way, so a hook can skip "overdue" messages to people with credit waiting. Payments and credit memos are in the default `synced_entities`, so neither choice needs more setup.
 
-**`amount`.** `settings.measure` is `invoiced`, `paid`, or `balance`. It sums the matching records: invoices and sales receipts for `invoiced`; payments and sales receipts minus refund receipts for `paid`; invoice balances minus open credit memos for `balance`. When `filters.items` is set, only matching lines are summed. `value` is the formatted amount.
+**`amount`.** `settings.measure` is `invoiced` or `paid`. It sums the matching records: invoices and sales receipts for `invoiced`; payments and sales receipts minus refund receipts for `paid`. (Balance remaining is the `balance` kind.) When `filters.items` is set, only matching lines are summed. `value` is the formatted amount.
 
 **`count`.** The number of matching records. For example, invoices that are overdue, or receipts this year.
 
@@ -388,7 +407,7 @@ This table is what everything reads: the profile card, the rule page, Reports, w
 - after each sync, for the people linked to customers whose records changed;
 - when links are created or removed, for those people;
 - when a rule is saved, or someone presses **Evaluate now**, for everyone the rule applies to;
-- nightly, for everyone. Due dates pass without any record changing, so "overdue" depends on the nightly run.
+- nightly, for everyone. Milestone and due dates pass without any record changing, so "overdue" depends on the nightly run.
 
 Who a rule evaluates: people linked to any customer, plus members of `team_id` and its descendants when set. A person who no longer qualifies (unlinked, left the team) has their result deleted, and the rule's actions undo (7.1).
 
@@ -447,7 +466,7 @@ Connections stay under Setup → Gateways with the other gateways.
 - **Rule page:** a table of people the viewer can see: name, team, value (colored by value), amount (if permitted), "changed on" date, and links into QBO for admins. It has a filter by value and team, a CSV export of the same table, and a print layout using the shared report print CSS. Admins get **Edit** and **Evaluate now**.
 - **Rule form** (admins; `code` and `kind: custom` architects only, as Widgets does for JavaScript):
   - Name, Description
-  - What it answers: kind, then the kind's options (measure, grace days, labels)
+  - What it answers: kind, then the kind's options (milestones, grace days, unapplied credit, labels, measure)
   - Which records: the filters in 6.4
   - Who it applies to: everyone linked, or a team
   - Who can see it: result level, amount level, badge grants
@@ -571,10 +590,13 @@ No WebMock in the Gemfile, and none is added. `Accounting::Quickbooks::Client` t
   - dismissals stick;
   - parent rollup includes sub-customers.
 - **Kinds:**
-  - each `invoice_status` value and the precedence rule;
+  - each `balance` value and the order they're checked in;
+  - applied credit memos and other credits lower the balance remaining like payments;
+  - milestones by amount and by percent, met and missed, and the next-milestone and catch-up amounts;
+  - a rule with no milestones uses each invoice's due date;
   - voided invoices skipped;
   - grace days;
-  - unapplied payments and open credit memos fill `unapplied_credit_cents` without changing the value;
+  - unapplied payments and open credit memos fill `unapplied_credit_cents`; `show` leaves the balance alone, `count` takes it off;
   - `amount` sums only matching lines when items are filtered;
   - a `custom` rule's return shapes and its error handling.
 - **Filters:** items inside group lines; class on line vs transaction; date bounds inclusive.
@@ -627,6 +649,7 @@ Manual, against the Intuit sandbox company before production keys:
 - `accounting_customer_links`
 - `accounting_customer_dismissals`
 - `accounting_rules`
+- `accounting_rule_milestones`
 - `accounting_rule_badge_grants`
 - `accounting_rule_actions`
 - `accounting_rule_results`
@@ -637,25 +660,22 @@ Manual, against the Intuit sandbox company before production keys:
 2. Customer links and the Customers page.
 3. Rules, kinds, results, the Account Status pages and the profile card.
 4. Actions and Hooks.
-5. On Ditto: production keys, connect HBR's company, link customers, set up the rule in 12.2, compare against the treasurer's own aging report.
+5. On Ditto: production keys, connect the company, link customers, set up the organization's rules, compare against the treasurer's own aging report.
 6. Release in an `-hbr.N` tag with the feature off. Turn it on in production after the Ditto comparison matches.
 
-### 12.2 HBR's configuration (an example, not code)
+### 12.2 Worked example (configuration, not code)
+
+A club bills each member their own invoice, siblings included, and wants a deposit by one date and everything by another. Members pay through a platform that pays out in bulk, and the treasurer applies the money to each member's account by hand.
 
 | Setting | Value |
 |---|---|
-| `match_strategies` | `name email`. QBO customers are students; parents receive each child's invoice, so email matches find the parent and suggest their wards. |
-| `customer_rollup` | `none`. Each student is their own customer with their own invoice, siblings included. |
-| Payments | Families pay through an online payment platform that pays out in bulk; the treasurer applies credit to each student's account by hand. Results follow the applied amounts, and the "Unapplied credit" filter (6.3) is the treasurer's list of payouts not yet applied. |
-| Rule | "2027 Membership Dues", kind `invoice_status`, items = "Membership Dues", transaction dates within the 2027 season, applies to the student team. |
-| Visibility | `read_permission: family` (the student, their guardians, their leaders). Add a badge grant if any mentors who should see it aren't team managers. `amount_permission: family`, `show_pay_links` on. |
-| Actions | No badge: a badge shows on the profile to everyone who can open it, and dues status shouldn't. Instead a `person_field` action (always, `write: label`) keeps a "Dues" select field (choices matching the rule's labels) current. The field is admin-written, read at `family`, and hidden from profiles, as Academically Eligible is; the rule's own card already shows the status to the student, their guardians and leaders. |
-| Eligibility | The Travel Eligibility checklist gets a Profile field item: Dues is any of "Paid", blank = Not Started. Partly paid is not eligible. Checklist results say pass or not, never the value. Leave the item out of the coordinator badges' grants, as Academic Eligibility is, so only managers see it, through Overall. | Optionally a hook on `accounting_rules - result changed` to tell mentors when a student becomes `overdue`. |
-
-Not decided:
-
-- the season's exact dates;
-- whether HBR's mentors are all team managers.
+| `match_strategies` | `name email`. Each member is their own customer; parents receive their children's invoices, so email matches find the parent and suggest their wards. |
+| `customer_rollup` | `none`. |
+| Rule | kind `balance`, items = the dues product, transaction dates within the season, applies to the members' team, `unapplied_credit: show`. |
+| Milestones | "Deposit": balance at most 50% by the first date. "Paid in full": balance at most 0 by the second. |
+| Visibility | `read_permission: family`, `amount_permission: family`, `show_pay_links` on. |
+| Actions | `person_field`, always, `write: label`, into a "Dues" select field whose choices match the rule's labels: admin-written, read at `family`, hidden from profiles. The rule's own card already shows the status to the people allowed to see it, so the field exists only for other features to test. A badge would work too, but shows on the profile to everyone who can open it. |
+| Using it | An eligibility checklist item tests the field: "Dues is any of Paid" for full eligibility, or "is none of Overdue" for "on schedule". Checklist results say pass or not, never the value. |
 
 ### 12.3 Intuit setup checklist (when picked up)
 
@@ -672,6 +692,6 @@ Not decided:
 
 1. **Name in the UI.** "Account Status" for the nav link and "rules" for the questions. ("Checks" was avoided because it reads as paper checks in a finance screen.)
 2. **Who manages links and rules.** v1 says admins. An organization might want a treasurer who isn't an admin. That could become a badge grant with a "manage" flag later.
-3. **Partial payments.** Decided: configuration. An organization that counts partial payment as passing says so where it tests the result (an action condition of `["paid", "partial"]`, or a checklist item accepting both labels). HBR counts only Paid (12.2).
+3. **Partial payments.** Decided: configuration. Milestones say how much must be paid by when (6.3), and whatever tests the result decides what passes (an action condition, or a checklist item accepting several labels).
 4. **Who clicks Connect.** Architect plus a QBO admin at the same browser (4.2), or a one-time handoff link the QBO admin can open without being a GatherPack architect.
 5. **Upstream.** Not planned. Only Corey raises it.
