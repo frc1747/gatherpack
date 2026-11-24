@@ -503,6 +503,30 @@ class ScreenKitTest < ApplicationSystemTestCase
     assert_equal %w[Cleo Ben ana], shown.map(&:first)
   end
 
+  test "after sorting by two headings in a row, ties keep the loaded order and the server gives the same rows" do
+    rows = [ [ "Ben", "1", "", "Build" ], [ "ana", "1", "", "Code" ], [ "Cleo", "1", "", "Build" ], [ "Dev", "2", "", "Build" ], [ "Eli", "1", "", "" ] ]
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: {
+      url: badge_types_path, status: nil,
+      table_actions: [ ScreenKit::Action.new(label: "Download CSV", path: badge_types_path, style: :secondary, data: { table_filter_carry: true }) ]
+    })
+    add_filter_table rows, before: filter
+    within "#kit-filter-table" do
+      find("[role=button]", text: "Team").click
+      assert_equal %w[Ben Cleo Dev ana Eli Later], first_cells
+      find("[role=button]", text: "Amount").click
+      assert_equal %w[Ben ana Cleo Eli Dev Later], first_cells
+      find("[role=button]", text: "Amount").click
+      assert_equal %w[Dev Ben ana Cleo Eli Later], first_cells
+      click_on "Download CSV"
+    end
+
+    assert_current_path(/tf_sort=Amount/)
+    query = current_query
+    columns = %w[Name Amount Due Team].each_with_index.to_h { |key, index| [ key, ->(row) { row[index] } ] }
+    shown = TableFilterParams.new(query["tf"], sort: query["tf_sort"], dir: query["tf_dir"]).apply(rows, columns)
+    assert_equal %w[Dev Ben ana Cleo Eli], shown.map(&:first)
+  end
+
   test "a carry-marked button sends the filters as fields of its form, and drops them once cleared" do
     form = <<~HTML
       <form action="#{badge_types_path}" method="get">

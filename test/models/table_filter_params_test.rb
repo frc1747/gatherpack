@@ -73,6 +73,25 @@ class TableFilterParamsTest < ActiveSupport::TestCase
     assert_equal %w[7 Älpha alpha Item1 item2 Item10], sorted
   end
 
+  test "text in other scripts sorts by its alphabet, not dropped to placeholders" do
+    rows = %w[Вера Борис анна Ёлка Zoe].map { |name| Row.new(name) }
+    sorted = TableFilterParams.new(nil, sort: "Name").apply(rows, COLUMNS).map(&:name)
+    assert_equal %w[Zoe анна Борис Вера Ёлка], sorted
+  end
+
+  test "a filter param that isn't a set of keys counts as no filters" do
+    [ "x", [ "x" ], ActionController::Parameters.new(tf: "x")[:tf], ActionController::Parameters.new(tf: [ "x" ])[:tf] ].each do |filters|
+      carried = TableFilterParams.new(filters, sort: "Name")
+      assert_equal({}, carried.filters)
+      assert_equal %w[ana Ben Cleo Dev], carried.apply(ROWS, COLUMNS).map(&:name)
+    end
+  end
+
+  test "a sort param that isn't a single key is ignored" do
+    assert_equal %w[Ben ana Cleo Dev], names(sort: [ "Name" ])
+    assert_equal %w[Ben ana Cleo Dev], names(sort: { "Name" => "x" })
+  end
+
   test "the sort is stable for equal values in both directions" do
     rows = [ Row.new("A", "x"), Row.new("B", "X"), Row.new("C", "x") ]
     assert_equal %w[A B C], TableFilterParams.new(nil, sort: "Team").apply(rows, COLUMNS).map(&:name)

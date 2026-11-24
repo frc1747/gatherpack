@@ -8,7 +8,9 @@ import { Controller } from "@hotwired/stimulus"
 // Over 12 values, a search box narrows the list. "Clear filters" sits beside
 // Columns while any filter is on. Neither is remembered.
 // A cell's value: its data-filter-value, else its text; it sorts by its
-// data-sort-value, else that value (numbers and dates compared as such).
+// data-sort-value, else that value (numbers and dates compared as such);
+// rows that tie keep their order from when the page loaded, so only the
+// last sort counts.
 // Headings with no text or marked data-table-filter-skip, and columns whose
 // cells hold form fields, get neither. Inside data-table-filter="off" nothing
 // is added. Rows with a different cell count from the headings (separators)
@@ -72,6 +74,8 @@ export default class extends Controller {
     this.anchor = this.tables[0].closest(".table-responsive") || this.tables[0]
     if (this.anchor.previousElementSibling?.matches("[data-table-filter-clear]")) this.anchor.previousElementSibling.remove()
     for (const row of [ ...this.bodyRows(), ...this.footRows() ]) this.show(row, true)
+    // Each row's place as loaded, to break sort ties (as TableFilterParams does).
+    this.positions = new Map(this.bodyRows().map((row, index) => [ row, index ]))
 
     this.filters = new Map() // heading text -> Set of ticked values
     this.sorted = null
@@ -319,7 +323,8 @@ export default class extends Controller {
         const order = []
         let block = []
         const flush = () => {
-          block.sort((a, b) => (ascending ? 1 : -1) * compare(sortKey(a.cells[index]), sortKey(b.cells[index])))
+          block.sort((a, b) => (ascending ? 1 : -1) * compare(sortKey(a.cells[index]), sortKey(b.cells[index])) ||
+            this.positions.get(a) - this.positions.get(b))
           order.push(...block)
           block = []
         }

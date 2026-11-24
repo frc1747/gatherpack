@@ -12,10 +12,12 @@
 # This mirrors the controller's rules; change both together. A cell's value
 # is its text with runs of whitespace made one space, trimmed. A column with
 # values chosen keeps the rows whose value is one of them (blank is a value
-# of its own); columns combine. Sorting is stable: blanks last, numbers
-# ($ and commas ignored) and dates (yyyy-mm-dd...) before text and by size,
-# then text in natural order ignoring case and accents; descending reverses
-# the comparison, so blanks come first.
+# of its own); columns combine. Sorting: blanks last, numbers ($ and commas
+# ignored) and dates (yyyy-mm-dd...) before text and by size, then text in
+# natural order ignoring case and accents; descending reverses the
+# comparison, so blanks come first. Ties keep the rows' original order in
+# both directions (the controller breaks them by each row's position when
+# the page loaded), so only the last sort counts.
 class TableFilterParams
   DATE = /\A\d{4}-\d{2}-\d{2}/
   NUMBER_NOISE = /[$,\s]/
@@ -23,12 +25,14 @@ class TableFilterParams
   attr_reader :filters, :sort, :descending
 
   # filters: { key => value or [values] } (params[:tf]); sort: a key;
-  # dir: "desc" for descending, else ascending.
+  # dir: "desc" for descending, else ascending. Anything else, such as a
+  # hand-edited ?tf=x, counts as nothing carried.
   def initialize(filters, sort: nil, dir: nil)
     filters = filters.to_unsafe_h if filters.respond_to?(:to_unsafe_h)
-    @filters = (filters || {}).to_h.to_h { |key, values| [ key.to_s, Array(values).map { |value| clean(value) }.to_set ] }
+    filters = {} unless filters.is_a?(Hash)
+    @filters = filters.to_h { |key, values| [ key.to_s, Array(values).map { |value| clean(value) }.to_set ] }
       .reject { |_, values| values.empty? }
-    @sort = sort.presence&.to_s
+    @sort = sort.presence if sort.is_a?(String)
     @descending = dir.to_s == "desc"
   end
 
@@ -90,9 +94,10 @@ class TableFilterParams
   end
 
   # localeCompare(..., { numeric: true, sensitivity: "base" }), near enough:
-  # digit runs by size, the rest without case or accents.
+  # digit runs by size, the rest without case or accents (letters in any
+  # script kept, so Cyrillic sorts by its alphabet).
   def natural(text)
-    ActiveSupport::Inflector.transliterate(text).downcase.scan(/\d+|\D+/).map do |part|
+    text.unicode_normalize(:nfkd).gsub(/\p{Mn}/, "").downcase.scan(/\d+|\D+/).map do |part|
       part.match?(/\A\d/) ? [ 0, part.to_i ] : [ 1, part ]
     end
   end
