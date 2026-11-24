@@ -1,0 +1,21 @@
+<% breadcrumb @signup_sheet %>
+
+<%= simple_form_for(@signup_sheet) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>New sign-up sheet</h1>
+  </div>
+  <div class="card-body">
+    <%# A past event drops out, so after its error the sheet can be saved without it. %>
+    <% if @event && SignupSheet.upcoming_event?(@event) %>
+      <%= hidden_field_tag :event_id, @event.id %>
+      <p class="text-muted">Saving adds <%= @event.name %> (<%= nice_date(@event.start_time) %>) to the sheet's dates.</p>
+    <% end %>
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", signup_sheets_path, class: "btn btn-secondary" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
