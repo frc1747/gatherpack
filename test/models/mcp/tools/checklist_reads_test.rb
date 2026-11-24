@@ -148,13 +148,24 @@ class Mcp::Tools::ChecklistReadsTest < ActionDispatch::IntegrationTest
       assert_equal all.select { |_, overall| overall == expected }.keys.sort, ids.sort, status
     end
     not_done = call_tool("people_meeting", user: user(:alpha_manager), checklist_id: @checklist.neat_id, status: "not_done", limit: 100).value
-    assert_equal all.count { |_, overall| overall != "met" }, not_done["total"]
+    assert_equal all.count { |_, overall| %w[met exempt].exclude?(overall) }, not_done["total"]
 
     # Someone who sees only their own row learns only about it.
     own = call_tool("people_meeting", user: user(:alpha_member), checklist_id: @checklist.neat_id, status: "not_done").value
     assert_equal [ person(:alpha_member).neat_id ], own["people"].map { |entry| entry["person"]["id"] }
     assert_equal "Not found", call_tool("people_meeting", user: user(:beta_member), checklist_id: @checklist.neat_id).error
     assert_equal 1, call_tool("people_meeting", user: user(:alpha_manager), checklist_id: @checklist.neat_id, status: "not_done", limit: 1).value["people"].size
+  end
+
+  test "people_meeting: someone nothing counts for is exempt (Not required), not left to do" do
+    [ @login, @shifts, @handbook, @safety_item ].each do |item|
+      @checklist.checklist_rules.create!(effect: :exclude, target_type: :person, item: item, person: person(:kid))
+    end
+    refresh_checklist
+    meeting = ->(status) { call_tool("people_meeting", user: user(:alpha_manager), checklist_id: @checklist.neat_id, status: status, limit: 100).value["people"] }
+
+    assert_equal [ [ person(:kid).neat_id, "Not required" ] ], meeting.call("exempt").map { |entry| [ entry["person"]["id"], entry["text"] ] }
+    assert_not_includes meeting.call("not_done").map { |entry| entry["person"]["id"] }, person(:kid).neat_id
   end
 
   test "as_of recomputes only where the page offers it: not on an archived checklist" do

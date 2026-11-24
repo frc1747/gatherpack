@@ -3,16 +3,18 @@
 # test, but limited to the rows the viewer may see (Checklists::Report#statuses), so it tells
 # them nothing the report page wouldn't. The checklist must be one the viewer can see, otherwise
 # "Not found". A row whose overall the viewer can't see isn't matched by a specific status. not_done
-# is the report's "isn't Complete" (In Progress, Not Started and Not counted together), which also keeps a row
-# whose overall the viewer can't see, as the page's filter does; those rows have blank text. Needs the checklists feature.
+# is the report's "isn't Complete" (In Progress and Not Started together; Not required, where nothing
+# counts for the person, isn't left to do), which also keeps a row whose overall the viewer can't see,
+# as the page's filter does; those rows have blank text. Needs the checklists feature.
 class Mcp::Tools::PeopleMeeting < Mcp::Tool
   include Mcp::ChecklistRecords
 
   STATUSES = (Mcp::ChecklistRecords::STATUSES + %w[not_done]).freeze
 
   tool_name "people_meeting"
-  description "People on a checklist whose overall status is met (Complete), pending (In Progress), not_met (Not Started), exempt (Not counted), " \
-    "or not_done (anything but Complete), among the rows its report shows you. A checklist you can't see is \"Not found\"."
+  description "People on a checklist whose overall status is met (Complete), pending (In Progress), not_met (Not Started), " \
+    "exempt (Not required: nothing on it counts for them), or not_done (anything but Complete or Not required), " \
+    "among the rows its report shows you. A checklist you can't see is \"Not found\"."
   scope :read
   feature :checklists
   input_schema(
@@ -63,6 +65,6 @@ class Mcp::Tools::PeopleMeeting < Mcp::Tool
   # not_done is the report's filter, which keeps a row whose overall the viewer can't see.
   def matches?(entry, status)
     overall = entry.overall&.status
-    status == "not_done" ? overall != "met" : overall == status
+    status == "not_done" ? %w[met exempt].exclude?(overall) : overall == status
   end
 end
