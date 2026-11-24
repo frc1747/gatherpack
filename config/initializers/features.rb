@@ -222,7 +222,7 @@ Rails.application.config.to_prepare do
       description: "Allow third-party apps to authenticate users via OAuth2",
       default_enabled: true,
       toggleable: true,
-      setup_section: "People",
+      setup_section: "Communication",
       setup_items: [
         # The routes are only drawn if the feature was on at boot, so turning it
         # on at runtime must not render a link to a helper that doesn't exist yet.
