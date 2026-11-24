@@ -49,7 +49,8 @@ module ScreenKitHelper
   # tag.div(class: "table-responsive", data: column_chooser_data("orders-report")).
   # On a wrapper that also holds a filter bar, the chooser goes in the bar's
   # table actions. data: the wrapper's other data attributes; a controller
-  # there is kept.
+  # there is kept. A table action built with data: { table_filter_carry: true }
+  # sends the heading filters and sort along; TableFilterParams applies them.
   def column_chooser_data(key, **data)
     data.merge(controller: [ data[:controller], "column-chooser table-filter" ].compact.join(" "), column_chooser_key_value: key)
   end
