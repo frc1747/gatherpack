@@ -14,24 +14,6 @@
   gap: 0.75rem;
 }
 
-.mg-search {
-  position: relative;
-  width: 16rem;
-}
-
-.mg-search > i,
-.mg-search > svg {
-  position: absolute;
-  top: 50%;
-  left: 0.875rem;
-  transform: translateY(-50%);
-  color: var(--bs-secondary-color);
-}
-
-.mg-search .form-control {
-  padding-left: 2.5rem;
-}
-
 .mg-greeting {
   margin: 0;
   font-size: 2rem;

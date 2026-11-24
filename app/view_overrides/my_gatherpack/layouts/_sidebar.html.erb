@@ -10,7 +10,7 @@
     <div class="offcanvas-header">
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
     </div>
-    <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto">
+    <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto" data-controller="menu-pin" data-menu-pin-url-value="<%= menu_pins_path %>">
       <div class="d-none d-md-block px-3 pt-3 pt-lg-0 pb-2" data-site-brand>
         <a class="d-flex align-items-center gap-2 mb-3 fw-semibold mg-site-link link-body-emphasis text-decoration-none" href="<%= root_path %>">
           <% if Theme.instance.logo.attached? %>
@@ -25,82 +25,10 @@
         </form>
       </div>
 
-      <div class="nav flex-column">
-        <% if current_user != true_user %>
-          <div class="nav-item d-flex align-items-center px-3 impersonator">
-            <%= image_tag(get_avatar_url_64(true_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
-            <%= link_to true_user.person.identifier_name, true_user.person %>
-          </div>
-          <div class="nav-item px-3 text-center w-100 impersonator-label">
-            impersonating
-          </div>
-        <% end %>
-        <% if current_user != true_user %>
-          <div class="nav-item d-flex align-items-center px-3 impersonator">
-            <%= image_tag(get_avatar_url_64(current_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
-            <%= link_to current_user.person.identifier_name, current_user.person %>
-          </div>
-          <div class="nav-item d-flex align-items-center px-3 pt-1 impersonator">
-            <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: {turbo: false}, class: "btn btn-danger btn-sm w-100" %>
-          </div>
-
-          <hr class="my-2">
-        <% end %>
-
-        <div data-menu-group="top">
-          <% my_gatherpack_menu.top.each do |item| %>
-            <%= nav_link item.label, resolve_nav_path(item), item.icon %>
-          <% end %>
-        </div>
-
-        <% if my_gatherpack_menu.family.any? %>
-          <div data-menu-group="family">
-            <% my_gatherpack_menu.family.each do |item| %>
-              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
-            <% end %>
-          </div>
-        <% end %>
-
-        <% if my_gatherpack_menu.more.any? %>
-          <details data-menu-group="more">
-            <summary class="px-3 mt-2 mb-1 text-secondary text-uppercase small fw-medium">More</summary>
-            <% my_gatherpack_menu.more.each do |item| %>
-              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
-            <% end %>
-          </details>
-        <% end %>
-
-        <% if my_gatherpack_menu.manage.any? %>
-          <div data-menu-group="manage">
-            <%= nav_heading "Manage" %>
-            <% my_gatherpack_menu.manage.each do |item| %>
-              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
-            <% end %>
-          </div>
-        <% end %>
-
-        <% if admin? %>
-          <hr class="my-2">
-
-          <div data-menu-group="admin">
-            <%= nav_heading "Automation" %>
-
-            <%= nav_link "Variables", variables_path, "database" %>
-            <%= nav_link "Reports", reports_path, "file-code" %>
-            <%= nav_link "Hooks", hooks_path, "timeline" %>
-
-            <%= nav_heading "Admin" %>
-
-            <%= nav_link "Setup", setup_path, "cogs" %>
-            <%= nav_link "Audit Log", audit_logs_path, "file-circle-check" %>
-            <%# The route comes from another feature, and only while it's on. %>
-            <% if GatherPack::Features.enabled?(:mcp) && respond_to?(:mcp_calls_path) %>
-              <%= nav_link "MCP Calls", mcp_calls_path, "robot" %>
-            <% end %>
-          </div>
-        <% end %>
-
+      <div class="nav flex-column" id="mg-menu">
+        <%= render "my_gatherpack/menu" %>
       </div>
+
       <div class="mg-sidebar-foot">
 <%= render "layouts/sidebar_slots" %>
         <div class="mg-sidebar-person">
@@ -112,6 +40,8 @@
                 <%= link_to link.label, public_send(link.path), class: "mg-sign-out" %>
               <% end %>
               <%= link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "mg-sign-out" %>
+              <%# Touch screens have no hover, so this shows the pins instead. %>
+              <button type="button" class="mg-sign-out mg-edit-menu" aria-pressed="false" data-action="menu-pin#edit" data-menu-pin-target="edit">Edit menu</button>
             </div>
           </div>
         </div>
