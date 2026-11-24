@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (tests) |
 | Priority | medium |
-| Status | open |
+| Status | shipped hbr.53 |
 | Added | 2026-11-22 |
 | Commit checked | `hbr/integration` @ `e3cc619f5` (`v0.0.0-hbr.52`) |
 | Planned branches | `feature/person-fields` (the settings helper); `feature/checklists-connectors` (the rule-order test) |

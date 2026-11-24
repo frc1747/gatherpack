@@ -85,13 +85,13 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-076](BL-076-print-style-setting.md) | Print style as a site setting on the Theme page, used by every printed page | fork-only (feature) | high | shipped hbr.52 | 2026-11-21 |
 | [BL-077](BL-077-duplicate-everywhere.md) | Duplicate in More on sign-up sheets, events, commitments, order requests, inventory items; Copy renamed | fork-only (feature) | high | shipped hbr.52 | 2026-11-21 |
 | [BL-078](BL-078-column-filters.md) | Sort and filter any fork table by its columns (heading sort, funnel value filters), shared kit | fork-only (screens) | high | shipped hbr.52 | 2026-11-21 |
-| [BL-079](BL-079-team-move-preview.md) | Moving people to another team fails at the preview ("Form responses must redirect") | fork-only (bug) | high | open | 2026-11-22 |
-| [BL-080](BL-080-signed-out-message.md) | No "Signed out successfully." after signing out (the sign-in redirect drops it) | fork-only (bug) | low | open | 2026-11-22 |
-| [BL-081](BL-081-test-isolation.md) | Tests read the checkout's real settings file, and a sign-up rule test depends on row order | fork-only (tests) | medium | open | 2026-11-22 |
-| [BL-082](BL-082-hbr52-polish.md) | hbr.52 polish: copy wording, shared reorder columns, CSV follows filters, print-style default label, breadcrumb, signer wording, team picker setting, Reminders tab select and Summaries option | fork-only (screens) | low | open | 2026-11-22 |
-| [BL-083](BL-083-touch-friendly-menus.md) | More and other dropdown menus get phone-sized spacing (44px tap targets on touch screens), with Delete set apart | fork-only (screens) | medium | open | 2026-11-22 |
-| [BL-084](BL-084-sidebar-by-job.md) | Sidebar sorted by job: Sign-ups, Forms and Checklists together, report Pages in the menu, Manage in folding parts, per-person pins | fork-only (screens) | medium | open | 2026-11-23 |
-| [BL-085](BL-085-home-orders-activity-button.md) | Home: "See all your activity" looks like part of Your orders; Your orders says nothing when there are no requests | fork-only (screens) | medium | open | 2026-11-23 |
+| [BL-079](BL-079-team-move-preview.md) | Moving people to another team fails at the preview ("Form responses must redirect") | fork-only (bug) | high | shipped hbr.53 | 2026-11-22 |
+| [BL-080](BL-080-signed-out-message.md) | No "Signed out successfully." after signing out (the sign-in redirect drops it) | fork-only (bug) | low | shipped hbr.53 | 2026-11-22 |
+| [BL-081](BL-081-test-isolation.md) | Tests read the checkout's real settings file, and a sign-up rule test depends on row order | fork-only (tests) | medium | shipped hbr.53 | 2026-11-22 |
+| [BL-082](BL-082-hbr52-polish.md) | hbr.52 polish: copy wording, shared reorder columns, CSV follows filters, print-style default label, breadcrumb, signer wording, team picker setting, Reminders tab select and Summaries option | fork-only (screens) | low | shipped hbr.53 | 2026-11-22 |
+| [BL-083](BL-083-touch-friendly-menus.md) | More and other dropdown menus get phone-sized spacing (44px tap targets on touch screens), with Delete set apart | fork-only (screens) | medium | shipped hbr.53 | 2026-11-22 |
+| [BL-084](BL-084-sidebar-by-job.md) | Sidebar sorted by job: Sign-ups, Forms and Checklists together, report Pages in the menu, Manage in folding parts, per-person pins | fork-only (screens) | medium | shipped hbr.53 | 2026-11-23 |
+| [BL-085](BL-085-home-orders-activity-button.md) | Home: "See all your activity" looks like part of Your orders; Your orders says nothing when there are no requests | fork-only (screens) | medium | shipped hbr.53 | 2026-11-23 |
 
 ## Fields
 

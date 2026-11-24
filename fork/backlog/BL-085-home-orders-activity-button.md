@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (screens) |
 | Priority | medium |
-| Status | open |
+| Status | shipped hbr.53 |
 | Added | 2026-11-23 |
 | Commit checked | `hbr/integration` @ `e3cc619f5` (`v0.0.0-hbr.52`) |
 | Planned branches | `feature/my-gatherpack-activity`, `feature/my-gatherpack-orders` |
