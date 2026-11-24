@@ -280,7 +280,7 @@ module Checklists
         elsif roles == [ :subject ]
           "Waiting for their signature"
         else
-          "Waiting for #{missing.first.signer_description}'s signature"
+          "Waiting for #{missing.first.signer_waiting_text}"
         end
       end
 
