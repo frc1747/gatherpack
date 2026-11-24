@@ -12,7 +12,7 @@
   </div>
 </div>
 
-<%= form_with url: preview_team_move_people_path(@team), method: :post, class: "mt-3", data: { controller: "select-all" } do %>
+<%= form_with url: preview_team_move_people_path(@team), method: :post, class: "mt-3", data: { controller: "select-all", turbo: false } do %>
   <div class="table-responsive">
     <table class="table table-sm align-middle">
       <thead>

@@ -349,6 +349,7 @@ class HousekeepingControllerTest < ActionDispatch::IntegrationTest
       assert_select "input[name='ids[]'][value='#{person(:member).id}']"
       assert_select "input[name='ids[]'][value='#{person(:club_manager).id}']", count: 0
       assert_select "select[name='to_team_id'] option[value='#{@alumni.id}']"
+      assert_select "form[action=?][data-turbo=false]", preview_team_move_people_path(@members)
 
       post preview_team_move_people_path(@members), params: { to_team_id: @alumni.id, ids: [ person(:member).id ] }
       assert_response :success
@@ -359,6 +360,14 @@ class HousekeepingControllerTest < ActionDispatch::IntegrationTest
       assert_redirected_to team_memberships_path(@members)
       assert_not @members.memberships.exists?(person: person(:member))
       assert @alumni.memberships.exists?(person: person(:member))
+    end
+  end
+
+  test "the Housekeeping list's preview form is an ordinary page load" do
+    with_housekeeping do
+      sign_in person(:club_manager).user
+      get housekeeping_list_path(:events, older: { mode: "" })
+      assert_select "form[action=?][data-turbo=false]", housekeeping_preview_path(:events)
     end
   end
 
