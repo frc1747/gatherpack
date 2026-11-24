@@ -1075,3 +1075,11 @@ feature/event-type-starts-locked:
     - name: "Event types that start locked"
       key: feature_event_type_starts_locked
       default: "off"
+feature/blank-team-scopes:
+  title: Events with no team show to everyone
+  emoji: "👥"
+  description: >-
+    An event saved with no team now appears for every signed-in member, not
+    just admins. The event form tells admins that leaving Team blank shows the
+    event to everyone.
+  audience: Admins and team managers

@@ -4,13 +4,16 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | blocked |
+| Status | started |
 | Added | 2026-10-05 |
 | Upstream base checked | `32e8023` |
-| Planned branch | `feature/blank-team-scopes` |
+| Branch | `feature/blank-team-scopes` (on `feature/security-series`; see [FORK.md](../../FORK.md)) |
 | Upstream issue / PR | none yet; asked Brad directly on 2026-10-05 |
 
-**Blocked on:** Brad's answer to whether this is intentional (question below). The answer decides between the two fixes.
+**Decided 2026-11-24:** the owner chose "no team = everyone" without waiting on Brad's answer. The branch fixes events only:
+
+- `EventPolicy::Scope` uses `team_id: nil`, `EventPolicy#show?` agrees, the policy generator template uses `nil`, and admins see the hint "Leave blank to show this event to everyone." on the event form's Team field. The policy test is updated.
+- Left alone on purpose: **Page** (a team-less page follows its viewer setting through `show?`, so listing it for everyone would leak admin-only pages), **Shortcut** (the column can't be null), and **CheckinFieldResponse** (its scope is never called).
 
 ## Summary
 
