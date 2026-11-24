@@ -1,0 +1,9 @@
+<%# Retention purges offered on a list page (Housekeeping.register_purge's
+    page:), for admins. Locals: page. %>
+<% if current_user&.admin? && (hk_purges = Housekeeping.purges_for(page).select(&:enabled?)).any? %>
+  <div class="mt-3 small">
+    <% hk_purges.each do |purge| %>
+      <%= link_to "Clear #{purge.label.downcase_first} older than #{pluralize(purge.months, "month")}", housekeeping_purge_path(purge.key), class: "btn btn-sm btn-outline-danger me-2" %>
+    <% end %>
+  </div>
+<% end %>

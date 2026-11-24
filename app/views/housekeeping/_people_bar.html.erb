@@ -1,0 +1,33 @@
+<%# "No activity since" on a people list (one render line there). Locals:
+    - team (optional): on a team's people, it leads to moving them to
+      another team.
+    - search_form (optional): the id of the list's search form. The control
+      joins that form (the form= attribute), so a name search and this
+      filter go together whichever is used first.
+    Admins also get the purges offered for people. %>
+<% if Housekeeping.enabled? %>
+  <% hk_team = local_assigns[:team] %>
+  <% hk_form = local_assigns[:search_form] unless hk_team %>
+  <% hk_picked = Checklists::RelativeDate.from_config(params[:no_activity].respond_to?(:permit) ? params[:no_activity].permit(:mode, :date, :amount, :unit).to_h : nil) %>
+  <details class="card mt-3" <%= "open" if hk_picked %>>
+    <summary class="card-header"><%= hk_team ? "Move people to another team" : "People with no activity" %></summary>
+    <div class="card-body">
+      <% hk_fields = capture do %>
+        <%= render "checklists/relative_date_field", name: "no_activity", field_id: "housekeeping_no_activity",
+          legend: "No time clock, check-in or other activity", picked: hk_picked, form_id: hk_form,
+          none_label: "Anyone", date_label: "Since", within_label: "For", after_label: nil %>
+      <% end %>
+      <% if hk_form %>
+        <%= hk_fields %>
+        <%# advance: Turbo puts the frame request's URL in the address bar. %>
+        <%= button_tag "Find", type: "submit", name: nil, form: hk_form, data: { turbo_action: "advance" }, class: "btn btn-outline-primary mt-2" %>
+      <% else %>
+        <%= form_with url: hk_team ? team_move_people_path(hk_team) : request.path, method: :get, data: { turbo: false } do %>
+          <%= hk_fields %>
+          <%= submit_tag hk_team ? "Pick people to move" : "Find", name: nil, class: "btn btn-outline-primary mt-2" %>
+        <% end %>
+      <% end %>
+      <%= render "housekeeping/purges", page: :people unless hk_team %>
+    </div>
+  </details>
+<% end %>

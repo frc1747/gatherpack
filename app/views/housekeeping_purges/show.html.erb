@@ -1,0 +1,48 @@
+<% breadcrumb :housekeeping_purge, @purge %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "Clear #{@purge.label.downcase_first}" %>
+  <div class="card-body">
+    <% if @cutoff.nil? %>
+      <p>This is turned off: its age setting (<%= @purge.setting_name %>) is blank.</p>
+    <% else %>
+      <p>
+        Everything from before <strong><%= l(@cutoff, format: :long) %></strong> (older than <%= pluralize(@purge.months, "month") %>, set in settings).
+        It's removed for good, including from the change history. People stay, and so does the rest of their record.
+      </p>
+      <% if @count.zero? %>
+        <p class="text-body-secondary">Nothing to clear.</p>
+      <% else %>
+        <p class="fw-semibold"><%= @summary %> will be cleared:</p>
+        <div class="table-responsive">
+        <table class="table table-sm">
+          <tbody>
+            <% @rows.each do |heading, detail| %>
+              <tr><td><%= heading %></td><td class="text-body-secondary"><%= detail %></td></tr>
+            <% end %>
+          </tbody>
+        </table>
+        </div>
+        <% if @row_count > @rows.size %><p class="small text-body-secondary">And <%= @row_count - @rows.size %> more.</p><% end %>
+
+        <%= form_with url: housekeeping_purge_path(@purge.key), method: :post do %>
+          <%= hidden_field_tag :count, @count %>
+          <div class="form-check mb-3">
+            <%= check_box_tag :confirmed, "1", false, required: true, class: "form-check-input" %>
+            <%= label_tag :confirmed, "I understand these #{@count} can't be brought back", class: "form-check-label" %>
+          </div>
+          <% page_path = :"#{@purge.page}_path" %>
+          <div class="d-flex flex-wrap gap-2">
+            <%= link_to "Cancel", respond_to?(page_path) ? public_send(page_path) : root_path, class: "btn btn-secondary" %>
+            <%= submit_tag "Clear #{@count}", class: "btn btn-danger" %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+    <% if @last %>
+      <p class="small text-body-secondary mt-3">
+        Last cleared <%= l(@last.created_at.to_date, format: :long) %><%= " by #{@last.person.display_name}" if @last.person %>: <%= @last.count %>.
+      </p>
+    <% end %>
+  </div>
+</div>
