@@ -1,0 +1,13 @@
+<%# How people hear about requests (orders_notices), with the four choices. Locals: setting, value, prefix (the field's name). %>
+<% id = sanitize_to_id(prefix) %>
+<% summaries = defined?(GatherPack::Digests) && GatherPack::Digests.enabled? %>
+<div class="mb-3">
+  <%= label_tag id, setting.name, class: "form-label" %>
+  <%= select_tag prefix, options_for_select(Orders::Config::NOTICE_CHOICES, value.presence || setting.default_value), id: id, class: "form-select", style: "min-height: 44px; max-width: 20rem" %>
+  <div class="form-text">
+    <%= setting.description %>
+    <% unless summaries %>
+      While Summaries is off, the summary comes in Orders' own email each morning, "In the Weekly Infodump" too, and everyone gets the choice made here.
+    <% end %>
+  </div>
+</div>

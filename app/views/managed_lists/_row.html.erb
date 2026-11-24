@@ -1,0 +1,40 @@
+<% style = ManagedListsHelper::MANAGED_LIST_BUTTON_STYLE %>
+<% usage = row.usage %>
+<li class="list-group-item d-flex flex-wrap align-items-center gap-2" id="<%= dom_id row %>">
+  <div class="flex-grow-1">
+    <strong><%= row.name %></strong>
+    <% if row.plural.present? %>
+      <span class="text-muted">(<%= row.plural %>)</span>
+    <% end %>
+    <div class="small text-muted">
+      <% if usage.any? %>
+        Used on <%= usage.map { |klass, count| pluralize(count, klass.model_name.human.downcase) }.to_sentence %>
+      <% else %>
+        Not used yet
+      <% end %>
+    </div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <% if row.active? %>
+      <%= button_to move_managed_list_row_path(@list.key, row, direction: "up"), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style, disabled: first, title: "Move up", aria: { label: "Move #{row.name} up" } do %>
+        <%= i "arrow-up" %>
+      <% end %>
+      <%= button_to move_managed_list_row_path(@list.key, row, direction: "down"), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style, disabled: last, title: "Move down", aria: { label: "Move #{row.name} down" } do %>
+        <%= i "arrow-down" %>
+      <% end %>
+    <% end %>
+    <%= link_to "Edit", edit_managed_list_row_path(@list.key, row), class: "btn btn-sm btn-outline-warning d-inline-flex align-items-center", style: style %>
+    <% if row.active? %>
+      <%= button_to "Retire", retire_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style %>
+    <% else %>
+      <%= button_to "Restore", restore_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style %>
+    <% end %>
+    <% if row.key.blank? %>
+      <% if usage.any? %>
+        <%= link_to "Merge into…", merge_managed_list_row_path(@list.key, row), class: "btn btn-sm btn-outline-secondary d-inline-flex align-items-center", style: style %>
+      <% else %>
+        <%= button_to "Delete", managed_list_row_path(@list.key, row), method: :delete, class: "btn btn-sm btn-outline-danger", style: style, form: { data: { turbo_confirm: "Delete #{row.name}?" } } %>
+      <% end %>
+    <% end %>
+  </div>
+</li>

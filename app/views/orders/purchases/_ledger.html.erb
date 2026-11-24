@@ -1,0 +1,34 @@
+<%# The purchase's ledger entry, or "Not in ledger" with Record in ledger
+    for whoever may add it (spec §6). Nothing while the ledger is off. %>
+<% if Orders::LedgerRecording.ledger_on? %>
+  <div class="card mb-3" id="purchase_ledger">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <% entry = purchase.ledger_entry %>
+      <% if entry %>
+        <div>
+          <strong>In ledger:</strong>
+          <% if policy_scope(LedgerEntry).exists?(id: entry.id) %>
+            <%= link_to "#{entry.ledger.name}, #{entry.amount.format}", ledger_ledger_entry_path(entry.ledger, entry) %>
+          <% else %>
+            <%= entry.ledger.name %>
+          <% end %>
+          <% if -entry.amount_cents != purchase.total_cents %>
+            <div class="text-danger small">
+              This order now totals <%= orders_money(purchase.total_cents) %>; change the entry in the ledger to match.
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <span class="badge text-bg-warning">Not in ledger</span>
+        <% if policy(purchase).record_in_ledger? %>
+          <%= form_with url: orders_purchase_ledger_entry_path(purchase), method: :post, class: "d-flex flex-wrap gap-2 align-items-center" do %>
+            <%= label_tag :ledger_id, "Ledger", class: "visually-hidden" %>
+            <%= select_tag :ledger_id, options_from_collection_for_select(Orders::LedgerRecording.ledgers_for(current_user.person), :id, :name),
+                  class: "form-select w-auto" %>
+            <%= submit_tag "Record in ledger", class: "btn btn-primary" %>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

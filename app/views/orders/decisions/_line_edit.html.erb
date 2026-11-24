@@ -1,0 +1,74 @@
+<%# One item's edit form for an approver, folded until opened. %>
+<% store = line.vendor_id || (line.other_vendor_name.present? ? "other" : "") %>
+<% vendors = Vendor.active.listed.to_a %>
+<% vendors |= [ line.vendor ] if line.vendor %>
+<details class="border rounded mb-2 orders-line-edit">
+  <summary class="p-2"><%= line.display_name %> × <%= line.quantity %></summary>
+  <%= form_with model: line, scope: :line, url: orders_request_line_edit_path(order_request, line), method: :patch, namespace: dom_id(line), class: "p-2 pt-0" do |form| %>
+    <div class="mb-2">
+      <%= form.label :description, "What is it?", class: "form-label" %>
+      <%= form.text_field :description, class: "form-control" %>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <%= form.label :quantity, "How many?", class: "form-label" %>
+        <%= form.number_field :quantity, min: 1, class: "form-control" %>
+      </div>
+      <div class="col-6">
+        <%= form.label :estimated_unit_price, "Price each", class: "form-label" %>
+        <%= form.text_field :estimated_unit_price, value: line.estimated_unit_price&.to_s, inputmode: "decimal", class: "form-control" %>
+      </div>
+      <div class="col-6">
+        <%= form.label :unit, "Unit", class: "form-label" %>
+        <%= form.text_field :unit, class: "form-control" %>
+      </div>
+      <div class="col-6">
+        <%= form.label :units_per, "Pieces per unit", class: "form-label" %>
+        <%= form.number_field :units_per, min: 1, class: "form-control" %>
+      </div>
+    </div>
+    <div class="mb-2">
+      <%= form.label :store, "Where from?", class: "form-label" %>
+      <%= form.select :store,
+            vendors.map { |vendor| [ vendor.name, vendor.id ] } + [ [ "Other store", "other" ], [ "Not sure", "" ] ],
+            { selected: store }, class: "form-select" %>
+    </div>
+    <div class="mb-2">
+      <%= form.label :other_vendor_name, "Other store's name", class: "form-label" %>
+      <%= form.text_field :other_vendor_name, class: "form-control" %>
+    </div>
+    <div class="mb-2">
+      <%= form.label :url, "Link", class: "form-label" %>
+      <%= form.text_field :url, inputmode: "url", class: "form-control" %>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-sm-4">
+        <%= form.label :vendor_part_number, "Store part number", class: "form-label" %>
+        <%= form.text_field :vendor_part_number, class: "form-control" %>
+      </div>
+      <div class="col-sm-4">
+        <%= form.label :manufacturer, "Manufacturer", class: "form-label" %>
+        <%= form.text_field :manufacturer, class: "form-control" %>
+      </div>
+      <div class="col-sm-4">
+        <%= form.label :manufacturer_part_number, "Manufacturer part number", class: "form-label" %>
+        <%= form.text_field :manufacturer_part_number, class: "form-control" %>
+      </div>
+    </div>
+    <% if policy(order_request).set_funding? %>
+      <% choices = FundingSource.active.where(team_id: [ order_request.team_id ] + order_request.team.all_ancestor_ids).order(:name).to_a %>
+      <% choices |= [ line.funding_source ] if line.funding_source %>
+      <div class="mb-2">
+        <%= form.label :funding_source_id, "Funding source for this item", class: "form-label" %>
+        <%= form.select :funding_source_id, choices.map { |source| [ source.name, source.id ] },
+              { include_blank: "Same as the request" }, class: "form-select" %>
+      </div>
+    <% end %>
+    <div class="mb-2">
+      <%= form.label :note, "Note", class: "form-label" %>
+      <%= form.text_area :note, rows: 2, class: "form-control" %>
+    </div>
+    <%= form.hidden_field :other_vendor_reason %>
+    <%= form.submit "Save item", class: "btn btn-primary" %>
+  <% end %>
+</details>

@@ -1,0 +1,28 @@
+<% breadcrumb :orders_vendors %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h1>Vendors</h1>
+    <%= link_to "New vendor", new_orders_vendor_path, class: "btn btn-success" if policy(Vendor).create? %>
+  </div>
+  <%= tag.div class: "table-responsive", data: column_chooser_data("orders-vendors") do %>
+    <table class="table mb-0">
+      <thead>
+        <tr><th>Name</th><th>Website</th><th>Domains</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% @vendors.each do |vendor| %>
+          <tr class="<%= "text-muted" unless vendor.active? %>">
+            <td><%= link_to vendor.name, orders_vendor_path(vendor) %></td>
+            <td><%= vendor.website %></td>
+            <td><%= vendor.domains.to_sentence %></td>
+            <td>
+              <%= tag.span "Preferred", class: "badge text-bg-success" if vendor.preferred? %>
+              <%= tag.span "Not in use", class: "badge text-bg-secondary" unless vendor.active? %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

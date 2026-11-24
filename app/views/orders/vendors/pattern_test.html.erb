@@ -1,0 +1,24 @@
+<% breadcrumb :orders_vendor_pattern_test %>
+
+<%= turbo_frame_tag "pattern_test_result" do %>
+  <div class="mt-2">
+    <% if @pattern_error %>
+      <div class="alert alert-warning">The pattern <%= @pattern_error %>.</div>
+    <% elsif @url.blank? %>
+      <p class="text-muted">Paste a link to test.</p>
+    <% else %>
+      <p>
+        Store:
+        <strong><%= @matched_vendor ? @matched_vendor.name : "No listed vendor has this link's host, so it would be Other store" %></strong>
+      </p>
+      <p>
+        Part number:
+        <% if @part_number %>
+          <strong><%= @part_number %></strong>
+        <% else %>
+          <span class="text-muted">Nothing found, so nothing would be filled in</span>
+        <% end %>
+      </p>
+    <% end %>
+  </div>
+<% end %>
