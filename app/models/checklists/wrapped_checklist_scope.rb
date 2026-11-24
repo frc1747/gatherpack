@@ -42,7 +42,7 @@ module Checklists
       wrapped = items.find { |item| item.kind == CountItem::COUNT && item.wrapped? }
       results = ::ChecklistResult.where(checklist_id: checklist.id).where.not(item_id: nil).pluck(:item_id, :person_id).group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
       counted = results.fetch(wrapped.id, [])
-      # Someone with a result on the count owes it, and sees their own.
+      # Someone with a result on the count is on it (owing or exempt), and sees their own.
       return true if counted.include?(person.id) || Checklists::Kinds::Count.commitment_reach(wrapped, person, counted).any?
 
       other_item_reaches?(checklist, items - [ wrapped ] - ancestor_groups(wrapped, items), results)

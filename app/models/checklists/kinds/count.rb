@@ -247,11 +247,19 @@ module Checklists
         # parent's shift), which the count adds up; chances are [label, target] pairs from the
         # sources' how_to_earn, one per label, leaving out events they already
         # have a record at (signed up for it, say), while credit is still
-        # owed. Empty when they don't owe.
+        # owed. Someone it doesn't apply to (an exempt badge holder) sees
+        # their own records and no chances, as they owe nothing.
         def person_detail(item, person, viewer: nil)
-          commitment = commitment_for(item, as_of: Context.new(item.checklist).as_of)
+          as_of = Context.new(item.checklist).as_of
+          commitment = commitment_for(item, as_of: as_of)
           progress = commitment.progress(Person.where(id: person.id))[person.id]
-          return [ [], [], [] ] unless progress
+          unless progress
+            commitment = commitment_for(item, owing_ids: [ person.id ], as_of: as_of)
+            commitment.group_relationship_type_id = nil
+            own = commitment.progress(Person.where(id: person.id))[person.id]
+            done, upcoming = own ? own.lines.flat_map(&:records).partition(&:confirmed?) : [ [], [] ]
+            return [ upcoming.sort_by(&:date), done.sort_by(&:date).reverse, [] ]
+          end
 
           all_records = progress.lines.flat_map(&:records)
           own = all_records.select { |record| record.person_id == person.id }
@@ -356,6 +364,26 @@ module Checklists
           next Result.exempt(item.exempt_label.presence || "Doesn't owe") unless group
 
           result_for(commitment, group, earn)
+        end
+      end
+
+      # People the item doesn't apply to (holders of an exempt badge, say)
+      # still see what they did: their own tally, never pooled, after the
+      # exempt label ("Doesn't owe · 2 events"), with confirmed and planned
+      # as measures.
+      def exempt_attributes(person_ids)
+        commitment = self.class.commitment_for(item, owing_ids: person_ids, as_of: context.as_of)
+        commitment.group_relationship_type_id = nil
+        progress = commitment.progress(Person.where(id: person_ids))
+        label = item.exempt_label.presence || "Doesn't apply"
+        unit = commitment.unit.to_s
+
+        person_ids.each_with_object({}) do |person_id, attributes|
+          group = progress[person_id]
+          next unless group
+
+          attributes[person_id] = { summary: "#{label} · #{group.counted} #{group.counted == 1 ? unit.singularize : unit}",
+            measures: { "confirmed" => group.confirmed, "planned" => group.planned } }
         end
       end
 
