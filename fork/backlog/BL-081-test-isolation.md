@@ -27,7 +27,7 @@ Two things make the suite give different answers on different machines:
 ## Fix
 
 - `test_helper.rb`: a global `setup` gives each test an empty temporary PStore (`Settings.instance.store = PStore.new(<tmp path>, true)`), and `teardown` deletes it and puts the original back. An empty store is safe: every setting falls back to its default. Then `SettingsTestHelper.apply` and the modern-skin and smooth-pages helpers copy the current (temporary) store, not the real file.
-- `checklist_signup_rule_test.rb`: `travel 1.second` between the rule creates, so their order is the order they were made. Also order the association by `created_at, id`, so ties are at least stable.
+- `checklist_signup_rule_test.rb`: `travel 1.second` between the rule creates, so their order is the order they were made. The association's `order(:created_at)` stays: ids are UUIDs, so adding `id` wouldn't restore creation order.
 
 ## Tests
 
