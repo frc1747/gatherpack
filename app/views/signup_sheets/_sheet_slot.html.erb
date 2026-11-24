@@ -31,7 +31,7 @@
         <%= link_to "Sign up", new_signup_sheet_signup_path(@signup_sheet, slot_id: slot.id), class: "btn btn-sm btn-primary" %>
       <% else %>
         <% taker = @takers.find { |someone| someone.id == @viewer.id } || @takers.first %>
-        <span class="text-body-secondary"><%= position.eligibility_failures(taker, event, viewer: @viewer, age_check: @age_check).to_sentence %></span>
+        <span class="text-body-secondary"><%= to_sentence(position.eligibility_failures(taker, event, viewer: @viewer, age_check: @age_check)) %></span>
       <% end %>
     <% end %>
   </div>
