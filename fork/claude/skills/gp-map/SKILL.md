@@ -75,7 +75,7 @@ Manifest order and status: `fork/features.txt`, `FORK.md`.
 
 ## Views
 
-`layouts/application.html.erb` renders `_navbar` and `_sidebar` (the sidebar comes from the Features registry: sections People 10, Time 20, Finance 30, Communication 40, Content 50). Dashboard: `welcome#index` with `welcome/dashboard.html.erb`. Flash alerts: `application_helper#flash_to_class` (`notice` → `alert-info`). Search-and-add UI: `shared/_add_panel`, `_add_candidate(s)`.
+`layouts/application.html.erb` renders `_navbar` and `_sidebar`. The classic sidebar comes from the Features registry (`register_section`: My GatherPack 5, People 10, Time 20, Finance 30, Purchasing 35, Inventory 35, Communication 40, Content 50); a `NavItem` can carry `visible:` (feature/nav-item-visible), and other features add controls through `GatherPack::SidebarSlots`. With `feature_my_gatherpack` on, the view override `app/view_overrides/my_gatherpack/layouts/_sidebar.html.erb` replaces it: `MyGatherpack::Menu` places items by path helper from `MyGatherpack::Menu.table` (`config/initializers/my_gatherpack.rb`) into Pinned, the top run, Reports (Pages with `show_in_menu`), Family and Manage parts; `register_manager_check` opens Manage to non-managers. Dashboard: `welcome#index` with `welcome/dashboard.html.erb`. Flash alerts: `application_helper#flash_to_class` (`notice` → `alert-info`). Search-and-add UI: `shared/_add_panel`, `_add_candidate(s)`.
 
 **Buttons** (one word and style per action; placement rules: `fork-spec` "Screen design"; reasoning: `fork/specs/screen-standard-spec.md`):
 
