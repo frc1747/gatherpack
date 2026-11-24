@@ -59,11 +59,26 @@ module Intake::Notices
 
   # Once, when a registration reaches its cap of unfinished sign-ups.
   def registration_busy(registration)
-    registration.team.all_managers_and_admins.filter_map { |manager| manager.user&.email }.uniq.each do |email|
+    busy_recipients(registration.team).filter_map { |manager| manager.user&.email }.uniq.each do |email|
       deliver(email, "#{registration.title} is turning people away", "registration_busy",
         title: registration.title, cap: Intake.setting(:intake_entry_cap, 500),
         url: Rails.application.routes.url_helpers.intake_registration_url(registration))
     end
+  end
+
+  # The team's managers, and admins too unless the site limits admins to
+  # their own roles; then admins hear only about a team with no manager.
+  def busy_recipients(team)
+    return team.all_managers_and_admins if admins_everywhere?
+    team.all_managers.presence || admins
+  end
+
+  def admins_everywhere?
+    Settings[:notices_admins_everywhere]
+  end
+
+  def admins
+    Person.joins(:user).where(user: { admin: true })
   end
 
   # The person's own address, or their guardians' when they need one.

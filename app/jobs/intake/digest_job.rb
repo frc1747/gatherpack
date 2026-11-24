@@ -1,7 +1,9 @@
 # Once a day: one message to each manager with registration applications
 # waiting in the teams they manage, "<n> people are waiting to join <team>."
 # per team. A manager gets at most one a day, even if the job runs twice.
-# Runs from config/recurring.yml while the feature is on.
+# Admins count as managing every team, unless the site limits admins to their
+# own roles; then they hear only about teams they manage and teams with no
+# manager. Runs from config/recurring.yml while the feature is on.
 class Intake::DigestJob < ApplicationJob
   queue_as :default
 
@@ -12,9 +14,12 @@ class Intake::DigestJob < ApplicationJob
 
     teams = Team.where(id: counts.keys).index_by(&:id)
     store = Intake.rate_limit_store || Rails.cache
-    Person.joins(:memberships).where(memberships: { manager: true }).distinct.includes(:user).find_each do |manager|
+    unmanaged_ids = Intake::Notices.admins_everywhere? ? [] : teams.values.select { |team| team.all_managers.empty? }.map(&:id)
+    recipients = Person.where(id: Membership.where(manager: true).select(:person_id))
+    recipients = recipients.or(Person.where(id: Intake::Notices.admins.select(:id))) if unmanaged_ids.any?
+    recipients.includes(:user).find_each do |manager|
       next if manager.user&.email.blank?
-      ids = manager.all_managed_teams.where(id: counts.keys).pluck(:id)
+      ids = team_ids_for(manager, counts.keys, unmanaged_ids)
       next if ids.empty?
       next unless store.write("intake-digest:#{manager.id}:#{today.iso8601}", true, expires_in: 2.days, unless_exist: true)
 
@@ -24,5 +29,14 @@ class Intake::DigestJob < ApplicationJob
       end
       Intake::Notices.digest(manager, lines)
     end
+  end
+
+  private
+
+  # The teams with people waiting that this person's message lists.
+  def team_ids_for(person, waiting_ids, unmanaged_ids)
+    return person.all_managed_teams.where(id: waiting_ids).pluck(:id) if Intake::Notices.admins_everywhere?
+    ids = person.notice_teams.where(id: waiting_ids).pluck(:id)
+    person.admin? ? ids | unmanaged_ids : ids
   end
 end

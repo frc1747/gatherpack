@@ -58,6 +58,8 @@ Rails.application.config.to_prepare do
     "How many family members one person can add through registrations in a day.")
   Settings.register(:intake_rate_kiosk_per_minute, :integer, "Registration Kiosk: Sign-ups per Minute", "30", "Intake",
     "How many sign-ups one kiosk account can submit in a minute.")
+  Settings.register(:notices_admins_everywhere, :boolean, "Admins get notices for every team", "true", "Notifications",
+    "Off: admins get only the notices their own team roles bring; a notice nobody else would get still goes to admins.")
 
   GatherPack::HookCatalog.register_targets("intake_registrations", "intake_entries")
   GatherPack::HookCatalog.register_events(
@@ -71,4 +73,7 @@ Rails.application.config.to_prepare do
   # Including a module twice does nothing, so this is safe on every reload.
   MembershipApplication.include(Intake::MembershipApplicationExtension)
   MembershipApplicationsController.include(Intake::ApplicationDecisions)
+
+  # The teams a person really manages, for notices that can leave admins out.
+  Person.include(NoticeTeams)
 end
