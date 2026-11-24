@@ -145,7 +145,7 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "Your orders shows only New request to a requester with nothing active" do
+  test "Your orders says there are no open requests and offers New request to a requester with nothing active" do
     home do
       sign_in @world.requester.user
 
@@ -154,6 +154,9 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
       assert_select "[data-home-section=orders]" do
         assert_select "a.btn", text: "New request"
         assert_select ".mg-row", count: 0
+        assert_select "[data-orders-none]", text: /No open requests\./ do
+          assert_select "a[href=?]", orders_requests_path(mine: 1), text: "My requests"
+        end
       end
     end
   end
@@ -187,6 +190,7 @@ class MyGatherpackOrdersTest < ActionDispatch::IntegrationTest
         assert_select "a[href=?]", orders_requests_path(mine: 1), text: "My requests"
         assert_select "a.btn", text: "New request"
         assert_select ".mg-row-detail", text: "Waiting for approval", minimum: 1
+        assert_select "[data-orders-none]", count: 0
       end
       assert_select "h1", text: /all caught up/
     end

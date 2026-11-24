@@ -1,4 +1,4 @@
-<%# Your orders on the My GatherPack home page: a New request button for requesters and their active requests. Renders nothing for anyone else with none. %>
+<%# Your orders on the My GatherPack home page: a New request button for requesters and their active requests, or a line saying there are none. Renders nothing for anyone else with none. %>
 <% waiting = Orders::WaitingOn.for(current_user.person) %>
 <% can_request = Orders::Access.for(current_user.person).requester? %>
 <% active = waiting.active_requests %>
@@ -20,6 +20,8 @@
         <% end %>
       </div>
       <% if active.size <= 5 %><p class="mt-2 mb-0"><%= link_to "My requests", orders_requests_path(mine: 1) %></p><% end %>
+    <% else %>
+      <p class="text-body-secondary mb-0" data-orders-none>No open requests. <%= link_to "My requests", orders_requests_path(mine: 1) %></p>
     <% end %>
     <% if can_request %>
       <%= link_to "New request", new_orders_request_path, class: "btn btn-primary w-100 mt-2", style: "min-height: 44px; line-height: 32px" %>
