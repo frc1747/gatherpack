@@ -11,10 +11,6 @@
       <% if (status = my_gatherpack_clocked_in_status) %>
         <div class="mg-status"><span class="mg-status-dot"></span><span><%= status %></span></div>
       <% end %>
-      <form class="mg-search d-none d-md-block" role="search" action="<%= search_path %>">
-        <%= i "magnifying-glass" %>
-        <input class="form-control" type="search" name="q" placeholder="Search" aria-label="Search" autocomplete="off">
-      </form>
     </div>
   </header>
 

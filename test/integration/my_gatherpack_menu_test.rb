@@ -6,8 +6,14 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
   include MyGatherpackTestHelper
 
   MEMBER_TOP = [ "Home", "My Hours", "Calendar", "Teams", "Announcements" ].freeze
-  MEMBER_MORE = %w[People Badges Tokens Ledgers Budgets Mailboxes Questions Shortcuts Pages].freeze
-  TEAM_MANAGE = [ "People", "Teams", "Time Clock", "Badges", "Tokens", "Ledgers", "Budgets", "Mailboxes", "Pages" ].freeze
+  MEMBER_SECTIONS = {
+    "section-people" => %w[People Badges Tokens],
+    "section-finance" => %w[Ledgers Budgets],
+    "section-communication" => %w[Mailboxes Questions],
+    "section-content" => %w[Shortcuts Pages]
+  }.freeze
+  # By part: People, Time, Money, Content.
+  TEAM_MANAGE = [ "People", "Teams", "Badges", "Tokens", "Time Clock", "Ledgers", "Budgets", "Pages", "Mailboxes", "Shortcuts" ].freeze
   # These destinations belong to branches this one doesn't depend on.
   STUBBED_PATHS = %i[forms_path family_path commitments_path].freeze
 
@@ -42,14 +48,47 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     assert_equal 20, override.position
   end
 
-  test "a member sees the short list and More, with no Manage" do
-    assert_equal({ "top" => MEMBER_TOP, "more" => MEMBER_MORE }, menu_for(@member))
+  test "a member sees the short list and each section's other items, with no Manage" do
+    assert_equal({ "top" => MEMBER_TOP }.merge(MEMBER_SECTIONS), menu_for(@member))
   end
 
-  test "More starts closed" do
+  test "the sidebar has no More list, and sections have always-open headings like Manage" do
     menu_for(@member)
 
-    assert_select "details[data-menu-group=more]:not([open]) summary", text: "More"
+    assert_select "[data-menu-group=more]", count: 0
+    assert_select ".sidebar details", count: 0
+    assert_select ".sidebar summary", count: 0
+    assert_select ".sidebar", text: /\bMore\b/, count: 0
+    assert_select "[data-menu-group=section-people] > h6.nav-item", text: "People"
+    assert_select "[data-menu-group=section-finance] > h6.nav-item", text: "Finance"
+  end
+
+  test "sections follow their registered positions" do
+    menu_for(@member)
+
+    headings = css_select("[data-menu-group^=section-] > h6").map(&:text)
+    assert_equal %w[People Finance Communication Content], headings
+  end
+
+  test "a section with no visible items is not shown" do
+    register_items nav_item("Hidden Thing", "/calendar", visible: ->(_) { false })
+
+    assert_not_includes MyGatherpack::Menu.new(@member).sections.map(&:first), "Menu Test"
+    menu_for(@member)
+    assert_select "[data-menu-group=section-menu-test]", count: 0
+  end
+
+  test "an item in top, family or Manage doesn't repeat under its section" do
+    manager = create_login("Riley")
+    Membership.create!(person: manager.person, team: teams(:one), manager: true)
+    sections = MyGatherpack::Menu.new(manager).sections
+
+    labels = sections.flat_map { |_name, items| items.map(&:label) }
+    assert_not_includes labels, "Calendar"
+    assert_not_includes labels, "Teams"
+    assert_not_includes labels, "People"
+    assert_not_includes labels, "Time Clock"
+    assert_equal [ [ "Communication", %w[Questions] ] ], sections.map { |name, items| [ name, items.map(&:label) ] }
   end
 
   test "a guardian also sees Family" do
@@ -66,32 +105,33 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     manager = create_login("Riley")
     Membership.create!(person: manager.person, team: teams(:one), manager: true)
 
-    assert_equal({ "top" => MEMBER_TOP, "more" => %w[Questions Shortcuts], "manage" => TEAM_MANAGE }, menu_for(manager))
+    assert_equal({ "top" => MEMBER_TOP, "section-communication" => %w[Questions], "manage" => TEAM_MANAGE }, menu_for(manager))
   end
 
-  test "a Forms creator who manages no team sees only what their check opens" do
+  test "a Forms creator who manages no team sees Forms once, in the top group" do
     creator = create_login("Sage")
     register_items nav_item("Forms", :forms_path)
     MyGatherpack::Menu.register_manager_check(:forms_creator, paths: [ :forms_path ]) { |person| person == creator.person }
 
     groups = menu_for(creator)
-    assert_equal [ "Forms" ], groups["manage"]
+    assert_nil groups["manage"]
+    assert_equal 1, groups.values.flatten.count("Forms")
     assert_includes groups["top"], "Forms"
-    assert_includes groups["more"], "Tokens"
+    assert_includes groups["section-people"], "Tokens"
 
     assert_nil menu_for(@member)["manage"]
   end
 
-  test "an organizer's item moves from More to Manage" do
+  test "an organizer's item moves from its section to Manage" do
     organizer = create_login("Tatum")
     register_items nav_item("Commitments", :commitments_path)
     MyGatherpack::Menu.register_manager_check(:organizer, paths: [ :commitments_path ]) { |person| person == organizer.person }
 
     groups = menu_for(organizer)
     assert_equal [ "Commitments" ], groups["manage"]
-    assert_not_includes groups["more"], "Commitments"
+    assert_not_includes groups.values.flatten - groups["manage"], "Commitments"
 
-    assert_includes menu_for(@member)["more"], "Commitments"
+    assert_includes menu_for(@member)["section-menu-test"], "Commitments"
   end
 
   test "an admin sees Manage and the admin sections unchanged" do
@@ -108,17 +148,17 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     post impersonate_person_path(@member.person)
     get root_path
 
-    assert_equal({ "top" => MEMBER_TOP, "more" => MEMBER_MORE }, rendered_groups)
+    assert_equal({ "top" => MEMBER_TOP }.merge(MEMBER_SECTIONS), rendered_groups)
     assert_select ".sidebar .impersonator-label", text: /impersonating/
     assert_select ".sidebar form[action=?]", stop_impersonating_people_path
   end
 
-  test "an item not in the table lands in More" do
+  test "an item not in the table lands under its section" do
     register_items nav_item("Brand New", "/calendar"), nav_item("Brand New Proc", -> { "/calendar" })
 
     groups = menu_for(@member)
-    assert_includes groups["more"], "Brand New"
-    assert_includes groups["more"], "Brand New Proc"
+    assert_includes groups["section-menu-test"], "Brand New"
+    assert_includes groups["section-menu-test"], "Brand New Proc"
   end
 
   test "a hidden item appears in no group" do
