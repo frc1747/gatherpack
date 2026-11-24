@@ -463,7 +463,7 @@ Connections stay under Setup → Gateways with the other gateways.
 ### 8.2 Account Status (`/accounting/rules`)
 
 - **List:** each enabled rule the viewer can see results for, with counts per value among the people they can see ("Paid 41 · Partly paid 3 · Overdue 6 · Not invoiced 2"). Admins also see disabled rules, the connection's status and last sync time, and the reconnect warning.
-- **Rule page:** a table of people the viewer can see: name, team, value (colored by value), amount (if permitted), "changed on" date, and links into QBO for admins. It has a filter by value and team, a CSV export of the same table, and a print layout using the shared report print CSS. Admins get **Edit** and **Evaluate now**.
+- **Rule page:** a table of people the viewer can see: name, team, value (colored by value), amount (if permitted), "changed on" date, and links into QBO for admins. It has a filter by value and team, a CSV export of the same table, and a print layout using the shared report print CSS. Admins get **Edit** and **Evaluate now**, and under **More**: **Duplicate**, then Delete. Duplicate is how a group sets up next season: the copy moves the years in its name on ("2026-27 Dues" becomes "2027-28 Dues") and moves its date filters and milestone dates on a year, keeps everything else (filters, milestones, visibility, actions), starts disabled, and opens on its Edit page so the dates can be adjusted before it's turned on. Results are never copied.
 - **Rule form** (admins; `code` and `kind: custom` architects only, as Widgets does for JavaScript):
   - Name, Description
   - What it answers: kind, then the kind's options (milestones, grace days, unapplied credit, labels, measure)
