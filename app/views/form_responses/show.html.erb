@@ -11,12 +11,15 @@
       <%= form_status_badge(@response.persisted? ? @response.status : "not_started") %>
       <% if @response.update_in_progress? %><span class="badge text-bg-light">Update in progress</span><% end %>
       <span class="text-muted ms-2"><%= form_due(@form) %></span>
+      <% if (expiry = @response.expiry_summary) %><span class="text-muted ms-2"><%= expiry %></span><% end %>
     </div>
   </div>
   <div class="card-body">
     <% if active && @response.needs_reconfirmation? %>
       <div class="alert alert-warning">
-        <% if @response.reconfirmation_reason == :form %>
+        <% if @response.reconfirmation_reason == :expired %>
+          <strong>Needs re-confirmation.</strong> This has expired. Please review the answers and sign again.
+        <% elsif @response.reconfirmation_reason == :form %>
           <strong>Needs re-confirmation.</strong> This form changed after version <%= active.number %> was submitted (it was on form version <%= active.form_version %>). Its answers still count until a new version replaces them.
         <% else %>
           <strong>Needs re-confirmation.</strong> Profile details have changed since this was signed. Its answers still count until a new version replaces them.
