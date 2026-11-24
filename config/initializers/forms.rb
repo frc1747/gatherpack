@@ -17,4 +17,9 @@ Rails.application.config.to_prepare do
   Badge.include(BadgeAccessGrants)
   Badge.has_many :form_badge_grants, inverse_of: :badge
   Badge.register_access_grants(:form_badge_grants)
+
+  # Where the settings pickers exist (Settings.input), choose the teams form
+  # creators can also ask from a list. It saves the same one-name-per-line
+  # text, so Form.creator_extra_audience_team_ids reads it as before.
+  Settings.input(:forms_creator_extra_audience_teams, :teams) if Settings.respond_to?(:input)
 end

@@ -151,9 +151,9 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
         assert_redirected_to root_path, "students can't see everyone's results"
       end
       as(:pack_leader) do
-        get results_form_path(@form)
+        get form_path(@form)
         assert_select "tr#person_#{person(:a1).id} td", text: "Slim 1"
-        get results_form_path(@form, version: "latest")
+        get form_path(@form, version: "latest")
         assert_select "tr#person_#{person(:a1).id} td", text: /Slim 4/
       end
     end
@@ -214,7 +214,7 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
           assert_select "a", text: /Complete \(1\)/
           assert_select "a", text: /Not started/
 
-          get results_form_path(@form, format: :csv, field_ids: [ allergies.id ])
+          get form_path(@form, format: :csv, field_ids: [ allergies.id ])
           assert_response :success
           csv = CSV.parse(response.body)
           assert_equal [ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at", "Sandwich", "Food Allergies" ], csv.first
@@ -223,8 +223,8 @@ class FormsControllerTest < ActionDispatch::IntegrationTest
           assert_equal [ "Slim 4", "peanut" ], a1_row[9..10]
           assert_nil csv.detect { |row| row[1] == "B1" }, "Den A's leader doesn't see Den B"
 
-          get tally_form_path(@form)
-          assert_select "td", text: "Slim 4"
+          get form_path(@form)
+          assert_select "#totals td", text: "Slim 4"
         end
       end
     end

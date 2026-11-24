@@ -203,7 +203,7 @@ module Mcp::FormResponses
     missing, withheld = submission.missing_questions.partition { |question| open.include?(question) }
     missing.map { |question| "an answer to #{question.label}" } +
       (withheld.any? ? [ "another required answer" ] : []) +
-      submission.missing_signatures.map { |question| "#{question.signer_description}'s signature (#{question.label})" }
+      submission.missing_signatures.map { |question| "#{question.signer_waiting_text} on #{question.label}" }
   end
 
   # The page's "Not copied to profile" badge (_answers.html.erb), on what the viewer may read.

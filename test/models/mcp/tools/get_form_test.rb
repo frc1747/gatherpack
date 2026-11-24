@@ -101,7 +101,8 @@ class Mcp::Tools::GetFormTest < ActiveSupport::TestCase
     waiting = get_form(:alpha_member, @consent_form, :alpha_member).value
     assert_equal "waiting", waiting.dig("response", "status")
     assert_equal true, waiting.dig("response", "can_sign")
-    assert_match(/Parent consent/, waiting.dig("response", "waiting_for").first)
+    consent = @consent_form.signature_questions.detect { |question| question.label == "Parent consent" }
+    assert_equal "#{consent.signer_waiting_text} on Parent consent", waiting.dig("response", "waiting_for").first
     assert_equal true, waiting["questions"].last["can_sign"]
     assert_equal false, waiting["questions"].last["signed"]
 

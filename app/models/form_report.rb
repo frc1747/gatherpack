@@ -102,7 +102,8 @@ class FormReport
 
   # { choice => count } over the rows' readable answers, plus nil for no
   # answer. For choice, multiple choice, yes/no, and intent questions.
-  def tally(key)
+  # rows: count only these (a status filter's), not every row.
+  def tally(key, rows: self.rows)
     question = key.is_a?(FormQuestion) ? key : question(key)
     counted = rows.select { |row| readable?(row, question) }
     choices = question.value_type.type_boolean? ? [ true ] : question.value_type.choice_list
