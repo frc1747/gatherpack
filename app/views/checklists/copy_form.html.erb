@@ -65,7 +65,7 @@
           <%= empty.map { |rule| rule.item ? "#{rule.item.label}: #{rule.description}" : rule.description }.to_sentence %>.
         </div>
       <% end %>
-      <p class="small text-body-secondary">The copy starts as a draft, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
+      <p class="small text-body-secondary">The copy starts with Counting set to Not yet, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
       <%= link_to "Cancel", @checklist, class: "btn btn-secondary" %>
       <%= submit_tag "Duplicate", class: "btn btn-primary" %>
     <% end %>

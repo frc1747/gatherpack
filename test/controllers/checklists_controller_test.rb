@@ -635,10 +635,12 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
       get copy_checklist_path(@checklist)
       assert_response :success
       assert_match "Move dates by", response.body
+      assert_match "The copy starts with Counting set to Not yet", response.body
 
       post copy_checklist_path(@checklist), params: { title: "Trip next", shift_months: 12, dates: { "checklist.starts_on" => "2027-09-01" } }
       copy = Checklist.find_by!(title: "Trip next")
       assert copy.draft?
+      assert_equal "Duplicated. Counting is Not yet: check it, then turn it on.", flash[:notice]
       assert_equal Date.new(2027, 9, 1), copy.starts_on
 
       post checklist_checklist_lists_path(@checklist)
