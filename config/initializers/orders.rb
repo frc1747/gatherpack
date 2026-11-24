@@ -73,6 +73,8 @@ Rails.application.config.to_prepare do
   Settings.register(:orders_notices, :string, "Order Notices", Orders::Config::DEFAULT_NOTICES, "Orders",
     "How people hear about requests: approvers about requests waiting for them, requesters and watchers about their " \
     "requests, buyers about what's ready to buy. Each person can change this for themselves.")
+  Settings.register(:notices_admins_everywhere, :boolean, "Admins get notices for every team", "true", "Notifications",
+    "Off: admins get only the notices their own team roles bring; a notice nobody else would get still goes to admins.")
 
   # Orders setup (Orders::SettingsEditor) draws every orders setting, with
   # the settings pickers where they exist, and the settings page links there

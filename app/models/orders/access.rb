@@ -1,8 +1,22 @@
 # What one person may do in orders, worked out once and kept for the web
 # request (Orders::Access.for), so policies, lists and Orders::WaitingOn ask
 # about many requests without a query each.
+#
+# Access.new(person, for_notices: true) answers who gets an email instead of
+# who may act: with the notices_admins_everywhere setting off, being a site
+# admin counts for nothing there, only the person's own roles do. Pages and
+# policies never ask this way.
 module Orders
   class Access
+    # A person as managing only the teams their own manager memberships
+    # reach, which for an admin isn't every team. For Orders::Reach.
+    class OwnRoles < SimpleDelegator
+      def all_managed_teams
+        ids = memberships.where(manager: true).pluck(:team_id)
+        Team.where(id: ids + Team.where(id: ids).flat_map(&:all_descendant_ids))
+      end
+    end
+
     attr_reader :person
 
     def self.for(person)
@@ -11,18 +25,19 @@ module Orders
       Orders::Current.access[person.id] ||= new(person)
     end
 
-    def initialize(person)
+    def initialize(person, for_notices: false)
       @person = person
+      @own_roles_only = for_notices && Settings[:notices_admins_everywhere] == false
     end
 
     def admin?
-      @admin ||= person&.admin? ? :yes : :no
+      @admin ||= !@own_roles_only && person&.admin? ? :yes : :no
       @admin == :yes
     end
 
     # Teams the person manages, and those below.
     def managed_team_ids
-      @managed_team_ids ||= person.nil? ? Set.new : person.all_managed_teams.ids.to_set
+      @managed_team_ids ||= person.nil? ? Set.new : role_holder.all_managed_teams.ids.to_set
     end
 
     def member_team_ids
@@ -41,7 +56,7 @@ module Orders
     # managing a team.
     def approver_team_ids(step)
       @approver_team_ids ||= {}
-      @approver_team_ids[step.key] ||= step.reach.team_ids(person).to_set
+      @approver_team_ids[step.key] ||= reached_team_ids(step.reach)
     end
 
     def approver_on?(step, team_id)
@@ -54,7 +69,7 @@ module Orders
     end
 
     def buyer_team_ids
-      @buyer_team_ids ||= Orders::Config.buyers.team_ids(person).to_set
+      @buyer_team_ids ||= reached_team_ids(Orders::Config.buyers)
     end
 
     def buyer_for?(team_id)
@@ -67,7 +82,7 @@ module Orders
     end
 
     def funding_manager_team_ids
-      @funding_manager_team_ids ||= Orders::Config.funding_managers.team_ids(person).to_set
+      @funding_manager_team_ids ||= reached_team_ids(Orders::Config.funding_managers)
     end
 
     def funding_manager_for?(team_id)
@@ -156,6 +171,16 @@ module Orders
 
     def steps
       @steps ||= Orders::Config.approval_steps
+    end
+
+    private
+
+    def role_holder
+      @own_roles_only && person ? OwnRoles.new(person) : person
+    end
+
+    def reached_team_ids(reach)
+      (@own_roles_only ? reach.granted_team_ids(role_holder) : reach.team_ids(person)).to_set
     end
   end
 end
