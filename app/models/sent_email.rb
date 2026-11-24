@@ -21,7 +21,9 @@ class SentEmail < ApplicationRecord
   validates :address, presence: true
   validates :status, inclusion: { in: STATUSES }
 
-  scope :newest_first, -> { order(created_at: :desc) }
+  # When it went out; a send still waiting (or failed before going) counts
+  # from when it was queued.
+  scope :newest_first, -> { order(Arel.sql("COALESCE(sent_emails.sent_at, sent_emails.created_at) DESC")) }
 
   def self.ransackable_attributes(auth_object = nil)
     %w[address subject status person_id about_type created_at sent_at]
@@ -29,6 +31,24 @@ class SentEmail < ApplicationRecord
 
   def self.ransackable_associations(auth_object = nil)
     []
+  end
+
+  # The clicked link as scheme, host and path only. Query strings and
+  # fragments can carry sign-in tokens (password reset, confirmation), so
+  # they're never stored.
+  def self.link_without_query(url)
+    return if url.blank?
+
+    uri = URI.parse(url.to_s)
+    return unless uri.scheme && uri.host
+
+    "#{uri.scheme}://#{uri.host}#{uri.path}".truncate(2000)
+  rescue URI::InvalidURIError
+    nil
+  end
+
+  def self.delete_older_than(days)
+    where(created_at: ...days.days.ago).delete_all
   end
 
   def status_label
@@ -84,7 +104,7 @@ class SentEmail < ApplicationRecord
       return unless first_clicked_at.nil? || better_first_click?(at)
 
       self.first_clicked_at = at
-      self.first_clicked_url = url.present? ? url.to_s.truncate(2000) : nil
+      self.first_clicked_url = self.class.link_without_query(url)
     end
 
     # A person's click beats a scanner's; otherwise the earlier one wins

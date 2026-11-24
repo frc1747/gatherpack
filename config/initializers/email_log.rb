@@ -3,14 +3,8 @@
 # Off by default (feature_email_log). Patches SendEmailJob and the Resend and
 # Postmark gateways from here, so their files don't change.
 
-# Routes are added once; the controllers check the feature switch.
-Rails.application.routes.append do
-  resources :sent_emails, only: :index
-  resources :gateways, only: [] do
-    resource :webhook_events, only: %i[show create], controller: "gateway_webhook_events"
-  end
-end
-
+# Routes are in config/routes/email_log.rb; the controllers check the
+# feature switch. The daily clean-up is in config/recurring.d/email_log.yml.
 Rails.application.config.to_prepare do
   GatherPack::Features.register_section("Email", position: 45)
 

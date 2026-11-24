@@ -50,6 +50,21 @@ class SentEmailTest < ActiveSupport::TestCase
     assert_equal "https://example.com/requests/1", @entry.first_clicked_url
   end
 
+  test "a clicked link is stored without its query string or fragment" do
+    @entry.record_event(:clicked, at: @delivered_at + 60.seconds,
+      url: "https://example.com/users/password/edit?reset_password_token=abc123secret#top")
+
+    assert_equal "https://example.com/users/password/edit", @entry.first_clicked_url
+    assert_not_includes @entry.reload.first_clicked_url, "abc123secret"
+  end
+
+  test "a link that can't be read isn't stored" do
+    @entry.record_event(:clicked, at: @delivered_at + 60.seconds, url: "not a link")
+
+    assert_nil @entry.first_clicked_url
+    assert_equal @delivered_at + 60.seconds, @entry.link_clicked_at
+  end
+
   test "the scanner window is a setting" do
     Settings[:email_log_scanner_seconds] = "120"
     @entry.record_event(:clicked, at: @delivered_at + 60.seconds)

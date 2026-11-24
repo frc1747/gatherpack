@@ -28,6 +28,16 @@ class SentEmailsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", person_path(people(:two))
   end
 
+  test "a send is listed by when it went out, not when it was queued" do
+    queued_early = SentEmail.create!(address: "late@example.com", subject: "Retried", status: "sent",
+      created_at: 5.hours.ago, sent_at: 10.minutes.ago)
+    sign_in @admin
+
+    get sent_emails_url
+
+    assert_equal ActionView::RecordIdentifier.dom_id(queued_early), css_select("#sent_emails tbody tr").first["id"]
+  end
+
   test "filters by status, person, about and words" do
     sign_in @admin
 

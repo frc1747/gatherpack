@@ -14,7 +14,7 @@
     </p>
   </div>
   <div class="card-footer">
-    <%= button_to "Update webhook events", gateway_webhook_events_path(@gateway), method: :post, class: "btn btn-primary", form_class: "d-inline" %>
     <%= link_to "Cancel", gateway_path(@gateway), class: "btn btn-secondary" %>
+    <%= button_to "Update webhook events", gateway_webhook_events_path(@gateway), method: :post, class: "btn btn-primary", form_class: "d-inline" %>
   </div>
 </div>

@@ -16,6 +16,7 @@ module EmailLog
   STATUS_LABEL_SETTINGS = SentEmail::STATUSES.index_with { |status| :"email_log_status_#{status}_label" }.freeze
 
   DEFAULT_SCANNER_SECONDS = 10
+  DEFAULT_KEEP_DAYS = 180
 
   class << self
     def enabled?
@@ -37,24 +38,20 @@ module EmailLog
       value.match?(/\A\d+\z/) ? value.to_i : DEFAULT_SCANNER_SECONDS
     end
 
+    def keep_days
+      value = Settings[:email_log_keep_days].to_s
+      value.match?(/\A\d+\z/) && value.to_i.positive? ? value.to_i : DEFAULT_KEEP_DAYS
+    end
+
     def register_settings
-      register_setting(:email_log_scanner_seconds, :integer, "Ignore Clicks Within (Seconds)", DEFAULT_SCANNER_SECONDS.to_s, SETTINGS_GROUP,
+      Settings.register(:email_log_keep_days, :integer, "Keep sent email entries for (days)", DEFAULT_KEEP_DAYS.to_s, SETTINGS_GROUP,
+        "Entries older than this are deleted each night")
+      Settings.register(:email_log_scanner_seconds, :integer, "Ignore Clicks Within (Seconds)", DEFAULT_SCANNER_SECONDS.to_s, SETTINGS_GROUP,
         "Mail scanners follow links as a message arrives. A link click this many seconds or less after delivery is counted but not shown as the person's")
       SentEmail::STATUSES.each do |status|
-        register_setting(STATUS_LABEL_SETTINGS[status], :string, "Status Label: #{DEFAULT_STATUS_LABELS[status]}",
+        Settings.register(STATUS_LABEL_SETTINGS[status], :string, "Status Label: #{DEFAULT_STATUS_LABELS[status]}",
           DEFAULT_STATUS_LABELS[status], SETTINGS_GROUP, "The word shown for this status on the Sent email screen")
       end
     end
-
-    private
-      # Settings.register where the app has it; otherwise the same call the
-      # built-in settings make.
-      def register_setting(key, *args)
-        if Settings.respond_to?(:register)
-          Settings.register(key, *args)
-        else
-          Settings.instance.send(:add_setting, key, *args)
-        end
-      end
   end
 end
