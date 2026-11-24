@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_27_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -522,6 +522,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_140000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "sent_emails", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id"
+    t.uuid "person_id"
+    t.string "about_type"
+    t.uuid "about_id"
+    t.string "address", null: false
+    t.string "subject"
+    t.string "job_id"
+    t.string "provider_message_id"
+    t.string "status", default: "sending", null: false
+    t.datetime "sent_at"
+    t.datetime "delivered_at"
+    t.datetime "problem_at"
+    t.text "problem_detail"
+    t.datetime "first_clicked_at"
+    t.integer "click_count", default: 0, null: false
+    t.text "first_clicked_url"
+    t.datetime "opened_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["about_type", "about_id"], name: "index_sent_emails_on_about"
+    t.index ["created_at"], name: "index_sent_emails_on_created_at"
+    t.index ["gateway_id", "provider_message_id"], name: "index_sent_emails_on_gateway_id_and_provider_message_id", unique: true
+    t.index ["gateway_id"], name: "index_sent_emails_on_gateway_id"
+    t.index ["job_id"], name: "index_sent_emails_on_job_id", unique: true
+    t.index ["person_id"], name: "index_sent_emails_on_person_id"
+  end
+
   create_table "shortcuts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "color"
     t.datetime "created_at", null: false
@@ -811,6 +839,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_140000) do
   add_foreign_key "reply_votes", "people"
   add_foreign_key "reply_votes", "questions"
   add_foreign_key "reply_votes", "replies"
+  add_foreign_key "sent_emails", "gateways", on_delete: :nullify
+  add_foreign_key "sent_emails", "people", on_delete: :nullify
   add_foreign_key "shortcuts", "teams"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

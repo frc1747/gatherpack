@@ -1,0 +1,20 @@
+<% breadcrumb :gateway_webhook_events, @gateway %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Update webhook events</h1>
+  </div>
+  <div class="card-body">
+    <p>
+      <strong><%= @gateway.identifier_name %></strong> will ask the sending service to report deliveries, bounces,
+      spam complaints, link clicks and opens to this site, so the Sent email screen shows them.
+    </p>
+    <p class="mb-0">
+      Its webhook at <code><%= webhook_gateway_url(@gateway) %></code> is updated if the service has one; otherwise a new one is made.
+    </p>
+  </div>
+  <div class="card-footer">
+    <%= button_to "Update webhook events", gateway_webhook_events_path(@gateway), method: :post, class: "btn btn-primary", form_class: "d-inline" %>
+    <%= link_to "Cancel", gateway_path(@gateway), class: "btn btn-secondary" %>
+  </div>
+</div>
