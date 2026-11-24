@@ -37,7 +37,7 @@
         screen_action("Edit", edit_checklist_path(@checklist), style: :warning, visible: @organizer),
         screen_action("Take Snapshot", checklist_checklist_lists_path(@checklist), method: :post, visible: @organizer),
         screen_action("Recompute", refresh_checklist_path(@checklist), method: :post, more: true, visible: @organizer),
-        screen_action("Copy", copy_checklist_path(@checklist), more: true, visible: checklist_policy.copy?),
+        screen_action("Duplicate", copy_checklist_path(@checklist), more: true, visible: checklist_policy.copy?),
         screen_action("Archive", archive_checklist_path(@checklist), method: :post, lifecycle: true, visible: checklist_policy.archive?,
           confirm: "Archive this checklist? It becomes read-only; results and snapshots are kept."),
         screen_action("Restore", restore_checklist_path(@checklist), method: :post, lifecycle: true, visible: checklist_policy.restore?,

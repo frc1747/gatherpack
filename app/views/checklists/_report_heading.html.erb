@@ -1,6 +1,6 @@
 <%# locals: (label:, index:, entries:, order:) -%>
 <%# A report column's heading: click to sort, and tick the statuses to show (entries: the column's results by status). %>
-<span role="button"><%= label %></span>
+<span role="button" data-column-chooser-label><%= label %></span>
 <div class="dropdown d-inline no-print">
   <button class="btn btn-link btn-sm p-0 ms-1" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Filter <%= label %>">
     <i class="fa-solid fa-filter"></i>

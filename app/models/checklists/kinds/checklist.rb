@@ -86,7 +86,7 @@ module Checklists
           next Result.exempt(item.exempt_label.presence || "Not on #{other.title}") if status.nil?
 
           counted_rows = rows[person_id].values_at(*counting)
-          fix = if status == "met" then nil
+          fix = if %w[met exempt].include?(status) then nil
           elsif pass_progress then inner_fix(other, reader.items.find(&:counts?), counted_rows.first)
           else card_fix(other, people[person_id], counted_rows.compact)
           end

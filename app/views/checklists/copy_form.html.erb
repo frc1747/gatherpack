@@ -1,7 +1,7 @@
 <% breadcrumb @checklist %>
 
 <div class="card">
-  <div class="card-header"><h1>Copy <%= @checklist.title %></h1></div>
+  <div class="card-header"><h1>Duplicate <%= @checklist.title %></h1></div>
   <div class="card-body">
     <%= form_with url: copy_checklist_path(@checklist), method: :get, class: "d-flex gap-2 align-items-center mb-3" do %>
       <%= label_tag :shift_months, "Move dates by", class: "form-label mb-0" %>
@@ -65,9 +65,9 @@
           <%= empty.map { |rule| rule.item ? "#{rule.item.label}: #{rule.description}" : rule.description }.to_sentence %>.
         </div>
       <% end %>
-      <p class="small text-body-secondary">The copy starts as a draft, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
+      <p class="small text-body-secondary">The copy starts with Counting set to Not yet, with the same items, rules, access and organizers. Excuses, confirmations and results aren't copied.</p>
       <%= link_to "Cancel", @checklist, class: "btn btn-secondary" %>
-      <%= submit_tag "Copy", class: "btn btn-primary" %>
+      <%= submit_tag "Duplicate", class: "btn btn-primary" %>
     <% end %>
   </div>
 </div>

@@ -213,7 +213,7 @@ class ChecklistAttendanceTest < ActiveSupport::TestCase
       result = evaluate(@checklist, :member, item)
       assert_equal "exempt", result.status
       assert_equal "No meetings yet", result.label
-      assert_equal "met", evaluate(@checklist, :member, nil).status, "doesn't count against anyone"
+      assert_equal "exempt", evaluate(@checklist, :member, nil).status, "doesn't count against anyone"
     end
   end
 

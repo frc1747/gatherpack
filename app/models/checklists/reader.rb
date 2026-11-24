@@ -141,11 +141,7 @@ module Checklists
       return overall if shown.size == counting.size
       return nil if shown.empty?
 
-      statuses = shown.filter_map { |item| by_item[item.id]&.status }.reject { |status| status == "exempt" }
-      status = if statuses.include?("not_met") then "not_met"
-      elsif statuses.include?("pending") then "pending"
-      else "met"
-      end
+      status = Checklists.overall_status(shown.map { |item| by_item[item.id]&.status })
       overall.status = status
       overall.word = checklist.word_for(status)
       overall.label = nil

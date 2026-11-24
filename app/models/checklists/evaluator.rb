@@ -10,7 +10,9 @@ module Checklists
   #   # => { person_id => { item_id => Result, nil => overall Result } }
   #
   # The overall: any counting item not met makes it not met; else any
-  # pending makes it pending; else met. Exempt items are ignored.
+  # pending makes it pending; else met. Exempt items are ignored, unless
+  # every counting item is exempt: then the overall is exempt too
+  # (Checklists.overall_status).
   class Evaluator
     attr_reader :checklist, :context
 
@@ -116,7 +118,9 @@ module Checklists
         end
       end
 
-      (person_ids - applicable).each { |id| results[id] = Result.exempt(item.exempt_label.presence || "Doesn't apply") }
+      exempt_ids = person_ids - applicable
+      exempt = kind && exempt_ids.any? ? kind.new(item, context).exempt_attributes(exempt_ids) : {}
+      exempt_ids.each { |id| results[id] = Result.exempt(item.exempt_label.presence || "Doesn't apply", **exempt.fetch(id, {})) }
       excuses.slice(*applicable).each do |id, excuse|
         results[id] = Result.exempt("Excused", excuse: { "id" => excuse.id, "by" => excuse.created_by&.display_name,
           "by_id" => excuse.created_by_id, "at" => excuse.created_at.to_date.iso8601, "expires_on" => excuse.expires_on&.iso8601 })
@@ -140,10 +144,7 @@ module Checklists
 
     def overall(results)
       counted = results.compact.reject(&:exempt?)
-      status = if counted.any?(&:not_met?) then "not_met"
-      elsif counted.any?(&:pending?) then "pending"
-      else "met"
-      end
+      status = Checklists.overall_status(results.compact.map(&:status))
       unmet = counted.count { |result| !result.met? }
       Result.new(status: status, summary: unmet.zero? ? nil : "#{unmet} to do", measures: { "unmet" => unmet })
     end

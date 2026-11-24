@@ -24,7 +24,7 @@ module Checklists
   STATUSES = %w[met pending not_met exempt].freeze
 
   # The words people see.
-  WORDS = { "met" => "Complete", "pending" => "In Progress", "not_met" => "Not Started", "exempt" => "Not counted" }.freeze
+  WORDS = { "met" => "Complete", "pending" => "In Progress", "not_met" => "Not Started", "exempt" => "Not required" }.freeze
 
   # Who may see an item or a checklist's overall, relative to the person it's
   # about (Checklists::Visibility). group is for pooled kinds; a kind that
@@ -80,6 +80,19 @@ module Checklists
 
     def word_for(status)
       WORDS.fetch(status.to_s)
+    end
+
+    # The overall from its counting items' statuses: any not met makes it
+    # not met; else any pending, pending; else met. Exempt ones are ignored,
+    # unless all of them are exempt: then so is the overall.
+    def overall_status(statuses)
+      statuses = statuses.compact.map(&:to_s)
+      counted = statuses - [ "exempt" ]
+      if statuses.any? && counted.empty? then "exempt"
+      elsif counted.include?("not_met") then "not_met"
+      elsif counted.include?("pending") then "pending"
+      else "met"
+      end
     end
 
     def status_for(checklist, people, viewer:)

@@ -258,4 +258,16 @@ module ChecklistsTestKinds
       person_ids.index_with { Checklists::Result.not_met("12 of 20 hours") }
     end
   end
+
+  # A kind that still tells people it doesn't apply to what they did, as a
+  # count does: met, and "Rookie · 2 visits" with a measure when exempt.
+  class Tally < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("2 visits") }
+    end
+
+    def exempt_attributes(person_ids)
+      person_ids.index_with { { summary: "#{item.exempt_label} · 2 visits", measures: { "visits" => 2 } } }
+    end
+  end
 end
