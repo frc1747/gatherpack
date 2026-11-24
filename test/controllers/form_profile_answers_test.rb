@@ -33,6 +33,23 @@ class FormProfileAnswersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the results page says what the profile says now when it changed after an answer was submitted" do
+    with_settings(feature_forms: "true", feature_person_fields: "true") do
+      allergies = create_world_field("Food Allergies", read: "family", write: "family")
+      form = create_world_form
+      add_profile_question(form, allergies, :update_profile)
+      respond(form, :a1, as: :parent_a1, answers: { "food_allergies" => "peanut" })
+      person(:a1).set_field_value(allergies, "peanut, dairy")
+
+      as(:den_a_leader) do
+        get form_path(form)
+        assert_response :success
+        assert_select "small", text: "Profile now: peanut, dairy"
+        assert_select ".badge", text: "Profile changed", count: 0
+      end
+    end
+  end
+
   test "an answered question stays linked to its profile field" do
     with_admin_only_question do
       as(:den_a_leader) do
@@ -98,7 +115,7 @@ class FormProfileAnswersTest < ActionDispatch::IntegrationTest
         patch form_question_path(@form, @question), params: { form_question: { kind: "input" } }
         assert @question.reload.input?
         assert_equal @notes, @question.person_field
-        get results_form_path(@form, format: :csv)
+        get form_path(@form, format: :csv)
         assert_not_includes response.body, NOTE
       end
 
@@ -140,8 +157,8 @@ class FormProfileAnswersTest < ActionDispatch::IntegrationTest
     with_admin_only_question do
       @question.update_columns(person_field_id: nil, profile_mode: nil, data_type: "string")
       as(:den_a_leader) do
-        [ form_response_path(@form, person(:a1)), results_form_path(@form), results_form_path(@form, format: :csv),
-          print_list_forms_path(form_id: @form.id, columns_for: @form.id, question_ids: [ @question.id ]) ].each do |path|
+        [ form_response_path(@form, person(:a1)), form_path(@form), form_path(@form, format: :csv),
+          form_path(@form, columns_for: @form.id, question_ids: [ @question.id ], layout: "labels") ].each do |path|
           get path
           assert_response :success
           assert_not_includes response.body, NOTE, path

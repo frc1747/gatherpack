@@ -61,7 +61,7 @@ class FormCreatorsTest < ActionDispatch::IntegrationTest
         assert_select "a", text: "Mentor Poll", count: 0
         get edit_form_path(@mentor_form)
         assert_redirected_to root_path
-        get results_form_path(own)
+        get form_path(own)
         assert_select "td", text: "Cheese"
       end
     end

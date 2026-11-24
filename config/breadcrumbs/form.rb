@@ -18,13 +18,8 @@ crumb :form_question do |question|
   parent :edit_form, question.form
 end
 
-crumb :form_results do |form|
-  link "Results", results_form_path(form)
-  parent :form, form
-end
-
 crumb :form_tally do |form|
-  link "Tally", tally_form_path(form)
+  link "Totals", tally_form_path(form)
   parent :form, form
 end
 
@@ -33,9 +28,15 @@ crumb :form_preview do |form|
   parent :form, form
 end
 
+# Under the form for people who can open it; a respondent who can't goes
+# back to Forms.
 crumb :form_response do |response|
   link "#{response.form.title}: #{response.subject.identifier_name}", form_response_path(response.form, response.subject_id)
-  parent :forms
+  if policy(response.form).show?
+    parent :form, response.form
+  else
+    parent :forms
+  end
 end
 
 crumb :edit_form_response do |response|

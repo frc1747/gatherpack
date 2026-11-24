@@ -1,17 +1,10 @@
-<%# Who's on a form's printable list or counted on its tally (FormPopulation). Shared by both pages. %>
-<% teams = FormPopulation.team_choices(population.form) %>
+<%# Who the form page lists and counts (FormPopulation), under "Who to include". The page's team filter narrows either choice. %>
 <% by_form = forms.map { |form| [ form, FormPopulation.questions_for(form) ] }.reject { |_, questions| questions.empty? } %>
 <% chosen_form = population.question&.form %>
-<div data-controller="form-population">
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-    <div class="form-check mb-0">
-      <%= radio_button_tag :who, "asked", population.source == "asked", class: "form-check-input" %>
-      <%= label_tag :who_asked, "Everyone the form asks#{", filtered by:" if teams.size > 1}", class: "form-check-label" %>
-    </div>
-    <% if teams.size > 1 %>
-      <%= select_tag :team_id, options_from_collection_for_select(teams, :id, :name, population.team&.id), include_blank: "All of #{teams.first.name}",
-            class: "form-select form-select-sm w-auto mw-100", "aria-label": "Team", data: { who: "asked", action: "form-population#choose" } %>
-    <% end %>
+<div data-controller="form-population" data-filter-bar-wait>
+  <div class="form-check mb-2">
+    <%= radio_button_tag :who, "asked", population.source == "asked", class: "form-check-input" %>
+    <%= label_tag :who_asked, "Everyone the form asks", class: "form-check-label" %>
   </div>
 
   <% if by_form.any? %>

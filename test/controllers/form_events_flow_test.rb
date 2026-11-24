@@ -56,6 +56,7 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
 
         coming = @poll.intent_question
         get print_list_forms_path(form_id: @meals.id, who: "answered", question_id: coming.id, answers: { coming.id => [ "Yes" ] }, question_ids: [ @sandwich.id ])
+        follow_redirect!
         assert_response :success
         assert_select "td", text: "A1 World"
         assert_select "td", text: "Slim 4"
@@ -64,23 +65,27 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
         assert_select "select#question_id_#{@poll.id}:not([disabled]) option[selected][value=?]", coming.id
         assert_select "select#question_id_#{@meals.id}[disabled]"
         assert_select "input[type=checkbox][name=?][value=Yes][checked]", "answers[#{coming.id}][]"
-        assert_select ".card-header h2", text: /Saturday Build/
-        assert_select ".card-header div", text: /People: 1 who answered Yes to "Are you coming\?" \(Coming Saturday\?\)/
-        assert_select ".card-header div", text: /Answers: Meal Choices/
+        assert_select "p", text: /People: 1 who answered Yes to "Are you coming\?" \(Coming Saturday\?\)/
+        assert_select "h1", text: "Meal Choices"
 
         get print_list_forms_path(form_id: @meals.id, layout: "labels")
+        follow_redirect!
         assert_response :success
-        assert_select "input[type=radio][name=who][value=asked][checked]"
-        assert_select ".card-header div", text: /asked by Meal Choices/
+        assert_select "turbo-frame#who_to_include[src=?]", form_path(@meals, frame: "who_to_include"), msg: "everyone asked; other choices load when More choices opens"
+        assert_select "input[type=radio][name=layout][value=labels][checked]"
+        assert_select "#labels.d-print-flex .fw-bold", text: "A1 World"
 
         get print_list_forms_path(form_id: @meals.id, event_id: @event.id, basis: "expected")
+        follow_redirect!
         assert_select "td", text: "A1 World", msg: "old basis links keep working"
 
         get tally_form_path(@meals, who: "answered", question_id: coming.id, answers: { coming.id => [ "Yes" ] })
+        follow_redirect!
         assert_response :success
         assert_select "p", text: /1 who answered Yes/
 
         get tally_form_path(@poll, basis: "checked_in")
+        follow_redirect!
         assert_response :success
       end
     end
@@ -91,73 +96,70 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
       as(:pack_leader) do
         driver = @meals.form_questions.create!(label: "Can you drive?", data_type: :boolean)
         get print_list_forms_path(form_id: @meals.id)
+        follow_redirect!
         assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", @sandwich.id
         assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", driver.id
         assert_select "input[type=hidden][name=columns_for][value=?]", @meals.id
 
         get print_list_forms_path(form_id: @meals.id, columns_for: @meals.id, question_ids: [ driver.id ])
+        follow_redirect!
         assert_select "input[type=checkbox][name=?][value=?]:not([checked])", "question_ids[]", @sandwich.id
         assert_select "th", text: "Can you drive?"
         assert_select "th", text: "Sandwich", count: 0
 
         get print_list_forms_path(form_id: @meals.id, columns_for: @poll.id, question_ids: [ "from-the-other-form" ])
+        follow_redirect!
         assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", @sandwich.id
       end
     end
   end
 
-  test "a long tick list keeps every box in the form and never hides a ticked one" do
+  test "a long tick list shows every box, in its own order, in columns" do
     with_feature do
       as(:pack_leader) do
         questions = (1..11).map { |number| @meals.form_questions.create!(label: "Note #{number}", data_type: :string) }
         ticked = [ questions[9], questions[10] ]
         get print_list_forms_path(form_id: @meals.id, columns_for: @meals.id, question_ids: ticked.map(&:id))
+        follow_redirect!
         assert_response :success
 
         assert_select "input[type=checkbox][name=?]", "question_ids[]", count: 12
-        assert_select "button[hidden]", text: "Show all 12", count: 1
         ticked.each { |question| assert_select "input[type=checkbox][name=?][value=?][checked]", "question_ids[]", question.id }
-        assert_select "[data-tick-list-target=extra] input[checked]", count: 0
-
-        # Two ticked boxes plus the first four: Sandwich and Notes 1 to 3.
-        assert_select "[data-tick-list-target=extra] input[name=?]", "question_ids[]", count: 6
-        [ @sandwich, *questions.first(3) ].each do |question|
-          assert_select "[data-tick-list-target=extra] input[value=?]", question.id, count: 0
-        end
-        assert_select "[data-tick-list-target=extra] input[value=?]", questions[3].id
+        values = css_select("input[type=checkbox][name='question_ids[]']").map { |box| box["value"] }
+        assert_equal [ @sandwich, *questions ].map { |question| question.id.to_s }, values, "ticking a box doesn't move it"
+        assert_select "button", text: /Show all/, count: 0
+        assert_select "[hidden] input[type=checkbox]", count: 0
+        assert_select "div[style*=columns]"
       end
     end
   end
 
-  test "a long list of answers keeps the ticked answer visible and still picks people by it" do
+  test "a long list of answers shows every answer and still picks people by it" do
     with_feature do
       as(:pack_leader) do
         choices = (1..10).map { |number| "Choice #{number}" }
         question = add_choice(@meals, "Shirt", choices)
         get print_list_forms_path(form_id: @meals.id, who: "answered", question_form_id: @meals.id, question_id: question.id, answers: { question.id => [ "Choice 10" ] })
+        follow_redirect!
         assert_response :success
 
         name = "answers[#{question.id}][]"
         assert_select "input[type=checkbox][name=?]", name, count: 10
         assert_select "input[type=checkbox][name=?][value=?][checked]", name, "Choice 10"
-        assert_select "[data-tick-list-target=extra] input[name=?]", name, count: 4
-        assert_select "[data-tick-list-target=extra] input[name=?][checked]", name, count: 0
-        assert_select "button", text: "Show all 10", count: 1
+        assert_select "button", text: /Show all/, count: 0
       end
     end
   end
 
-  test "a short tick list has no Show all and no columns" do
+  test "a short tick list has no columns" do
     with_feature do
       as(:pack_leader) do
         7.times { |number| @meals.form_questions.create!(label: "Note #{number}", data_type: :string) }
         get print_list_forms_path(form_id: @meals.id)
+        follow_redirect!
         assert_response :success
 
         assert_select "input[type=checkbox][name=?]", "question_ids[]", count: 8
-        assert_select "button", text: /Show all/, count: 0
-        assert_select "[data-controller=tick-list]", count: 0
-        assert_select "[data-tick-list-target]", count: 0
         assert_select "div[style*=columns]", count: 0
       end
     end
@@ -174,6 +176,7 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
         hidden = create_world_field("Salary", read: "admin", person_field_group: secret)
 
         get print_list_forms_path(form_id: @meals.id)
+        follow_redirect!
         assert_response :success
 
         assert_select "div.fw-bold", text: "Contact", count: 1
@@ -186,19 +189,26 @@ class FormEventsFlowTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the event panel's printable list starts from who said yes" do
+  test "Responses on the event's other forms starts from who said yes; the intent form's own Responses doesn't" do
+    lunch = create_world_form("Lunch Order", team: @den_a, include: [ @den_a ], respond: "self_and_leaders", read: "family", event: @event)
     with_feature do
       as(:pack_leader) do
         get event_path(@event)
-        assert_select "#event-forms a[href=?]", print_list_forms_path(event_id: @event.id, form_id: @poll.id), text: "Printable list for this event"
-        get print_list_forms_path(event_id: @event.id, form_id: @poll.id)
-        assert_select "select#form_id option[selected][value=?]", @poll.id
-        assert_select ".card-header div", text: /People: 1 who answered Yes to "Are you coming\?"/
+        assert_select "#event-forms a", text: "Printable list for this event", count: 0
+        assert_select "#event-forms a.btn[href=?]", form_path(@poll), text: "Responses"
+        link = css_select("#event-forms .list-group-item").detect { |row| row.text.include?("Lunch Order") }.at_css("a.btn")
+        assert_equal "Responses", link.text
+
+        get link["href"]
+        assert_select "h1", text: "Lunch Order"
+        assert_select "p", text: /People: 1 who answered Yes to "Are you coming\?"/
         assert_select "td", text: "A1 World", msg: "a list of names even with no columns"
+        assert_equal form_path(lunch, event_id: @event.id), link["href"]
 
         get print_list_forms_path(event_id: @event.id)
         assert_select "input[type=hidden][name=event_id][value=?]", @event.id
         get print_list_forms_path(event_id: @event.id, form_id: @meals.id)
+        follow_redirect!
         assert_select "input[type=radio][name=who][value=answered][checked]"
         assert_select "input[type=checkbox][name=?][value=Yes][checked]", "answers[#{@poll.intent_question.id}][]"
       end

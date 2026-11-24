@@ -56,7 +56,7 @@ class FormBadgeGrantRulesTest < ActionDispatch::IntegrationTest
       assert_empty form.respondable_subjects_for(viewer)
 
       sign_in viewer.user
-      get results_form_path(form)
+      get form_path(form)
       assert_redirected_to root_path
     end
   end
@@ -78,16 +78,16 @@ class FormBadgeGrantRulesTest < ActionDispatch::IntegrationTest
     @form.form_badge_grants.create!(badge: @assistant_badge, access: :read)
     with_badges do
       sign_in person(:assistant).user
-      get results_form_path(@form)
+      get form_path(@form)
       assert_response :success
       assert_not_includes response.body, "B1 World", "control: Den B isn't listed before the deletion"
       sign_out :user
 
       delete_den_a
       sign_in person(:assistant).user
-      get results_form_path(@form)
+      get form_path(@form)
       assert_not (response.successful? && response.body.include?("B1 World")), "Den B is listed after Den A was deleted"
-      get results_form_path(@form, format: :csv)
+      get form_path(@form, format: :csv)
       assert_not (response.successful? && response.body.include?("B1")), "Den B is in the CSV after Den A was deleted"
     end
   end
@@ -100,7 +100,7 @@ class FormBadgeGrantRulesTest < ActionDispatch::IntegrationTest
       assert_equal @form.audience.ids.sort, @form.respondable_subjects_for(person(:outsider)).ids.sort
 
       sign_in person(:outsider).user
-      get results_form_path(@form)
+      get form_path(@form)
       assert_select "tr#person_#{person(:b1).id} td", text: "Tacos"
       patch form_response_path(@form, person(:a2)), params: { submit: "1", form_response: { answers: { meal: "Pizza" } } }
       assert @form.response_for(person(:a2)).complete?

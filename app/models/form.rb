@@ -58,6 +58,10 @@ class Form < ApplicationRecord
     [ "title", "key", "status", "closes_at", "updated_at" ]
   end
 
+  def self.ransackable_associations(auth_object = nil)
+    []
+  end
+
   # Opens and closes forms whose dates have passed. Run by FormScheduleJob.
   # A form with no include rule asks nobody, so it stays a draft.
   def self.apply_schedule!
@@ -105,6 +109,17 @@ class Form < ApplicationRecord
 
     within = [ cap.id ] + cap.all_descendant_ids
     ((person.all_ancestor_teams.ids + below) & within).uniq
+  end
+
+  # The teams a form creator may ask but not own forms for: those named in
+  # forms_creator_extra_audience_teams (one name per line) and the teams
+  # below them.
+  def self.creator_extra_audience_team_ids
+    names = Settings[:forms_creator_extra_audience_teams].to_s.lines.map { |line| line.strip.downcase }.compact_blank
+    return [] if names.empty?
+
+    named = Team.where("LOWER(teams.name) IN (?)", names).to_a
+    (named.map(&:id) + named.flat_map(&:all_descendant_ids)).uniq
   end
 
   # Badges that give access to people's information: those with person
