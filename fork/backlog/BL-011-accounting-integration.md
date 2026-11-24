@@ -24,7 +24,7 @@ The feature is a framework with four layers. Each layer is generic. What an orga
 
 Examples this must handle without code changes:
 
-- **Dues per student.** One invoice per student containing the "Membership Dues" product. Result: paid / partly paid / overdue / open / not invoiced. Visible to the student, their guardians and their leaders. Paid adds a badge.
+- **Dues per student.** One invoice per student containing the "Membership Dues" product. Result: paid / partly paid / overdue / open / not invoiced. Visible to the student, their guardians and their leaders. The status is written to a hidden profile field that eligibility checks read.
 - **Dues per family.** One invoice per household covering every child. The same rule, with the customer linked to several people.
 - **A second fee.** "Travel fee 2027": a new rule filtered on a different product/service.
 - **Totals.** "Amount given in 2026", summed from sales receipts and invoices for a donor, visible to admins only.
@@ -649,7 +649,8 @@ Manual, against the Intuit sandbox company before production keys:
 | Payments | Families pay through an online payment platform that pays out in bulk; the treasurer applies credit to each student's account by hand. Results follow the applied amounts, and the "Unapplied credit" filter (6.3) is the treasurer's list of payouts not yet applied. |
 | Rule | "2027 Membership Dues", kind `invoice_status`, items = "Membership Dues", transaction dates within the 2027 season, applies to the student team. |
 | Visibility | `read_permission: family` (the student, their guardians, their leaders). Add a badge grant if any mentors who should see it aren't team managers. `amount_permission: family`, `show_pay_links` on. |
-| Actions | A "2027 Dues Paid" badge when `paid` only. Partly paid is not eligible: the badge comes when the balance reaches zero. Optionally a hook on `accounting_rules - result changed` to tell mentors when a student becomes `overdue`. |
+| Actions | No badge: a badge shows on the profile to everyone who can open it, and dues status shouldn't. Instead a `person_field` action (always, `write: label`) keeps a "Dues" select field (choices matching the rule's labels) current. The field is admin-written, read at `family`, and hidden from profiles, as Academically Eligible is; the rule's own card already shows the status to the student, their guardians and leaders. |
+| Eligibility | The Travel Eligibility checklist gets a Profile field item: Dues is any of "Paid", blank = Not Started. Partly paid is not eligible. Checklist results say pass or not, never the value. Leave the item out of the coordinator badges' grants, as Academic Eligibility is, so only managers see it, through Overall. | Optionally a hook on `accounting_rules - result changed` to tell mentors when a student becomes `overdue`. |
 
 Not decided:
 
@@ -671,6 +672,6 @@ Not decided:
 
 1. **Name in the UI.** "Account Status" for the nav link and "rules" for the questions. ("Checks" was avoided because it reads as paper checks in a finance screen.)
 2. **Who manages links and rules.** v1 says admins. An organization might want a treasurer who isn't an admin. That could become a badge grant with a "manage" flag later.
-3. **Partial payments.** Decided: configuration. An organization that counts partial payment as passing sets the action condition to `["paid", "partial"]`; the default is `["paid"]`, which is HBR's choice (12.2).
+3. **Partial payments.** Decided: configuration. An organization that counts partial payment as passing says so where it tests the result (an action condition of `["paid", "partial"]`, or a checklist item accepting both labels). HBR counts only Paid (12.2).
 4. **Who clicks Connect.** Architect plus a QBO admin at the same browser (4.2), or a one-time handoff link the QBO admin can open without being a GatherPack architect.
 5. **Upstream.** Not planned. Only Corey raises it.
