@@ -1,0 +1,47 @@
+<% breadcrumb :checklists %>
+
+<%= search_form_for @q do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>Checklists</h1>
+    </div>
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-md">
+          <%= f.input :title_cont, label: "Name", required: false %>
+        </div>
+        <div class="col-md-auto">
+          <div class="form-check mb-3">
+            <%= check_box_tag :archived, "1", params[:archived].present?, class: "form-check-input" %>
+            <%= label_tag :archived, "Show archived", class: "form-check-label" %>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= link_to "New Checklist", new_checklist_path, class: "btn btn-success" if policy(Checklist).new? %>
+      <%= f.submit "Search", class: "btn btn-primary" %>
+      <%= link_to "Clear Search", request.path, class: "btn btn-dark" %>
+    </div>
+  </div>
+<% end %>
+
+<div class="list-group mt-3">
+  <% @checklists.each do |checklist| %>
+    <%= link_to checklist, class: "list-group-item list-group-item-action d-flex justify-content-between align-items-start" do %>
+      <div>
+        <div class="fw-semibold"><%= checklist.title %></div>
+        <small class="text-body-secondary"><%= checklist.team.name %> · <%= checklist_window_text(checklist) %></small>
+      </div>
+      <div class="text-end">
+        <%= checklist_state_badge(checklist) %>
+        <% if policy(checklist).update? && (problems = checklist.problems).any? %>
+          <span class="badge text-bg-warning"><%= pluralize(problems.size, "problem") %></span>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>
+<% if @checklists.empty? %>
+  <%= render "shared/empty_state", text: "Nothing here yet." %>
+<% end %>
