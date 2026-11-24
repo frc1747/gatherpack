@@ -51,6 +51,25 @@ class ChecklistPersonPageTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an item that doesn't apply to the person still says what they did, when its kind tells" do
+    Checklists.register_item_kind(:tally, ChecklistsTestKinds::Tally)
+    visits = create_world_checklist("Visits")
+    add_rule(visits, :include, :team, team_id: @members.id)
+    item = add_item(visits, :tally, "Visits", exempt_label: "Rookie")
+    add_item(visits, :has_login, "Login")
+    add_rule(visits, :exclude, :person, item: item, person_id: person(:member).id)
+    refresh(visits)
+
+    with_feature do
+      sign_in person(:member).user
+      get person_checklists_path(person(:member))
+
+      assert_select "##{dom_id(visits)} .small", text: "Rookie · 2 visits"
+    end
+  ensure
+    Checklists.unregister_item_kind(:tally)
+  end
+
   test "Checklists.without_repeats judges by what the viewer sees of each line" do
     results = Checklists.checklist_for(person(:member), viewer: person(:member))
     assert_equal %w[Travel Trip], Checklists.without_repeats(results).map { |checklist, _| checklist.title }.sort
