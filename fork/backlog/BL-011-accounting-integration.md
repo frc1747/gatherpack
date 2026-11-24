@@ -649,11 +649,10 @@ Manual, against the Intuit sandbox company before production keys:
 | Payments | Families pay through an online payment platform that pays out in bulk; the treasurer applies credit to each student's account by hand. Results follow the applied amounts, and the "Unapplied credit" filter (6.3) is the treasurer's list of payouts not yet applied. |
 | Rule | "2027 Membership Dues", kind `invoice_status`, items = "Membership Dues", transaction dates within the 2027 season, applies to the student team. |
 | Visibility | `read_permission: family` (the student, their guardians, their leaders). Add a badge grant if any mentors who should see it aren't team managers. `amount_permission: family`, `show_pay_links` on. |
-| Actions | A "2027 Dues Paid" badge when `paid`. Optionally a hook on `accounting_rules - result changed` to tell mentors when a student becomes `overdue`. |
+| Actions | A "2027 Dues Paid" badge when `paid` only. Partly paid is not eligible: the badge comes when the balance reaches zero. Optionally a hook on `accounting_rules - result changed` to tell mentors when a student becomes `overdue`. |
 
 Not decided:
 
-- whether "Partly paid" should count as paid for eligibility;
 - the season's exact dates;
 - whether HBR's mentors are all team managers.
 
@@ -672,6 +671,6 @@ Not decided:
 
 1. **Name in the UI.** "Account Status" for the nav link and "rules" for the questions. ("Checks" was avoided because it reads as paper checks in a finance screen.)
 2. **Who manages links and rules.** v1 says admins. An organization might want a treasurer who isn't an admin. That could become a badge grant with a "manage" flag later.
-3. **Partial payments.** Should a rule be able to treat `partial` as passing for actions? It already can, through an action condition of `["paid", "partial"]`, so this is configuration. Confirm that's enough.
+3. **Partial payments.** Decided: configuration. An organization that counts partial payment as passing sets the action condition to `["paid", "partial"]`; the default is `["paid"]`, which is HBR's choice (12.2).
 4. **Who clicks Connect.** Architect plus a QBO admin at the same browser (4.2), or a one-time handoff link the QBO admin can open without being a GatherPack architect.
 5. **Upstream.** Not planned. Only Corey raises it.
