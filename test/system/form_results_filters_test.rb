@@ -1,4 +1,5 @@
 require "application_system_test_case"
+require "csv"
 require_relative "../support/forms_world"
 require_relative "../support/settings_test_helper"
 
@@ -65,6 +66,31 @@ class FormResultsFiltersSystemTest < ApplicationSystemTestCase
     link.click
     query = Rack::Utils.parse_nested_query(URI(link[:href]).query)
     assert_equal({ @sandwich.id => "Slim 4" }, query["tf"])
+  end
+
+  test "two questions with the same label filter apart, on screen and in the CSV" do
+    second = add_choice(@form, "Sandwich", [ "Slim 4", "Big John" ])
+    respond(@form, :a1, as: :a1, answers: { @sandwich.key => "Slim 4", second.key => "Big John" })
+    respond(@form, :b1, as: :b1, answers: { @sandwich.key => "Big John", second.key => "Slim 4" })
+    b1 = person(:b1).identifier_name
+
+    visit form_path(@form)
+    find("#responses th[data-column-key='#{second.id}'] button[aria-label='Filter Sandwich']").click
+    find("#responses th[data-column-key='#{second.id}'] input[value='Slim 4']").check
+
+    assert_selector "#responses tbody tr", count: 1, visible: true
+    assert_equal [ b1 ], all("#responses tbody tr", visible: true).map { |row| row.find("td", match: :first).text }
+    assert_equal [ b1 ], labels(shown: true)
+    first_totals, second_totals = all("#totals .col-12").map { |block| block.all("tr").to_h { |row| row.all("td").map(&:text) } }
+    assert_equal({ "Slim 4" => "0", "Big John" => "1" }, first_totals.slice("Slim 4", "Big John"), "B1's answer to the first one")
+    assert_equal({ "Slim 4" => "1", "Big John" => "0" }, second_totals.slice("Slim 4", "Big John"))
+
+    link = find("a", text: "Download CSV")
+    execute_script("arguments[0].addEventListener('click', (event) => event.preventDefault(), { once: true })", link)
+    link.click
+    assert_equal({ second.id => "Slim 4" }, Rack::Utils.parse_nested_query(URI(link[:href]).query)["tf"])
+    csv = evaluate_async_script("fetch(arguments[0]).then((response) => response.text()).then(arguments[1])", link[:href])
+    assert_equal [ "B1" ], CSV.parse(csv).drop(1).map { |row| row[1] }, "the CSV holds the people on screen"
   end
 
   private
