@@ -12,7 +12,7 @@
 # - Nina applied to Youth Applicants and is covered as an applicant only.
 # - Logistics Crew members (Ben leads it) see everyone's overall and the
 #   safety item through a team grant.
-# - The overall reads Eligible, Pending or Not eligible (the checklist's own
+# - The overall reads Eligible, Pending or Not Eligible (the checklist's own
 #   words); items keep Complete, In Progress and Not Started.
 #
 # "In Progress" needs a count item (feature/checklists-connectors), so it's left to
@@ -175,7 +175,7 @@ Hbr::SampleData.feature "feature/checklists" do |s|
 
   checklist = s.upsert!(Checklist, { title: "Trip Eligibility" },
     team: youth, status: :active, starts_on: season_start, ends_on: ends_on, read_level: "family",
-    created_by: admin, met_word: "Eligible", pending_word: "Pending", not_met_word: "Not eligible",
+    created_by: admin, met_word: "Eligible", pending_word: "Pending", not_met_word: "Not Eligible",
     description: "Everything someone needs before the spring trip.")
   ChecklistOrganizer.find_or_create_by!(checklist: checklist, person: s.person("Carol"))
   rule = ->(attrs) { ChecklistRule.find_or_create_by!({ checklist: checklist }.merge(attrs)) }

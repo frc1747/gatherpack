@@ -27,7 +27,7 @@ The My GatherPack sidebar puts each item where its feature registered it, so rel
 ## What it does
 
 1. **One "Sign-ups & forms" run in the top group:** Sign-ups, Forms, Checklists, next to each other in that order. Registrations, for those who can see it, goes in the Manage group's People part (below), not in a leftover section.
-2. **Report Pages in the menu.** The Page edit page gets a **Show in the menu** tick box. Ticked Pages appear as their own group right under the top group, headed **Reports**, sorted by title. Each person sees only the Pages their Viewer level lets them open (`PagePolicy::Scope`), so a member sees only the member-level ones and the group disappears when there are none. The group ends with an **All pages** link for anyone who can see the Pages list. Pages also moves to the top of Manage.
+2. **Report Pages in the menu.** The Page edit page gets a **Show in the menu** tick box. Ticked Pages appear as their own group right under the top group, headed **Reports**, sorted by title. Each person sees only the Pages their Viewer level lets them open (`PagePolicy::Scope`), so a member sees only the member-level ones and the group disappears when there are none. The group ends with an **All pages** link for anyone who can see the Pages list. In Manage, Pages is the first item of the Content part.
 3. **Manage gets short headed parts**, in this order:
    - **People:** People, Teams, Badges, Tokens, Commitments, Registrations.
    - **Time:** Time Clock.
@@ -42,7 +42,7 @@ Decisions:
 - **Group by job, keep the member view short.** Members still see only the top group, Reports (if any are theirs) and Family. The regrouping, the parts and the pins help managers without adding anything for members.
 - **"Show in the menu" is on the Page, not a separate list.** The Page is the thing the choice is about. Shortcuts stay what they are (links on Home).
 - **Pins are stored on the server, not in the browser.** Columns choices live in `localStorage`, but a pin made on a laptop should be there on a phone. A small `menu_pins` table holds `user_id`, `path_key` (the nav item's path helper, or `page:<id>` for a report Page) and `position`. Deleting a Page removes its pins.
-- **Group headings are editable words.** Reports, Pinned and the Manage part names are labels on the My GatherPack setup page, defaulting to the words above, so a group can call Reports "Dashboards". The parts themselves come from the placement table, not a setting.
+- **Group headings are plain, general words** (Pinned, Reports, People, Time, Money, Content), set in code like the menu's other labels. No setting: they suit any group, and `feature/my-gatherpack` has no settings of its own to hang one on.
 - **Folding only in Manage.** The top groups stay open; folding them would hide the member's main jobs.
 - **Under `feature_my_gatherpack`.** The classic sidebar is untouched.
 
@@ -53,7 +53,6 @@ Decisions:
 - Manage parts render in order with their headings; a part with nothing visible for this person is dropped.
 - Pins: pinning adds the item to Pinned and leaves it in place; pins come back after signing in on another session; unpinning removes it; deleting a pinned Page removes the pin; a pin to an item the person can no longer see is not shown.
 - System test: fold the People part, reload, still folded.
-- Renaming the Reports heading on the setup page changes the sidebar.
 
 ## Fork notes
 
