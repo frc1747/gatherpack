@@ -206,13 +206,6 @@ feature/display-name-fallback:
     given.
   audience: Everyone
 
-feature/ruby-4.0.10:
-  title: Ruby security update
-  emoji: "🛡️"
-  description: >-
-    Runs on Ruby 4.0.10, which fixes security holes in how text is matched
-    and changed to upper or lower case. Nothing looks different.
-  audience: Everyone
 
 feature/pinned-form-buttons:
   title: Save stays in reach on long forms
