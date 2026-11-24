@@ -54,6 +54,39 @@ class ScreenKitTest < ApplicationSystemTestCase
     end
   end
 
+  test "with the feature on, menu items on a touch screen are at least 44px tall" do
+    Settings[:feature_screen_standard] = "true"
+    page.driver.browser.manage.window.resize_to(*PHONE)
+    emulate_touch
+    visit new_badge_type_path
+    assert evaluate_script("matchMedia('(pointer: coarse)').matches")
+    add_action_row [ [ "Edit", "/edit", :warning ], [ "Archive", "/archive", :secondary ], [ "Duplicate", "/copy", :secondary ],
+                     [ "Delete", "/delete", :secondary, true ] ]
+
+    within "#kit-row" do
+      click_on "More"
+      heights = all(".dropdown-item", visible: true).map { |item| evaluate_script("arguments[0].getBoundingClientRect().height", item) }
+      assert_equal 3, heights.size
+      heights.each { |height| assert_operator height, :>=, 44 }
+    end
+  ensure
+    emulate_touch(false)
+  end
+
+  test "with a mouse, menu items keep Bootstrap's compact size" do
+    Settings[:feature_screen_standard] = "true"
+    visit new_badge_type_path
+    assert_not evaluate_script("matchMedia('(pointer: coarse)').matches")
+    add_action_row [ [ "Edit", "/edit", :warning ], [ "Remind", "/remind", :primary ], [ "Duplicate", "/copy", :secondary ],
+                     [ "Delete", "/delete", :secondary, true ] ]
+
+    within "#kit-row" do
+      click_on "More"
+      heights = all(".dropdown-item", visible: true).map { |item| evaluate_script("arguments[0].getBoundingClientRect().height", item) }
+      heights.each { |height| assert_operator height, :<, 44 }
+    end
+  end
+
   test "with the feature on, an upstream form's Cancel takes the secondary colour" do
     Settings[:feature_screen_standard] = "true"
     visit edit_badge_path(badges(:one))
@@ -441,6 +474,62 @@ class ScreenKitTest < ApplicationSystemTestCase
     end
   end
 
+  test "a carry-marked table action takes the heading filters and sort along, and the server gives the rows shown" do
+    rows = [ [ "Ben", "1", "2026-03-01", "Build" ], [ "ana", "1", "", "Code" ], [ "Cleo", "1", "2025-01-02", "Build" ],
+             [ "Dev", "2", "", "Build" ], [ "Eli", "1", "", "" ] ]
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: {
+      url: badge_types_path, status: nil,
+      table_actions: [ ScreenKit::Action.new(label: "Download CSV", path: badge_types_path(format_hint: "csv", tf_sort: "Old"), style: :secondary, data: { table_filter_carry: true }) ]
+    })
+    add_filter_table rows, keys: { "Team" => "team" }, before: filter
+    within "#kit-filter-table" do
+      open_filter "Team"
+      check "Build (3)"
+      check "Code (1)"
+      open_filter "Amount"
+      check "1 (4)"
+      find("[role=button]", text: "Name").click
+      find("[role=button]", text: "Name").click
+      assert_equal %w[Cleo Ben ana Later], first_cells
+      click_on "Download CSV"
+    end
+
+    assert_current_path(/format_hint=csv/)
+    query = current_query
+    assert_equal({ "format_hint" => "csv", "tf" => { "team" => [ "Build", "Code" ], "Amount" => "1" }, "tf_sort" => "Name", "tf_dir" => "desc" }, query)
+
+    columns = %w[Name Amount Due team].each_with_index.to_h { |key, index| [ key, ->(row) { row[index] } ] }
+    shown = TableFilterParams.new(query["tf"], sort: query["tf_sort"], dir: query["tf_dir"]).apply(rows, columns)
+    assert_equal %w[Cleo Ben ana], shown.map(&:first)
+  end
+
+  test "a carry-marked button sends the filters as fields of its form, and drops them once cleared" do
+    form = <<~HTML
+      <form action="#{badge_types_path}" method="get">
+        <input type="hidden" name="season" value="2026">
+        <button type="submit" class="btn btn-secondary" data-table-filter-carry>Labels</button>
+      </form>
+    HTML
+    add_filter_table [ [ "Ben", "1", "", "Build" ], [ "Ana", "2", "", "Code" ] ], before: form
+    within "#kit-filter-table" do
+      open_filter "Team"
+      check "Code (1)"
+      find("[role=button]", text: "Due").click
+      click_on "Clear filters"
+      open_filter "Amount"
+      check "1 (1)"
+      # Kept on the page, so its fields can be read after each click.
+      execute_script("document.querySelector('#kit-filter-table form').addEventListener('submit', (event) => event.preventDefault())")
+      click_on "Labels"
+      assert_equal [ [ "tf[Amount]", "1" ], [ "tf_sort", "Due" ], [ "tf_dir", "asc" ] ],
+        all("form input[data-table-filter-carried]", visible: :all).map { |field| [ field[:name], field[:value] ] }
+      click_on "Clear filters"
+      click_on "Labels"
+      assert_equal [ [ "tf_sort", "Due" ], [ "tf_dir", "asc" ] ],
+        all("form input[data-table-filter-carried]", visible: :all).map { |field| [ field[:name], field[:value] ] }
+    end
+  end
+
   private
 
   # Renders shared/_people_table with Status and Allergies columns and adds
@@ -466,10 +555,12 @@ class ScreenKitTest < ApplicationSystemTestCase
   # a ticked box per row, a skip-marked column and one with no heading text;
   # foot: true adds a Total footer; form: true wraps it in a form with an
   # Order button; off: true marks the table's wrapper data-table-filter="off".
-  def add_filter_table(rows, tables: 1, extra: false, off: false, after: [], foot: false, form: false, headings: [ "Name", "Amount", "Due", "Team" ])
+  # keys: { heading => data-column-key }; before: HTML in the wrapper, ahead
+  # of the tables.
+  def add_filter_table(rows, tables: 1, extra: false, off: false, after: [], foot: false, form: false, headings: [ "Name", "Amount", "Due", "Team" ], keys: {}, before: "")
     helpers = ApplicationController.helpers
     headings += [ "Bring", "Notes", "" ] if extra
-    head = helpers.tag.thead(helpers.tag.tr(helpers.safe_join(headings.map { |heading| helpers.tag.th(heading, data: { table_filter_skip: (true if heading == "Notes") }) })))
+    head = helpers.tag.thead(helpers.tag.tr(helpers.safe_join(headings.map { |heading| helpers.tag.th(heading, data: { table_filter_skip: (true if heading == "Notes"), column_key: keys[heading] }) })))
     row_tags = ->(list) do
       helpers.safe_join(list.map do |row|
         cells = row.map { |cell| helpers.tag.td(cell) }
@@ -482,12 +573,16 @@ class ScreenKitTest < ApplicationSystemTestCase
     table = helpers.tag.div(helpers.tag.table(head + body, class: "table"), class: "table-responsive", data: (off ? { table_filter: "off" } : {}))
     content = (table * tables).html_safe
     content = helpers.tag.form(content + helpers.tag.button("Order", type: "submit", class: "btn btn-primary"), action: badge_types_path, method: "get") if form
-    html = helpers.tag.div(content, id: "kit-filter-table", data: helpers.column_chooser_data("kit-filter"))
+    html = helpers.tag.div(before.html_safe + content, id: "kit-filter-table", data: helpers.column_chooser_data("kit-filter"))
     visit badge_types_path
     execute_script("localStorage.clear()")
     execute_script(<<~JS, html)
       document.querySelector("main").insertAdjacentHTML("afterbegin", arguments[0])
     JS
+  end
+
+  def current_query
+    Rack::Utils.parse_nested_query(URI.parse(current_url).query)
   end
 
   def open_filter(name)
@@ -497,6 +592,11 @@ class ScreenKitTest < ApplicationSystemTestCase
   # The first cell of each row shown, in order, across every table.
   def first_cells
     all("tbody tr", visible: true).map { |row| row.find("td", match: :first).text }
+  end
+
+  # Touch emulation: the page then matches (pointer: coarse).
+  def emulate_touch(enabled = true)
+    page.driver.browser.execute_cdp("Emulation.setTouchEmulationEnabled", enabled: enabled, maxTouchPoints: 1)
   end
 
   # Renders shared/_action_row and adds it to the current page, so the test

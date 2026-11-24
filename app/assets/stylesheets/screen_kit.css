@@ -23,3 +23,21 @@ main form .card-footer > a.btn-warning:has(+ [type=submit]) {
   --bs-btn-disabled-bg: var(--bs-secondary);
   --bs-btn-disabled-border-color: var(--bs-secondary);
 }
+
+/*
+ * Menus on touch screens: every dropdown item is at least 44px tall (the
+ * minimum touch target), with a little more room around dividers. Keyed to
+ * the pointer, not the width, so a narrow desktop window keeps compact menus.
+ */
+@media (pointer: coarse) {
+  .dropdown-menu .dropdown-item {
+    padding-block: .75rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .dropdown-menu .dropdown-divider {
+    margin-block: .75rem;
+  }
+}
