@@ -2,6 +2,7 @@
 <% tab_path = ->(key) { key == "details" && params[:tab].blank? ? edit_checklist_path(@checklist) : edit_checklist_path(@checklist, tab: key) } %>
 <% tabs = [ [ "Details", tab_path.("details") ], [ "Items (#{@checklist.checklist_items.size})", tab_path.("items") ],
             [ "Who it covers", tab_path.("covers") ], [ "Access", tab_path.("access") ] ] %>
+<% tabs << [ "Reminders", tab_path.("reminders") ] if ChecklistReminderPolicy.new(current_user, @checklist).update? %>
 
 <div class="card">
   <%= render "shared/page_header", title: "Edit #{@checklist.title_was}", tabs: %>

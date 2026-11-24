@@ -290,6 +290,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_120100) do
     t.string "met_word"
     t.string "pending_word"
     t.string "not_met_word"
+    t.string "email_level"
     t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
     t.index ["commitment_id"], name: "index_checklist_items_on_commitment_id", unique: true
     t.index ["kind"], name: "index_checklist_items_on_kind"
@@ -324,6 +325,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_120100) do
     t.uuid "person_id"
     t.datetime "created_at", null: false
     t.index ["checklist_id", "person_id"], name: "index_checklist_refreshes_on_checklist_id_and_person_id", unique: true, nulls_not_distinct: true
+  end
+
+  create_table "checklist_reminders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "checklist_id", null: false
+    t.uuid "sent_by_id"
+    t.datetime "sent_at", null: false
+    t.integer "recipient_count", default: 0, null: false
+    t.integer "guardian_count", default: 0, null: false
+    t.boolean "scheduled", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["checklist_id", "sent_at"], name: "index_checklist_reminders_on_checklist_id_and_sent_at"
+    t.index ["sent_by_id"], name: "index_checklist_reminders_on_sent_by_id"
   end
 
   create_table "checklist_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -385,6 +399,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_120100) do
     t.string "met_word"
     t.string "pending_word"
     t.string "not_met_word"
+    t.string "email_level", default: "everything", null: false
+    t.boolean "reminders_scheduled", default: false, null: false
+    t.integer "reminder_every_days"
+    t.integer "reminder_days_before_end"
+    t.boolean "reminder_guardians", default: false, null: false
+    t.boolean "reminder_via_digest", default: false, null: false
     t.index ["created_by_id"], name: "index_checklists_on_created_by_id"
     t.index ["status", "next_refresh_at"], name: "index_checklists_on_status_and_next_refresh_at"
     t.index ["team_id"], name: "index_checklists_on_team_id"
@@ -2038,6 +2058,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_120100) do
   add_foreign_key "checklist_organizers", "checklists"
   add_foreign_key "checklist_organizers", "people", on_delete: :cascade
   add_foreign_key "checklist_refreshes", "checklists", on_delete: :cascade
+  add_foreign_key "checklist_reminders", "checklists", on_delete: :cascade
+  add_foreign_key "checklist_reminders", "people", column: "sent_by_id", on_delete: :nullify
   add_foreign_key "checklist_results", "checklist_items", column: "item_id", on_delete: :cascade
   add_foreign_key "checklist_results", "checklists"
   add_foreign_key "checklist_results", "people", on_delete: :cascade
