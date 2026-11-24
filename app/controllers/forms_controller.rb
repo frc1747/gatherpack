@@ -293,7 +293,7 @@ class FormsController < InternalController
     def load_reminder
       @team = Team.find_by(id: params[:team_id])
       report = FormReport.new(@form, viewer: current_user.person, team: @team)
-      @pending = report.rows.reject { |row| %w[ complete no_longer_asked ].include?(row.status) }.map(&:person)
+      @pending = FormPending.new(@form, among: report.people).people
       @include_guardians = params.key?(:include_guardians) ? params[:include_guardians] == "1" : @form.form_reminders.exists?
       messages = { message: params[:message], guardian_message: params[:guardian_message] }
       @senders = [ true, false ].index_with { |include| FormReminderSender.new(@form, @pending, include_guardians: include, **messages) }
@@ -312,6 +312,7 @@ class FormsController < InternalController
       badges = GatherPack::Features.enabled?(:badges)
       permitted << :completion_badge_id if current_user.admin? && badges
       permitted.delete(:audience_badge_id) unless badges
+      permitted << :auto_reminder_days if GatherPack::Features.enabled?(:forms_auto_reminders)
       permitted << :key if @form.nil? || @form.new_record?
       # Taking answers, on the Responses tab. Archiving is its own action,
       # and an archived form isn't reopened from here.
