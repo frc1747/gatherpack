@@ -34,6 +34,6 @@ class PinnedFormButtonsStylesheetTest < ActionDispatch::IntegrationTest
     Settings[:feature_pinned_form_buttons] = "true"
     get settings_path
     assert_response :success
-    assert_select "link[rel=stylesheet][href*='pinned_form_buttons'][data-turbo-track=reload]", count: 1
+    assert_select "link[rel=stylesheet][href*='pinned_form_buttons']:not([data-turbo-track])", count: 1
   end
 end
