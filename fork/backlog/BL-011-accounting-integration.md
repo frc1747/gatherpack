@@ -34,6 +34,18 @@ Examples this must handle without code changes:
 
 - **Writing to the books.** GatherPack never creates or changes anything in QBO (see 4.6). Creating invoices from enrollment or forms is a possible later phase, not this spec.
 - **Taking payments.** Families pay through QBO's own invoice pay link, which we only display. The existing Stripe gateway and GatherPack ledgers are unrelated and unchanged.
+- **Copying into GatherPack ledgers.** Some organizations track each member's dues in a per-person ledger. Mirroring QBO invoices and payments into ledgers was considered and rejected (1.2).
+
+### 1.2 Why not ledgers
+
+Ledgers are GatherPack's own books: entries people add, edit and pay into. Answering "has this person paid their whole bill" from them would mean copying every invoice in as a charge and every payment as a credit, which is a second set of books beside the accounting system. Specifically:
+
+- **A ledger holds money moved, not money owed.** Paid in full needs the bill, its due date and what was applied to it. Invoices carry all three; ledger entries carry none.
+- **Copies drift.** Team managers can edit and delete ledger entries, so a mirrored payment could stop matching the books, and the sync would have to fight those edits.
+- **Visibility is too wide.** Every member of a ledger's team sees every ledger of that team (`LedgerPolicy::Scope`), so per-member ledgers on one team expose everyone's payments to everyone. Guardians see a ward's ledger only if added as an owner.
+- **The wrong Pay button.** A ledger's Pay goes through the Stripe gateway into GatherPack, not to the organization's own payment route.
+
+The accounting system stays the record. GatherPack keeps a read-only copy (6.1) and shows it per person, including a statement of invoices, payments and credits (8.3), which gives members and guardians the ledger-style view without a second set of books.
 - **Line-level payment status.** QBO applies payments to whole invoices, not lines. An invoice holding a matching line counts as a whole (see 6.3).
 - **Providers other than QBO.** Table and class names are provider-neutral, so Xero or another system can be added later as a second gateway type. Only QBO is built.
 - **QuickBooks Desktop.** It has a different API.
@@ -212,6 +224,8 @@ namespace :accounting do
 end
 ```
 
+plus, outside the namespace, `get "people/:id/accounting_statement", to: "accounting/statements#show", as: :person_accounting_statement` for the statement (8.3).
+
 Routes are always drawn. Controllers refuse with "Accounting is turned off" when the feature is off, as Forms and Widgets do.
 
 ## 5. Customer links
@@ -317,6 +331,14 @@ Each kind receives a person's matching records (6.4) and returns a result: `valu
 | `overdue` | Any invoice has a balance and its due date + `grace_days` (default 0) is past. | Overdue |
 | `partial` | Not overdue, and any invoice with a balance has had some payment. | Partly paid |
 | `open` | Not overdue, and the invoices with a balance have no payments yet. | Not yet due |
+
+An invoice's balance drops only when a payment or credit is applied to it. Organizations that receive bulk payouts (from an online donation or payment platform) and credit each customer by hand can have money on a customer's account that isn't applied to an invoice yet. The value still follows the invoices: guessing which invoice unapplied money belongs to would be wrong whenever a person has more than one fee. Instead, the evaluation adds up the linked customers' unapplied payments (`Payment.UnappliedAmt`) and open credit memos (`CreditMemo.Balance`) into `details.unapplied_credit_cents`. When that's above zero and the result isn't `paid`:
+
+- the profile card and statement say "A payment of $X is waiting to be applied" to anyone who can see amounts, so a family who paid isn't told they're overdue without explanation;
+- the rule page shows admins an "Unapplied credit" mark and offers it as a filter, so the treasurer has a work list of credits to apply in QBO;
+- `AccountingRuleChange` carries `unapplied_credit_cents`, so a hook can skip "overdue" messages to people with credit waiting.
+
+Payments are in the default `synced_entities`, so this needs no setup.
 
 Precedence when invoices differ: `overdue` > `partial` > `open` > `paid`. Labels can be renamed per rule in `settings.labels` (for example "No dues invoice yet"). `amount_cents` is the total balance. `details` lists each invoice: id, number, date, due date, total, balance, pay link.
 
@@ -440,9 +462,13 @@ One `render "accounting/person_card", person: @person` line in `app/views/people
 
 - name, value, "as of" time
 - amount, invoice list and **Pay online** links when the viewer meets `amount_permission` and `settings.show_pay_links` is on
+- the "waiting to be applied" line from 6.3 when there is unapplied credit
+- a **Statement** link, when the viewer meets `amount_permission` for at least one rule
 - for admins: linked customers, with **Manage links**
 
 Guardians see this on their ward's profile, which they can already open.
+
+**Statement** (`/people/:id/accounting_statement`): one table, newest first, of the person's records that the viewer may see amounts for: the invoices matched by those rules, the payments and credit memos applied to them (from each invoice's `LinkedTxn`), and the linked customers' unapplied payments and credits. Columns: date, what it is ("Invoice 1042 · Membership Dues", "Payment", "Credit"), charge, payment, and running balance, with the current balance at the top. Admins see every record of the linked customers and a link into QBO on each row. Read-only, with the shared print layout. This is the ledger-style view organizations ask for (1.2), drawn from the books rather than kept beside them.
 
 ### 8.4 Records (admins)
 
@@ -508,7 +534,7 @@ Record events (`include CanBeHooked`, add to `Hook.catalog`):
 
 Domain events, added to `Hook.catalog` on their own line, like `token - activate`:
 
-- **`accounting_rules - result changed`.** `model` is an `AccountingRuleChange` (plain Ruby, like `PersonFieldChange`) with `rule`, `person`, `old_value`, `new_value`, `old_amount_cents`, `new_amount_cents`. Fired after the result is saved and actions have run. This is the main integration point: "email the guardians when dues become overdue", "tell the treasurer when a family pays".
+- **`accounting_rules - result changed`.** `model` is an `AccountingRuleChange` (plain Ruby, like `PersonFieldChange`) with `rule`, `person`, `old_value`, `new_value`, `old_amount_cents`, `new_amount_cents`, `unapplied_credit_cents`. Fired after the result is saved and actions have run. This is the main integration point: "email the guardians when dues become overdue", "tell the treasurer when a family pays".
 - **`accounting - sync failed`.** `model` is the gateway; `last_error` and `connection_status` say why. Covers expired sign-ins.
 - **`accounting - customer unlinked`.** `model` is the new `AccountingRecord` (Customer). Fired when a new customer arrives and no automatic link was made, so someone can be told to link it.
 
@@ -548,6 +574,7 @@ No WebMock in the Gemfile, and none is added. `Accounting::Quickbooks::Client` t
   - each `invoice_status` value and the precedence rule;
   - voided invoices skipped;
   - grace days;
+  - unapplied payments and open credit memos fill `unapplied_credit_cents` without changing the value;
   - `amount` sums only matching lines when items are filtered;
   - a `custom` rule's return shapes and its error handling.
 - **Filters:** items inside group lines; class on line vs transaction; date bounds inclusive.
@@ -561,7 +588,8 @@ No WebMock in the Gemfile, and none is added. `Accounting::Quickbooks::Client` t
   - badge grants;
   - `amount_permission` ⊆ `read_permission`;
   - non-architects can't set `code` or `kind: custom`;
-  - the profile card renders nothing for someone who may see no rule.
+  - the profile card renders nothing for someone who may see no rule;
+  - the statement lists only records under rules whose amounts the viewer may see, and everything for admins.
 - **Hooks:** each catalog entry fires with the right model; no result-changed event when the value is unchanged.
 - **Feature off:** routes refuse, the card and nav don't render, the recurring jobs do nothing.
 
@@ -617,7 +645,8 @@ Manual, against the Intuit sandbox company before production keys:
 | Setting | Value |
 |---|---|
 | `match_strategies` | `name email`. QBO customers are students; parents receive each child's invoice, so email matches find the parent and suggest their wards. |
-| `customer_rollup` | `none`. Each student is their own customer. |
+| `customer_rollup` | `none`. Each student is their own customer with their own invoice, siblings included. |
+| Payments | Families pay through an online payment platform that pays out in bulk; the treasurer applies credit to each student's account by hand. Results follow the applied amounts, and the "Unapplied credit" filter (6.3) is the treasurer's list of payouts not yet applied. |
 | Rule | "2027 Membership Dues", kind `invoice_status`, items = "Membership Dues", transaction dates within the 2027 season, applies to the student team. |
 | Visibility | `read_permission: family` (the student, their guardians, their leaders). Add a badge grant if any mentors who should see it aren't team managers. `amount_permission: family`, `show_pay_links` on. |
 | Actions | A "2027 Dues Paid" badge when `paid`. Optionally a hook on `accounting_rules - result changed` to tell mentors when a student becomes `overdue`. |
