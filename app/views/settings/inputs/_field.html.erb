@@ -1,0 +1,38 @@
+<%# One setting on a feature's own settings page (settings/_form): its picker,
+    or the field the settings page draws for its type. A type this partial
+    doesn't know (a secret, say) gets a blank password field, so its value is
+    never printed, and a blank one keeps the saved value. %>
+<div class="row align-items-end">
+  <% if SettingInput.for(setting) %>
+    <%= render "settings/inputs/input", f: f, setting: setting %>
+  <% else %>
+    <% case setting.setting_type %>
+    <% when :boolean %>
+      <%= f.input setting.setting_key, as: "select", label: setting.name,
+                                      collection: { "true": true, "false": false },
+                                      selected: setting.value,
+                                      wrapper_html: { class: "col-12 col-md" } %>
+    <% when :time_zone %>
+      <%= f.input setting.setting_key, as: "select", label: setting.name,
+                                      collection: ActiveSupport::TimeZone.all.map { |zone| [ zone.to_s, zone.tzinfo.name ] },
+                                      selected: setting.value,
+                                      wrapper_html: { class: "col-12 col-md" } %>
+    <% when :string, :text, :integer %>
+      <%= f.input setting.setting_key, as: setting.setting_type, label: setting.name,
+                                      placeholder: setting.default_value,
+                                      input_html: { value: setting.value },
+                                      wrapper_html: { class: "col-12 col-md" } %>
+    <% else %>
+      <%= hidden_field_tag "keep_if_blank[]", setting.setting_key, id: nil %>
+      <%= f.input setting.setting_key, as: :password, label: setting.name,
+                                      placeholder: "Leave blank to keep the saved value",
+                                      input_html: { value: nil, autocomplete: "new-password" },
+                                      wrapper_html: { class: "col-12 col-md" } %>
+    <% end %>
+  <% end %>
+  <div class="col-12 col-md mb-3">
+    <%= setting.description %>
+    <br>
+    Default: <%= setting_default_label(setting) %>
+  </div>
+</div>

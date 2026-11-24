@@ -1,0 +1,17 @@
+<fieldset>
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <div class="row g-2">
+    <div class="col">
+      <label class="visually-hidden" for="<%= setting_input_id(input, "month") %>">Month</label>
+      <%= select_tag setting_input_name(input, "month"),
+                     options_for_select(Date::MONTHNAMES.compact.each_with_index.map { |name, index| [ name, index + 1 ] }, input.month),
+                     include_blank: "Month", id: setting_input_id(input, "month"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+    <div class="col">
+      <label class="visually-hidden" for="<%= setting_input_id(input, "day") %>">Day</label>
+      <%= select_tag setting_input_name(input, "day"),
+                     options_for_select(1..31, input.day),
+                     include_blank: "Day", id: setting_input_id(input, "day"), class: "form-select", style: "min-height: 44px" %>
+    </div>
+  </div>
+</fieldset>
