@@ -15,7 +15,7 @@
       <%= f.input :end_time, input_html: { value: (f.object.timed? ? f.object.end_time : ""), data: { event_time_target: "end" } }, wrapper_html: { data: { event_time_target: "timeField" } } %>
     </div>
     <%= f.input :location %>
-    <%= f.input :locked %>
+    <%= f.input :locked, label: "Locked: only managers can check people in" %>
   </div>
   <div class="col-6">
     <div class="row">
