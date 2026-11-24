@@ -693,21 +693,23 @@ class MyGatherpackChecklistsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "an organizer gets Manage with Checklists in it; a plain member doesn't" do
+  test "an organizer sees Checklists once, in the top run; a plain member manages nothing" do
     with_settings(feature_my_gatherpack: "true", feature_checklists: "true", checklists_organizers: "Checklist Organizer > Club") do
       sign_in person(:organizer).user
       menu = MyGatherpack::Menu.new(person(:organizer).user)
       assert menu.manages_anything?
-      assert_includes menu.manage.map(&:path), :checklists_path
+      assert_includes menu.top.map(&:path), :checklists_path
+      assert_not_includes menu.manage.map(&:path), :checklists_path
 
       assert_not MyGatherpack::Menu.new(person(:member).user).manages_anything?
     end
   end
 
-  test "a team manager sees Checklists in Manage, not under a section heading" do
+  test "a team manager sees Checklists once, in the top run, not in Manage or under a section heading" do
     with_feature_on do
       menu = MyGatherpack::Menu.new(person(:club_manager).user)
-      assert_includes menu.manage.map(&:path), :checklists_path
+      assert_includes menu.top.map(&:path), :checklists_path
+      assert_not_includes menu.manage.map(&:path), :checklists_path
       assert_not_includes menu.sections.flat_map(&:last).map(&:path), :checklists_path
     end
   end
