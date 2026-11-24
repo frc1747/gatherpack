@@ -44,8 +44,9 @@ module ChecklistRemindersWorld
   end
 
   # Stands in for the summaries seam (GatherPack::Digests) and the Summaries
-  # setting for a block, where the seam may not be merged: everyone chose
-  # the summary (:daily) for checklist reminders.
+  # setting for a block, where the seam may not be merged. While on, everyone
+  # chose the summary (:daily) for checklist reminders, with or without the
+  # real seam; while off, delivery is left to ReminderDigest (plain email).
   def with_summaries(enabled)
     added = !GatherPack.const_defined?(:Digests, false)
     if added
@@ -55,7 +56,7 @@ module ChecklistRemindersWorld
       end)
     end
     SummariesOverride.enabled = enabled
-    yield
+    enabled ? with_digest_delivery(:daily) { yield } : yield
   ensure
     SummariesOverride.enabled = nil
     GatherPack.send(:remove_const, :Digests) if added
