@@ -33,10 +33,10 @@
                 <% items.each do |item, depth| %>
                   <tr>
                     <td><span style="padding-left: <%= depth * 1.5 %>em"><%= item.label %></span></td>
-                    <td>
+                    <td style="min-width: 14rem">
                       <%= select_tag "item_levels[#{item.id}]",
                         options_for_select([ [ "Same as the checklist", "" ] ] + Checklists::EmailLevel.options.drop(1), item.email_level.to_s),
-                        class: "form-select form-select-sm w-auto", "aria-label": "What reminders may say about #{item.label}" %>
+                        class: "form-select form-select-sm", "aria-label": "What reminders may say about #{item.label}" %>
                     </td>
                     <td class="small text-body-secondary"><%= Checklists::EmailLevel.note(item) %></td>
                   </tr>

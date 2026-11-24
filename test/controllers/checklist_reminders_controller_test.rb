@@ -56,6 +56,30 @@ class ChecklistRemindersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the Reminders tab offers the summary option only while Summaries is on" do
+    with_reminders do
+      sign_in person(:club_manager).user
+      with_summaries(false) do
+        get edit_checklist_path(@checklist, tab: "reminders")
+        assert_response :success
+        assert_select "input#checklist_reminder_via_digest", false
+      end
+      with_summaries(true) do
+        get edit_checklist_path(@checklist, tab: "reminders")
+        assert_select "input#checklist_reminder_via_digest"
+      end
+    end
+  end
+
+  test "an item's select is full width in a cell with a minimum width" do
+    with_reminders do
+      sign_in person(:club_manager).user
+      get edit_checklist_path(@checklist, tab: "reminders")
+      assert_select "td[style*='min-width'] select.form-select-sm"
+      assert_select "select.w-auto", false
+    end
+  end
+
   test "a draft can't be reminded, but its Reminders section can be set up" do
     with_reminders do
       @checklist.update!(status: :draft)

@@ -20,6 +20,18 @@ module ChecklistRemindersWorld
   end
   Checklists::ReminderDigest.singleton_class.prepend(DigestOverride)
 
+  # Turns Features.enabled?(:digests) into a fixed answer for a block.
+  module SummariesOverride
+    class << self
+      attr_accessor :enabled
+    end
+
+    def enabled?(key)
+      key == :digests && !SummariesOverride.enabled.nil? ? SummariesOverride.enabled : super
+    end
+  end
+  GatherPack::Features.singleton_class.prepend(SummariesOverride)
+
   def with_reminders(**settings, &block)
     with_settings(feature_checklists: "true", feature_checklist_reminders: "true", feature_person_fields: "true", **settings, &block)
   end
@@ -29,6 +41,24 @@ module ChecklistRemindersWorld
     yield
   ensure
     DigestOverride.delivery = nil
+  end
+
+  # Stands in for the summaries seam (GatherPack::Digests) and the Summaries
+  # setting for a block, where the seam may not be merged: everyone chose
+  # the summary (:daily) for checklist reminders.
+  def with_summaries(enabled)
+    added = !GatherPack.const_defined?(:Digests, false)
+    if added
+      GatherPack.const_set(:Digests, Module.new do
+        def self.handles?(_key) = true
+        def self.delivery_for(_key, _person) = :daily
+      end)
+    end
+    SummariesOverride.enabled = enabled
+    yield
+  ensure
+    SummariesOverride.enabled = nil
+    GatherPack.send(:remove_const, :Digests) if added
   end
 
   def create_field(name, data_type = :string, **attributes)

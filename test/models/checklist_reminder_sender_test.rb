@@ -160,6 +160,25 @@ class ChecklistReminderSenderTest < ActiveSupport::TestCase
     end
   end
 
+  test "with Summaries off a scheduled reminder is a plain email" do
+    with_reminders do
+      @checklist.update!(reminders_scheduled: true, reminder_every_days: 7, reminder_via_digest: true)
+      refresh(@checklist)
+
+      with_summaries(false) do
+        assert_not Checklists::ReminderDigest.available?
+        assert_equal :each, Checklists::ReminderDigest.delivery_for(person(:kid))
+        Checklists::ReminderSender.new([ request_for(@checklist) ], scheduled: true).send!
+        assert_not_empty emails_to(:kid)
+      end
+
+      with_summaries(true) do
+        assert Checklists::ReminderDigest.available?
+        assert_equal :daily, Checklists::ReminderDigest.delivery_for(person(:kid))
+      end
+    end
+  end
+
   test "without the summaries seam every reminder is an email" do
     skip "the summaries seam is merged here" if Checklists::ReminderDigest.available?
 

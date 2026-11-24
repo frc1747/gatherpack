@@ -1,6 +1,6 @@
 module Checklists
   # Scheduled reminders through the summary email, where the summaries seam
-  # (GatherPack::Digests) is merged and on. A checklist set to go through
+  # (GatherPack::Digests) is merged and Summaries is on. A checklist set to go through
   # the summary sends its scheduled reminder there to each person who chose
   # the summary for checklist reminders; everyone else gets the email.
   # Registered as a section from config/initializers/checklist_reminders.rb
@@ -10,7 +10,9 @@ module Checklists
 
     class << self
       def available?
-        defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:handles?) ? true : false
+        return false unless defined?(GatherPack::Digests) && GatherPack::Digests.respond_to?(:handles?)
+
+        GatherPack::Features.enabled?(:digests)
       end
 
       # :each (an email), :daily, :weekly, :both or :off: how the person
