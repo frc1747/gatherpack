@@ -35,6 +35,7 @@
         screen_action("Edit", edit_event_path(@event), style: :warning, visible: policy(@event).update?),
         screen_action("Print", print_event_path(@event), style: :dark, visible: policy(@event).print?),
         screen_action("Arrange", arrange_event_path(@event), more: true, visible: policy(@event).arrange?),
+        screen_action("Duplicate", duplicate_event_path(@event), more: true, visible: GatherPack::Features.enabled?(:event_duplicate) && policy(Event).new?),
         screen_action("Delete", @event, method: :delete, destructive: true, visible: policy(@event).destroy?,
           confirm: (@event.checkins.count > 0 ? "Delete this event and its #{pluralize(@event.checkins.count, "check-in")}?" : "Delete this event?"))
       ] %>
