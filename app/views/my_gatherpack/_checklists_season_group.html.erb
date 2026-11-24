@@ -1,0 +1,22 @@
+<%# One run of My Season lines: In progress, then a collapsible Done. named: the block already says whose lines these are. %>
+<% if all_set %>
+  <div class="mg-row mg-season-all-set">You're all set for now</div>
+<% end %>
+<% if in_progress.any? %>
+  <div class="mg-season-group" data-season-group="in-progress">
+    <h4 class="mg-season-label mg-season-label-unfinished">In progress <span class="badge rounded-pill text-bg-danger mg-season-count"><%= in_progress.size %></span></h4>
+    <%= render partial: "my_gatherpack/checklists_season_line", collection: in_progress, as: :line, locals: { named: named } %>
+  </div>
+<% end %>
+<% if done.any? %>
+  <div class="mg-season-group" data-season-group="done">
+    <button type="button" class="mg-season-done collapsed" data-bs-toggle="collapse" data-bs-target="#<%= done_id %>" aria-expanded="false" aria-controls="<%= done_id %>">
+      <span class="mg-season-label">Done</span>
+      <span class="mg-season-done-titles"><%= done.map { |line| line.entry.item.label }.uniq.join(", ") %></span>
+      <span class="mg-season-chevron"><%= i("chevron-down") %></span>
+    </button>
+    <div class="collapse" id="<%= done_id %>">
+      <%= render partial: "my_gatherpack/checklists_season_line", collection: done, as: :line, locals: { named: named } %>
+    </div>
+  </div>
+<% end %>
