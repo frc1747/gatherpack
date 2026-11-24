@@ -39,13 +39,10 @@
           <% end %>
           <%= Settings[:title] %>
         </a>
-        <%# A kiosk account can't reach the app's other pages, so its ways out are here. %>
+        <%# Impersonating a kiosk account can't reach the sidebar, so the way to stop is here. %>
         <div class="d-flex gap-2">
           <% if current_user != true_user %>
             <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: { turbo: false }, class: "btn btn-danger btn-sm" %>
-          <% end %>
-          <% if kiosk_account? %>
-            <%= button_to "Sign out", destroy_user_session_path, method: :delete, data: { turbo: false }, class: "btn btn-outline-light btn-sm" %>
           <% end %>
         </div>
       </div>

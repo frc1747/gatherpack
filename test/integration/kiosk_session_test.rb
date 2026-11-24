@@ -100,16 +100,14 @@ class KioskSessionTest < ActionDispatch::IntegrationTest
     assert_select "a[href='/']", count: 0
   end
 
-  test "a kiosk account can sign out from the kiosk" do
+  test "the kiosk page has no sign out button for a kiosk account" do
     make_kiosk(@kiosk_user)
     sign_in_with_password(@kiosk_user)
 
     get time_kiosk_path
-    assert_select "form[action=?] input[name=_method][value=delete]", destroy_user_session_path
-    delete destroy_user_session_path
-    get time_kiosk_path
 
-    assert_redirected_to new_user_session_path
+    assert_response :success
+    assert_select "form[action=?]", destroy_user_session_path, count: 0
   end
 
   test "a kiosk account is signed out after its idle timeout" do
@@ -169,6 +167,7 @@ class KioskSessionTest < ActionDispatch::IntegrationTest
 
     follow_redirect!
     assert_select "form[action=?] button", stop_impersonating_people_path, text: "Stop Impersonating"
+    assert_select "form[action=?]", destroy_user_session_path, count: 0
     post stop_impersonating_people_path
     get people_path
     assert_response :success
