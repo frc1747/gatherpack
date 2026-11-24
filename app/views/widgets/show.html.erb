@@ -1,0 +1,24 @@
+<% breadcrumb @widget %>
+
+<div class="card">
+  <%= render "shared/page_header", title: @widget.identifier_name %>
+  <div class="card-body">
+    <p>
+      <%= widget_placement_label(@widget.placement) %>, order <%= @widget.position %>.
+      Seen by: <%= widget_viewer_label(@widget.viewer) %><%= " (#{@widget.team.name})" if @widget.team %>.
+      <%= "Reloads every #{@widget.refresh_seconds} seconds." if @widget.refresh_seconds.positive? %>
+      <%= "Not shown on the dashboard." unless @widget.enabled %>
+    </p>
+    <p class="text-muted">Preview, as you see it:</p>
+    <div class="row">
+      <div class="<%= @widget.placement == "top" ? "col-12" : "col-12 col-lg-6" %>">
+        <%= render "widgets/card", widget: @widget %>
+      </div>
+    </div>
+  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("Edit", edit_widget_path(@widget), style: :warning, visible: policy(@widget).edit?),
+        screen_action("Delete", widget_path(@widget), method: :delete, destructive: true, visible: policy(@widget).destroy?,
+          confirm: "Delete #{@widget.title}? It leaves the dashboard for good.")
+      ] %>
+</div>

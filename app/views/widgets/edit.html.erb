@@ -1,0 +1,14 @@
+<% breadcrumb @widget %>
+
+<%= simple_form_for(@widget) do |f| %>
+  <div class="card">
+    <%= render "shared/page_header", title: "Editing #{@widget.identifier_name}" %>
+    <div class="card-body">
+      <%= render "form", f: f %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", @widget, class: "btn btn-secondary" %>
+      <%= f.button :submit, class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
