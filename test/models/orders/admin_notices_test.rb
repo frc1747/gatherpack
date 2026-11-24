@@ -168,6 +168,92 @@ class Orders::AdminNoticesTest < ActiveSupport::TestCase
     end
   end
 
+  def summary(person)
+    Orders::Current.reset
+    Orders::Digest.new(person, since: 1.day.ago)
+  end
+
+  # A request bought at a price past the tolerance, so it waits for the final
+  # step's approval again.
+  def reapproval_request(**attributes)
+    order_request = approved_request(@world, **attributes)
+    # Only an admin buys for art, which the buyer badge doesn't reach.
+    buyer = order_request.team_id == @world.art.id ? @admin : @world.buyer
+    Orders::RecordPurchase.new(buyer: buyer, lines: order_request.order_lines.to_a, other_vendor_name: "Corner Store",
+      prices: { order_request.order_lines.first.id => 100_00 }, attributes: { ordered_on: Date.current }).call
+    order_request.reload
+  end
+
+  test "with the setting off, an admin's summary lists only the teams their roles reach" do
+    manage(@admin, @world.art)
+    ours = theirs = our_purchase = their_purchase = our_change = their_change = nil
+    with_orders(@world) do
+      ours = submit(team: @world.art, by: @world.outsider)
+      theirs = submit
+      our_purchase = approved_request(@world, team: @world.art, by: @world.outsider)
+      their_purchase = approved_request(@world)
+      our_change = reapproval_request(team: @world.art, by: @world.outsider)
+      their_change = reapproval_request
+    end
+
+    with_notices(orders_notices: "daily") do
+      digest = summary(@admin)
+
+      assert_equal [ ours ], digest.to_approve
+      assert_equal [ our_change ], digest.to_reapprove
+      assert_equal [ our_purchase ], digest.to_buy
+    end
+
+    with_notices(everywhere: "true", orders_notices: "daily") do
+      digest = summary(@admin)
+
+      assert_equal [ ours, theirs ].sort_by(&:id), digest.to_approve.sort_by(&:id)
+      assert_equal [ our_change, their_change ].sort_by(&:id), digest.to_reapprove.sort_by(&:id)
+      assert_equal [ our_purchase, their_purchase ].sort_by(&:id), digest.to_buy.sort_by(&:id)
+    end
+  end
+
+  test "an admin with no role has an empty summary while others approve and buy" do
+    with_orders(@world) do
+      submit
+      approved_request(@world)
+      reapproval_request
+    end
+
+    with_notices(orders_notices: "daily") do
+      assert summary(@admin).empty?
+      assert_equal 1, summary(@world.mentor).to_approve.size
+      assert_equal 1, summary(@world.mentor).to_reapprove.size
+      assert_equal 1, summary(@world.buyer).to_buy.size
+    end
+  end
+
+  test "an admin's summary lists what nobody else approves or buys" do
+    waiting = bought = changed = nil
+    with_orders(@world) do
+      waiting = submit(team: @world.art, by: @world.outsider)
+      bought = approved_request(@world, team: @world.art, by: @world.outsider)
+      changed = reapproval_request(team: @world.art, by: @world.outsider)
+    end
+
+    with_notices(orders_notices: "daily") do
+      digest = summary(@admin)
+
+      assert_equal [ waiting ], digest.to_approve
+      assert_equal [ changed ], digest.to_reapprove
+      assert_equal [ bought ], digest.to_buy
+    end
+  end
+
+  test "an admin's pages still list every team's requests" do
+    with_notices do
+      request = submit
+      Orders::Current.reset
+
+      assert_includes Orders::WaitingOn.for(@admin).to_approve, request
+    end
+  end
+
   test "an admin may still do everything" do
     with_notices do
       request = submit

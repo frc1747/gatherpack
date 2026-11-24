@@ -3,7 +3,9 @@
 # to buy, delivery problems on what they bought, and what happened to the
 # requests they made or follow since the last one. Built for
 # the daily email and the Weekly Infodump (GatherPack::Digests) and for
-# Orders' own daily email when Summaries is off.
+# Orders' own daily email when Summaries is off. With the
+# notices_admins_everywhere setting off, an admin's summary lists only what
+# they'd be emailed about as it happens (Orders::Recipients).
 #
 #   digest = Orders::Digest.new(person, since: 1.day.ago)
 #   digest.empty?
@@ -48,12 +50,12 @@ module Orders
 
     # Submitted requests on a step the person approves, oldest first.
     def to_approve
-      @to_approve ||= waiting_on.to_approve.sort_by { |order_request| order_request.submitted_at || order_request.created_at }
+      @to_approve ||= told_to_decide(waiting_on.to_approve).sort_by { |order_request| order_request.submitted_at || order_request.created_at }
     end
 
     # Requests with items whose new price needs the person's approval again.
     def to_reapprove
-      @to_reapprove ||= waiting_on.to_reapprove
+      @to_reapprove ||= told_to_decide(waiting_on.to_reapprove)
     end
 
     # Requests with a delivery problem on an item the person bought.
@@ -64,7 +66,7 @@ module Orders
     def to_buy
       @to_buy ||= begin
         access = Orders::Access.new(person)
-        access.buyer? ? Orders::Reminders.to_buy(access) : []
+        told_to_buy(access.buyer? ? Orders::Reminders.to_buy(access) : [])
       end
     end
 
@@ -98,6 +100,23 @@ module Orders
 
     def waiting_on
       @waiting_on ||= Orders::WaitingOn.new(person)
+    end
+
+    def own_roles_only?
+      Settings[:notices_admins_everywhere] == false && person.admin?
+    end
+
+    def told_to_decide(requests)
+      return requests unless own_roles_only?
+
+      requests.select { |order_request| Orders::Recipients.approvers(order_request, order_request.decision_step).include?(person) }
+    end
+
+    def told_to_buy(requests)
+      return requests unless own_roles_only?
+
+      team_ids = requests.map(&:team_id).uniq.select { |team_id| Orders::Recipients.buyers(team_id).include?(person) }.to_set
+      requests.select { |order_request| team_ids.include?(order_request.team_id) }
     end
 
     # A step's approval isn't news to the requester (the final one, or one
