@@ -5,17 +5,28 @@ class ScreenKitHelperTest < ActionView::TestCase
     render "shared/action_row", actions: actions
   end
 
-  # More's items at desktop width (dividers left out).
+  # More's items at desktop width.
   def more_items
-    css_select(".dropdown-menu li:not(.d-md-none)").reject { |li| li.at_css(".dropdown-divider") }
+    css_select(".dropdown-menu li:not(.d-md-none)")
   end
 
   # The labels in More, with "---" for a divider, and whether each shows only
-  # at phone width.
+  # at phone width. A divider sits inside the item below it.
   def more_menu
-    css_select(".dropdown-menu > li").map do |li|
-      [ li.at_css(".dropdown-divider") ? "---" : li.text.strip, li.classes.include?("d-md-none") ]
+    css_select(".dropdown-menu > li").flat_map do |li|
+      phone = li.classes.include?("d-md-none")
+      hr = li.at_css(".dropdown-divider")
+      item = [ li.text.strip, phone ]
+      hr ? [ [ "---", phone || hr.classes.include?("d-md-none") ], item ] : [ item ]
     end
+  end
+
+  test "a divider never adds an item of its own to More" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    assert_select ".dropdown-menu > li", 2
   end
 
   test "screen_action builds an action with the kit's defaults" do
@@ -97,7 +108,7 @@ class ScreenKitHelperTest < ActionView::TestCase
       screen_action("Delete", "/x", method: :delete, destructive: true)
 
     assert_equal [ [ "Archive", false ], [ "---", false ], [ "Delete", false ] ], more_menu
-    assert_select ".dropdown-menu li + li > hr.dropdown-divider", 1
+    assert_select ".dropdown-menu li + li > hr.dropdown-divider:first-child", 1
   end
 
   test "two destructive actions share one divider" do
