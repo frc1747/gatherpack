@@ -224,7 +224,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
       fresh = create_world_form("Trip Sizes")
       as(:admin) do
         get form_path(fresh)
-        items = css_select("#actions .dropdown-menu li:not(.d-md-none)").map { |item| item.at("hr.dropdown-divider") ? "---" : item.text.strip }
+        items = css_select("#actions .dropdown-menu li:not(.d-md-none)").flat_map { |item| item.at("hr.dropdown-divider") ? [ "---", item.text.strip ] : [ item.text.strip ] }
         assert_equal [ "Preview as…", "Duplicate", "Archive", "---", "Delete" ], items, "a divider before Delete"
         assert_select "#actions .dropdown-menu button.text-danger", text: "Delete"
         assert_select "#actions .dropdown-menu form[data-turbo-confirm] button", text: "Archive"
