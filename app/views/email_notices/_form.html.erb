@@ -1,0 +1,31 @@
+<%# The choices, one fieldset per section. Shown on the Email notices page, and as a card on the Notifications page where that page takes other features' cards. %>
+<% entries = GatherPack::Digests.personal_entries %>
+<% choices = GatherPack::Digests.choices_for(current_user.person) %>
+<%= form_with url: email_notices_path, method: :patch, class: "card mb-3", id: "email-notices" do |form| %>
+  <div class="card-header">
+    <% if local_assigns[:page] %>
+      <h1>Email notices</h1>
+    <% else %>
+      <h2>Email</h2>
+    <% end %>
+  </div>
+  <div class="card-body">
+    <p>Choose how you hear about each feature. The daily digest comes once a day around 7:00; the Weekly Infodump is the weekly announcements email.</p>
+    <% entries.each do |entry| %>
+      <fieldset class="mb-3">
+        <legend class="fs-5"><%= entry.label %></legend>
+        <% chosen = choices[entry.key]&.to_s || EmailNoticesController::SITE %>
+        <% site_label = "Use the site's choice (#{GatherPack::Digests::LABELS.fetch(entry.delivery)})" %>
+        <% [ [ EmailNoticesController::SITE, site_label ], *GatherPack::Digests::PERSONAL_DELIVERIES.map { |d| [ d.to_s, GatherPack::Digests::LABELS.fetch(d) ] } ].each do |value, label| %>
+          <div class="form-check">
+            <%= radio_button_tag "email_notices[#{entry.key}]", value, chosen == value, class: "form-check-input", id: "email_notices_#{entry.key}_#{value}" %>
+            <%= label_tag "email_notices_#{entry.key}_#{value}", label, class: "form-check-label" %>
+          </div>
+        <% end %>
+      </fieldset>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= form.submit "Save", class: "btn btn-primary" %>
+  </div>
+<% end %>
