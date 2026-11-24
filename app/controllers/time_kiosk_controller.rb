@@ -77,39 +77,24 @@ class TimeKioskController < InternalController
     end
 
     if @time_kiosk.tool == "punch_out_period"
-      user = @time_kiosk.signed_person.user
-      if @time_kiosk.time_clock_period && !(user && Pundit.policy(user, @time_kiosk.time_clock_period).punch_out?)
+      period = @time_kiosk.time_clock_period
+      # An id that names no period is refused, not read as "no period".
+      count = TimeKiosk::ManagerClockOut.new(@time_kiosk.signed_person).clock_out_period!(period) unless period.nil? && @time_kiosk.time_clock_period_id.present?
+      if count.nil?
         flash.now[:warning] = "You can't clock out this period."
-      elsif @time_kiosk.time_clock_period
-        period = @time_kiosk.time_clock_period
-        current_time = Time.current
-        max_time = period&.end_time&.end_of_day || current_time
-        end_time = current_time > max_time ? max_time: current_time
-
-        punches = period.open_punches.to_a
-        punches.each do |punch|
-          punch.update(end_time: end_time, created_by: "kiosk")
-        end
-        flash.now[:success] = "#{clocked_out(punches.size)} from #{period.name}."
+      else
+        flash.now[:success] = "#{clocked_out(count)} from #{period&.name || "No period"}."
       end
       @time_kiosk.tool = "welcome"
     end
 
     if @time_kiosk.tool == "punch_out_all"
-      current_time = Time.current
-      user = @time_kiosk.signed_person.user
-      periods = user ? @time_kiosk.signed_person_managed_periods.select { |period| Pundit.policy(user, period).punch_out? } : []
-      flash.now[:warning] = "You can't clock out these periods." if periods.empty?
-      count = 0
-      periods.each do |period|
-        max_time = period&.end_time&.end_of_day || current_time
-        end_time = current_time > max_time ? max_time: current_time
-        period.open_punches.each do |punch|
-          punch.update(end_time: end_time, created_by: "kiosk")
-          count += 1
-        end
+      count = TimeKiosk::ManagerClockOut.new(@time_kiosk.signed_person).clock_out_all!
+      if count.nil?
+        flash.now[:warning] = "You can't clock out these periods."
+      else
+        flash.now[:success] = "#{clocked_out(count)}."
       end
-      flash.now[:success] = "#{clocked_out(count)}." if periods.any?
       @time_kiosk.tool = "welcome"
     end
 
