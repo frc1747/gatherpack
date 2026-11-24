@@ -527,6 +527,28 @@ class ScreenKitTest < ApplicationSystemTestCase
     assert_equal %w[Dev Ben ana Cleo Eli], shown.map(&:first)
   end
 
+  test "two headings that read the same but carry different keys filter apart, and carry their own keys" do
+    rows = [ [ "Ann", "Slim", "Big" ], [ "Bo", "Big", "Slim" ] ]
+    filter = ApplicationController.render(partial: "shared/filter_bar", locals: {
+      url: badge_types_path, status: nil,
+      table_actions: [ ScreenKit::Action.new(label: "Download CSV", path: badge_types_path, style: :secondary, data: { table_filter_carry: true }) ]
+    })
+    add_filter_table rows, headings: [ "Name", "Sandwich", "Sandwich" ], keys: [ nil, "q1", "q2" ], before: filter
+    within "#kit-filter-table" do
+      assert_selector "[aria-label='Filter Sandwich']", count: 2
+      all("[aria-label='Filter Sandwich']").last.click
+      check "Slim (1)"
+      assert_equal %w[Bo Later], first_cells
+      click_on "Download CSV"
+    end
+
+    assert_current_path(/tf/)
+    query = current_query
+    assert_equal({ "q2" => "Slim" }, query["tf"])
+    columns = { "Name" => ->(row) { row[0] }, "q1" => ->(row) { row[1] }, "q2" => ->(row) { row[2] } }
+    assert_equal %w[Bo], TableFilterParams.new(query["tf"]).apply(rows, columns).map(&:first)
+  end
+
   test "a carry-marked button sends the filters as fields of its form, and drops them once cleared" do
     form = <<~HTML
       <form action="#{badge_types_path}" method="get">
@@ -579,12 +601,14 @@ class ScreenKitTest < ApplicationSystemTestCase
   # a ticked box per row, a skip-marked column and one with no heading text;
   # foot: true adds a Total footer; form: true wraps it in a form with an
   # Order button; off: true marks the table's wrapper data-table-filter="off".
-  # keys: { heading => data-column-key }; before: HTML in the wrapper, ahead
+  # keys: { heading => data-column-key }, or an Array of keys by position;
+  # before: HTML in the wrapper, ahead
   # of the tables.
   def add_filter_table(rows, tables: 1, extra: false, off: false, after: [], foot: false, form: false, headings: [ "Name", "Amount", "Due", "Team" ], keys: {}, before: "")
     helpers = ApplicationController.helpers
     headings += [ "Bring", "Notes", "" ] if extra
-    head = helpers.tag.thead(helpers.tag.tr(helpers.safe_join(headings.map { |heading| helpers.tag.th(heading, data: { table_filter_skip: (true if heading == "Notes"), column_key: keys[heading] }) })))
+    key_for = ->(heading, index) { keys.is_a?(Array) ? keys[index] : keys[heading] }
+    head = helpers.tag.thead(helpers.tag.tr(helpers.safe_join(headings.each_with_index.map { |heading, index| helpers.tag.th(heading, data: { table_filter_skip: (true if heading == "Notes"), column_key: key_for.call(heading, index) }) })))
     row_tags = ->(list) do
       helpers.safe_join(list.map do |row|
         cells = row.map { |cell| helpers.tag.td(cell) }
