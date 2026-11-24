@@ -108,13 +108,14 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     assert_equal({ "top" => MEMBER_TOP, "section-communication" => %w[Questions], "manage" => TEAM_MANAGE }, menu_for(manager))
   end
 
-  test "a Forms creator who manages no team sees only what their check opens" do
+  test "a Forms creator who manages no team sees Forms once, in the top group" do
     creator = create_login("Sage")
     register_items nav_item("Forms", :forms_path)
     MyGatherpack::Menu.register_manager_check(:forms_creator, paths: [ :forms_path ]) { |person| person == creator.person }
 
     groups = menu_for(creator)
-    assert_equal [ "Forms" ], groups["manage"]
+    assert_nil groups["manage"]
+    assert_equal 1, groups.values.flatten.count("Forms")
     assert_includes groups["top"], "Forms"
     assert_includes groups["section-people"], "Tokens"
 

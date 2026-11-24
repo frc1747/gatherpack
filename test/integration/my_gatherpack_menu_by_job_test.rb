@@ -83,14 +83,55 @@ class MyGatherpackMenuByJobTest < ActionDispatch::IntegrationTest
     assert_equal [ "People" ], css_select("[data-menu-part] > h6").map { |heading| heading.text.strip }
   end
 
+  test "a checklist creator and a Forms creator see Checklists and Forms once, in the top run" do
+    register_items "People", nav_item("Checklists", :checklists_path)
+    register_items "Communication", nav_item("Forms", :forms_path), nav_item("Sign-ups", :signup_sheets_path)
+    creator = create_login("Sage")
+    everything = [ :checklists_path, :forms_path, :signup_sheets_path ]
+    MyGatherpack::Menu.register_manager_check(:creator, paths: everything) { |person| [ creator.person, @manager.person ].include?(person) }
+
+    [ creator, @manager ].each do |user|
+      groups = menu_for(user)
+      [ "Sign-ups", "Forms", "Checklists" ].each do |label|
+        assert_equal 1, groups.values.flatten.count(label), "#{label} for #{user.person.first_name}"
+        assert_includes groups["top"], label
+      end
+    end
+    assert_nil menu_for(creator)["manage"]
+  end
+
+  test "a Manage item the table places in no part comes last, under no heading" do
+    register_items "Menu Test", nav_item("Organizing", :organizing_path)
+    NavHelper.define_method(:organizing_path) { "/calendar" }
+    MyGatherpack::Menu.register_manager_check(:organizing, paths: [ :organizing_path ]) { |person| person == @manager.person }
+
+    parts = MyGatherpack::Menu.new(@manager).manage_parts
+    assert_equal [ :people, :time, :money, :content, nil ], parts.map(&:first)
+    assert_equal [ "Organizing" ], parts.last.last.map(&:label)
+    assert_equal "Organizing", menu_for(@manager)["manage"].last
+  ensure
+    NavHelper.remove_method(:organizing_path)
+  end
+
+  test "a pin answers with a stream that redraws only the menu, for the page it was clicked on" do
+    sign_in @member
+    post menu_pins_path, params: { path_key: "calendar_index_path", from: teams_path }, as: :turbo_stream
+
+    assert_equal "text/vnd.turbo-stream.html", response.media_type
+    assert_select "turbo-stream[action=update][target=mg-menu]", count: 1
+    assert_select "turbo-stream", count: 1
+    assert_select "turbo-stream template [data-menu-group=pinned] a", text: /Calendar/
+    assert_select "turbo-stream template [data-menu-group=top] a.active", text: /Teams/
+  end
+
   test "pinning adds the item to Pinned and leaves it where it was" do
     sign_in @member
     get root_path
     assert_select "[data-menu-group=top] button.mg-pin[aria-label=?]", "Pin Calendar to the top"
 
-    post menu_pins_path, params: { path_key: "calendar_index_path" }, as: :json
-    assert_response :created
-    post menu_pins_path, params: { path_key: "teams_path" }, as: :json
+    post menu_pins_path, params: { path_key: "calendar_index_path" }, as: :turbo_stream
+    assert_response :success
+    post menu_pins_path, params: { path_key: "teams_path" }, as: :turbo_stream
 
     groups = menu_for(@member)
     assert_equal %w[Calendar Teams], groups["pinned"]
@@ -102,7 +143,7 @@ class MyGatherpackMenuByJobTest < ActionDispatch::IntegrationTest
 
   test "pins come back in another session" do
     sign_in @member
-    post menu_pins_path, params: { path_key: "calendar_index_path" }, as: :json
+    post menu_pins_path, params: { path_key: "calendar_index_path" }, as: :turbo_stream
     sign_out @member
     reset!
     host! "localhost"
@@ -112,8 +153,8 @@ class MyGatherpackMenuByJobTest < ActionDispatch::IntegrationTest
 
   test "unpinning removes the item from Pinned" do
     sign_in @member
-    post menu_pins_path, params: { path_key: "calendar_index_path" }, as: :json
-    delete menu_pin_path("calendar_index_path"), as: :json
+    post menu_pins_path, params: { path_key: "calendar_index_path" }, as: :turbo_stream
+    delete menu_pin_path("calendar_index_path"), as: :turbo_stream
     assert_response :success
 
     assert_nil menu_for(@member)["pinned"]
@@ -123,8 +164,8 @@ class MyGatherpackMenuByJobTest < ActionDispatch::IntegrationTest
   test "My Hours and a report Page can be pinned" do
     page = report("Attendance")
     sign_in @member
-    post menu_pins_path, params: { path_key: "my_hours" }, as: :json
-    post menu_pins_path, params: { path_key: MenuPin.page_key(page) }, as: :json
+    post menu_pins_path, params: { path_key: "my_hours" }, as: :turbo_stream
+    post menu_pins_path, params: { path_key: MenuPin.page_key(page) }, as: :turbo_stream
 
     assert_equal [ "My Hours", "Attendance" ], menu_for(@member)["pinned"]
   end
@@ -152,20 +193,23 @@ class MyGatherpackMenuByJobTest < ActionDispatch::IntegrationTest
     MenuPin.create!(user: @manager, path_key: "calendar_index_path")
     sign_in @member
 
-    delete menu_pin_path("calendar_index_path"), as: :json
-    post menu_pins_path, params: { path_key: "teams_path" }, as: :json
+    delete menu_pin_path("calendar_index_path"), as: :turbo_stream
+    assert_response :not_found
+    sign_in @member # the 404 page wrote no session cookie
+    post menu_pins_path, params: { path_key: "teams_path" }, as: :turbo_stream
+    assert_response :success
 
     assert_equal [ "calendar_index_path" ], MenuPin.where(user: @manager).pluck(:path_key)
     assert_equal [ "teams_path" ], MenuPin.where(user: @member).pluck(:path_key)
   end
 
   test "pins need the flag and a signed-in person" do
-    post menu_pins_path, params: { path_key: "teams_path" }, as: :json
+    post menu_pins_path, params: { path_key: "teams_path" }, as: :turbo_stream
     assert_redirected_to new_user_session_path
 
     Settings[:feature_my_gatherpack] = "false"
     sign_in @member
-    post menu_pins_path, params: { path_key: "teams_path" }, as: :json
+    post menu_pins_path, params: { path_key: "teams_path" }, as: :turbo_stream
     assert_response :not_found
     assert_equal 0, MenuPin.count
   end

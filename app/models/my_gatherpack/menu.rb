@@ -85,23 +85,28 @@ module MyGatherpack
     end
 
     # Team managers get every Manage item; anyone else only what their passing
-    # checks open up.
+    # checks open up. An item the top group already shows isn't repeated,
+    # unless the table also places it in Manage (Teams, or Time Clock beside
+    # My Hours). Items the table doesn't place in Manage come last.
     def manage
       return [] unless manages_anything?
 
       opened = passing_checks.flat_map(&:paths)
+      on_top = placed(:top).map(&:path)
       items = visible_items.select do |item|
+        next false if on_top.include?(item.path) && !position(item, :manage)
+
         opened.include?(item.path) || (@person.manager? && position(item, :manage))
       end
       items.sort_by.with_index { |item, index| [ position(item, :manage) || Float::INFINITY, index ] }
     end
 
     # [[part_key, heading, items]] in PARTS order. Manage items the table puts
-    # in no part come first, under no heading. A part with nothing in it is
+    # in no part come last, under no heading. A part with nothing in it is
     # dropped.
     def manage_parts
       groups = manage.group_by { |item| part(item) }
-      ([ nil ] + PARTS.keys).filter_map do |key|
+      (PARTS.keys + [ nil ]).filter_map do |key|
         [ key, PARTS[key], groups[key] ] if groups[key]
       end
     end

@@ -75,4 +75,24 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
     assert_no_selector "[data-menu-group=pinned]"
     assert_selector "button[aria-pressed=true]", text: "Edit menu"
   end
+
+  test "pinning keeps a half-filled form and the menu's scroll" do
+    sign_in create_login("Avery", admin: true)
+    visit new_page_path
+    page.current_window.resize_to(1400, 600)
+    fill_in "Title", with: "Half written"
+    click_button "Edit menu"
+    pin = find("[data-menu-part=content] button[aria-label='Pin Shortcuts to the top']")
+    page.execute_script("document.getElementById('mg-menu').scrollTop = 10000")
+    scrolled = page.evaluate_script("document.getElementById('mg-menu').scrollTop")
+    assert_operator scrolled, :>, 0
+
+    # A script click: Selenium would first scroll the button into view itself.
+    page.execute_script("arguments[0].click()", pin)
+    within("[data-menu-group=pinned]") { assert_link "Shortcuts" }
+
+    assert_field "Title", with: "Half written"
+    assert_equal scrolled, page.evaluate_script("document.getElementById('mg-menu').scrollTop")
+    assert_selector "button[aria-pressed=true]", text: "Edit menu"
+  end
 end

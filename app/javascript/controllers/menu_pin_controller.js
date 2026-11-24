@@ -3,9 +3,10 @@ import { Turbo } from "@hotwired/turbo-rails"
 
 const EDITING_KEY = "mg-menu-editing"
 
-// The sidebar's pin buttons. A pin is saved for the person, then the page is
-// drawn again so the Pinned group and every copy of the item agree. Edit menu
-// shows the pins on screens with no hover, and stays on while pinning.
+// The sidebar's pin buttons. A pin is saved for the person, and the answer
+// redraws only the sidebar's menu, so the Pinned group and every copy of the
+// item agree while the page, and the menu's scroll, stay put. Edit menu shows
+// the pins on screens with no hover, and stays on while pinning.
 export default class extends Controller {
   static targets = [ "edit" ]
   static values = { url: String }
@@ -16,16 +17,18 @@ export default class extends Controller {
 
   async toggle({ params: { key, pinned } }) {
     const url = pinned ? `${this.urlValue}/${encodeURIComponent(key)}` : this.urlValue
+    const body = new FormData()
+    body.append("from", window.location.pathname)
+    if (!pinned) body.append("path_key", key)
     const response = await fetch(url, {
       method: pinned ? "DELETE" : "POST",
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
+        "Accept": "text/vnd.turbo-stream.html",
         "X-CSRF-Token": document.querySelector("meta[name=csrf-token]")?.content
       },
-      body: pinned ? null : JSON.stringify({ path_key: key })
+      body
     })
-    if (response.ok) Turbo.visit(window.location.href, { action: "replace" })
+    if (response.ok) Turbo.renderStreamMessage(await response.text())
   }
 
   edit() {
