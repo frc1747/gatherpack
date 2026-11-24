@@ -8,16 +8,26 @@ import { Controller } from "@hotwired/stimulus"
 // Over 12 values, a search box narrows the list. "Clear filters" sits beside
 // Columns while any filter is on. Neither is remembered.
 // A cell's value: its data-filter-value, else its text; it sorts by its
-// data-sort-value, else that value (numbers and dates compared as such).
+// data-sort-value, else that value (numbers and dates compared as such);
+// rows that tie keep their order from when the page loaded, so only the
+// last sort counts.
 // Headings with no text or marked data-table-filter-skip, and columns whose
 // cells hold form fields, get neither. Inside data-table-filter="off" nothing
 // is added. Rows with a different cell count from the headings (separators)
 // are never hidden and stay in place; the rows between two sort on their own.
 // A hidden row's fields are disabled, so a form around the table leaves them
 // out; footer rows (totals of every row) hide while any filter is on.
+// A link or button in here marked data-table-filter-carry takes the filters
+// and sort along when clicked, so the server can give the same rows
+// (TableFilterParams applies them; it mirrors the matching and sorting
+// here, so change both together): tf[<key>]=<value> for one ticked value,
+// tf[<key>][]=<value> for each of several, then tf_sort=<key> and
+// tf_dir=asc|desc. <key> is the heading's data-column-key, else its text.
+// A link gets them in its URL; a button, as hidden fields in its form.
 const SEARCH_AFTER = 12
 const FIELDS = "input:not([type=hidden]), select, textarea"
 const CONTROLS = "a, button, .dropdown, " + FIELDS
+const CARRIED = /^tf(\[|_sort$|_dir$)/
 
 // As the Columns chooser reads it: the labelled element's text, else the
 // heading's text without the funnel menu.
@@ -52,6 +62,9 @@ function compare(a, b) {
 export default class extends Controller {
   connect() {
     if (this.element.closest("[data-table-filter='off']")) return
+    this.carry = this.carry.bind(this)
+    this.element.addEventListener("click", this.carry)
+    this.element.addEventListener("auxclick", this.carry)
     this.tables = [ ...this.element.querySelectorAll("table") ]
       .filter((table) => !table.closest("[data-table-filter='off']") && table.tHead?.rows[0])
     if (this.tables.length === 0) return
@@ -61,6 +74,8 @@ export default class extends Controller {
     this.anchor = this.tables[0].closest(".table-responsive") || this.tables[0]
     if (this.anchor.previousElementSibling?.matches("[data-table-filter-clear]")) this.anchor.previousElementSibling.remove()
     for (const row of [ ...this.bodyRows(), ...this.footRows() ]) this.show(row, true)
+    // Each row's place as loaded, to break sort ties (as TableFilterParams does).
+    this.positions = new Map(this.bodyRows().map((row, index) => [ row, index ]))
 
     this.filters = new Map() // heading text -> Set of ticked values
     this.sorted = null
@@ -70,6 +85,47 @@ export default class extends Controller {
 
   disconnect() {
     this.clearLink?.remove()
+    this.element.removeEventListener("click", this.carry)
+    this.element.removeEventListener("auxclick", this.carry)
+  }
+
+  // Runs before Turbo or the browser reads the link's URL or the form.
+  carry(event) {
+    const target = event.target.closest("[data-table-filter-carry]")
+    if (!target || target.closest("[data-controller~='table-filter']") !== this.element) return
+    const pairs = this.carriedParams()
+    if (target.matches("a[href]")) {
+      const url = new URL(target.getAttribute("href"), window.location.href)
+      for (const name of [ ...url.searchParams.keys() ]) if (CARRIED.test(name)) url.searchParams.delete(name)
+      for (const [ name, value ] of pairs) url.searchParams.append(name, value)
+      target.setAttribute("href", url.origin === window.location.origin ? url.pathname + url.search + url.hash : url.href)
+    } else {
+      const form = target.form || target.closest("form")
+      if (!form) return
+      form.querySelectorAll("[data-table-filter-carried]").forEach((field) => field.remove())
+      for (const [ name, value ] of pairs) {
+        const field = document.createElement("input")
+        field.type = "hidden"
+        field.name = name
+        field.value = value
+        field.setAttribute("data-table-filter-carried", "")
+        form.append(field)
+      }
+    }
+  }
+
+  carriedParams() {
+    const pairs = []
+    if (!this.columns) return pairs
+    for (const [ text, ticked ] of this.filters) {
+      const key = this.columns.get(text).key
+      if (ticked.size === 1) pairs.push([ `tf[${key}]`, [ ...ticked ][0] ])
+      else for (const value of ticked) pairs.push([ `tf[${key}][]`, value ])
+    }
+    if (this.sorted) {
+      pairs.push([ "tf_sort", this.columns.get(this.sorted.text).key ], [ "tf_dir", this.sorted.ascending ? "asc" : "desc" ])
+    }
+    return pairs
   }
 
   // private
@@ -83,7 +139,7 @@ export default class extends Controller {
   }
 
   // Columns by heading text: their headings, their cell index in each table,
-  // and their values with counts (blank as "").
+  // their values with counts (blank as "") and the key carried for them.
   findColumns() {
     const columns = new Map()
     for (const table of this.tables) {
@@ -94,6 +150,7 @@ export default class extends Controller {
         const column = columns.get(text) || { headings: [], indexes: new Map(), counts: new Map(), fields: false }
         columns.set(text, column)
         column.headings.push(heading)
+        column.key ||= heading.dataset.columnKey || text
         column.indexes.set(table, index)
         for (const row of this.bodyRows(table)) {
           if (row.cells.length !== headings.length) continue
@@ -266,7 +323,8 @@ export default class extends Controller {
         const order = []
         let block = []
         const flush = () => {
-          block.sort((a, b) => (ascending ? 1 : -1) * compare(sortKey(a.cells[index]), sortKey(b.cells[index])))
+          block.sort((a, b) => (ascending ? 1 : -1) * compare(sortKey(a.cells[index]), sortKey(b.cells[index])) ||
+            this.positions.get(a) - this.positions.get(b))
           order.push(...block)
           block = []
         }

@@ -34,6 +34,6 @@ class ScreenKitStylesheetTest < ActionDispatch::IntegrationTest
     Settings[:feature_screen_standard] = "true"
     get settings_path
     assert_response :success
-    assert_select "link[rel=stylesheet][href*='screen_kit'][data-turbo-track=reload]", count: 1
+    assert_select "link[rel=stylesheet][href*='screen_kit']:not([data-turbo-track])", count: 1
   end
 end

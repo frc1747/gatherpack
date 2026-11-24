@@ -5,8 +5,17 @@ class ScreenKitHelperTest < ActionView::TestCase
     render "shared/action_row", actions: actions
   end
 
+  # More's items at desktop width (dividers left out).
   def more_items
-    css_select(".dropdown-menu li:not(.d-md-none)")
+    css_select(".dropdown-menu li:not(.d-md-none)").reject { |li| li.at_css(".dropdown-divider") }
+  end
+
+  # The labels in More, with "---" for a divider, and whether each shows only
+  # at phone width.
+  def more_menu
+    css_select(".dropdown-menu > li").map do |li|
+      [ li.at_css(".dropdown-divider") ? "---" : li.text.strip, li.classes.include?("d-md-none") ]
+    end
   end
 
   test "screen_action builds an action with the kit's defaults" do
@@ -80,6 +89,50 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select ".dropdown:not(.d-md-none) > button.dropdown-toggle", text: "More"
     assert_equal [ "Archive", "Delete" ], more_items.map { |li| li.text.strip }
     assert_select ".dropdown-menu li:last-child .dropdown-item.text-danger", text: "Delete"
+  end
+
+  test "Delete in More gets a divider above it when other items sit there" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    assert_equal [ [ "Archive", false ], [ "---", false ], [ "Delete", false ] ], more_menu
+    assert_select ".dropdown-menu li + li > hr.dropdown-divider", 1
+  end
+
+  test "two destructive actions share one divider" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true),
+      screen_action("Delete", "/x", method: :delete, destructive: true),
+      screen_action("Erase answers", "/y", method: :delete, destructive: true)
+
+    assert_equal [ "Archive", "---", "Delete", "Erase answers" ], more_menu.map(&:first)
+  end
+
+  test "with only Delete in More, there's no divider" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    # More exists only at phone width, holding just the Delete button.
+    assert_equal [ [ "Delete", true ] ], more_menu
+    assert_select ".dropdown-divider", 0
+  end
+
+  test "the divider above Delete shows only at phone width when the items above it do" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Remind", "/b", style: :primary),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    assert_equal [ [ "Remind", true ], [ "---", true ], [ "Delete", true ] ], more_menu
+  end
+
+  test "a divider above Delete in More is hidden at desktop width when only phone items sit above it" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Remind", "/b", style: :primary),
+      screen_action("Delete", "/x", method: :delete, destructive: true),
+      screen_action("Erase answers", "/y", method: :delete, destructive: true)
+
+    assert_equal [ [ "Remind", true ], [ "---", true ], [ "Delete", false ], [ "Erase answers", false ] ], more_menu
   end
 
   test "Restore alone with Edit still makes a More" do

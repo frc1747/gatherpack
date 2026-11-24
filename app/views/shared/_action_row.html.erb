@@ -3,9 +3,10 @@
     actions and a More menu holding the rest. Lifecycle actions (Archive,
     Restore) and actions built with more: true always go in More, so any of
     them makes one; More lists ordinary actions, then lifecycle ones, then
-    destructive ones (Delete) last, in red. With no More, Delete is the last
-    button. At phone width only the first button and More show; the buttons
-    hidden there are the first items in More. %>
+    destructive ones (Delete) last, in red, after a divider when other items
+    sit above them. With no More, Delete is the last button. At phone width
+    only the first button and More show; the buttons hidden there are the
+    first items in More. %>
 <% shown = actions.select(&:visible?) %>
 <% destructive, rest = shown.partition(&:destructive?) %>
 <% lifecycle, plain = rest.partition(&:lifecycle?) %>
@@ -25,11 +26,14 @@
       <div class="dropdown <%= "d-md-none" if more.empty? %>">
         <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <% phone_only.each do |action| %>
-            <li class="d-md-none"><%= screen_action_item(action) %></li>
-          <% end %>
-          <% more.each do |action| %>
-            <li><%= screen_action_item(action) %></li>
+          <%# [action, phone only?]; a divider shown where the items around it are. %>
+          <% items = phone_only.map { |action| [ action, true ] } + more.map { |action| [ action, false ] } %>
+          <% first_destructive = items.index { |action, _| action.destructive? } %>
+          <% items.each_with_index do |(action, phone), index| %>
+            <% if index == first_destructive && index.positive? %>
+              <%= tag.li(tag.hr(class: "dropdown-divider"), class: ("d-md-none" if phone || items.first(index).all?(&:last))) %>
+            <% end %>
+            <%= tag.li(screen_action_item(action), class: ("d-md-none" if phone)) %>
           <% end %>
         </ul>
       </div>
