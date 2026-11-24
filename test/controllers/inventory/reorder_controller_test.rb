@@ -142,11 +142,11 @@ class Inventory::ReorderControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the print view has its own chooser key, with the Print row as its slot" do
+  test "the print view shares the list's chooser key, with the Print row as its slot" do
     with_inventory(@world) do
       sign_in @world.keeper.user
       get inventory_reorder_path(print: 1, items: { @wire.id => 7 })
-      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder-print]" do
+      assert_select "[data-controller~=column-chooser][data-column-chooser-key-value=inventory-reorder]" do
         assert_select "[data-column-chooser-target=slot][data-controller=inventory-print]", 1
         assert_select "table", text: /Red wire/
       end

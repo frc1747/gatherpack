@@ -2,7 +2,7 @@
 <% content_for :title, "Reorder list" %>
 <% inventory_stylesheet %>
 
-<div <%= tag.attributes(data: column_chooser_data("inventory-reorder-print")) %>>
+<div <%= tag.attributes(data: column_chooser_data("inventory-reorder")) %>>
 <div class="d-flex gap-2 mb-3 inventory-no-print" data-controller="inventory-print" data-column-chooser-target="slot">
   <button type="button" class="btn btn-dark" data-action="inventory-print#print">Print</button>
 </div>
