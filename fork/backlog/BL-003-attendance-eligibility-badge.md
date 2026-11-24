@@ -1,10 +1,12 @@
 # BL-003: Keep a travel-eligibility badge in sync with attendance
 
+**Dropped 2026-11-24:** superseded by the checklists feature. `fork/specs/checklists-spec.md` says it supersedes BL-003: the Travel Eligibility checklist's attendance item replaces the badge, and checklist excuses replace the override badge.
+
 | | |
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | blocked (on hold 2026-11-04: the attendance report Page is the source of record; this item may be dropped) |
+| Status | dropped |
 | Added | 2026-10-03 |
 | Upstream base checked | `32e8023` |
 | Planned branch | `feature/attendance-eligibility` |
