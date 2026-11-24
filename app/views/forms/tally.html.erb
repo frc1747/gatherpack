@@ -1,0 +1,11 @@
+<% breadcrumb :form_tally, @form %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @form.title %>: Totals</h1>
+    <div class="text-muted">Totals from everyone's submitted answers. Nobody's individual answers are shown.</div>
+  </div>
+  <div class="card-body" id="totals">
+    <%= render "totals", report: @report, questions: @questions, heading: :h2 %>
+  </div>
+</div>
