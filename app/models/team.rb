@@ -21,6 +21,7 @@ class Team < ApplicationRecord
 
   validates :name, presence: true
   validates :join_permission, inclusion: { in: join_permissions.keys }
+  validate :parent_not_below_itself, if: :parent_id_changed?
 
   scope :top_level, -> { where(parent_id: nil) }
 
@@ -140,5 +141,22 @@ class Team < ApplicationRecord
 
   def identifier_icon
     "people-group"
+  end
+
+  private
+
+  # A team under itself makes all_ancestors and all_descendants recurse
+  # forever. Walk up from the new parent, remembering where we've been, so
+  # the check itself stops even if the teams above already loop.
+  def parent_not_below_itself
+    seen = Set.new
+    team = parent
+    while team && seen.add?(team.id)
+      if team.id == id
+        errors.add(:parent_id, :not_below_itself, message: "can't be this team or one under it")
+        return
+      end
+      team = team.parent
+    end
   end
 end

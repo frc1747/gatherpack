@@ -39,8 +39,9 @@ class Mcp::Tools::RecordCheckinTest < ActionDispatch::IntegrationTest
     assert_nil check_in(:alpha_manager, :alpha_member, @locked_event).error
   end
 
-  test "a plain member checks in a teammate, but not on a locked event" do
-    assert_nil check_in(:alpha_member, :ward, @alpha_event).error
+  test "a plain member checks in only themselves, and not on a locked event" do
+    assert_refused("Not allowed", Checkin) { check_in(:alpha_member, :ward, @alpha_event) }
+    assert_nil check_in(:alpha_member, :alpha_member, @alpha_event).error
     assert_refused("Not allowed", Checkin) { check_in(:alpha_member, :alpha_member, @locked_event) }
   end
 
@@ -74,7 +75,7 @@ class Mcp::Tools::RecordCheckinTest < ActionDispatch::IntegrationTest
   test "an event type's check-in fields get blank responses, as an empty form does" do
     field = CheckinField.create!(name: "Note", event_type: @alpha_event.event_type)
 
-    result = check_in(:alpha_member, :ward, @alpha_event)
+    result = check_in(:alpha_member, :alpha_member, @alpha_event)
 
     assert_nil result.error
     response = result.changed.checkin_field_responses.find_by!(checkin_field: field)
@@ -124,13 +125,13 @@ class Mcp::Tools::RecordCheckinTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # The one difference: the POST doesn't check the person, though its form only offers people in scope.
-  test "it refuses a person the viewer can't see, where a hand-made POST goes through" do
+  # This build's POST checks the person too.
+  test "it refuses a person the viewer can't see, and so does a hand-made POST" do
     page = page_changes_rows?(Checkin, as: user(:alpha_member)) do
       post event_checkins_path(@alpha_event), params: { checkin: { person_id: person(:beta_member).id } }
     end
 
-    assert page
+    assert_not page
     assert_refused("Not found", Checkin) { check_in(:alpha_member, :beta_member, @alpha_event) }
   end
 end
