@@ -377,6 +377,13 @@ module Checklists
       result.detail || result.summary
     end
 
+    # Extra attributes (summary, measures) for the exempt results of people
+    # among person_ids the item doesn't apply to, by person id: a count can
+    # still show what someone did. Defaults to none, a bare label.
+    def exempt_attributes(_person_ids)
+      {}
+    end
+
     def config
       item.config || {}
     end
