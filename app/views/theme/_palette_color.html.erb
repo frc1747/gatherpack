@@ -1,0 +1,17 @@
+<% automatic = theme[field].blank? %>
+<div class="mb-3" data-theme-palette-target="color" data-field="<%= field %>">
+  <%= f.label field, label, class: "form-label" %>
+  <div class="input-group">
+    <input type="color" class="form-control form-control-color flex-grow-0" value="<%= generator.effective(field) %>"
+           aria-label="<%= label %> color picker" data-picker data-action="input->theme-palette#pick">
+    <%= f.text_field field, class: class_names("form-control", "is-invalid": theme.errors[field].any?), placeholder: "Automatic",
+                     maxlength: 7, autocomplete: "off", spellcheck: false, data: { hex: true, action: "input->theme-palette#type" } %>
+    <% if theme.errors[field].any? %>
+      <div class="invalid-feedback"><%= theme.errors[field].to_sentence %></div>
+    <% end %>
+  </div>
+  <div class="form-check mt-1">
+    <%= check_box_tag "#{field}_automatic", "1", automatic, class: "form-check-input", data: { automatic: true, action: "change->theme-palette#toggleAutomatic" } %>
+    <%= label_tag "#{field}_automatic", "Automatic", class: "form-check-label" %>
+  </div>
+</div>

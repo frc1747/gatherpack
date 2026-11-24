@@ -1,0 +1,9 @@
+<% if warnings.any? %>
+  <div class="alert alert-warning mb-3">
+    <ul class="mb-0">
+      <% warnings.each do |warning| %>
+        <li><%= warning %></li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>
