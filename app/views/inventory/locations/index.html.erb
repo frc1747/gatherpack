@@ -1,0 +1,36 @@
+<% breadcrumb :inventory_locations %>
+<% content_for :title, "Places" %>
+<% inventory_stylesheet %>
+<% labels = policy(:inventory).labels? %>
+
+<div class="card mb-3">
+  <div class="card-header"><h1 class="mb-0">Places</h1></div>
+  <% if policy(Location).new? %>
+    <div class="card-footer">
+      <%= link_to "New place", new_inventory_location_path, class: "btn btn-success" %>
+    </div>
+  <% end %>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <% if @roots.empty? %>
+      <p class="text-body-secondary mb-0">No places yet.</p>
+    <% else %>
+      <%= form_with url: inventory_labels_path, method: :get, id: "labels-form" do %>
+        <div class="inventory-tree">
+          <%= render "tree", locations: @roots, children: @children, labels: labels %>
+        </div>
+        <% if labels %>
+          <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+            <div class="form-check mb-0">
+              <%= check_box_tag :inside, "1", false, class: "form-check-input" %>
+              <%= label_tag :inside, "Include the places inside", class: "form-check-label" %>
+            </div>
+            <%= submit_tag "Print labels", name: nil, class: "btn btn-primary" %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+  </div>
+</div>
