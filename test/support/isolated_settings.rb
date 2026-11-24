@@ -4,6 +4,7 @@
 # tests or parallel workers) and the defaults apply unless the test sets a value.
 require "pstore"
 require "tmpdir"
+require "fileutils"
 require "active_support"
 
 module IsolatedSettings
@@ -12,13 +13,18 @@ module IsolatedSettings
   # Sends any store opened on the real settings path to a temporary file.
   module PStorePath
     def new(path, *args, **options)
-      path = IsolatedSettings.temporary_path if path.to_s == REAL_PATH
+      path = IsolatedSettings.boot_path if path.to_s == REAL_PATH
       super(path, *args, **options)
     end
   end
 
   def self.temporary_path
     Dir::Tmpname.create([ "gp-test-settings-#{Process.pid}-", ".pstore" ]) { }
+  end
+
+  # The store for anything opened on the real path before the first test; removed at exit.
+  def self.boot_path
+    @boot_path ||= temporary_path.tap { |path| at_exit { FileUtils.rm_f(path) } }
   end
 
   def self.included(base)
@@ -36,3 +42,9 @@ end
 
 PStore.singleton_class.prepend(IsolatedSettings::PStorePath)
 ActiveSupport.on_load(:active_support_test_case) { include IsolatedSettings }
+
+# A Rake prerequisite of `bin/rails test` can build the singleton on the real path
+# before this file loads; point it at a temporary store too.
+if Object.const_defined?(:Settings) && (settings = Settings.instance_variable_get(:@singleton__instance__))
+  settings.store = PStore.new(IsolatedSettings.boot_path, true)
+end
