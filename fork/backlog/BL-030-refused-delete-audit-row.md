@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | low |
-| Status | live hbr.32 (`feature/refused-delete-audit`, see `FORK.md`) |
+| Status | shipped hbr.32 (`feature/refused-delete-audit`, see `FORK.md`) |
 | Added | 2026-11-04 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Branch | `feature/refused-delete-audit` (from `upstream/main`) |

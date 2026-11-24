@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream improvement |
 | Priority | medium |
-| Status | live hbr.35 (`feature/people-search-phone`, see `FORK.md`) |
+| Status | shipped hbr.35 (`feature/people-search-phone`, see `FORK.md`) |
 | Added | 2026-11-08 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Planned branch | see Status |

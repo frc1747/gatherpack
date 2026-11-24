@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | live hbr.23 (fixed by `fb41f4f3` "Default ransackable_associations to none" on `feature/ransack-associations-default`, shipped since hbr.23; see `FORK.md`) |
+| Status | shipped hbr.23 (fixed by `fb41f4f3` "Default ransackable_associations to none" on `feature/ransack-associations-default`; see `FORK.md`) |
 | Added | 2026-11-08 |
 | Upstream commit checked | `3fa5700` (`upstream/main`) |
 | Planned branch | `feature/ransack-associations-default` |

@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug (check-in fields); fork follow-up to BL-031/BL-032 (event types) |
 | Priority | low |
-| Status | live hbr.32 (`feature/event-type-checkin-fields`, see `FORK.md`) |
+| Status | shipped hbr.32 (`feature/event-type-checkin-fields`, see `FORK.md`) |
 | Added | 2026-11-11 |
 | Commit checked | `hbr/integration` @ `f19a201d` (`v0.0.0-hbr.38`) |
 | Planned branch | `feature/event-type-checkin-fields` (BL-031's branch) |
