@@ -1,0 +1,16 @@
+<% breadcrumb @gateway %>
+
+<%= form_with(url: gateway_push_keys_path(@gateway), method: :patch) do |f| %>
+  <div class="card">
+    <%= render "shared/page_header", title: "Replace keys" %>
+    <div class="card-body">
+      <div class="alert alert-warning mb-0">
+        Replacing the keys turns off notifications on every device. Everyone will need to turn them on again.
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", gateway_path(@gateway), class: "btn btn-secondary" %>
+      <%= f.submit "Replace keys", class: "btn btn-danger" %>
+    </div>
+  </div>
+<% end %>
