@@ -1,0 +1,53 @@
+<% style = ManagedListsHelper::MANAGED_LIST_BUTTON_STYLE %>
+<% usage = row.usage %>
+<li class="list-group-item d-flex flex-wrap align-items-center gap-2" id="<%= dom_id row %>">
+  <div class="flex-grow-1">
+    <strong><%= row.name %></strong>
+    <% if row.plural.present? %>
+      <span class="text-muted">(<%= row.plural %>)</span>
+    <% end %>
+    <div class="small text-muted">
+      <% if usage.any? %>
+        Used on <%= usage.map { |klass, count| pluralize(count, klass.model_name.human.downcase) }.to_sentence %>
+      <% else %>
+        Not used yet
+      <% end %>
+    </div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <%= link_to "Edit", edit_managed_list_row_path(@list.key, row), class: "btn btn-sm btn-outline-secondary d-inline-flex align-items-center", style: style %>
+    <% if row.active? %>
+      <%= button_to move_managed_list_row_path(@list.key, row, direction: "up"), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style, disabled: first, title: "Move up", aria: { label: "Move #{row.name} up" } do %>
+        <%= i "arrow-up" %>
+      <% end %>
+      <%= button_to move_managed_list_row_path(@list.key, row, direction: "down"), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style, disabled: last, title: "Move down", aria: { label: "Move #{row.name} down" } do %>
+        <%= i "arrow-down" %>
+      <% end %>
+    <% end %>
+    <% row_more = [] %>
+    <% if row.key.blank? %>
+      <% if usage.any? %>
+        <% row_more << screen_action("Merge into…", merge_managed_list_row_path(@list.key, row)) %>
+      <% else %>
+        <% row_more << screen_action("Delete", managed_list_row_path(@list.key, row), method: :delete, destructive: true, confirm: "Delete #{row.name}?") %>
+      <% end %>
+    <% end %>
+    <% if row.active? %>
+      <%= button_to "Retire", retire_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style,
+            form: { data: { turbo_confirm: "Retire #{row.name}? Records that use it keep it, but it can't be picked for new ones." } } %>
+    <% else %>
+      <%= button_to "Restore", restore_managed_list_row_path(@list.key, row), method: :patch, class: "btn btn-sm btn-outline-secondary", style: style,
+            form: { data: { turbo_confirm: "Restore #{row.name}? It can be picked for new records again." } } %>
+    <% end %>
+    <% if row_more.any? %>
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" style="<%= style %>" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More for <%= row.name %>">More</button>
+        <div class="dropdown-menu dropdown-menu-end">
+          <% row_more.each do |action| %>
+            <%= screen_action_item(action) %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</li>
