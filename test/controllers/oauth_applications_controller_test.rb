@@ -54,24 +54,24 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
     assert_not item.policy_check.call(Object.new)
   end
 
-  test "index links that leave the results frame target the top frame" do
+  test "index links that leave the results frame load the whole page" do
     sign_in @admin
     get oauth_applications_path
 
     assert_response :success
     assert_select "turbo-frame#results" do
-      assert_select "a[href=?][data-turbo-frame=_top]", oauth_application_path(@application), text: "Scoped App"
-      assert_select "a[href=?][data-turbo-frame=_top]", edit_oauth_application_path(@application), text: "Edit"
+      assert_select "a[href=?][data-turbo=false]", oauth_application_path(@application), text: "Scoped App"
+      assert_select "a[href=?][data-turbo=false]", edit_oauth_application_path(@application), text: "Edit"
       assert_select "a[href=?][data-turbo-method=delete][data-turbo-frame=_top]", oauth_application_path(@application), text: "Delete"
     end
   end
 
-  test "index links still target the top frame in a search response for the frame" do
+  test "index links still leave the frame in a search response for the frame" do
     sign_in @admin
     get oauth_applications_path, params: { q: { name_cont: "Scoped" } }, headers: { "Turbo-Frame" => "results" }
 
     assert_response :success
-    assert_select "turbo-frame#results a[data-turbo-frame=_top]", text: "Scoped App"
+    assert_select "turbo-frame#results a[data-turbo=false]", text: "Scoped App"
   end
 
   test "the sort links in the results frame work" do
@@ -81,7 +81,7 @@ class OauthApplicationsControllerTest < ActionDispatch::IntegrationTest
       get oauth_applications_path, params: { q: { s: sort } }, headers: { "Turbo-Frame" => "results" }
 
       assert_response :success
-      assert_select "turbo-frame#results a[data-turbo-frame=_top]", text: "Scoped App"
+      assert_select "turbo-frame#results a[data-turbo=false]", text: "Scoped App"
     end
   end
 
