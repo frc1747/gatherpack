@@ -28,6 +28,7 @@ class FormsController < InternalController
   end
 
   # GET /forms/1?team_id=&status=&version=&who=&question_id=&answers[question_id][]=&columns_for=&question_ids[]=&show_status=&show_submitted=&field_ids[]=&layout=&totals=
+  # GET /forms/1.csv?...&tf[key]=&tf_sort=&tf_dir=
   # Everyone the form asks (or the people chosen under "Who to include",
   # FormPopulation), with their status, answers and the totals, as a table,
   # labels or CSV.
@@ -75,7 +76,10 @@ class FormsController < InternalController
     respond_to do |format|
       format.html
       format.csv do
-        send_data helpers.form_results_csv(@report, @selected_fields, questions: @questions, rows: @rows, status: @show_status, submitted: @show_submitted), filename: "#{@form.key}-#{Date.current.iso8601}.csv", type: "text/csv"
+        # The heading filters and sort carried from the table (tf, tf_sort, tf_dir).
+        carried = TableFilterParams.new(params[:tf], sort: params[:tf_sort], dir: params[:tf_dir])
+        rows = helpers.form_results_filtered_rows(@form, @report, @rows, carried, questions: @questions, fields: @selected_fields, status: @show_status, submitted: @show_submitted)
+        send_data helpers.form_results_csv(@report, @selected_fields, questions: @questions, rows: rows, status: @show_status, submitted: @show_submitted), filename: "#{@form.key}-#{Date.current.iso8601}.csv", type: "text/csv"
       end
     end
   end

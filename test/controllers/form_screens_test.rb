@@ -259,7 +259,8 @@ class FormScreensTest < ActionDispatch::IntegrationTest
         assert_select ".screen-table-actions input[type=radio][name=layout][form=form-options]", 2
         assert_select ".screen-table-actions button.btn-dark[type=button][data-action='form-results#print']", text: "Print"
         assert_select ".screen-table-actions a.btn-secondary", text: "Download CSV"
-        assert_select "#responses.table-responsive[data-form-results-target=table][data-controller=table-filter] table.table-sm"
+        assert_select ".card[data-controller~=form-results][data-controller~=table-filter] #responses.table-responsive[data-form-results-target=table] table.table-sm"
+        assert_select ".screen-table-actions a.btn-secondary[data-table-filter-carry]", text: "Download CSV"
       end
     end
   end

@@ -1,5 +1,7 @@
 <%# Counts per answer for each choice and yes/no question: report.tally over rows
-    (default: all of the report's), for the questions given; heading: the tag for each question. %>
+    (default: all of the report's), for the questions given; heading: the tag for each question.
+    recount: list who each count covers, so the form page's form-results
+    controller counts only the people the heading filters leave on screen. %>
 <% rows = local_assigns[:rows] || report.rows %>
 <% if questions.empty? %>
   <p class="text-muted">This form has no choice or yes/no questions to count.</p>
@@ -11,10 +13,11 @@
         <div class="table-responsive">
           <table class="table table-sm">
             <tbody>
+              <% people = form_tally_people(report, question, rows) if local_assigns[:recount] %>
               <% report.tally(question, rows: rows).each do |value, count| %>
                 <tr class="<%= "text-muted" if value.nil? %>">
                   <td><%= form_tally_label(value) %></td>
-                  <td class="text-end"><%= count %></td>
+                  <%= tag.td count, class: "text-end", data: ({ form_results_target: "count", people: people[value].join(" ") } if people) %>
                 </tr>
               <% end %>
             </tbody>

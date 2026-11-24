@@ -61,7 +61,7 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
         assert_select "a[href=?][data-action='form-results#toggleTotals']", form_path(@form, totals: "hidden"), text: "Hide totals"
 
         get form_path(@form, totals: "hidden", layout: "labels")
-        assert_select "[data-controller=form-results][data-form-results-hidden-value=true]"
+        assert_select "[data-controller~=form-results][data-form-results-hidden-value=true]"
         # Hidden is display: none, on screen and on paper.
         assert_select "#totals[hidden]"
         assert_select "a[href=?]", form_path(@form, layout: "labels"), text: "Show totals"
@@ -224,8 +224,8 @@ class FormResultsPageTest < ActionDispatch::IntegrationTest
       fresh = create_world_form("Trip Sizes")
       as(:admin) do
         get form_path(fresh)
-        items = css_select("#actions .dropdown-menu li:not(.d-md-none)").map { |item| item.text.strip }
-        assert_equal [ "Preview as…", "Duplicate", "Archive", "Delete" ], items
+        items = css_select("#actions .dropdown-menu li:not(.d-md-none)").map { |item| item.at("hr.dropdown-divider") ? "---" : item.text.strip }
+        assert_equal [ "Preview as…", "Duplicate", "Archive", "---", "Delete" ], items, "a divider before Delete"
         assert_select "#actions .dropdown-menu button.text-danger", text: "Delete"
         assert_select "#actions .dropdown-menu form[data-turbo-confirm] button", text: "Archive"
         assert_select "#actions .dropdown-menu button.text-danger", text: "Archive", count: 0
