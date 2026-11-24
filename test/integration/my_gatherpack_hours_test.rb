@@ -38,4 +38,38 @@ class MyGatherpackHoursTest < ActionDispatch::IntegrationTest
       assert_select ".mg-hours-total", false
     end
   end
+
+  test "the footer shows New, Search and Clear Search, with Time Clock Periods alone in More for a member" do
+    get time_clock_punches_path
+
+    assert_select ".card-footer > a.btn-success", text: "New Time Clock Punch"
+    assert_select ".card-footer input[type=submit][value=Search]"
+    assert_select ".card-footer a.btn-dark", text: "Clear Search"
+    assert_select ".card-footer .mg-hours-more .dropdown-toggle", text: "More"
+    assert_select ".mg-hours-more .dropdown-item", count: 1
+    assert_select ".mg-hours-more .dropdown-item[href=?]", time_clock_periods_path, text: "Time Clock Periods"
+    assert_select ".card-footer a.btn-info, .card-footer a.btn-warning", false
+  end
+
+  test "a manager's More holds Time Clock Periods, Flag Review and Time Clock Kiosk" do
+    team = Team.create!(name: "Den A", team_type: team_types(:one))
+    Membership.create!(person: @member.person, team: team, manager: true)
+
+    get time_clock_punches_path
+
+    assert_select ".mg-hours-more .dropdown-item", count: 3
+    assert_select ".mg-hours-more .dropdown-item[href=?]", time_clock_periods_path, text: "Time Clock Periods"
+    assert_select ".mg-hours-more .dropdown-item[href=?]", flagged_time_clock_punches_path, text: "Flag Review"
+    assert_select ".mg-hours-more a.dropdown-item[data-turbo=false][href=?]", time_kiosk_path, text: "Time Clock Kiosk"
+  end
+
+  test "an admin gets all three in More without managing a team" do
+    sign_in create_login("Avery", admin: true)
+
+    get time_clock_punches_path
+
+    assert_select ".mg-hours-more .dropdown-item", count: 3
+    assert_select ".mg-hours-more .dropdown-item[href=?]", flagged_time_clock_punches_path, text: "Flag Review"
+    assert_select ".mg-hours-more .dropdown-item[href=?]", time_kiosk_path, text: "Time Clock Kiosk"
+  end
 end

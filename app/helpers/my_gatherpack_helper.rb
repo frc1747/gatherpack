@@ -16,15 +16,49 @@ module MyGatherpackHelper
     return unless MyGatherpack.enabled?
 
     menu = my_gatherpack_menu
-    groups = [ menu.top, menu.family, menu.more, menu.manage ].map { |items| items.map(&:label).join(",") }
-    [ *groups, site_title, Theme.instance.logo.attachment&.blob_id ].join("/")
+    groups = [ menu.pinned, menu.top, menu.reports, menu.family, menu.manage ].map { |items| items.map(&:label).join(",") }
+    sections = menu.sections.map { |name, items| "#{name}:#{items.map(&:label).join(",")}" }.join(";")
+    account_links = MyGatherpack.account_links_for(self).map(&:label).join(",")
+    [ *groups, sections, account_links, site_title, Theme.instance.logo.attachment&.blob_id ].join("/")
+  end
+
+  # A menu link, with a pin button when the item can be pinned. The button
+  # shows on hover or focus, or after Edit menu on a touch screen.
+  def my_gatherpack_menu_link(item)
+    path = resolve_nav_path(item)
+    key = my_gatherpack_menu.pin_key(item)
+    tag.div(class: "nav-item mg-menu-item") do
+      link = link_to(path, class: active_status(path)) { icon_text(item.icon, item.label) }
+      key ? link + my_gatherpack_pin_button(item, key) : link
+    end
+  end
+
+  def my_gatherpack_pin_button(item, key)
+    pinned = my_gatherpack_menu.pinned?(item)
+    tag.button(type: "button", class: [ "mg-pin", ("mg-pinned" if pinned) ], title: pinned ? "Unpin" : "Pin to the top",
+      aria: { label: pinned ? "Unpin #{item.label}" : "Pin #{item.label} to the top" },
+      data: { action: "menu-pin#toggle", menu_pin_key_param: key, menu_pin_pinned_param: pinned }) do
+      i("thumbtack")
+    end
+  end
+
+  # A Manage part under a heading that folds it open or shut.
+  def my_gatherpack_menu_part(part, heading, &block)
+    id = "mg-menu-part-#{part}"
+    tag.div(data: { menu_part: part, controller: "menu-fold", menu_fold_key_value: "mg-menu-fold:#{current_user.id}:#{part}" }) do
+      toggle = tag.button(type: "button", class: "mg-part-toggle", aria: { expanded: true, controls: id },
+        data: { action: "menu-fold#toggle", menu_fold_target: "toggle" }) do
+        safe_join([ tag.span(heading), tag.span(i("chevron-down"), class: "mg-part-chevron") ])
+      end
+      tag.h6(toggle, class: "nav-item mg-part-heading") + tag.div(capture(&block), id: id, data: { menu_fold_target: "items" })
+    end
   end
 
   PhoneTab = Struct.new(:label, :path, :icon, keyword_init: true)
 
   # The phone tab bar's links, in order. A tab drops out when its feature is
   # off, since it comes from the same menu as the sidebar. A guardian gets
-  # Family first in place of Hours. More isn't here: it opens the sidebar.
+  # Family first in place of Hours. Menu isn't here: it opens the sidebar.
   PHONE_TABS = { root_path: "Home", forms_path: "Forms", signup_sheets_path: "Sign-ups", time_clock_punches_path: "Hours" }.freeze
 
   def my_gatherpack_phone_tabs
@@ -102,9 +136,15 @@ module MyGatherpackHelper
   def my_gatherpack_event_items
     events = policy_scope(Event).where("COALESCE(end_time, start_time) >= ?", Time.current).order(:start_time).limit(MY_GATHERPACK_ROW_LIMITS[:coming_up])
     events.map do |event|
-      times = [ event.start_time.strftime("%-I:%M %p"), event.end_time&.strftime(event.end_time.to_date == event.start_time.to_date ? "%-I:%M %p" : "%b %-d, %-I:%M %p") ].compact.join(" – ")
-      MyGatherpack::Item.new(title: event.name, detail: [ times, event.location.presence ].compact.join(" · "), at: event.start_time, path: event_path(event))
+      MyGatherpack::Item.new(title: event.name, detail: [ my_gatherpack_event_times(event), event.location.presence ].compact.join(" · "), at: event.start_time, path: event_path(event))
     end
+  end
+
+  # "All day" and "Time TBA" where the event-time feature (feature/event-time-display) is in the build.
+  def my_gatherpack_event_times(event)
+    return event_time_text(event) if respond_to?(:event_time_text) && event.respond_to?(:all_day_span?)
+
+    [ event.start_time.strftime("%-I:%M %p"), event.end_time&.strftime(event.end_time.to_date == event.start_time.to_date ? "%-I:%M %p" : "%b %-d, %-I:%M %p") ].compact.join(" – ")
   end
 
   # Widget slots belong to a separate feature, so this core can't assume them.
