@@ -234,6 +234,15 @@ class Intake::RegistrationChecklistTest < ActionDispatch::IntegrationTest
     assert_match "Everything for joining Juniors is complete", bodies.first
   end
 
+  test "an overall that becomes Not required tells the applicant too, once" do
+    result = ChecklistResult.new(checklist: @checklist, person: @applicant, item_id: nil, status: :exempt)
+
+    bodies = with_checklists { queued_email_bodies { Intake::ChecklistReaction.call(result, "not_met") } }
+    assert_equal 1, bodies.size
+    assert_match "Everything for joining Juniors is complete", bodies.first
+    assert_empty with_checklists { queued_email_bodies { Intake::ChecklistReaction.call(result, "met") } }, "already done"
+  end
+
   test "the approval email lists what's still to do" do
     bodies = with_checklists do
       queued_email_bodies do
