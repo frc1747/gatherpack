@@ -7,4 +7,10 @@ Rails.application.config.to_prepare do
     nil,
     "Styles used when any page is printed. Leave blank to print pages as they look on screen."
   )
+
+  # Where settings pickers exist, draw it as a monospace box whose Default line
+  # names the standard style instead of printing the whole stylesheet.
+  if Settings.respond_to?(:input)
+    Settings.input(:print_css, :partial, partial: "print_styles/setting_field", default_label: "The standard print style")
+  end
 end

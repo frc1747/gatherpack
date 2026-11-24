@@ -65,6 +65,18 @@ class PrintStylesControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the settings page names the default instead of printing the stylesheet" do
+    skip "needs the settings pickers" unless Settings.respond_to?(:input)
+
+    sign_in @admin
+    get settings_path
+
+    assert_response :success
+    assert_select "textarea#settings_print_css.font-monospace"
+    assert_includes response.body, "Default: The standard print style"
+    assert_not_includes response.body, "Default: /*"
+  end
+
   test "the setting defaults to the bundled stylesheet" do
     bundled = Rails.root.join("app/assets/stylesheets/print_default.css").read
 
