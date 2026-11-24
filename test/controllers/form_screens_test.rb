@@ -81,6 +81,29 @@ class FormScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a response's breadcrumb goes through its form for people who can open it" do
+    submission = respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 4" })
+    with_feature do
+      as(:pack_leader) do
+        get form_response_path(@form, person(:a1))
+        assert_equal [ "Home", "Forms", @form.identifier_name ], crumb_links.map(&:text)
+        assert_select ".breadcrumb a.breadcrumb-link[href=?]", form_path(@form)
+
+        get edit_form_response_path(@form, person(:a1))
+        assert_includes crumb_links.map { |link| link["href"] }, form_path(@form)
+
+        get form_response_submission_path(@form, person(:a1), submission)
+        assert_equal [ form_path(@form), form_response_path(@form, person(:a1).id) ], crumb_links.map { |link| link["href"] }.last(2)
+      end
+
+      as(:a1) do
+        get form_response_path(@form, person(:a1))
+        assert_equal forms_path, crumb_links.last["href"], "a respondent who can't open the form goes back to Forms"
+        assert_select ".breadcrumb a[href=?]", form_path(@form), count: 0
+      end
+    end
+  end
+
   test "a shared-totals viewer gets See totals after the job, and no answers" do
     @form.update!(totals_visibility: :audience)
     respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 4" })
@@ -266,6 +289,10 @@ class FormScreensTest < ActionDispatch::IntegrationTest
 
   def button_labels(selector)
     css_select(selector).map { |button| button.text.strip.presence || button["value"] }
+  end
+
+  def crumb_links
+    css_select(".breadcrumb a.breadcrumb-link")
   end
 
   def action_labels
