@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | waiting |
+| Status | started (tasks 383 on feature/orders, 384 on feature/intake) |
 | Added | 2026-11-17 |
 | Commit checked | `hbr/integration` @ `14fc6e1d8` (`v0.0.0-hbr.49`) |
 | Planned branch | `feature/orders` and `feature/intake` (one small change each), setting on the earlier of the two |

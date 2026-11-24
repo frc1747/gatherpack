@@ -44,8 +44,8 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-035](BL-035-people-search-phone.md) | The People search form fills the phone screen | upstream improvement | medium | shipped hbr.35 | 2026-11-08 |
 | [BL-036](BL-036-ransack-associations-allowlist.md) | Six admin list pages raise a Ransack allowlist error | upstream bug | medium | shipped hbr.23 | 2026-11-08 |
 | [BL-037](BL-037-calendar-note-badge-args.md) | The calendar notes page crashes when a note links to a record | upstream bug | medium | shipped hbr.41 | 2026-11-08 |
-| [BL-038](BL-038-kiosk-device-token.md) | Let a dedicated kiosk computer stay on the time clock without a user login | upstream feature | medium | new | 2026-11-09 |
-| [BL-039](BL-039-kiosk-no-sign-out.md) | Take the Sign out button off the kiosk account's kiosk header | fork change | medium | new | 2026-11-09 |
+| [BL-038](BL-038-kiosk-device-token.md) | Let a dedicated kiosk computer stay on the time clock without a user login | upstream feature | medium | started | 2026-11-09 |
+| [BL-039](BL-039-kiosk-no-sign-out.md) | Take the Sign out button off the kiosk account's kiosk header | fork change | medium | started | 2026-11-09 |
 | [BL-040](BL-040-kiosk-serial-scanner.md) | Read the kiosk's card scanner as a serial device instead of a keyboard | fork-only | low | waiting | 2026-11-10 |
 | [BL-041](BL-041-count-done-hides-group-records.md) | A family member's credit counts toward a count item but isn't listed under Done | fork-only | medium | shipped hbr.39 | 2026-11-11 |
 | [BL-042](BL-042-relationship-type-delete-breaks-count-item.md) | Deleting a relationship type that a count item pools through breaks the item | fork-only | low | shipped hbr.39 | 2026-11-11 |
@@ -57,10 +57,10 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-048](BL-048-orders-inventory-polish.md) | Orders/inventory: new-request autosave refused (blocking), menu links members can't open, phone layout, import preview, notices link | fork-only (bug) | high | shipped hbr.42 | 2026-11-15 |
 | [BL-049](BL-049-hbr42-docs-findings.md) | hbr.42 docs findings: activity "Counts toward" missing for sign-ups, To receive not in member menu, empty-looking ticks, filter wording, demo data | fork-only (bug) | medium | shipped hbr.43 | 2026-11-16 |
 | [BL-050](BL-050-hbr45-docs-findings.md) | hbr.43-45 docs findings: settings missing from Orders/Inventory setup pages, picker wording, funding dates, search match, midnight events on Family and Home, demo kiosk setting | fork-only (bug) | high | shipped hbr.47 | 2026-11-17 |
-| [BL-051](BL-051-admin-notice-flood.md) | Site admins get every team's approval, registration and join notices | fork-only | medium | waiting | 2026-11-17 |
+| [BL-051](BL-051-admin-notice-flood.md) | Site admins get every team's approval, registration and join notices | fork-only | medium | started | 2026-11-17 |
 | [BL-052](BL-052-email-rate-limit-retry.md) | Emails over the Resend rate limit fail and are never retried | upstream bug | medium | shipped hbr.50 | 2026-11-17 |
 | [BL-053](BL-053-event-type-starts-locked.md) | Events members shouldn't check themselves in to must be locked one at a time; let an event type start its events locked | fork-only | medium | shipped hbr.50 | 2026-11-17 |
-| [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | waiting | 2026-11-17 |
+| [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | started | 2026-11-17 |
 | [BL-055](BL-055-order-form-pinned-buttons.md) | Pinned Save/Cancel on every form (sticky button row), the standard Order Settings already uses | fork-only (UX) | medium | shipped hbr.51 | 2026-11-18 |
 | [BL-056](BL-056-orders-inventory-email-choices.md) | Orders and Inventory emails: one model, a site default (each time, daily digest, Weekly Infodump, off) and each person's own choice | fork-only | high | shipped hbr.51 | 2026-11-18 |
 | [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | shipped hbr.51 | 2026-11-18 |
