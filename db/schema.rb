@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -459,6 +459,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
     t.string "event"
     t.string "name"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "kiosk_devices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "secret_digest"
+    t.string "pairing_code_digest"
+    t.datetime "pairing_expires_at"
+    t.datetime "last_seen_at"
+    t.datetime "revoked_at"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_kiosk_devices_on_created_by_id"
+    t.index ["pairing_code_digest"], name: "index_kiosk_devices_on_pairing_code_digest", unique: true
   end
 
   create_table "ledger_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1249,6 +1263,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_110000) do
   add_foreign_key "forms", "events", on_delete: :nullify
   add_foreign_key "forms", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "forms", "teams"
+  add_foreign_key "kiosk_devices", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
   add_foreign_key "ledger_entry_linkings", "ledger_entry_links"

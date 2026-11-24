@@ -1,4 +1,5 @@
 class TimeKioskController < InternalController
+  include KioskDeviceAuthentication
   layout "kiosk"
   rescue_from Pundit::NotAuthorizedError, with: :refuse_kiosk
   # The kiosk acts for the person whose card is scanned, not the signed-in
@@ -8,7 +9,7 @@ class TimeKioskController < InternalController
   TOOLS = %w[ find_token punch_in punch_out punch_out_period punch_out_all ].freeze
   PUNCH_TOOLS = TOOLS - %w[ find_token ]
   TEST_STORE = ActiveSupport::Cache::MemoryStore.new
-  rate_limit to: 60, within: 1.minute, by: -> { current_user.id }, with: -> { show_welcome("Too many scans. Wait a minute and try again.") },
+  rate_limit to: 60, within: 1.minute, by: -> { current_user&.id || current_kiosk_device.id }, with: -> { show_welcome("Too many scans. Wait a minute and try again.") },
     store: Rails.env.test? ? TEST_STORE : Rails.cache, if: -> { params.dig(:time_kiosk, :tool) == "find_token" }
   before_action -> { show_welcome }, if: -> { PUNCH_TOOLS.include?(params.dig(:time_kiosk, :tool)) && !(request.post? || request.patch?) }
 

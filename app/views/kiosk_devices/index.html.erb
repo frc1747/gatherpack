@@ -1,0 +1,60 @@
+<% breadcrumb :kiosk_devices %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Kiosk Devices</h1>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">
+      A kiosk device runs the time kiosk, and nothing else, without anyone signed in.
+      Add one, then open its pairing link on the kiosk computer.
+    </p>
+    <% if @kiosk_devices.empty? %>
+      <p>No kiosk devices yet.</p>
+    <% else %>
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Last seen</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @kiosk_devices.each do |kiosk_device| %>
+              <tr id="<%= dom_id(kiosk_device) %>">
+                <td><%= kiosk_device.name %></td>
+                <td>
+                  <% if kiosk_device.revoked? %>
+                    <span class="badge text-bg-danger">Revoked</span>
+                  <% elsif kiosk_device.paired? %>
+                    <span class="badge text-bg-success">Paired</span>
+                  <% elsif kiosk_device.pairing? %>
+                    <span class="badge text-bg-warning">Waiting to pair</span>
+                  <% else %>
+                    <span class="badge text-bg-secondary">Not paired</span>
+                  <% end %>
+                </td>
+                <td><%= kiosk_device.last_seen_at ? "#{time_ago_in_words(kiosk_device.last_seen_at)} ago" : "Never" %></td>
+                <td class="text-end text-nowrap">
+                  <%= link_to "Edit", edit_kiosk_device_path(kiosk_device), class: "btn btn-sm btn-outline-secondary" %>
+                  <%= button_to "Pair again", pair_kiosk_device_path(kiosk_device), method: :post, form_class: "d-inline", class: "btn btn-sm btn-outline-secondary",
+                    form: { data: { turbo: false } } %>
+                  <% unless kiosk_device.revoked? %>
+                    <%= button_to "Revoke", revoke_kiosk_device_path(kiosk_device), method: :patch, form_class: "d-inline", class: "btn btn-sm btn-outline-danger",
+                      form: { data: { turbo_confirm: "Revoke #{kiosk_device.name}? It leaves the kiosk on its next request." } } %>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "New Kiosk Device", new_kiosk_device_path, class: "btn btn-success" if policy(KioskDevice).new? %>
+  </div>
+</div>
