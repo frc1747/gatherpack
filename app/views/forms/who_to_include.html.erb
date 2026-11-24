@@ -1,0 +1,4 @@
+<%# "Who to include" for the form page's More choices, loaded into its lazy frame. %>
+<%= turbo_frame_tag "who_to_include" do %>
+  <%= render "population_fields", population: @population, forms: @source_forms %>
+<% end %>

@@ -1,0 +1,26 @@
+<%# Counts per answer for each choice and yes/no question: report.tally over rows
+    (default: all of the report's), for the questions given; heading: the tag for each question. %>
+<% rows = local_assigns[:rows] || report.rows %>
+<% if questions.empty? %>
+  <p class="text-muted">This form has no choice or yes/no questions to count.</p>
+<% else %>
+  <div class="row">
+    <% questions.each do |question| %>
+      <div class="col-12 col-md-6 col-xl-4 mb-3" style="page-break-inside: avoid;">
+        <%= content_tag local_assigns[:heading] || :h3, question.label, class: "h6" %>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <tbody>
+              <% report.tally(question, rows: rows).each do |value, count| %>
+                <tr class="<%= "text-muted" if value.nil? %>">
+                  <td><%= form_tally_label(value) %></td>
+                  <td class="text-end"><%= count %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>

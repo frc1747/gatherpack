@@ -175,6 +175,21 @@ class FormSubmissionTest < ActiveSupport::TestCase
     end
   end
 
+  test "waiting text names each missing signature with a short noun" do
+    { "subject" => "Own", "guardian" => "Guardian", "guardian_if_minor" => "Consent", "leader" => "Paper" }.each do |signer, label|
+      add_signature(@form, label, signer: signer)
+    end
+    submission = respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 4" })
+
+    assert submission.pending?
+    assert_equal [
+      "the person's own signature on Own", "a guardian's signature on Guardian",
+      "a guardian's signature (or the person's own once of age) on Consent", "a leader's signature (paper) on Paper"
+    ], submission.waiting_for
+    assert_equal "a leader's signature (paper)", @form.signature_questions.detect(&:signed_by_leader?).signer_waiting_text
+    assert_nil @sandwich.signer_waiting_text
+  end
+
   test "hooks run on submit, activation, and completion" do
     events = []
     %w[ form_submissions\ -\ submitted form_submissions\ -\ activated form_responses\ -\ completed form_responses\ -\ incomplete ].each do |event|

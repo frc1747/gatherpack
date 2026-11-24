@@ -97,7 +97,7 @@ class FormSubmission < ApplicationRecord
   # for: …".
   def waiting_for
     missing_questions.map { |question| "an answer to #{question.label}" } +
-      missing_signatures.map { |question| "#{question.signer_description}'s signature (#{question.label})" }
+      missing_signatures.map { |question| "#{question.signer_waiting_text} on #{question.label}" }
   end
 
   # The form's text and questions now, as stored in `content` on submit.
