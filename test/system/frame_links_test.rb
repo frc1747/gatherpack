@@ -35,7 +35,8 @@ class FrameLinksTest < ApplicationSystemTestCase
     ledger_entry_links: -> { ledger_entry_links_path },
     budgets: -> { budgets_path },
     budget_periods: -> { budget_periods_path },
-    oauth_applications: -> { oauth_applications_path },
+    # oauth_applications isn't here: upstream opens its row links with a full
+    # page load (data-turbo="false", 3d5ce8f96).
     audit_logs: -> { audit_logs_path },
     time_clock_periods: -> { time_clock_periods_path },
     time_clock_punches: -> { time_clock_punches_path },
