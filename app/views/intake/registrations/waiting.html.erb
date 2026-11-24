@@ -1,0 +1,47 @@
+<% breadcrumb :intake_registration_waiting, @registration %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "Waiting to finish", summary: "People signed up at the kiosk who haven't opened their invitation yet. Only managers see this." %>
+  <div class="card-body">
+    <% if @entries.any? %>
+      <div class="table-responsive" <%= tag.attributes(data: column_chooser_data("intake-waiting")) %>>
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Name</th><th>Teams</th><th>Invited</th><th>Notes</th><th></th></tr></thead>
+        <tbody>
+          <% @entries.each do |entry| %>
+            <% days = ((Time.current - entry.created_at) / 1.day).floor %>
+            <% member = entry.household_members.detect(&:applicant?) %>
+            <% guardians = entry.household_members.select(&:guardian?) %>
+            <tr id="<%= dom_id(entry) %>">
+              <td><%= link_to entry.person.display_name, person_path(entry.person) %></td>
+              <td><%= entry.team_names %></td>
+              <td><%= days.zero? ? "Today" : "#{days} #{"day".pluralize(days)} ago" %></td>
+              <td>
+                <% if days >= 3 %><span class="badge text-bg-warning">Email not opened</span><% end %>
+                <%= render "intake/matches/flag", member: member, registration: @registration, badge_only: true %>
+                <% if entry.facts["needs_guardian"] && guardians.none? && !entry.person.guardians.exists? %>
+                  <span class="badge text-bg-secondary">No guardian yet</span>
+                <% end %>
+                <%= render "intake/guardians/manage", ward: entry.person, registration: @registration %>
+              </td>
+              <td class="text-nowrap">
+                <%= link_to "Send again", resend_intake_registration_entry_path(@registration, entry), data: { turbo_method: :post }, class: "btn btn-sm btn-outline-secondary" %>
+                <% if member&.possible_match %>
+                  <div class="dropdown d-inline-block">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <%= render "intake/matches/menu_items", member: member, registration: @registration %>
+                    </ul>
+                  </div>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      </div>
+    <% else %>
+      <%= render "shared/empty_state", text: "Nobody is waiting." %>
+    <% end %>
+  </div>
+</div>
