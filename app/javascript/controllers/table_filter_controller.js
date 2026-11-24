@@ -138,8 +138,10 @@ export default class extends Controller {
     return this.tables.flatMap((table) => [ ...(table.tFoot?.rows || []) ])
   }
 
-  // Columns by heading text: their headings, their cell index in each table,
-  // their values with counts (blank as "") and the key carried for them.
+  // Columns by key: a heading's data-column-key, else its text, so two
+  // headings that read the same but carry different keys stay apart. Each has
+  // its headings, its cell index in each table, its values with counts (blank
+  // as ""), the label people see and the key carried for it.
   findColumns() {
     const columns = new Map()
     for (const table of this.tables) {
@@ -147,10 +149,10 @@ export default class extends Controller {
       headings.forEach((heading, index) => {
         const text = headingText(heading)
         if (text === "" || heading.hasAttribute("data-table-filter-skip")) return
-        const column = columns.get(text) || { headings: [], indexes: new Map(), counts: new Map(), fields: false }
-        columns.set(text, column)
+        const id = heading.dataset.columnKey || text
+        const column = columns.get(id) || { headings: [], indexes: new Map(), counts: new Map(), fields: false, label: text, key: id }
+        columns.set(id, column)
         column.headings.push(heading)
-        column.key ||= heading.dataset.columnKey || text
         column.indexes.set(table, index)
         for (const row of this.bodyRows(table)) {
           if (row.cells.length !== headings.length) continue
@@ -161,7 +163,7 @@ export default class extends Controller {
         }
       })
     }
-    for (const [ text, column ] of columns) if (column.fields) columns.delete(text)
+    for (const [ id, column ] of columns) if (column.fields) columns.delete(id)
     return columns
   }
 
@@ -207,7 +209,7 @@ export default class extends Controller {
   buildMenu(text, column) {
     const wrapper = document.createElement("div")
     wrapper.className = "dropdown d-inline no-print"
-    wrapper.setAttribute("data-table-filter-menu", text)
+    wrapper.setAttribute("data-table-filter-menu", column.label)
 
     const button = document.createElement("button")
     button.type = "button"
@@ -218,7 +220,7 @@ export default class extends Controller {
     // Fixed, so a scrolling table wrapper doesn't clip the open menu.
     button.setAttribute("data-bs-popper-config", '{"strategy":"fixed"}')
     button.setAttribute("aria-expanded", "false")
-    button.setAttribute("aria-label", `Filter ${text}`)
+    button.setAttribute("aria-label", `Filter ${column.label}`)
     button.innerHTML = '<i class="fa-solid fa-filter"></i>'
 
     const menu = document.createElement("div")
@@ -232,7 +234,8 @@ export default class extends Controller {
       box.type = "checkbox"
       box.className = "form-check-input me-1"
       box.value = value
-      box.setAttribute("data-table-filter-tick", text)
+      box.setAttribute("data-table-filter-tick", column.label)
+      box.setAttribute("data-table-filter-column", text)
       box.addEventListener("change", () => this.tick(text, value, box.checked))
       const count = document.createElement("span")
       count.className = "text-body-secondary"
@@ -245,7 +248,7 @@ export default class extends Controller {
       search.type = "search"
       search.className = "form-control form-control-sm mb-2"
       search.placeholder = "Search…"
-      search.setAttribute("aria-label", `Search ${text}`)
+      search.setAttribute("aria-label", `Search ${column.label}`)
       search.addEventListener("input", () => {
         const query = search.value.trim().toLowerCase()
         items.forEach((item) => item.classList.toggle("d-none", query !== "" && !item.textContent.toLowerCase().includes(query)))
@@ -274,7 +277,7 @@ export default class extends Controller {
   apply() {
     // Every menu for the column (one per table) shows the same ticks.
     for (const box of this.element.querySelectorAll("[data-table-filter-tick]")) {
-      box.checked = this.filters.get(box.dataset.tableFilterTick)?.has(box.value) || false
+      box.checked = this.filters.get(box.dataset.tableFilterColumn)?.has(box.value) || false
     }
     for (const [ text, column ] of this.columns) {
       for (const heading of column.headings) {
