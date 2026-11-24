@@ -335,6 +335,19 @@ class MyGatherpackActivityPageTest < ActionDispatch::IntegrationTest
     assert_equal home, page
   end
 
+  test "with nothing uncounted, Home's activity button has a heading of its own" do
+    sign_in person(:admin).user
+    assert_empty MyGatherpack::Activity.uncounted(person(:admin), MyGatherpack::Season.current)
+    get root_path
+
+    assert_select "[data-home-section=activity]" do
+      assert_select "h2", text: "Your activity"
+      assert_select "p", text: "Your check-ins, hours, sign-ups and forms this season."
+      assert_select "[data-activity-link]", text: "See all your activity"
+    end
+    assert_no_match "Also this season", response.body
+  end
+
   test "a checklist that doesn't cover the person is never named on Home or the page" do
     sign_in person(:member).user
     get root_path
