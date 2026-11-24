@@ -33,7 +33,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
     assert_nil rule.check(person(:worker), @event)
     assert_equal "not_met", overall(:student).status
     assert_equal "Needs Trip: Complete", rule.check(person(:student), @event)
-    assert_equal "Needs Trip: Complete", rule.description
+    assert_equal "Must have finished Trip first", rule.description
   end
 
   test "in progress passes only when the rule accepts it" do
@@ -44,7 +44,7 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
 
     rule.update!(accept_pending: true)
     assert_nil rule.reload.check(person(:student), @event)
-    assert_equal "Needs Trip: Complete or In Progress", rule.description
+    assert_equal "Must have finished Trip or be partway through", rule.description
     assert_equal "Needs Trip: Complete or In Progress", rule.check(person(:student2), @event), "not started still fails"
   end
 
@@ -67,8 +67,12 @@ class ChecklistSignupRuleTest < ActiveSupport::TestCase
   end
 
   test "a person must pass the checklist rule and every other rule, any one badge being enough within a badge rule" do
+    # Rules are listed by created_at; travel_to freezes the clock, so move it on
+    # between rules to keep their order the order they were made.
     @position.signup_position_rules.create!(kind: :checklist, checklist: @checklist)
+    travel 1.second
     @position.signup_position_rules.create!(kind: :badge, badge_ids: [ @organizer_badge.id, @license_badge.id ])
+    travel 1.second
     @position.signup_position_rules.create!(kind: :age, min_age: 18)
     @position.reload
 

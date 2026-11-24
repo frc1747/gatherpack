@@ -220,6 +220,7 @@ class ChecklistFormItemTest < ActiveSupport::TestCase
     assert_equal "person", result(:member).fix["by"], "nothing filled in yet"
 
     respond(@form, :member)
+    assert_equal "Waiting for a leader's signature (paper)", result(:member).summary
     assert_equal "Sign it", result(:member).fix["label"]
     assert_equal "leader", result(:member).fix["by"]
   end

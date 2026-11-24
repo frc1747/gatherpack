@@ -65,12 +65,8 @@ class ChecklistList < ApplicationRecord
       shown = counting.select { |entry| allowed[entry["id"]]&.include?(row["person_id"]) }
       next row.merge("overall" => nil, "overall_text" => nil) if shown.empty?
 
-      statuses = shown.filter_map { |entry| items.dig(entry["id"], "status") }.reject { |status| status == "exempt" }
-      overall = if statuses.include?("not_met") then "not_met"
-      elsif statuses.include?("pending") then "pending"
-      else "met"
-      end
-      row.merge("overall" => overall, "overall_text" => Checklists.word_for(overall))
+      overall = Checklists.overall_status(shown.map { |entry| items.dig(entry["id"], "status") })
+      row.merge("overall" => overall, "overall_text" => checklist.word_for(overall))
     end
   end
 end

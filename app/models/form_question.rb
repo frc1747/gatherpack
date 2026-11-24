@@ -86,6 +86,15 @@ class FormQuestion < ApplicationRecord
     }[signer]
   end
 
+  # The signature still needed, as a short noun for "Waiting for …": "a
+  # guardian's signature", "a leader's signature (paper)".
+  def signer_waiting_text
+    {
+      "subject" => "the person's own signature", "guardian" => "a guardian's signature",
+      "guardian_if_minor" => "a guardian's signature (or the person's own once of age)", "leader" => "a leader's signature (paper)"
+    }[signer]
+  end
+
   # What a signature or submission covers of this question.
   def content_snapshot
     snapshot = { "key" => key, "kind" => kind, "label" => label, "body" => body, "required" => required? }

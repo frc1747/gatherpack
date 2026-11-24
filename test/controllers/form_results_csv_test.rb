@@ -26,7 +26,7 @@ class FormResultsCsvTest < ActionDispatch::IntegrationTest
       person(:a1).update!(last_name: "+World")
 
       sign_in person(:pack_leader).user
-      get results_form_path(form, format: :csv)
+      get form_path(form, format: :csv)
       assert_response :success
 
       cells = CSV.parse(response.body).flatten.compact
@@ -43,7 +43,7 @@ class FormResultsCsvTest < ActionDispatch::IntegrationTest
       respond(form, :a1, as: :a1, answers: { name.key => "A. World" })
 
       sign_in person(:pack_leader).user
-      get results_form_path(form, format: :csv)
+      get form_path(form, format: :csv)
       row = CSV.parse(response.body).detect { |line| line[1] == "A1" }
       assert_equal [ "World", "A1", "Complete", "1" ], row.first(4)
       assert_equal "A. World", row.last

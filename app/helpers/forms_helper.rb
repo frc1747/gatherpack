@@ -101,6 +101,18 @@ module FormsHelper
     end
   end
 
+  # An entry's job button for the viewer, as [label, path]: Sign, or Fill in,
+  # Continue or Review while it's to do; nil when there's nothing to do.
+  def form_entry_job(entry)
+    if entry.needs_viewer_signature?
+      [ "Sign", form_response_path(entry.form, entry.subject) ]
+    elsif entry.to_do?
+      response = entry.response
+      label = response&.needs_reconfirmation? ? "Review" : (response&.open_submission ? "Continue" : "Fill in")
+      [ label, edit_form_response_path(entry.form, entry.subject) ]
+    end
+  end
+
   LeaderTodo = Struct.new(:form, :people, keyword_init: true)
 
   # For forms that ask for it (leader_todo), the submitted responses waiting
@@ -186,6 +198,16 @@ module FormsHelper
     tag.span(form.status.humanize, class: "badge #{classes.fetch(form.status)}")
   end
 
+  # Whether the form takes answers, in words, for the form page's header.
+  def form_taking_answers(form)
+    case form.status
+    when "draft" then "Not taking answers yet"
+    when "open" then form.closes_at ? "Taking answers until #{nice_date(form.closes_at)}" : "Taking answers"
+    when "closed" then form.closes_at&.past? ? "Closed #{nice_date(form.closes_at)}" : "Closed"
+    else "Archived"
+    end
+  end
+
   def form_due(form)
     return "No deadline" unless form.closes_at
     form.open? ? "Due #{nice_datetime(form.closes_at)}" : "Closed #{nice_datetime(form.closes_at)}"
@@ -202,19 +224,9 @@ module FormsHelper
   end
 
   FORM_TICK_LIST_LONG_PAST = 8
-  FORM_TICK_LIST_OPENS_ON = 6
 
   def form_tick_list_long?(items)
     items.size > FORM_TICK_LIST_LONG_PAST
-  end
-
-  # The tick boxes a long list can hide until "Show all": never a ticked one,
-  # and the first few stay so that it opens on FORM_TICK_LIST_OPENS_ON boxes.
-  def form_tick_list_extras(items)
-    return [] unless form_tick_list_long?(items)
-
-    ticked, unticked = items.partition { |item| item[:checked] }
-    unticked.drop([ FORM_TICK_LIST_OPENS_ON - ticked.size, 0 ].max)
   end
 
   # How the viewer relates to the subject, for the fill page header.
@@ -359,16 +371,20 @@ module FormsHelper
     end.join("; ")
   end
 
-  def form_results_csv(report, fields)
+  # questions: and rows: narrow it to the columns and people on screen;
+  # status: and submitted: leave out the Status column and the submission
+  # columns (Version to Signed at).
+  def form_results_csv(report, fields, questions: report.questions, rows: report.rows, status: true, submitted: true)
     require "csv"
-    questions = report.questions
     CSV.generate do |csv|
-      csv << form_csv_row([ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name))
-      report.rows.each do |row|
+      csv << form_csv_row([ "Last name", "First name" ] + (status ? [ "Status" ] : []) +
+        (submitted ? [ "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] : []) + questions.map(&:label) + fields.map(&:name))
+      rows.each do |row|
         submission = row.submission
         signatures = submission ? submission.standing_signatures.sort_by(&:signed_at) : []
-        csv << form_csv_row([ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
-          signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] +
+        csv << form_csv_row([ row.person.last_name, row.person.first_name ] + (status ? [ STATUS_LABELS.fetch(row.status) ] : []) +
+          (submitted ? [ submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
+            signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] : []) +
           questions.map { |question| form_csv_value(report.answer(row, question)) } +
           fields.map { |field| form_csv_value(report.profile(row, field)) })
       end

@@ -1,11 +1,11 @@
 <% breadcrumb :checklists %>
 
-<div class="card">
-  <div class="card-header">
-    <h1>Checklists</h1>
-  </div>
-  <div class="card-body">
-    <%= search_form_for @q do |f| %>
+<%= search_form_for @q do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>Checklists</h1>
+    </div>
+    <div class="card-body">
       <div class="row g-2 align-items-end">
         <div class="col-md">
           <%= f.input :title_cont, label: "Name", required: false %>
@@ -16,16 +16,15 @@
             <%= label_tag :archived, "Show archived", class: "form-check-label" %>
           </div>
         </div>
-        <div class="col-md-auto mb-3">
-          <%= f.submit "Search", class: "btn btn-primary" %>
-        </div>
       </div>
-    <% end %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "New Checklist", new_checklist_path, class: "btn btn-success" if policy(Checklist).new? %>
+      <%= f.submit "Search", class: "btn btn-primary" %>
+      <%= link_to "Clear Search", request.path, class: "btn btn-dark" %>
+    </div>
   </div>
-  <div class="card-footer">
-    <%= link_to "New Checklist", new_checklist_path, class: "btn btn-success" if policy(Checklist).new? %>
-  </div>
-</div>
+<% end %>
 
 <div class="list-group mt-3">
   <% @checklists.each do |checklist| %>
@@ -35,14 +34,14 @@
         <small class="text-body-secondary"><%= checklist.team.name %> · <%= checklist_window_text(checklist) %></small>
       </div>
       <div class="text-end">
-        <% unless checklist.active? %><span class="badge text-bg-secondary"><%= checklist.status.humanize %></span><% end %>
+        <%= checklist_state_badge(checklist) %>
         <% if policy(checklist).update? && (problems = checklist.problems).any? %>
           <span class="badge text-bg-warning"><%= pluralize(problems.size, "problem") %></span>
         <% end %>
       </div>
     <% end %>
   <% end %>
-  <% if @checklists.empty? %>
-    <div class="list-group-item text-body-secondary">No checklists yet.</div>
-  <% end %>
 </div>
+<% if @checklists.empty? %>
+  <%= render "shared/empty_state", text: "Nothing here yet." %>
+<% end %>

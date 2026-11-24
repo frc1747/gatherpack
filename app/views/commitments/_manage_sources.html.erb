@@ -17,7 +17,7 @@
               </span>
             </span>
             <span>
-              <%= link_to "Edit", edit_commitment_commitment_source_path(@commitment, source), class: "btn btn-sm btn-warning" if source.available? %>
+              <%= link_to "Edit", edit_commitment_commitment_source_path(@commitment, source), class: "btn btn-sm btn-outline-secondary" if source.available? %>
               <%= button_to "Remove", commitment_commitment_source_path(@commitment, source), method: :delete,
                     class: "btn btn-sm btn-outline-danger", form_class: "d-inline", data: { turbo_confirm: "Remove this source?" } %>
             </span>
@@ -28,7 +28,7 @@
       <p class="text-body-secondary">Nothing counts yet.</p>
     <% end %>
     <% Commitments.source_kinds.each do |kind, klass| %>
-      <%= link_to "Add #{klass.label.downcase}", new_commitment_commitment_source_path(@commitment, kind: kind), class: "btn btn-secondary" %>
+      <%= link_to "Add #{klass.label.downcase}", new_commitment_commitment_source_path(@commitment, kind: kind), class: "btn btn-sm btn-outline-secondary" %>
     <% end %>
   </div>
 </div>

@@ -5,6 +5,7 @@
 class Checklist < ApplicationRecord
   has_neat_id :chkl
   include CanBeHooked
+  include Checklists::Words
   has_paper_trail versions: { class_name: "AuditLog" }
 
   WITHIN_UNITS = %w[days months].freeze
@@ -180,20 +181,27 @@ class Checklist < ApplicationRecord
 
   # Setup problems for organizers: each item's, plus housekeeping notes.
   def problems
+    problems_with_tabs.map(&:first)
+  end
+
+  # [[problem, the Edit page tab where it's fixed]]: "items" for an item's
+  # problem or an item's rule, "covers" for the checklist's own rules, nil
+  # for one fixed by archiving (on the checklist page).
+  def problems_with_tabs
     list = checklist_items.flat_map do |item|
       kind = item.kind_class
-      next [ "#{item.label}: this kind of item isn't available here" ] unless kind
+      next [ [ "#{item.label}: this kind of item isn't available here", "items" ] ] unless kind
 
-      kind.problems(item).map { |problem| "#{item.label}: #{problem}" }
+      kind.problems(item).map { |problem| [ "#{item.label}: #{problem}", "items" ] }
     end
     checklist_rules.includes(:item).each do |rule|
       next if rule.target
 
       where = rule.item ? "#{rule.item.label}: a" : "A"
-      list << "#{where} rule's #{rule.target_type == "applicants" ? "team" : rule.target_type} was deleted; it matches nobody"
+      list << [ "#{where} rule's #{rule.target_type == "applicants" ? "team" : rule.target_type} was deleted; it matches nobody", rule.item ? "items" : "covers" ]
     end
     if active? && Checklists::Housekeeping.archive_due?(self) && dependents.refreshable.exists?
-      list << "Ended, but not archived: #{dependents.refreshable.pluck(:title).to_sentence} still requires it"
+      list << [ "Ended, but not archived: #{dependents.refreshable.pluck(:title).to_sentence} still requires it", nil ]
     end
     list
   end

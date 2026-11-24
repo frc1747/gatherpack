@@ -15,12 +15,19 @@ module Checklists
       # The models whose changes can change a count (Checklists::CountWatched).
       WATCHED = %w[Checkin Event Relationship CommitmentSource CommitmentAdjustment Commitment].freeze
 
+      # The event in a record's dedupe key (Commitments.event_key).
+      EVENT_KEY = /\AEvent:([^:]+):/
+
       COUNTS_WHEN = [ [ "Confirmed credit reaches the amount", "confirmed" ], [ "Confirmed and planned credit together reach it", "planned" ] ].freeze
 
       class << self
         def label = "Count"
         def description = "Do a number of something, such as shifts or events, counted from what people do. Save it, then choose what counts"
         def uses_dates? = true
+
+        # The pooling relationship type: protected from deletion while an
+        # item pools through it (Checklists::ProtectsReferences).
+        def references = { "group_relationship_type_id" => "RelationshipType" }
 
         def settings
           [
@@ -229,6 +236,71 @@ module Checklists
           end
         end
 
+        def detail_partial = "checklists/kinds/count_detail"
+
+        # What person has coming up and has done toward the item, and where
+        # they can still earn credit, for their Details: [upcoming, done,
+        # chances]. upcoming are their planned credit records (signed up, not
+        # yet done), soonest first; done their confirmed ones, newest first.
+        # When the item is owed together and the viewer sees the pooled group
+        # (shows_group_records?), both also hold the group's records (a
+        # parent's shift), which the count adds up; chances are [label, target] pairs from the
+        # sources' how_to_earn, one per label, leaving out events they already
+        # have a record at (signed up for it, say), while credit is still
+        # owed. Someone it doesn't apply to (an exempt badge holder) sees
+        # their own records and no chances, as they owe nothing.
+        def person_detail(item, person, viewer: nil)
+          as_of = Context.new(item.checklist).as_of
+          commitment = commitment_for(item, as_of: as_of)
+          progress = commitment.progress(Person.where(id: person.id))[person.id]
+          unless progress
+            commitment = commitment_for(item, owing_ids: [ person.id ], as_of: as_of)
+            commitment.group_relationship_type_id = nil
+            own = commitment.progress(Person.where(id: person.id))[person.id]
+            done, upcoming = own ? own.lines.flat_map(&:records).partition(&:confirmed?) : [ [], [] ]
+            return [ upcoming.sort_by(&:date), done.sort_by(&:date).reverse, [] ]
+          end
+
+          all_records = progress.lines.flat_map(&:records)
+          own = all_records.select { |record| record.person_id == person.id }
+          records = shows_group_records?(item, viewer, person) ? all_records : own
+          done, upcoming = records.partition(&:confirmed?)
+          open = !progress.met? && progress.remaining.positive?
+          # Two sources can offer the same date (sign up for it, check in at it): the first one's link stands.
+          chances = open ? progress.lines.select(&:available?).flat_map { |line| line.source.kind_instance.how_to_earn.links }.uniq(&:first) : []
+          taken = own.filter_map { |record| record.dedupe_key.to_s[EVENT_KEY, 1] }.to_set
+          chances = chances.reject { |_, target| taken.include?(event_id_of(target)) }
+          [ upcoming.sort_by(&:date), done.sort_by(&:date).reverse, chances ]
+        end
+
+        # Whether the viewer sees a pooled item's group by name (spec §10.1:
+        # names show at the group level): admins, the person's leaders, and
+        # anyone in or related to the person's group through the pooling
+        # relationship. Others (a badge grant, a teammate) see the person's
+        # own records only.
+        def shows_group_records?(item, viewer, person)
+          return false if viewer.nil? || item.config["group_relationship_type_id"].blank?
+          return true if viewer.admin? || viewer.id == person.id
+
+          group_reach(item, viewer, [ person.id ]).include?(person.id) || AudienceLevels.led_people(viewer).exists?(id: person.id)
+        end
+
+        # Names of the people who earned records that aren't the person's
+        # own (a parent, a sibling), by id, for labelling them in Details.
+        def earned_by_others(records, person)
+          ids = records.map(&:worker).uniq - [ person.id ]
+          ids.empty? ? {} : Person.where(id: ids).to_h { |other| [ other.id, other.identifier_name ] }
+        end
+
+        # The event a place to earn credit is at: an Event, or a path whose
+        # anchor names one ("/signup_sheets/sush_..#event_<id>"); else nil.
+        def event_id_of(target)
+          case target
+          when ::Event then target.id
+          when String then target[/#event_([0-9a-f-]{36})\z/, 1]
+          end
+        end
+
         # Marks the checklists whose count items have a source of a kind
         # watching this notification (sign-ups, say).
         def source_changed(name)
@@ -292,6 +364,26 @@ module Checklists
           next Result.exempt(item.exempt_label.presence || "Doesn't owe") unless group
 
           result_for(commitment, group, earn)
+        end
+      end
+
+      # People the item doesn't apply to (holders of an exempt badge, say)
+      # still see what they did: their own tally, never pooled, after the
+      # exempt label ("Doesn't owe · 2 events"), with confirmed and planned
+      # as measures.
+      def exempt_attributes(person_ids)
+        commitment = self.class.commitment_for(item, owing_ids: person_ids, as_of: context.as_of)
+        commitment.group_relationship_type_id = nil
+        progress = commitment.progress(Person.where(id: person_ids))
+        label = item.exempt_label.presence || "Doesn't apply"
+        unit = commitment.unit.to_s
+
+        person_ids.each_with_object({}) do |person_id, attributes|
+          group = progress[person_id]
+          next unless group
+
+          attributes[person_id] = { summary: "#{label} · #{group.counted} #{group.counted == 1 ? unit.singularize : unit}",
+            measures: { "confirmed" => group.confirmed, "planned" => group.planned } }
         end
       end
 

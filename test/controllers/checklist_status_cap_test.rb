@@ -84,9 +84,12 @@ class ChecklistStatusCapTest < ActionDispatch::IntegrationTest
       assert_no_match "12 of 20 hours", response.body
       assert_no_match "Short by 8 hours", response.body
 
+      # The person page shows no status sentences, so the person sees the
+      # item's pill, not the sentence either.
       sign_in person(:member).user
       get person_checklists_path(person(:member))
-      assert_match "Short by 8 hours", response.body
+      assert_match "Not Started", response.body
+      assert_no_match "Short by 8 hours", response.body
     end
   end
 

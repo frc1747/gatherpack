@@ -24,7 +24,7 @@ module Checklists
   STATUSES = %w[met pending not_met exempt].freeze
 
   # The words people see.
-  WORDS = { "met" => "Complete", "pending" => "In Progress", "not_met" => "Not Started", "exempt" => "Not counted" }.freeze
+  WORDS = { "met" => "Complete", "pending" => "In Progress", "not_met" => "Not Started", "exempt" => "Not required" }.freeze
 
   # Who may see an item or a checklist's overall, relative to the person it's
   # about (Checklists::Visibility). group is for pooled kinds; a kind that
@@ -82,6 +82,19 @@ module Checklists
       WORDS.fetch(status.to_s)
     end
 
+    # The overall from its counting items' statuses: any not met makes it
+    # not met; else any pending, pending; else met. Exempt ones are ignored,
+    # unless all of them are exempt: then so is the overall.
+    def overall_status(statuses)
+      statuses = statuses.compact.map(&:to_s)
+      counted = statuses - [ "exempt" ]
+      if statuses.any? && counted.empty? then "exempt"
+      elsif counted.include?("not_met") then "not_met"
+      elsif counted.include?("pending") then "pending"
+      else "met"
+      end
+    end
+
     def status_for(checklist, people, viewer:)
       Checklists::Reader.new(checklist, viewer).status_for(people)
     end
@@ -99,6 +112,18 @@ module Checklists
         status = status_for(checklist, [ person ], viewer: viewer)[person.id]
         [ checklist, status ] if status
       end
+    end
+
+    # One person's [[checklist, status], ...] without the one-item checklists
+    # another of them already shows as a line (an "Another checklist" item
+    # the viewer sees in full): that line says the same, numbers included. A
+    # checklist with several items keeps its own card, since the line can't
+    # show them.
+    def without_repeats(results)
+      shown = results.flat_map do |_, status|
+        status.all_items.filter_map { |entry| entry.item.config["checklist_id"] if entry.full? && entry.item&.kind == "checklist" }
+      end.to_set
+      results.reject { |checklist, status| status.items.one? && shown.include?(checklist.id) }
     end
 
     # Whether the person finishes the checklist. accept: :met counts a met or

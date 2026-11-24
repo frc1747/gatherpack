@@ -100,7 +100,7 @@ module Checklists
 
         refused_grants = checklist.checklist_grants.filter_map do |grant|
           new_grant = copy.checklist_grants.new(badge_id: swap(grant.badge, replace), team_id: swap(grant.team, replace),
-            access: grant.access, item_ids: grant.item_ids.filter_map { |id| item_ids[id] }, created_by: by)
+            access: grant.access, overall: grant.overall, item_ids: grant.item_ids.filter_map { |id| item_ids[id] }, created_by: by)
           refused = by ? new_grant.refused_items(by) : []
           next "#{new_grant.holder_name}' #{new_grant.access} access to #{refused.map(&:label).to_sentence}" if refused.any?
 

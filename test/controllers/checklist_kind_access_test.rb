@@ -58,9 +58,13 @@ class ChecklistKindAccessTest < ActionDispatch::IntegrationTest
       get person_checklists_path(person(:member))
       assert_no_match "Private value", response.body
 
+      # The person page shows no status sentences, so the person sees the
+      # item and its pill, not the value either.
       sign_in person(:member).user
       get person_checklists_path(person(:member))
-      assert_match "Private value", response.body
+      assert_response :success
+      assert_match @private.label, response.body
+      assert_no_match "Private value", response.body
     end
   end
 

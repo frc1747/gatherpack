@@ -5,6 +5,6 @@ class PersonChecklistsController < InternalController
   # GET /people/:person_id/checklists
   def show
     @person = authorize policy_scope(Person).find(params[:person_id]), :show?
-    @checklists = Checklists.checklist_for(@person, viewer: current_user.person)
+    @checklists = Checklists.without_repeats(Checklists.checklist_for(@person, viewer: current_user.person))
   end
 end

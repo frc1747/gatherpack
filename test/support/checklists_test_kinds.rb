@@ -196,6 +196,46 @@ module ChecklistsTestKinds
     end
   end
 
+  # A kind that measures progress: confirmed of owed from its config, met
+  # once confirmed reaches owed.
+  class Progress < Checklists::ItemKind
+    def self.settings
+      [ Checklists::ItemKind::Setting.new(key: :confirmed, type: :text, label: "Confirmed"),
+        Checklists::ItemKind::Setting.new(key: :owed, type: :text, label: "Owed") ]
+    end
+
+    def evaluate(person_ids)
+      confirmed = config["confirmed"].to_i
+      owed = config["owed"].to_i
+      measures = { "confirmed" => confirmed, "owed" => owed }
+      person_ids.index_with do
+        confirmed >= owed ? Checklists::Result.met("Done", measures: measures) : Checklists::Result.not_met("#{confirmed} of #{owed}", measures: measures)
+      end
+    end
+  end
+
+  # Progress with a next step to take and Details of its own
+  # (detail_partial, from the test views).
+  class Shifts < Progress
+    VIEWS = Rows::VIEWS
+
+    def self.detail_partial = "checklists/test_shifts_detail"
+
+    def evaluate(person_ids)
+      super.transform_values do |result|
+        result.fix = { "label" => "Next: Stocking", "path" => "/shifts/next", "by" => "person" } unless result.status == "met"
+        result
+      end
+    end
+  end
+
+  # Progress whose numbers only the person and admins may see.
+  class PrivateProgress < Progress
+    def self.visible_to?(_item, viewer, person)
+      viewer.admin? || viewer.id == person.id ? true : :status
+    end
+  end
+
   # A kind like hours: everyone who may see the item sees Complete or Not Started,
   # but only the person and admins see the numbers.
   class StatusOnly < Checklists::ItemKind
@@ -216,6 +256,18 @@ module ChecklistsTestKinds
 
     def evaluate(person_ids)
       person_ids.index_with { Checklists::Result.not_met("12 of 20 hours") }
+    end
+  end
+
+  # A kind that still tells people it doesn't apply to what they did, as a
+  # count does: met, and "Rookie · 2 visits" with a measure when exempt.
+  class Tally < Checklists::ItemKind
+    def evaluate(person_ids)
+      person_ids.index_with { Checklists::Result.met("2 visits") }
+    end
+
+    def exempt_attributes(person_ids)
+      person_ids.index_with { { summary: "#{item.exempt_label} · 2 visits", measures: { "visits" => 2 } } }
     end
   end
 end

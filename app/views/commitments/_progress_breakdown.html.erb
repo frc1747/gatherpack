@@ -1,0 +1,14 @@
+<%# One row's credit by source, and its adjustments, in the progress table. %>
+<% row.lines.each do |line| %>
+  <div><%= line.source.label %>: <%= line.available? ? commitment_line_summary(line) : "not counted" %></div>
+<% end %>
+<% row.adjustments.each do |adjustment| %>
+  <div>
+    Adjustment <%= format("%+d", adjustment.credits) %>: <%= adjustment.reason %><%= " (#{row.members.find { |member| member.id == adjustment.person_id }&.display_name})" if row.members.size > 1 %>
+    <% if policy(adjustment).destroy? %>
+      <%= button_to "Remove", commitment_commitment_adjustment_path(@commitment, adjustment), method: :delete,
+            class: "btn btn-sm btn-outline-danger no-print", form_class: "d-inline",
+            data: { turbo_confirm: "Remove this adjustment?" } %>
+    <% end %>
+  </div>
+<% end %>

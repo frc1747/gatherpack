@@ -1,0 +1,40 @@
+<%# locals: (rows:, columns: [], empty: "Nobody here.", person: ->(row) { row.person }, link: ->(row) { person_path(person.call(row)) }, status: nil, table_class: "table table-striped align-middle", wrapper: {}, rows_after: nil, choose_columns: nil) -%>
+<%# A table with one row per person: Person (linked), Status, then the caller's
+    columns. columns: [header, ->(row) { cell }] pairs, with an optional third
+    item of HTML options for both the header and the cells ({ class: "table-info" }).
+    status: ->(row) { badge }, in the feature's words; leave it out for no
+    Status column. link: where the name goes (the person's page unless given;
+    nil, or a lambda returning nil for a row, for a plain name). table_class: the table's classes (add table-sm for a
+    dense one); wrapper: HTML options for the scrolling wrapper (id:, data:,
+    class: added to table-responsive); rows_after: more rows (HTML) at the end
+    of the body, such as a group of people listed apart; choose_columns: a
+    key (such as "signups-roster") to offer a Columns chooser, remembered per
+    viewer under that key, and sorting and filtering by the headings. Person is always shown, also when a chooser on
+    an outer wrapper (column_chooser_data) covers the table. %>
+<% if rows.empty? && rows_after.blank? %>
+  <%= render "shared/empty_state", text: empty %>
+<% else %>
+  <% wrapper = wrapper.merge(data: column_chooser_data(choose_columns, **wrapper.fetch(:data, {}))) if choose_columns %>
+  <div <%= tag.attributes(class: [ "table-responsive", wrapper[:class] ], **wrapper.except(:class)) %>>
+    <table class="<%= table_class %>">
+      <thead>
+        <tr>
+          <th data-column-chooser-fixed>Person</th>
+          <% if status %><th>Status</th><% end %>
+          <% columns.each do |header, _, options| %><%= tag.th header, **(options || {}) %><% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.each do |row| %>
+          <tr id="<%= dom_id person.call(row) %>">
+            <% path = link&.call(row) %>
+            <td><%= path ? link_to(person.call(row).identifier_name, path) : person.call(row).identifier_name %></td>
+            <% if status %><td><%= status.call(row) %></td><% end %>
+            <% columns.each do |_, cell, options| %><%= tag.td cell.call(row), **(options || {}) %><% end %>
+          </tr>
+        <% end %>
+        <%= rows_after %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

@@ -3,7 +3,8 @@ module Checklists
   # a wrapped count item, and the overall of the checklist holding one, are
   # seen by exactly the people who saw the commitment before it was wrapped
   # (PersonCommitmentsPolicy): those who run it see everyone; a person sees
-  # their own; someone related through the pooling relationship to a member
+  # their own, whether they owe or not (a holder of the exempt badge is on
+  # the checklist as "Doesn't owe"); someone related through the pooling relationship to a member
   # of a person's group (a parent, guardian or not) sees that person. No
   # guardian or leader path is added. Grants still apply. New count items
   # use the read levels of §10.1 instead.
@@ -14,6 +15,7 @@ module Checklists
 
       wrapped = wrapped_count_item(item)
       return super unless wrapped
+      return :full if person_id == viewer.id
       return :full if Checklists::Kinds::Count.commitment_reach(wrapped, viewer, @person_ids || [ person_id ]).include?(person_id)
 
       grant_access(item)

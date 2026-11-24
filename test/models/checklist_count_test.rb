@@ -210,6 +210,23 @@ class ChecklistCountTest < ActiveSupport::TestCase
     assert_not Commitment.exists?(commitment.id)
   end
 
+  test "a relationship type a count item pools through can't be deleted while the item uses it" do
+    item = add_count_item(@checklist, "Family shifts", { group_relationship_type_id: @parent_of.id })
+    unused = RelationshipType.create!(parent_label: "Coach of", child_label: "Coached by", permission: :added_by_admin)
+
+    with_checklists do
+      assert_not @parent_of.destroy
+      assert_match "Used by the checklist Eligibility", @parent_of.errors.full_messages.to_sentence
+      assert RelationshipType.exists?(@parent_of.id)
+
+      assert unused.destroy, "a type no item pools through still deletes"
+
+      item.reload.destroy!
+      Relationship.where(relationship_type: @parent_of).delete_all
+      assert @parent_of.reload.destroy
+    end
+  end
+
   test "a linked commitment's organizers are the checklist's, read through checklists_organizers then commitments_organizers" do
     item = add_count_item(@checklist)
     commitment = Commitment.find(item.commitment_id)

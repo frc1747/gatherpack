@@ -41,11 +41,12 @@
         </div>
       </div>
       <%= f.input :counts, label: "Counts toward the overall", hint: "Untick to show it without affecting anyone's result" unless item.parent_id.present? %>
+      <%= render "checklists/words_fields", f: f, legend: "Words for this item" %>
       <%= f.input :exempt_label, label: "Word for people it doesn't apply to", placeholder: "Doesn't apply" %>
       <%= f.input :show_on_kiosk, label: "List it at the kiosk while it isn't complete", hint: "Shown to the person after they scan in, as one short line." unless item.parent_id.present? %>
 
+      <%= link_to "Cancel", edit_checklist_path(checklist, tab: "items"), class: "btn btn-secondary" %>
       <%= f.button :submit, "Save", class: "btn btn-primary" %>
-      <%= link_to "Cancel", edit_checklist_path(checklist, anchor: "items"), class: "btn btn-link" %>
     <% end %>
 
     <% if item.persisted? %>
@@ -56,7 +57,7 @@
         <% rules.each do |rule| %>
           <li class="d-flex justify-content-between">
             <span><%= rule.description %></span>
-            <%= button_to "Remove", checklist_checklist_rule_path(checklist, rule), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
+            <%= button_to "Remove", checklist_checklist_rule_path(checklist, rule), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline" %>
           </li>
         <% end %>
       </ul>

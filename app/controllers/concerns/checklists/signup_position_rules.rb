@@ -1,6 +1,8 @@
 module Checklists
   # Lets SignupPositionRulesController save checklist rules: permits their
-  # settings and refuses a checklist the editor may not choose. Prepended by
+  # settings, refuses a checklist the editor may not choose, and warns when
+  # signing up at the position counts toward the checklist
+  # (Checklists::SignupRuleLoop). Prepended by
   # config/initializers/checklists_signups.rb.
   module SignupPositionRules
     # The checklists someone may choose for a rule: active ones whose
@@ -30,7 +32,25 @@ module Checklists
       checklist.checklist_grants.where(badge_id: badge_ids).or(checklist.checklist_grants.where(team_id: team_ids)).exists?
     end
 
+    def create
+      super
+      warn_of_loop
+    end
+
+    def update
+      super
+      warn_of_loop
+    end
+
     private
+
+    # Saved, but only people who already finished can take the place.
+    def warn_of_loop
+      return unless @rule&.checklist? && @rule.persisted? && @rule.errors.empty? && !@checklist_out_of_reach
+
+      warning = Checklists::SignupRuleLoop.new(@rule).warning
+      flash[:warning] = warning if warning
+    end
 
     def rule_params
       super.merge(params.require(:signup_position_rule).permit(:checklist_id, :accept_pending))

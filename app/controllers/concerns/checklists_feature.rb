@@ -18,9 +18,10 @@ module ChecklistsFeature
     @checklist = policy_scope(Checklist).find(params[:checklist_id])
   end
 
-  # A section of the Edit page, where a checklist's parts are set up.
+  # The Edit page's tab where a checklist's part is set up (organizers sit
+  # with access).
   def checklist_section_path(section)
-    edit_checklist_path(@checklist, anchor: section)
+    edit_checklist_path(@checklist, tab: section == "organizers" ? "access" : section)
   end
 
   # Changes to an active checklist show their impact first, unless confirmed.

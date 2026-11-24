@@ -101,7 +101,7 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
       post checklist_checklist_items_path(@checklist), params: { confirmed: "1", checklist_item: { kind: "count", label: "Setup help", counts: "1", start_mode: "checklist",
         config: { base_amount: "3", unit: "shifts", group_relationship_type_id: @parent_of.id, additional_amount: "1", counts_when: "planned" } } }
       item = @checklist.checklist_items.find_by!(label: "Setup help")
-      assert_redirected_to edit_checklist_path(@checklist, anchor: "items")
+      assert_redirected_to edit_checklist_path(@checklist, tab: "items")
       assert_equal [ "Setup help", 3, @parent_of.id, 1 ], [ item.commitment.title, item.commitment.base_amount, item.commitment.group_relationship_type_id, item.commitment.additional_amount ]
 
       get edit_checklist_checklist_item_path(@checklist, item)
@@ -147,7 +147,9 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     with_checklists do
       get new_commitment_commitment_source_path(@plain, kind: "checkins")
       assert_select ".breadcrumb", text: /Commitments.*Not on a checklist/m
-      assert_select "a[href=?]", edit_commitment_path(@plain, anchor: "sources"), text: "Cancel"
+      # The commitment's setup at its What counts tab.
+      cancel = css_select("a").find { |link| link.text == "Cancel" }
+      assert_equal edit_commitment_path(@plain, tab: "sources"), cancel&.[]("href")
     end
   end
 
@@ -177,7 +179,7 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a person's page shows the count with a bar and keeps the breakdown in Details" do
+  test "a person's page shows the count with a bar, and what was done in Details" do
     sign_in person(:member).user
     with_checklists do
       Checklists::Refresher.new(@checklist.reload, silent: true).call
@@ -186,7 +188,29 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_select ".list-group-item .progress-bar"
       assert_select ".list-group-item details summary", text: "Details"
-      assert_select ".list-group-item details li", minimum: 2
+      assert_select ".list-group-item details div.fw-semibold", text: "Done"
+      assert_no_match "to go.", response.body, "no tally sentences"
+    end
+  end
+
+  test "a count item's sources show under What counts, and its pages leave with Cancel and save with Save" do
+    sign_in person(:admin).user
+    @commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+    source = @commitment.commitment_sources.sole
+    with_checklists do
+      get edit_checklist_checklist_item_path(@checklist, @item)
+      assert_response :success
+      assert_select "h2", text: "What counts"
+      assert_select "#sources li##{ActionView::RecordIdentifier.dom_id(source)}", text: /Outreach/
+
+      [ new_commitment_commitment_source_path(@commitment, kind: "checkins"), edit_commitment_commitment_source_path(@commitment, source),
+        new_commitment_commitment_adjustment_path(@commitment) ].each do |path|
+        get path
+        assert_response :success
+        assert_select ".card-footer a.btn.btn-secondary", { text: "Cancel" }, path
+        assert_select ".card-footer [type=submit].btn-primary[value=Save]", { count: 1 }, path
+        assert_select ".btn-warning", { count: 0 }, path
+      end
     end
   end
 end

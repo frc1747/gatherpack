@@ -1,0 +1,5 @@
+<%# locals: (text: "Nothing here yet.", action: nil) -%>
+<p class="text-muted"><%= text %></p>
+<% if action&.visible? %>
+  <p><%= screen_action_button(action) %></p>
+<% end %>

@@ -200,9 +200,10 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     assert_equal [ person(:organizer).id ], checklist.checklist_organizers.pluck(:person_id), "lapsed no longer runs it, so isn't copied"
     assert_equal [ "count", commitment.id, true, "self_and_leaders" ], [ item.kind, item.commitment_id, item.wrapped?, item.read_level ]
     assert_equal({ "base_amount" => 2, "unit" => "shifts", "additional_amount" => 0, "counts_when" => "confirmed" }, item.config)
-    assert_equal [ [ "include", "badge", @volunteer.id, @club.id ], [ "exclude", "badge", @rookie.id, nil ] ],
+    assert_equal [ [ "include", "badge", @volunteer.id, @club.id ] ],
       checklist.population_rules.map { |rule| [ rule.effect, rule.target_type, rule.badge_id, rule.team_id ] }
-    assert_empty item.checklist_rules
+    assert_equal [ [ "exclude", "badge", @rookie.id, nil ] ], item.checklist_rules.map { |rule| [ rule.effect, rule.target_type, rule.badge_id, rule.team_id ] },
+      "the exempt badge is the count's: its holders don't owe, but are on the checklist"
 
     stored = checklist.checklist_results.where(item_id: nil).pluck(:person_id)
     assert_equal Checklists.people_covered_by(checklist).ids.sort, stored.sort, "results are stored at once"
@@ -212,6 +213,30 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
       next assert(row[item.id].exempt?) unless progress[person_id]
 
       assert_equal progress[person_id].confirmed, row[item.id].measures["confirmed"]
+    end
+  end
+
+  test "an exempt badge holder is on the checklist as Doesn't owe, opens it and sees their own tally" do
+    commitment = @commitments.last
+    with_checklists do
+      checklist = Checklists::WrapCommitments.new.up.find { |made| made.title == commitment.title }
+      item = checklist.checklist_items.sole
+
+      assert_includes Checklists.people_covered_by(checklist).ids, person(:member2).id
+      assert_not_includes commitment.reload.owing_people.ids, person(:member2).id, "still doesn't owe"
+      assert ChecklistPolicy.new(person(:member2).user, checklist).show?
+      assert ChecklistPolicy::Scope.new(person(:member2).user, Checklist).resolve.exists?(id: checklist.id)
+
+      status = Checklists.status_for(checklist, [ person(:member2) ], viewer: person(:member2))[person(:member2).id]
+      entry = status.item(item.id)
+      assert_equal [ "exempt", "Doesn't owe", "Doesn't owe · 1 shift" ], [ entry.status, entry.text, entry.summary ]
+      assert_equal({ "confirmed" => 1, "planned" => 0 }, entry.measures)
+      assert_equal [ "exempt", "Not required" ], [ status.overall.status, status.overall.text ], "nothing on it counts for them"
+      assert Checklists.meets?(checklist, person(:member2))
+      upcoming, done, chances = Checklists::Kinds::Count.person_detail(item, person(:member2), viewer: person(:member2))
+      assert_equal [ 0, 1, 0 ], [ upcoming.size, done.size, chances.size ], "their own records in Details, and nothing to earn"
+
+      assert_nil Checklists.status_for(checklist, [ person(:member2) ], viewer: person(:member))[person(:member2).id], "a teammate still doesn't see them"
     end
   end
 
@@ -282,21 +307,25 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     @people.values.sort_by(&:id)
   end
 
-  # The checklist covers exactly the people who owed the commitment, is
-  # listed and opens for exactly the viewers the commitment was, and shows a
-  # person's count, and their row, to exactly the viewers whose commitment
-  # pages showed it (the snapshot's profile matrix), whether at full level or
-  # not at all.
+  # The checklist covers exactly the people who owed the commitment, plus
+  # holders of its exempt badge (who don't owe), is listed and opens for
+  # exactly the viewers the commitment was, and shows a person's count, and
+  # their row, to exactly the viewers whose commitment pages showed it (the
+  # snapshot's profile matrix), whether at full level or not at all. The one
+  # addition: an exempt holder has it listed and sees their own row, which
+  # those who run it see too.
   def assert_checklist_shows_as_before(commitment, before)
     item = Commitment.find(commitment.id).checklist_item
     checklist = item.checklist
     covered = Checklists.people_covered_by(checklist).ids
-    assert_equal before[:owing], covered.sort, "#{commitment.title}: the checklist covers who owed it"
-    assert_equal before[:owing], Checklists::Population.applicable_ids(item, covered).sort, "#{commitment.title}: and the item applies to all of them"
+    exempt = before[:covered] - before[:owing]
+    assert_equal before[:covered], covered.sort, "#{commitment.title}: the checklist covers who owed it and who held the exempt badge"
+    assert_equal before[:owing], Checklists::Population.applicable_ids(item, covered).sort, "#{commitment.title}: and the item applies to who owed it"
     people.each_with_index do |viewer, v|
       message = "#{commitment.title}: listed to #{viewer.first_name}"
-      assert_equal before[:listed][v], ChecklistPolicy::Scope.new(viewer.user, Checklist).resolve.exists?(id: checklist.id), message
-      assert_equal before[:shown][v].first, ChecklistPolicy.new(viewer.user, checklist).show?, message
+      own = exempt.include?(viewer.id)
+      assert_equal before[:listed][v] || own, ChecklistPolicy::Scope.new(viewer.user, Checklist).resolve.exists?(id: checklist.id), message
+      assert_equal before[:shown][v].first || own, ChecklistPolicy.new(viewer.user, checklist).show?, message
     end
     people.each_with_index do |viewer, v|
       visibility = Checklists::Visibility.new(checklist, viewer).prepare(covered)
@@ -304,7 +333,9 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
       people.each_with_index do |subject, s|
         next unless covered.include?(subject.id)
 
-        expected = before[:profile][v][s]
+        # An exempt badge holder's row ("Doesn't owe") is theirs to see, and
+        # those who run the checklist see it as they see everyone's.
+        expected = before[:profile][v][s] || (exempt.include?(subject.id) && (viewer == subject || visibility.full?))
         message = "#{commitment.title}: #{viewer.first_name} viewing #{subject.first_name}"
         [ item, nil ].each do |shown|
           expected ? assert_equal(:full, visibility.access(shown, subject.id), message) : assert_nil(visibility.access(shown, subject.id), message)
@@ -318,6 +349,7 @@ class ChecklistWrapCommitmentsTest < ActiveSupport::TestCase
     commitment = Commitment.find(commitment.id)
     {
       owing: commitment.owing_people.pluck(:id).sort,
+      covered: commitment.dup.tap { |copy| copy.exempt_badge_id = nil }.owing_people.pluck(:id).sort,
       progress: commitment.progress.transform_values { |progress| [ progress.members.map(&:id), progress.owed, progress.confirmed, progress.planned, progress.met? ] }.sort.to_h,
       period: commitment.period_times,
       organizers: people.map { |viewer| commitment.organizer?(viewer) },

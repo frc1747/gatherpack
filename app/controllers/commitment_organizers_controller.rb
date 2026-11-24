@@ -39,6 +39,6 @@ class CommitmentOrganizersController < InternalController
     end
 
     def edit_path
-      edit_commitment_path(@commitment, anchor: "organizers")
+      edit_commitment_path(@commitment, tab: "organizers")
     end
 end

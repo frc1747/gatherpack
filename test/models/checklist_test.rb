@@ -27,6 +27,52 @@ class ChecklistTest < ActiveSupport::TestCase
     assert login
   end
 
+  test "overall: exempt when every counting item is exempt, and still ignoring exempt ones otherwise" do
+    safety = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_item(@checklist, :has_login, "Login", counts: false)
+    add_rule(@checklist, :exclude, :person, item: safety, person_id: person(:member).id)
+
+    overall = evaluate(@checklist, :member)
+    assert_equal "exempt", overall.status, "nothing counting applies"
+    assert_nil overall.summary
+    assert_equal "Not required", Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id].overall.text
+
+    refresh(@checklist)
+    assert_equal "exempt", stored_status(@checklist, :member)
+    assert Checklists.meets?(@checklist, person(:member)), "an exempt overall still meets"
+
+    add_item(@checklist, :has_login, "Login again")
+    assert_equal "met", evaluate(@checklist, :member).status, "one counting item applies and is met"
+  end
+
+  test "overall_status combines counting statuses" do
+    assert_equal "met", Checklists.overall_status([])
+    assert_equal "exempt", Checklists.overall_status(%w[exempt exempt])
+    assert_equal "met", Checklists.overall_status([ "exempt", "met", nil ])
+    assert_equal "pending", Checklists.overall_status(%w[exempt pending met])
+    assert_equal "not_met", Checklists.overall_status(%w[pending not_met exempt])
+  end
+
+  test "an item kind can add to the exempt results of people it doesn't apply to" do
+    Checklists.register_item_kind(:tally, ChecklistsTestKinds::Tally)
+    item = add_item(@checklist, :tally, "Visits", exempt_label: "Rookie")
+    add_rule(@checklist, :exclude, :person, item: item, person_id: person(:member).id)
+
+    result = evaluate(@checklist, :member, item)
+    assert_equal "exempt", result.status
+    assert_equal "Rookie", result.label
+    assert_equal "Rookie · 2 visits", result.summary
+    assert_equal({ "visits" => 2 }, result.measures)
+    assert_equal "met", evaluate(@checklist, :organizer, item).status
+
+    login = add_item(@checklist, :has_login, "Login", exempt_label: "Rookie")
+    add_rule(@checklist, :exclude, :person, item: login, person_id: person(:member).id)
+    assert_equal "Rookie", evaluate(@checklist, :member, login).summary, "other kinds keep the bare label"
+    assert_empty evaluate(@checklist, :member, login).measures
+  ensure
+    Checklists.unregister_item_kind(:tally)
+  end
+
   test "a status reads the same on the overall and on items" do
     item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] })
     status = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id]
@@ -35,11 +81,47 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_equal "Not Started", status.item(item.id).text
   end
 
-  test "statuses have three fixed words, and exempt stays not counted" do
+  test "statuses have three default words, and exempt reads Not required" do
     assert_equal "Complete", Checklists.word_for(:met)
     assert_equal "In Progress", Checklists.word_for(:pending)
     assert_equal "Not Started", Checklists.word_for(:not_met)
-    assert_equal "Not counted", Checklists.word_for(:exempt)
+    assert_equal "Not required", Checklists.word_for(:exempt)
+  end
+
+  test "a checklist and each item can use their own words; blank ones keep the default" do
+    @checklist.update!(met_word: "Eligible", not_met_word: "Not Eligible")
+    item = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, met_word: "Trained", not_met_word: " Untrained ")
+    plain = add_item(@checklist, :has_login, "Login")
+    status = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id]
+
+    assert_equal "Not Eligible", status.overall.text
+    assert_equal "Untrained", status.item(item.id).text
+    assert_equal "Complete", status.item(plain.id).text
+    assert_equal "In Progress", @checklist.word_for(:pending)
+    assert_equal "Not required", item.word_for(:exempt)
+  end
+
+  test "another checklist's item says that checklist's words, and its own word for people that one doesn't cover" do
+    other = create_world_checklist("Outreach", team: @members, met_word: "Done", not_met_word: "Not yet")
+    add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    refresh(other)
+    item = add_item(@checklist, :checklist, "Outreach", { checklist_id: other.id }, exempt_label: "Rookie")
+
+    assert_equal "Outreach: Not yet", evaluate(@checklist, :member, item).summary
+    assert_equal "Rookie", evaluate(@checklist, :organizer, item).label
+  end
+
+  test "another checklist's item is exempt, with nothing to fix, for people exempt from all of that one" do
+    other = create_world_checklist("Outreach", team: @members)
+    safety = add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_rule(other, :exclude, :person, item: safety, person_id: person(:member).id)
+    refresh(other)
+    item = add_item(@checklist, :checklist, "Outreach", { checklist_id: other.id })
+
+    result = evaluate(@checklist, :member, item)
+    assert_equal "exempt", result.status
+    assert_equal "Outreach: Not required", result.summary
+    assert_nil result.fix
   end
 
   test "a checklist with no items is done for everyone it covers" do
@@ -199,7 +281,7 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_equal "exempt", result.status
     assert_equal "Excused", result.label
     assert_equal "ClubManager World", result.excuse["by"]
-    assert_equal "met", evaluate(@checklist, :member).status
+    assert_equal "exempt", evaluate(@checklist, :member).status, "the only counting item is excused"
   end
 
   test "an expired excuse no longer applies" do

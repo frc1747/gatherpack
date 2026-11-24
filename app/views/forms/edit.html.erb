@@ -15,15 +15,13 @@
       </li>
     <% end %>
   </ul>
+  <% if !badges && (@form.completion_badge || @form.audience_badge || @form.form_badge_grants.any? || @form.form_audience_rules.any?(&:target_badge?)) %>
+    <% ignored = [ ("completion badge" if @form.completion_badge), ("badge filter" if @form.audience_badge), ("access through badges" if @form.form_badge_grants.any?), ("badge rules in who is asked" if @form.form_audience_rules.any?(&:target_badge?)) ].compact %>
+    <div class="px-3 pb-2" id="badges-off">
+      <%= state_line "Badges are turned off, so this form's badge settings (#{ignored.to_sentence}) are ignored until they're turned back on." %>
+    </div>
+  <% end %>
 </div>
-
-<% if !badges && (@form.completion_badge || @form.audience_badge || @form.form_badge_grants.any? || @form.form_audience_rules.any?(&:target_badge?)) %>
-  <div class="alert alert-secondary">
-    <%= i "circle-info" %> Badges are turned off, so this form's badge settings
-    (<%= [ ("completion badge" if @form.completion_badge), ("badge filter" if @form.audience_badge), ("access through badges" if @form.form_badge_grants.any?), ("badge rules in who is asked" if @form.form_audience_rules.any?(&:target_badge?)) ].compact.to_sentence %>)
-    are ignored until they're turned back on.
-  </div>
-<% end %>
 
 <% case @tab %>
 <% when "details", "permissions", "responses" %>
@@ -39,7 +37,7 @@
       </div>
       <div class="card-footer">
         <%= render "change_choice", form: @form if @tab == "details" %>
-        <%= link_to "Back", form_path(@form), class: "btn btn-warning" %>
+        <%= link_to "Cancel", form_path(@form), class: "btn btn-secondary" %>
         <%= f.button :submit, "Save", class: "btn btn-primary" %>
       </div>
     </div>

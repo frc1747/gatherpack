@@ -76,6 +76,6 @@ class CommitmentSourcesController < InternalController
     end
 
     def edit_path
-      edit_commitment_path(@commitment, anchor: "sources")
+      edit_commitment_path(@commitment, tab: "sources")
     end
 end

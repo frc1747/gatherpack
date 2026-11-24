@@ -40,6 +40,35 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
     end
   end
 
+  test "values are kept as a list, so a choice with a comma stays whole, and old comma text still reads" do
+    with_fields do
+      size = create_field("Size", :select, choices: [ "S", "Medium, wide", "L" ])
+      assign(:member, size, "Medium, wide")
+      assign(:member2, size, "L")
+      kind = Checklists::Kinds::PersonField
+
+      config = kind.normalize_config("field_id" => size.id, "operator" => "any_of", "values" => [ "", "Medium, wide", "S" ])
+      assert_equal [ "Medium, wide", "S" ], config["values"]
+      item = add_field_item(size, "any_of", config.slice("values"))
+      assert_equal [ "Medium, wide", "S" ], kind.values(item)
+      assert_equal "met", evaluate(@checklist, :member, item).status
+      assert_equal "not_met", evaluate(@checklist, :member2, item).status
+      assert item.valid?, item.errors.full_messages.to_sentence
+
+      old = add_field_item(size, "any_of", values: "S, L")
+      assert_equal %w[ S L ], kind.values(old)
+      assert_equal "met", evaluate(@checklist, :member2, old).status
+    end
+  end
+
+  test "typed values for a field without choices are split on commas into a list" do
+    with_fields do
+      note = create_field("Note", :text)
+      config = Checklists::Kinds::PersonField.normalize_config("field_id" => note.id, "operator" => "any_of", "values" => [ "gluten, nuts" ])
+      assert_equal %w[ gluten nuts ], config["values"]
+    end
+  end
+
   test "multi select: any of the chosen values" do
     with_fields do
       skills = create_field("Skills", :multi_select, choices: %w[ Cook Drive Sew ])
@@ -172,7 +201,20 @@ class ChecklistPersonFieldKindTest < ActiveSupport::TestCase
         result = evaluate(@checklist, :member, item)
         assert_no_match(/peanuts/, [ result.summary, result.detail ].join)
       end
-      assert_equal "Allergies is none of gluten", evaluate(@checklist, :member, none).summary
+      assert_equal "Allergies isn't gluten", evaluate(@checklist, :member, none).summary
+      assert_equal "Allergies is gluten", Checklists::Kinds::PersonField.describe(other)
+    end
+  end
+
+  test "a test that passes on blank says so in its description, not in each result" do
+    with_fields do
+      eligible = create_field("Eligible", :select, choices: %w[ Yes No ])
+      assign(:member, eligible, "Yes")
+      item = add_field_item(eligible, "any_of", values: "Yes", blank: "met")
+
+      assert_equal "Eligible is Yes, or blank", Checklists::Kinds::PersonField.describe(item)
+      assert_equal "Eligible is Yes", evaluate(@checklist, :member, item).summary
+      assert_equal "met", evaluate(@checklist, :member2, item).status
     end
   end
 
