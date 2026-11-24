@@ -1,0 +1,42 @@
+<% breadcrumb :orders_purchases %>
+
+<% pills = [ { label: "All orders", value: nil } ] %>
+<% pills << { label: "Orders I placed", value: "mine" } if policy(Purchase).create? %>
+<% pills << { label: "Not in ledger", value: "not_in_ledger" } if Orders::LedgerRecording.ledger_on? %>
+<div class="card">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h1><%= @filter == "mine" ? "Orders I placed" : "Vendor orders" %><%= " not in ledger" if @filter == "not_in_ledger" %></h1>
+    <%= link_to "To buy", to_buy_orders_purchases_path, class: "btn btn-primary" if policy(Purchase).create? %>
+  </div>
+  <% if pills.size > 1 %>
+    <div class="card-body pb-0">
+      <%= render "shared/filter_bar", url: orders_purchases_path, statuses: pills, status: @filter %>
+    </div>
+  <% end %>
+  <div class="list-group list-group-flush">
+    <% @purchases.each do |purchase| %>
+      <% purchase_policy = policy(purchase) %>
+      <% full = purchase_policy.full? %>
+      <%= link_to orders_purchase_path(purchase), class: "list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-2" do %>
+        <span>
+          <strong><%= purchase.vendor_name %></strong>
+          <% if full && purchase.vendor_order_number.present? %><small class="text-muted">#<%= purchase.vendor_order_number %></small><% end %>
+          <br>
+          <small class="text-muted">
+            <%= purchase.ordered_on ? l(purchase.ordered_on, format: :long) : "No order date" %>
+            <% if full %>· <%= purchase.buyer.identifier_name %> · <%= orders_money(purchase.total_cents) %><% end %>
+          </small>
+        </span>
+        <span class="text-end">
+          <small><%= purchase_status_text(purchase_policy.visible_lines) %></small>
+          <% if full %><br><%= render "orders/purchases/ledger_badge", purchase: purchase %><% end %>
+        </span>
+      <% end %>
+    <% end %>
+  </div>
+  <% if @purchases.empty? %>
+    <div class="card-body text-muted">No orders yet.</div>
+  <% end %>
+</div>
+
+<%= paginate @purchases %>

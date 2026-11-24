@@ -1,0 +1,20 @@
+<%# One orders setting with a box of its own: yes/no, whole number or text, named by the setting's key. %>
+<% id = "values_#{setting.setting_key}" %>
+<% if (partial = Orders::SettingsEditor::PARTIALS[setting.setting_key]) %>
+  <%= render partial, setting: setting, value: value, prefix: "values[#{setting.setting_key}]" %>
+<% else %>
+<div class="mb-3">
+  <%= label_tag id, setting.name, class: "form-label" %>
+  <% case setting.setting_type %>
+  <% when :boolean %>
+    <%= select_tag "values[#{setting.setting_key}]", options_for_select([ [ "Yes", "true" ], [ "No", "false" ] ], value), id: id, class: "form-select", style: "min-height: 44px; max-width: 12rem" %>
+  <% when :integer %>
+    <%= number_field_tag "values[#{setting.setting_key}]", value, id: id, min: 0, step: 1, inputmode: "numeric", class: "form-control", style: "min-height: 44px; max-width: 12rem" %>
+  <% when :text %>
+    <%= text_area_tag "values[#{setting.setting_key}]", value, id: id, class: "form-control", rows: 3 %>
+  <% else %>
+    <%= text_field_tag "values[#{setting.setting_key}]", value, id: id, class: "form-control", style: "min-height: 44px; max-width: 20rem" %>
+  <% end %>
+  <div class="form-text"><%= setting.description %></div>
+</div>
+<% end %>

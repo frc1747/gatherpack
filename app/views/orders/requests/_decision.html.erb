@@ -1,0 +1,128 @@
+<%# The approver's part of a request's page (spec §3.3, §3.12, §3.13): what to
+    check, the funding picture, item edits, and Approve / Ask for changes /
+    Decline. Shown to approvers of the request's team while a decision is
+    waiting; those who can't decide see why. %>
+<% step = order_request.decision_step %>
+<% person = current_user.person %>
+<% access = Orders::Access.for(person) %>
+<% if step && person && (access.approver_on?(step, order_request.team_id) || access.any_approver_team_ids.include?(order_request.team_id)) %>
+  <%# Not tracked: Turbo adds it on a visit, where a tracked stylesheet only on
+      this page would force a second, full load and lose the flash. %>
+  <% content_for :head, stylesheet_link_tag("orders_decision") %>
+  <% reapproval = !order_request.submitted? %>
+  <% can_decide = order_request.can_decide?(person) %>
+  <% flags = Orders::ApprovalFlags.new(order_request) %>
+  <% sources = order_request.funding_sources_used %>
+
+  <section id="decision" class="orders-decision mt-4">
+    <h2 class="h4">
+      <% if reapproval %>
+        Re-approve changed items
+      <% elsif order_request.all_steps_approved? %>
+        Confirm the final approval
+      <% else %>
+        <%= step.name %>
+        <% needed = order_request.needed_steps %>
+        <% if needed.size > 1 %>
+          <small class="text-muted">(step <%= needed.index { |s| s.key == step.key }.to_i + 1 %> of <%= needed.size %>)</small>
+        <% end %>
+      <% end %>
+    </h2>
+
+    <% approved = order_request.active_approvals.select(&:approved?) %>
+    <% if approved.any? && !reapproval %>
+      <ul class="list-unstyled small mb-3">
+        <% approved.each do |approval| %>
+          <li>
+            <i class="fa-solid fa-check text-success"></i>
+            <%= Orders::Config.step(approval.step_key)&.name || approval.step_key.humanize %>:
+            approved by <%= approval.approver.identifier_name %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <% if reapproval %>
+      <p>A buyer's change raised the cost past what was approved. Approve keeps these items; Decline cancels them.</p>
+      <% if order_request.approved_total_cents %>
+        <p class="fw-bold">Approved <%= order_request.approved_total.format %>, now <%= order_request.total.format %> (+<%= Money.new(order_request.total_cents - order_request.approved_total_cents).format %>)</p>
+      <% end %>
+      <ul class="list-group mb-3">
+        <% order_request.reapproval_lines.each do |line| %>
+          <li class="list-group-item d-flex justify-content-between gap-2">
+            <span><%= line.display_name %> × <%= line.quantity %></span>
+            <span class="text-nowrap"><%= line.cost.format %></span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <% if flags.any? %>
+      <div class="alert alert-warning orders-decision-flags">
+        <strong>Check</strong>
+        <ul class="mb-0">
+          <% flags.request_flags.each do |flag| %>
+            <li><%= flag.text %></li>
+          <% end %>
+          <% order_request.live_lines.each do |line| %>
+            <% texts = flags.line_flags(line).map(&:text) %>
+            <% if texts.any? %>
+              <li><%= line.display_name %>: <%= texts.join(", ") %></li>
+            <% end %>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <%= render "orders/decisions/funding", order_request: order_request, sources: sources %>
+
+    <% if can_decide %>
+      <% if order_request.submitted? && policy(order_request).approver_edit? %>
+        <h3 class="h6 mt-3">Fix an item</h3>
+        <p class="small text-muted">Changing what an item is, where it's from, its link, part numbers or unit, or raising the total past the tolerance, clears earlier approvals.</p>
+        <% order_request.live_lines.each do |line| %>
+          <%= render "orders/decisions/line_edit", order_request: order_request, line: line %>
+        <% end %>
+      <% end %>
+
+      <%= form_with url: orders_request_decisions_path(order_request), method: :post, class: "orders-decision-form mt-3" do |form| %>
+        <% if order_request.funding_source_id.nil? && policy(order_request).set_funding? %>
+          <% choices = FundingSource.active.where(team_id: [ order_request.team_id ] + order_request.team.all_ancestor_ids).order(:name) %>
+          <div class="mb-3">
+            <%= form.label :funding_source_id, "Funding source", class: "form-label" %>
+            <%= form.select :funding_source_id,
+                  choices.map { |source| [ source.restricted? ? "#{source.name} (restricted)" : source.name, source.id ] },
+                  { include_blank: "Choose later" }, class: "form-select" %>
+            <% if choices.any?(&:restricted?) %>
+              <div class="form-text">A restricted source shows its restriction here once chosen, and Approve then needs the tick.</div>
+            <% end %>
+          </div>
+        <% end %>
+
+        <div class="orders-decision-bar">
+          <% restricted = sources.select(&:restricted?) %>
+          <% if restricted.any? %>
+            <div class="orders-decision-tick d-flex align-items-center gap-2 mb-2">
+              <%= form.check_box :fits_restriction, { class: "form-check-input mt-0 flex-shrink-0", required: true }, "1", nil %>
+              <%= form.label :fits_restriction, class: "form-check-label" do %>
+                This request fits the restriction<%= restricted.size > 1 ? "s" : "" %> of <%= restricted.map(&:name).to_sentence %>
+              <% end %>
+            </div>
+          <% end %>
+          <%= form.label :comment, "Comment", class: "visually-hidden" %>
+          <%= form.text_area :comment, rows: 2, class: "form-control mb-2",
+                placeholder: "Comment (needed to ask for changes or decline)" %>
+          <div class="d-flex flex-wrap gap-2">
+            <%= form.button "Approve", name: "decision", value: "approved", class: "btn btn-success flex-fill" %>
+            <% unless reapproval %>
+              <%= form.button "Ask for changes", name: "decision", value: "changes_requested", formnovalidate: true, class: "btn btn-secondary flex-fill" %>
+            <% end %>
+            <%= form.button "Decline", name: "decision", value: "declined", formnovalidate: true, class: "btn btn-danger flex-fill" %>
+          </div>
+        </div>
+      <% end %>
+    <% elsif (refusal = order_request.decision_refusal(person)) %>
+      <p class="alert alert-secondary mt-3 mb-0"><%= refusal %></p>
+    <% end %>
+  </section>
+<% end %>

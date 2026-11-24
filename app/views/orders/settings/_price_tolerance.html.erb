@@ -1,0 +1,35 @@
+<%# The price tolerance as two numbers (Orders::PriceToleranceField). Locals: setting, and optionally value (the text held) and prefix (the field names, default settings[key]), so the same partial draws it on Orders setup and on the settings page (Settings.input :partial). %>
+<% field = Orders::PriceToleranceField.new(local_assigns.fetch(:value, setting.value)) %>
+<% prefix = local_assigns.fetch(:prefix, "settings[#{setting.setting_key}]") %>
+<% base = sanitize_to_id(prefix) %>
+<fieldset class="mb-3">
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <% if field.readable? %>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <label for="<%= base %>_percent">Up to</label>
+      <%= number_field_tag "#{prefix}[percent]", field.percent, id: "#{base}_percent", min: 0, step: "any", inputmode: "decimal", class: "form-control", style: "min-height: 44px; width: 7rem" %>
+      <span>% more</span>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <label for="<%= base %>_amount">or up to $</label>
+      <%= number_field_tag "#{prefix}[amount]", field.amount, id: "#{base}_amount", min: 0, step: "any", inputmode: "decimal", class: "form-control", style: "min-height: 44px; width: 7rem" %>
+      <span>more</span>
+    </div>
+  <% else %>
+    <div class="text-danger mb-2">Not found: <%= field.text %></div>
+    <%= hidden_field_tag "#{prefix}[raw]", field.text, id: nil %>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <label for="<%= base %>_percent">Replace with up to</label>
+      <%= number_field_tag "#{prefix}[percent]", nil, id: "#{base}_percent", min: 0, step: "any", class: "form-control", style: "min-height: 44px; width: 7rem" %>
+      <span>% more</span>
+      <label for="<%= base %>_amount">or up to $</label>
+      <%= number_field_tag "#{prefix}[amount]", nil, id: "#{base}_amount", min: 0, step: "any", class: "form-control", style: "min-height: 44px; width: 7rem" %>
+      <span>more</span>
+    </div>
+    <div class="form-check d-flex align-items-center gap-2" style="min-height: 44px">
+      <%= check_box_tag "#{prefix}[clear]", "1", false, id: "#{base}_clear", class: "form-check-input mt-0" %>
+      <%= label_tag "#{base}_clear", "Clear it (the default applies)", class: "form-check-label" %>
+    </div>
+  <% end %>
+  <div class="form-text"><%= setting.description %> Leave both empty for the default (<%= setting.default_value %>); a number may be 0.</div>
+</fieldset>

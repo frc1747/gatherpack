@@ -1,0 +1,14 @@
+<%# Record in ledger on the Record purchase form (spec §6): only while the
+    ledger is on, and only for a buyer who may add entries to a ledger. %>
+<% ledgers = Orders::LedgerRecording.ledgers_for(current_user.person) %>
+<% if ledgers.any? %>
+  <fieldset class="mb-3" id="ledger_choice">
+    <div class="form-check mb-2">
+      <%= check_box_tag :record_in_ledger, "1", params[:record_in_ledger] == "1", class: "form-check-input" %>
+      <%= label_tag :record_in_ledger, "Record in ledger", class: "form-check-label" %>
+    </div>
+    <%= label_tag :ledger_id, "Ledger", class: "form-label" %>
+    <%= select_tag :ledger_id, options_from_collection_for_select(ledgers, :id, :name, params[:ledger_id]),
+          class: "form-select" %>
+  </fieldset>
+<% end %>
