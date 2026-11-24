@@ -12,7 +12,8 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     "section-communication" => %w[Mailboxes Questions],
     "section-content" => %w[Shortcuts Pages]
   }.freeze
-  TEAM_MANAGE = [ "People", "Teams", "Time Clock", "Badges", "Tokens", "Ledgers", "Budgets", "Mailboxes", "Pages" ].freeze
+  # By part: People, Time, Money, Content.
+  TEAM_MANAGE = [ "People", "Teams", "Badges", "Tokens", "Time Clock", "Ledgers", "Budgets", "Pages", "Mailboxes", "Shortcuts" ].freeze
   # These destinations belong to branches this one doesn't depend on.
   STUBBED_PATHS = %i[forms_path family_path commitments_path].freeze
 
@@ -87,7 +88,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     assert_not_includes labels, "Teams"
     assert_not_includes labels, "People"
     assert_not_includes labels, "Time Clock"
-    assert_equal [ [ "Communication", %w[Questions] ], [ "Content", %w[Shortcuts] ] ], sections.map { |name, items| [ name, items.map(&:label) ] }
+    assert_equal [ [ "Communication", %w[Questions] ] ], sections.map { |name, items| [ name, items.map(&:label) ] }
   end
 
   test "a guardian also sees Family" do
@@ -104,7 +105,7 @@ class MyGatherpackMenuTest < ActionDispatch::IntegrationTest
     manager = create_login("Riley")
     Membership.create!(person: manager.person, team: teams(:one), manager: true)
 
-    assert_equal({ "top" => MEMBER_TOP, "section-communication" => %w[Questions], "section-content" => %w[Shortcuts], "manage" => TEAM_MANAGE }, menu_for(manager))
+    assert_equal({ "top" => MEMBER_TOP, "section-communication" => %w[Questions], "manage" => TEAM_MANAGE }, menu_for(manager))
   end
 
   test "a Forms creator who manages no team sees only what their check opens" do

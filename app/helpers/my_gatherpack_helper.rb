@@ -16,10 +16,42 @@ module MyGatherpackHelper
     return unless MyGatherpack.enabled?
 
     menu = my_gatherpack_menu
-    groups = [ menu.top, menu.family, menu.manage ].map { |items| items.map(&:label).join(",") }
+    groups = [ menu.pinned, menu.top, menu.reports, menu.family, menu.manage ].map { |items| items.map(&:label).join(",") }
     sections = menu.sections.map { |name, items| "#{name}:#{items.map(&:label).join(",")}" }.join(";")
     account_links = MyGatherpack.account_links_for(self).map(&:label).join(",")
     [ *groups, sections, account_links, site_title, Theme.instance.logo.attachment&.blob_id ].join("/")
+  end
+
+  # A menu link, with a pin button when the item can be pinned. The button
+  # shows on hover or focus, or after Edit menu on a touch screen.
+  def my_gatherpack_menu_link(item)
+    path = resolve_nav_path(item)
+    key = my_gatherpack_menu.pin_key(item)
+    tag.div(class: "nav-item mg-menu-item") do
+      link = link_to(path, class: active_status(path)) { icon_text(item.icon, item.label) }
+      key ? link + my_gatherpack_pin_button(item, key) : link
+    end
+  end
+
+  def my_gatherpack_pin_button(item, key)
+    pinned = my_gatherpack_menu.pinned?(item)
+    tag.button(type: "button", class: [ "mg-pin", ("mg-pinned" if pinned) ], title: pinned ? "Unpin" : "Pin to the top",
+      aria: { label: pinned ? "Unpin #{item.label}" : "Pin #{item.label} to the top" },
+      data: { action: "menu-pin#toggle", menu_pin_key_param: key, menu_pin_pinned_param: pinned }) do
+      i("thumbtack")
+    end
+  end
+
+  # A Manage part under a heading that folds it open or shut.
+  def my_gatherpack_menu_part(part, heading, &block)
+    id = "mg-menu-part-#{part}"
+    tag.div(data: { menu_part: part, controller: "menu-fold", menu_fold_key_value: "mg-menu-fold:#{current_user.id}:#{part}" }) do
+      toggle = tag.button(type: "button", class: "mg-part-toggle", aria: { expanded: true, controls: id },
+        data: { action: "menu-fold#toggle", menu_fold_target: "toggle" }) do
+        safe_join([ tag.span(heading), tag.span(i("chevron-down"), class: "mg-part-chevron") ])
+      end
+      tag.h6(toggle, class: "nav-item mg-part-heading") + tag.div(capture(&block), id: id, data: { menu_fold_target: "items" })
+    end
   end
 
   PhoneTab = Struct.new(:label, :path, :icon, keyword_init: true)

@@ -10,7 +10,7 @@
     <div class="offcanvas-header">
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
     </div>
-    <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto">
+    <div class="offcanvas-body d-md-flex flex-column p-0 pt-lg-3 overflow-y-auto" data-controller="menu-pin" data-menu-pin-url-value="<%= menu_pins_path %>">
       <div class="d-none d-md-block px-3 pt-3 pt-lg-0 pb-2" data-site-brand>
         <a class="d-flex align-items-center gap-2 mb-3 fw-semibold mg-site-link link-body-emphasis text-decoration-none" href="<%= root_path %>">
           <% if Theme.instance.logo.attached? %>
@@ -47,16 +47,37 @@
           <hr class="my-2">
         <% end %>
 
+        <% if my_gatherpack_menu.pinned.any? %>
+          <div data-menu-group="pinned">
+            <%= nav_heading "Pinned" %>
+            <% my_gatherpack_menu.pinned.each do |item| %>
+              <%= my_gatherpack_menu_link item %>
+            <% end %>
+          </div>
+        <% end %>
+
         <div data-menu-group="top">
           <% my_gatherpack_menu.top.each do |item| %>
-            <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+            <%= my_gatherpack_menu_link item %>
           <% end %>
         </div>
+
+        <% if my_gatherpack_menu.reports.any? %>
+          <div data-menu-group="reports">
+            <%= nav_heading "Reports" %>
+            <% my_gatherpack_menu.reports.each do |item| %>
+              <%= my_gatherpack_menu_link item %>
+            <% end %>
+            <% if my_gatherpack_menu.all_pages %>
+              <%= nav_link "All pages", pages_path, "folder-open" %>
+            <% end %>
+          </div>
+        <% end %>
 
         <% if my_gatherpack_menu.family.any? %>
           <div data-menu-group="family">
             <% my_gatherpack_menu.family.each do |item| %>
-              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+              <%= my_gatherpack_menu_link item %>
             <% end %>
           </div>
         <% end %>
@@ -65,7 +86,7 @@
           <div data-menu-group="section-<%= section_name.parameterize %>">
             <%= nav_heading section_name %>
             <% items.each do |item| %>
-              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+              <%= my_gatherpack_menu_link item %>
             <% end %>
           </div>
         <% end %>
@@ -73,8 +94,18 @@
         <% if my_gatherpack_menu.manage.any? %>
           <div data-menu-group="manage">
             <%= nav_heading "Manage" %>
-            <% my_gatherpack_menu.manage.each do |item| %>
-              <%= nav_link item.label, resolve_nav_path(item), item.icon %>
+            <% my_gatherpack_menu.manage_parts.each do |part, heading, items| %>
+              <% if heading %>
+                <%= my_gatherpack_menu_part part, heading do %>
+                  <% items.each do |item| %>
+                    <%= my_gatherpack_menu_link item %>
+                  <% end %>
+                <% end %>
+              <% else %>
+                <% items.each do |item| %>
+                  <%= my_gatherpack_menu_link item %>
+                <% end %>
+              <% end %>
             <% end %>
           </div>
         <% end %>
@@ -112,6 +143,8 @@
                 <%= link_to link.label, public_send(link.path), class: "mg-sign-out" %>
               <% end %>
               <%= link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "mg-sign-out" %>
+              <%# Touch screens have no hover, so this shows the pins instead. %>
+              <button type="button" class="mg-sign-out mg-edit-menu" aria-pressed="false" data-action="menu-pin#edit" data-menu-pin-target="edit">Edit menu</button>
             </div>
           </div>
         </div>

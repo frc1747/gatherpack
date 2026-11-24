@@ -39,4 +39,40 @@ class MyGatherpackMenuSystemTest < ApplicationSystemTestCase
     end
     assert_no_selector "header.navbar"
   end
+
+  test "a folded Manage part stays folded after a reload" do
+    manager = create_login("Riley")
+    Membership.create!(person: manager.person, team: teams(:one), manager: true)
+    sign_in manager
+    visit root_path
+
+    within "[data-menu-part=people]" do
+      assert_link "Badges"
+      click_button "People"
+      assert_no_link "Badges"
+    end
+
+    visit root_path
+    within "[data-menu-part=people]" do
+      assert_selector "button[aria-expanded=false]", text: "People"
+      assert_no_link "Badges"
+    end
+    within("[data-menu-part=money]") { assert_link "Ledgers" }
+  end
+
+  # Headless Chrome reports no hover, like a phone, so the pins come from Edit menu.
+  test "Edit menu shows the pins, and a pin pins an item to the top or unpins it" do
+    sign_in create_login("Morgan")
+    visit root_path
+    assert_no_selector "button[aria-label='Pin Calendar to the top']"
+
+    click_button "Edit menu"
+    find("[data-menu-group=top] button[aria-label='Pin Calendar to the top']").click
+    within("[data-menu-group=pinned]") { assert_link "Calendar" }
+    within("[data-menu-group=top]") { assert_link "Calendar" }
+
+    find("[data-menu-group=pinned] button[aria-label='Unpin Calendar']").click
+    assert_no_selector "[data-menu-group=pinned]"
+    assert_selector "button[aria-pressed=true]", text: "Edit menu"
+  end
 end
