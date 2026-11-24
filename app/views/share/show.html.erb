@@ -1,0 +1,26 @@
+<% breadcrumb :share %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Share</h1>
+  </div>
+  <% if @actions.empty? %>
+    <div class="card-body">
+      <p>Nothing here can use a shared link.</p>
+    </div>
+  <% else %>
+    <div class="card-body">
+      <% if @shared.url %>
+        <p class="text-break"><%= @shared.url %></p>
+      <% elsif @shared.text %>
+        <p class="text-break"><%= @shared.text %></p>
+      <% end %>
+      <p>What would you like to do?</p>
+      <div class="d-grid gap-2">
+        <% @actions.each do |action| %>
+          <%= link_to action.label, GatherPack::ShareActions.path_for(action, @shared), class: "btn btn-primary btn-lg" %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>
