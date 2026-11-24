@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only |
 | Priority | medium |
-| Status | started (`hbr-drift.yml` on `hbr/platform` `e5b116ec`, 2026-11-05; untested on a real failing run) |
+| Status | done (fork-only, verified on run https://github.com/frc1747/gatherpack/actions/runs/45510794248; green-upstream line checked, red wording not yet seen live) |
 | Added | 2026-10-23 |
 | Upstream commit checked | `cee510d` (`upstream/main`) |
 | Planned branch | none (`hbr/platform`: `.github/workflows/hbr-drift.yml`) |

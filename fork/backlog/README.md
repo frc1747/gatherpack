@@ -31,7 +31,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-022](BL-022-guardianship-grants-hint.md) | Say what guardianship grants, where it's set | upstream feature | medium | shipped hbr.32 | 2026-10-13 |
 | [BL-023](BL-023-contact-relationships.md) | Emergency contacts without guardian powers | upstream feature | low | shipped hbr.32 | 2026-10-13 |
 | [BL-024](BL-024-profile-hides-closed-teams.md) | Profiles hide the closed teams a person is in | upstream feature | low | shipped hbr.32 | 2026-10-13 |
-| [BL-025](BL-025-drift-check-upstream-ci.md) | The drift check doesn't notice when upstream itself is broken | fork-only | medium | started | 2026-10-23 |
+| [BL-025](BL-025-drift-check-upstream-ci.md) | The drift check doesn't notice when upstream itself is broken | fork-only | medium | done | 2026-10-23 |
 | [BL-026](BL-026-organizer-placements-look-like-yours.md) | Placing someone as an organizer looks like signing up yourself | upstream feature | medium | shipped hbr.32 | 2026-10-29 |
 | [BL-027](BL-027-kiosk-period-clock-out-refused.md) | Kiosk "Clock Out" for one period silently does nothing for mentors | fork-only | medium | shipped hbr.34 | 2026-11-01 |
 | [BL-028](BL-028-members-edit-own-punches.md) | Members can enter and change their own time clock punches by hand | upstream bug | medium | shipped hbr.34 | 2026-11-04 |
