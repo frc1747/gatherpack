@@ -1,0 +1,92 @@
+<%# The Forms panel on an event page: one row per form attached to the
+    event, with its state in words and one button (Responses for people who
+    see the results; Fill in, Sign and the like for a member's own form), and,
+    where a form asks "Are you coming?", how that intent compares with
+    check-ins. Intent is never attendance. People who can add a form for the
+    event get the New link, and the empty line when there are none. %>
+<% if GatherPack::Features.enabled?(:forms) %>
+  <% viewer = current_user.person %>
+  <% event_forms = EventForms.new(event, viewer: viewer) %>
+  <% can_add = event.team && policy(Form.new(team: event.team, event: event)).create? %>
+  <% subjects = event_forms.forms.empty? ? [] : [ viewer ] + viewer.wards.order(:first_name).to_a %>
+  <% managed = event_forms.forms.select { |form| policy(form).show? } %>
+  <% rows = capture do %>
+    <% event_forms.forms.each do |form| %>
+      <% if managed.include?(form) %>
+        <% counts = FormReport.new(form, viewer: viewer).status_counts %>
+        <% count_words = counts.reject { |status, count| count.zero? || status == "no_longer_asked" }.map { |status, count| "#{FormsHelper::STATUS_LABELS.fetch(status)}: #{count}" } %>
+        <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span>
+            <%= link_to form.title, form_path(form) %><br>
+            <small class="text-muted"><%= [ form_taking_answers(form), *count_words ].join(" · ") %></small>
+          </span>
+          <%# The event's other forms start from who said Yes to its "Are you coming?". %>
+          <% responses_path = event_forms.intent_form && form != event_forms.intent_form ? form_path(form, event_id: event.id) : form_path(form) %>
+          <%= link_to "Responses", responses_path, class: "btn btn-sm btn-outline-secondary" %>
+        </div>
+      <% else %>
+        <% subjects.each do |subject| %>
+          <% response = form.response_for(subject) %>
+          <% access = FormAccess.new(viewer, subject, form, has_response: response.present?) %>
+          <% next unless access.can_read? && (access.in_audience? || response) %>
+          <% entry = FormsHelper::Entry.new(form: form, subject: subject, response: response, access: access) %>
+          <% job = form_entry_job(entry) %>
+          <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>
+              <%= link_to form.title, form_entry_path(entry) %><% unless subject == viewer %> for <%= subject.identifier_name %><% end %><br>
+              <small class="text-muted"><%= form_due(form) %></small>
+              <%= form_status_badge(entry.status) unless entry.needs_viewer_signature? %>
+            </span>
+            <%= link_to job.first, job.last, class: "btn btn-sm btn-primary" if job %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <% if rows.present? || can_add %>
+    <div class="card mt-3 <%= "no-print" if rows.blank? %>" id="event-forms">
+      <div class="card-header"><h2 class="h5 mb-0">Forms</h2></div>
+      <% if rows.present? %>
+        <div class="list-group list-group-flush"><%= rows %></div>
+      <% else %>
+        <div class="card-body">
+          <%= render "shared/empty_state", text: "No forms for this event." %>
+        </div>
+      <% end %>
+
+      <% if event_forms.intent_form && managed.include?(event_forms.intent_form) %>
+        <% counts = event_forms.intent_counts %>
+        <div class="card-body border-top">
+          <h3 class="h6">Who said they're coming <small class="text-muted">(a planning count, not attendance)</small></h3>
+          <p class="mb-2">
+            Expected: <strong><%= counts["Yes"] %> yes</strong>, <%= counts["Maybe"] %> maybe, <%= counts["No"] %> no, <%= counts[nil] %> no answer
+            <% if event_forms.checked_in_count.positive? %>
+              · Checked in: <strong><%= event_forms.checked_in_count %></strong>
+            <% end %>
+          </p>
+          <% if event_forms.checked_in_count.positive? %>
+            <div class="row">
+              <div class="col-md-6">
+                <% missing = event_forms.yes_not_checked_in %>
+                <h4 class="h6">Said yes, not checked in (<%= missing.size %>)</h4>
+                <p class="small"><%= missing.map(&:identifier_name).sort.join(", ").presence || "Nobody." %></p>
+              </div>
+              <div class="col-md-6">
+                <% surprise = event_forms.checked_in_without_yes %>
+                <h4 class="h6">Checked in without saying yes (<%= surprise.size %>)</h4>
+                <p class="small"><%= surprise.map(&:identifier_name).sort.join(", ").presence || "Nobody." %></p>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% if can_add %>
+        <div class="card-footer">
+          <%= link_to "New form for this event", new_form_path(event_id: event.id), class: "btn btn-sm btn-outline-secondary" %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

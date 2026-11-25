@@ -1,0 +1,23 @@
+<% breadcrumb :form_print_list %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Printable List</h1>
+    <div class="text-muted">Choose a form. Its page lists the people with their answers, to print as a table or labels.</div>
+  </div>
+  <%= form_with url: print_list_forms_path, method: :get do %>
+    <div class="card-body">
+      <%= hidden_field_tag :event_id, params[:event_id] if params[:event_id].present? %>
+      <div class="row g-2">
+        <div class="col-md-6">
+          <%= label_tag :form_id, "Answers from", class: "form-label" %>
+          <%= select_tag :form_id, options_for_select(@forms.map { |form| [ form.title, form.id ] }), include_blank: "Choose a form…", class: "form-select" %>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", forms_path, class: "btn btn-secondary" %>
+      <%= submit_tag "Next", class: "btn btn-primary", name: nil %>
+    </div>
+  <% end %>
+</div>
