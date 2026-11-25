@@ -126,6 +126,21 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     assert_select "##{dom_id(record("P1"))} td", text: "$50.00"
   end
 
+  test "393#1 fix round: a paid amount with items and only payments ticked keeps its charges on the statement" do
+    @rule.update!(read_permission: "admin", amount_permission: "admin")
+    paid = create_rule("Dues paid", kind: "amount", measure: "paid", read_permission: "family", amount_permission: "family",
+      filters: { "items" => [ "dues" ], "roles" => [ "payment" ] })
+    evaluate(paid)
+    sign_in @margaret.user
+
+    with_accounting { get person_accounting_statement_path(@nancy) }
+
+    assert_response :success
+    labels = css_select("tbody tr td:nth-child(2)").map { |cell| cell.text.strip }
+    assert_equal [ "Credit", "Payment", "Invoice 1042 · Dues" ], labels
+    assert_no_match "Invoice 1050", response.body
+  end
+
   test "admins see every record of the person's customers with descriptions" do
     sign_in @laura.user
 

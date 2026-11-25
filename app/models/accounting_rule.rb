@@ -164,13 +164,22 @@ class AccountingRule < ApplicationRecord
   # without (a paid amount matched by items, categories or locations reads
   # charges too).
   def needed_roles
-    return filter_roles & read_roles if filter_roles.any?
+    return (filter_roles & read_roles) | (paid_through_charges? ? [ "charge" ] : []) if filter_roles.any?
 
     case kind
     when "balance" then [ "charge" ]
-    when "amount" then measure == "paid" ? [ "payment", *("charge" if Accounting::RecordFilter.new(filters).lines?) ] : [ "charge" ]
+    when "amount" then measure == "paid" ? [ "payment", *("charge" if paid_through_charges?) ] : [ "charge" ]
     else []
     end
+  end
+
+  # Whether the rule reads charges: a paid amount only when it's matched
+  # through them (items, categories or locations), whatever roles it names;
+  # other kinds unless their roles leave charges out.
+  def reads_charges?
+    return paid_through_charges? if kind == "amount" && measure == "paid"
+
+    Accounting::RecordFilter.new(filters).roles(read_roles).include?("charge")
   end
 
   # Every role the kind reads.
@@ -259,6 +268,12 @@ class AccountingRule < ApplicationRecord
   end
 
   private
+    # A paid amount filtered by items, categories or locations counts what
+    # payments applied to the matching charges (Accounting::Kinds::Amount).
+    def paid_through_charges?
+      kind == "amount" && measure == "paid" && Accounting::RecordFilter.new(filters).lines?
+    end
+
     # The people covered by grants whose badges the viewer holds.
     def granted_people(viewer, amounts: false)
       grants_held_by(viewer, amounts: amounts).map(&:covered_people)

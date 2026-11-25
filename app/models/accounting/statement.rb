@@ -88,15 +88,11 @@ class Accounting::Statement
       end
     end
 
-    # The charges a rule reads: none when its kind doesn't read charges (a
-    # paid amount without items, categories or locations sums payments) or
-    # its roles leave them out.
+    # The charges a rule reads (AccountingRule#reads_charges?), by its filters.
     def rule_charges(rule, records)
-      filter = Accounting::RecordFilter.new(rule.filters)
-      reads = rule.kind == "amount" && rule.measure == "paid" && !filter.lines? ? [] : %w[ charge ]
-      return [] if filter.roles(reads).empty?
+      return [] unless rule.reads_charges?
 
-      filter.apply(records.where(role: "charge")).to_a
+      Accounting::RecordFilter.new(rule.filters).apply(records.where(role: "charge")).to_a
     end
 
     # Only the public label: never a memo, note or credit reason.

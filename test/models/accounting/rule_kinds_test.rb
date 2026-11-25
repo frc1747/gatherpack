@@ -205,6 +205,14 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_equal [ "charge" ], dues_paid.missing_roles
   end
 
+  test "393#7 fix round: a paid amount with items still needs charges when its filter names only payments" do
+    accounting_source.update!(synced_entities: "Customer Payment")
+    rule = create_rule("Dues paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "roles" => [ "payment" ] })
+
+    assert_equal %w[ charge ], rule.missing_roles
+    assert_empty evaluate(rule)
+  end
+
   private
     # A payment or credit applied to a charge, which lowers the charge's
     # balance as the source would.
