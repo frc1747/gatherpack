@@ -37,6 +37,23 @@ class MoveWrappedExemptBadgeRulesToItemsTest < ActiveSupport::TestCase
     assert_equal commitment.exempt_badge_id, exempt.badge_id
   end
 
+  test "an archived wrapped checklist's rule moves, but it isn't queued and its results aren't marked stale" do
+    create_world_commitment("Members owe", exempt_badge: @rookie)
+    checklist = Checklists::WrapCommitments.new.up.sole
+    exempt = checklist.checklist_items.sole.checklist_rules.sole
+    exempt.update_columns(item_id: nil)
+    Checklists::Refresher.new(checklist).call
+    checklist.update_columns(status: Checklist.statuses[:archived])
+    ChecklistRefresh.where(checklist_id: checklist.id).delete_all
+    ChecklistResult.where(checklist_id: checklist.id).update_all(stale: false)
+    assert checklist.checklist_results.exists?
+
+    migrate(:up)
+    assert_not_nil exempt.reload.item_id
+    assert_not ChecklistRefresh.exists?(checklist_id: checklist.id), "an archived checklist is never refreshed"
+    assert_not checklist.checklist_results.where(stale: true).exists?, "so nothing would clear the flag"
+  end
+
   test "checklists that aren't wrapped are left alone" do
     checklist = create_count_checklist
     rule = checklist.checklist_rules.new(effect: :exclude, target_type: :badge, badge_id: @rookie.id).tap { |made| made.save!(validate: false) }

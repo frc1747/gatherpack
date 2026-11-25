@@ -101,6 +101,18 @@ class ChecklistTest < ActiveSupport::TestCase
     assert_equal "Not required", item.word_for(:exempt)
   end
 
+  test "a checklist can say its own word for Not required; an item's exempt label says what it reads" do
+    @checklist.update!(exempt_word: " Exempt ")
+    safety = add_item(@checklist, :badge, "Safety", { badge_ids: [ @safety.id ] }, exempt_label: "Rookie")
+    add_rule(@checklist, :exclude, :person, item: safety, person_id: person(:member).id)
+    status = Checklists.status_for(@checklist, [ person(:member) ], viewer: person(:admin))[person(:member).id]
+
+    assert_equal "Exempt", status.overall.text
+    assert_equal "Rookie", status.item(safety.id).text
+    assert_equal "Not required", safety.word_for(:exempt), "an item has no exempt word of its own"
+    assert_equal "Not required", Checklist.new.word_for(:exempt)
+  end
+
   test "another checklist's item says that checklist's words, and its own word for people that one doesn't cover" do
     other = create_world_checklist("Outreach", team: @members, met_word: "Done", not_met_word: "Not yet")
     add_item(other, :badge, "Safety", { badge_ids: [ @safety.id ] })

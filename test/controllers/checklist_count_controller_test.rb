@@ -31,6 +31,29 @@ class ChecklistCountControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an exempt badge holder opens the wrapped checklist and sees only their own Doesn't owe row" do
+    travel_to Time.zone.parse("2026-10-20 12:00")
+    with_settings(feature_badges: "true", commitments_organizers: "Commitment Organizer > Club") do
+      rookie = Badge.create!(name: "Rookie", short: "R", color: "#336699", badge_type: badge_types(:one), permission: :added_by_admin)
+      BadgeAssignment.create!(badge: rookie, person: person(:member2))
+      commitment = create_world_commitment("Rookies don't owe", exempt_badge: rookie)
+      commitment.commitment_sources.create!(kind: "checkins", subject: @outreach)
+      event = create_world_event("Past", "2026-10-11 10:00")
+      %i[member member2 kid].each { |name| check_in(name, event) }
+      checklist = Checklists::WrapCommitments.new.up.find { |made| made.title == "Rookies don't owe" }
+
+      sign_in person(:member2).user
+      with_checklists do
+        get checklist_path(checklist)
+        assert_response :success
+        assert_match person(:member2).display_name, response.body
+        assert_match "Doesn&#39;t owe · 1 shift", response.body
+        assert_no_match person(:member).display_name, response.body, "a teammate's row stays hidden"
+        assert_no_match person(:kid).display_name, response.body
+      end
+    end
+  end
+
   test "a pooled parent who isn't a guardian finds the wrapped count in the list and sees their family's row only" do
     with_settings(feature_badges: "true", commitments_organizers: "Commitment Organizer > Club") do
       families = create_world_commitment("Family shifts", group_relationship_type: @parent_of)
