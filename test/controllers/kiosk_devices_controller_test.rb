@@ -134,4 +134,29 @@ class KioskDevicesControllerTest < ActionDispatch::IntegrationTest
     get setup_path
     assert_select "a[href=?]", kiosk_devices_path, count: 0
   end
+
+  test "is not listed in setup with time tracking off" do
+    sign_in @admin
+
+    with_settings(feature_time_tracking: "false") do
+      get setup_path
+    end
+
+    assert_response :success
+    assert_select "a[href=?]", kiosk_devices_path, count: 0
+  end
+
+  test "pairing a paired device again asks first" do
+    @device.pair!(@device.issue_pairing_code!)
+    unpaired = KioskDevice.create!(name: "Shop")
+    sign_in @admin
+
+    get kiosk_devices_path
+
+    assert_select "form[action=?][data-controller=submit-confirm][data-action='submit->submit-confirm#confirm']" \
+      "[data-submit-confirm-message-value=?]", pair_kiosk_device_path(@device),
+      "Pair Front door again? The computer paired now leaves the kiosk."
+    assert_select "form[action=?][data-turbo=false]", pair_kiosk_device_path(unpaired)
+    assert_select "form[action=?][data-controller]", pair_kiosk_device_path(unpaired), count: 0
+  end
 end

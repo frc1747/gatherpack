@@ -40,8 +40,11 @@
                 <td><%= kiosk_device.last_seen_at ? "#{time_ago_in_words(kiosk_device.last_seen_at)} ago" : "Never" %></td>
                 <td class="text-end text-nowrap">
                   <%= link_to "Edit", edit_kiosk_device_path(kiosk_device), class: "btn btn-sm btn-outline-secondary" %>
+                  <%# The response shows the pairing link, so it is a full page load, and Turbo's confirm doesn't apply. %>
+                  <% pair_confirm = { controller: "submit-confirm", action: "submit->submit-confirm#confirm",
+                    submit_confirm_message_value: "Pair #{kiosk_device.name} again? The computer paired now leaves the kiosk." } if kiosk_device.paired? %>
                   <%= button_to "Pair again", pair_kiosk_device_path(kiosk_device), method: :post, form_class: "d-inline", class: "btn btn-sm btn-outline-secondary",
-                    form: { data: { turbo: false } } %>
+                    form: { data: { turbo: false, **pair_confirm.to_h } } %>
                   <% unless kiosk_device.revoked? %>
                     <%= button_to "Revoke", revoke_kiosk_device_path(kiosk_device), method: :patch, form_class: "d-inline", class: "btn btn-sm btn-outline-danger",
                       form: { data: { turbo_confirm: "Revoke #{kiosk_device.name}? It leaves the kiosk on its next request." } } %>
