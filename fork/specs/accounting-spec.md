@@ -508,7 +508,7 @@ Each kind receives a person's matching records (§8.5) and returns `value`, `amo
 
 `amount_cents` is the balance remaining. `details`: charged, paid, each charge (external id, `public_label`, date, due date, total, balance, pay link), each milestone met or not, `on_plan`, `unapplied_credit_cents`.
 
-**Milestones** (`accounting_rule_milestones`, prefix `arm`): `rule_id`, `name`, `due_on`, `balance_at_most_cents` or `balance_at_most_percent` (0 = paid in full), `position` (in date order). Met when the balance remaining is at or below the limit (percent of charged). With no milestones, each charge's own `due_on` is a "paid in full" milestone. On a source without `:due_dates`, a rule with no milestones can never be Overdue; the rule form says so beside the milestones: "Nobody will ever be Overdue: this source has no due dates. Add a milestone."
+**Milestones** (`accounting_rule_milestones`, prefix `arm`): `rule_id`, `name`, `due_on`, `balance_at_most_cents` or `balance_at_most_percent` (0 = paid in full), `position` (in date order). Met when the balance remaining is at or below the limit (percent of charged). With no milestones, each charge's own `due_on` is a "paid in full" milestone. With milestones, charge due dates play no part and no screen or reminder shows them (§11.4). On a source without `:due_dates`, a rule with no milestones can never be Overdue; the rule form says so beside the milestones: "Nobody will ever be Overdue: this source has no due dates. Add a milestone."
 
 A person with a payment plan (§8.4) uses the plan's milestones instead.
 
@@ -648,7 +648,7 @@ Admins also see disabled rules, each source's connection state and last sync, th
 
 ### 11.3 Rule page
 
-Header card: name, description, source, the same counts and totals as the list (plus unapplied credit total for admins), and the reminders line. Filter bar: value, team, and for admins **Unapplied credit** and **On a plan**. Table (people the viewer can see): name, team, value (colored), amount (if permitted), "changed on", "Open in <source>" for admins with `:deep_links`; Columns chooser, Print, Download CSV at the bar's right. The CSV for non-admins carries `public_label` text only.
+Header card: name, description, source, the same counts and totals as the list (plus unapplied credit total for admins), and the reminders line. Filter bar: value, team, and for admins **Unapplied credit** and **On a plan**. Table (people the viewer can see; it is the rule page's list of people, so each person's card (§11.4) isn't repeated here): name, team, value (colored), amount (if permitted), "changed on", "Open in <source>" for admins with `:deep_links`; Columns chooser, Print, Download CSV at the bar's right. The CSV for non-admins carries `public_label` text only.
 
 Action row: **Edit**, **Bill people** (admins and `bill` grant holders; §12), then **More**: **Evaluate now**, **Duplicate**, **Delete**.
 
@@ -658,18 +658,22 @@ Action row: **Edit**, **Bill people** (admins and `bill` grant holders; §12), t
 
 ### 11.4 Account tab
 
-A profile tab, **Account**, shown when the viewer can see at least one rule's result for this person. Per rule:
+A profile tab, **Account**, shown when the viewer can see at least one rule's result for this person. Header card ("<name>: Account"), then **one card per rule** (`accounting/results/_card`, the one place this look is built), with generous space between its sections:
 
-- name, value, "as of" time; the milestone line (§8.3), or for a person on a plan, the plan's milestones to those who may see them (§8.4);
-- amount, charges (by `public_label`) and **Pay online** when the viewer meets `amount_permission`, `show_pay_links` is on and the source has `:pay_links`;
-- the "waiting to be applied" line;
-- for admins: **Payment plan**.
+- **Header:** the rule name as a heading (a link for admins), its status badge beside it ("Turned off" and, for admins, "On a plan" too), the rule's description under it in muted text.
+- **The answer** (viewers who meet `amount_permission`): "Balance remaining" over the balance as the large number, "of $300.00 charged" small beside it, a slim progress bar for the paid share (`role="progressbar"`, labelled "Paid $150.00 of $300.00", Bootstrap's `bg-success`, so it follows the theme in dark mode) and "$150.00 paid" under it. `amount` and `count` rules show their one large number. Without a milestone list, the milestone line (§8.3) sits under it.
+- **Milestones** (the rule's, or the person's own plan, to those who may see it, §8.4): a short list, one row each: a badge with an icon and a word (**Met**, **Missed**, **Next**, **Coming up**), the name, "by Feb 11" ("was due Feb 11" when missed), and, with amounts, the catch-up on the missed and the next one: "Paid in full by Feb 11: $150.00 to go". A person on a plan also sees "Owing at most $250.00 by then". Viewers without amounts see the same rows without the money. Viewers who see only the status (§8.4) get "On schedule" or "Overdue" and no list. A rule with no milestones shows no list: its status comes from each invoice's due date, so the milestone line and the due dates below say it.
+- **Invoices** (amounts): a small table, Invoice, What, Date, Total, Left, from the charge's `public_label` ("Invoice 1114 · Membership Dues" splits at the dot) and its date. It's a per-card mini table, so it's exempt from the Columns and heading-filter rule: it has up to a handful of rows inside a card, and a chooser per card would clutter the page and print. A **Due** column appears only when the rule has no milestones (see below). With more than one payable invoice, each row has its own **Pay online** row button.
+- **Waiting credit** (amounts): its own line in a notice, "A payment of $50.00 is waiting to be applied."
+- **Footer:** "Updated 25 Nov, 9:36 am", then the screen kit action row: **Pay online** (primary; the one invoice's pay link, when the viewer meets `amount_permission`, `show_pay_links` is on and the source has `:pay_links`), **Statement** (amounts), and for admins **Payment plan**. On a phone the row keeps the first action and More. Pay online opens in the same tab (the action row can't open a new one).
 
-Below: **Statement** when the viewer meets `amount_permission` for any rule; for admins, linked customers and **Manage links**. Guardians see it on a ward's profile, which they can already open.
+**Invoice due dates and milestones.** With milestones (the rule's or a plan's), the status comes only from them, so an invoice's own due date (often just the source's default terms) means nothing and isn't shown: not on the Account tab, the statement (which has no due column) or reminders (which name milestone dates only). A rule without milestones works from invoice due dates, and those show as the **Due** column and in the milestone line ("Overdue: Invoice 1114 in full").
+
+Below the cards: for admins, linked customers and **Manage links**. Guardians see the tab on a ward's profile, which they can already open.
 
 ### 11.5 Statement (`/people/:id/accounting/statement`)
 
-One table, newest first: the charges matched by rules whose amounts the viewer may see, the payments, credits and refunds whose `applied_to` names those charges (with the applied amount), and the linked customers' unapplied payments and credits. Columns: date, what it is (`public_label`), charge, payment, running balance; current balance at the top. Admins see every record of the linked customers, a `description` column and "Open in <source>" links. Read-only, shared print layout.
+Header card (title and a one-line summary), then the **current balance as the large number**, then one table, newest first: the charges matched by rules whose amounts the viewer may see, the payments, credits and refunds whose `applied_to` names those charges (with the applied amount), and the linked customers' unapplied payments and credits. Columns: date, what it is (`public_label`), charge, payment, running balance. Admins see every record of the linked customers, a `description` column and "Open in <source>" links. Read-only; **Print** in the card footer, hidden when printing. It never shows invoice due dates.
 
 ### 11.6 My GatherPack (connector branch)
 
