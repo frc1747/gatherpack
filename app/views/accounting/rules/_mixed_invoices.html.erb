@@ -13,10 +13,10 @@
       Put each purpose on its own invoice in <%= source.source_name %>.
     </p>
     <% list = capture do %>
-      <div class="table-responsive">
+      <div <%= tag.attributes(class: "table-responsive", data: column_chooser_data("accounting-rule-mixed-invoices")) %>>
         <table class="table table-sm mb-0">
           <thead>
-            <tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Other items</th><th></th></tr>
+            <tr><th data-column-chooser-fixed>Invoice</th><th>Customer</th><th>Date</th><th>Other items</th><th></th></tr>
           </thead>
           <tbody>
             <% findings.each do |finding| %>
@@ -24,7 +24,7 @@
               <tr>
                 <td><%= records_page ? link_to(record.number.presence || record.identifier_name, accounting_connection_record_path(source, record)) : (record.number.presence || record.identifier_name) %></td>
                 <td><%= finding.customer_name %></td>
-                <td><%= record.txn_date && l(record.txn_date, format: :short) %></td>
+                <td data-sort-value="<%= record.txn_date&.iso8601 %>"><%= record.txn_date && l(record.txn_date, format: :short) %></td>
                 <td><%= finding.other_item_names.to_sentence %></td>
                 <td><%= link_to "Open in #{source.source_name}", record.external_url, target: "_blank", rel: "noopener" if deep_links && record.external_url.present? %></td>
               </tr>
