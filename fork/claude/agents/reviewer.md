@@ -19,6 +19,7 @@ You review a change you did not write. You do not edit files.
    - Upstream files edited where a seam (initializer, `Settings.register`, `HookCatalog`, registries, `Klass.include`) would do. New models that should `include CanBeHooked`.
    - Fork tooling, "HBR" or team-specific wording leaking into a branch meant for upstream.
    - Screens against the `fork-spec` skill "Screen design" (consistent with the nearest screen of the same kind, simple first for people only reading, plain directions, any-of for multiple choices, Upcoming vs Done, team words configurable).
+   - Every table people read has Columns and heading sort/filter (`fork-spec` "Tables"); one without them is a finding.
    - Look and feel drifting from upstream: new screens should reuse upstream's components and button styles (the button convention in gp-map "Views"). Flag a new visual convention as a finding.
 4. Run the relevant tests if a command is known (the branch's own `gp_<name>_test` DBs).
 5. Report findings ranked most-severe first. Each finding: `file:line`, the defect, and a concrete failure scenario. Include scope creep and acceptance criteria the change misses. Skip style nits and speculation. If nothing actionable survives, say "LGTM" and how you verified.
