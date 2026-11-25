@@ -26,6 +26,54 @@ class AccountingMixedInvoicesTest < ActionDispatch::IntegrationTest
     accounting_source.accounting_records.create!(entity_type: "Item", external_id: id, role: "item", name: name, data: {})
   end
 
+  # Reads of an invoice paid, applied from a payment.
+  def warns?(rule)
+    evaluate(rule)
+    sign_in @laura.user
+    with_accounting { get accounting_rule_path(rule) }
+    assert_response :success
+    css_select("#accounting-mixed-invoices").any?
+  end
+
+  test "a balance rule warns, even when filtered to charges" do
+    assert warns?(create_rule("Balance", filters: { "items" => [ "dues" ], "roles" => [ "charge" ] }))
+  end
+
+  test "a paid amount matched through invoices warns, also when filtered to payments" do
+    add_payment("58", "P1", total: 10_000, applied: { "I1" => 10_000 })
+    assert warns?(create_rule("Paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ] }))
+    assert warns?(create_rule("Paid by payment", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "roles" => [ "payment" ] }))
+  end
+
+  test "an invoiced amount, receipts and counts never warn" do
+    add_record("58", "receipt", "R1", total_cents: 5_000, item_ids: %w[ dues travel ], txn_date: Date.new(2026, 9, 2))
+    assert_not warns?(create_rule("Invoiced", kind: "amount", measure: "invoiced", filters: { "items" => [ "dues" ] }))
+    assert_not warns?(create_rule("Receipts", kind: "amount", measure: "invoiced", filters: { "items" => [ "dues" ], "roles" => [ "receipt" ] }))
+    assert_not warns?(create_rule("Count", kind: "count", filters: { "items" => [ "dues" ] }))
+  end
+
+  test "a balance rule filtered to payments reads no invoices, so it never warns" do
+    assert_not warns?(create_rule("Odd", filters: { "items" => [ "dues" ], "roles" => [ "payment" ] }))
+  end
+
+  test "a receipt on a mixed item isn't listed as an invoice" do
+    add_record("58", "receipt", "R1", total_cents: 5_000, item_ids: %w[ dues travel ], number: "R-1")
+    sign_in @laura.user
+
+    with_accounting { get accounting_rule_path(@rule) }
+
+    assert_select "#accounting-mixed-invoices tbody tr", count: 1
+  end
+
+  test "the table has the column chooser and an ISO sort value on the date" do
+    sign_in @laura.user
+
+    with_accounting { get accounting_rule_path(@rule) }
+
+    assert_column_chooser "accounting-rule-mixed-invoices"
+    assert_select "#accounting-mixed-invoices td[data-sort-value='2026-09-01']"
+  end
+
   test "a mixed invoice warns and names the other item" do
     sign_in @laura.user
 
