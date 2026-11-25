@@ -16,11 +16,14 @@ class Accounting::PaymentPlansController < Accounting::BaseController
   def update
     @rows = assign_rows
     kept = @rows.reject { |row| row.marked_for_destruction? || blank?(row) }
-    if kept.all?(&:valid?) && save_rows(kept)
+    # Every row is checked, so all their errors show at once.
+    if kept.map(&:valid?).all? && save_rows(kept)
       evaluate
       redirect_to person_accounting_path(@person), notice: plan_notice(kept), status: :see_other
     else
-      @rows = @rows.reject(&:marked_for_destruction?) + blank_rows(BLANK_ROWS)
+      # Rows ticked Remove stay on the form, still ticked, so the next Save
+      # removes them.
+      @rows += blank_rows(BLANK_ROWS)
       render :edit, status: :unprocessable_content
     end
   end
@@ -64,7 +67,12 @@ class Accounting::PaymentPlansController < Accounting::BaseController
     def save_rows(kept)
       AccountingPersonMilestone.transaction do
         @rows.select { |row| row.persisted? && (row.marked_for_destruction? || blank?(row)) }.each(&:destroy!)
-        kept.each_with_index { |row, index| row.position = index; row.save! }
+        # Only new and changed rows are saved, so update hooks fire only for
+        # rows that changed.
+        kept.each_with_index do |row, index|
+          row.position = index
+          row.save! if row.new_record? || row.changed?
+        end
       end
       true
     end

@@ -71,9 +71,24 @@ class Accounting::PaymentPlansTest < ActiveSupport::TestCase
         .select { |_, viewer| Accounting::RuleAccess.new(viewer, @nancy, rule).sees_plan? }.keys
       assert_equal %i[ subject guardian admin ], seers
       assert Accounting::RuleAccess.new(robert, @nancy, rule).can_see_amounts?
-      assert Accounting::RuleAccess.new(@andrew, @nancy, rule).plan_hidden?(result)
-      assert_not Accounting::RuleAccess.new(@margaret, @nancy, rule).plan_hidden?(result)
+      assert Accounting::RuleAccess.new(@andrew, @nancy, rule).status_only?
+      assert Accounting::RuleAccess.new(robert, @nancy, rule).status_only?
+      assert_not Accounting::RuleAccess.new(@margaret, @nancy, rule).status_only?
+      assert_not Accounting::RuleAccess.new(@nancy, @nancy, rule).status_only?
+      assert_not Accounting::RuleAccess.new(@laura, @nancy, rule).status_only?
+      assert result.on_plan?
     end
+  end
+
+  test "on a rule with any plan, a leader sees only statuses for everyone; without plans, the milestones" do
+    assert_not Accounting::RuleAccess.new(@andrew, @janet, @rule).status_only?, "no plans yet"
+
+    add_plan_row(@nancy, "First payment", Date.new(2026, 12, 1), 0)
+    rule = AccountingRule.find(@rule.id)
+
+    assert Accounting::RuleAccess.new(@andrew, @janet, rule).status_only?, "Janet isn't on a plan, but reads like those who are"
+    assert Accounting::RuleAccess.new(@andrew, @nancy, rule).status_only?
+    assert_not Accounting::RuleAccess.new(@janet, @janet, rule).status_only?, "people see their own milestones"
   end
 
   test "Duplicate doesn't copy plans" do

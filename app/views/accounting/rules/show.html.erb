@@ -54,7 +54,7 @@
       <% columns << [ "Amount", ->(result) { accounting_result_amount(result) if @amount_ids.include?(result.person_id) } ] %>
     <% end %>
     <% if @rule.balance? %>
-      <% columns << [ "Next", ->(result) { accounting_milestone_line(result, amounts: @amount_ids.include?(result.person_id), plan_hidden: @plan_hidden_ids.include?(result.person_id)) } ] %>
+      <% columns << [ "Next", ->(result) { accounting_milestone_line(result, amounts: @amount_ids.include?(result.person_id), status_only: @status_only_ids.include?(result.person_id)) } ] %>
     <% end %>
     <% columns << [ "Changed on", ->(result) { result.changed_at && l(result.changed_at.to_date, format: :short) } ] %>
     <% if admin && @rule.balance? %>

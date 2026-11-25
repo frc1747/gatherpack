@@ -23,7 +23,7 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
       milestones: [ { name: "Deposit", due_on: Date.new(2099, 10, 1), balance_at_most_percent: 50 } ])
     @rule.person_milestones.create!(person: @nancy, name: "First payment", due_on: Date.new(2099, 9, 1), balance_at_most_cents: 25_000,
       note: "Agreed with the family by phone", created_by: @laura)
-    @rule.person_milestones.create!(person: @nancy, name: "Last payment", due_on: Date.new(2099, 12, 1), balance_at_most_cents: 0)
+    @rule.person_milestones.create!(person: @nancy, name: "Last payment", due_on: Date.new(2099, 12, 1), balance_at_most_cents: 0, position: 1)
     evaluate(@rule)
   end
 
@@ -43,7 +43,7 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a leader sees only the status on the Account tab and the rule page" do
+  test "on a rule with a plan, a leader sees only the status for everyone, on the Account tab and the rule page" do
     sign_in @andrew.user
 
     with_accounting { get person_accounting_path(@nancy) }
@@ -54,13 +54,108 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
 
     with_accounting { get accounting_rule_path(@rule) }
     assert_response :success
-    assert_select "td", text: "On schedule"
-    assert_select "td", text: /Next: \$100\.00 by/, count: 1
+    assert_select "td", text: "On schedule", count: 2, message: "Janet, on the rule's milestones, reads the same as Nancy on her plan"
+    assert_no_match "Next:", response.body
+    assert_no_match "Deposit", response.body
     assert_no_match "First payment", response.body
     assert_no_match "On a plan", response.body
 
     with_accounting { get accounting_rule_path(@rule, plan: "1") }
     assert_select "td", text: /Janet/
+  end
+
+  test "a leader sees only Overdue for an overdue person on a rule with a plan" do
+    add_charge("60", "I3", total: 10_000, balance: 10_000, due_on: Date.new(2020, 1, 1))
+    @rule.milestones.create!(name: "Early fee", due_on: Date.new(2020, 1, 1), balance_at_most_cents: 0)
+    evaluate(@rule)
+    sign_in @andrew.user
+
+    with_accounting { get accounting_rule_path(@rule) }
+
+    assert_equal "overdue", result_for(@rule, @janet).value
+    assert_select "td", text: "Overdue", count: 2, message: "the status and the Next column"
+    assert_no_match "Early fee", response.body
+  end
+
+  test "on a rule without plans, a leader sees the milestone names" do
+    @rule.person_milestones.destroy_all
+    evaluate(@rule)
+    sign_in @andrew.user
+
+    with_accounting { get accounting_rule_path(@rule) }
+    assert_select "td", text: /Next: \$100\.00 by/, count: 2
+    assert_no_match "On schedule", response.body
+
+    with_accounting { get person_accounting_path(@nancy) }
+    assert_select "##{dom_id(result_for(@rule, @nancy))}", text: /Next: \$100\.00 by/
+  end
+
+  test "the plan page says who sees the plan by the rule's levels" do
+    sign_in @laura.user
+
+    with_accounting { get edit_accounting_rule_payment_plan_path(@rule, @nancy) }
+    assert_select ".card-header .text-muted", text: /The person and their guardians see the plan's names and dates and amounts\./
+
+    @rule.update!(read_permission: "family", amount_permission: "self")
+    with_accounting { get edit_accounting_rule_payment_plan_path(@rule, @nancy) }
+    assert_select ".card-header .text-muted", text: /The person and their guardians see the plan's names and dates, and the person its amounts too\./
+
+    @rule.update!(read_permission: "leaders", amount_permission: "leaders")
+    with_accounting { get edit_accounting_rule_payment_plan_path(@rule, @nancy) }
+    assert_select ".card-header .text-muted", text: /On this rule's settings only admins see the plan/
+
+    @rule.update!(read_permission: "admin", amount_permission: "admin")
+    with_accounting { get edit_accounting_rule_payment_plan_path(@rule, @nancy) }
+    assert_select ".card-header .text-muted", text: /On this rule's settings only admins see the plan/
+    assert_select ".card-header .text-muted", text: /amounts/, count: 0
+  end
+
+  test "a row ticked Remove stays ticked when the save fails, and goes on the next save" do
+    sign_in @laura.user
+    first, last = @rule.person_milestones.where(person: @nancy).to_a
+    rows = ->(last_date) { { "0" => { id: first.id, name: first.name, due_on: first.due_on.iso8601, balance_at_most: "250", _destroy: "1" },
+                             "1" => { id: last.id, name: last.name, due_on: last_date, balance_at_most: "0" } } }
+
+    with_accounting { patch accounting_rule_payment_plan_path(@rule, @nancy), params: { plan: { rows: rows.call("") } } }
+    assert_response :unprocessable_content
+    assert_select "input[type=hidden][value=?]", first.id
+    assert_select "input[type=checkbox][name=?][checked]", "plan[rows][0][_destroy]"
+
+    with_accounting { patch accounting_rule_payment_plan_path(@rule, @nancy), params: { plan: { rows: rows.call("2099-12-01") } } }
+    assert_redirected_to person_accounting_path(@nancy)
+    assert_equal [ "Last payment" ], @rule.person_milestones.where(person: @nancy).map(&:name)
+  end
+
+  test "every bad row's errors show at once" do
+    sign_in @laura.user
+
+    with_accounting do
+      patch accounting_rule_payment_plan_path(@rule, @janet), params: { plan: { rows: {
+        "0" => { name: "First payment", due_on: "", balance_at_most: "100" },
+        "1" => { name: "Second payment", due_on: "2099-10-01", balance_at_most: "100", balance_at_most_percent: "10" } } } }
+    end
+
+    assert_response :unprocessable_content
+    assert_select ".alert-danger li", text: /First payment: Due on can't be blank/
+    assert_select ".alert-danger li", text: /Second payment: Give the balance at most as an amount or a percent, not both/
+  end
+
+  test "saving fires update hooks only for rows that changed" do
+    Thread.current[:accounting_plan_updates] = []
+    Hook.create!(name: "Plan changed", event: "accounting_person_milestones - update", code: "Thread.current[:accounting_plan_updates] << model.name")
+    sign_in @laura.user
+    first, last = @rule.person_milestones.where(person: @nancy).to_a
+
+    with_accounting do
+      patch accounting_rule_payment_plan_path(@rule, @nancy), params: { plan: { rows: {
+        "0" => { id: first.id, name: first.name, due_on: first.due_on.iso8601, balance_at_most: "250", note: "Moved by a week" },
+        "1" => { id: last.id, name: last.name, due_on: last.due_on.iso8601, balance_at_most: "0" } } } }
+    end
+
+    assert_redirected_to person_accounting_path(@nancy)
+    assert_equal [ "First payment" ], Thread.current[:accounting_plan_updates]
+  ensure
+    Thread.current[:accounting_plan_updates] = nil
   end
 
   test "admins see the plan mark, the note on the plan page, and the On a plan filter" do
@@ -81,6 +176,9 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
     with_accounting { get edit_accounting_rule_payment_plan_path(@rule, @nancy) }
     assert_response :success
     assert_select "input[value=?]", "Agreed with the family by phone"
+    # The form's fields name the rows the way update reads them.
+    assert_select "input[name=?][value=?]", "plan[rows][0][name]", "First payment"
+    assert_select "input[name=?]", "plan[rows][3][due_on]"
     assert_select "button", text: "Remove plan"
   end
 

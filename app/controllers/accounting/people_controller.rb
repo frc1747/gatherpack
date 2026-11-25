@@ -11,9 +11,10 @@ class Accounting::PeopleController < Accounting::BaseController
     access = @results.to_h { |result| [ result.id, Accounting::RuleAccess.new(viewer, @person, result.rule) ] }
     @amounts = access.transform_values(&:can_see_amounts?)
     # A payment plan's milestones show to the person, their guardians and
-    # admins; to anyone else the person's milestone line is only the status.
+    # admins. On a rule with plans, anyone else sees only the status
+    # (Accounting::RuleAccess#status_only?).
     @plans = @results.to_h { |result| [ result.id, result.on_plan? && access[result.id].sees_plan? ] }
-    @plan_hidden = @results.to_h { |result| [ result.id, access[result.id].plan_hidden?(result) ] }
+    @status_only = @results.to_h { |result| [ result.id, access[result.id].status_only? ] }
     @statement = Accounting::AccountPolicy.new(current_user, @person).statement?
     @customer_links = AccountingCustomerLink.where(person: @person).includes(:gateway).order(:created_at) if current_user.admin
   end

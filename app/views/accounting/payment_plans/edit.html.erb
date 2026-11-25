@@ -6,7 +6,7 @@
     <h1>Payment plan: <%= @person.identifier_name %></h1>
     <div class="text-muted">
       <%= @rule.name %>. These milestones replace the rule's for <%= @person.first_name.presence || @person.identifier_name %> only.
-      They see the plan's names, dates and amounts, as do their guardians; leaders see only the status. Only admins see that they're on a plan, and the notes.
+      <%= accounting_plan_audience(@rule) %> Only admins see that anyone is on a plan, and the notes.
     </div>
   </div>
   <%= form_with scope: :plan, url: accounting_rule_payment_plan_path(@rule, @person), method: :patch, id: "payment-plan-form" do |f| %>
@@ -31,7 +31,7 @@
           </thead>
           <tbody>
             <% @rows.each_with_index do |row, index| %>
-              <%= f.fields_for "rows[#{index}]", row do |m| %>
+              <%= fields_for "plan[rows][#{index}]", row do |m| %>
                 <tr>
                   <td>
                     <% if row.persisted? %><%= m.hidden_field :id %><% end %>

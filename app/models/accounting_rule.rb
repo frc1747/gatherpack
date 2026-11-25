@@ -180,6 +180,14 @@ class AccountingRule < ApplicationRecord
     person_milestones.where(person_id: person.id).to_a
   end
 
+  # Whether anyone has a payment plan for this rule (for viewers who see
+  # only statuses then, Accounting::RuleAccess#status_only?).
+  def any_plans?
+    return @any_plans if defined?(@any_plans)
+
+    @any_plans = balance? && persisted? && person_milestones.exists?
+  end
+
   # The people with a payment plan for this rule.
   def planned_person_ids
     person_milestones.unscope(:order).distinct.pluck(:person_id)

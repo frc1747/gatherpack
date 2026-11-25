@@ -44,14 +44,15 @@ module AccountingHelper
   end
 
   # The milestone line under a balance result: the missed milestone, or the
-  # next one. Amounts only for viewers who may see them; dates too. For a
-  # person on a payment plan the viewer may not see (plan_hidden:), only
-  # "On schedule" while they are: no names, dates or amounts.
-  def accounting_milestone_line(result, amounts:, plan_hidden: false)
+  # next one. Amounts only for viewers who may see them; dates too. With
+  # status_only: (a rule with payment plans, for viewers who mayn't see
+  # them; Accounting::RuleAccess#status_only?), only "On schedule" or
+  # "Overdue": no names, dates or amounts.
+  def accounting_milestone_line(result, amounts:, status_only: false)
     missed = result.detail(:missed)
     coming = result.detail(:next)
-    if plan_hidden
-      "On schedule" if result.value.in?(%w[ partial unpaid ])
+    if status_only
+      { "partial" => "On schedule", "unpaid" => "On schedule", "overdue" => "Overdue" }[result.value]
     elsif result.value == "overdue" && missed
       [ "Overdue: #{missed["name"]}", (accounting_catch_up(missed) if amounts) ].compact.join(" · ")
     elsif coming && result.value != "paid"
@@ -82,6 +83,27 @@ module AccountingHelper
     text = "Reminders: #{parts.join(", then ")}"
     last = rule.reminders.maximum(:sent_at)
     last ? "#{text}; last sent #{l(last.to_date, format: :short)}" : text
+  end
+
+  # Who sees a payment plan, by the rule's levels: the person and their
+  # guardians see its names and dates when the rule shows them the result,
+  # and its amounts when it shows them amounts. Everyone else sees only the
+  # status.
+  def accounting_plan_audience(rule)
+    names = accounting_plan_viewers(rule.read_permission)
+    amounts = accounting_plan_viewers(rule.amount_permission) & names
+    return "On this rule's settings only admins see the plan; everyone else who sees the result sees only the status." if names.empty?
+
+    seen = "#{names.to_sentence.upcase_first} #{names.one? && names.first == "the person" ? "sees" : "see"} the plan's names and dates"
+    seen += if amounts == names then " and amounts"
+    elsif amounts.any? then ", and #{amounts.to_sentence} its amounts too"
+    else ", but not its amounts"
+    end
+    "#{seen}. Everyone else who sees the result sees only the status."
+  end
+
+  def accounting_plan_viewers(level)
+    [ ("the person" if AudienceLevels.reaches?(level, :subject)), ("their guardians" if AudienceLevels.reaches?(level, :guardian)) ].compact
   end
 
   def accounting_catch_up(milestone)

@@ -114,17 +114,17 @@ class Accounting::RulesController < Accounting::BaseController
       results = results.where(person_id: @planned_ids.to_a) if current_user.admin && params[:plan] == "1"
       @rows = results.joins(:person).order("people.last_name", "people.first_name").to_a
       @amount_ids = @rule.amount_people_for(viewer).where(id: @rows.map(&:person_id)).ids.to_set
-      @plan_hidden_ids = plan_hidden_ids(viewer)
+      @status_only_ids = status_only_ids(viewer)
       @customer_urls = customer_urls if current_user.admin && @rule.capabilities.include?(:deep_links)
     end
 
-    # The people on a payment plan whose plan the viewer may not see: their
-    # milestone line is only the status. None for admins.
-    def plan_hidden_ids(viewer)
-      return Set.new if current_user.admin || !@rule.balance?
+    # The people whose milestone line the viewer sees as the status only:
+    # on a rule with payment plans, everyone but themselves and their
+    # wards. None for admins, or on a rule without plans.
+    def status_only_ids(viewer)
+      return Set.new if current_user.admin || !@rule.any_plans?
 
-      @rows.select(&:on_plan?).select { |result| Accounting::RuleAccess.new(viewer, result.person, @rule).plan_hidden?(result) }
-        .map(&:person_id).to_set
+      @rows.select { |result| Accounting::RuleAccess.new(viewer, result.person, @rule).status_only? }.map(&:person_id).to_set
     end
 
     # Admins' "Open in" link for each person: their first linked customer.

@@ -20,7 +20,7 @@
               <% unless rule.enabled? %><span class="badge text-bg-secondary">Turned off</span><% end %>
               <% if admin && result.on_plan? %><span class="badge text-bg-secondary">On a plan</span><% end %>
               <% if rule.description.present? %><div class="text-muted small"><%= rule.description %></div><% end %>
-              <% if rule.balance? && (line = accounting_milestone_line(result, amounts: amounts, plan_hidden: @plan_hidden[result.id])) %>
+              <% if rule.balance? && (line = accounting_milestone_line(result, amounts: amounts, status_only: @status_only[result.id])) %>
                 <div><%= line %></div>
               <% end %>
               <% if @plans[result.id] && (plan = accounting_plan_milestones(result, amounts: amounts)).any? %>

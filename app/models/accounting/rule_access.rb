@@ -41,10 +41,16 @@ class Accounting::RuleAccess < AudienceAccess
     admin? || component?(:subject) || component?(:guardian)
   end
 
-  # Whether the viewer may see the result's milestone line: everyone who
-  # sees the result, unless the person is on a plan the viewer may not see.
-  def plan_hidden?(result)
-    result.on_plan? && !sees_plan?
+  # Whether the viewer sees only the status in the result's milestone line
+  # ("On schedule", "Overdue"), without milestone names, dates or amounts.
+  # On a rule that has any payment plan, that's every viewer but admins and
+  # the person and their guardians, for everyone on the rule: showing the
+  # milestone names for people on the rule's milestones would pick out the
+  # people on a plan. Rules without plans show the names.
+  def status_only?
+    return false if admin? || component?(:subject) || component?(:guardian)
+
+    rule.any_plans?
   end
 
   private
