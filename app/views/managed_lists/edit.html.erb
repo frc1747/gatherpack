@@ -1,0 +1,14 @@
+<% breadcrumb :managed_list_row, @list, @row %>
+
+<%= simple_form_for(@row, as: :row, url: managed_list_row_path(@list.key, @row), method: :patch) do |f| %>
+<div class="card">
+  <%= render "shared/page_header", title: "Editing #{@row.name_was}" %>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", managed_list_path(@list.key), class: "btn btn-secondary" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
