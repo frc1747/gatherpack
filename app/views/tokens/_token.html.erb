@@ -1,5 +1,5 @@
 <div class="card" id="<%= dom_id token %>">
   <div class="card-header">
-    <%= link_to token.identifier_name, token, "data-turbo": "false" %>
+    <%= link_to token.identifier_name, token, data: { turbo_frame: "_top" } %>
   </div>
 </div>
