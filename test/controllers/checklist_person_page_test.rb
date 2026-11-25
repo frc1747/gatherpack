@@ -70,6 +70,27 @@ class ChecklistPersonPageTest < ActionDispatch::IntegrationTest
     Checklists.unregister_item_kind(:tally)
   end
 
+  test "another checklist's line that reads Not required shows only its pill, no status sentence" do
+    outreach = create_world_checklist("Outreach")
+    add_rule(outreach, :include, :team, team_id: @members.id)
+    safety = add_item(outreach, :badge, "Safety", { badge_ids: [ @safety.id ] })
+    add_rule(outreach, :exclude, :person, item: safety, person_id: person(:member).id)
+    season = create_world_checklist("Season")
+    add_rule(season, :include, :team, team_id: @members.id)
+    add_item(season, :checklist, "Outreach", { checklist_id: outreach.id })
+    add_item(season, :has_login, "Login")
+    [ outreach, season ].each { |checklist| refresh(checklist) }
+
+    with_feature do
+      sign_in person(:member).user
+      get person_checklists_path(person(:member))
+
+      assert_response :success
+      assert_select "##{dom_id(season)} .badge", text: "Not required"
+      assert_select "##{dom_id(season)} .small", text: "Outreach: Not required", count: 0
+    end
+  end
+
   test "Checklists.without_repeats judges by what the viewer sees of each line" do
     results = Checklists.checklist_for(person(:member), viewer: person(:member))
     assert_equal %w[Travel Trip], Checklists.without_repeats(results).map { |checklist, _| checklist.title }.sort
