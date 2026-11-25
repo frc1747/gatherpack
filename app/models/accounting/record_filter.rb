@@ -28,12 +28,20 @@ class Accounting::RecordFilter
     chosen.empty? ? kind_roles : kind_roles & chosen
   end
 
-  # items: false leaves the item filter out, for records whose lines aren't
-  # what a rule's items name (payments, matched to charges instead).
-  def apply(scope, items: true)
-    scope = overlap(scope, :item_ids, self.items) if items
-    scope = overlap(scope, :class_ids, Array(filters["classes"]))
-    scope = overlap(scope, :location_ids, Array(filters["locations"]))
+  # Whether the filter names items, categories or locations: what charges
+  # carry and payments don't, so payments are matched through charges.
+  def lines?
+    items.any? || Array(filters["classes"]).any? || Array(filters["locations"]).any?
+  end
+
+  # lines: false leaves out the item, category and location filters, for
+  # records that don't carry them (payments, matched to charges instead).
+  def apply(scope, lines: true)
+    if lines
+      scope = overlap(scope, :item_ids, items)
+      scope = overlap(scope, :class_ids, Array(filters["classes"]))
+      scope = overlap(scope, :location_ids, Array(filters["locations"]))
+    end
     scope = scope.where(txn_date: range("txn_date")) if range("txn_date")
     scope = due_dates(scope)
     scope = scope.where(total_cents: filters["min_total"].to_i..) if filters["min_total"].present?

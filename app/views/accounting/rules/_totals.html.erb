@@ -1,13 +1,15 @@
 <%# locals: (summary:) -%>
-<%# Money summed over the people whose amounts the viewer may see; nothing
-    when that's nobody. %>
-<% if summary.amounts? %>
-  <% totals = summary.totals %>
+<%# Money (or a count) summed over the people whose amounts the viewer may
+    see; nothing when that's nobody or the rule gives no figure. %>
+<% totals = summary.amounts? ? summary.totals : {} %>
+<% if totals.any? %>
   <span class="accounting-totals">
-    <% if summary.rule.balance? %>
+    <% if totals.key?(:balance) %>
       Charged <%= accounting_cents(totals[:charged]) %> · Paid <%= accounting_cents(totals[:paid]) %> ·
       Balance remaining <%= accounting_cents(totals[:balance]) %>
-    <% elsif summary.rule.kind == "amount" %>
+    <% elsif totals.key?(:count) %>
+      Total <%= totals[:count] %>
+    <% else %>
       Total <%= accounting_cents(totals[:amount]) %>
     <% end %>
     <% if summary.amount_people_count < summary.people_count %>

@@ -172,13 +172,36 @@ class AccountingRule < ApplicationRecord
     missing_roles.empty?
   end
 
-  # The roles the kind needs at least one of, as its source must copy them.
+  # The roles the source must copy for the rule to be worked out: the ones
+  # its filter names that the kind reads, else the ones the kind can't do
+  # without (a paid amount matched by items, categories or locations reads
+  # charges too).
   def needed_roles
+    return (filter_roles & read_roles) | (paid_through_charges? ? [ "charge" ] : []) if filter_roles.any?
+
     case kind
     when "balance" then [ "charge" ]
-    when "amount" then measure == "paid" ? [ "payment" ] : [ "charge" ]
+    when "amount" then measure == "paid" ? [ "payment", *("charge" if paid_through_charges?) ] : [ "charge" ]
     else []
-    end.reject { |role| filter_roles.any? && filter_roles.exclude?(role) }
+    end
+  end
+
+  # Whether the rule reads charges: a paid amount only when it's matched
+  # through them (items, categories or locations), whatever roles it names;
+  # other kinds unless their roles leave charges out.
+  def reads_charges?
+    return paid_through_charges? if kind == "amount" && measure == "paid"
+
+    Accounting::RecordFilter.new(filters).roles(read_roles).include?("charge")
+  end
+
+  # Every role the kind reads.
+  def read_roles
+    case kind
+    when "balance" then %w[ charge ]
+    when "amount" then measure == "paid" ? %w[ payment receipt refund charge ] : %w[ charge receipt ]
+    else Accounting::Kinds::Count::ROLES
+    end
   end
 
   def filter_roles
@@ -254,14 +277,28 @@ class AccountingRule < ApplicationRecord
     results.includes(:person, :badge_assignment).find_each { |result| undo.undo(result) }
   end
 
+  # The grants whose badges the viewer (a Person) holds; with amounts, only
+  # those that show amounts. Any one of them is enough: the people lists here
+  # and Accounting::RuleAccess both go through this.
+  def grants_held_by(viewer, amounts: false)
+    return [] unless viewer && GatherPack::Features.enabled?(:badges)
+
+    badge_ids = viewer.badge_ids
+    badge_grants.includes(:badge).select { |grant| badge_ids.include?(grant.badge_id) && (!amounts || grant.amounts?) }
+  end
+
   private
+    # A paid amount filtered by items, categories or locations counts what
+    # payments applied to the matching charges (Accounting::Kinds::Amount),
+    # so it reads charges only while its roles keep payments.
+    def paid_through_charges?
+      filter = Accounting::RecordFilter.new(filters)
+      kind == "amount" && measure == "paid" && filter.lines? && filter.roles(%w[ payment ]).any?
+    end
 
     # The people covered by grants whose badges the viewer holds.
     def granted_people(viewer, amounts: false)
-      return [] unless GatherPack::Features.enabled?(:badges)
-
-      badge_ids = viewer.badge_ids
-      badge_grants.includes(:badge).select { |grant| badge_ids.include?(grant.badge_id) && (!amounts || grant.amounts?) }.map(&:covered_people)
+      grants_held_by(viewer, amounts: amounts).map(&:covered_people)
     end
 
     def generate_key
@@ -317,7 +354,14 @@ class AccountingRule < ApplicationRecord
     end
 
     def filter_dates_valid
-      errors.add(:filters, "have a date that isn't a date") if filters.any? { |key, value| key.end_with?("_from", "_to") && !value.to_s.match?(/\A\d{4}-\d{2}-\d{2}\z/) }
+      errors.add(:filters, "have a date that isn't a date") if filters.any? { |key, value| key.end_with?("_from", "_to") && !iso_date?(value) }
+      errors.add(:filters, "can't skip records under less than nothing") if filters["min_total"].to_i.negative?
+    end
+
+    def iso_date?(value)
+      value.to_s.match?(/\A\d{4}-\d{2}-\d{2}\z/) && Date.iso8601(value.to_s).present?
+    rescue Date::Error
+      false
     end
 
     def source_is_accounting

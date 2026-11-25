@@ -108,6 +108,57 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     assert_no_match "Description", response.body
   end
 
+  test "393#1: a statement shows only charges a visible rule reads, not every charge its filters allow" do
+    @rule.update!(read_permission: "admin", amount_permission: "admin")
+    receipts = create_rule("Receipts", kind: "count", read_permission: "family", amount_permission: "family", filters: { "roles" => [ "receipt" ] })
+    paid = create_rule("Paid", kind: "amount", measure: "paid", read_permission: "family", amount_permission: "family")
+    evaluate(receipts)
+    evaluate(paid)
+    sign_in @margaret.user
+
+    with_accounting { get person_accounting_statement_path(@nancy) }
+
+    assert_response :success
+    assert_no_match "Invoice 1042", response.body
+    assert_no_match "Invoice 1050", response.body
+    labels = css_select("tbody tr td:nth-child(2)").map { |cell| cell.text.strip }
+    assert_equal [ "Payment" ], labels, "only the unapplied money"
+    assert_select "##{dom_id(record("P1"))} td", text: "$50.00"
+  end
+
+  test "393#1 fix round: a paid amount with items and only payments ticked keeps its charges on the statement" do
+    @rule.update!(read_permission: "admin", amount_permission: "admin")
+    paid = create_rule("Dues paid", kind: "amount", measure: "paid", read_permission: "family", amount_permission: "family",
+      filters: { "items" => [ "dues" ], "roles" => [ "payment" ] })
+    evaluate(paid)
+    sign_in @margaret.user
+
+    with_accounting { get person_accounting_statement_path(@nancy) }
+
+    assert_response :success
+    labels = css_select("tbody tr td:nth-child(2)").map { |cell| cell.text.strip }
+    assert_equal [ "Credit", "Payment", "Invoice 1042 · Dues" ], labels
+    assert_no_match "Invoice 1050", response.body
+  end
+
+  test "393#1 fix round 2: a paid amount with items that names only receipts puts no charges on the statement" do
+    accounting_source.update!(synced_entities: "Customer Invoice Payment CreditMemo SalesReceipt Item")
+    @rule.update!(read_permission: "admin", amount_permission: "admin")
+    receipts = create_rule("Dues receipts", kind: "amount", measure: "paid", read_permission: "family", amount_permission: "family",
+      filters: { "items" => [ "dues" ], "roles" => [ "receipt" ] })
+    evaluate(receipts)
+    sign_in @margaret.user
+
+    with_accounting { get person_accounting_statement_path(@nancy) }
+
+    assert_response :success
+    assert_no_match "Invoice 1042", response.body
+    assert_no_match "Invoice 1050", response.body
+    labels = css_select("tbody tr td:nth-child(2)").map { |cell| cell.text.strip }
+    assert_equal [ "Payment" ], labels, "only the unapplied money"
+    assert_select "##{dom_id(record("P1"))} td", text: "$50.00"
+  end
+
   test "admins see every record of the person's customers with descriptions" do
     sign_in @laura.user
 
@@ -128,6 +179,16 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     with_accounting { get person_accounting_statement_path(@nancy) }
 
     assert_redirected_to root_path
+  end
+
+  test "393#11: the Account tab shows a custom rule's amount" do
+    given = create_rule("Given", kind: "custom", code: '{ value: "given", amount_cents: 5_000 }', read_permission: "self", amount_permission: "self")
+    evaluate(given)
+    sign_in @nancy.user
+
+    with_accounting { get person_accounting_path(@nancy) }
+
+    assert_select "##{dom_id(result_for(given, @nancy))}", text: /\$50\.00/
   end
 
   test "a non-admin never sees a custom rule's error" do

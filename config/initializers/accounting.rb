@@ -55,4 +55,10 @@ Rails.application.config.to_prepare do
   [ Ledger, LedgerEntry, LedgerTagging, LedgerOwnership ].each do |model|
     model.include(Accounting::LedgerChanges) unless model < Accounting::LedgerChanges
   end
+
+  # Ledger owner links leave out a guardian of another owner, so they're
+  # brought up to date when guardianship changes.
+  [ Relationship, RelationshipType ].each do |model|
+    model.include(Accounting::GuardianshipChanges) unless model < Accounting::GuardianshipChanges
+  end
 end

@@ -101,9 +101,11 @@ class Gateway::FileSource < Gateway
   end
 
   private
+    # The reference is the lowercased cell (the customer's id), so a
+    # spreadsheet's "Per_…" still matches a person id.
     def normalize_customer(data)
       label = data["label"].to_s
-      reference = label if label.match?(REFERENCE)
+      reference = data["id"].to_s if label.match?(REFERENCE)
       { role: "customer", customer_external_id: data["id"], name: label, active: true,
         email: (label if reference && label.include?("@")), reference: reference }
     end

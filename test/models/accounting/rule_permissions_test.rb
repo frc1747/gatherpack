@@ -56,6 +56,19 @@ class Accounting::RulePermissionsTest < ActiveSupport::TestCase
     end
   end
 
+  test "393#13: amounts at every level, under a result everyone sees, reach the people the level names" do
+    READERS.each do |level, expected|
+      rule = create_rule("Dues amounts #{level}", read_permission: "everyone", amount_permission: level)
+
+      seers = @viewers.select { |_, viewer| access(viewer, rule).can_see_amounts? }.keys
+      assert_equal expected, seers, "amount_permission #{level}"
+      @viewers.each do |role, viewer|
+        assert_equal seers.include?(role), rule.amount_people_for(viewer).include?(@nancy), "#{level}: relation and check agree for #{role}"
+      end
+      assert access(@laura, rule).can_see_amounts?
+    end
+  end
+
   test "amount_permission must sit within read_permission" do
     rule = AccountingRule.new(name: "Dues", kind: "balance", gateway: accounting_source, read_permission: "self", amount_permission: "family")
 
@@ -90,6 +103,25 @@ class Accounting::RulePermissionsTest < ActiveSupport::TestCase
     end
 
     with_settings(feature_badges: "false") { assert_not access(robert, rule.reload).can_read? }
+  end
+
+  test "393#2: any grant the viewer holds that shows amounts shows them, whatever order the grants come in" do
+    robert = create_rule_person("Robert", "King")
+    mentor = create_rule_badge("Mentor")
+    treasurer = create_rule_badge("Treasurer")
+    [ mentor, treasurer ].each { |badge| BadgeAssignment.create!(badge: badge, person: robert) }
+    rule = create_rule(read_permission: "admin", amount_permission: "admin")
+    rule.badge_grants.create!(badge: mentor, amounts: false)
+    rule.badge_grants.create!(badge: treasurer, amounts: true)
+    evaluate(rule)
+
+    with_settings(feature_badges: "true") do
+      rule.reload
+      assert access(robert, rule).can_read?
+      assert access(robert, rule).can_see_amounts?
+      assert rule.amount_people_for(robert).include?(@nancy)
+      assert_equal [ treasurer.id ], rule.grants_held_by(robert, amounts: true).map(&:badge_id)
+    end
   end
 
   test "a team badge grant covers only that team and below; only admin-assigned badges can grant" do

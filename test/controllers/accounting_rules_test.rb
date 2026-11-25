@@ -175,6 +175,21 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_equal [ [ badge, true ] ], @rule.badge_grants.map { |grant| [ grant.badge, grant.amounts ] }
   end
 
+  test "393#10: an amount to skip that isn't one is refused, not cleared" do
+    @rule.update!(filters: { "min_total" => 2_500 })
+    sign_in @laura.user
+
+    with_accounting do
+      patch accounting_rule_path(@rule), params: { tab: "records", accounting_rule: { filters: { min_total: "abc" } } }
+      assert_response :unprocessable_content
+      assert_match "Skip records under isn&#39;t an amount", response.body
+
+      patch accounting_rule_path(@rule), params: { tab: "records", accounting_rule: { filters: { min_total: "-50" } } }
+      assert_response :unprocessable_content
+    end
+    assert_equal 2_500, @rule.reload.filters["min_total"]
+  end
+
   test "Preview works out the unsaved rule for a few people without saving it" do
     sign_in @laura.user
 
@@ -216,6 +231,21 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     evaluate(all_broken)
     assert_not_includes Accounting::Access.visible_rules(@janet.user), all_broken
     assert_includes Accounting::Access.visible_rules(@laura.user), all_broken
+  end
+
+  test "393#13: asking a rule page for errors shows a non-admin nothing" do
+    broken = create_rule("Broken", kind: "custom", read_permission: "team", code: 'raise "secret detail"')
+    evaluate(broken)
+    sign_in @janet.user
+
+    with_accounting { get accounting_rule_path(broken, status: "error") }
+    assert_select "##{dom_id(@janet)}", count: 0
+    assert_select "##{dom_id(@nancy)}", count: 0
+    assert_no_match "secret detail", response.body
+
+    sign_in @laura.user
+    with_accounting { get accounting_rule_path(broken, status: "error") }
+    assert_select "##{dom_id(@nancy)}"
   end
 
   test "a turned-off rule isn't worked out on save or Evaluate now" do
@@ -328,6 +358,42 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
 
     assert_select "th", text: "Amounts too"
     assert_no_match "May bill", response.body
+  end
+
+  test "393#8: QuickBooks classes are Categories and departments Locations, even with the same ids" do
+    accounting_source.accounting_records.create!(entity_type: "Class", external_id: "1", role: "category", name: "Robotics", data: {})
+    accounting_source.accounting_records.create!(entity_type: "Department", external_id: "1", role: "category", name: "East Campus", data: {})
+    add_charge("58", "I3", total: 1_000, class_ids: [ "1" ], location_ids: [ "1" ])
+    sign_in @laura.user
+
+    with_accounting { get edit_accounting_rule_path(@rule, tab: "records") }
+
+    assert_select "fieldset", text: /Categories/ do
+      assert_select "label", text: "Robotics"
+      assert_select "label", text: "East Campus", count: 0
+    end
+    assert_select "fieldset", text: /Locations/ do
+      assert_select "label", text: "East Campus"
+      assert_select "label", text: "Robotics", count: 0
+    end
+  end
+
+  test "393#11: count and custom rules' totals give a figure before the people they cover, or say nothing" do
+    count = create_rule("Records", kind: "count", read_permission: "team", amount_permission: "self", team: @team)
+    given = create_rule("Given", kind: "custom", code: '{ value: "given", amount_cents: 5_000 }', read_permission: "team", amount_permission: "self", team: @team)
+    plain = create_rule("Plain", kind: "custom", code: '"yes"', read_permission: "team", amount_permission: "self", team: @team)
+    [ count, given, plain ].each { |rule| evaluate(rule) }
+    sign_in @nancy.user
+
+    with_accounting do
+      get accounting_rule_path(count)
+      assert_select ".accounting-totals", text: /\A\s*Total 2\s*\(of 1 person\)\s*\z/
+      get accounting_rule_path(given)
+      assert_select ".accounting-totals", text: /\A\s*Total \$50\.00\s*\(of 1 person\)\s*\z/
+      get accounting_rule_path(plain)
+      assert_select ".accounting-totals", count: 0
+      assert_no_match "(of 1 person)", response.body
+    end
   end
 
   test "the milestones warn when nobody can ever be overdue" do

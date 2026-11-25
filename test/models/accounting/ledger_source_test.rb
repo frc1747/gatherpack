@@ -102,6 +102,58 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     assert_equal [ ward.id ], @source.accounting_customer_links.where(customer_external_id: ledger.id).pluck(:person_id)
   end
 
+  test "395#5: a guardianship added, removed, or its type no longer a guardianship relinks the ward's ledger" do
+    ward = create_linkable_person("Ben", "Ward")
+    ledger = create_ledger("Ben Ward dues", team: @team, owners: [ @nancy, ward ])
+    sync
+    linked = -> { @source.accounting_customer_links.where(customer_external_id: ledger.id).pluck(:person_id).sort }
+    both = [ @nancy.id, ward.id ].sort
+    assert_equal both, linked.call
+
+    relink = ->(&change) { with_accounting { change.call.tap { perform_enqueued_jobs only: Accounting::OwnerLinksJob } } }
+    relationship = relink.call { add_guardian(@nancy, ward, by: @treasurer) }
+    assert_equal [ ward.id ], linked.call
+
+    relink.call { relationship.destroy! }
+    assert_equal both, linked.call
+
+    relationship = relink.call { add_guardian(@nancy, ward, by: @treasurer) }
+    assert_equal [ ward.id ], linked.call
+
+    relink.call { relationship.relationship_type.update!(guardianship: :none) }
+    assert_equal both, linked.call
+  end
+
+  test "395#8: a ledger's own sync moves the last sync time on and clears an earlier error" do
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    @source.sync_failed!("Timed out")
+    assert_nil @source.reload.last_change_check_time
+
+    with_accounting do
+      add_entry(ledger, -45_000, by: @treasurer, tags: [ @dues ])
+      perform_enqueued_jobs only: Accounting::LedgerSyncJob
+    end
+
+    @source.reload
+    assert @source.last_change_check_time
+    assert_nil @source.configuration["last_error"]
+  end
+
+  test "395#10: with a payment gateway, a synced ledger charge links to the ledger's Pay page" do
+    Gateway::StripeGateway.delete_all
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    add_entry(ledger, -45_000, by: @treasurer, tags: [ @dues ])
+    sync
+    charge = -> { @source.accounting_records.current.find_by!(entity_type: "LedgerEntry", role: "charge") }
+    assert_nil charge.call.pay_url
+
+    Gateway::StripeGateway.create!(name: "Card payments")
+    sync
+
+    assert_equal Rails.application.routes.url_helpers.new_ledger_payment_path(ledger_id: ledger.id), charge.call.pay_url
+    assert_equal Rails.application.routes.url_helpers.ledger_ledger_entry_path(ledger.id, charge.call.external_id), charge.call.external_url
+  end
+
   test "removing an ownership removes its link, and a link an admin removed stays removed" do
     ben = create_linkable_person("Ben", "Ward")
     ledger = create_ledger("Ward family", team: @team, owners: [ @nancy, ben ])

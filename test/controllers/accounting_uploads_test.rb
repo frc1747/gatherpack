@@ -66,6 +66,30 @@ class AccountingUploadsTest < ActionDispatch::IntegrationTest
     assert_no_enqueued_jobs only: Accounting::ApplyUploadJob
   end
 
+  test "395#4: a file with errors shows no changes, so applied records don't all read as Remove" do
+    sign_in @admin
+    apply_file(file_fixture("accounting/dues.csv").read)
+
+    with_accounting { post accounting_connection_uploads_path(@source), params: { file: upload_file("customer,number,total\nNancy Ward,1,5\n") } }
+    with_accounting { follow_redirect! }
+
+    assert @source.accounting_uploads.order(:created_at).last.problems?
+    assert_no_match ">Remove<", response.body
+    assert_select "th", text: "Change", count: 0
+  end
+
+  test "395#3: a file source can't be synced, so it never reads as a file applied" do
+    sign_in @admin
+
+    with_accounting do
+      post sync_accounting_connection_path(@source)
+      post full_sync_accounting_connection_path(@source)
+    end
+
+    assert_no_enqueued_jobs only: [ Accounting::ChangesJob, Accounting::FullSyncJob ]
+    assert_nil @source.reload.last_full_sync_time
+  end
+
   test "an upload needs a file" do
     sign_in @admin
 

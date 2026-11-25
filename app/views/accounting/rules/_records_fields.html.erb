@@ -4,9 +4,11 @@
 <% filters = rule.filters || {} %>
 <% records = rule.gateway.accounting_records.current %>
 <% items = records.where(role: "item").order(:name).pluck(:name, :external_id) %>
-<% categories = records.where(role: "category").order(:name).pluck(:name, :external_id) %>
+<% location_types = rule.gateway.location_entity_types %>
+<% categories = records.where(role: "category").where.not(entity_type: location_types).order(:name).pluck(:name, :external_id) %>
 <% location_ids = records.where.not(location_ids: []).distinct.pluck(Arel.sql("unnest(location_ids)")).sort %>
-<% names = records.where(role: "category", external_id: location_ids).pluck(:external_id, :name).to_h %>
+<% places = records.where(role: "category", external_id: location_ids) %>
+<% names = (location_types.any? ? places.where(entity_type: location_types) : places).pluck(:external_id, :name).to_h %>
 <% if rule.missing_roles.any? %>
   <div class="alert alert-warning py-2">
     <%= rule.gateway.name %> doesn't copy <%= rule.missing_roles.map { |role| accounting_role_name(role).downcase.pluralize }.to_sentence %>,

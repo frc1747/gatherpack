@@ -73,7 +73,7 @@ class Accounting::Statement
     def member_rows
       rules.group_by(&:gateway).flat_map do |source, source_rules|
         records = records_for(source)
-        charges = source_rules.flat_map { |rule| Accounting::RecordFilter.new(rule.filters).apply(records.where(role: "charge")).to_a }.uniq(&:id)
+        charges = source_rules.flat_map { |rule| rule_charges(rule, records) }.uniq(&:id)
         charge_ids = charges.map(&:external_id).to_set
 
         charge_rows = charges.map { |charge| member_row(charge, charge_cents: charge.total_cents.to_i) }
@@ -86,6 +86,13 @@ class Accounting::Statement
         end
         charge_rows + applied_rows
       end
+    end
+
+    # The charges a rule reads (AccountingRule#reads_charges?), by its filters.
+    def rule_charges(rule, records)
+      return [] unless rule.reads_charges?
+
+      Accounting::RecordFilter.new(rule.filters).apply(records.where(role: "charge")).to_a
     end
 
     # Only the public label: never a memo, note or credit reason.

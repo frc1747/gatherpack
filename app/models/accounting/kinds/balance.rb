@@ -43,7 +43,8 @@ class Accounting::Kinds::Balance < Accounting::Kinds::Base
   private
     # The rule's milestones (or the person's plan), each met or not, with
     # what it would take to meet it. With none, each charge with a due date
-    # is due in full on that date.
+    # is due in full on that date; unapplied credit the rule counts covers
+    # the earliest due first.
     def milestone_checks(charges, charged, balance)
       milestones = rule.milestones_for(person)
       checks = if milestones.any?
@@ -52,8 +53,11 @@ class Accounting::Kinds::Balance < Accounting::Kinds::Base
           { key: milestone.id, name: milestone.name, due_on: milestone.due_on, limit_cents: limit, met: balance <= limit }
         end
       else
+        credit = charges.sum { |charge| charge.balance_cents.to_i } - balance
         charges.select(&:due_on).map do |charge|
-          owed = balance.zero? ? 0 : charge.balance_cents.to_i
+          covered = [ credit, charge.balance_cents.to_i ].min
+          credit -= covered
+          owed = charge.balance_cents.to_i - covered
           { key: "charge:#{charge.external_id}", name: "#{charge.public_label.presence || "Charge"} in full", due_on: charge.due_on,
             limit_cents: 0, met: owed.zero?, owed_cents: owed }
         end

@@ -20,7 +20,7 @@ class Accounting::RuleAccess < AudienceAccess
     return false unless viewer && subject
     return true if admin?
 
-    rule.enabled? && (level_component(rule.read_permission).present? || grant.present?)
+    rule.enabled? && (level_component(rule.read_permission).present? || granted?)
   end
 
   # Amounts, charges and pay links.
@@ -28,14 +28,14 @@ class Accounting::RuleAccess < AudienceAccess
     return false unless can_read?
     return true if admin?
 
-    (level_component(rule.amount_permission).present? && level_component(rule.read_permission).present?) || grant&.amounts? == true
+    (level_component(rule.amount_permission).present? && level_component(rule.read_permission).present?) || granted?(amounts: true)
   end
 
   private
-    def grant
-      return @grant if defined?(@grant)
-      return @grant = nil unless GatherPack::Features.enabled?(:badges)
-
-      @grant = rule.badge_grants.includes(:badge).find { |candidate| viewer_badge_ids.include?(candidate.badge_id) && candidate.covers?(subject_team_ids) }
+    # Whether any grant the viewer holds covers the subject (and shows
+    # amounts, with amounts).
+    def granted?(amounts: false)
+      @held_grants ||= rule.grants_held_by(viewer)
+      @held_grants.any? { |grant| (!amounts || grant.amounts?) && grant.covers?(subject_team_ids) }
     end
 end

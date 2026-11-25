@@ -56,6 +56,30 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_not rule.reload.never_overdue?
   end
 
+  test "393#5: counted unapplied credit covers the earliest charges' due dates first" do
+    add_charge("58", "I1", total: 20_000, due_on: Date.new(2026, 10, 1))
+    add_charge("58", "I2", total: 20_000, due_on: Date.new(2027, 1, 15))
+    add_payment("58", "P1", total: 20_000, unapplied: 20_000)
+    rule = create_rule(unapplied_credit: "count")
+
+    outcome = outcome_for(rule, @nancy, today: Date.new(2026, 11, 1))
+
+    assert_equal [ "partial", 20_000 ], [ outcome.value, outcome.amount_cents ]
+    assert_equal [ [ Date.new(2026, 10, 1), true, 0 ], [ Date.new(2027, 1, 15), false, 20_000 ] ],
+      outcome.details[:milestones].map { |check| check.values_at(:due_on, :met, :catch_up_cents) }
+  end
+
+  test "393#5: counted unapplied credit lowers a past charge's catch-up" do
+    add_charge("58", "I1", total: 40_000, due_on: Date.new(2026, 10, 1))
+    add_payment("58", "P1", total: 20_000, unapplied: 20_000)
+    rule = create_rule(unapplied_credit: "count")
+
+    outcome = outcome_for(rule, @nancy, today: Date.new(2026, 11, 1))
+
+    assert_equal [ "overdue", 20_000 ], [ outcome.value, outcome.amount_cents ]
+    assert_equal 20_000, outcome.details[:missed][:catch_up_cents]
+  end
+
   test "the balance details name each charge by its public label with its pay link" do
     add_charge("58", "I1", total: 40_000, balance: 10_000, label: "Invoice 1042 · Dues", pay_url: "https://pay.example.com/1042",
       description: "Scholarship agreed")
@@ -94,6 +118,18 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_equal 35_000, dues.amount_cents
   end
 
+  test "393#6b: paid with categories or locations counts what was applied to the charges they match" do
+    add_charge("58", "I1", total: 40_000, balance: 10_000, items: [ "dues" ], class_ids: [ "robotics" ], location_ids: [ "east" ])
+    add_charge("58", "I2", total: 20_000, balance: 0, items: [ "dues" ], class_ids: [ "drama" ], location_ids: [ "west" ])
+    add_payment("58", "P1", total: 50_000, applied: { "I1" => 30_000, "I2" => 20_000 })
+
+    robotics = outcome_for(create_rule("Robotics paid", kind: "amount", measure: "paid", filters: { "classes" => [ "robotics" ] }), @nancy)
+    east_dues = outcome_for(create_rule("East dues paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "locations" => [ "east" ] }), @nancy)
+
+    assert_equal [ "some", 30_000 ], [ robotics.value, robotics.amount_cents ]
+    assert_equal 30_000, east_dues.amount_cents
+  end
+
   test "amount with nothing is None" do
     assert_equal [ "none", 0 ], outcome_for(create_rule("Given", kind: "amount", measure: "paid"), @nancy).to_h.values_at(:value, :amount_cents)
   end
@@ -123,6 +159,18 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_equal [ "error", "RuntimeError: no books" ], [ error.value, error.details[:error] ]
   end
 
+  test "393#9: custom code sees only the kinds of record the rule names" do
+    add_record("58", "receipt", "R1", total_cents: 5_000)
+    add_charge("58", "I1", total: 40_000)
+    add_payment("58", "P1", total: 10_000)
+
+    receipts = create_rule("Custom receipts", kind: "custom", code: "records.pluck(:role).sort.join(\",\")", filters: { "roles" => [ "receipt" ] })
+    everything = create_rule("Custom everything", kind: "custom", code: "records.pluck(:role).sort.join(\",\")")
+
+    assert_equal "receipt", outcome_for(receipts, @nancy).value
+    assert_equal "charge,payment,receipt", outcome_for(everything, @nancy).value
+  end
+
   test "labels are renamable per rule" do
     rule = create_rule(labels: { "partial" => "Deposit paid", "paid" => "" })
 
@@ -138,6 +186,42 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_equal [ "payment" ], rule.reload.missing_roles
     assert_empty evaluate(rule)
     assert_empty rule.results
+  end
+
+  test "393#7: roles a rule's filter names, and charges a paid amount with items reads, must be copied too" do
+    accounting_source.update!(synced_entities: "Customer Invoice Payment CreditMemo Item")
+    receipts = create_rule("Receipts", kind: "count", filters: { "roles" => [ "receipt" ] })
+    receipt_total = create_rule("Receipt total", kind: "amount", measure: "invoiced", filters: { "roles" => [ "receipt" ] })
+    add_record("58", "receipt", "R1", total_cents: 5_000)
+
+    assert_equal [ "receipt" ], receipts.missing_roles
+    assert_equal [ "receipt" ], receipt_total.missing_roles
+    assert_empty evaluate(receipts)
+    assert_empty receipts.results
+    assert_empty create_rule("Everything", kind: "count").missing_roles
+
+    accounting_source.update!(synced_entities: "Customer Payment")
+    dues_paid = create_rule("Dues paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ] })
+    assert_equal [ "charge" ], dues_paid.missing_roles
+  end
+
+  test "393#7 fix round: a paid amount with items still needs charges when its filter names only payments" do
+    accounting_source.update!(synced_entities: "Customer Payment")
+    rule = create_rule("Dues paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "roles" => [ "payment" ] })
+
+    assert_equal %w[ charge ], rule.missing_roles
+    assert_empty evaluate(rule)
+  end
+
+  test "393#7 fix round 2: a paid amount with items that names only receipts doesn't need charges" do
+    accounting_source.update!(synced_entities: "Customer SalesReceipt")
+    rule = create_rule("Dues receipts", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "roles" => [ "receipt" ] })
+    add_record("58", "receipt", "R1", total_cents: 5_000, item_ids: [ "dues" ], lines: [ { "item_id" => "dues", "amount_cents" => 5_000 } ])
+
+    assert_empty rule.missing_roles
+    assert_not rule.reads_charges?
+    evaluate(rule)
+    assert_equal 5_000, result_for(rule, @nancy).amount_cents
   end
 
   private

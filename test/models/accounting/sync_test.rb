@@ -2,6 +2,7 @@ require "test_helper"
 require_relative "../../support/accounting_world"
 
 class Accounting::SyncTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
   include AccountingWorld
 
   setup do
@@ -159,8 +160,40 @@ class Accounting::SyncTest < ActiveSupport::TestCase
     assert @gateway.accounting_records.find_by(external_id: "131").deleted?
   end
 
+  test "393#4: a record found deleted on fetch queues its people's rules" do
+    rule, person = deleted_invoice_world
+
+    assert_enqueued_with(job: Accounting::EvaluateRuleJob, args: [ rule, [ person.id ] ]) do
+      @fake.on(:get, "/invoice/131", status: 400, body: qbo_fixture("not_found"))
+      @sync.fetch("Invoice", "131")
+    end
+  end
+
+  test "393#4: a record a notification says was deleted queues its people's rules" do
+    rule, person = deleted_invoice_world
+
+    with_accounting do
+      assert_enqueued_with(job: Accounting::EvaluateRuleJob, args: [ rule, [ person.id ] ]) do
+        @gateway.handle_webhook(qbo_fixture("webhook"), {})
+      end
+    end
+    assert @gateway.accounting_records.find_by(external_id: "131").deleted?
+  end
+
   test "an unsynced type isn't fetched" do
     assert_empty @sync.fetch("RefundReceipt", "170")
     assert_empty @fake.requests
   end
+
+  private
+    # Invoice 131 copied, its customer linked to a person, and a rule on the
+    # source; no jobs queued yet.
+    def deleted_invoice_world
+      invoice = @sync.upsert("Invoice", qbo_row("invoices", "Invoice", 1))
+      person = create_linkable_person("Nancy", "Davolio")
+      Accounting::CustomerLinks.new(@gateway).link!(invoice.customer_external_id, person, source: "manual")
+      rule = AccountingRule.create!(name: "Dues", kind: "balance", gateway: @gateway)
+      clear_enqueued_jobs
+      [ rule, person ]
+    end
 end

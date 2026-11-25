@@ -96,17 +96,21 @@ class Gateway::LedgerSource < Gateway
 
   # Reads one ledger again after it changed: its customer record and
   # entries, or, when it's gone or no longer covered, marks them deleted.
+  # The source's page then shows it synced, without an earlier error.
   def sync_ledger(ledger_id)
+    started = Time.current
     ledger = Ledger.find_by(id: ledger_id)
     held = accounting_records.where(entity_type: %w[ Ledger LedgerEntry ], customer_external_id: ledger_id)
 
-    if ledger && covers_team?(ledger.team_id)
+    saved = if ledger && covers_team?(ledger.team_id)
       Accounting::Sync.new(self).part(reader.rows_for(ledger), held)
     elsif held.current.exists?
       Accounting::Sync.new(self).part([], held)
     else
       []
     end
+    record_state!(last_change_check_at: started, last_error: nil)
+    saved
   end
 
   # Queues a LedgerSyncJob for each ledger and each ledger source covering
@@ -123,6 +127,23 @@ class Gateway::LedgerSource < Gateway
 
       ledger_ids.each { |ledger_id| Accounting::LedgerSyncJob.perform_later(source, ledger_id) }
     end
+  end
+
+  # Queues an OwnerLinksJob for each ledger source, for the ledgers the
+  # people own. Called by Accounting::GuardianshipChanges.
+  def self.queue_relink(person_ids)
+    return unless Accounting.enabled?
+    return if person_ids.empty?
+
+    all.each { |source| Accounting::OwnerLinksJob.perform_later(source, person_ids) }
+  end
+
+  # Brings the owner links of the ledgers the people own up to date, and
+  # queues the rules for those ledgers' owners.
+  def relink_owners(person_ids)
+    owners = Accounting::Ledgers::OwnerLinks.new(self).reconcile_owned_by(person_ids)
+    Accounting::EvaluateRuleJob.for_source(self, owners)
+    owners
   end
 
   def routes

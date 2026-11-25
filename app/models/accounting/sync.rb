@@ -89,10 +89,7 @@ class Accounting::Sync
     return [] unless source.entity_types.key?(entity_type)
 
     data = source.fetch_record(entity_type, external_id)
-    if data.nil?
-      mark_deleted(entity_type, [ external_id ])
-      return []
-    end
+    return delete(entity_type, [ external_id ]) if data.nil?
 
     saved = [ upsert(entity_type, data) ].compact
     finish(saved)
@@ -115,7 +112,17 @@ class Accounting::Sync
     record
   end
 
+  # Records the source says are gone (a notification, a fetch that found
+  # nothing): marked deleted, then their people's rules are queued. Returns
+  # no records saved.
+  def delete(entity_type, external_ids)
+    mark_deleted(entity_type, external_ids)
+    finish([])
+    []
+  end
+
   # Marks records deleted. Not a new revision, so no record hooks fire.
+  # Callers queue evaluation through #finish (or use #delete).
   def mark_deleted(entity_type, external_ids)
     now = Time.current
     deleted = source.accounting_records.current.where(entity_type: entity_type, external_id: external_ids)

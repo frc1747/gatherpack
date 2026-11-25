@@ -33,6 +33,19 @@ class Accounting::Ledgers::OwnerLinks
     end
   end
 
+  # Reconciles every current ledger customer that one of the people owns,
+  # as after a guardianship between owners changed. Returns those ledgers'
+  # person owners.
+  def reconcile_owned_by(person_ids)
+    ledgers = source.accounting_records.current.where(entity_type: "Ledger")
+      .where("accounting_records.data->'person_owner_ids' ?| ARRAY[:ids]", ids: person_ids.map(&:to_s))
+    ledgers.flat_map do |customer|
+      owner_ids = Array(customer.data["person_owner_ids"])
+      reconcile(customer.customer_external_id, owner_ids)
+      owner_ids
+    end.uniq
+  end
+
   private
     def links
       source.accounting_customer_links
