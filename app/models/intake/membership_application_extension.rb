@@ -23,6 +23,7 @@ module Intake::MembershipApplicationExtension
   end
 
   # Placement and notices run only while the feature is on, like its hooks.
+  # Placement needs a registration; the denial notice goes to everyone.
   module Decisions
     def approve!
       intake = registration && Intake.enabled?
@@ -30,7 +31,7 @@ module Intake::MembershipApplicationExtension
         super
         if intake
           added = Intake::Placement.new(application: self, pick_team: intake_pick_team, approver: intake_approver).apply!
-          update!(intake_placement: added.merge(approved_by_id: intake_approver&.person&.id, approved_at: Time.current))
+          update!(intake_placement: (intake_placement || {}).merge(added, approved_by_id: intake_approver&.person&.id, approved_at: Time.current))
         end
       end
       Intake::Notices.approved(self) if intake
@@ -42,7 +43,9 @@ module Intake::MembershipApplicationExtension
     def deny!(reason = nil)
       self.reviewer_notes = reason if reason.present?
       super()
-      Intake::Notices.denied(self) if registration && Intake.enabled?
+      # Every denial is sent while the feature is on, including requests made
+      # on a team's page, so a reason typed for them reaches them too.
+      Intake::Notices.denied(self) if Intake.enabled?
       Intake.fire("membership_applications - denied", self)
       true
     end
