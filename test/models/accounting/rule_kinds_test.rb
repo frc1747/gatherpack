@@ -56,6 +56,30 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_not rule.reload.never_overdue?
   end
 
+  test "393#5: counted unapplied credit covers the earliest charges' due dates first" do
+    add_charge("58", "I1", total: 20_000, due_on: Date.new(2026, 10, 1))
+    add_charge("58", "I2", total: 20_000, due_on: Date.new(2027, 1, 15))
+    add_payment("58", "P1", total: 20_000, unapplied: 20_000)
+    rule = create_rule(unapplied_credit: "count")
+
+    outcome = outcome_for(rule, @nancy, today: Date.new(2026, 11, 1))
+
+    assert_equal [ "partial", 20_000 ], [ outcome.value, outcome.amount_cents ]
+    assert_equal [ [ Date.new(2026, 10, 1), true, 0 ], [ Date.new(2027, 1, 15), false, 20_000 ] ],
+      outcome.details[:milestones].map { |check| check.values_at(:due_on, :met, :catch_up_cents) }
+  end
+
+  test "393#5: counted unapplied credit lowers a past charge's catch-up" do
+    add_charge("58", "I1", total: 40_000, due_on: Date.new(2026, 10, 1))
+    add_payment("58", "P1", total: 20_000, unapplied: 20_000)
+    rule = create_rule(unapplied_credit: "count")
+
+    outcome = outcome_for(rule, @nancy, today: Date.new(2026, 11, 1))
+
+    assert_equal [ "overdue", 20_000 ], [ outcome.value, outcome.amount_cents ]
+    assert_equal 20_000, outcome.details[:missed][:catch_up_cents]
+  end
+
   test "the balance details name each charge by its public label with its pay link" do
     add_charge("58", "I1", total: 40_000, balance: 10_000, label: "Invoice 1042 · Dues", pay_url: "https://pay.example.com/1042",
       description: "Scholarship agreed")
