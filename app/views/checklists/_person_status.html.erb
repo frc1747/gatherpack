@@ -22,8 +22,8 @@
                   <%# The bar takes its status's pill color, so a shortfall shows red or yellow. %>
                   <div class="progress-bar <%= checklist_status_class(entry.status).sub("text-bg-", "bg-") %>" style="width: <%= percent %>%"></div>
                 </div>
-              <% elsif entry.exempt? && entry.summary.present? && entry.summary != entry.text %>
-                <%# An item that doesn't apply can still say what the person did (ItemKind#exempt_attributes). %>
+              <% elsif entry.exempt? && entry.measures.present? && entry.summary.present? && entry.summary != entry.text %>
+                <%# An item that doesn't apply can still say what the person did (ItemKind#exempt_attributes, which sets measures); another checklist's line that reads Not required has none, so only its pill. %>
                 <div class="small"><%= entry.summary %></div>
               <% end %>
               <%# A kind may show the Details its own way (ItemKind.detail_partial); when it shows nothing, the detail lines do. %>
