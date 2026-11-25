@@ -42,9 +42,10 @@ class Mcp::Tools::RemoveCheckinTest < ActionDispatch::IntegrationTest
     assert_refused("Not found", Checkin, AuditLog) { remove(:guardian) }
   end
 
-  test "a person's own check-in at a team-less event can't be reached, as on the page" do
+  test "a person removes their own check-in at a team-less event, as on the page" do
     own = Checkin.find_by!(person: person(:alpha_member), event: @open_event)
-    assert_refused("Not found", Checkin, AuditLog) { remove(:alpha_member, own) }
+    assert_nil remove(:alpha_member, own).error
+    assert_not Checkin.exists?(own.id)
   end
 
   test "a read token, the setting being off and a bad ID refuse it" do

@@ -71,10 +71,13 @@ class Mcp::Tools::UpdateEventTest < ActionDispatch::IntegrationTest
     assert_unchanged("Not allowed") { update(:alpha_member, name: "Nope") }
   end
 
-  test "a member on another team, a guardian, and anyone but an admin on a team-less event can't reach it" do
+  test "a member on another team and a guardian can't reach it" do
     assert_unchanged("Not found") { update(:beta_member, name: "Nope") }
     assert_unchanged("Not found") { update(:guardian, name: "Nope") }
-    assert_unchanged("Not found", @open_event) { update(:alpha_manager, @open_event, name: "Nope") }
+  end
+
+  test "anyone but an admin sees a team-less event but can't edit it" do
+    assert_unchanged("Not allowed", @open_event) { update(:alpha_manager, @open_event, name: "Nope") }
   end
 
   test "a read token, the setting being off and a bad ID refuse it" do
