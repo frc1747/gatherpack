@@ -78,6 +78,18 @@ class AccountingUploadsTest < ActionDispatch::IntegrationTest
     assert_select "th", text: "Change", count: 0
   end
 
+  test "395#3: a file source can't be synced, so it never reads as a file applied" do
+    sign_in @admin
+
+    with_accounting do
+      post sync_accounting_connection_path(@source)
+      post full_sync_accounting_connection_path(@source)
+    end
+
+    assert_no_enqueued_jobs only: [ Accounting::ChangesJob, Accounting::FullSyncJob ]
+    assert_nil @source.reload.last_full_sync_time
+  end
+
   test "an upload needs a file" do
     sign_in @admin
 

@@ -4,7 +4,7 @@
 # records is for admins and architects (whose hook and report code already
 # sees every record). Linking customers to people decides who sees whose
 # money, so it's for admins. Uploading a file source's records is a sync,
-# for admins and architects.
+# for admins and architects; such a source is never synced any other way.
 class Accounting::SourcePolicy < ApplicationPolicy
   def connect?
     user&.architect == true
@@ -14,8 +14,10 @@ class Accounting::SourcePolicy < ApplicationPolicy
     connect?
   end
 
+  # A source whose records come from uploads has nothing to sync: a sync
+  # would only mark it as if a file were applied.
   def sync?
-    reader?
+    reader? && !record.capabilities.include?(:upload)
   end
 
   def records?
