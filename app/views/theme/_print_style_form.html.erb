@@ -1,0 +1,21 @@
+<% setting = Settings.get(:print_css) %>
+<% css = params[:print_style] == "default" ? setting.default_value : setting.value %>
+<%= form_with scope: :print_style, url: print_style_path, method: :patch, id: "print-style-form" do |f| %>
+  <div class="card mb-3">
+    <div class="card-header">
+      <h2>Print style</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted">
+        <%= setting.description %>
+        <%= link_to "Use the default", edit_theme_path(print_style: "default", anchor: "print-style-form") %>
+      </p>
+      <%= f.label :css, "Print style", class: "visually-hidden" %>
+      <%= f.text_area :css, value: css, rows: 16, class: "form-control text-monospace font-monospace" %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", theme_path, class: "btn btn-secondary" %>
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>

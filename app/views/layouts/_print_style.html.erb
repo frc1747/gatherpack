@@ -1,0 +1,5 @@
+<% print_css = Settings[:print_css].to_s %>
+<% if print_css.present? %>
+  <%# Admin-entered CSS; "</" is escaped so it can't close the style tag. %>
+  <style id="print-style" media="print"><%= raw print_css.gsub("</") { "<\\/" } %></style>
+<% end %>
