@@ -1,0 +1,12 @@
+<%# locals: (source:, customer:, suggestions:, back: nil) -%>
+<ul class="list-unstyled mb-0">
+  <% suggestions.each do |suggestion| %>
+    <li class="d-flex flex-wrap align-items-center gap-2 mb-1" id="<%= dom_id customer, "suggestion_#{suggestion.person.id}" %>">
+      <span><%= link_to suggestion.person.identifier_name, person_path(suggestion.person) %> <span class="text-muted small">(<%= suggestion.reason %>)</span></span>
+      <%= button_to "Link", accounting_customer_links_path, class: "btn btn-sm btn-outline-secondary",
+            params: { gateway_id: source.to_param, customer_id: customer.to_param, person_id: suggestion.person.to_param, suggested: "1", back: back }.compact %>
+      <%= button_to "Not this person", accounting_customer_dismissals_path, class: "btn btn-sm btn-outline-secondary",
+            params: { gateway_id: source.to_param, customer_id: customer.to_param, person_id: suggestion.person.to_param, back: back }.compact %>
+    </li>
+  <% end %>
+</ul>

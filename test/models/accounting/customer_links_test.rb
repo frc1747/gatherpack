@@ -36,6 +36,50 @@ class Accounting::CustomerLinksTest < ActiveSupport::TestCase
     assert_equal [ peggy ], @links.suggestions_for([ customer ])["1"].map(&:person)
   end
 
+  test "a legal name match on someone who goes by another name is suggested, not exact, and Link all skips it" do
+    robert = create_linkable_person("Robert", "King")
+    robert.update!(display_name: "Bobby King")
+    legal = create_customer_record(@gateway, "1", name: "Robert King")
+    goes_by = create_customer_record(@gateway, "2", name: "Bobby King")
+
+    found = @links.suggestions_for([ legal, goes_by ])
+
+    assert_equal [ [ robert, "name", "legal name match" ] ], summary(found["1"])
+    assert_not found["1"].first.exact
+    assert_equal [ [ robert, "name", "name match" ] ], summary(found["2"])
+    assert found["2"].first.exact
+    assert_empty @links.link_exact_names([ legal ], created_by: @admin)
+    assert_equal [ "2" ], @links.link_exact_names([ legal, goes_by ], created_by: @admin).map(&:customer_external_id)
+  end
+
+  test "a person with no preferred name stays an exact name match" do
+    assert_equal "Nancy Davolio", @nancy.display_name
+    customer = create_customer_record(@gateway, "1", name: "Nancy Davolio")
+
+    found = @links.suggestions_for([ customer ])["1"]
+
+    assert_equal [ [ @nancy, "name", "name match" ] ], summary(found)
+    assert found.first.exact
+  end
+
+  test "a name match the email confirms comes first as name and email match" do
+    laura = create_linkable_person("Laura", "Callahan")
+    anne = create_linkable_person("Anne", "Callahan")
+    parent = create_linkable_person("Robert", "Callahan", email: "robert.callahan@example.com")
+    add_guardian(parent, laura, by: @admin)
+    add_guardian(parent, anne, by: @admin)
+    customer = create_customer_record(@gateway, "1", name: "Laura Callahan", email: "robert.callahan@example.com")
+
+    found = @links.suggestions_for([ customer ])["1"]
+
+    assert_equal [ laura, parent, anne ], found.map(&:person)
+    assert_equal "name and email match", found.first.reason
+    assert_equal [ true, false, false ], found.map(&:confirmed)
+
+    @gateway.update!(match_strategies: "email name")
+    assert_equal [ laura, parent, anne ], Accounting::CustomerLinks.new(@gateway).suggestions_for([ customer ])["1"].map(&:person)
+  end
+
   test "an email match suggests the person and their wards" do
     laura = create_linkable_person("Laura", "Callahan")
     anne = create_linkable_person("Anne", "Callahan")
@@ -73,10 +117,10 @@ class Accounting::CustomerLinksTest < ActiveSupport::TestCase
   end
 
   test "strategies are tried in the source's order, and only the chosen ones" do
-    customer = create_customer_record(@gateway, "1", name: "Nancy Davolio", email: "nancy.davolio@example.com")
+    customer = create_customer_record(@gateway, "1", name: "Nancy Davolio", email: "andrew.fuller@example.com")
 
     @gateway.update!(match_strategies: "email name")
-    assert_equal [ "email" ], Accounting::CustomerLinks.new(@gateway).suggestions_for([ customer ])["1"].map(&:strategy)
+    assert_equal [ "email", "name" ], Accounting::CustomerLinks.new(@gateway).suggestions_for([ customer ])["1"].map(&:strategy)
 
     @gateway.update!(match_strategies: "name")
     assert_equal [ "name" ], Accounting::CustomerLinks.new(@gateway).suggestions_for([ customer ])["1"].map(&:strategy)
