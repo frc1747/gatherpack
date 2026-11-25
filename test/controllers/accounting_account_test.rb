@@ -42,9 +42,10 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     result = result_for(@rule, @nancy)
     assert_select "##{dom_id(result)}" do
       assert_select ".badge", text: "Partly paid"
-      assert_select "*", text: /Next: \$50\.00 by/
-      assert_select "*", text: /Balance remaining \$50\.00 of \$400\.00/
-      assert_select "li", text: /Invoice 1042 · Dues: \$50\.00 left of \$400\.00/
+      assert_select ".accounting-milestones li", text: /Next\s+Paid in full\s+by .*: \$50\.00 to go/
+      assert_select ".accounting-answer", text: /Balance remaining\s+\$50\.00\s+of \$400\.00 charged/
+      assert_select ".progress[aria-label=?][aria-valuenow=?]", "Paid $350.00 of $400.00", "87"
+      assert_select ".accounting-invoices tbody tr", text: /Invoice 1042\s+Dues\s+Sep 01\s+\$400\.00\s+\$50\.00/
       assert_select "*", text: /A payment of \$50\.00 is waiting to be applied/
       assert_select "a[href=?]", "https://pay.example.com/1042", text: "Pay online"
     end
@@ -61,7 +62,7 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select ".badge", text: "Partly paid"
-    assert_select "*", text: /Next: Paid in full/
+    assert_select ".accounting-milestones li", text: /Next\s+Paid in full/
     assert_no_match "$50.00", response.body
     assert_no_match "Pay online", response.body
     assert_select "a", text: "Statement", count: 0

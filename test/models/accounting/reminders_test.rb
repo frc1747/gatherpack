@@ -41,6 +41,15 @@ class Accounting::RemindersTest < ActiveSupport::TestCase
     assert_match "2027 Membership Dues: Nancy Davolio", emails[@margaret.user.email].last
   end
 
+  test "a reminder names the rule's milestone date, never an invoice's own due date" do
+    AccountingRecord.find_by!(external_id: "I1").update!(due_on: Date.new(2026, 10, 28))
+
+    _, body = send_on(DEPOSIT - 3)[@nancy.user.email]
+
+    assert_match "Deposit is due", body
+    assert_no_match "Oct 28", body
+  end
+
   test "no repeat for the same milestone, and overdue ones every N days" do
     assert_equal 2, send_on(DEPOSIT - 3).size
     assert_empty send_on(DEPOSIT - 2)

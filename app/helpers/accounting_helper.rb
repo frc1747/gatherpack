@@ -60,14 +60,49 @@ module AccountingHelper
     end
   end
 
-  # A plan's milestones for those who may see them: "First payment, by
-  # Oct 1: met", with the most that may be owed when amounts show.
-  def accounting_plan_milestones(result, amounts:)
-    Array(result.detail(:milestones)).map do |milestone|
-      [ milestone["name"], "by #{accounting_date(milestone["due_on"])}",
-        ("owing at most #{accounting_cents(milestone["limit_cents"])}" if amounts),
-        (milestone["met"] ? "met" : ("#{accounting_cents(milestone["catch_up_cents"])} to go" if amounts)) ].compact.join(", ")
+  MILESTONE_STATES = {
+    met: { label: "Met", color: "success", icon: "check" },
+    missed: { label: "Missed", color: "danger", icon: "xmark" },
+    next: { label: "Next", color: "primary", icon: "arrow-right" },
+    later: { label: "Coming up", color: "secondary", icon: "clock" }
+  }.freeze
+
+  # The result's milestones (or its plan's) as steps for the Account card:
+  # name, date, state (met, missed, next or later) and what it takes to meet
+  # it. The first one still ahead is next; a milestone is missed once its
+  # date and the rule's grace days have passed.
+  def accounting_milestone_steps(result, today: Date.current)
+    ahead = false
+    result.milestones.map do |milestone|
+      due = Date.iso8601(milestone["due_on"].to_s)
+      state = if milestone["met"] then :met
+      elsif due + result.rule.grace_period < today then :missed
+      else
+        ahead ? :later : :next
+      end
+      ahead ||= state == :next
+      milestone.merge("state" => state, "date" => due)
     end
+  end
+
+  # "Updated 25 Nov, 9:36 am".
+  def accounting_updated_at(time)
+    "Updated #{l(time, format: "%-d %b, %-l:%M %P")}"
+  end
+
+  # An invoice's public label ("Invoice 1114 · Membership Dues") as its
+  # number and what it was for.
+  def accounting_invoice_parts(label)
+    number, what = label.to_s.split(" · ", 2)
+    [ number, what ]
+  end
+
+  # The share of what was charged that's paid, as a whole percent.
+  def accounting_paid_percent(result)
+    charged = result.detail(:charged_cents).to_i
+    return 0 unless charged.positive?
+
+    (result.detail(:paid_cents).to_i * 100.0 / charged).floor.clamp(0, 100)
   end
 
   # "Reminders: 3 days before each milestone, then every 7 days while

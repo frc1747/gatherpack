@@ -20,69 +20,12 @@
   </div>
   <% if @results.empty? %>
     <div class="card-body"><%= render "shared/empty_state", text: "Nothing to show yet." %></div>
-  <% else %>
-    <ul class="list-group list-group-flush">
-      <% @results.each do |result| %>
-        <% rule = result.rule %>
-        <% amounts = @amounts[result.id] %>
-        <li class="list-group-item" id="<%= dom_id result %>">
-          <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-            <div>
-              <strong><%= admin ? link_to(rule.name, accounting_rule_path(rule)) : rule.name %></strong>
-              <%= accounting_value_badge(rule, result.value) %>
-              <% unless rule.enabled? %><span class="badge text-bg-secondary">Turned off</span><% end %>
-              <% if admin && result.on_plan? %><span class="badge text-bg-secondary">On a plan</span><% end %>
-              <% if rule.description.present? %><div class="text-muted small"><%= rule.description %></div><% end %>
-              <% if rule.balance? && (line = accounting_milestone_line(result, amounts: amounts, status_only: @status_only[result.id])) %>
-                <div><%= line %></div>
-              <% end %>
-              <% if @plans[result.id] && (plan = accounting_plan_milestones(result, amounts: amounts)).any? %>
-                <ul class="small mb-0 accounting-plan-milestones">
-                  <% plan.each do |line| %><li><%= line %></li><% end %>
-                </ul>
-              <% end %>
-              <% if amounts %>
-                <% if rule.balance? && result.value != "not_invoiced" %>
-                  <div>Balance remaining <strong><%= accounting_cents(result.amount_cents) %></strong> of <%= accounting_cents(result.detail(:charged_cents)) %></div>
-                <% elsif rule.kind == "amount" || (rule.custom? && result.amount_cents) %>
-                  <div><strong><%= accounting_cents(result.amount_cents) %></strong></div>
-                <% elsif rule.kind == "count" %>
-                  <div><strong><%= result.detail(:count).to_i %></strong></div>
-                <% end %>
-                <% if result.charges.any? %>
-                  <ul class="small mb-0">
-                    <% result.charges.each do |charge| %>
-                      <li>
-                        <%= charge["label"] %>: <%= accounting_cents(charge["balance_cents"]) %> left of <%= accounting_cents(charge["total_cents"]) %>
-                        <% if charge["due_on"] %>, due <%= accounting_date(charge["due_on"]) %><% end %>
-                      </li>
-                    <% end %>
-                  </ul>
-                <% end %>
-                <% if rule.balance? && !rule.count_unapplied_credit? && result.unapplied_credit_cents.positive? %>
-                  <div class="small">A payment of <%= accounting_cents(result.unapplied_credit_cents) %> is waiting to be applied.</div>
-                <% end %>
-              <% end %>
-              <% if admin && result.error? %><div class="small text-danger"><%= result.detail(:error) %></div><% end %>
-              <div class="text-muted small">As of <%= l(result.evaluated_at, format: :short) %></div>
-            </div>
-            <% if admin && rule.balance? %>
-              <%= link_to "Payment plan", edit_accounting_rule_payment_plan_path(rule, @person), class: "btn btn-sm btn-outline-secondary" %>
-            <% end %>
-            <% if amounts && rule.pay_links? && result.amount_cents.to_i.positive? %>
-              <% result.charges.select { |charge| charge["pay_url"].present? && charge["balance_cents"].to_i.positive? }.each do |charge| %>
-                <%= link_to "Pay online", charge["pay_url"], class: "btn btn-primary", target: "_blank", rel: "noopener", title: charge["label"] %>
-              <% end %>
-            <% end %>
-          </div>
-        </li>
-      <% end %>
-    </ul>
   <% end %>
-  <%= render "shared/action_row", actions: [
-        screen_action("Statement", person_accounting_statement_path(@person), visible: @statement)
-      ] %>
 </div>
+
+<% @results.each do |result| %>
+  <%= render "accounting/results/card", result: result, amounts: @amounts[result.id], status_only: @status_only[result.id], admin: admin, statement: @statement %>
+<% end %>
 
 <% if admin %>
   <div class="card">

@@ -10,6 +10,9 @@
 # left), overdue (a milestone past its date and grace days isn't met),
 # partial (something paid), unpaid.
 class Accounting::Kinds::Balance < Accounting::Kinds::Base
+  # Keys of the per-invoice checks used when a rule has no milestones.
+  CHARGE_KEY_PREFIX = "charge:".freeze
+
   def evaluate
     charges = filter.apply(person_records.where(role: "charge")).order(Arel.sql("due_on NULLS LAST"), :txn_date, :external_id).to_a
     unapplied = person_records.where(role: %w[ payment credit ]).sum(:unapplied_cents)
@@ -58,7 +61,7 @@ class Accounting::Kinds::Balance < Accounting::Kinds::Base
           covered = [ credit, charge.balance_cents.to_i ].min
           credit -= covered
           owed = charge.balance_cents.to_i - covered
-          { key: "charge:#{charge.external_id}", name: "#{charge.public_label.presence || "Charge"} in full", due_on: charge.due_on,
+          { key: "#{CHARGE_KEY_PREFIX}#{charge.external_id}", name: "#{charge.public_label.presence || "Charge"} in full", due_on: charge.due_on,
             limit_cents: 0, met: owed.zero?, owed_cents: owed }
         end
       end
