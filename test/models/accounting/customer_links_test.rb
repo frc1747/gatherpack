@@ -116,6 +116,33 @@ class Accounting::CustomerLinksTest < ActiveSupport::TestCase
     assert_equal [ [ "1", @nancy, "reference" ] ], made.map { |link| [ link.customer_external_id, link.person, link.source ] }
   end
 
+  test "a GatherPack id inside longer notes links, whatever the case or punctuation around it" do
+    plain = create_customer_record(@gateway, "1", name: "Someone", reference: "Pays by check. #{@nancy.neat_id}, call first")
+    shouted = create_customer_record(@gateway, "2", name: "Someone else", reference: "ID: #{@nancy.neat_id.upcase}")
+    repeated = create_customer_record(@gateway, "3", name: "Third", reference: "#{@nancy.neat_id} (again: #{@nancy.neat_id})")
+
+    made = @links.link_exact_references([ plain, shouted, repeated ])
+
+    assert_equal [ [ "1", @nancy ], [ "2", @nancy ], [ "3", @nancy ] ], made.map { |link| [ link.customer_external_id, link.person ] }
+  end
+
+  test "two different GatherPack ids in one reference match nobody, so the customer is left to suggestions" do
+    both = create_customer_record(@gateway, "1", name: "The Kings", reference: "#{@nancy.neat_id} and #{@admin.neat_id}")
+
+    assert_empty @links.link_exact_references([ both ])
+    assert_empty @links.suggestions_for([ both ])["1"].select { |s| s.strategy == "reference" }
+  end
+
+  test "an unknown GatherPack id in the notes links nobody, and an email alone still matches as before" do
+    unknown = create_customer_record(@gateway, "1", name: "Someone", reference: "Notes: per_notarealid0000000000000")
+    email = create_customer_record(@gateway, "2", name: "Someone else", reference: "nancy.davolio@example.com")
+
+    made = @links.link_exact_references([ unknown, email ])
+
+    assert_equal [ [ "2", @nancy ] ], made.map { |link| [ link.customer_external_id, link.person ] }
+    assert_not @links.covered?("1")
+  end
+
   test "references don't link when the reference strategy is off" do
     @gateway.update!(match_strategies: "name email")
     customer = create_customer_record(@gateway, "1", name: "Someone", reference: @nancy.neat_id)
