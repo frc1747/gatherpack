@@ -12,6 +12,7 @@
     <%# Each slot renders only once the task that fills it adds its partial. %>
     <%= order_request_slot :lines, order_request: @order_request %>
     <%= order_request_slot :decision, order_request: @order_request %>
+    <%= order_request_slot :approval_emails, order_request: @order_request %>
     <%= order_request_slot :purchase, order_request: @order_request %>
     <%= order_request_slot :receive, order_request: @order_request %>
     <%= order_request_slot :timeline, order_request: @order_request %>

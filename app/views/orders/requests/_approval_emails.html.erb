@@ -1,0 +1,34 @@
+<%# The approvers emailed for each approval step, from the sent email log
+    (EmailLog::OrderRequestEmails). A link click isn't proof the email was
+    read, so it says "Link clicked", never "read". Shown to those who can
+    approve or manage the request. %>
+<% if EmailLog::OrderRequestEmails.visible?(order_request, current_user.person) %>
+  <% steps = EmailLog::OrderRequestEmails.new(order_request).steps %>
+  <% if steps.any? %>
+    <section id="approval-emails" class="mt-4 mb-4 no-print">
+      <h2 class="h5">Approval emails</h2>
+      <% steps.each do |entry| %>
+        <h3 class="h6 mt-3"><%= entry.step.name %></h3>
+        <% if entry.approvers.any? %>
+          <ul class="list-unstyled small mb-2">
+            <% entry.approvers.each do |approver| %>
+              <li>
+                <%= approver.person.identifier_name %>:
+                <% emailed = "Emailed #{nice_datetime(approver.emailed_at)}" %>
+                <% if approver.problem %>
+                  <span class="text-muted"><%= emailed %> ·</span> <span class="text-danger"><%= approver.problem %></span>
+                <% elsif approver.link_clicked_at %>
+                  <span class="text-muted"><%= emailed %> · Link clicked <%= nice_datetime(approver.link_clicked_at) %></span>
+                <% else %>
+                  <span class="text-muted"><%= emailed %>, not clicked yet</span>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        <% else %>
+          <p class="small text-muted mb-2">No approver was emailed for this step.</p>
+        <% end %>
+      <% end %>
+    </section>
+  <% end %>
+<% end %>
