@@ -1,0 +1,11 @@
+<%# The page's actions, in the card footer. Shaped for the screen kit's shared/_action_row:
+    actions is a list of { label:, style:, path: } (a link) or { label:, style:, name:, value: } (a button submitting the form). %>
+<div class="card-footer d-flex gap-2 flex-wrap">
+  <% actions.each do |action| %>
+    <% if action[:path] %>
+      <%= link_to action[:label], action[:path], class: "btn btn-#{action[:style] || "secondary"}" %>
+    <% else %>
+      <%= button_tag action[:label], type: "submit", name: action[:name], value: action[:value], class: "btn btn-#{action[:style] || "secondary"}" %>
+    <% end %>
+  <% end %>
+</div>

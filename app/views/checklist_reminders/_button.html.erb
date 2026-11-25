@@ -1,0 +1,4 @@
+<%# Send Reminder on the checklist's page, for whoever runs it while reminders are on. %>
+<% if ChecklistReminderPolicy.new(current_user, checklist).create? %>
+  <%= link_to "Send Reminder", new_checklist_checklist_reminder_path(checklist), class: "btn btn-primary" %>
+<% end %>
