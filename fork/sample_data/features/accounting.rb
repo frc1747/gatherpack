@@ -8,16 +8,18 @@ require "csv"
 #   Ava Smith       paid in full
 #   Ben Smithers    partly paid ($200 left)
 #   Chloe Smithson  nothing paid, due 10 days ago
+#   Grace Miller    partly paid ($200 left), so her guardian Paula
+#                   (parent1@) has something to see on Home and Family
 #   Dan Jones       a payment and a scholarship credit, $50 left; his row
 #                   names him rather than giving his id, so he waits under
 #                   "Needs a link" on the Customers page with a suggestion
-# Ava, Ben and Chloe are given by GatherPack id, so they link automatically.
+# Ava, Ben, Chloe and Grace are given by GatherPack id, so they link automatically.
 #
 # Rules (Account Status, each member's Account tab and statement):
 #   "<season> Dues"     balance; the person and their guardians see status
 #                       and amounts. Milestones "Deposit" ($200 owing at
 #                       most) 10 days ago and "Paid in full" 20 days ahead.
-#                       Ava Paid, Ben Partly paid, Chloe Overdue until her
+#                       Ava Paid, Ben and Grace Partly paid, Chloe Overdue until her
 #                       payment plan (below), everyone else Not invoiced.
 #   "Paid this season"  amount paid, admins only: a treasurer's total.
 #
@@ -45,7 +47,7 @@ Hbr::SampleData.feature "feature/accounting" do |s|
   s.enable_feature :person_fields
 
   admin = s.login(:admin)
-  ava, ben, chloe, kate = %w[Ava Ben Chloe Kate].map { |first| s.person(first) }
+  ava, ben, chloe, grace, kate = %w[Ava Ben Chloe Grace Kate].map { |first| s.person(first) }
   date = ->(days) { (days.negative? ? s.clock.days_ago(-days) : s.clock.days_from_now(days)).to_date.iso8601 }
   season_end = s.clock.season.last
   season = "#{season_end.year - 1}-#{format("%02d", season_end.year % 100)}"
@@ -57,8 +59,10 @@ Hbr::SampleData.feature "feature/accounting" do |s|
     #{ben.neat_id},charge,D-102,#{date.call(-40)},#{date.call(20)},Dues,300.00,,,
     #{chloe.neat_id},charge,D-103,#{date.call(-40)},#{date.call(-10)},Dues,300.00,,,
     Dan Jones,charge,D-104,#{date.call(-40)},#{date.call(20)},Dues,300.00,,,
+    #{grace.neat_id},charge,D-105,#{date.call(-40)},#{date.call(20)},Dues,300.00,,,
     #{ava.neat_id},payment,P-201,#{date.call(-30)},,,300.00,,D-101,Check 1001
     #{ben.neat_id},payment,P-202,#{date.call(-25)},,,100.00,,D-102,Check 1002
+    #{grace.neat_id},payment,P-204,#{date.call(-12)},,,100.00,,D-105,Check 1004
     Dan Jones,payment,P-203,#{date.call(-20)},,,200.00,,D-104,Online payment
     Dan Jones,credit,C-301,#{date.call(-15)},,,50.00,,D-104,Hardship scholarship
   CSV
@@ -69,14 +73,14 @@ Hbr::SampleData.feature "feature/accounting" do |s|
   upload.update!(status: "applying", applied_by: admin)
   Accounting::ApplyUploadJob.perform_now(source, upload)
 
-  s.report "file source with 4 Dues charges (paid, partly paid, overdue, credit and payment)"
+  s.report "file source with 5 Dues charges (paid, partly paid, overdue, credit and payment)"
   s.expect("the upload applied with no row errors") { upload.reload.status == "applied" && upload.row_errors.empty? }
-  s.expect("Ava, Ben and Chloe are linked by id") do
-    source.accounting_customer_links.where(source: "reference").pluck(:person_id).sort == [ ava, ben, chloe ].map(&:id).sort
+  s.expect("Ava, Ben, Chloe and Grace are linked by id") do
+    source.accounting_customer_links.where(source: "reference").pluck(:person_id).sort == [ ava, ben, chloe, grace ].map(&:id).sort
   end
-  s.expect("Ben owes $200 and Dan $50") do
+  s.expect("Ben and Grace owe $200 and Dan $50") do
     balances = source.accounting_records.current.where(role: "charge").pluck(:number, :balance_cents).to_h
-    balances == { "D-101" => 0, "D-102" => 20_000, "D-103" => 30_000, "D-104" => 5000 }
+    balances == { "D-101" => 0, "D-102" => 20_000, "D-103" => 30_000, "D-104" => 5000, "D-105" => 20_000 }
   end
 
   # Rules.
@@ -97,9 +101,9 @@ Hbr::SampleData.feature "feature/accounting" do |s|
   [ dues, paid ].each { |rule| Accounting::Evaluation.new(rule).run }
 
   s.report "2 rules: #{dues.name} (balance, family) and #{paid.name} (amount, admins)"
-  s.expect("Ava paid, Ben partly paid, Chloe overdue") do
-    dues.results.where(person: [ ava, ben, chloe ]).to_h { |result| [ result.person_id, result.value ] } ==
-      { ava.id => "paid", ben.id => "partial", chloe.id => "overdue" }
+  s.expect("Ava paid, Ben and Grace partly paid, Chloe overdue") do
+    dues.results.where(person: [ ava, ben, chloe, grace ]).to_h { |result| [ result.person_id, result.value ] } ==
+      { ava.id => "paid", ben.id => "partial", chloe.id => "overdue", grace.id => "partial" }
   end
   s.expect("everyone else in Northwind is Not invoiced") { dues.results.where(value: "not_invoiced").exists? }
 
