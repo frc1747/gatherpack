@@ -269,9 +269,11 @@ class AccountingRule < ApplicationRecord
 
   private
     # A paid amount filtered by items, categories or locations counts what
-    # payments applied to the matching charges (Accounting::Kinds::Amount).
+    # payments applied to the matching charges (Accounting::Kinds::Amount),
+    # so it reads charges only while its roles keep payments.
     def paid_through_charges?
-      kind == "amount" && measure == "paid" && Accounting::RecordFilter.new(filters).lines?
+      filter = Accounting::RecordFilter.new(filters)
+      kind == "amount" && measure == "paid" && filter.lines? && filter.roles(%w[ payment ]).any?
     end
 
     # The people covered by grants whose badges the viewer holds.

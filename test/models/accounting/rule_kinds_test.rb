@@ -213,6 +213,17 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_empty evaluate(rule)
   end
 
+  test "393#7 fix round 2: a paid amount with items that names only receipts doesn't need charges" do
+    accounting_source.update!(synced_entities: "Customer SalesReceipt")
+    rule = create_rule("Dues receipts", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "roles" => [ "receipt" ] })
+    add_record("58", "receipt", "R1", total_cents: 5_000, item_ids: [ "dues" ], lines: [ { "item_id" => "dues", "amount_cents" => 5_000 } ])
+
+    assert_empty rule.missing_roles
+    assert_not rule.reads_charges?
+    evaluate(rule)
+    assert_equal 5_000, result_for(rule, @nancy).amount_cents
+  end
+
   private
     # A payment or credit applied to a charge, which lowers the charge's
     # balance as the source would.
