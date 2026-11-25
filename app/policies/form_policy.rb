@@ -82,6 +82,18 @@ class FormPolicy < ApplicationPolicy
     Team.where(id: person.all_managed_teams.ids + member_team_ids)
   end
 
+  # Teams the audience tab can ask: the same list FormAudienceRulePolicy
+  # checks. Admins any team; others the teams they manage, plus, as the
+  # form's creator, their creator teams and the extra teams the settings
+  # allow (ask only, never own).
+  def audience_teams
+    return Team.order(:name) if user.admin
+
+    ids = person.all_managed_teams.ids
+    ids += member_team_ids + Form.creator_extra_audience_team_ids if record.run_by_creator?(person)
+    Team.where(id: ids).order(:name)
+  end
+
   private
 
   def team_manager?

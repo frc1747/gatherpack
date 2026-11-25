@@ -43,19 +43,23 @@
     <% end %>
 
     <% if changeable %>
-    <% teams = admin ? Team.order(:name) : current_user.person.all_managed_teams.order(:name) %>
+    <% teams = policy(@form).audience_teams %>
     <% badge_choices = admin ? Badge.order(:name) : Badge.where(team_id: current_user.person.all_managed_teams.select(:id)).order(:name) %>
     <% effects = [ [ "Include", "include" ], [ "Exclude", "exclude" ] ] %>
     <div class="row g-3">
       <div class="col-lg-4">
         <%= simple_form_for FormAudienceRule.new(target_type: :team), url: form_audience_rules_path(@form) do |r| %>
           <%= r.input :target_type, as: :hidden %>
-          <div class="input-group mb-2">
-            <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
-            <%= r.select :team_id, teams.map { |team| [ team.name, team.id ] }, { prompt: "Team…" }, class: "form-select", required: true %>
-          </div>
-          <%= r.input :include_managers, label: "Include its managers", hint: "Untick to leave out leaders, for a student form." %>
-          <%= r.button :submit, "Add team", class: "btn btn-sm btn-secondary" %>
+          <% if teams.exists? %>
+            <div class="input-group mb-2">
+              <%= r.select :effect, effects, {}, class: "form-select flex-grow-0 w-auto" %>
+              <%= r.select :team_id, teams.map { |team| [ team.name, team.id ] }, { prompt: "Team…" }, class: "form-select", required: true %>
+            </div>
+            <%= r.input :include_managers, label: "Include its managers", hint: "Untick to leave out leaders, for a student form." %>
+            <%= r.button :submit, "Add team", class: "btn btn-sm btn-secondary" %>
+          <% else %>
+            <p class="text-muted" id="no_audience_teams">No teams you can add</p>
+          <% end %>
         <% end %>
       </div>
       <% if badges %>

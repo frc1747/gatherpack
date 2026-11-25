@@ -159,10 +159,12 @@ class MyGatherpackSignupsTest < ActionDispatch::IntegrationTest
     assert(home.any? { |row| row.include?("Taken for you") || row.include?("on behalf of Student World") })
   end
 
-  test "an organizer gets Manage with Sign-ups; a member does not" do
+  test "an organizer sees Sign-ups once, in the top run; a member manages nothing" do
     Settings[:signups_organizers] = "Sheet Organizer > Club"
 
-    assert MyGatherpack::Menu.new(person(:worker).user).manage.any? { |item| item.path == :signup_sheets_path }
+    assert MyGatherpack::Menu.new(person(:worker).user).manages_anything?
+    assert MyGatherpack::Menu.new(person(:worker).user).top.any? { |item| item.path == :signup_sheets_path }
+    assert MyGatherpack::Menu.new(person(:worker).user).manage.none? { |item| item.path == :signup_sheets_path }
     assert_empty MyGatherpack::Menu.new(person(:student).user).manage
     with_flag(:feature_signups, "false") do
       assert_empty MyGatherpack::Menu.new(person(:worker).user).manage

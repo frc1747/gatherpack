@@ -127,14 +127,15 @@ class MyGatherpackFormsTest < ActionDispatch::IntegrationTest
     assert_select "[data-home-column=todo]", count: 0
   end
 
-  test "a Forms creator gets Manage without managing a team; others don't" do
+  test "a Forms creator counts as managing without a team, and sees Forms once, in the top run" do
     badge = create_world_badge("Form Creator")
     BadgeAssignment.create!(badge: badge, person: person(:a1))
 
     with_settings(forms_creator_badge: "Form Creator") do
       assert MyGatherpack::Menu.new(person(:a1).user).manages_anything?
       assert_not MyGatherpack::Menu.new(person(:a2).user).manages_anything?
-      assert_equal [ "Forms" ], MyGatherpack::Menu.new(person(:a1).user).manage.map(&:label)
+      assert_includes MyGatherpack::Menu.new(person(:a1).user).top.map(&:label), "Forms"
+      assert_empty MyGatherpack::Menu.new(person(:a1).user).manage
     end
     assert_not MyGatherpack::Menu.new(person(:a1).user).manages_anything?
   end

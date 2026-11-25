@@ -1,0 +1,105 @@
+<%# The sidebar's menu. Pinning redraws just this, so the page around it is kept. %>
+<% if current_user != true_user %>
+  <div class="nav-item d-flex align-items-center px-3 impersonator">
+    <%= image_tag(get_avatar_url_64(true_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+    <%= link_to true_user.person.identifier_name, true_user.person %>
+  </div>
+  <div class="nav-item px-3 text-center w-100 impersonator-label">
+    impersonating
+  </div>
+<% end %>
+<% if current_user != true_user %>
+  <div class="nav-item d-flex align-items-center px-3 impersonator">
+    <%= image_tag(get_avatar_url_64(current_user.person.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+    <%= link_to current_user.person.identifier_name, current_user.person %>
+  </div>
+  <div class="nav-item d-flex align-items-center px-3 pt-1 impersonator">
+    <%= button_to "Stop Impersonating", stop_impersonating_people_path, data: {turbo: false}, class: "btn btn-danger btn-sm w-100" %>
+  </div>
+
+  <hr class="my-2">
+<% end %>
+
+<% if my_gatherpack_menu.pinned.any? %>
+  <div data-menu-group="pinned">
+    <%= nav_heading "Pinned" %>
+    <% my_gatherpack_menu.pinned.each do |item| %>
+      <%= my_gatherpack_menu_link item %>
+    <% end %>
+  </div>
+<% end %>
+
+<div data-menu-group="top">
+  <% my_gatherpack_menu.top.each do |item| %>
+    <%= my_gatherpack_menu_link item %>
+  <% end %>
+</div>
+
+<% if my_gatherpack_menu.reports.any? %>
+  <div data-menu-group="reports">
+    <%= nav_heading "Reports" %>
+    <% my_gatherpack_menu.reports.each do |item| %>
+      <%= my_gatherpack_menu_link item %>
+    <% end %>
+    <% if my_gatherpack_menu.all_pages %>
+      <%= nav_link "All pages", pages_path, "folder-open" %>
+    <% end %>
+  </div>
+<% end %>
+
+<% if my_gatherpack_menu.family.any? %>
+  <div data-menu-group="family">
+    <% my_gatherpack_menu.family.each do |item| %>
+      <%= my_gatherpack_menu_link item %>
+    <% end %>
+  </div>
+<% end %>
+
+<% my_gatherpack_menu.sections.each do |section_name, items| %>
+  <div data-menu-group="section-<%= section_name.parameterize %>">
+    <%= nav_heading section_name %>
+    <% items.each do |item| %>
+      <%= my_gatherpack_menu_link item %>
+    <% end %>
+  </div>
+<% end %>
+
+<% if my_gatherpack_menu.manage.any? %>
+  <div data-menu-group="manage">
+    <%= nav_heading "Manage" %>
+    <% my_gatherpack_menu.manage_parts.each do |part, heading, items| %>
+      <% if heading %>
+        <%= my_gatherpack_menu_part part, heading do %>
+          <% items.each do |item| %>
+            <%= my_gatherpack_menu_link item %>
+          <% end %>
+        <% end %>
+      <% else %>
+        <% items.each do |item| %>
+          <%= my_gatherpack_menu_link item %>
+        <% end %>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>
+
+<% if admin? %>
+  <hr class="my-2">
+
+  <div data-menu-group="admin">
+    <%= nav_heading "Automation" %>
+
+    <%= nav_link "Variables", variables_path, "database" %>
+    <%= nav_link "Reports", reports_path, "file-code" %>
+    <%= nav_link "Hooks", hooks_path, "timeline" %>
+
+    <%= nav_heading "Admin" %>
+
+    <%= nav_link "Setup", setup_path, "cogs" %>
+    <%= nav_link "Audit Log", audit_logs_path, "file-circle-check" %>
+    <%# The route comes from another feature, and only while it's on. %>
+    <% if GatherPack::Features.enabled?(:mcp) && respond_to?(:mcp_calls_path) %>
+      <%= nav_link "MCP Calls", mcp_calls_path, "robot" %>
+    <% end %>
+  </div>
+<% end %>
