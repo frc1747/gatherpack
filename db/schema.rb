@@ -255,10 +255,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.string "exempt_label"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "commitment_id"
+    t.boolean "wrapped", default: false, null: false
+    t.boolean "show_on_kiosk", default: false, null: false
     t.string "met_word"
     t.string "pending_word"
     t.string "not_met_word"
     t.index ["checklist_id"], name: "index_checklist_items_on_checklist_id"
+    t.index ["commitment_id"], name: "index_checklist_items_on_commitment_id", unique: true
     t.index ["kind"], name: "index_checklist_items_on_kind"
     t.index ["parent_id"], name: "index_checklist_items_on_parent_id"
   end
@@ -465,8 +469,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.boolean "include_managers", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.uuid "checklist_id"
+    t.integer "checklist_match", default: 0, null: false
     t.index ["badge_id"], name: "index_form_audience_rules_on_badge_id"
-    t.index ["form_id", "effect", "target_type", "team_id", "badge_id", "person_id"], name: "index_form_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
+    t.index ["checklist_id"], name: "index_form_audience_rules_on_checklist_id"
+    t.index ["form_id", "effect", "target_type", "team_id", "badge_id", "person_id", "checklist_id", "checklist_match"], name: "index_form_audience_rules_uniqueness", unique: true, nulls_not_distinct: true
     t.index ["form_id"], name: "index_form_audience_rules_on_form_id"
     t.index ["person_id"], name: "index_form_audience_rules_on_person_id"
     t.index ["team_id"], name: "index_form_audience_rules_on_team_id"
@@ -1137,6 +1144,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.uuid "team_ids", default: [], null: false, array: true
+    t.uuid "checklist_id"
+    t.boolean "accept_pending", default: false, null: false
+    t.index ["checklist_id"], name: "index_signup_position_rules_on_checklist_id"
     t.index ["signup_position_id"], name: "index_signup_position_rules_on_signup_position_id"
   end
 
@@ -1511,6 +1521,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   add_foreign_key "checklist_grants", "teams"
   add_foreign_key "checklist_items", "checklist_items", column: "parent_id"
   add_foreign_key "checklist_items", "checklists"
+  add_foreign_key "checklist_items", "commitments"
   add_foreign_key "checklist_lists", "checklists"
   add_foreign_key "checklist_lists", "people", column: "recorded_by_id", on_delete: :nullify
   add_foreign_key "checklist_organizers", "checklists"
@@ -1542,6 +1553,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   add_foreign_key "events", "event_types"
   add_foreign_key "events", "time_clock_periods"
   add_foreign_key "form_audience_rules", "badges", on_delete: :cascade
+  add_foreign_key "form_audience_rules", "checklists"
   add_foreign_key "form_audience_rules", "forms", on_delete: :cascade
   add_foreign_key "form_audience_rules", "people", on_delete: :cascade
   add_foreign_key "form_audience_rules", "teams", on_delete: :cascade
@@ -1626,6 +1638,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   add_foreign_key "signup_audience_rules", "people", on_delete: :cascade
   add_foreign_key "signup_audience_rules", "signup_sheets", on_delete: :cascade
   add_foreign_key "signup_audience_rules", "teams", on_delete: :cascade
+  add_foreign_key "signup_position_rules", "checklists"
   add_foreign_key "signup_position_rules", "signup_positions", on_delete: :cascade
   add_foreign_key "signup_positions", "signup_sheets", on_delete: :cascade
   add_foreign_key "signup_sheet_events", "events"
