@@ -18,6 +18,10 @@
 
 <%= f.input :content, wrapper_html: { class: "code-editor" }, input_html: { rows: 12, data: { lang: "html" } } %>
 
+<% if MyGatherpack.enabled? %>
+  <%= f.input :show_in_menu, label: "Show in the menu", hint: "List this page under Reports in the sidebar, for everyone who can view it." %>
+<% end %>
+
 <% if architect? %>
   <div class="alert alert-danger">
     <%= f.input :dynamic, label: "Enable ERB Parsing?" %>

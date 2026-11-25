@@ -11,8 +11,9 @@
     <% end %>
     <% if rows.any? %>
       <div class="card mg-list">
-        <% rows.each_with_index do |(section, item), index| %>
-          <%= render section.partial, item: item, first: index.zero? %>
+        <%# Every row's button is the same solid button, not just the first one's. %>
+        <% rows.each do |section, item| %>
+          <%= render section.partial, item: item, first: true %>
         <% end %>
       </div>
     <% else %>

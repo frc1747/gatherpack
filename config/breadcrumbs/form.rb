@@ -18,13 +18,8 @@ crumb :form_question do |question|
   parent :edit_form, question.form
 end
 
-crumb :form_results do |form|
-  link "Results", results_form_path(form)
-  parent :form, form
-end
-
 crumb :form_tally do |form|
-  link "Tally", tally_form_path(form)
+  link "Totals", tally_form_path(form)
   parent :form, form
 end
 
