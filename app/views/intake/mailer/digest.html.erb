@@ -1,0 +1,7 @@
+<p>Hi <%= @first_name %>,</p>
+
+<% @lines.each do |line| %>
+  <p><%= line %></p>
+<% end %>
+
+<p><%= link_to "See registrations", @url %></p>

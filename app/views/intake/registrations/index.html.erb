@@ -1,0 +1,36 @@
+<% breadcrumb :intake_registrations, @team %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Registrations#{" for #{@team.name}" if @team}", summary: "Links and kiosks people use to join teams." %>
+  <div class="card-footer">
+    <%= link_to "New Registration", @team ? new_intake_team_registration_path(@team) : new_intake_registration_path, class: "btn btn-success" %>
+  </div>
+</div>
+
+<% if @archived_count.positive? || params[:status].present? %>
+  <%= render "shared/filter_bar", url: request.path, status: params[:status].presence,
+    statuses: [ { label: "Current", value: nil }, { label: "Archived", value: "archived", count: @archived_count } ] %>
+<% end %>
+
+<% if @registrations.any? %>
+  <div class="table-responsive" <%= tag.attributes(data: column_chooser_data("intake-registrations")) %>>
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr><th>Title</th><th>Team</th><th>Opens</th><th>Closes</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <% @registrations.each do |registration| %>
+          <tr>
+            <td><%= link_to registration.title, intake_registration_path(registration) %></td>
+            <td><%= as_badge registration.team %></td>
+            <td><%= l registration.opens_at, format: :short %></td>
+            <td><%= registration.closes_at ? l(registration.closes_at, format: :short) : "No end" %></td>
+            <td><%= registration.open? ? "Open" : (registration.not_yet_open? ? "Not open yet" : "Closed") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <%= render "shared/empty_state", text: "No registrations yet." %>
+<% end %>
