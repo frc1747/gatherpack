@@ -123,6 +123,16 @@ class Accounting::FileSourceTest < ActiveJob::TestCase
     assert_equal 0, records["charge"].sole["balance_cents"]
   end
 
+  test "395#6: an upload whose apply job doesn't run goes back to its preview" do
+    upload = @source.accounting_uploads.new(content: file_fixture("accounting/dues.csv").read, created_by: @treasurer).read_content
+    upload.update!(status: "applying")
+
+    with_accounting(false) { Accounting::ApplyUploadJob.perform_now(@source, upload) }
+
+    assert_equal "previewed", upload.reload.status
+    assert_empty @source.accounting_records
+  end
+
   test "395#7: a person id in any capitalisation links automatically" do
     ward = create_linkable_person("Ben", "Ward")
     apply("customer,role,number,total\n#{ward.neat_id.sub("per_", "Per_")},charge,1044,450\n")
