@@ -1,10 +1,12 @@
 require "test_helper"
 require_relative "../../support/accounting_world"
 require_relative "../../support/accounting_provider_contract"
+require_relative "../../support/accounting_balance_cases"
 
 class Accounting::FileSourceTest < ActiveJob::TestCase
   include AccountingWorld
   include Accounting::ProviderContract
+  include AccountingBalanceCases
 
   setup do
     @source = create_file_source
@@ -14,6 +16,33 @@ class Accounting::FileSourceTest < ActiveJob::TestCase
 
   def provider_source
     @source
+  end
+
+  # The balance cases on an uploaded file: each customer is a person's
+  # id, each record a row, and a voided charge is a row taken out.
+  def balance_source = @source
+  def balance_charge(customer, id, total:, due_on: nil) = balance_row(customer, "charge", id, total, due_on: due_on)
+  def balance_pay(customer, id, cents, charge:) = balance_row(customer, "payment", id, cents, applied_to: charge)
+  def balance_credit(customer, id, cents, charge:) = balance_row(customer, "credit", id, cents, applied_to: charge)
+  def balance_unapplied(customer, id, cents) = balance_row(customer, "payment", id, cents)
+  def balance_void(customer, charge) = @balance_rows.delete(charge)
+
+  def balance_person(customer)
+    person = create_linkable_person("Andrew", "Fuller")
+    (@balance_customers ||= {})[customer] = person.neat_id
+    person
+  end
+
+  def balance_row(customer, role, id, cents, due_on: nil, applied_to: nil)
+    amount = format("%.2f", cents / 100.0)
+    applied = "#{applied_to}:#{amount}" if applied_to
+    (@balance_rows ||= {})[id] = [ @balance_customers.fetch(customer), role, id, "2026-09-01", due_on&.iso8601, nil, amount, nil, applied, nil ]
+  end
+
+  def balance_sync
+    return if @balance_rows.blank?
+
+    apply(CSV.generate { |csv| csv << Accounting::Files::Template::COLUMNS; @balance_rows.each_value { |row| csv << row } })
   end
 
   def provider_cases

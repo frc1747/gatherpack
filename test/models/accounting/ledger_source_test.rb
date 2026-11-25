@@ -1,10 +1,12 @@
 require "test_helper"
 require_relative "../../support/accounting_world"
 require_relative "../../support/accounting_provider_contract"
+require_relative "../../support/accounting_balance_cases"
 
 class Accounting::LedgerSourceTest < ActiveJob::TestCase
   include AccountingWorld
   include Accounting::ProviderContract
+  include AccountingBalanceCases
 
   setup do
     @team = create_ledger_team("Member ledgers")
@@ -18,6 +20,32 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
 
   def provider_source
     @source
+  end
+
+  # The balance cases on ledgers: each customer is a ledger its person
+  # owns, entries are added a minute apart, and payments and credits count
+  # against the oldest charge whatever charge the case names.
+  def balance_source = @source
+  def balance_charge(customer, id, total:, due_on: nil)
+    skip "Ledger entries have no due dates." if due_on
+    balance_entry(customer, id, -total, tags: [ @dues ])
+  end
+  def balance_pay(customer, id, cents, charge:) = balance_entry(customer, id, cents)
+  def balance_credit(customer, id, cents, charge:) = balance_entry(customer, id, cents, tags: [ @scholarship ])
+  def balance_unapplied(*) = skip("Ledgers count every payment against the oldest open charge, so none sits unapplied beside one.")
+  def balance_void(customer, charge) = @balance_entries.fetch(charge).update!(failed: true)
+  def balance_sync = sync
+
+  def balance_person(customer)
+    person = create_linkable_person("Andrew", "Fuller")
+    (@balance_ledgers ||= {})[customer] = create_ledger("Andrew Fuller dues", team: @team, owners: [ person ])
+    person
+  end
+
+  def balance_entry(customer, id, cents, tags: [])
+    @balance_entries ||= {}
+    at = Time.zone.local(2026, 9, 1) + @balance_entries.size.minutes
+    @balance_entries[id] = add_entry(@balance_ledgers.fetch(customer), cents, by: @treasurer, at: at, tags: tags)
   end
 
   def provider_cases
