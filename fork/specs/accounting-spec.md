@@ -532,6 +532,8 @@ Checked in that order. Labels renamable per rule. Screens name the missed milest
 
 **`count`.** The number of matching records, e.g. receipts this year.
 
+**Mixed invoices.** A payment or credit applies to a whole invoice, never a line, so a rule with an `items` filter counts a whole invoice when any one line matches ("A bill holding a matching line counts as a whole"). An invoice holding dues and travel therefore puts the travel money into the dues rule's balance. `Accounting::MixedInvoices` finds, for a rule with an `items` filter, the invoices it counts (linked customers, not voided, every other filter applied) whose `item_ids` also hold ids outside the filter, and names those items from the copied `item` records. No source calls. Rules with no item filter, `custom` rules and rules that read no invoices never have any. Screens: §11.3. The fix is in the source: one invoice per purpose.
+
 **`custom`.** Architect Ruby, run like `Hook#run`. Sees `person`, `rule`, `records` (matching `AccountingRecord` scope; may read `data`), `customers`. Returns `{ value:, amount_cents:, details: }` or a string. An exception stores `value: "error"`, shown to admins only, no actions.
 
 ### 8.4 Payment plans
@@ -652,6 +654,8 @@ Admins also see disabled rules, each source's connection state and last sync, th
 Header card: name, description, source, the same counts and totals as the list (plus unapplied credit total for admins), and the reminders line. Filter bar: value, team, and for admins **Unapplied credit** and **On a plan**. Table (people the viewer can see; it is the rule page's list of people, so each person's card (§11.4) isn't repeated here): name, team, value (colored), amount (if permitted), "changed on", "Open in <source>" for admins with `:deep_links`; Columns chooser, Print, Download CSV at the bar's right. The CSV for non-admins carries `public_label` text only.
 
 Action row: **Edit**, **Bill people** (admins and `bill` grant holders; §12), then **More**: **Evaluate now**, **Duplicate**, **Delete**.
+
+**Mixed-invoice warning** (admins only; §8.3). A warning at the top of the header card, under the state line: "3 invoices counted here also have other items (Travel - 2 District Events). The whole invoice counts toward this rule, because payments apply to whole invoices. Put each purpose on its own invoice in QuickBooks." Under it a table: Invoice (a link to the record page), Customer, Date, Other items, **Open in <source>** (with `:deep_links`). Over five invoices the table collapses under "Show the N invoices". Nothing shows when no invoice is mixed. The rule form's **Preview (not saved)** card carries the same warning for the unsaved filter, so it appears while items are being chosen. Never on members', managers' or guardians' screens (Account tab, statement, My GatherPack, reminders).
 
 **Duplicate** sets up next season: the copy moves the years in its name on ("2026-27 Dues" → "2027-28 Dues"), moves date filters and milestone dates on a year, keeps filters, milestones, visibility, actions and reminder settings, starts disabled and opens on Edit. Results, payment plans, reminder history and billing runs are never copied.
 
