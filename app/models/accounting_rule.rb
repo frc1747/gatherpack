@@ -42,11 +42,14 @@ class AccountingRule < ApplicationRecord
   has_many :milestones, -> { order(:due_on, :position) }, class_name: "AccountingRuleMilestone", foreign_key: :rule_id,
     inverse_of: :rule, dependent: :destroy
   has_many :badge_grants, class_name: "AccountingRuleBadgeGrant", foreign_key: :rule_id, inverse_of: :rule, dependent: :destroy
+  has_many :actions, -> { order(:position, :created_at) }, class_name: "AccountingRuleAction", foreign_key: :rule_id,
+    inverse_of: :rule, dependent: :destroy
   has_many :results, class_name: "AccountingRuleResult", foreign_key: :rule_id, inverse_of: :rule, dependent: :delete_all
 
   accepts_nested_attributes_for :milestones, allow_destroy: true,
     reject_if: ->(attributes) { attributes.values_at("name", "due_on", "balance_at_most", "balance_at_most_percent").all?(&:blank?) }
   accepts_nested_attributes_for :badge_grants, allow_destroy: true, reject_if: ->(attributes) { attributes["badge_id"].blank? }
+  accepts_nested_attributes_for :actions, allow_destroy: true, reject_if: ->(attributes) { attributes["action"].blank? }
 
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: true
   enum :amount_permission, AudienceLevels::LEVEL_VALUES, prefix: :amounts, validate: true
@@ -56,6 +59,9 @@ class AccountingRule < ApplicationRecord
   before_validation :generate_key, on: :create
   before_validation :normalize_settings
   before_validation :normalize_filters
+  # Takes back the badges and field values the rule's actions gave, before
+  # its results go.
+  before_destroy :undo_actions, prepend: true
 
   validates :name, presence: true
   validates :kind, inclusion: { in: KINDS }
@@ -199,8 +205,8 @@ class AccountingRule < ApplicationRecord
   end
 
   # A copy for the next season: years in the name and every date moved on a
-  # year, filters, milestones, visibility and grants kept, disabled. Never
-  # results.
+  # year, filters, milestones, visibility, grants and actions kept,
+  # disabled. Never results.
   def duplicate!
     transaction do
       copy = dup
@@ -212,6 +218,7 @@ class AccountingRule < ApplicationRecord
           .merge("due_on" => milestone.due_on.next_year))
       end
       badge_grants.each { |grant| copy.badge_grants.create!(badge_id: grant.badge_id, amounts: grant.amounts, bill: grant.bill) }
+      actions.each { |action| copy.actions.create!(action.attributes.slice("action", "condition", "badge_id", "person_field_id", "write", "position")) }
       copy
     end
   end
@@ -235,6 +242,11 @@ class AccountingRule < ApplicationRecord
   end
 
   private
+    def undo_actions
+      undo = Accounting::RuleActions.new(self)
+      results.includes(:person, :badge_assignment).find_each { |result| undo.undo(result) }
+    end
+
     # The people covered by grants whose badges the viewer holds.
     def granted_people(viewer, amounts: false)
       return [] unless GatherPack::Features.enabled?(:badges)
