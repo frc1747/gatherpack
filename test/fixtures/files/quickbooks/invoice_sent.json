@@ -1,0 +1,10 @@
+{
+  "Invoice": {
+    "Id": "201", "SyncToken": "1", "DocNumber": "1101", "TxnDate": "2026-11-24",
+    "CustomerRef": { "value": "58", "name": "Ward, Nancy" }, "TotalAmt": 450.00, "Balance": 450.00,
+    "EmailStatus": "EmailSent", "BillEmail": { "Address": "nancy.ward@example.com" },
+    "DeliveryInfo": { "DeliveryType": "Email", "DeliveryTime": "2026-11-24T09:01:00-08:00" },
+    "MetaData": { "CreateTime": "2026-11-24T09:00:00-08:00", "LastUpdatedTime": "2026-11-24T09:01:00-08:00" }
+  },
+  "time": "2026-11-24T09:01:00.000-08:00"
+}

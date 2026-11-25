@@ -1,0 +1,34 @@
+<% breadcrumb :accounting_billing_runs %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Billing runs", summary: "Charges GatherPack created, or put in a CSV, for the people you billed." %>
+  <%= render "shared/action_row", actions: [
+        screen_action("New billing run", new_accounting_billing_run_path, style: :success, visible: policy(AccountingBillingRun.new).new?)
+      ] %>
+</div>
+
+<div <%= tag.attributes(class: "card", data: column_chooser_data("accounting-billing-runs")) %>>
+  <% if @runs.any? %>
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr><th data-column-chooser-fixed>Run</th><th>Source</th><th>Rule</th><th>By</th><th>Lines</th></tr>
+        </thead>
+        <tbody>
+          <% @runs.each do |run| %>
+            <% details = AccountingBillingLine::STATUSES.index_with { |status| @counts.fetch([ run.id, status ], 0) } %>
+            <tr id="<%= dom_id run %>">
+              <td><%= link_to run.identifier_name, accounting_billing_run_path(run) %></td>
+              <td><%= run.gateway.name %></td>
+              <td><%= run.rule&.name %></td>
+              <td><%= run.created_by&.identifier_name %></td>
+              <td><%= accounting_billing_run_state(run, details) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body"><%= render "shared/empty_state", text: "No billing runs yet. Bill people from a rule's page, or with New billing run." %></div>
+  <% end %>
+</div>

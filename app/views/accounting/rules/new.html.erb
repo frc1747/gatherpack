@@ -1,0 +1,16 @@
+<% breadcrumb :new_accounting_rule %>
+
+<%= form_with model: @rule, url: accounting_rules_path, method: :post do |f| %>
+  <div class="card">
+    <%= render "shared/page_header", title: "New rule",
+          summary: "A rule answers one question from your money records for each person, like \"Are their dues paid?\". Pick which records count, who it's for, and who can see the answer." %>
+    <div class="card-body">
+      <%= render "accounting/rules/errors", rule: @rule %>
+      <%= render "accounting/rules/question_fields", f: f, rule: @rule %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= link_to "Cancel", accounting_rules_path, class: "btn btn-secondary" %>
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>

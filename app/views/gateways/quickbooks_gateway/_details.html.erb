@@ -1,0 +1,47 @@
+<%# locals: (gateway:) -%>
+<h2>QuickBooks</h2>
+<p>
+  GatherPack reads your QuickBooks records. It never changes, voids or deletes anything and never records payments.
+  <% if gateway.allow_create_charges? %>
+    With "Let GatherPack create invoices" on, it can also create new invoices and customers, and email the invoices it created.
+  <% else %>
+    Turn on "Let GatherPack create invoices" to bill people from GatherPack.
+  <% end %>
+</p>
+
+<% unless Accounting.enabled? %>
+  <p class="text-muted">Accounting is turned off: nothing is copied until it's turned on.</p>
+<% end %>
+
+<p class="mb-1">
+  <% case gateway.connection_status %>
+  <% when "connected" %>
+    Connected to <strong><%= gateway.company_name.presence || "a QuickBooks company" %></strong> (<%= gateway.environment %>).
+  <% when "needs_reconnect" %>
+    <span class="text-danger">QuickBooks refused GatherPack's sign-in. Click Reconnect.</span>
+  <% when "disconnected" %>
+    Disconnected. The records already copied stay.
+  <% else %>
+    Not connected yet.
+  <% end %>
+</p>
+<% unless Gateway::QuickbooksGateway.encryption_ready? %>
+  <p class="mb-1 text-danger">Set the encryption keys before connecting.</p>
+<% end %>
+<% if gateway.client_id.blank? || gateway.client_secret.blank? %>
+  <p class="mb-1">To connect, enter the client ID and client secret from your Intuit app on the edit page.</p>
+<% end %>
+<%= render "accounting/records/sync_state", source: gateway if gateway.connection_status == "connected" %>
+<p class="mb-1">Copies: <%= gateway.synced_entity_list.join(", ") %>.</p>
+<p>Calls to QuickBooks this month: <%= number_with_delimiter(gateway.calls_in_month) %>.</p>
+<p class="small text-muted">
+  Redirect URI for the Intuit app: <code><%= accounting_quickbooks_callback_url %></code>.
+  Disconnect URL: <code><%= disconnect_accounting_connection_url(gateway) %></code>.
+</p>
+
+<% if Accounting.enabled? && Accounting::SourcePolicy.new(current_user, gateway).customers? %>
+  <%= link_to "Customers", accounting_connection_customers_path(gateway), class: "btn btn-secondary" %>
+<% end %>
+<% if gateway.connection_status.in?(%w[ connected needs_reconnect ]) && Accounting::SourcePolicy.new(current_user, gateway).disconnect? %>
+  <%= link_to "Disconnect", disconnect_accounting_connection_path(gateway), class: "btn btn-danger" %>
+<% end %>

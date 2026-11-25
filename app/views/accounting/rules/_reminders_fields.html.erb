@@ -1,0 +1,43 @@
+<%# locals: (f:, rule:) -%>
+<% if rule.balance? %>
+  <div class="form-text mb-3">
+    Emails before each milestone to people who haven't met it yet, and while they're overdue. Everyone gets at most one account email a day,
+    however many rules remind them. A person on a payment plan is reminded before their plan's milestones. Leaders are never sent reminders.
+  </div>
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <%= f.label :remind_days_before, "Remind this many days before each milestone", class: "form-label" %>
+      <%= f.number_field :remind_days_before, min: 0, class: "form-control" %>
+      <div class="form-text">Leave blank for no reminder before milestones.</div>
+    </div>
+    <div class="col-md-6">
+      <%= f.label :overdue_every_days, "Then, while overdue, remind every this many days", class: "form-label" %>
+      <%= f.number_field :overdue_every_days, min: 1, class: "form-control" %>
+      <div class="form-text">Leave blank for no reminders while overdue.</div>
+    </div>
+  </div>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">Send to</legend>
+    <% { "both" => "The person and their guardians", "person" => "The person", "guardians" => "Their guardians" }.each do |value, label| %>
+      <div class="form-check">
+        <%= f.radio_button :remind_to, value, class: "form-check-input" %>
+        <%= f.label :remind_to, label, value: value, class: "form-check-label" %>
+      </div>
+    <% end %>
+    <div class="form-text">Only people who may see the person's result (People tab) are sent one: guardians get nothing when the rule doesn't show results to guardians.</div>
+  </fieldset>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">What reminders may say</legend>
+    <% { "everything" => "Everything: the rule, status, milestone, the amount to catch up and the pay link",
+         "name_only" => "Name and status: the rule, status, and the milestone's name and date",
+         "sign_in" => "Just \"sign in\": \"You have an account update. Sign in to see it.\"" }.each do |value, label| %>
+      <div class="form-check">
+        <%= f.radio_button :reminder_level, value, class: "form-check-input" %>
+        <%= f.label :reminder_level, label, value: value, class: "form-check-label" %>
+      </div>
+    <% end %>
+    <div class="form-text">Amounts and pay links only go to people who may see amounts (People tab); anyone else gets the name and status.</div>
+  </fieldset>
+<% else %>
+  <%= render "shared/empty_state", text: "Reminders are for balance rules, which have milestones." %>
+<% end %>

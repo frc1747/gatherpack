@@ -1,0 +1,19 @@
+<%# locals: (gateway:) -%>
+<h2>File</h2>
+<p>
+  Upload a CSV exported from your accounting program, or kept by hand, in the template's columns. Each upload shows what it adds,
+  changes and removes before you apply it; the records then match the file.
+</p>
+
+<% unless Accounting.enabled? %>
+  <p class="text-muted">Accounting is turned off: nothing is copied until it's turned on.</p>
+<% end %>
+
+<%= render "accounting/records/sync_state", source: gateway %>
+<% if (upload = gateway.current_upload) %>
+  <p class="mb-1">Records from <%= upload.identifier_name %>, <%= pluralize(upload.row_count, "row") %>.</p>
+<% end %>
+
+<% if Accounting.enabled? && Accounting::SourcePolicy.new(current_user, gateway).customers? %>
+  <%= link_to "Customers", accounting_connection_customers_path(gateway), class: "btn btn-secondary" %>
+<% end %>

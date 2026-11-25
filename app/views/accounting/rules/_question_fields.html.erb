@@ -1,0 +1,104 @@
+<%# locals: (f:, rule:) -%>
+<% sources = Accounting.sources %>
+<% architect = policy(rule).write_code? %>
+<div class="mb-3">
+  <%= f.label :name, "Name", class: "form-label" %>
+  <%= f.text_field :name, class: "form-control", required: true, placeholder: "2027 Membership Dues" %>
+</div>
+<div class="mb-3">
+  <%= f.label :description, "Description", class: "form-label" %>
+  <%= f.text_area :description, rows: 2, class: "form-control" %>
+  <div class="form-text">Shown to everyone who can see the results.</div>
+</div>
+<div class="mb-3">
+  <%= f.label :gateway_id, "Source", class: "form-label" %>
+  <%= f.select :gateway_id, sources.map { |source| [ "#{source.name} (#{source.source_name})", source.id ] }, {}, class: "form-select" %>
+</div>
+<fieldset class="mb-3">
+  <legend class="form-label fs-6">What it answers</legend>
+  <% AccountingRule::KINDS.each do |kind| %>
+    <% next if kind == "custom" && !architect && rule.kind != "custom" %>
+    <div class="form-check">
+      <%= f.radio_button :kind, kind, class: "form-check-input", disabled: (kind == "custom" && !architect) %>
+      <%= f.label :kind, value: kind, class: "form-check-label" do %>
+        <%= rule.class::KIND_NAMES[kind] %>
+        <span class="text-muted">
+          <%= { "balance" => "what's still owed on each person's charges, against the milestones",
+                "amount" => "a total of invoiced or paid amounts, like the amount given this year",
+                "count" => "how many records, like receipts this year",
+                "custom" => "Ruby an architect writes" }[kind] %>
+        </span>
+      <% end %>
+    </div>
+  <% end %>
+</fieldset>
+
+<% if rule.persisted? %>
+  <% if rule.kind == "balance" %>
+    <%= render "accounting/rules/milestone_fields", f: f, rule: rule %>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <%= f.label :grace_days, "Grace days", class: "form-label" %>
+        <%= f.number_field :grace_days, min: 0, class: "form-control" %>
+        <div class="form-text">Days after a milestone before someone counts as overdue.</div>
+      </div>
+    </div>
+    <fieldset class="mb-3">
+      <legend class="form-label fs-6">Payments not applied to a charge</legend>
+      <div class="form-check">
+        <%= f.radio_button :unapplied_credit, "show", class: "form-check-input" %>
+        <%= f.label :unapplied_credit, "Say a payment is waiting to be applied; the balance follows the charges", value: "show", class: "form-check-label" %>
+      </div>
+      <div class="form-check">
+        <%= f.radio_button :unapplied_credit, "count", class: "form-check-input" %>
+        <%= f.label :unapplied_credit, "Take it off this rule's balance (only when people have just one kind of charge)", value: "count", class: "form-check-label" %>
+      </div>
+    </fieldset>
+    <% if rule.capabilities.include?(:pay_links) %>
+      <div class="form-check mb-3">
+        <%= f.check_box :show_pay_links, { class: "form-check-input", checked: rule.show_pay_links? }, "true", "false" %>
+        <%= f.label :show_pay_links, "Show pay links to people who may see amounts", class: "form-check-label" %>
+      </div>
+    <% end %>
+  <% elsif rule.kind == "amount" %>
+    <fieldset class="mb-3">
+      <legend class="form-label fs-6">Add up</legend>
+      <% { "invoiced" => "What was invoiced", "paid" => "What was paid, less refunds" }.each do |measure, label| %>
+        <div class="form-check">
+          <%= f.radio_button :measure, measure, class: "form-check-input" %>
+          <%= f.label :measure, label, value: measure, class: "form-check-label" %>
+        </div>
+      <% end %>
+    </fieldset>
+  <% elsif rule.kind == "custom" %>
+    <div class="mb-3">
+      <%= f.label :code, "Code", class: "form-label" %>
+      <%= f.text_area :code, rows: 10, class: "form-control font-monospace", disabled: !architect %>
+      <div class="form-text">
+        Ruby that sees <code>person</code>, <code>rule</code>, <code>records</code> (the person's matching records, raw data included) and
+        <code>customers</code>, and returns <code>{ value:, amount_cents:, details: }</code> or a value. It runs with full access to every
+        record, including amounts and notes a viewer may not see.
+      </div>
+    </div>
+  <% end %>
+
+  <% if rule.values.any? %>
+    <fieldset class="mb-3">
+      <legend class="form-label fs-6">Words for each result</legend>
+      <div class="row g-2">
+        <% rule.values.each do |value| %>
+          <div class="col-md-4">
+            <%= label_tag "accounting_rule_labels_#{value}", AccountingRule::DEFAULT_LABELS[value], class: "form-label small text-muted" %>
+            <%= text_field_tag "accounting_rule[labels][#{value}]", (rule.labels || {})[value], id: "accounting_rule_labels_#{value}",
+                  placeholder: AccountingRule::DEFAULT_LABELS[value], class: "form-control" %>
+          </div>
+        <% end %>
+      </div>
+    </fieldset>
+  <% end %>
+<% elsif architect %>
+  <div class="mb-3">
+    <%= f.label :code, "Code (custom rules)", class: "form-label" %>
+    <%= f.text_area :code, rows: 6, class: "form-control font-monospace" %>
+  </div>
+<% end %>

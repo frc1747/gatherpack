@@ -1,0 +1,71 @@
+<%# locals: (f:, rule:) -%>
+<%# Which records count. Items, categories and locations are ticked by name;
+    the rule stores their ids, so renaming one in the books doesn't break it. %>
+<% filters = rule.filters || {} %>
+<% records = rule.gateway.accounting_records.current %>
+<% items = records.where(role: "item").order(:name).pluck(:name, :external_id) %>
+<% location_types = rule.gateway.location_entity_types %>
+<% categories = records.where(role: "category").where.not(entity_type: location_types).order(:name).pluck(:name, :external_id) %>
+<% location_ids = records.where.not(location_ids: []).distinct.pluck(Arel.sql("unnest(location_ids)")).sort %>
+<% places = records.where(role: "category", external_id: location_ids) %>
+<% names = (location_types.any? ? places.where(entity_type: location_types) : places).pluck(:external_id, :name).to_h %>
+<% if rule.missing_roles.any? %>
+  <div class="alert alert-warning py-2">
+    <%= rule.gateway.name %> doesn't copy <%= rule.missing_roles.map { |role| accounting_role_name(role).downcase.pluralize }.to_sentence %>,
+    so this rule isn't worked out. Choose them in the source's settings.
+  </div>
+<% end %>
+<% { "items" => [ "Items", items ], "classes" => [ "Categories", categories ], "locations" => [ "Locations", location_ids.map { |id| [ names[id] || id, id ] } ] }.each do |key, (title, choices)| %>
+  <% next if choices.empty? && Array(filters[key]).empty? %>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6"><%= title %> <span class="text-muted">(any of these; none ticked counts every one)</span></legend>
+    <% choices += Array(filters[key]).reject { |id| choices.any? { |_, choice| choice == id } }.map { |id| [ "#{id} (no longer in the books)", id ] } %>
+    <%= hidden_field_tag "accounting_rule[filters][#{key}][]", "", id: nil %>
+    <div class="row">
+      <% choices.each do |name, id| %>
+        <div class="col-md-4 form-check">
+          <%= check_box_tag "accounting_rule[filters][#{key}][]", id, Array(filters[key]).include?(id), id: "filter_#{key}_#{id.parameterize}", class: "form-check-input" %>
+          <%= label_tag "filter_#{key}_#{id.parameterize}", name, class: "form-check-label" %>
+        </div>
+      <% end %>
+    </div>
+  </fieldset>
+<% end %>
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <%= label_tag "accounting_rule_filters_txn_date_from", "Dated from", class: "form-label" %>
+    <%= date_field_tag "accounting_rule[filters][txn_date_from]", filters["txn_date_from"], id: "accounting_rule_filters_txn_date_from", class: "form-control" %>
+  </div>
+  <div class="col-md-3">
+    <%= label_tag "accounting_rule_filters_txn_date_to", "Dated to", class: "form-label" %>
+    <%= date_field_tag "accounting_rule[filters][txn_date_to]", filters["txn_date_to"], id: "accounting_rule_filters_txn_date_to", class: "form-control" %>
+  </div>
+  <div class="col-md-3">
+    <%= label_tag "accounting_rule_filters_due_date_from", "Due from", class: "form-label" %>
+    <%= date_field_tag "accounting_rule[filters][due_date_from]", filters["due_date_from"], id: "accounting_rule_filters_due_date_from", class: "form-control" %>
+  </div>
+  <div class="col-md-3">
+    <%= label_tag "accounting_rule_filters_due_date_to", "Due to", class: "form-label" %>
+    <%= date_field_tag "accounting_rule[filters][due_date_to]", filters["due_date_to"], id: "accounting_rule_filters_due_date_to", class: "form-control" %>
+  </div>
+</div>
+<details class="mb-3" <%= "open" if filters["min_total"] || filters["roles"] %>>
+  <summary>More choices</summary>
+  <div class="row g-3 mt-1">
+    <div class="col-md-4">
+      <%= label_tag "accounting_rule_filters_min_total", "Skip records under ($)", class: "form-label" %>
+      <%= text_field_tag "accounting_rule[filters][min_total]", (Money.new(filters["min_total"]).to_s if filters["min_total"]),
+            id: "accounting_rule_filters_min_total", inputmode: "decimal", class: "form-control" %>
+    </div>
+    <div class="col-md-8">
+      <span class="form-label d-block">Only these kinds of record <span class="text-muted">(none ticked counts every kind the rule uses)</span></span>
+      <%= hidden_field_tag "accounting_rule[filters][roles][]", "", id: nil %>
+      <% %w[ charge receipt payment credit refund ].each do |role| %>
+        <div class="form-check form-check-inline">
+          <%= check_box_tag "accounting_rule[filters][roles][]", role, Array(filters["roles"]).include?(role), id: "filter_roles_#{role}", class: "form-check-input" %>
+          <%= label_tag "filter_roles_#{role}", accounting_role_name(role), class: "form-check-label" %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</details>

@@ -1,0 +1,14 @@
+{
+  "QueryResponse": {
+    "SalesReceipt": [
+      {
+        "Id": "160", "SyncToken": "0", "DocNumber": "SR-3", "TxnDate": "2026-10-05", "CustomerRef": { "value": "58" },
+        "TotalAmt": 25.00, "Balance": 0, "PrivateNote": "Cash at the booth",
+        "Line": [
+          { "Id": "1", "Amount": 25.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "22", "name": "Shirt" } } }
+        ],
+        "MetaData": { "LastUpdatedTime": "2026-10-05T10:00:00-07:00" }
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "QueryResponse": {
+    "Item": [
+      { "Id": "21", "SyncToken": "0", "Name": "Dues", "Type": "Service", "Active": true, "MetaData": { "LastUpdatedTime": "2026-08-01T10:00:00-07:00" } },
+      { "Id": "22", "SyncToken": "0", "Name": "Shirt", "Type": "NonInventory", "Active": false, "MetaData": { "LastUpdatedTime": "2026-08-01T10:00:00-07:00" } }
+    ]
+  }
+}

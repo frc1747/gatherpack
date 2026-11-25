@@ -1,0 +1,15 @@
+<%# locals: (source:, customer:, suggestions:, back: nil) -%>
+<%# Suggested people for a customer, each with Link and Not this person. A name match the email confirms comes first and the rest fold away. %>
+<% if suggestions.any? %>
+  <% shown, others = suggestions.partition(&:confirmed) %>
+  <% shown, others = suggestions, [] if shown.empty? %>
+  <%= render "accounting/customers/suggestion_list", source: source, customer: customer, suggestions: shown, back: back %>
+  <% if others.any? %>
+    <details class="mt-1">
+      <summary class="text-muted small">Other suggestions (<%= others.size %>)</summary>
+      <%= render "accounting/customers/suggestion_list", source: source, customer: customer, suggestions: others, back: back %>
+    </details>
+  <% end %>
+<% else %>
+  <span class="text-muted">No suggestions.</span>
+<% end %>

@@ -1,0 +1,14 @@
+{
+  "QueryResponse": {
+    "CreditMemo": [
+      {
+        "Id": "150", "SyncToken": "1", "DocNumber": "CM-9", "TxnDate": "2026-09-18", "CustomerRef": { "value": "58" },
+        "TotalAmt": 75.00, "Balance": 25.00, "PrivateNote": "Hardship scholarship",
+        "Line": [
+          { "Id": "1", "Amount": 75.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "24", "name": "Scholarship" } } }
+        ],
+        "MetaData": { "LastUpdatedTime": "2026-09-20T10:00:00-07:00" }
+      }
+    ]
+  }
+}

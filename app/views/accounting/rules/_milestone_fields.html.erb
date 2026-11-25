@@ -1,0 +1,40 @@
+<%# locals: (f:, rule:) -%>
+<%# The rule's milestones, plus blank rows to add more. %>
+<% never_overdue = rule.never_overdue? %>
+<% rows = rule.milestones.to_a %>
+<% rows += Array.new([ 2 - rows.count(&:new_record?), 0 ].max) { rule.milestones.build } %>
+<fieldset class="mb-3">
+  <legend class="form-label fs-6">Milestones</legend>
+  <div class="form-text mb-2">
+    What has to be paid by when, as the most that may still be owed: "Deposit", 50% by Oct 1; "Paid in full", $0 by Jan 15.
+    With none, each charge is due in full on its own due date.
+  </div>
+  <% if never_overdue %>
+    <div class="alert alert-warning py-2">Nobody will ever be Overdue: this source has no due dates. Add a milestone.</div>
+  <% end %>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr><th>Name</th><th>By</th><th>Owing at most ($)</th><th>or at most (%)</th><th></th></tr>
+      </thead>
+      <tbody>
+        <%= f.fields_for :milestones, rows do |m| %>
+          <tr>
+            <td><%= m.text_field :name, class: "form-control", placeholder: "Deposit" %></td>
+            <td><%= m.date_field :due_on, class: "form-control" %></td>
+            <td><%= m.text_field :balance_at_most, class: "form-control", inputmode: "decimal" %></td>
+            <td><%= m.number_field :balance_at_most_percent, min: 0, max: 100, class: "form-control" %></td>
+            <td>
+              <% if m.object.persisted? %>
+                <div class="form-check">
+                  <%= m.check_box :_destroy, class: "form-check-input" %>
+                  <%= m.label :_destroy, "Remove", class: "form-check-label" %>
+                </div>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</fieldset>

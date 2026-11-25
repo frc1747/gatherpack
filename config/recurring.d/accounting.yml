@@ -1,0 +1,14 @@
+# Accounting sources and reminders (config/initializers/accounting.rb). All do nothing
+# while the feature is off.
+accounting_changes:
+  class: Accounting::ScheduleChangesJob
+  queue: default
+  schedule: every 15 minutes
+accounting_nightly:
+  class: Accounting::NightlyJob
+  queue: default
+  schedule: at 3am every day
+accounting_reminders:
+  class: Accounting::ReminderJob
+  queue: default
+  schedule: at 8am every day
