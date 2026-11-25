@@ -1,6 +1,6 @@
 require "test_helper"
 require_relative "../support/checklists_count_world"
-require Rails.root.join("db/migrate/20261124120000_move_wrapped_exempt_badge_rules_to_items")
+require Rails.root.join("db/migrate/20261124150000_move_wrapped_exempt_badge_rules_to_items")
 
 class MoveWrappedExemptBadgeRulesToItemsTest < ActiveSupport::TestCase
   include ChecklistsCountWorld
