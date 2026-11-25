@@ -139,6 +139,21 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     assert_nil @source.configuration["last_error"]
   end
 
+  test "395#10: with a payment gateway, a synced ledger charge links to the ledger's Pay page" do
+    Gateway::StripeGateway.delete_all
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    add_entry(ledger, -45_000, by: @treasurer, tags: [ @dues ])
+    sync
+    charge = -> { @source.accounting_records.current.find_by!(entity_type: "LedgerEntry", role: "charge") }
+    assert_nil charge.call.pay_url
+
+    Gateway::StripeGateway.create!(name: "Card payments")
+    sync
+
+    assert_equal Rails.application.routes.url_helpers.new_ledger_payment_path(ledger_id: ledger.id), charge.call.pay_url
+    assert_equal Rails.application.routes.url_helpers.ledger_ledger_entry_path(ledger.id, charge.call.external_id), charge.call.external_url
+  end
+
   test "removing an ownership removes its link, and a link an admin removed stays removed" do
     ben = create_linkable_person("Ben", "Ward")
     ledger = create_ledger("Ward family", team: @team, owners: [ @nancy, ben ])
