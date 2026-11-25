@@ -90,6 +90,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-083](BL-083-touch-friendly-menus.md) | More and other dropdown menus get phone-sized spacing (44px tap targets on touch screens), with Delete set apart | fork-only (screens) | medium | shipped hbr.53 | 2026-11-22 |
 | [BL-084](BL-084-sidebar-by-job.md) | Sidebar sorted by job: Sign-ups, Forms and Checklists together, report Pages in the menu, Manage in folding parts, per-person pins | fork-only (screens) | medium | shipped hbr.53 | 2026-11-23 |
 | [BL-085](BL-085-home-orders-activity-button.md) | Home: "See all your activity" looks like part of Your orders; Your orders says nothing when there are no requests | fork-only (screens) | medium | shipped hbr.53 | 2026-11-23 |
+| [BL-086](BL-086-table-columns-everywhere.md) | Fork reading tables still without Columns and heading sort/filter: forms, person fields, widgets, kiosk devices, inventory unit, order purchase, authorized apps | fork-only (screens) | medium | not started | 2026-11-25 |
 
 ## Fields
 
