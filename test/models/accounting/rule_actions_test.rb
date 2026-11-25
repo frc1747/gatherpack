@@ -277,6 +277,68 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     assert_equal [ nil, nil ], [ action.person_field_id, action.write ]
   end
 
+  test "turning a rule off takes back its badges and field values; turning it on gives them again" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "badge", badge: @paid_up, condition: { "values" => [ "paid" ] })
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    assert_equal [ @janet ], @paid_up.badge_assignments.map(&:person)
+
+    @rule.update!(enabled: false)
+
+    assert_empty @paid_up.badge_assignments.reload
+    assert_nil result_for(@rule, @janet).badge_assignment_id
+    assert_equal [ nil, nil ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+
+    @rule.update!(enabled: true)
+    evaluate(@rule)
+
+    assert_equal [ @janet ], @paid_up.badge_assignments.reload.map(&:person)
+    assert_equal [ "Paid", "Partly paid" ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+  end
+
+  test "deleting a turned-off rule has nothing left to take back" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    @rule.update!(enabled: false)
+    @nancy.set_field_value(field, "Waived")
+
+    seen = capture("person_fields - value changed") { @rule.destroy! }
+
+    assert_empty seen
+    assert_equal "Waived", @nancy.reload.field_value(field)
+  end
+
+  test "a Duplicate takes over: last season's badges go and the copy gives them to people who meet it now" do
+    field = PersonField.create!(name: "Season Dues", data_type: :string, write_permission: "admin")
+    old = create_rule("2026-27 Dues", filters: { "txn_date_from" => "2026-07-01", "txn_date_to" => "2027-06-30" })
+    old.actions.create!(action: "badge", badge: @paid_up, condition: { "values" => [ "paid" ] })
+    old.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(old)
+    assert_equal [ @janet ], @paid_up.badge_assignments.map(&:person)
+    assert_equal "Paid", @janet.reload.field_value(field)
+
+    copy = old.duplicate!
+    assert_equal "2027-28 Dues", copy.name
+    add_charge("58", "I3", total: 40_000, balance: 0, txn_date: Date.new(2027, 9, 1))
+    add_charge("60", "I4", total: 40_000, balance: 40_000, txn_date: Date.new(2027, 9, 1))
+
+    old.update!(enabled: false)
+    assert_empty @paid_up.badge_assignments.reload, "last season's badges are taken back"
+    assert copy.update(enabled: true), copy.errors.full_messages.to_sentence
+    evaluate(copy)
+
+    assert_equal [ @nancy ], @paid_up.badge_assignments.reload.map(&:person)
+    assert_equal result_for(copy, @nancy).badge_assignment, @paid_up.badge_assignments.sole
+    assert_equal [ "Not yet paid", "Paid" ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+
+    seen = capture("person_fields - value changed") { old.destroy! }
+    assert_empty seen, "deleting last season's rule leaves this season's values alone"
+    assert_equal [ @nancy ], @paid_up.badge_assignments.reload.map(&:person)
+    assert_equal "Paid", @nancy.reload.field_value(field)
+  end
+
   test "Duplicate keeps the actions" do
     field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
     @rule.actions.create!(action: "badge", badge: @paid_up, condition: { "values" => [ "paid" ] })

@@ -59,9 +59,13 @@ class AccountingRule < ApplicationRecord
   before_validation :generate_key, on: :create
   before_validation :normalize_settings
   before_validation :normalize_filters
-  # Takes back the badges and field values the rule's actions gave, before
-  # its results go.
-  before_destroy :undo_actions, prepend: true
+  # Turning a rule off takes back the badges and field values its actions
+  # gave (turning it on gives them again on the next evaluation), so a
+  # turned-off rule, such as last season's after a Duplicate takes over,
+  # leaves nothing behind. Deleting a turned-on rule does the same before
+  # its results go; a turned-off one has nothing left to take back.
+  after_update :undo_actions, if: -> { saved_change_to_enabled?(from: true, to: false) }
+  before_destroy :undo_actions, prepend: true, if: :enabled_in_database
 
   validates :name, presence: true
   validates :kind, inclusion: { in: KINDS }

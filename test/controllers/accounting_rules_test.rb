@@ -300,6 +300,14 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_match "Fees also gives Dues Paid.", response.body
   end
 
+  test "the Enabled tab says turning the rule off takes back what its actions gave" do
+    sign_in @laura.user
+
+    with_accounting { get edit_accounting_rule_path(@rule, tab: "enabled") }
+
+    assert_match "Turning this rule off takes back the badges it gave and clears the field it fills in.", response.body
+  end
+
   test "the Actions tab refuses a second badge" do
     @rule.actions.create!(action: "badge", badge: create_rule_badge("Dues Paid"))
     sign_in @laura.user

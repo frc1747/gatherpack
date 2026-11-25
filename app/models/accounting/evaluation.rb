@@ -1,6 +1,8 @@
 # Recomputes a rule's results (Accounting::Kinds) and saves only what
 # changed. A turned-off rule isn't worked out (a draft, such as a
 # Duplicate, mustn't fire hooks); its results are when it's turned on.
+# Turning a rule off takes back what its actions gave (AccountingRule), and
+# the next run after it's turned on gives it again.
 # Each person's actions (Accounting::RuleActions) are applied after their
 # result is saved. A change of value or amount fires "accounting_rules -
 # result changed" with an AccountingRuleChange, after the results are saved
