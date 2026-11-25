@@ -1,0 +1,4 @@
+housekeeping_nightly_job:
+  class: HousekeepingNightlyJob
+  queue: default
+  schedule: at 3:30am every day
