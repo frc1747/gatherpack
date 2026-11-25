@@ -1,0 +1,33 @@
+<% breadcrumb :edit_signup_sheet, @signup_sheet %>
+<% tabs = { "details" => "Details", "positions" => "Positions", "dates" => "Dates", "organizers" => "Organizers", "audience" => "Who can sign up" } %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Editing #{@signup_sheet.identifier_name}",
+        state: state_line(signup_sheet_state(@signup_sheet)),
+        tabs: tabs.map { |key, label| [ label, edit_signup_sheet_path(@signup_sheet, tab: key) ] } %>
+</div>
+
+<% case @tab %>
+<% when "details" %>
+  <%= simple_form_for(@signup_sheet) do |f| %>
+    <%= hidden_field_tag :tab, @tab %>
+    <div class="card">
+      <div class="card-body">
+        <%= render "form", f: f %>
+      </div>
+      <div class="card-footer">
+        <%= link_to "Cancel", @signup_sheet, class: "btn btn-secondary" %>
+        <%= f.button :submit, "Save", class: "btn btn-primary" %>
+      </div>
+    </div>
+  <% end %>
+<% when "positions" %>
+  <%= render "manage_positions" %>
+<% when "dates" %>
+  <%= render "manage_dates" %>
+  <%= render "manage_slots" %>
+<% when "organizers" %>
+  <%= render "manage_organizers" %>
+<% when "audience" %>
+  <%= render "manage_audience" %>
+<% end %>
