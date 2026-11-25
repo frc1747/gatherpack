@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork change |
 | Priority | medium |
-| Status | started (task 381 on feature/security-series) |
+| Status | shipped hbr.54 |
 | Added | 2026-11-09 |
 | Commit checked | `feature/security-series` @ `704bf4c2` |
 | Planned branch | `feature/security-series` (fix on the branch itself) |

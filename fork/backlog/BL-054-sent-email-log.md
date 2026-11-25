@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (feature) |
 | Priority | medium |
-| Status | started (task 385 on feature/email-log; task 386 on feature/email-log-orders for the order request part) |
+| Status | shipped hbr.54 |
 | Added | 2026-11-17 |
 | Commit checked | `upstream/main` @ `eeaa691aa`; Resend gateway from `8e6135f03`; order notices from `feature/orders` (hbr.48) |
 | Planned branch | `feature/email-log` (core); the order request part on `feature/orders`, depending on it |

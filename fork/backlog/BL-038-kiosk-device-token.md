@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream feature |
 | Priority | medium |
-| Status | started (task 382, branch feature/kiosk-devices, waits on BL-039) |
+| Status | live hbr.54 |
 | Added | 2026-11-09 |
 | Upstream commit checked | `eeaa691a` (`upstream/main`) |
 | Planned branch | `feature/kiosk-devices` (built; pushed to origin, not released) |

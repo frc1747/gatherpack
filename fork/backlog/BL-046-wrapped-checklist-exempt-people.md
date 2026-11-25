@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | medium |
-| Status | started |
+| Status | shipped hbr.54 |
 | Added | 2026-11-15 |
 | Commit checked | `feature/checklists-connectors` (as merged in `hbr/integration` @ `2d28c89f`, `v0.0.0-hbr.40`) |
 | Planned branches | `feature/checklists-connectors` (wrapping, visibility); `feature/checklists` (evaluator, if decision 2 changes the overall) |

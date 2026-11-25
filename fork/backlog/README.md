@@ -13,12 +13,12 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-003](BL-003-attendance-eligibility-badge.md) | Keep a travel-eligibility badge in sync with attendance | fork-only | medium | dropped | 2026-10-03 |
 | [BL-004](BL-004-version-in-sidebar.md) | Show the deployed version under "powered by GatherPack" | upstream feature | low | shipped hbr.6 | 2026-10-03 |
 | [BL-005](BL-005-event-delete-with-checkins.md) | Deleting an event that has check-ins crashes | upstream bug | medium | shipped hbr.32 | 2026-10-04 |
-| [BL-006](BL-006-team-less-events-hidden.md) | Events with no team are hidden from everyone but admins | upstream bug | medium | started | 2026-10-05 |
+| [BL-006](BL-006-team-less-events-hidden.md) | Events with no team are hidden from everyone but admins | upstream bug | medium | live hbr.54 | 2026-10-05 |
 | [BL-007](BL-007-seeds-badge-before-membership.md) | First boot on a fresh database crashes in db/seeds.rb | upstream bug | medium | shipped hbr.32 | 2026-10-05 |
 | [BL-008](BL-008-member-info-access.md) | Restrict Member Info: its own on/off switch, and managers only by default | upstream feature (security) | high | dropped | 2026-10-05 |
 | [BL-009](BL-009-person-team-ids-return-records.md) | `Person#all_team_ids` and `#all_ancestor_team_ids` return Team records mixed with ids | upstream bug (latent) | low | shipped hbr.32 | 2026-10-06 |
 | [BL-010](BL-010-long-tick-box-lists.md) | Keep long tick-box lists short on the printable list | fork-only | medium | shipped hbr.32 | 2026-10-07 |
-| [BL-011](BL-011-accounting-integration.md) | Accounting: account status from QuickBooks, ledgers or a file, and billing | fork-only | medium | started | 2026-10-07 |
+| [BL-011](BL-011-accounting-integration.md) | Accounting: account status from QuickBooks, ledgers or a file, and billing | fork-only | medium | shipped hbr.54 | 2026-10-07 |
 | [BL-012](BL-012-kiosk-period-less-punch.md) | Time kiosk crashes for anyone with a punch that has no period | upstream bug | medium | shipped hbr.32 | 2026-10-08 |
 | [BL-013](BL-013-settings-cached-per-process.md) | Saved settings reach only one server process until a restart | upstream bug | medium | done (upstream merged PR #544, 2026-11-09) | 2026-10-09 |
 | [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | shipped hbr.32 | 2026-10-09 |
@@ -42,23 +42,23 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-035](BL-035-people-search-phone.md) | The People search form fills the phone screen | upstream improvement | medium | shipped hbr.35 | 2026-11-08 |
 | [BL-036](BL-036-ransack-associations-allowlist.md) | Six admin list pages raise a Ransack allowlist error | upstream bug | medium | shipped hbr.23 | 2026-11-08 |
 | [BL-037](BL-037-calendar-note-badge-args.md) | The calendar notes page crashes when a note links to a record | upstream bug | medium | shipped hbr.41 | 2026-11-08 |
-| [BL-038](BL-038-kiosk-device-token.md) | Let a dedicated kiosk computer stay on the time clock without a user login | upstream feature | medium | started | 2026-11-09 |
-| [BL-039](BL-039-kiosk-no-sign-out.md) | Take the Sign out button off the kiosk account's kiosk header | fork change | medium | started | 2026-11-09 |
+| [BL-038](BL-038-kiosk-device-token.md) | Let a dedicated kiosk computer stay on the time clock without a user login | upstream feature | medium | live hbr.54 | 2026-11-09 |
+| [BL-039](BL-039-kiosk-no-sign-out.md) | Take the Sign out button off the kiosk account's kiosk header | fork change | medium | shipped hbr.54 | 2026-11-09 |
 | [BL-040](BL-040-kiosk-serial-scanner.md) | Read the kiosk's card scanner as a serial device instead of a keyboard | fork-only | low | waiting | 2026-11-10 |
 | [BL-041](BL-041-count-done-hides-group-records.md) | A family member's credit counts toward a count item but isn't listed under Done | fork-only | medium | shipped hbr.39 | 2026-11-11 |
 | [BL-042](BL-042-relationship-type-delete-breaks-count-item.md) | Deleting a relationship type that a count item pools through breaks the item | fork-only | low | shipped hbr.39 | 2026-11-11 |
 | [BL-043](BL-043-checkin-answers-block-deletes.md) | Check-in fields and event types with stored answers can never be deleted | upstream bug | low | shipped hbr.32 | 2026-11-11 |
 | [BL-044](BL-044-home-my-season-and-activity.md) | Home shows checklist math instead of answers; add a "My activity" page | fork-only (UX) | high | shipped hbr.41 | 2026-11-15 |
 | [BL-045](BL-045-checklist-rule-wording.md) | "Finishes a checklist" reads as a reward, not a requirement; no warning for a catch-22 | fork-only (UX) | high | shipped hbr.41 | 2026-11-15 |
-| [BL-046](BL-046-wrapped-checklist-exempt-people.md) | Checklists made from commitments treat an exempt badge as "not on the checklist" | fork-only (bug) | medium | started | 2026-11-15 |
+| [BL-046](BL-046-wrapped-checklist-exempt-people.md) | Checklists made from commitments treat an exempt badge as "not on the checklist" | fork-only (bug) | medium | shipped hbr.54 | 2026-11-15 |
 | [BL-047](BL-047-orders-approval-fixes.md) | Order approval: repeated field ids, declined items say waiting, re-approval shows $0.00, plus three spec gaps | fork-only (bug) | medium | shipped hbr.42 | 2026-11-15 |
 | [BL-048](BL-048-orders-inventory-polish.md) | Orders/inventory: new-request autosave refused (blocking), menu links members can't open, phone layout, import preview, notices link | fork-only (bug) | high | shipped hbr.42 | 2026-11-15 |
 | [BL-049](BL-049-hbr42-docs-findings.md) | hbr.42 docs findings: activity "Counts toward" missing for sign-ups, To receive not in member menu, empty-looking ticks, filter wording, demo data | fork-only (bug) | medium | shipped hbr.43 | 2026-11-16 |
 | [BL-050](BL-050-hbr45-docs-findings.md) | hbr.43-45 docs findings: settings missing from Orders/Inventory setup pages, picker wording, funding dates, search match, midnight events on Family and Home, demo kiosk setting | fork-only (bug) | high | shipped hbr.47 | 2026-11-17 |
-| [BL-051](BL-051-admin-notice-flood.md) | Site admins get every team's approval, registration and join notices | fork-only | medium | started | 2026-11-17 |
+| [BL-051](BL-051-admin-notice-flood.md) | Site admins get every team's approval, registration and join notices | fork-only | medium | shipped hbr.54 | 2026-11-17 |
 | [BL-052](BL-052-email-rate-limit-retry.md) | Emails over the Resend rate limit fail and are never retried | upstream bug | medium | shipped hbr.50 | 2026-11-17 |
 | [BL-053](BL-053-event-type-starts-locked.md) | Events members shouldn't check themselves in to must be locked one at a time; let an event type start its events locked | fork-only | medium | shipped hbr.50 | 2026-11-17 |
-| [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | started | 2026-11-17 |
+| [BL-054](BL-054-sent-email-log.md) | Sent email log: delivery, bounces and link clicks from the sending service, on an admin screen and on order requests | fork-only | medium | shipped hbr.54 | 2026-11-17 |
 | [BL-055](BL-055-order-form-pinned-buttons.md) | Pinned Save/Cancel on every form (sticky button row), the standard Order Settings already uses | fork-only (UX) | medium | shipped hbr.51 | 2026-11-18 |
 | [BL-056](BL-056-orders-inventory-email-choices.md) | Orders and Inventory emails: one model, a site default (each time, daily digest, Weekly Infodump, off) and each person's own choice | fork-only | high | shipped hbr.51 | 2026-11-18 |
 | [BL-057](BL-057-orders-separate-roles.md) | Orders roles: requesting, approving and buying set separately by badge or team-manager grants; team managers no longer get all three (Inventory Managers too) | fork-only (security) | high | shipped hbr.51 | 2026-11-18 |

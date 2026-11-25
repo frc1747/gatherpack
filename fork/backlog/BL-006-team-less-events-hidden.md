@@ -4,7 +4,7 @@
 |---|---|
 | Kind | upstream bug |
 | Priority | medium |
-| Status | started |
+| Status | live hbr.54 |
 | Added | 2026-10-05 |
 | Upstream base checked | `32e8023` |
 | Branch | `feature/blank-team-scopes` (on `feature/security-series`; see [FORK.md](../../FORK.md)) |

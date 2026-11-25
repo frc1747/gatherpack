@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only feature (built with upstream naming, so it could be offered later; Corey decides) |
 | Priority | medium |
-| Status | built, not yet released |
+| Status | shipped hbr.54 (flag off; Intuit sandbox check still open) |
 | Added | 2026-10-07 |
 | Branch | `feature/accounting` and `feature/my-gatherpack-accounting` (see [FORK.md](../../FORK.md)) |
 | Upstream issue / PR | none |
