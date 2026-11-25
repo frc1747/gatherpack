@@ -25,14 +25,14 @@ const autoHeight = {
 
 // console.log(tags)
 const highlightStyle = HighlightStyle.define([
-    {tag: tags.keyword, color: "#cfa757"},
-    {tag: tags.comment, color: "#96959d", fontStyle: "italic"},
-    {tag: [tags.operator, tags.punctuation, tags.contentSeparator], color: "#d3d0c3"},
-    {tag: [tags.string, tags.quote], color: "#83a655"},
-    {tag: [tags.atom, tags.regexp, tags.link], color: "#9dd3ed"},
-    {tag: [tags.number, tags.bracket, tags.literal, tags.list], color: "#b4e758"},
-    {tag: tags.name, color: "#e1cf97"},
-    {tag: [tags.className, tags.namespace, tags.typeName, tags.heading], color: "#90a35b"},
+    {tag: tags.keyword, color: "var(--app-code-keyword, #cfa757)"},
+    {tag: tags.comment, color: "var(--app-code-comment, #96959d)", fontStyle: "italic"},
+    {tag: [tags.operator, tags.punctuation, tags.contentSeparator], color: "var(--app-code-operator, #d3d0c3)"},
+    {tag: [tags.string, tags.quote], color: "var(--app-code-string, #83a655)"},
+    {tag: [tags.atom, tags.regexp, tags.link], color: "var(--app-code-atom, #9dd3ed)"},
+    {tag: [tags.number, tags.bracket, tags.literal, tags.list], color: "var(--app-code-number, #b4e758)"},
+    {tag: tags.name, color: "var(--app-code-name, #e1cf97)"},
+    {tag: [tags.className, tags.namespace, tags.typeName, tags.heading], color: "var(--app-code-class, #90a35b)"},
     {tag: tags.strong, fontWeight: "bold"},
     {tag: tags.emphasis, fontStyle: "italic"},
     {tag: tags.strikethrough, fontStyle: "strikethrough"}
