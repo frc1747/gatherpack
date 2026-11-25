@@ -1,5 +1,18 @@
 <%= render "people/show_shared" %>
 <% admin = current_user.admin %>
+<% if @reference_sources.present? %>
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="fw-bold">GatherPack ID</div>
+      <%= render "accounting/people/copyable_id", value: @person.neat_id, label: "GatherPack ID" %>
+      <% @reference_sources.each do |source| %>
+        <div class="text-muted small mt-1">
+          Put this in the customer's <%= source.reference_field_label %> in <%= source.source_name %> and they link on the next sync.
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>
 
 <div class="card mb-3">
   <div class="card-header">

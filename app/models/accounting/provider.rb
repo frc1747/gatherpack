@@ -22,6 +22,10 @@ module Accounting::Provider
   # The name people know the source by ("QuickBooks").
   def source_name = gateway_name
 
+  # What the source calls the customer field GatherPack reads as the
+  # reference, for help text ("Notes").
+  def reference_field_label = "reference"
+
   # The source's own record types, each with the role it normalizes to, or
   # the roles it can normalize to when that depends on the record.
   # e.g. { "Customer" => :customer, "Invoice" => :charge, "LedgerEntry" => %i[ charge payment ] }

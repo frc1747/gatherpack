@@ -93,6 +93,38 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     assert_select "a.nav-link[href=?]", person_accounting_path(@nancy), text: "Account"
   end
 
+  test "admins and holders of the matching badge see the GatherPack ID with a copy button; nobody else does" do
+    accounting_source.update!(match_strategies: "reference name", match_field_path: "Notes")
+    badge = Badge.create!(name: "Customer Matcher", short: "Mat", color: "#336699", badge_type: badge_types(:one), permission: :added_by_admin)
+    BadgeAssignment.create!(badge: badge, person: @andrew)
+
+    with_settings(feature_accounting: "true", feature_badges: "true", accounting_customer_matching_badge: "Customer Matcher") do
+      [ @laura, @andrew ].each do |viewer|
+        sign_in viewer.user
+        get person_accounting_path(@nancy)
+        assert_select "tt", text: @nancy.neat_id
+        assert_select "button[data-action=?]", "clipboard#copy"
+        assert_select "*", text: /Put this in the customer's Notes in QuickBooks and they link on the next sync/
+        sign_out viewer.user
+      end
+
+      sign_in @nancy.user
+      get person_accounting_path(@nancy)
+      assert_response :success
+      assert_select "tt", count: 0
+      assert_select "button[data-action=?]", "clipboard#copy", count: 0
+    end
+  end
+
+  test "no GatherPack ID shows when no source matches by reference" do
+    sign_in @laura.user
+
+    with_accounting { get person_accounting_path(@nancy) }
+
+    assert_response :success
+    assert_select "button[data-action=?]", "clipboard#copy", count: 0
+  end
+
   test "the statement shows only the rule's charges, what was applied to them and unapplied money, each by its public label" do
     sign_in @margaret.user
 

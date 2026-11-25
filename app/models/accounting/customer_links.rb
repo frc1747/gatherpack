@@ -4,14 +4,19 @@
 # the same on every source.
 class Accounting::CustomerLinks
   # Ways a customer is matched to people, in the order a source tries them.
-  #   reference: the customer's reference is a person's GatherPack id or
-  #              account email; linked automatically when exact and unique.
+  #   reference: the customer's reference holds a person's GatherPack id
+  #              (anywhere in the text) or is an account email; linked
+  #              automatically when exact and unique.
   #   name:      the customer's name is a person's name, ignoring case,
   #              punctuation and accents, "Last, First" too.
   #   email:     the customer's email is a person's account email; that
   #              person's wards are suggested too.
   STRATEGIES = %w[ reference name email ].freeze
   DEFAULT_STRATEGIES = %w[ name email ].freeze
+
+  # A person's GatherPack id inside free text, such as a customer's notes:
+  # the prefix and the neat-id characters (lowercase letters and digits).
+  PERSON_ID_TOKEN = /(?<![a-z0-9_])per_[a-z0-9]+/
 
   # A person a customer may be for, with the words saying why.
   Suggestion = Data.define(:person, :strategy, :reason, :exact)
@@ -227,7 +232,14 @@ class Accounting::CustomerLinks
           value = customer.reference.to_s.strip
           return [] if value.blank?
 
-          people = value.start_with?("per_") ? [ person_by_neat_id(value) ].compact : people_by_email.fetch(value.downcase, [])
+          tokens = value.downcase.scan(PERSON_ID_TOKEN).uniq
+          people = if tokens.any?
+            # The id may sit anywhere in the text (a customer's notes). Two
+            # different ids mean a customer for several people: no match.
+            tokens.one? ? [ person_by_neat_id(tokens.first) ].compact : []
+          else
+            people_by_email.fetch(value.downcase, [])
+          end
           people.map { |person| Suggestion.new(person: person, strategy: "reference", reason: "reference match", exact: people.one?) }
         end
 

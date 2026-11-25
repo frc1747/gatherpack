@@ -74,6 +74,10 @@ class Gateway::QuickbooksGateway < Gateway
     "QuickBooks"
   end
 
+  def reference_field_label
+    match_field_path.to_s.split(".").last.presence || super
+  end
+
   def environment
     super.presence || "sandbox"
   end
