@@ -1,0 +1,17 @@
+<% breadcrumb :kiosk_device, @kiosk_device %>
+
+<%# The response shows the pairing link, so it is a full page load. %>
+<%= simple_form_for(@kiosk_device, html: { data: { turbo: false } }) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>New kiosk device</h1>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", kiosk_devices_path, class: "btn btn-secondary" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>

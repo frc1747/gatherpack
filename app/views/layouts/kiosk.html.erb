@@ -32,14 +32,15 @@
   <body>
     <header class="navbar navbar-expand-lg bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand" href="<%= kiosk_account? ? time_kiosk_path : "/" %>">
+        <%# A paired kiosk device has no one signed in, so its brand has nowhere to lead. %>
+        <%= content_tag current_user ? :a : :span, class: "navbar-brand", href: (kiosk_account? ? time_kiosk_path : "/" if current_user) do %>
           <% if Theme.instance.logo.attached? %>
             <%= image_tag Theme.instance.logo, alt: Settings[:title] %>
           <% else %>
             <%= image_tag "logo.svg" %>
           <% end %>
           <%= Settings[:title] %>
-        </a>
+        <% end %>
         <%# Impersonating a kiosk account can't reach the sidebar, so the way to stop is here. %>
         <div class="d-flex gap-2">
           <% if current_user != true_user %>
@@ -61,12 +62,18 @@
             impersonating
           </div>
         <% end %>
-        <div class="nav-item d-flex align-items-center px-1 lh-1 text-white text-end">
-          <%= current_user.person&.identifier_name || current_user.email %>
-        </div>
-        <div class="nav-item d-flex align-items-center px-1 pe-3">
-          <%= image_tag(get_avatar_url_512(current_user.person&.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
-        </div>
+        <% if current_user %>
+          <div class="nav-item d-flex align-items-center px-1 lh-1 text-white text-end">
+            <%= current_user.person&.identifier_name || current_user.email %>
+          </div>
+          <div class="nav-item d-flex align-items-center px-1 pe-3">
+            <%= image_tag(get_avatar_url_512(current_user.person&.avatar), class: "person-img", style: "height: 2em; width: auto;") %>
+          </div>
+        <% elsif current_kiosk_device %>
+          <div class="nav-item d-flex align-items-center px-1 pe-3 lh-1 text-white text-end kiosk-device-name">
+            <%= icon_text("desktop", current_kiosk_device.name) %>
+          </div>
+        <% end %>
       </ul>
     </div>
     </header>
