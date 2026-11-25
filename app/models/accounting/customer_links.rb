@@ -144,6 +144,13 @@ class Accounting::CustomerLinks
     rollup? ? (ids + descendants_of(ids)).uniq : ids
   end
 
+  # Every customer whose records count for someone: all the linked ones,
+  # and with the parent rollup every sub-customer below them.
+  def linked_customer_ids
+    ids = links.distinct.pluck(:customer_external_id)
+    rollup? ? (ids + descendants_of(ids)).uniq : ids
+  end
+
   # The people a customer's records count for: those linked to it, and with
   # the parent rollup those linked to any customer above it.
   def people_for(customer_external_id)

@@ -8,6 +8,7 @@
         state: state_line([ "From #{source.name}", @rule.kind_name, ("Turned off" unless @rule.enabled?) ].compact.join(" · "),
           link_text: ("Change" if policy(@rule).edit?), link_path: (edit_accounting_rule_path(@rule, tab: "enabled") if policy(@rule).edit?)) %>
   <div class="card-body">
+    <%= render "accounting/rules/mixed_invoices", rule: @rule if admin %>
     <p class="mb-1"><%= render "accounting/rules/counts", summary: @summary %></p>
     <p class="mb-1"><%= render "accounting/rules/totals", summary: @summary %></p>
     <% if admin && @rule.balance? && (unapplied = @summary.unapplied_credit_cents).positive? %>
