@@ -1,0 +1,4 @@
+<% content_for :title, "Email changed" %>
+<h1 class="h3">Your email is now <%= @new_email %>.</h1>
+<p>Use it to sign in from now on.</p>
+<p><%= link_to "Sign in", new_user_session_path, class: "btn btn-primary" %></p>
