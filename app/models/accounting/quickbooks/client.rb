@@ -249,9 +249,9 @@ class Accounting::Quickbooks::Client
         else
           false
         end
-      raise NotAllowed, "GatherPack may not #{method.to_s.upcase} #{uri.host}#{uri.path}" unless allowed
+      raise NotAllowed, "GatherPack may not make this #{method.to_s.upcase} request" unless allowed
     rescue URI::InvalidURIError
-      raise NotAllowed, "GatherPack may not request #{url}"
+      raise NotAllowed, "GatherPack may not make this request"
     end
 
     def api_uri?(uri)
@@ -327,7 +327,8 @@ class Accounting::Quickbooks::Client
     end
 
     def parsed_error(response)
-      JSON.parse(response.body.to_s)
+      body = JSON.parse(response.body.to_s)
+      body.is_a?(Hash) ? body : {}
     rescue JSON::ParserError
       {}
     end

@@ -167,6 +167,50 @@ class Accounting::QuickbooksSecurityTest < ActiveJob::TestCase
     assert_equal "6240", error.code
   end
 
+  test "an error body that isn't a JSON object reads as empty" do
+    [ "[]", "null", %("refused"), "42", "[{\"Fault\":1}]" ].each do |body|
+      @fake.on(:get, "/invoice/131", status: 400, body: body)
+
+      error = assert_raises(Accounting::Quickbooks::Client::Error) { @gateway.client.get("Invoice", "131") }
+
+      assert_equal "QuickBooks refused reading invoice (HTTP 400)", error.message, body
+      assert_nil error.code
+    end
+  end
+
+  test "a request the client refuses doesn't name the path or url" do
+    error = assert_raises(Accounting::Quickbooks::Client::NotAllowed) do
+      @gateway.client.request(:delete, "https://quickbooks.api.intuit.com/v3/company/#{AccountingWorld::REALM}/invoice/130")
+    end
+    assert_no_match(/#{AccountingWorld::REALM}|invoice|intuit/, error.message)
+
+    error = assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @gateway.client.request(:get, "not a url") }
+    assert_no_match(/not a url/, error.message)
+  end
+
+  test "reminder emails don't log their arguments" do
+    log = capture_job_log { SendEmailJob.perform_later(nil, "nancy@example.com", "Your balance is $400.00", "Pay at https://pay.example.com/secret") }
+
+    assert_match "Enqueued SendEmailJob", log
+    assert_no_match(/nancy@example|\$400|pay\.example/, log)
+  end
+
+  test "saving the realm id keeps a secret saved meanwhile" do
+    stale = Gateway.find(@gateway.id)
+    other = Gateway.find(@gateway.id)
+    other.update!(webhook_verifier_token: "new-verifier")
+
+    stale.record_state!(realm_id: "888", company_name: "Northwind")
+
+    fresh = Gateway.find(@gateway.id)
+    assert_equal "new-verifier", fresh.webhook_verifier_token
+    assert_equal "888", fresh.realm_id
+    assert_equal "Northwind", fresh.company_name
+    assert_equal "client-secret", fresh.client_secret
+    assert_equal "new-verifier", stale.webhook_verifier_token
+    assert_equal "888", stale.realm_id
+  end
+
   test "a temporary failure names the intuit_tid" do
     @fake.on(:get, "/query", status: 503, body: "", tid: "9999-ffff")
 

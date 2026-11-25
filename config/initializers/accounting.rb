@@ -45,6 +45,8 @@ Rails.application.config.to_prepare do
   # A notification's body is JSON from QuickBooks naming its company; no gateway's
   # webhook job logs its arguments.
   ProcessGatewayWebhookJob.log_arguments = false
+  # Reminder emails carry the recipient, amounts and pay links.
+  SendEmailJob.log_arguments = false
 
   # Deleting a source deletes its rules one by one, so each takes back the
   # badges and field values its actions gave.
