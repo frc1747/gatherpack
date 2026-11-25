@@ -226,7 +226,7 @@ class FormScreensTest < ActionDispatch::IntegrationTest
         assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?][checked]", note.id
         assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?]:not([checked])", sandwich.id
         assert_select "#form-options input[type=hidden][name=totals][value=hidden]"
-        assert_select "#form-options input[type=submit][value=Show]", 1, "one Show applies the team and More choices alike"
+        assert_select "#form-options input[type=submit][value=Show]", 2, "Show by the team, and again at the end of More choices"
         all = css_select(".screen-filter-pills a").first
         assert_equal [ note.id ], Rack::Utils.parse_nested_query(all["href"].split("?").last)["question_ids"]
         assert_select ".screen-table-actions input[type=radio][name=layout][form=form-options]", 2
