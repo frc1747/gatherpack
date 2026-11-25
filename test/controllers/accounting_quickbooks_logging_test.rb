@@ -36,11 +36,14 @@ class AccountingQuickbooksLoggingTest < ActionDispatch::IntegrationTest
     assert_match "Parameters", log
   end
 
-  test "a code on any other route is filtered too" do
+  test "a code on any other route is filtered too, in the parameters and the logged path" do
     sign_in @architect
-    get accounting_quickbooks_callback_path(code: "other-code", state: "other-state")
+    log = capture_request_log { get accounting_rules_path(code: "other-code", state: "other-state") }
 
     assert_equal [ "[FILTERED]" ] * 2, request.filtered_parameters.values_at("code", "state")
+    assert_no_match(/other-code|other-state/, request.filtered_path)
+    assert_equal "/accounting/rules?code=[FILTERED]&state=[FILTERED]", request.filtered_path
+    assert_no_match(/other-code|other-state/, log)
   end
 
   test "a notification's account and entity ids are filtered" do
