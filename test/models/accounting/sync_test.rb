@@ -68,6 +68,25 @@ class Accounting::SyncTest < ActiveSupport::TestCase
     assert_equal [ { "external_id" => "130", "amount_cents" => 5000 } ], credit.applied_to
   end
 
+  test "a credit memo's hooks see where it was applied" do
+    @sync.upsert("Payment", qbo_row("payments", "Payment", 1))
+    Hook.create!(name: "Credit used", event: "accounting_records - create", code: "model.gateway.record_state!(credit_applied: model.applied_to) if model.role == 'credit'")
+
+    @sync.upsert("CreditMemo", qbo_row("credit_memos", "CreditMemo"))
+
+    assert_equal [ { "external_id" => "130", "amount_cents" => 5000 } ], @gateway.reload.configuration["credit_applied"]
+  end
+
+  test "a credit memo changed in QuickBooks keeps its applied_to through the hooked save" do
+    @sync.upsert("Payment", qbo_row("payments", "Payment", 1))
+    @sync.upsert("CreditMemo", qbo_row("credit_memos", "CreditMemo"))
+    Hook.create!(name: "Credit changed", event: "accounting_records - update", code: "model.gateway.record_state!(credit_applied: model.applied_to)")
+
+    @sync.upsert("CreditMemo", qbo_row("credit_memos", "CreditMemo").merge("SyncToken" => "2"))
+
+    assert_equal [ { "external_id" => "130", "amount_cents" => 5000 } ], @gateway.reload.configuration["credit_applied"]
+  end
+
   test "an unchanged revision isn't saved again and fires no hooks" do
     answer_queries
     @sync.full

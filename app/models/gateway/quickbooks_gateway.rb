@@ -107,13 +107,14 @@ class Gateway::QuickbooksGateway < Gateway
     expires if expires && connected? && expires <= RECONNECT_WARNING.from_now
   end
 
-  # Buttons on the gateway page that are plain links. The rest (Sync now,
-  # Copy everything again, Disconnect) are forms in the details partial.
+  # Buttons on the gateway page (architects only, who may also open
+  # Records). Disconnect is in the details partial; Sync now and Copy
+  # everything again are on the Records page.
   def routes
     helpers = Rails.application.routes.url_helpers
     links = []
     if self.class.encryption_ready? && client_id.present? && client_secret.present?
-      links << { name: connection_status == "connected" ? "Reconnect" : "Connect to QuickBooks", path: helpers.connect_accounting_connection_path(self) }
+      links << { name: realm_id.present? ? "Reconnect" : "Connect to QuickBooks", path: helpers.connect_accounting_connection_path(self) }
     end
     links << { name: "Records", path: helpers.accounting_connection_records_path(self) }
   end
@@ -209,6 +210,10 @@ class Gateway::QuickbooksGateway < Gateway
 
   def fetch_record(entity_type, external_id)
     client.get(entity_type, external_id)
+  end
+
+  def prepare_record(record)
+    record.applied_to = Accounting::Quickbooks::CreditApplications.new(self).applied_to_for(record) if record.entity_type == "CreditMemo"
   end
 
   def after_sync(records)

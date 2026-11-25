@@ -54,6 +54,10 @@ module Accounting::Provider
   # :send_charges -- emails a charge this source created.
   def send_charge(external_id, email:) = raise NotImplementedError
 
+  # Called by the sync just before it saves a record (and its hooks fire),
+  # for a source that fills a column from records already copied.
+  def prepare_record(record) = nil
+
   # Called by the sync after a batch, with the records it saved, for a
   # source that fills a column from other records once they're all in.
   def after_sync(records) = nil

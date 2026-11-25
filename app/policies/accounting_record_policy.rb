@@ -1,8 +1,9 @@
-# Copied records carry every memo and note from the books: admins only.
+# Copied records carry every memo and note from the books: admins and
+# architects only.
 class AccountingRecordPolicy < AdminPolicy
   class Scope < ApplicationPolicy::Scope
     def resolve
-      user&.admin ? scope.all : scope.none
+      user&.admin || user&.architect ? scope.all : scope.none
     end
   end
 end

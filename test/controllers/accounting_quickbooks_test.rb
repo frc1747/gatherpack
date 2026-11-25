@@ -11,6 +11,7 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
     @gateway = create_quickbooks_gateway(connected: false)
     @architect = create_accounting_user("Architect", admin: true, architect: true)
     @admin = create_accounting_user("Admin", admin: true)
+    @builder = create_accounting_user("Builder", architect: true)
     @member = create_accounting_user("Member")
     @fake = fake_quickbooks
   end
@@ -87,13 +88,29 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
     assert_empty @fake.requests
   end
 
+  test "disconnect asks first, and changes nothing until confirmed" do
+    gateway = create_quickbooks_gateway
+    sign_in @architect
+
+    with_accounting { get disconnect_accounting_connection_path(gateway) }
+
+    assert_response :success
+    assert_select "h1", "Disconnect QuickBooks?"
+    assert_match "Records stay; reconnect any time.", response.body
+    assert_select "a[href=?]", gateway_path(gateway), text: "Cancel"
+    assert_select "form[action=?][method=post] button", disconnect_accounting_connection_path(gateway), text: "Disconnect"
+    assert_equal "connected", gateway.reload.connection_status
+    assert gateway.accounting_credential
+    assert_empty @fake.requests
+  end
+
   test "disconnect revokes and deletes the tokens and keeps the records" do
     gateway = create_quickbooks_gateway
     gateway.accounting_records.create!(entity_type: "Customer", external_id: "58", role: "customer", data: {})
     @fake.on(:post, Accounting::Quickbooks::REVOKE_URL, body: "")
     sign_in @architect
 
-    with_accounting { get disconnect_accounting_connection_path(gateway) }
+    with_accounting { post disconnect_accounting_connection_path(gateway) }
 
     assert_redirected_to gateway_path(gateway)
     assert_equal "disconnected", gateway.reload.connection_status
@@ -110,6 +127,8 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
       get connect_accounting_connection_path(@gateway)
       assert_no_match "intuit.com", response.location.to_s
       get disconnect_accounting_connection_path(gateway)
+      assert_response :redirect
+      post disconnect_accounting_connection_path(gateway)
     end
 
     assert_equal "connected", gateway.reload.connection_status
@@ -127,6 +146,32 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
       assert_enqueued_with(job: Accounting::FullSyncJob) { post full_sync_accounting_connection_path(gateway) }
     end
     assert_redirected_to accounting_connection_records_path(gateway)
+  end
+
+  test "an architect who isn't an admin can open Records and sync from there" do
+    gateway = create_quickbooks_gateway
+    Accounting::Sync.new(gateway).upsert("Invoice", qbo_row("invoices", "Invoice"))
+    sign_in @builder
+
+    with_accounting do
+      get gateway_path(gateway)
+      assert_select "a[href=?]", accounting_connection_records_path(gateway), text: "Records"
+
+      get accounting_connection_records_path(gateway)
+      assert_response :success
+      assert_select "td", text: /Invoice 1042/
+      assert_select "form[action=?] button", sync_accounting_connection_path(gateway), text: "Sync now"
+
+      assert_enqueued_with(job: Accounting::ChangesJob) { post sync_accounting_connection_path(gateway) }
+    end
+  end
+
+  test "admins don't see the sync buttons for a source that isn't connected" do
+    sign_in @admin
+    with_accounting { get accounting_connection_records_path(@gateway) }
+
+    assert_response :success
+    assert_select "button", text: "Sync now", count: 0
   end
 
   test "members can't sync or see records" do
@@ -190,8 +235,27 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "It never changes, voids or deletes anything and never records payments.", response.body
     assert_select "a", text: "Reconnect"
-    assert_select "a", text: "Disconnect"
-    assert_select "button", text: "Sync now"
+    assert_select "a[href=?]", disconnect_accounting_connection_path(gateway), text: "Disconnect"
+    assert_select "button", text: "Sync now", count: 0
+    assert_select "button", text: "Copy everything again", count: 0
+  end
+
+  test "the button says Reconnect for books connected before" do
+    sign_in @architect
+    with_accounting do
+      get gateway_path(@gateway)
+      assert_select "a", text: "Connect to QuickBooks"
+
+      gateway = create_quickbooks_gateway
+      gateway.needs_reconnect!("Refused")
+      get gateway_path(gateway)
+      assert_select "a", text: "Reconnect"
+      assert_select "a", text: "Connect to QuickBooks", count: 0
+
+      gateway.record_state!(connection_status: "disconnected")
+      get gateway_path(gateway)
+      assert_select "a", text: "Reconnect"
+    end
   end
 
   # -- Notifications --

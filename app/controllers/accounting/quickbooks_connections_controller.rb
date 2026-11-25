@@ -59,9 +59,15 @@ class Accounting::QuickbooksConnectionsController < Accounting::BaseController
   def disconnect
     @gateway = quickbooks_gateway(params[:id])
     authorize @gateway, :disconnect?, policy_class: Accounting::SourcePolicy
+  end
+
+  # POST /accounting/connections/:id/disconnect
+  def revoke
+    @gateway = quickbooks_gateway(params[:id])
+    authorize @gateway, :disconnect?, policy_class: Accounting::SourcePolicy
 
     had_tokens = @gateway.accounting_credential.present?
-    revoked = revoke
+    revoked = revoke_tokens
     @gateway.accounting_credential&.destroy!
     @gateway.record_state!(connection_status: "disconnected")
 
@@ -75,7 +81,7 @@ class Accounting::QuickbooksConnectionsController < Accounting::BaseController
       Gateway::QuickbooksGateway.find(id)
     end
 
-    def revoke
+    def revoke_tokens
       @gateway.client.revoke!
     rescue Accounting::Quickbooks::Client::Error, Accounting::TemporaryFailure
       false

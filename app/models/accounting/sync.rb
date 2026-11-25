@@ -89,6 +89,7 @@ class Accounting::Sync
 
     record.assign_attributes(neutral_defaults.merge(source.normalize(entity_type, data).slice(*AccountingRecord::NEUTRAL_COLUMNS)))
     record.assign_attributes(data: data, revision: revision, deleted_at: nil, fetched_at: Time.current)
+    source.prepare_record(record)
     record.save!
     record
   end

@@ -1,0 +1,15 @@
+<% breadcrumb :"gateway/quickbooks_gateway", @gateway %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "Disconnect QuickBooks?", summary: "Records stay; reconnect any time." %>
+  <div class="card-body">
+    <p class="mb-0">
+      GatherPack stops copying from <%= @gateway.company_name.presence || "QuickBooks" %> and forgets its sign-in.
+      The records already copied stay on the Records page.
+    </p>
+  </div>
+  <div class="card-footer d-flex flex-wrap gap-2">
+    <%= link_to "Cancel", gateway_path(@gateway), class: "btn btn-secondary" %>
+    <%= button_to "Disconnect", disconnect_accounting_connection_path(@gateway), method: :post, class: "btn btn-danger" %>
+  </div>
+</div>

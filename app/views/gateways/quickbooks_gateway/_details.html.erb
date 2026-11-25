@@ -34,14 +34,6 @@
   Disconnect URL: <code><%= disconnect_accounting_connection_url(gateway) %></code>.
 </p>
 
-<div class="d-flex flex-wrap gap-2">
-  <% if gateway.syncable? %>
-    <%= button_to "Sync now", sync_accounting_connection_path(gateway), class: "btn btn-primary" %>
-    <%= button_to "Copy everything again", full_sync_accounting_connection_path(gateway), class: "btn btn-secondary",
-          form: { data: { turbo_confirm: "Read every record from QuickBooks again? This can take a few minutes." } } %>
-  <% end %>
-  <% if gateway.connection_status.in?(%w[ connected needs_reconnect ]) %>
-    <%= link_to "Disconnect", disconnect_accounting_connection_path(gateway), class: "btn btn-danger",
-          data: { turbo_confirm: "Disconnect QuickBooks? Syncing stops; the records already copied stay." } %>
-  <% end %>
-</div>
+<% if gateway.connection_status.in?(%w[ connected needs_reconnect ]) && Accounting::SourcePolicy.new(current_user, gateway).disconnect? %>
+  <%= link_to "Disconnect", disconnect_accounting_connection_path(gateway), class: "btn btn-danger" %>
+<% end %>
