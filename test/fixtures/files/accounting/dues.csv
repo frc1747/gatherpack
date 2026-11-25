@@ -1,0 +1,7 @@
+customer,role,number,date,due_date,item,total,balance,applied_to,description
+Nancy Ward,charge,1042,2026-09-01,2026-10-01,Dues,450.00,,,
+nancy.ward@example.com,charge,1043,2026-09-01,2026-10-01,Travel fee,"$1,200.00",,,
+Nancy Ward,payment,P-77,2026-09-15,,,300.00,,1042,Paid by check 4471
+Nancy Ward,credit,,2026-09-20,,,75.00,,1042:50.00,Hardship scholarship
+Nancy Ward,payment,,9/30/2026,,,25.00,,,
+Ward Family,receipt,R-5,2026-08-01,,Car wash,40,,,

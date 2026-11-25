@@ -1,0 +1,47 @@
+<% breadcrumb :accounting_record, @record %>
+
+<div class="card">
+  <%= render "shared/page_header", title: @record.identifier_name,
+        summary: "#{@record.entity_type} #{@record.external_id} copied from #{@source.source_name}. Read only." %>
+  <div class="card-body">
+    <p><%= render "accounting/records/marks", record: @record %></p>
+    <table class="table table-sm">
+      <tbody>
+        <tr><th>Role</th><td><%= accounting_role_name(@record.role) %></td></tr>
+        <% if @record.customer_external_id.present? && @record.role != "customer" %>
+          <tr>
+            <th>Customer</th>
+            <td>
+              <%= @customer ? link_to(@customer.identifier_name, accounting_connection_record_path(@source, @customer)) : @record.customer_external_id %>
+            </td>
+          </tr>
+        <% end %>
+        <% (AccountingRecord::NEUTRAL_COLUMNS - %i[ role customer_external_id ]).each do |column| %>
+          <% value = @record.public_send(column) %>
+          <% next if value.blank? %>
+          <tr>
+            <th><code><%= column %></code></th>
+            <td>
+              <% if column.to_s.end_with?("_cents") %>
+                <%= accounting_cents(value) %>
+              <% elsif value.is_a?(Array) || value.is_a?(Hash) %>
+                <code><%= value.to_json %></code>
+              <% else %>
+                <%= value %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+        <tr><th><code>revision</code></th><td><%= @record.revision %></td></tr>
+        <tr><th><code>fetched_at</code></th><td><%= @record.fetched_at %></td></tr>
+        <% if @record.deleted? %><tr><th><code>deleted_at</code></th><td><%= @record.deleted_at %></td></tr><% end %>
+      </tbody>
+    </table>
+
+    <h2 class="h5">As copied</h2>
+    <pre class="border rounded p-2"><code><%= JSON.pretty_generate(@record.data) %></code></pre>
+  </div>
+  <% if @record.external_url.present? %>
+    <%= render "shared/action_row", actions: [ screen_action("Open in #{@source.source_name}", @record.external_url, style: :primary) ] %>
+  <% end %>
+</div>

@@ -1,0 +1,108 @@
+<% breadcrumb :accounting_customer, @customer %>
+<% deep_links = @source.capabilities.include?(:deep_links) %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: @customer.identifier_name,
+        summary: "Customer #{@customer.customer_external_id} in #{@source.source_name}. Rules count its records for the people linked to it." %>
+  <div class="card-body">
+    <p><%= render "accounting/records/marks", record: @customer %></p>
+    <table class="table table-sm mb-0">
+      <tbody>
+        <% if @customer.email.present? %><tr><th>Email</th><td><%= @customer.email %></td></tr><% end %>
+        <% if @customer.reference.present? %><tr><th>Reference</th><td><%= @customer.reference %></td></tr><% end %>
+        <% if @customer.parent_external_id.present? %>
+          <tr>
+            <th>Sub-customer of</th>
+            <td><%= @parent ? link_to(@parent.identifier_name, accounting_connection_customer_path(@source, @parent)) : @customer.parent_external_id %></td>
+          </tr>
+        <% end %>
+        <% if @sub_customers.any? %>
+          <tr>
+            <th>Sub-customers</th>
+            <td><%= safe_join(@sub_customers.map { |sub| link_to(sub.identifier_name, accounting_connection_customer_path(@source, sub)) }, ", ") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <% if deep_links && @customer.external_url.present? %>
+    <%= render "shared/action_row", actions: [ screen_action("Open in #{@source.source_name}", @customer.external_url) ] %>
+  <% end %>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="h5 mb-0">Linked people</h2></div>
+      <div class="card-body">
+        <% if @customer_links.any? %>
+          <%= render "accounting/customers/linked_people", links: @customer_links, back: "customer" %>
+        <% else %>
+          <p class="text-muted mb-0">Nobody yet.</p>
+        <% end %>
+        <% if @rolled_up_into %>
+          <p class="text-muted mt-2 mb-0">
+            Also counted for the people linked to <%= link_to @rolled_up_into.identifier_name, accounting_connection_customer_path(@source, @rolled_up_into) %>.
+          </p>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="h5 mb-0">Suggested</h2></div>
+      <div class="card-body">
+        <%= render "accounting/customers/suggestions", source: @source, customer: @customer, suggestions: @suggestions, back: "customer" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <%= render layout: "shared/add_panel", locals: {
+          title: "Link someone else",
+          url: candidates_accounting_connection_customer_path(@source, @customer),
+          placeholder: "Search people…"
+        } do %>
+      <%= render "candidates" %>
+    <% end %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2 class="h5 mb-0">Records</h2></div>
+  <% if @records.any? %>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>What</th>
+            <th class="text-end">Total</th>
+            <th class="text-end">Balance</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @records.each do |record| %>
+            <tr id="<%= dom_id record %>">
+              <td><%= record.txn_date ? l(record.txn_date) : "" %></td>
+              <td>
+                <%= link_to record.identifier_name, accounting_connection_record_path(@source, record) %>
+                <%= render "accounting/records/marks", record: record %>
+              </td>
+              <td class="text-end"><%= accounting_cents(record.total_cents) %></td>
+              <td class="text-end"><%= accounting_cents(record.balance_cents) %></td>
+              <td>
+                <% if deep_links && record.external_url.present? %>
+                  <%= link_to "Open in #{@source.source_name}", record.external_url, target: "_blank", rel: "noopener" %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer"><%= paginate @records %></div>
+  <% else %>
+    <div class="card-body"><%= render "shared/empty_state", text: "No records for this customer." %></div>
+  <% end %>
+</div>

@@ -1,0 +1,117 @@
+<%# locals: (f:, rule:) -%>
+<%# The rule's actions, plus a blank one to add another. "Do" and "When" are
+    radio choices; each choice's settings show only while it's picked. %>
+<% badges = GatherPack::Features.enabled?(:badges) ? Badge.added_by_admin.order(:name) : Badge.none %>
+<% fields = GatherPack::Features.enabled?(:person_fields) ? PersonField.active.custom.where(data_type: AccountingRuleAction::TEXT_TYPES + [ "integer" ]).order(:name) : PersonField.none %>
+<% kinds = AccountingRuleAction::ACTIONS.select { |key| key == "badge" ? badges.any? : fields.any? } %>
+<% whens = AccountingRuleAction::CONDITION_TYPES.reject { |key| key == (rule.kind == "count" ? "amount" : "count") } %>
+<% rows = rule.actions.to_a %>
+<% rows += [ rule.actions.build ] if rows.none?(&:new_record?) %>
+<p class="form-text mt-0">
+  What the rule does for each person while their result meets a condition, worked out with the results.
+  A badge stays while the condition holds and is taken away when it stops; a badge someone gave by hand is never taken away.
+  A person field is filled in while the condition holds and cleared when it stops, so other features (checklists, reports) can test it.
+</p>
+<% if kinds.empty? %>
+  <div class="alert alert-info py-2">Turn on badges or person fields to give this rule something to do.</div>
+<% end %>
+<%= f.fields_for :actions, rows do |a| %>
+  <% action = a.object %>
+  <% id = a.object_name.parameterize(separator: "_") %>
+  <% picked = { "do" => action.action.to_s, "when" => action.condition_type } %>
+  <% off = ->(group, choice) { picked[group] != choice } %>
+  <fieldset class="border rounded p-3 mb-3" data-controller="choice-settings">
+    <legend class="form-label fs-6 float-none w-auto px-1 mb-0"><%= action.persisted? ? action.description : "New action" %></legend>
+    <% if action.field_writable_by_others? %>
+      <div class="alert alert-warning py-2">
+        People other than admins can change <%= action.person_field.name %>, so what this rule writes can be changed by hand until the rule next runs.
+        Set the field's "Who can change it" to admins only.
+      </div>
+    <% end %>
+    <% if action.persisted? && (others = action.other_rules_giving_badge.to_a).any? %>
+      <div class="alert alert-warning py-2">
+        <%= others.map(&:name).to_sentence %> also <%= others.one? ? "gives" : "give" %> <%= action.badge.name %>.
+        Each rule takes back only the badges it gave, so a person keeps it while any of these rules' conditions holds.
+      </div>
+    <% end %>
+
+    <div class="mb-3">
+      <div class="form-label">Do</div>
+      <% kinds.each do |kind| %>
+        <div class="form-check">
+          <%= a.radio_button :action, kind, class: "form-check-input", id: "#{id}_action_#{kind}", data: { group: "do", action: "choice-settings#show" } %>
+          <%= label_tag "#{id}_action_#{kind}", AccountingRuleAction::ACTION_NAMES[kind], class: "form-check-label" %>
+        </div>
+        <% if kind == "badge" %>
+          <div class="ms-4 mt-1 mb-2" data-choice-settings-target="settings" data-group="do" data-choice="badge" <%= "hidden" if off.("do", "badge") %>>
+            <%= a.collection_select :badge_id, badges, :id, :name, { include_blank: "Choose a badge" },
+                  class: "form-select", disabled: off.("do", "badge"), aria: { label: "Badge" } %>
+            <div class="form-text">One per rule, and only badges admins assign. A team's badge is given only to its members.</div>
+          </div>
+        <% else %>
+          <div class="ms-4 mt-1 mb-2" data-choice-settings-target="settings" data-group="do" data-choice="person_field" <%= "hidden" if off.("do", "person_field") %>>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <%= a.label :person_field_id, "Field", class: "form-label small", for: "#{id}_person_field_id" %>
+                <%= a.collection_select :person_field_id, fields, :id, :name, { include_blank: "Choose a field" },
+                      class: "form-select", id: "#{id}_person_field_id", disabled: off.("do", "person_field") %>
+              </div>
+              <div class="col-md-6">
+                <%= a.label :write, "Write", class: "form-label small", for: "#{id}_write" %>
+                <%= a.select :write, AccountingRuleAction::WRITE_NAMES.map { |key, name| [ name, key ] }, {},
+                      class: "form-select", id: "#{id}_write", disabled: off.("do", "person_field") %>
+              </div>
+            </div>
+            <div class="form-text">A whole-number field takes the amount, in whole dollars.</div>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="mb-3">
+      <div class="form-label">When</div>
+      <% whens.each do |type| %>
+        <div class="form-check">
+          <%= a.radio_button :condition_type, type, class: "form-check-input", id: "#{id}_when_#{type}", data: { group: "when", action: "choice-settings#show" } %>
+          <%= label_tag "#{id}_when_#{type}", AccountingRuleAction::CONDITION_NAMES[type], class: "form-check-label" %>
+        </div>
+        <% next if type == "always" %>
+        <div class="ms-4 mt-1 mb-2" data-choice-settings-target="settings" data-group="when" data-choice="<%= type %>" <%= "hidden" if off.("when", type) %>>
+          <% if type == "values" %>
+            <%= hidden_field_tag "#{a.object_name}[condition_values][]", "", id: nil, disabled: off.("when", type) %>
+            <% rule.values.each do |value| %>
+              <div class="form-check form-check-inline">
+                <%= check_box_tag "#{a.object_name}[condition_values][]", value, action.condition_values.include?(value),
+                      id: "#{id}_value_#{value}", class: "form-check-input", disabled: off.("when", type) %>
+                <%= label_tag "#{id}_value_#{value}", rule.label_for(value), class: "form-check-label" %>
+              </div>
+            <% end %>
+            <% if rule.values.empty? %>
+              <%= a.text_field :condition_values_text, class: "form-control", placeholder: "eligible, waived", disabled: off.("when", type),
+                    aria: { label: "Statuses" } %>
+              <div class="form-text">The values the rule's code gives, separated by commas.</div>
+            <% end %>
+          <% else %>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <%= a.select :condition_op, AccountingRuleAction::OPS.map { |key, name| [ name, key ] }, {},
+                    class: "form-select w-auto", id: "#{id}_#{type}_op", disabled: off.("when", type), aria: { label: "Comparison" } %>
+              <% if type == "amount" %>
+                <span>$</span>
+                <%= a.text_field :condition_amount, class: "form-control w-auto", inputmode: "decimal", disabled: off.("when", type), aria: { label: "Amount" } %>
+              <% else %>
+                <%= a.number_field :condition_count, min: 0, class: "form-control w-auto", disabled: off.("when", type), aria: { label: "Count" } %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <% if action.persisted? %>
+      <div class="form-check">
+        <%= a.check_box :_destroy, class: "form-check-input" %>
+        <%= a.label :_destroy, "Remove", class: "form-check-label" %>
+      </div>
+    <% end %>
+  </fieldset>
+<% end %>

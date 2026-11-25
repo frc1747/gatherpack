@@ -1,0 +1,53 @@
+<% breadcrumb :accounting_billing_run, @run %>
+<% source = @run.gateway %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: @run.identifier_name,
+        summary: [ "#{accounting_cents(@run.amount_cents)} each", ("from #{@run.rule.name}" if @run.rule), "in #{source.name}",
+                   ("by #{@run.created_by.identifier_name}" if @run.created_by) ].compact.join(", "),
+        state: state_line(accounting_billing_run_state(@run, @details)) %>
+  <div class="card-body">
+    <p class="mb-1">
+      Invoice date <%= @run.txn_date ? l(@run.txn_date, format: :long) : "not set" %><% if @run.due_on %>, due <%= l(@run.due_on, format: :long) %><% end %>.
+      <% if @run.send_from_source %>Emailed from <%= source.source_name %>.<% end %>
+      <% if @run.create_customers %>Customers created for people without one.<% end %>
+    </p>
+    <% if @run.memo.present? %><p class="mb-1">Memo: <%= @run.memo %></p><% end %>
+    <% if @details["exported"].positive? %>
+      <p class="mb-1">Import the CSV into your accounting program, then upload its records again: the charges count once they're back.</p>
+    <% elsif @run.creates_charges? %>
+      <p class="mb-1">The charges count once they're copied back from <%= source.source_name %>, as any other record does.</p>
+    <% end %>
+  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("Retry failed", retry_failed_accounting_billing_run_path(@run), style: :primary, method: :post,
+          visible: @details["failed"].positive? && @run.creates_charges? && policy(@run).retry_failed?),
+        screen_action("Download CSV", export_accounting_billing_run_path(@run, format: :csv), visible: @details["exported"].positive?)
+      ] %>
+</div>
+
+<div class="card">
+  <% if @lines.any? %>
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr><th>Name</th><th>Customer</th><th class="text-end">Amount</th><th>Status</th><th>Charge</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% @lines.sort_by { |line| [ %w[ failed skipped pending created exported ].index(line.status), line.person.identifier_name.to_s ] }.each do |line| %>
+            <tr id="<%= dom_id line %>">
+              <td><%= link_to line.person.identifier_name, line.person %></td>
+              <td><%= @customer_names.fetch(line.customer_external_id, line.customer_external_id) if line.customer_external_id %></td>
+              <td class="text-end"><%= accounting_cents(line.amount_cents) %></td>
+              <td><%= accounting_line_status_badge(line) %></td>
+              <td><%= line.external_id %><% if line.sent_at %> <span class="text-muted">emailed</span><% end %></td>
+              <td class="<%= line.failed? ? "text-danger" : "text-muted" %>"><%= line.error %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body"><%= render "shared/empty_state", text: "Nobody here." %></div>
+  <% end %>
+</div>

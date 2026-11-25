@@ -1,0 +1,73 @@
+<% breadcrumb :accounting_rules %>
+<% admin = current_user.admin %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Account Status", summary: "What each person owes and whether they're on schedule." %>
+  <%= render "shared/action_row", actions: [
+        screen_action("New rule", new_accounting_rule_path, style: :success, visible: policy(AccountingRule).create? && @sources.any?),
+        screen_action("Billing runs", accounting_billing_runs_path, visible: policy(AccountingBillingRun).index?)
+      ] %>
+</div>
+
+<div class="card mb-3">
+  <% if @rules.any? %>
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Rule</th>
+            <% if admin %><th>Source</th><% end %>
+            <th>People</th>
+            <th>Amounts</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @rules.each do |rule| %>
+            <% summary = @summaries[rule.id] %>
+            <tr id="<%= dom_id rule %>">
+              <td>
+                <%= link_to rule.name, accounting_rule_path(rule) %>
+                <% unless rule.enabled? %><span class="badge text-bg-secondary">Turned off</span><% end %>
+              </td>
+              <% if admin %><td><%= rule.gateway.name %></td><% end %>
+              <td><%= render "accounting/rules/counts", summary: summary %></td>
+              <td><%= render "accounting/rules/totals", summary: summary %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body">
+      <%= render "shared/empty_state", text: admin ? "No rules yet. A rule answers one question about each person, like \"Are their dues paid?\"" : "Nothing to show yet." %>
+    </div>
+  <% end %>
+</div>
+
+<% if admin %>
+  <div class="card">
+    <div class="card-header"><h2 class="h5 mb-0">Sources</h2></div>
+    <% if @sources.any? %>
+      <ul class="list-group list-group-flush">
+        <% @sources.each do |source| %>
+          <li class="list-group-item" id="<%= dom_id source %>">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+              <div>
+                <strong><%= source.name %></strong> <span class="text-muted">(<%= source.source_name %>)</span>
+                <%= render "accounting/records/sync_state", source: source %>
+              </div>
+              <div class="d-flex gap-2">
+                <%= link_to "Customers", accounting_connection_customers_path(source), class: "btn btn-sm btn-outline-secondary" %>
+                <%= link_to "Records", accounting_connection_records_path(source), class: "btn btn-sm btn-outline-secondary" %>
+              </div>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <div class="card-body">
+        <%= render "shared/empty_state", text: "No accounting source yet. An architect adds one under Setup → Gateways." %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

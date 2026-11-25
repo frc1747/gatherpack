@@ -1,0 +1,23 @@
+{
+  "QueryResponse": {
+    "Payment": [
+      {
+        "Id": "140", "SyncToken": "0", "TxnDate": "2026-09-15", "CustomerRef": { "value": "58" },
+        "TotalAmt": 250.00, "UnappliedAmt": 20.00, "PaymentRefNum": "ACH-77", "PrivateNote": "Scholarship fund top-up",
+        "Line": [
+          { "Amount": 230.00, "LinkedTxn": [ { "TxnId": "130", "TxnType": "Invoice" } ] }
+        ],
+        "MetaData": { "LastUpdatedTime": "2026-09-15T10:00:00-07:00" }
+      },
+      {
+        "Id": "141", "SyncToken": "0", "TxnDate": "2026-09-20", "CustomerRef": { "value": "58" },
+        "TotalAmt": 20.00, "UnappliedAmt": 0,
+        "Line": [
+          { "Amount": 70.00, "LinkedTxn": [ { "TxnId": "130", "TxnType": "Invoice" } ] },
+          { "Amount": 50.00, "LinkedTxn": [ { "TxnId": "150", "TxnType": "CreditMemo" } ] }
+        ],
+        "MetaData": { "LastUpdatedTime": "2026-09-20T10:00:00-07:00" }
+      }
+    ]
+  }
+}

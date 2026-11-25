@@ -1,0 +1,29 @@
+<%# locals: (field:, input:) -%>
+<%# One setting shown as its gateway type asks (GatewayFieldInput#field_input). %>
+<% name = "gateway[#{field}]" %>
+<% selected = Array(input[:selected]).map(&:to_s) %>
+<% hint_id = "gateway_#{field}_hint" if input[:hint].present? %>
+<div class="mb-3">
+  <% if input[:as] == :check_boxes %>
+    <fieldset aria-describedby="<%= hint_id %>">
+      <legend class="form-label fs-6"><%= input[:label] || field %></legend>
+      <%= hidden_field_tag "#{name}[]", "", id: nil %>
+      <% input[:choices].each_with_index do |(label, value), index| %>
+        <div class="form-check">
+          <%= check_box_tag "#{name}[]", value, selected.include?(value.to_s), id: "gateway_#{field}_#{index}", class: "form-check-input" %>
+          <%= label_tag "gateway_#{field}_#{index}", label, class: "form-check-label" %>
+        </div>
+      <% end %>
+      <% if input[:choices].empty? %>
+        <p class="text-muted mb-0">Nothing to choose from yet.</p>
+      <% end %>
+    </fieldset>
+  <% else %>
+    <%= label_tag "gateway_#{field}", input[:label] || field, class: "form-label" %>
+    <%= select_tag name, options_for_select(input[:choices], selected.first), include_blank: input[:include_blank],
+          id: "gateway_#{field}", class: "form-select", aria: { describedby: hint_id } %>
+  <% end %>
+  <% if hint_id %>
+    <div id="<%= hint_id %>" class="form-text"><%= input[:hint] %></div>
+  <% end %>
+</div>

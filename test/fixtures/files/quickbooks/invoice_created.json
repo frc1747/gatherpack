@@ -1,0 +1,14 @@
+{
+  "Invoice": {
+    "Id": "201", "SyncToken": "0", "DocNumber": "1101", "TxnDate": "2026-11-24", "DueDate": "2026-12-15",
+    "CustomerRef": { "value": "58", "name": "Ward, Nancy" }, "TotalAmt": 450.00, "Balance": 450.00,
+    "CustomerMemo": { "value": "2027 season dues" },
+    "Line": [
+      { "Id": "1", "LineNum": 1, "Amount": 450.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "21", "name": "Dues" } } },
+      { "Amount": 450.00, "DetailType": "SubTotalLineDetail", "SubTotalLineDetail": {} }
+    ],
+    "EmailStatus": "NotSet",
+    "MetaData": { "CreateTime": "2026-11-24T09:00:00-08:00", "LastUpdatedTime": "2026-11-24T09:00:00-08:00" }
+  },
+  "time": "2026-11-24T09:00:00.000-08:00"
+}
