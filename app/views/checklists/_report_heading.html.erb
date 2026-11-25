@@ -1,0 +1,17 @@
+<%# locals: (label:, index:, entries:, order:) -%>
+<%# A report column's heading: click to sort, and tick the statuses to show (entries: the column's results by status). %>
+<span role="button" data-column-chooser-label><%= label %></span>
+<div class="dropdown d-inline no-print">
+  <button class="btn btn-link btn-sm p-0 ms-1" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-label="Filter <%= label %>">
+    <i class="fa-solid fa-filter"></i>
+  </button>
+  <div class="dropdown-menu p-2 small">
+    <% order.each do |status| %>
+      <% next unless entries[status] %>
+      <label class="d-block text-nowrap">
+        <input type="checkbox" value="<%= status %>" data-column="<%= index %>" data-checklist-report-target="tick" data-action="checklist-report#filter">
+        <%= entries[status].map(&:text).uniq.to_sentence(two_words_connector: " / ", last_word_connector: " / ") %> <span class="text-body-secondary">(<%= entries[status].size %>)</span>
+      </label>
+    <% end %>
+  </div>
+</div>
