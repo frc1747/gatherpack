@@ -1,0 +1,186 @@
+# What one person may do in orders, worked out once and kept for the web
+# request (Orders::Access.for), so policies, lists and Orders::WaitingOn ask
+# about many requests without a query each.
+#
+# Access.new(person, for_notices: true) answers who gets an email instead of
+# who may act: with the notices_admins_everywhere setting off, being a site
+# admin counts for nothing there, only the person's own roles do. Pages and
+# policies never ask this way.
+module Orders
+  class Access
+    # A person as managing only the teams their own manager memberships
+    # reach, which for an admin isn't every team. For Orders::Reach.
+    class OwnRoles < SimpleDelegator
+      def all_managed_teams
+        ids = memberships.where(manager: true).pluck(:team_id)
+        Team.where(id: ids + Team.where(id: ids).flat_map(&:all_descendant_ids))
+      end
+    end
+
+    attr_reader :person
+
+    def self.for(person)
+      return new(person) if person.nil?
+
+      Orders::Current.access[person.id] ||= new(person)
+    end
+
+    def initialize(person, for_notices: false)
+      @person = person
+      @own_roles_only = for_notices && Settings[:notices_admins_everywhere] == false
+    end
+
+    def admin?
+      @admin ||= !@own_roles_only && person&.admin? ? :yes : :no
+      @admin == :yes
+    end
+
+    # Teams the person manages, and those below.
+    def managed_team_ids
+      @managed_team_ids ||= person.nil? ? Set.new : role_holder.all_managed_teams.ids.to_set
+    end
+
+    def member_team_ids
+      @member_team_ids ||= person.nil? ? Set.new : person.teams.ids.to_set
+    end
+
+    def relative_ids
+      @relative_ids ||= person.nil? ? Set.new : person.relationships.pluck(:parent_id, :child_id).flatten.to_set - [ person.id ]
+    end
+
+    def manages?(team_id)
+      admin? || managed_team_ids.include?(team_id)
+    end
+
+    # Teams reached as an approver on the step: by its rows, not by
+    # managing a team.
+    def approver_team_ids(step)
+      @approver_team_ids ||= {}
+      @approver_team_ids[step.key] ||= reached_team_ids(step.reach)
+    end
+
+    def approver_on?(step, team_id)
+      admin? || approver_team_ids(step).include?(team_id)
+    end
+
+    # Teams reached on any approval step.
+    def any_approver_team_ids
+      @any_approver_team_ids ||= steps.map { |step| approver_team_ids(step) }.reduce(Set.new, :|)
+    end
+
+    def buyer_team_ids
+      @buyer_team_ids ||= reached_team_ids(Orders::Config.buyers)
+    end
+
+    def buyer_for?(team_id)
+      admin? || buyer_team_ids.include?(team_id)
+    end
+
+    # Has a buyer row reaching some team, so has a To buy list at all.
+    def buyer?
+      admin? || buyer_team_ids.any?
+    end
+
+    def funding_manager_team_ids
+      @funding_manager_team_ids ||= reached_team_ids(Orders::Config.funding_managers)
+    end
+
+    def funding_manager_for?(team_id)
+      admin? || funding_manager_team_ids.include?(team_id)
+    end
+
+    def funding_manager?
+      admin? || funding_manager_team_ids.any?
+    end
+
+    def approver?
+      admin? || any_approver_team_ids.any?
+    end
+
+    # The request was made by this person or a relative (any relationship
+    # type), so they can't decide on it.
+    def own_or_relative?(order_request)
+      return false if person.nil?
+
+      order_request.requested_by_id == person.id || relative_ids.include?(order_request.requested_by_id)
+    end
+
+    # Sees a request as more than its requester, follower or team member:
+    # reaches its team as an approver, buyer or funding manager (or is an
+    # admin). Managing the team alone doesn't count.
+    def staff_for?(team_id)
+      admin? || any_approver_team_ids.include?(team_id) || buyer_for?(team_id) || funding_manager_for?(team_id)
+    end
+
+    # May choose a request's funding source: admins and its team's funding
+    # managers until it's finished, an approver who can decide it now, and
+    # its requester while it's editable when orders_requesters_pick_funding
+    # is on. Managing the team alone doesn't count.
+    def sets_funding?(order_request)
+      return false if person.nil?
+      return true if funding_manager_for?(order_request.team_id) && !order_request.finished?
+      return true if order_request.can_decide?(person)
+
+      order_request.requested_by_id == person.id && order_request.editable? && Orders::Config.requesters_pick_funding?
+    end
+
+    # Estimated shipping is hidden from requesters (spec §3.16).
+    def sees_estimated_shipping?(order_request)
+      person.present? && staff_for?(order_request.team_id)
+    end
+
+    # The teams a person may make a request for: those they're on, those
+    # they manage, and those orders_requesters' grant rows reach for them
+    # (all for an admin).
+    def request_team_ids
+      @request_team_ids ||= admin? ? nil : member_team_ids | managed_team_ids | requester_reach_team_ids
+    end
+
+    def may_request_for?(team_id)
+      !person.nil? && (request_team_ids.nil? || request_team_ids.include?(team_id))
+    end
+
+    # May make requests at all (orders_requesters): everyone signed in when
+    # the setting is blank, else members of its teams and the teams below,
+    # and those its grant rows reach any team for.
+    def requester?
+      return false if person.nil?
+      return @requester unless @requester.nil?
+
+      teams = Orders::Config.requester_teams
+      @requester = admin? || teams.nil? || member_of_any?(teams) || requester_reach_team_ids.any?
+    end
+
+    def requester_reach_team_ids
+      @requester_reach_team_ids ||= person.nil? ? Set.new : Orders::Config.requester_reach.granted_team_ids(person).to_set
+    end
+
+    # Sees every request that isn't a draft (orders_viewers), read only:
+    # members of its teams and the teams below, as for orders_requesters.
+    def sees_every_request?
+      return false if person.nil?
+      return @sees_every_request unless @sees_every_request.nil?
+
+      teams = Orders::Config.viewer_teams
+      @sees_every_request = teams.any? && member_of_any?(teams)
+    end
+
+    def member_of_any?(teams)
+      (member_team_ids & teams.flat_map { |team| [ team.id ] + team.all_descendant_ids }.to_set).any?
+    end
+
+    def steps
+      @steps ||= Orders::Config.approval_steps
+    end
+
+    private
+
+    def role_holder
+      @own_roles_only && person ? OwnRoles.new(person) : person
+    end
+
+    def reached_team_ids(reach)
+      (@own_roles_only ? reach.granted_team_ids(role_holder) : reach.team_ids(person)).to_set
+    end
+  end
+end
