@@ -1,0 +1,5 @@
+<%# The change just recorded, with Undo, while the person can still undo it. %>
+<% if (movement = inventory_pending_undo) %>
+  <%= render "inventory/shared/undo_notice", text: "#{inventory_change_text(movement)}.",
+        path: undo_inventory_movement_path(movement, return_to: request.fullpath) %>
+<% end %>

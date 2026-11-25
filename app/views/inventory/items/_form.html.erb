@@ -1,0 +1,32 @@
+<% inventory_stylesheet %>
+<%= simple_form_for item, url: item.new_record? ? inventory_items_path : inventory_item_path(item), html: { class: "inventory-form" } do |f| %>
+  <%= f.error_notification %>
+  <%= f.error_notification message: f.object.errors[:base].to_sentence if f.object.errors[:base].present? %>
+
+  <div class="row">
+    <div class="col-md-6">
+      <%= f.input :name %>
+      <%= f.input :category, input_html: { list: "inventory-categories" } %>
+      <datalist id="inventory-categories">
+        <% policy_scope(Item).categories.each do |category| %><option value="<%= category %>"></option><% end %>
+      </datalist>
+      <%= f.input :description, as: :text, input_html: { rows: 2 } %>
+      <%= f.input :manufacturer %>
+      <%= f.input :manufacturer_part_number, label: "Manufacturer part number" %>
+      <%= f.input :url, label: "Link" %>
+      <%= f.input :photo, as: :file, input_html: { accept: "image/*" } %>
+    </div>
+    <div class="col-md-6">
+      <%= f.input :team_id, label: "Team", collection: managed_teams, include_blank: false %>
+      <%= managed_list_select f, :stock_unit_id, list: :stock_units, label: "Stock unit", include_blank: false,
+            hint: "Quantities are whole numbers in this unit." %>
+      <%= f.input :home_location_id, label: "Home place", collection: policy_scope(Location).active.storage.map { |place| [ place.full_name, place.id ] }.sort,
+        include_blank: "None", hint: "Where it usually lives: where Used and Received start" %>
+      <%= f.input :reorder_point, label: "Order more at", hint: "On the reorder list when stock is at or below this. Blank: never" %>
+      <%= f.input :reorder_quantity, label: "Order how many", hint: "Blank: enough to get back to twice “Order more at”" %>
+      <%= f.input :note, as: :text, input_html: { rows: 2 } %>
+      <%= f.input :active, hint: "Inactive items keep their history and drop out of search and the reorder list" %>
+    </div>
+  </div>
+  <%= f.button :submit, "Save item", class: "btn btn-primary" %>
+<% end %>

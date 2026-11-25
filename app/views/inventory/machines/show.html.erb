@@ -1,0 +1,46 @@
+<% breadcrumb :inventory_machine, @machine %>
+<% content_for :title, @machine.name %>
+
+<div class="row"><div class="col-lg-8 col-xl-6">
+  <h1 class="h3 mb-1"><%= i(Inventory::MACHINE_ICON) %> <%= @machine.name %></h1>
+  <p class="text-body-secondary small">
+    <%= @machine.full_name %><%= " · Code #{@machine.code}" if @machine.code.present? %><%= " · Inactive" unless @machine.active? %>
+  </p>
+
+  <% if @flagged.any? %>
+    <div class="alert alert-danger" id="flagged_units">
+      <div class="fw-semibold mb-1"><%= i("triangle-exclamation") %> Needs attention</div>
+      <ul class="mb-0">
+        <% @flagged.each do |unit| %>
+          <li>
+            <%= link_to unit.identifier_name, inventory_unit_path(unit) %> (<%= unit.item.name %>): <%= unit.condition_label %>
+            <%= " · #{unit.condition_note}" if unit.condition_note.present? %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <h2 class="h5">On it</h2>
+  <% if @contents.empty? %>
+    <p class="text-body-secondary">Nothing installed yet.</p>
+  <% else %>
+    <ul class="list-group mb-4" id="installed_units">
+      <%= render "inventory/machines/unit_tree", contents: @contents, parent_id: nil %>
+    </ul>
+  <% end %>
+
+  <% if @machine.active? %>
+    <%= form_with url: install_inventory_machine_path(@machine), method: :post, id: "install_part" do |form| %>
+      <div class="pb-5 mb-5"></div>
+      <div class="fixed-bottom bg-body border-top p-2">
+        <%= form.label :code, "Install a part: scan its label or type its code", class: "form-label small mb-1" %>
+        <div class="d-flex gap-2">
+          <%= form.text_field :code, class: "form-control form-control-lg", autocapitalize: "characters", autocomplete: "off",
+                placeholder: "Code", required: true %>
+          <%= form.submit "Install", class: "btn btn-lg btn-primary" %>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div></div>

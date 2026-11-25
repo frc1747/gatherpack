@@ -1,0 +1,48 @@
+<% breadcrumb :inventory_labels %>
+<% content_for :title, "Labels" %>
+<% inventory_stylesheet %>
+<% unit_partial = lookup_context.exists?("inventory/labels/unit", [], true) %>
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3 inventory-no-print" data-controller="inventory-print">
+  <h1 class="h3 mb-0 me-auto">Labels</h1>
+  <button type="button" class="btn btn-dark" data-action="inventory-print#print">Print</button>
+</div>
+
+<% if @places.empty? && @items.empty? && @units.empty? %>
+  <p class="text-body-secondary">Pick places on the <%= link_to "Places", inventory_locations_path %> page to print their labels.</p>
+<% else %>
+  <div class="inventory-labels" id="labels">
+    <% @places.each do |place| %>
+      <div class="inventory-label">
+        <%= inventory_qr_code(inventory_location_url(place)) %>
+        <div>
+          <div class="inventory-label-name"><%= place.name %></div>
+          <% if place.code.present? %><div class="inventory-label-code"><%= place.code %></div><% end %>
+          <div class="inventory-label-path"><%= inventory_place_name(place, @all_places) %></div>
+        </div>
+      </div>
+    <% end %>
+    <% @items.each do |item| %>
+      <div class="inventory-label">
+        <%= inventory_qr_code(inventory_item_url(item)) %>
+        <div>
+          <div class="inventory-label-name"><%= item.name %></div>
+          <% if item.manufacturer_part_number.present? %><div class="inventory-label-path"><%= item.manufacturer_part_number %></div><% end %>
+        </div>
+      </div>
+    <% end %>
+    <% @units.each do |unit| %>
+      <% if unit_partial %>
+        <%= render "inventory/labels/unit", unit: unit %>
+      <% else %>
+        <div class="inventory-label">
+          <%= inventory_qr_code(inventory_unit_url(unit)) %>
+          <div>
+            <div class="inventory-label-code"><%= unit.code.presence || "No code yet" %></div>
+            <div class="inventory-label-path"><%= unit.item.name %></div>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

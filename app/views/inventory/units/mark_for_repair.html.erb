@@ -1,0 +1,6 @@
+<% conditions = UnitCondition.for_repair.to_a %>
+<%= render layout: "action", locals: { unit: @unit, title: "Mark for repair", submit: "Mark for repair",
+      url: mark_for_repair_inventory_unit_path(@unit), note_label: "What's wrong?", note_required: true, danger: true } do |form| %>
+  <%= render "inventory/units/condition_choices", conditions: conditions,
+        selected: (UnitCondition.needs_repair if conditions.any?), style: "btn-outline-danger", legend: "Condition" %>
+<% end %>

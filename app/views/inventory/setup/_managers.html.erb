@@ -1,0 +1,19 @@
+<%# The Inventory Managers rows (Inventory::ManagerRows): any of these
+    manages inventory. Drawn on the settings pickers' form (Settings.input
+    :partial) or on the plain setup form; both post the same fields. %>
+<% editor = Inventory::ManagerRows.new(setting.value) %>
+<% prefix = "settings[#{setting.setting_key}][rows]" %>
+<fieldset data-controller="inventory-grants">
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <div class="form-text mb-2">Any of these:</div>
+  <div data-inventory-grants-target="list">
+    <% editor.rows.each_with_index do |row, index| %>
+      <%= render "inventory/setup/manager_row", editor: editor, prefix: prefix, index: index, row: row %>
+    <% end %>
+    <%= render "inventory/setup/manager_row", editor: editor, prefix: prefix, index: editor.rows.size, row: nil %>
+  </div>
+  <template data-inventory-grants-target="template">
+    <%= render "inventory/setup/manager_row", editor: editor, prefix: prefix, index: "NEW_ROW", row: nil %>
+  </template>
+  <button type="button" class="btn btn-sm btn-outline-secondary" hidden data-inventory-grants-target="add" data-action="inventory-grants#add">Add a row</button>
+</fieldset>
