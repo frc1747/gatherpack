@@ -24,3 +24,31 @@ crumb :accounting_customer do |customer|
   link customer.identifier_name, accounting_connection_customer_path(customer.gateway, customer)
   parent :accounting_customers, customer.gateway
 end
+
+crumb :"gateway/ledger_source" do |gateway|
+  if gateway.new_record?
+    link "New gateway"
+  else
+    link gateway.identifier_name, gateway_path(gateway)
+  end
+  parent :gateways
+end
+
+crumb :"gateway/file_source" do |gateway|
+  if gateway.new_record?
+    link "New gateway"
+  else
+    link gateway.identifier_name, gateway_path(gateway)
+  end
+  parent :gateways
+end
+
+crumb :new_accounting_upload do |source|
+  link "Upload", new_accounting_connection_upload_path(source)
+  parent :accounting_records, source
+end
+
+crumb :accounting_upload do |upload|
+  link upload.identifier_name, accounting_connection_upload_path(upload.gateway, upload)
+  parent :accounting_records, upload.gateway
+end

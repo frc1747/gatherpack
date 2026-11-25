@@ -30,7 +30,7 @@ module Accounting
             columns = provider_source.normalize(entity_type, data)
 
             assert_empty columns.keys - AccountingRecord::NEUTRAL_COLUMNS, "#{entity_type} fills columns that aren't neutral"
-            assert_equal provider_source.entity_types[entity_type].to_s, columns[:role], "#{entity_type} role"
+            assert_includes Array.wrap(provider_source.entity_types[entity_type]).map(&:to_s), columns[:role], "#{entity_type} role"
             expected.each do |column, value|
               value.nil? ? assert_nil(columns[column], "#{entity_type} #{column}") : assert_equal(value, columns[column], "#{entity_type} #{column}")
             end

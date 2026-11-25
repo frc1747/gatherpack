@@ -1,0 +1,32 @@
+<% breadcrumb :new_accounting_upload, @source %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "Upload records",
+        summary: "A CSV in the template's columns. You'll see what changes before anything is saved." %>
+  <%= form_with url: accounting_connection_uploads_path(@source), multipart: true do |form| %>
+    <div class="card-body">
+      <div class="mb-3">
+        <%= form.label :file, "CSV file", class: "form-label" %>
+        <%= form.file_field :file, accept: ".csv,text/csv", class: "form-control", required: true %>
+      </div>
+      <p class="mb-1">
+        Start from the <%= link_to "template", template_accounting_connection_uploads_path(@source) %>, with one row per charge, payment,
+        credit, refund or receipt:
+      </p>
+      <ul class="small mb-0">
+        <li><strong>customer</strong>: a name, an email address, or a GatherPack id (<code>per_…</code>). An id, or the email someone signs in with, links to that person at once; names are suggested on the Customers page.</li>
+        <li><strong>role</strong>: charge, payment, credit, refund or receipt.</li>
+        <li><strong>number</strong>: every charge needs one, used once in the file.</li>
+        <li><strong>date</strong>, <strong>due_date</strong> (charges): 2026-09-01 or 9/1/2026.</li>
+        <li><strong>item</strong>: what it's for, such as Dues.</li>
+        <li><strong>total</strong>, <strong>balance</strong> (charges, what's still owed): dollars. Leave balance blank to work it out from the payments and credits applied to the charge.</li>
+        <li><strong>applied_to</strong> (payments, credits, refunds): charge numbers, with amounts if split: <code>1042</code> or <code>1042:50.00;1043:25.00</code>.</li>
+        <li><strong>description</strong>: notes, seen only by admins.</li>
+      </ul>
+    </div>
+    <div class="card-footer d-flex flex-wrap gap-2">
+      <%= link_to "Cancel", accounting_connection_records_path(@source), class: "btn btn-secondary" %>
+      <%= form.submit "Upload", class: "btn btn-primary" %>
+    </div>
+  <% end %>
+</div>

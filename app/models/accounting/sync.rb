@@ -62,6 +62,27 @@ class Accounting::Sync
     saved
   end
 
+  # One part of the source read again, such as one ledger: saves each of
+  # rows ([entity_type, data] pairs) and marks the records in held (the
+  # part's records) that rows no longer has deleted. Returns the records saved.
+  def part(rows, held)
+    saved = []
+    seen = Hash.new { |hash, key| hash[key] = [] }
+
+    rows.each do |entity_type, data|
+      seen[entity_type] << source.external_id(entity_type, data)
+      record = upsert(entity_type, data)
+      saved << record if record
+    end
+    held.current.distinct.pluck(:entity_type).each do |entity_type|
+      gone = held.current.where(entity_type: entity_type).where.not(external_id: seen[entity_type]).pluck(:external_id)
+      mark_deleted(entity_type, gone) if gone.any?
+    end
+
+    finish(saved)
+    saved
+  end
+
   # One record a notification named; marked deleted when the source no
   # longer has it.
   def fetch(entity_type, external_id)

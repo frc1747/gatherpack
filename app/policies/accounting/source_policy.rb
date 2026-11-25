@@ -3,7 +3,7 @@
 # the books, so it's for architects; syncing and reading the copied
 # records is for admins and architects (whose hook and report code already
 # sees every record). Linking customers to people decides who sees whose
-# money, so it's for admins.
+# money, so it's for admins, and so is uploading a file source's records.
 class Accounting::SourcePolicy < ApplicationPolicy
   def connect?
     user&.architect == true
@@ -23,6 +23,11 @@ class Accounting::SourcePolicy < ApplicationPolicy
 
   def customers?
     user&.admin == true
+  end
+
+  # Uploading a file replaces a file source's records: admins, as for links.
+  def upload?
+    user&.admin == true && record.capabilities.include?(:upload)
   end
 
   private

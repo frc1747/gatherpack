@@ -1,0 +1,31 @@
+<%# locals: (gateway:) -%>
+<h2>Ledgers</h2>
+<p>
+  Use your GatherPack ledgers as the books. Each ledger is a customer; ledgers owned by a person are linked to them.
+  Charges are entries <%= gateway.charge_sign == "positive" ? "above zero, payments below" : "below zero, payments above" %>.
+  Payments count against the oldest charges first. Anyone on a ledger's team can open that team's ledgers, so keep
+  per-member ledgers on a team only admins and treasurers belong to; the Account Status rules decide who sees each person's result.
+</p>
+
+<% unless Accounting.enabled? %>
+  <p class="text-muted">Accounting is turned off: nothing is copied until it's turned on.</p>
+<% end %>
+
+<p class="mb-1">
+  Which teams' ledgers:
+  <%= gateway.ledger_teams.any? ? gateway.ledger_teams.map(&:identifier_name).to_sentence : "every team" %>.
+</p>
+<p class="mb-1">
+  Tags that mean a credit:
+  <%= gateway.credit_tags.any? ? gateway.credit_tags.map(&:identifier_name).to_sentence : "none" %>.
+</p>
+<p class="mb-1">Team for new ledgers: <%= gateway.new_ledger_team&.identifier_name || "none" %>.</p>
+<p class="small text-muted">
+  On the edit page, list teams and tags by id (such as <code>tm_…</code>), separated by spaces.
+  Charge sign is negative or positive.
+</p>
+<%= render "accounting/records/sync_state", source: gateway %>
+
+<% if Accounting.enabled? && Accounting::SourcePolicy.new(current_user, gateway).customers? %>
+  <%= link_to "Customers", accounting_connection_customers_path(gateway), class: "btn btn-secondary" %>
+<% end %>

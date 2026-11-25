@@ -10,6 +10,11 @@ namespace :accounting do
     post :sync, on: :member, controller: "syncs"
     post :full_sync, on: :member, controller: "syncs"
     resources :records, only: %i[ index show ]
+    # File sources: Upload shows a preview; Apply replaces the records.
+    resources :uploads, only: %i[ new create show ] do
+      post :apply, on: :member
+      get :template, on: :collection
+    end
     resources :customers, only: %i[ index show ] do
       get :candidates, on: :member
     end

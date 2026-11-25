@@ -1,5 +1,7 @@
 <% breadcrumb :accounting_records, @source %>
-<% can_sync = @source.syncable? && Accounting::SourcePolicy.new(current_user, @source).sync? %>
+<% uploads = @source.capabilities.include?(:upload) %>
+<% can_sync = !uploads && @source.syncable? && Accounting::SourcePolicy.new(current_user, @source).sync? %>
+<% can_upload = uploads && Accounting::SourcePolicy.new(current_user, @source).upload? %>
 
 <div class="card mb-3">
   <%= render "shared/page_header", title: "Records",
@@ -8,6 +10,8 @@
     <%= render "accounting/records/sync_state", source: @source %>
   </div>
   <%= render "shared/action_row", actions: [
+        screen_action("Upload", new_accounting_connection_upload_path(@source), style: :primary, visible: can_upload),
+        screen_action("Download template", template_accounting_connection_uploads_path(@source), visible: can_upload),
         screen_action("Sync now", sync_accounting_connection_path(@source), style: :primary, method: :post, visible: can_sync),
         screen_action("Copy everything again", full_sync_accounting_connection_path(@source), method: :post, more: true, visible: can_sync,
           confirm: "Read every record from #{@source.source_name} again? This can take a few minutes.")

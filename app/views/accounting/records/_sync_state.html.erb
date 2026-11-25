@@ -3,7 +3,13 @@
 <% case source.connection_state %>
 <% when :ok %>
   <p class="mb-1">
-    <% if (synced = [ source.last_change_check_time, source.last_full_sync_time ].compact.max) %>
+    <% if source.capabilities.include?(:upload) %>
+      <% if (applied = source.last_full_sync_time) %>
+        Last file applied <%= time_ago_in_words(applied) %> ago.
+      <% else %>
+        No file applied yet.
+      <% end %>
+    <% elsif (synced = [ source.last_change_check_time, source.last_full_sync_time ].compact.max) %>
       Last synced <span class="<%= "text-danger" if synced < 1.day.ago %>"><%= time_ago_in_words(synced) %> ago</span>.
     <% else %>
       Not synced yet.
