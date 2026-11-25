@@ -47,10 +47,12 @@ class MyGatherpackAccountingTest < ActionDispatch::IntegrationTest
       assert_select ".mg-heading", text: "Account"
       assert_select "[data-account-row=?]", @nancy.id do
         assert_select ".mg-row-title", text: /2027 Membership Dues/
-        assert_select ".mg-row-title", text: "Nancy", count: 0
+        assert_select ".mg-row-ward", false
         assert_select ".badge", text: "Partly paid"
         assert_select ".mg-row-detail", text: /Balance remaining \$50\.00 · Next: \$50\.00 by/
-        assert_select "a.btn.btn-primary[href=?]", "https://pay.example.com/1042", text: /Pay online/
+        # Not a tap-row action, which a phone would stretch over the row and strip of its label.
+        assert_select "a.btn.btn-primary.mg-account-pay[href=?]", "https://pay.example.com/1042", text: "Pay online"
+        assert_select ".mg-row-action", false
         assert_select "a[href=?]", person_accounting_path(@nancy), text: "2027 Membership Dues"
       end
     end
@@ -64,9 +66,9 @@ class MyGatherpackAccountingTest < ActionDispatch::IntegrationTest
 
     assert_select "[data-account-row=?]", @margaret.id, false
     assert_select "[data-account-row=?]", @nancy.id do
-      assert_select ".mg-row-title", text: "Nancy"
-      assert_select "[data-account-rule=?]", @rule.id, text: /2027 Membership Dues\s+Partly paid/
-      assert_select "[data-account-rule=?]", trip.id, text: /Travel fee 2027/
+      assert_select "[data-account-rule=?] .mg-row-title", @rule.id, text: /2027 Membership Dues\s+for Nancy\s+Partly paid/
+      assert_select "[data-account-rule=?] .mg-row-title", trip.id, text: /Travel fee 2027\s+for Nancy/
+      assert_select ".mg-row-title .mg-row-ward", text: "for Nancy", count: 2
       assert_select "a", text: /Pay online/, count: 1
     end
   end
@@ -154,12 +156,26 @@ class MyGatherpackAccountingTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "#{ward_card(@nancy)} [data-family-row=accounting]" do
       assert_select ".mg-row-title", text: /2027 Membership Dues/
-      assert_select ".mg-row-title", text: "Nancy", count: 0
+      assert_select ".mg-row-ward", false
       assert_select ".badge", text: "Partly paid"
       assert_select ".mg-row-detail", text: /Balance remaining \$50\.00/
-      assert_select "a.btn-primary[href=?]", "https://pay.example.com/1042", text: /Pay online/
+      assert_select "a.btn-primary.mg-account-pay[href=?]", "https://pay.example.com/1042", text: "Pay online"
     end
     assert_select "#{ward_card(@nancy)} p", text: "Nothing to show yet.", count: 0
+    assert_select "#{ward_card(@nancy)} [data-family-status]", text: "All caught up"
+  end
+
+  test "an overdue account counts in what needs the guardian on the ward's card" do
+    travel_to Date.new(2026, 11, 2) do
+      AccountingRecord.find_by(external_id: "I1").update!(balance_cents: 30_000)
+      evaluate(@rule)
+      assert_equal "overdue", result_for(@rule, @nancy).value
+      sign_in @margaret.user
+      get family_path
+    end
+
+    assert_select "#{ward_card(@nancy)} [data-family-status]", text: "1 thing needs you"
+    assert_select "#{ward_card(@nancy)} [data-family-row=accounting] .mg-row-detail", text: /Overdue: Deposit/
   end
 
   test "a ward's card leaves out amounts the guardian may not see, and shows no row without results" do
