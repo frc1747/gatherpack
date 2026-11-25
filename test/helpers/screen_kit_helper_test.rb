@@ -5,8 +5,28 @@ class ScreenKitHelperTest < ActionView::TestCase
     render "shared/action_row", actions: actions
   end
 
+  # More's items at desktop width.
   def more_items
     css_select(".dropdown-menu li:not(.d-md-none)")
+  end
+
+  # The labels in More, with "---" for a divider, and whether each shows only
+  # at phone width. A divider sits inside the item below it.
+  def more_menu
+    css_select(".dropdown-menu > li").flat_map do |li|
+      phone = li.classes.include?("d-md-none")
+      hr = li.at_css(".dropdown-divider")
+      item = [ li.text.strip, phone ]
+      hr ? [ [ "---", phone || hr.classes.include?("d-md-none") ], item ] : [ item ]
+    end
+  end
+
+  test "a divider never adds an item of its own to More" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    assert_select ".dropdown-menu > li", 2
   end
 
   test "screen_action builds an action with the kit's defaults" do
@@ -80,6 +100,50 @@ class ScreenKitHelperTest < ActionView::TestCase
     assert_select ".dropdown:not(.d-md-none) > button.dropdown-toggle", text: "More"
     assert_equal [ "Archive", "Delete" ], more_items.map { |li| li.text.strip }
     assert_select ".dropdown-menu li:last-child .dropdown-item.text-danger", text: "Delete"
+  end
+
+  test "Delete in More gets a divider above it when other items sit there" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    assert_equal [ [ "Archive", false ], [ "---", false ], [ "Delete", false ] ], more_menu
+    assert_select ".dropdown-menu li + li > hr.dropdown-divider:first-child", 1
+  end
+
+  test "two destructive actions share one divider" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Archive", "/archive", method: :post, lifecycle: true),
+      screen_action("Delete", "/x", method: :delete, destructive: true),
+      screen_action("Erase answers", "/y", method: :delete, destructive: true)
+
+    assert_equal [ "Archive", "---", "Delete", "Erase answers" ], more_menu.map(&:first)
+  end
+
+  test "with only Delete in More, there's no divider" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    # More exists only at phone width, holding just the Delete button.
+    assert_equal [ [ "Delete", true ] ], more_menu
+    assert_select ".dropdown-divider", 0
+  end
+
+  test "the divider above Delete shows only at phone width when the items above it do" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Remind", "/b", style: :primary),
+      screen_action("Delete", "/x", method: :delete, destructive: true)
+
+    assert_equal [ [ "Remind", true ], [ "---", true ], [ "Delete", true ] ], more_menu
+  end
+
+  test "a divider above Delete in More is hidden at desktop width when only phone items sit above it" do
+    action_row screen_action("Edit", "/a", style: :warning),
+      screen_action("Remind", "/b", style: :primary),
+      screen_action("Delete", "/x", method: :delete, destructive: true),
+      screen_action("Erase answers", "/y", method: :delete, destructive: true)
+
+    assert_equal [ [ "Remind", true ], [ "---", true ], [ "Delete", false ], [ "Erase answers", false ] ], more_menu
   end
 
   test "Restore alone with Edit still makes a More" do
@@ -305,6 +369,58 @@ class ScreenKitHelperTest < ActionView::TestCase
 
     render "shared/filter_bar", url: "/forms/1"
     assert_select ".screen-table-actions", 0
+  end
+
+  test "filter_bar's More choices apply on change and end with their own Show" do
+    render "shared/filter_bar", url: "/forms/1", more: "<input name='since'>".html_safe
+
+    assert_select "form[data-controller=filter-bar][data-action='change->filter-bar#submit']:not([data-filter-bar-auto-value])" do
+      assert_select "> input[type=submit][value=Show].btn.btn-secondary:not(.btn-sm)"
+      assert_select "details > :last-child[type=submit][value=Show].btn.btn-secondary.btn-sm.mt-2"
+    end
+  end
+
+  test "filter_bar's auto_submit with More choices marks the whole form to apply at once" do
+    render "shared/filter_bar", url: "/forms/1", auto_submit: true, more: "<input name='since'>".html_safe
+
+    assert_select "form[data-controller=filter-bar][data-filter-bar-auto-value=true]"
+    assert_select "details input[type=submit][value=Show]", 1
+  end
+
+  test "filter_bar always has an empty column chooser slot in its table actions" do
+    render "shared/filter_bar", url: "/forms/1", table_actions: [ screen_action("Download CSV", "/forms/1.csv") ]
+    assert_select ".screen-table-actions > [data-column-chooser-target=slot]:first-child:empty"
+
+    render "shared/filter_bar", url: "/forms/1"
+    assert_select ".screen-filter-bar > [data-column-chooser-target=slot]:empty", 1
+    assert_select "form [data-column-chooser-target=slot]", 0
+  end
+
+  test "column_chooser_data gives a hand-written wrapper the chooser and the table filter, and keeps its own controller" do
+    assert_equal({ controller: "column-chooser table-filter", column_chooser_key_value: "orders-report" }, column_chooser_data("orders-report"))
+    assert_equal({ controller: "form-results column-chooser table-filter", column_chooser_key_value: "form-results", form_results_target: "table" },
+      column_chooser_data("form-results", controller: "form-results", form_results_target: "table"))
+  end
+
+  test "filter_bar passes a wait marker in More choices through to the page" do
+    render "shared/filter_bar", url: "/forms/1",
+      more: "<div data-filter-bar-wait><select name='question_form_id'></select><select name='question_id'></select></div>".html_safe
+
+    assert_select "form[data-controller=filter-bar] details [data-filter-bar-wait] select", 2
+  end
+
+  test "people_table's choose_columns: adds the chooser and the table filter, and keeps Person fixed" do
+    row = Struct.new(:person, :allergy).new(Person.create!(first_name: "Nadia", last_name: "Northwind"), "Peanuts")
+    render "shared/people_table", rows: [ row ], choose_columns: "signups-roster",
+      wrapper: { data: { form_results_target: "table" } }, columns: [ [ "Allergies", ->(r) { r.allergy } ] ]
+
+    assert_select "div.table-responsive[data-controller='column-chooser table-filter'][data-column-chooser-key-value=signups-roster][data-form-results-target=table]"
+    assert_select "th[data-column-chooser-fixed]", text: "Person"
+    assert_select "th:not([data-column-chooser-fixed])", text: "Allergies"
+
+    render "shared/people_table", rows: [ row ]
+    assert_select "[data-controller]", 0
+    assert_select "th[data-column-chooser-fixed]", text: "Person"
   end
 
   test "people_table takes table classes, wrapper options, column options and rows after" do
