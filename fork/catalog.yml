@@ -1157,3 +1157,16 @@ feature/email-log-orders:
     - name: Orders and Sent email log both on
       key: feature_orders, feature_email_log
       default: "off"
+
+feature/accounting:
+  title: Accounting
+  emoji: "💰"
+  description: >-
+    Shows each person's account status (what is owed, paid and left to pay)
+    from QuickBooks, ledgers or a spreadsheet. Payment plans, reminders and
+    billing come in later steps. It is being built step by step.
+  audience: Admins and treasurers
+  settings:
+    - name: Accounting
+      key: feature_accounting
+      default: "off"
