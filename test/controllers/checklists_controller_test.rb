@@ -236,6 +236,23 @@ class ChecklistsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a checklist can set its own word for Not required; an item's form keeps its three words" do
+    with_feature do
+      sign_in person(:club_manager).user
+      get new_checklist_path
+      assert_select "input[name='checklist[exempt_word]'][placeholder='Not required']"
+
+      post checklists_path, params: { checklist: { title: "Season", team_id: @members.id, status: "draft", start_mode: "date", starts_on: "2026-09-01", read_level: "family", exempt_word: "Exempt" } }
+      checklist = Checklist.find_by!(title: "Season")
+      assert_equal "Exempt", checklist.word_for(:exempt)
+
+      get new_checklist_checklist_item_path(checklist, kind: "badge")
+      assert_response :success
+      assert_select "input[name='checklist_item[not_met_word]']"
+      assert_select "input[name='checklist_item[exempt_word]']", false
+    end
+  end
+
   test "a member can't make or change a checklist" do
     with_feature do
       sign_in person(:member).user

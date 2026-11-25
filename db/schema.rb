@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -352,6 +352,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_120000) do
     t.string "met_word"
     t.string "pending_word"
     t.string "not_met_word"
+    t.string "exempt_word"
     t.index ["created_by_id"], name: "index_checklists_on_created_by_id"
     t.index ["status", "next_refresh_at"], name: "index_checklists_on_status_and_next_refresh_at"
     t.index ["team_id"], name: "index_checklists_on_team_id"

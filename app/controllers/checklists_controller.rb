@@ -146,7 +146,7 @@ class ChecklistsController < InternalController
 
   def checklist_params
     permitted = params.require(:checklist).permit(:title, :description, :team_id, :starts_on, :starts_within_amount,
-      :starts_within_unit, :ends_on, :status, :read_level, :start_mode, :met_word, :pending_word, :not_met_word)
+      :starts_within_unit, :ends_on, :status, :read_level, :start_mode, :met_word, :pending_word, :not_met_word, :exempt_word)
     # Counting is Not yet (draft) or Yes (active); archiving has its own action.
     permitted.delete(:status) unless permitted[:status].in?(%w[draft active])
     mode = permitted.delete(:start_mode)
