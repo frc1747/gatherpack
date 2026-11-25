@@ -1,0 +1,26 @@
+/* The Family page: one card per child, with quiet icon rows instead of tiles. */
+[data-family-row] + [data-family-row],
+[data-family-page] .card-header + [data-family-row] {
+  border-top: 1px solid var(--bs-border-color);
+}
+
+[data-family-page] .card-header {
+  border-bottom: 0;
+}
+
+[data-family-page] .mg-row {
+  padding-block: 0.75rem;
+}
+
+[data-family-page] .mg-row-icon,
+[data-family-page] .mg-row-icon-soon {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: transparent;
+}
+
+.mg-ward-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
