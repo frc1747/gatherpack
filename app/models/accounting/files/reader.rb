@@ -122,7 +122,8 @@ class Accounting::Files::Reader
     # Works out how much each payment, credit and refund applies to each
     # charge, in file order: amounts given first, then the rest of the row's
     # total to the charges listed without one, each up to what's still open
-    # on it. What's left is the row's unapplied amount.
+    # on it (a refund's isn't capped: it doesn't lower the balance). What's
+    # left is the row's unapplied amount.
     def apply_amounts(parsed)
       charges = parsed.select { |row| row[:role] == "charge" }.index_by { |row| row[:number] }
       open = charges.transform_values { |charge| charge[:total].to_i }
@@ -138,7 +139,9 @@ class Accounting::Files::Reader
         row[:applied_to].each do |applied|
           next unless charges.key?(applied[:number])
 
-          applied[:amount] ||= [ left, open[applied[:number]].clamp(0..) ].min.tap { |amount| left -= amount }
+          # A refund doesn't lower the balance, so the balance doesn't cap it.
+          available = APPLYING.include?(row[:role]) ? open[applied[:number]].clamp(0..) : left
+          applied[:amount] ||= [ left, available ].min.tap { |amount| left -= amount }
           open[applied[:number]] -= applied[:amount] if APPLYING.include?(row[:role])
         end
         row[:unapplied] = left

@@ -3,9 +3,15 @@ crumb :"gateway/quickbooks_gateway" do |gateway|
   parent :gateways
 end
 
+# Any source's gateway page, linked properly whatever the source's type.
+crumb :accounting_source do |source|
+  link source.identifier_name, gateway_path(source)
+  parent :gateways
+end
+
 crumb :accounting_records do |source|
   link "Records", accounting_connection_records_path(source)
-  parent :"gateway/quickbooks_gateway", source
+  parent :accounting_source, source
 end
 
 crumb :accounting_record do |record|

@@ -138,6 +138,24 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     assert_equal "Charge · Dues", entries.find_by(external_id: dues.id).public_label
   end
 
+  test "a split only part divided keeps the rest on the parent, so the ledger's balance still matches" do
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    charge = add_entry(ledger, -30_000, by: @treasurer, at: 3.days.ago, tags: [ @dues ])
+    add_entry(ledger, 0, by: @treasurer, at: 3.days.ago, parent_id: charge.id)
+    add_entry(ledger, 0, by: @treasurer, at: 3.days.ago, parent_id: charge.id)
+
+    sync
+    record = @source.accounting_records.current.find_by!(external_id: charge.id)
+    assert_equal [ "charge", 30_000, "Charge · Dues" ], [ record.role, record.total_cents, record.public_label ]
+
+    part = add_entry(ledger, -10_000, by: @treasurer, at: 3.days.ago, parent_id: charge.id)
+    sync
+    entries = @source.accounting_records.current.where(entity_type: "LedgerEntry")
+
+    assert_equal({ charge.id => 20_000, part.id => 10_000 }, entries.pluck(:external_id, :total_cents).to_h)
+    assert_equal(-ledger.reload.balance_cents, entries.where(role: "charge").sum(:balance_cents))
+  end
+
   test "payments count against the oldest charges first, and what's left is unapplied" do
     ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
     deposit = add_entry(ledger, -15_000, by: @treasurer, at: 5.days.ago, tags: [ @dues ])
@@ -205,11 +223,18 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     ledger = create_ledger("Nancy Ward dues", team: @team)
 
     with_accounting do
-      assert_enqueued_with(job: Accounting::LedgerSyncJob, args: [ ledger.id ]) { add_entry(ledger, -100, by: @treasurer) }
+      assert_enqueued_with(job: Accounting::LedgerSyncJob, args: [ @source, ledger.id ]) { add_entry(ledger, -100, by: @treasurer) }
       entry = ledger.ledger_entries.first
-      assert_enqueued_with(job: Accounting::LedgerSyncJob, args: [ ledger.id ]) { entry.ledger_taggings.create!(ledger_tag: @dues) }
-      assert_enqueued_with(job: Accounting::LedgerSyncJob, args: [ ledger.id ]) { ledger.ledger_ownerships.create!(owner: @nancy) }
+      assert_enqueued_with(job: Accounting::LedgerSyncJob, args: [ @source, ledger.id ]) { entry.ledger_taggings.create!(ledger_tag: @dues) }
+      assert_enqueued_with(job: Accounting::LedgerSyncJob, args: [ @source, ledger.id ]) { ledger.ledger_ownerships.create!(owner: @nancy) }
     end
+  end
+
+  test "a ledger sync runs one at a time with the source's other syncs" do
+    ledger = create_ledger("Nancy Ward dues", team: @team)
+
+    assert_operator Accounting::LedgerSyncJob, :<, Accounting::SyncJob
+    assert_equal Accounting::FullSyncJob.new(@source).concurrency_key, Accounting::LedgerSyncJob.new(@source, ledger.id).concurrency_key
   end
 
   test "nothing is queued for a ledger outside the chosen teams, or while the feature is off" do

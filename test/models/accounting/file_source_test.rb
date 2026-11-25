@@ -81,6 +81,18 @@ class Accounting::FileSourceTest < ActiveJob::TestCase
     assert_equal 0, payment["unapplied_cents"]
   end
 
+  test "a refund applied to a paid charge takes the rest of its total" do
+    records = read(<<~CSV).records
+      customer,role,number,total,applied_to
+      Nancy Ward,charge,1042,300,
+      Nancy Ward,payment,,300,1042
+      Nancy Ward,refund,,50,1042
+    CSV
+
+    assert_equal [ { "external_id" => "1042", "amount_cents" => 5000 } ], records["refund"].sole["applied_to"]
+    assert_equal 0, records["charge"].sole["balance_cents"]
+  end
+
   test "applying a file copies its records, links person ids and account emails, and suggests names" do
     ward = create_linkable_person("Ben", "Ward")
     apply(file_fixture("accounting/dues.csv").read + "#{ward.neat_id},charge,1044,2026-09-01,,Dues,450,,,\n")

@@ -78,18 +78,20 @@ class Gateway::LedgerSource < Gateway
     end
   end
 
-  # Queues a LedgerSyncJob for each ledger when a ledger source covers one
-  # of team_ids (nil: the teams aren't known, as for a ledger that's gone).
+  # Queues a LedgerSyncJob for each ledger and each ledger source covering
+  # one of team_ids (nil: the teams aren't known, as for a ledger that's gone).
   # Called by Accounting::LedgerChanges after a ledger, entry, tagging or
   # ownership is saved or removed.
   def self.queue_sync(ledger_ids, team_ids)
     return unless Accounting.enabled?
 
-    sources = all.to_a
-    return if sources.empty? || ledger_ids.empty?
-    return unless team_ids.nil? || sources.any? { |source| team_ids.any? { |team_id| source.covers_team?(team_id) } }
+    return if ledger_ids.empty?
 
-    ledger_ids.each { |ledger_id| Accounting::LedgerSyncJob.perform_later(ledger_id) }
+    all.each do |source|
+      next unless team_ids.nil? || team_ids.any? { |team_id| source.covers_team?(team_id) }
+
+      ledger_ids.each { |ledger_id| Accounting::LedgerSyncJob.perform_later(source, ledger_id) }
+    end
   end
 
   def routes

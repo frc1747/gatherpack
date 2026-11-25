@@ -89,15 +89,35 @@ class AccountingUploadsTest < ActionDispatch::IntegrationTest
     assert_select "button", text: "Sync now", count: 0
   end
 
-  test "only admins upload" do
-    [ @builder, @member ].each do |user|
-      sign_in user
-      with_accounting { get new_accounting_connection_upload_path(@source) }
-      assert_redirected_to root_path
-      with_accounting { post accounting_connection_uploads_path(@source), params: { file: csv("dues.csv") } }
-      sign_out user
-    end
+  test "people who aren't admins or architects can't upload" do
+    sign_in @member
 
+    with_accounting { get new_accounting_connection_upload_path(@source) }
+    assert_redirected_to root_path
+    with_accounting { post accounting_connection_uploads_path(@source), params: { file: csv("dues.csv") } }
+
+    assert_empty @source.accounting_uploads
+  end
+
+  test "an architect who isn't an admin can upload from the gateway page" do
+    sign_in @builder
+
+    with_accounting { get gateway_path(@source) }
+    assert_select "a[href=?]", new_accounting_connection_upload_path(@source), text: "Upload"
+    with_accounting { get new_accounting_connection_upload_path(@source) }
+    assert_response :success
+    with_accounting { post accounting_connection_uploads_path(@source), params: { file: csv("dues.csv") } }
+
+    assert_equal @builder.person, @source.accounting_uploads.sole.created_by
+  end
+
+  test "a file that isn't a CSV is refused with a message" do
+    sign_in @admin
+
+    with_accounting { post accounting_connection_uploads_path(@source), params: { file: upload_file("PK\x03\x04\x14\x00\x81\x8D\x8F\x90\x9D".b) } }
+
+    assert_response :unprocessable_entity
+    assert_select ".alert", text: /That isn't a CSV file\./
     assert_empty @source.accounting_uploads
   end
 
@@ -146,10 +166,10 @@ class AccountingUploadsTest < ActionDispatch::IntegrationTest
     end
 
     def upload_file(content)
-      file = Tempfile.new([ "upload", ".csv" ])
+      file = Tempfile.new([ "upload", ".csv" ], binmode: true)
       file.write(content)
       file.rewind
-      Rack::Test::UploadedFile.new(file.path, "text/csv", original_filename: "dues.csv")
+      Rack::Test::UploadedFile.new(file.path, "text/csv", true, original_filename: "dues.csv")
     end
 
     def apply_file(content)
