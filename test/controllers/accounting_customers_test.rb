@@ -31,6 +31,9 @@ class AccountingCustomersTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: "Needs a link (1)"
     assert_select "##{ActionView::RecordIdentifier.dom_id(@customer)}", text: /Nancy Davolio \(name match\)/
     assert_select "h2", text: "Linked (1)"
+    assert_column_chooser "accounting-customers-unlinked"
+    assert_column_chooser "accounting-customers-linked"
+    assert_select "th[data-column-chooser-fixed]", text: "Customer", count: 2
     assert_select "##{ActionView::RecordIdentifier.dom_id(linked)}", text: /Janet Leverling/
     assert_no_match "Old customer", response.body
 
@@ -104,6 +107,8 @@ class AccountingCustomersTest < ActionDispatch::IntegrationTest
     with_accounting do
       get accounting_connection_customer_path(@gateway, @customer, candidate_q: "Leverling")
       assert_response :success
+      assert_column_chooser "accounting-customer-records"
+      assert_select "td[data-sort-value='45000']"
       assert_select "td", text: /Invoice 1042/
       assert_select "a[href='https://example.com/130']", text: "Open in QuickBooks"
       assert_select "#candidates", text: /Janet Leverling/

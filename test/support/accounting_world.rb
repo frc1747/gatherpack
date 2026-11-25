@@ -63,6 +63,12 @@ module AccountingWorld
     with_settings(feature_accounting: enabled.to_s, &block)
   end
 
+  # The page wraps its table in a Columns chooser with heading sort and filter,
+  # remembered under key.
+  def assert_column_chooser(key)
+    assert_select "[data-controller~='column-chooser'][data-controller~='table-filter'][data-column-chooser-key-value='#{key}']"
+  end
+
   def qbo_fixture(name)
     file_fixture("quickbooks/#{name}.json").read
   end

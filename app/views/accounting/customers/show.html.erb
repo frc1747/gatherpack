@@ -69,7 +69,7 @@
   </div>
 </div>
 
-<div class="card">
+<div <%= tag.attributes(class: "card", data: column_chooser_data("accounting-customer-records")) %>>
   <div class="card-header"><h2 class="h5 mb-0">Records</h2></div>
   <% if @records.any? %>
     <div class="table-responsive">
@@ -77,8 +77,8 @@
         <thead>
           <tr>
             <th>Date</th>
-            <th>What</th>
-            <th class="text-end">Total</th>
+            <th data-column-chooser-fixed>What</th>
+            <th class="text-end" data-column-chooser-fixed>Total</th>
             <th class="text-end">Balance</th>
             <th></th>
           </tr>
@@ -86,13 +86,13 @@
         <tbody>
           <% @records.each do |record| %>
             <tr id="<%= dom_id record %>">
-              <td><%= record.txn_date ? l(record.txn_date) : "" %></td>
+              <td data-sort-value="<%= record.txn_date&.iso8601 %>"><%= record.txn_date ? l(record.txn_date) : "" %></td>
               <td>
                 <%= records_page ? link_to(record.identifier_name, accounting_connection_record_path(@source, record)) : record.identifier_name %>
                 <%= render "accounting/records/marks", record: record %>
               </td>
-              <td class="text-end"><%= accounting_cents(record.total_cents) %></td>
-              <td class="text-end"><%= accounting_cents(record.balance_cents) %></td>
+              <td class="text-end" data-sort-value="<%= record.total_cents %>"><%= accounting_cents(record.total_cents) %></td>
+              <td class="text-end" data-sort-value="<%= record.balance_cents %>"><%= accounting_cents(record.balance_cents) %></td>
               <td>
                 <% if deep_links && record.external_url.present? %>
                   <%= link_to "Open in #{@source.source_name}", record.external_url, target: "_blank", rel: "noopener" %>

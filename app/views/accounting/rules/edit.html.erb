@@ -36,7 +36,7 @@
   <div class="card" id="accounting-rule-preview">
     <div class="card-header"><h2 class="h5 mb-0">Preview (not saved)</h2></div>
     <div class="card-body">
-      <%= render "shared/people_table", rows: @preview, empty: "Nobody is linked yet.", person: ->(row) { row.first },
+      <%= render "shared/people_table", rows: @preview, empty: "Nobody is linked yet.", choose_columns: "accounting-rule-preview", person: ->(row) { row.first },
             status: ->(row) { accounting_value_badge(@rule, row.last.value) },
             columns: [ [ "Amount", ->(row) { @rule.kind == "count" ? row.last.details[:count].to_s : accounting_cents(row.last.amount_cents) } ] ] %>
     </div>

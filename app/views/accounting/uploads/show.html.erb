@@ -34,9 +34,9 @@
 <% if @upload.problems? %>
   <div class="card mb-3">
     <div class="card-header"><h2 class="h5 mb-0">Rows to fix</h2></div>
-    <div class="table-responsive">
+    <div <%= tag.attributes(class: "table-responsive", data: column_chooser_data("accounting-upload-problems")) %>>
       <table class="table mb-0">
-        <thead><tr><th>Row</th><th>Problem</th></tr></thead>
+        <thead><tr><th data-column-chooser-fixed>Row</th><th>Problem</th></tr></thead>
         <tbody>
           <% @upload.row_errors.each do |problem| %>
             <tr><td><%= problem["row"] || "File" %></td><td><%= problem["message"] %></td></tr>
@@ -50,14 +50,14 @@
 <%# A file with errors has nothing to compare: every record would read as Remove. %>
 <% if @upload.status == "previewed" && !@upload.problems? %>
   <% if @preview.rows.any? %>
-    <div class="table-responsive">
+    <div <%= tag.attributes(class: "table-responsive", data: column_chooser_data("accounting-upload")) %>>
       <table class="table">
         <thead>
           <tr>
             <th>Change</th>
-            <th>What</th>
+            <th data-column-chooser-fixed>What</th>
             <th>Customer</th>
-            <th class="text-end">Total</th>
+            <th class="text-end" data-column-chooser-fixed>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -66,7 +66,7 @@
               <td><%= { "add" => "Add", "change" => "Change", "remove" => "Remove" }.fetch(row.change) %></td>
               <td><%= row.role.in?(%w[ customer item ]) ? "#{accounting_role_name(row.role)}: #{row.label}" : row.label.presence || accounting_role_name(row.role) %></td>
               <td><%= row.customer %></td>
-              <td class="text-end"><%= accounting_cents(row.total_cents) %></td>
+              <td class="text-end" data-sort-value="<%= row.total_cents %>"><%= accounting_cents(row.total_cents) %></td>
             </tr>
           <% end %>
         </tbody>

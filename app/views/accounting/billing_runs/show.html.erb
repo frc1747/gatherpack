@@ -26,19 +26,19 @@
       ] %>
 </div>
 
-<div class="card">
+<div <%= tag.attributes(class: "card", data: column_chooser_data("accounting-billing-run")) %>>
   <% if @lines.any? %>
     <div class="table-responsive">
       <table class="table mb-0 align-middle">
         <thead>
-          <tr><th>Name</th><th>Customer</th><th class="text-end">Amount</th><th>Status</th><th>Charge</th><th></th></tr>
+          <tr><th data-column-chooser-fixed>Name</th><th>Customer</th><th class="text-end" data-column-chooser-fixed>Amount</th><th>Status</th><th>Charge</th><th></th></tr>
         </thead>
         <tbody>
           <% @lines.sort_by { |line| [ %w[ failed skipped pending created exported ].index(line.status), line.person.identifier_name.to_s ] }.each do |line| %>
             <tr id="<%= dom_id line %>">
               <td><%= link_to line.person.identifier_name, line.person %></td>
               <td><%= @customer_names.fetch(line.customer_external_id, line.customer_external_id) if line.customer_external_id %></td>
-              <td class="text-end"><%= accounting_cents(line.amount_cents) %></td>
+              <td class="text-end" data-sort-value="<%= line.amount_cents %>"><%= accounting_cents(line.amount_cents) %></td>
               <td><%= accounting_line_status_badge(line) %></td>
               <td><%= line.external_id %><% if line.sent_at %> <span class="text-muted">emailed</span><% end %></td>
               <td class="<%= line.failed? ? "text-danger" : "text-muted" %>"><%= line.error %></td>

@@ -202,6 +202,9 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
       assert_select "td", text: /Invoice 1042/
       assert_select "td", text: "Ward, Nancy"
       assert_select "a[href=?]", "https://app.sandbox.qbo.intuit.com/app/invoice?txnId=130"
+      assert_column_chooser "accounting-records"
+      assert_select "[data-column-chooser-key-value='accounting-records'] [data-column-chooser-target='slot']"
+      assert_select "th[data-column-chooser-fixed]", text: "Total"
 
       get accounting_connection_records_path(gateway, role: "payment")
       assert_select "td", text: /Invoice 1042/, count: 0

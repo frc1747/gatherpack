@@ -26,6 +26,7 @@ class AccountingUploadsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "Applying adds 12, changes 0 and removes 0", response.body
     assert_select "td", text: "Charge 1042 · Dues"
+    assert_column_chooser "accounting-upload"
     assert_select "button:not([disabled])", text: "Apply"
 
     with_accounting do
@@ -76,6 +77,7 @@ class AccountingUploadsTest < ActionDispatch::IntegrationTest
     assert @source.accounting_uploads.order(:created_at).last.problems?
     assert_no_match ">Remove<", response.body
     assert_select "th", text: "Change", count: 0
+    assert_column_chooser "accounting-upload-problems"
   end
 
   test "395#3: a file source can't be synced, so it never reads as a file applied" do
