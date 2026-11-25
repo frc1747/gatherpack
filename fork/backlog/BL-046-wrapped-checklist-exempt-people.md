@@ -4,7 +4,7 @@
 |---|---|
 | Kind | fork-only (bug) |
 | Priority | medium |
-| Status | blocked (on the decisions below) |
+| Status | started |
 | Added | 2026-11-15 |
 | Commit checked | `feature/checklists-connectors` (as merged in `hbr/integration` @ `2d28c89f`, `v0.0.0-hbr.40`) |
 | Planned branches | `feature/checklists-connectors` (wrapping, visibility); `feature/checklists` (evaluator, if decision 2 changes the overall) |
@@ -36,10 +36,16 @@ Moving the exclude rule onto the count item puts a rookie on the checklist, but:
 2. A person a checklist covers always sees their own row, on wrapped checklists too.
 3. Exempt count items still show the person's tally ("Doesn't owe · 2 events"). Showing someone their own numbers leaks nothing.
 
-## Decisions needed (Corey)
+## Decisions (Corey, 2026-11-24)
 
 1. Are rookies on Outreach 2026–27 as "doesn't owe", or not on it at all? If not on it, only [BL-045](BL-045-checklist-rule-wording.md)'s leak rule is needed, and [BL-044](BL-044-home-my-season-and-activity.md)'s activity page shows their outreach.
 2. Should a checklist where every counting item is exempt read "Complete" (the spec today) or "Not counted"? Sign-up rules accept exempt either way.
+
+Decided 2026-11-24:
+1. Exempt badge holders on a checklist wrapped from a commitment are on it as "doesn't owe". They see their own row and tally.
+2. A checklist where every counting item is exempt reads `exempt`, default word "Not required" (replacing "Not counted"), editable per checklist like the other status words (`exempt_word`). Sign-up rules still accept exempt.
+
+Branches and commits: `feature/checklists` 66b36c947, a4d837bbd; `feature/checklists-connectors` 9fe31e53a, 00281d877; `feature/intake-checklist` 28367215c; `feature/mcp-checklists-intake` 4a0ca61bc, 3822915c8. Review follow-ups in progress (exempt word setting).
 
 ## Tests
 
