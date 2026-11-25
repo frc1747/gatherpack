@@ -960,6 +960,8 @@ One per table, all reversible:
 - `accounting_billing_runs`
 - `accounting_billing_lines`
 
+Then two data migrations (§4.7): `MoveQuickbooksRealmIntoSecrets` (reversible) and, in the versions database, `ScrubQuickbooksRealmFromAuditLogs` (its `down` does nothing).
+
 ### 16.4 Rollout order
 
 1. **Read side, QuickBooks:** the provider interface, plain records, QuickBooks source (connection, credentials, client, normalize, full sync, changes job, notifications), Records page. Against the Intuit sandbox.
