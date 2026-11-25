@@ -44,8 +44,11 @@ class EventTypesController < InternalController
 
   # DELETE /event_types/1
   def destroy
-    @event_type.destroy!
-    redirect_to event_types_url, notice: "Event type was successfully destroyed.", status: :see_other
+    if @event_type.destroy
+      redirect_to event_types_url, notice: "Event type was successfully destroyed.", status: :see_other
+    else
+      redirect_to @event_type, alert: @event_type.errors.full_messages.to_sentence, status: :see_other
+    end
   end
 
   private
