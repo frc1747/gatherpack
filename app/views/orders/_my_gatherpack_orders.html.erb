@@ -1,0 +1,30 @@
+<%# Your orders on the My GatherPack home page: a New request button for requesters and their active requests, or a line saying there are none. Renders nothing for anyone else with none. %>
+<% waiting = Orders::WaitingOn.for(current_user.person) %>
+<% can_request = Orders::Access.for(current_user.person).requester? %>
+<% active = waiting.active_requests %>
+<% if active.any? || can_request %>
+  <section class="mg-section" data-home-section="orders">
+    <div class="mg-heading-row">
+      <h2 class="mg-heading">Your orders</h2>
+      <% if active.size > 5 %><%= link_to "My requests", orders_requests_path(mine: 1), class: "mg-heading-link" %><% end %>
+    </div>
+    <% if active.any? %>
+      <div class="card mg-list">
+        <% active.first(5).each do |order_request| %>
+          <div class="mg-row" id="<%= dom_id order_request %>">
+            <div class="mg-row-body">
+              <div class="mg-row-title"><%= link_to order_request.display_title, orders_request_path(order_request) %></div>
+              <div class="mg-row-detail"><%= order_request_status_text(order_request) %></div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+      <% if active.size <= 5 %><p class="mt-2 mb-0"><%= link_to "My requests", orders_requests_path(mine: 1) %></p><% end %>
+    <% else %>
+      <p class="text-body-secondary mb-0" data-orders-none>No open requests. <%= link_to "My requests", orders_requests_path(mine: 1) %></p>
+    <% end %>
+    <% if can_request %>
+      <%= link_to "New request", new_orders_request_path, class: "btn btn-primary w-100 mt-2", style: "min-height: 44px; line-height: 32px" %>
+    <% end %>
+  </section>
+<% end %>
