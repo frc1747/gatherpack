@@ -1,0 +1,8 @@
+<%# A feature's own settings field, for the :partial input tests. %>
+<fieldset>
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <% (JSON.parse(input.value) + [ "" ]).each do |name| %>
+    <%= text_field_tag setting_input_name(input, "names", ""), name, class: "form-control mb-2" %>
+  <% end %>
+  <span class="test-builder"><%= f.object_name %></span>
+</fieldset>
