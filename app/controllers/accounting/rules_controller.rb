@@ -3,7 +3,7 @@
 # pages, seeing only the people and amounts the rule lets them; admins set
 # rules up; architects write custom rules' code.
 class Accounting::RulesController < Accounting::BaseController
-  EDIT_TABS = %w[ question records people actions enabled ].freeze
+  EDIT_TABS = %w[ question records people reminders actions enabled ].freeze
   PREVIEW_PEOPLE = 5
 
   before_action :set_rule, except: %i[ index new create ]
@@ -109,9 +109,22 @@ class Accounting::RulesController < Accounting::BaseController
       if current_user.admin && params[:unapplied] == "1"
         results = results.where("(accounting_rule_results.details->>'unapplied_credit_cents')::bigint > 0")
       end
+      # Only admins see who is on a payment plan.
+      @planned_ids = current_user.admin && @rule.balance? ? @rule.planned_person_ids.to_set : Set.new
+      results = results.where(person_id: @planned_ids.to_a) if current_user.admin && params[:plan] == "1"
       @rows = results.joins(:person).order("people.last_name", "people.first_name").to_a
       @amount_ids = @rule.amount_people_for(viewer).where(id: @rows.map(&:person_id)).ids.to_set
+      @plan_hidden_ids = plan_hidden_ids(viewer)
       @customer_urls = customer_urls if current_user.admin && @rule.capabilities.include?(:deep_links)
+    end
+
+    # The people on a payment plan whose plan the viewer may not see: their
+    # milestone line is only the status. None for admins.
+    def plan_hidden_ids(viewer)
+      return Set.new if current_user.admin || !@rule.balance?
+
+      @rows.select(&:on_plan?).select { |result| Accounting::RuleAccess.new(viewer, result.person, @rule).plan_hidden?(result) }
+        .map(&:person_id).to_set
     end
 
     # Admins' "Open in" link for each person: their first linked customer.
@@ -146,6 +159,7 @@ class Accounting::RulesController < Accounting::BaseController
       params.fetch(:accounting_rule, {}).permit(
         :name, :description, :gateway_id, :kind, :code, :team_id, :read_permission, :amount_permission, :enabled,
         :grace_days, :unapplied_credit, :measure, :show_pay_links,
+        :remind_days_before, :overdue_every_days, :remind_to, :reminder_level,
         labels: {},
         filters: [ :txn_date_from, :txn_date_to, :due_date_from, :due_date_to, :min_total, { roles: [], items: [], classes: [], locations: [] } ],
         milestones_attributes: %i[ id name due_on balance_at_most balance_at_most_percent position _destroy ],

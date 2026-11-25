@@ -1,7 +1,7 @@
 <% breadcrumb :accounting_rule, @rule %>
 <% admin = current_user.admin %>
 <% source = @rule.gateway %>
-<% filter_params = { unapplied: (params[:unapplied] if admin) }.compact %>
+<% filter_params = { unapplied: (params[:unapplied] if admin), plan: (params[:plan] if admin) }.compact %>
 
 <div class="card mb-3">
   <%= render "shared/page_header", title: @rule.name, summary: @rule.description,
@@ -12,6 +12,9 @@
     <p class="mb-1"><%= render "accounting/rules/totals", summary: @summary %></p>
     <% if admin && @rule.balance? && (unapplied = @summary.unapplied_credit_cents).positive? %>
       <p class="mb-1">Unapplied credit <%= accounting_cents(unapplied) %></p>
+    <% end %>
+    <% if admin && (reminders = accounting_reminders_line(@rule)) %>
+      <p class="mb-1"><%= reminders %></p>
     <% end %>
     <% if admin && @rule.missing_roles.any? %>
       <p class="mb-1 text-danger">Not worked out: <%= source.name %> doesn't copy <%= @rule.missing_roles.map { |role| accounting_role_name(role).downcase.pluralize }.to_sentence %>.</p>
@@ -32,12 +35,16 @@
     <%= check_box_tag :unapplied, "1", params[:unapplied] == "1", class: "form-check-input" %>
     <%= label_tag :unapplied, "Only people with unapplied credit", class: "form-check-label" %>
   </div>
+  <div class="form-check">
+    <%= check_box_tag :plan, "1", params[:plan] == "1", class: "form-check-input" %>
+    <%= label_tag :plan, "Only people on a payment plan", class: "form-check-label" %>
+  </div>
 <% end if admin && @rule.balance? %>
 
 <div <%= tag.attributes(class: "card", data: column_chooser_data("accounting-rule")) %>>
   <div class="card-body">
     <%= render "shared/filter_bar", url: accounting_rule_path(@rule), teams: @teams, team: @team, statuses: statuses, status: @value,
-          params: filter_params, hidden: filter_params.except(:unapplied), more: more, open: params[:unapplied] == "1",
+          params: filter_params, hidden: filter_params.except(:unapplied, :plan), more: more, open: params[:unapplied] == "1" || params[:plan] == "1",
           table_actions: [
             screen_action("Print", nil, style: :dark, data: { controller: "print", action: "print#print" }),
             screen_action("Download CSV", export_accounting_rule_path(@rule, format: :csv, status: @value, team_id: @team&.id, **filter_params))
@@ -47,11 +54,12 @@
       <% columns << [ "Amount", ->(result) { accounting_result_amount(result) if @amount_ids.include?(result.person_id) } ] %>
     <% end %>
     <% if @rule.balance? %>
-      <% columns << [ "Next", ->(result) { accounting_milestone_line(result, amounts: @amount_ids.include?(result.person_id)) } ] %>
+      <% columns << [ "Next", ->(result) { accounting_milestone_line(result, amounts: @amount_ids.include?(result.person_id), plan_hidden: @plan_hidden_ids.include?(result.person_id)) } ] %>
     <% end %>
     <% columns << [ "Changed on", ->(result) { result.changed_at && l(result.changed_at.to_date, format: :short) } ] %>
     <% if admin && @rule.balance? %>
       <% columns << [ "Unapplied credit", ->(result) { accounting_cents(result.unapplied_credit_cents) if result.unapplied_credit_cents.positive? } ] %>
+      <% columns << [ "Payment plan", ->(result) { tag.span("On a plan", class: "badge text-bg-secondary") if @planned_ids.include?(result.person_id) } ] %>
     <% end %>
     <% if @customer_urls %>
       <% columns << [ "", ->(result) { (url = @customer_urls[result.person_id]) && link_to("Open in #{source.source_name}", url, target: "_blank", rel: "noopener") }, { data: { column_chooser_label: "Open in #{source.source_name}" } } ] %>

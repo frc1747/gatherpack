@@ -50,6 +50,11 @@ crumb :person_accounting do |person|
   parent person
 end
 
+crumb :accounting_payment_plan do |rule, person|
+  link "Payment plan: #{rule.name}", edit_accounting_rule_payment_plan_path(rule, person)
+  parent :person_accounting, person
+end
+
 crumb :person_accounting_statement do |person|
   link "Statement", person_accounting_statement_path(person)
   parent :person_accounting, person

@@ -18,4 +18,9 @@ Rails.application.config.to_prepare do
     label: "Accounting rule results"
   merge.register :accounting_uploads, :created_by_id, label: "Accounting files uploaded"
   merge.register :accounting_uploads, :applied_by_id, label: "Accounting files applied"
+  # A payment plan moves to the kept person with its rows.
+  merge.register :accounting_person_milestones, :person_id, label: "Accounting payment plans"
+  merge.register :accounting_person_milestones, :created_by_id, label: "Accounting payment plans made"
+  merge.register :accounting_reminders, :person_id, label: "Accounting reminders about them"
+  merge.register :accounting_reminders, :recipient_id, label: "Accounting reminders sent to them"
 end

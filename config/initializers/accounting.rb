@@ -4,9 +4,11 @@
 # into accounting_records, and accounting_customer_links say which people
 # each customer is for. Rules (accounting_rules) answer a question about
 # each person from those records; the answers are shown on Account Status
-# and each person's Account tab. Routes are in config/routes/accounting.rb
-# and recurring jobs in config/recurring.d/accounting.yml; both do nothing
-# while the feature is off.
+# and each person's Account tab; payment plans give one person their own
+# milestones, and rules send reminders (Accounting::Reminders). Routes are
+# in config/routes/accounting.rb and recurring jobs in
+# config/recurring.d/accounting.yml; both do nothing while the feature is
+# off.
 Rails.application.config.to_prepare do
   # The sidebar item shows only to people who see some rule's results where
   # nav items can say who they're for (feature/nav-item-visible); without
@@ -41,11 +43,21 @@ Rails.application.config.to_prepare do
 
   # Record hooks fire only when the source's revision of a record changed.
   GatherPack::HookCatalog.register_targets("accounting_records", "accounting_customer_links", "accounting_rules")
+  # A payment plan was set up or changed; the hook's code sees the note.
+  GatherPack::HookCatalog.register_targets("accounting_person_milestones")
   GatherPack::HookCatalog.register_events("accounting - sync failed")
   # model is a new customer record the sync couldn't link to anyone.
   GatherPack::HookCatalog.register_events("accounting - customer unlinked")
   # model is an AccountingRuleChange, after the result is saved.
   GatherPack::HookCatalog.register_events(Accounting::Evaluation::EVENT)
+
+  # Reminders go in the daily summary for people who choose it, where the
+  # summaries seam is merged; without it every reminder is an email.
+  if defined?(GatherPack::Digests)
+    Settings.register(Accounting::ReminderDigest::SETTING, :boolean, "Account Reminders in the Daily Digest", "false", "Account Status",
+      "Send scheduled account reminders in the daily digest instead of an email each time. Each person can choose for themselves on their Email notices page.")
+    Accounting::ReminderDigest.register
+  end
 
   # Gateway types can choose their settings' inputs (the ledger source's
   # teams and tags are tick boxes and choices).

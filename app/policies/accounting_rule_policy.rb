@@ -42,6 +42,11 @@ class AccountingRulePolicy < ApplicationPolicy
     admin?
   end
 
+  # Giving a person their own milestones, and seeing who has them.
+  def payment_plan?
+    admin?
+  end
+
   # Setting a custom rule's code, or making a rule custom.
   def write_code?
     admin? && user&.architect == true

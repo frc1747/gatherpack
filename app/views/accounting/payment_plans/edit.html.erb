@@ -1,0 +1,75 @@
+<% breadcrumb :accounting_payment_plan, @rule, @person %>
+<% errors = @rows.reject(&:marked_for_destruction?).flat_map { |row| row.errors.full_messages.map { |message| [ row.name.presence, message ] } } %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Payment plan: <%= @person.identifier_name %></h1>
+    <div class="text-muted">
+      <%= @rule.name %>. These milestones replace the rule's for <%= @person.first_name.presence || @person.identifier_name %> only.
+      They see the plan's names, dates and amounts, as do their guardians; leaders see only the status. Only admins see that they're on a plan, and the notes.
+    </div>
+  </div>
+  <%= form_with scope: :plan, url: accounting_rule_payment_plan_path(@rule, @person), method: :patch, id: "payment-plan-form" do |f| %>
+    <div class="card-body">
+      <% if errors.any? %>
+        <div class="alert alert-danger">
+          <ul class="mb-0">
+            <% errors.uniq.each do |name, message| %>
+              <li><%= [ name, message ].compact.join(": ") %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+      <div class="form-text mb-2">
+        What has to be paid by when, as the most that may still be owed: "First payment", $450 by Oct 1; "Last payment", $0 by Mar 1.
+        Remove every row, or use Remove plan, to go back to the rule's milestones.
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr><th>Name</th><th>By</th><th>Owing at most ($)</th><th>or at most (%)</th><th>Note (admins only)</th><th></th></tr>
+          </thead>
+          <tbody>
+            <% @rows.each_with_index do |row, index| %>
+              <%= f.fields_for "rows[#{index}]", row do |m| %>
+                <tr>
+                  <td>
+                    <% if row.persisted? %><%= m.hidden_field :id %><% end %>
+                    <%= m.text_field :name, class: "form-control", placeholder: "First payment", aria: { label: "Name" } %>
+                  </td>
+                  <td><%= m.date_field :due_on, class: "form-control", aria: { label: "By" } %></td>
+                  <td><%= m.text_field :balance_at_most, class: "form-control", inputmode: "decimal", aria: { label: "Owing at most ($)" } %></td>
+                  <td><%= m.number_field :balance_at_most_percent, min: 0, max: 100, class: "form-control", aria: { label: "or at most (%)" } %></td>
+                  <td><%= m.text_field :note, class: "form-control", placeholder: "Agreed by phone", aria: { label: "Note" } %></td>
+                  <td>
+                    <% if row.persisted? %>
+                      <div class="form-check">
+                        <%= m.check_box :_destroy, class: "form-check-input" %>
+                        <%= m.label :_destroy, "Remove", class: "form-check-label" %>
+                      </div>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+  <div class="card-footer d-flex flex-wrap align-items-start gap-2 screen-action-row">
+    <%= link_to "Cancel", person_accounting_path(@person), class: "btn btn-secondary" %>
+    <%= button_tag "Save", type: "submit", form: "payment-plan-form", class: "btn btn-primary" %>
+    <% if @plan.any? %>
+      <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">More</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <%= button_to "Remove plan", accounting_rule_payment_plan_path(@rule, @person), method: :delete, class: "dropdown-item text-danger",
+                  form: { class: "button_to", data: { turbo_confirm: "Remove #{@person.identifier_name}'s payment plan? They'll follow the rule's milestones again." } } %>
+          </li>
+        </ul>
+      </div>
+    <% end %>
+  </div>
+</div>

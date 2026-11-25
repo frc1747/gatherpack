@@ -30,6 +30,8 @@ namespace :accounting do
     post :evaluate, on: :member
     post :duplicate, on: :member
     get :export, on: :member
+    # A person's own milestones for the rule (admins).
+    resources :payment_plans, only: %i[ edit update destroy ], param: :person_id
   end
 end
 scope "people/:person_id", as: :person do

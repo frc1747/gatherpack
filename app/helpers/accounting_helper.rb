@@ -44,15 +44,44 @@ module AccountingHelper
   end
 
   # The milestone line under a balance result: the missed milestone, or the
-  # next one. Amounts only for viewers who may see them; dates too.
-  def accounting_milestone_line(result, amounts:)
+  # next one. Amounts only for viewers who may see them; dates too. For a
+  # person on a payment plan the viewer may not see (plan_hidden:), only
+  # "On schedule" while they are: no names, dates or amounts.
+  def accounting_milestone_line(result, amounts:, plan_hidden: false)
     missed = result.detail(:missed)
     coming = result.detail(:next)
-    if result.value == "overdue" && missed
+    if plan_hidden
+      "On schedule" if result.value.in?(%w[ partial unpaid ])
+    elsif result.value == "overdue" && missed
       [ "Overdue: #{missed["name"]}", (accounting_catch_up(missed) if amounts) ].compact.join(" · ")
     elsif coming && result.value != "paid"
       amounts ? "Next: #{accounting_cents(coming["catch_up_cents"])} by #{accounting_date(coming["due_on"])}" : "Next: #{coming["name"]}"
     end
+  end
+
+  # A plan's milestones for those who may see them: "First payment, by
+  # Oct 1: met", with the most that may be owed when amounts show.
+  def accounting_plan_milestones(result, amounts:)
+    Array(result.detail(:milestones)).map do |milestone|
+      [ milestone["name"], "by #{accounting_date(milestone["due_on"])}",
+        ("owing at most #{accounting_cents(milestone["limit_cents"])}" if amounts),
+        (milestone["met"] ? "met" : ("#{accounting_cents(milestone["catch_up_cents"])} to go" if amounts)) ].compact.join(", ")
+    end
+  end
+
+  # "Reminders: 3 days before each milestone, then every 7 days while
+  # overdue; last sent Mar 1", for admins. nil for a rule that isn't a
+  # balance rule.
+  def accounting_reminders_line(rule)
+    return unless rule.balance?
+    return "Reminders: off" unless rule.reminders?
+
+    parts = []
+    parts << "#{pluralize(rule.remind_days_before.to_i, "day")} before each milestone" if rule.remind_days_before.present?
+    parts << "every #{pluralize(rule.overdue_every_days.to_i, "day")} while overdue" if rule.overdue_every_days.present?
+    text = "Reminders: #{parts.join(", then ")}"
+    last = rule.reminders.maximum(:sent_at)
+    last ? "#{text}; last sent #{l(last.to_date, format: :short)}" : text
   end
 
   def accounting_catch_up(milestone)

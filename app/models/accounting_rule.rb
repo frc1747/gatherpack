@@ -9,6 +9,11 @@
 # also sees the amounts and pay links, relative to that person
 # (AudienceLevels); badge grants add treasurers and mentors who aren't
 # leaders. Admins see everything.
+#
+# An admin can give one person a payment plan (AccountingPersonMilestone):
+# their own milestones, replacing the rule's for that person. Reminders
+# (Accounting::Reminders) go before each milestone and while overdue, as the
+# rule's reminder settings say.
 class AccountingRule < ApplicationRecord
   has_neat_id :arl
   include CanBeHooked
@@ -34,6 +39,10 @@ class AccountingRule < ApplicationRecord
 
   UNAPPLIED_CREDIT = %w[ show count ].freeze
   MEASURES = %w[ invoiced paid ].freeze
+  # Who a reminder about a person goes to, and what it may say
+  # (Accounting::Reminders). Words tied to code; the form names them.
+  REMIND_TO = %w[ person guardians both ].freeze
+  REMINDER_LEVELS = %w[ everything name_only sign_in ].freeze
   FILTER_KEYS = %w[ roles items classes locations txn_date_from txn_date_to due_date_from due_date_to min_total ].freeze
   KEY_FORMAT = /\A[a-z][a-z0-9_]*\z/
 
@@ -45,6 +54,9 @@ class AccountingRule < ApplicationRecord
   has_many :actions, -> { order(:position, :created_at) }, class_name: "AccountingRuleAction", foreign_key: :rule_id,
     inverse_of: :rule, dependent: :destroy
   has_many :results, class_name: "AccountingRuleResult", foreign_key: :rule_id, inverse_of: :rule, dependent: :delete_all
+  has_many :person_milestones, -> { ordered }, class_name: "AccountingPersonMilestone", foreign_key: :rule_id,
+    inverse_of: :rule, dependent: :destroy
+  has_many :reminders, class_name: "AccountingReminder", foreign_key: :rule_id, inverse_of: :rule, dependent: :delete_all
 
   accepts_nested_attributes_for :milestones, allow_destroy: true,
     reject_if: ->(attributes) { attributes.values_at("name", "due_on", "balance_at_most", "balance_at_most_percent").all?(&:blank?) }
@@ -54,7 +66,8 @@ class AccountingRule < ApplicationRecord
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: true
   enum :amount_permission, AudienceLevels::LEVEL_VALUES, prefix: :amounts, validate: true
 
-  store_accessor :settings, :labels, :grace_days, :unapplied_credit, :measure, :show_pay_links
+  store_accessor :settings, :labels, :grace_days, :unapplied_credit, :measure, :show_pay_links,
+    :remind_days_before, :overdue_every_days, :remind_to, :reminder_level
 
   before_validation :generate_key, on: :create
   before_validation :normalize_settings
@@ -73,6 +86,10 @@ class AccountingRule < ApplicationRecord
   validates :kind, inclusion: { in: KINDS }
   validates :key, presence: true, uniqueness: true, format: { with: KEY_FORMAT, message: "must start with a letter and use only lowercase letters, numbers, and underscores" }
   validates :grace_days, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
+  validates :remind_days_before, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
+  validates :overdue_every_days, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validates :remind_to, inclusion: { in: REMIND_TO }
+  validates :reminder_level, inclusion: { in: REMINDER_LEVELS }
   validates :unapplied_credit, inclusion: { in: UNAPPLIED_CREDIT }
   validates :measure, inclusion: { in: MEASURES }, if: -> { kind == "amount" }
   validates :code, presence: true, if: -> { kind == "custom" }
@@ -141,16 +158,44 @@ class AccountingRule < ApplicationRecord
     show_pay_links? && capabilities.include?(:pay_links)
   end
 
-  # The milestones that apply to a person: the rule's own. A per-person
-  # payment plan overrides this to return the plan's.
+  # The milestones that apply to a person: their payment plan's when they
+  # have one, else the rule's own.
   def milestones_for(person)
+    plan = plan_for(person)
+    return plan if plan.any?
+
     milestones.reject { |milestone| milestone.marked_for_destruction? || milestone.due_on.nil? }
   end
 
   # Whether the person follows their own milestones rather than the rule's.
-  # Payment plans override this with #milestones_for.
   def on_plan?(person)
-    false
+    plan_for(person).any?
+  end
+
+  # The person's payment plan rows, in date order; none for a rule that
+  # isn't saved or isn't a balance rule.
+  def plan_for(person)
+    return [] unless person&.id && persisted? && balance?
+
+    person_milestones.where(person_id: person.id).to_a
+  end
+
+  # The people with a payment plan for this rule.
+  def planned_person_ids
+    person_milestones.unscope(:order).distinct.pluck(:person_id)
+  end
+
+  # Whether the rule sends reminders: a balance rule with either cadence set.
+  def reminders?
+    balance? && (remind_days_before.present? || overdue_every_days.present?)
+  end
+
+  def remind_person?
+    remind_to.in?(%w[ person both ])
+  end
+
+  def remind_guardians?
+    remind_to.in?(%w[ guardians both ])
   end
 
   # Whether the rule can never be Overdue: no milestones and a source whose
@@ -236,7 +281,7 @@ class AccountingRule < ApplicationRecord
 
   # A copy for the next season: years in the name and every date moved on a
   # year, filters, milestones, visibility, grants and actions kept,
-  # disabled. Never results.
+  # disabled. Never results, payment plans or reminder history.
   def duplicate!
     transaction do
       copy = dup
@@ -322,6 +367,16 @@ class AccountingRule < ApplicationRecord
       self.grace_days = grace_days.presence && (Integer(grace_days.to_s, exception: false) || grace_days)
       self.labels = (labels || {}).to_h.transform_values { |label| label.to_s.strip }.compact_blank.presence
       self.show_pay_links = ActiveModel::Type::Boolean.new.cast(show_pay_links) == true
+      self.remind_days_before = whole_number(remind_days_before)
+      self.overdue_every_days = whole_number(overdue_every_days)
+      self.remind_to = remind_to.presence || "both"
+      self.reminder_level = reminder_level.presence || "name_only"
+    end
+
+    # A typed number as an integer; blank as nil; anything else left for
+    # the validation to refuse.
+    def whole_number(value)
+      value.presence && (Integer(value.to_s, exception: false) || value)
     end
 
     # Keeps the known keys, drops blank ones, stores dates as ISO dates and

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_140200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -58,6 +58,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140000) do
     t.index ["person_id"], name: "index_accounting_customer_links_on_person_id"
   end
 
+  create_table "accounting_person_milestones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "person_id", null: false
+    t.string "name", null: false
+    t.date "due_on", null: false
+    t.bigint "balance_at_most_cents"
+    t.integer "balance_at_most_percent"
+    t.integer "position", default: 0, null: false
+    t.text "note"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_accounting_person_milestones_on_created_by_id"
+    t.index ["person_id"], name: "index_accounting_person_milestones_on_person_id"
+    t.index ["rule_id", "person_id"], name: "index_accounting_person_milestones_on_rule_id_and_person_id"
+  end
+
   create_table "accounting_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "gateway_id", null: false
     t.string "entity_type", null: false
@@ -99,6 +116,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140000) do
     t.index ["location_ids"], name: "index_accounting_records_on_location_ids", using: :gin
     t.index ["role"], name: "index_accounting_records_on_role"
     t.index ["txn_date"], name: "index_accounting_records_on_txn_date"
+  end
+
+  create_table "accounting_reminders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "person_id", null: false
+    t.uuid "recipient_id", null: false
+    t.string "milestone_key", null: false
+    t.datetime "sent_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_accounting_reminders_on_person_id"
+    t.index ["recipient_id", "sent_at"], name: "index_accounting_reminders_on_recipient_id_and_sent_at"
+    t.index ["rule_id", "person_id", "recipient_id", "milestone_key"], name: "index_accounting_reminders_on_rule_person_recipient_milestone"
   end
 
   create_table "accounting_rule_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1372,7 +1402,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140000) do
   add_foreign_key "accounting_customer_links", "gateways", on_delete: :cascade
   add_foreign_key "accounting_customer_links", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "accounting_customer_links", "people", on_delete: :cascade
+  add_foreign_key "accounting_person_milestones", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_person_milestones", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "accounting_person_milestones", "people", on_delete: :cascade
   add_foreign_key "accounting_records", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_reminders", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_reminders", "people", column: "recipient_id", on_delete: :cascade
+  add_foreign_key "accounting_reminders", "people", on_delete: :cascade
   add_foreign_key "accounting_rule_actions", "accounting_rules", column: "rule_id", on_delete: :cascade
   add_foreign_key "accounting_rule_actions", "badges", on_delete: :cascade
   add_foreign_key "accounting_rule_actions", "person_fields", on_delete: :cascade

@@ -31,6 +31,22 @@ class Accounting::RuleAccess < AudienceAccess
     (level_component(rule.amount_permission).present? && level_component(rule.read_permission).present?) || granted?(amounts: true)
   end
 
+  # A payment plan's milestones (names, dates and amounts): the person,
+  # their guardians and admins, among those who see the result. Leaders and
+  # badge-grant holders see only the status, since a plan can reveal
+  # hardship. Amounts still follow #can_see_amounts?.
+  def sees_plan?
+    return false unless can_read?
+
+    admin? || component?(:subject) || component?(:guardian)
+  end
+
+  # Whether the viewer may see the result's milestone line: everyone who
+  # sees the result, unless the person is on a plan the viewer may not see.
+  def plan_hidden?(result)
+    result.on_plan? && !sees_plan?
+  end
+
   private
     # Whether any grant the viewer holds covers the subject (and shows
     # amounts, with amounts).

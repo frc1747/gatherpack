@@ -1,0 +1,13 @@
+<%# locals: (sections:) -%>
+<% sections.each do |section| %>
+  <% if section["heading"] %><p><strong><%= section["heading"] %></strong></p><% end %>
+  <% if section["text"] %><p><%= section["text"] %></p><% end %>
+  <% if section["lines"].any? %>
+    <ul>
+      <% section["lines"].each do |line| %><li><%= line %></li><% end %>
+    </ul>
+  <% end %>
+  <% if section["link_url"] %>
+    <p><a href="<%= section["link_url"] %>"><%= section["link_label"] %></a></p>
+  <% end %>
+<% end %>
