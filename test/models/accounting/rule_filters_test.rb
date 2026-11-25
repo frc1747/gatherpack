@@ -51,6 +51,16 @@ class Accounting::RuleFiltersTest < ActiveSupport::TestCase
     assert_not AccountingRule.new(name: "Bad", kind: "balance", gateway: accounting_source, filters: { "txn_date_from" => "soon" }).valid?
   end
 
+  test "393#10: a date that doesn't exist and a negative minimum are refused" do
+    rule = AccountingRule.new(name: "Bad", kind: "balance", gateway: accounting_source, filters: { "txn_date_from" => "2026-02-31" })
+    assert_not rule.valid?
+    assert_includes rule.errors[:filters], "have a date that isn't a date"
+
+    rule = AccountingRule.new(name: "Bad", kind: "balance", gateway: accounting_source, filters: { "min_total" => -5_000 })
+    assert_not rule.valid?
+    assert_includes rule.errors[:filters], "can't skip records under less than nothing"
+  end
+
   private
     def matching(filters)
       scope = accounting_source.accounting_records.where(role: "charge")

@@ -131,8 +131,10 @@ class Accounting::RulesController < Accounting::BaseController
         rule.errors.add(:kind, "custom can only be chosen by an architect") if attributes[:kind] == "custom" && rule.kind != "custom"
         attributes.delete(:kind) if attributes[:kind] == "custom"
       end
-      if attributes.key?(:filters)
-        attributes[:filters][:min_total] = Accounting.parse_cents(attributes[:filters][:min_total]) if attributes[:filters].key?(:min_total)
+      if attributes.key?(:filters) && attributes[:filters].key?(:min_total)
+        typed = attributes[:filters][:min_total]
+        attributes[:filters][:min_total] = Accounting.parse_cents(typed)
+        rule.errors.add(:base, "Skip records under isn't an amount") if typed.present? && attributes[:filters][:min_total].nil?
       end
       rule.assign_attributes(attributes)
       errors = rule.errors.dup

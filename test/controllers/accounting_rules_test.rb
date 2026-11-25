@@ -175,6 +175,21 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_equal [ [ badge, true ] ], @rule.badge_grants.map { |grant| [ grant.badge, grant.amounts ] }
   end
 
+  test "393#10: an amount to skip that isn't one is refused, not cleared" do
+    @rule.update!(filters: { "min_total" => 2_500 })
+    sign_in @laura.user
+
+    with_accounting do
+      patch accounting_rule_path(@rule), params: { tab: "records", accounting_rule: { filters: { min_total: "abc" } } }
+      assert_response :unprocessable_content
+      assert_match "Skip records under isn&#39;t an amount", response.body
+
+      patch accounting_rule_path(@rule), params: { tab: "records", accounting_rule: { filters: { min_total: "-50" } } }
+      assert_response :unprocessable_content
+    end
+    assert_equal 2_500, @rule.reload.filters["min_total"]
+  end
+
   test "Preview works out the unsaved rule for a few people without saving it" do
     sign_in @laura.user
 

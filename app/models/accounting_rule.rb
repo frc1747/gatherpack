@@ -301,7 +301,14 @@ class AccountingRule < ApplicationRecord
     end
 
     def filter_dates_valid
-      errors.add(:filters, "have a date that isn't a date") if filters.any? { |key, value| key.end_with?("_from", "_to") && !value.to_s.match?(/\A\d{4}-\d{2}-\d{2}\z/) }
+      errors.add(:filters, "have a date that isn't a date") if filters.any? { |key, value| key.end_with?("_from", "_to") && !iso_date?(value) }
+      errors.add(:filters, "can't skip records under less than nothing") if filters["min_total"].to_i.negative?
+    end
+
+    def iso_date?(value)
+      value.to_s.match?(/\A\d{4}-\d{2}-\d{2}\z/) && Date.iso8601(value.to_s).present?
+    rescue Date::Error
+      false
     end
 
     def source_is_accounting
