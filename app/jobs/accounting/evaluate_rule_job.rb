@@ -3,6 +3,8 @@
 # Evaluate now, and nightly). Does nothing while the feature is off.
 class Accounting::EvaluateRuleJob < ApplicationJob
   queue_as :default
+  # Arguments are records and ids from the books; the log keeps none of them.
+  self.log_arguments = false
 
   # Shared with Accounting::UndoRuleActionsJob: one job per rule at a time.
   CONCURRENCY_GROUP = "accounting_rule".freeze

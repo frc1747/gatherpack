@@ -320,7 +320,7 @@ class Accounting::Quickbooks::Client
 
     def temporary_or_error!(response, doing)
       if response.status == 429 || response.status >= 500
-        raise Accounting::TemporaryFailure, "QuickBooks answered #{response.status} while #{doing}"
+        raise Accounting::TemporaryFailure, "QuickBooks answered #{response.status} while #{doing}#{tid_note(response, ' (', ')')}"
       end
 
       raise Error.new("QuickBooks refused #{doing} (#{error_message(response)})", status: response.status, code: error_code(response))
@@ -336,10 +336,20 @@ class Accounting::Quickbooks::Client
       Array(parsed_error(response).dig("Fault", "Error")).first&.dig("code")&.to_s
     end
 
+    # What's kept of a refusal: the fault's code and short message (or the
+    # token endpoint's error word) and Intuit's transaction id. Never the
+    # Detail, which can repeat what was sent (a customer's name, say), so
+    # nothing from the books reaches the logs or the stored error.
     def error_message(response)
       body = parsed_error(response)
       fault = Array(body.dig("Fault", "Error")).first
-      message = fault ? [ fault["Message"], fault["Detail"] ].compact.join(": ") : body["error"]
-      message.presence || "HTTP #{response.status}"
+      message = fault ? [ fault["code"], fault["Message"] ].compact.join(" ") : body["error"]
+      message = message.to_s.truncate(120)
+      "#{message.presence || "HTTP #{response.status}"}#{tid_note(response, ', ')}"
+    end
+
+    def tid_note(response, before, after = "")
+      tid = response.try(:intuit_tid)
+      tid.present? ? "#{before}intuit_tid #{tid}#{after}" : ""
     end
 end

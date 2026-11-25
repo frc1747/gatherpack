@@ -25,6 +25,8 @@
 # so no run waits for ever with nothing to retry.
 class Accounting::BillingRunJob < ApplicationJob
   queue_as :default
+  # Arguments are records and ids from the books; the log keeps none of them.
+  self.log_arguments = false
 
   limits_concurrency to: 1, key: ->(run) { run.gateway_id }, group: "accounting-billing"
 

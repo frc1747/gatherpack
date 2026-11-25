@@ -30,10 +30,12 @@ class Gateway::QuickbooksGateway < Gateway
   # How long before the sign-in runs out the page asks for a reconnect.
   RECONNECT_WARNING = 30.days
 
-  store_accessor :secrets, :client_secret, :webhook_verifier_token
+  # The realm id and company name identify the company's books, so they're
+  # kept with the secrets: encrypted and out of the audit log.
+  store_accessor :secrets, :client_secret, :webhook_verifier_token, :realm_id, :company_name
   store_accessor :configuration, :client_id, :environment, :synced_entities, :customer_rollup,
                  :match_strategies, :match_field_path, :allow_create_charges, :role_labels
-  store_accessor :configuration, :realm_id, :company_name, :connection_status, :last_change_check_at,
+  store_accessor :configuration, :connection_status, :last_change_check_at,
                  :last_full_sync_at, :last_error, :calls_this_month, :calls_month
 
   has_one :accounting_credential, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete
