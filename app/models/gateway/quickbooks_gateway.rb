@@ -161,7 +161,7 @@ class Gateway::QuickbooksGateway < Gateway
       next if entity_type.nil? || external_id.blank?
 
       if operation == "deleted"
-        Accounting::Sync.new(self).mark_deleted(entity_type, [ external_id ])
+        Accounting::Sync.new(self).delete(entity_type, [ external_id ])
       else
         Accounting::FetchRecordJob.perform_later(self, entity_type, external_id)
       end
