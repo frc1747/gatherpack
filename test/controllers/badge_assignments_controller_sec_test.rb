@@ -166,7 +166,9 @@ class BadgeAssignmentsControllerSecTest < ActionDispatch::IntegrationTest
     manager = create_person("manager", team: @team, manager: true)
     badge = create_badge("Patrol Leader", :added_by_manager, team: @team)
     assignment = BadgeAssignment.create!(badge: badge, person: @member)
-    @member.memberships.destroy_all
+    # Leaving a team now removes its badges, so delete the membership without
+    # callbacks to get an assignment left over from before that rule.
+    Membership.where(person: @member).delete_all
     sign_in manager.user
 
     get badge_badge_assignments_path(badge)
