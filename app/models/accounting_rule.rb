@@ -234,13 +234,20 @@ class AccountingRule < ApplicationRecord
     end
   end
 
+  # The grants whose badges the viewer (a Person) holds; with amounts, only
+  # those that show amounts. Any one of them is enough: the people lists here
+  # and Accounting::RuleAccess both go through this.
+  def grants_held_by(viewer, amounts: false)
+    return [] unless viewer && GatherPack::Features.enabled?(:badges)
+
+    badge_ids = viewer.badge_ids
+    badge_grants.includes(:badge).select { |grant| badge_ids.include?(grant.badge_id) && (!amounts || grant.amounts?) }
+  end
+
   private
     # The people covered by grants whose badges the viewer holds.
     def granted_people(viewer, amounts: false)
-      return [] unless GatherPack::Features.enabled?(:badges)
-
-      badge_ids = viewer.badge_ids
-      badge_grants.includes(:badge).select { |grant| badge_ids.include?(grant.badge_id) && (!amounts || grant.amounts?) }.map(&:covered_people)
+      grants_held_by(viewer, amounts: amounts).map(&:covered_people)
     end
 
     def generate_key

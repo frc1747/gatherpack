@@ -92,6 +92,25 @@ class Accounting::RulePermissionsTest < ActiveSupport::TestCase
     with_settings(feature_badges: "false") { assert_not access(robert, rule.reload).can_read? }
   end
 
+  test "393#2: any grant the viewer holds that shows amounts shows them, whatever order the grants come in" do
+    robert = create_rule_person("Robert", "King")
+    mentor = create_rule_badge("Mentor")
+    treasurer = create_rule_badge("Treasurer")
+    [ mentor, treasurer ].each { |badge| BadgeAssignment.create!(badge: badge, person: robert) }
+    rule = create_rule(read_permission: "admin", amount_permission: "admin")
+    rule.badge_grants.create!(badge: mentor, amounts: false)
+    rule.badge_grants.create!(badge: treasurer, amounts: true)
+    evaluate(rule)
+
+    with_settings(feature_badges: "true") do
+      rule.reload
+      assert access(robert, rule).can_read?
+      assert access(robert, rule).can_see_amounts?
+      assert rule.amount_people_for(robert).include?(@nancy)
+      assert_equal [ treasurer.id ], rule.grants_held_by(robert, amounts: true).map(&:badge_id)
+    end
+  end
+
   test "a team badge grant covers only that team and below; only admin-assigned badges can grant" do
     robert = create_rule_person("Robert", "King")
     other = create_rule_team("Drama")
