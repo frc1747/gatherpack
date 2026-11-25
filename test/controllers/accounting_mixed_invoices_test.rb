@@ -52,8 +52,8 @@ class AccountingMixedInvoicesTest < ActionDispatch::IntegrationTest
     assert_not warns?(create_rule("Count", kind: "count", filters: { "items" => [ "dues" ] }))
   end
 
-  test "a balance rule filtered to payments reads no invoices, so it never warns" do
-    assert_not warns?(create_rule("Odd", filters: { "items" => [ "dues" ], "roles" => [ "payment" ] }))
+  test "a balance rule warns even when its record kinds leave out invoices, since balances always count them" do
+    assert warns?(create_rule("Odd", filters: { "items" => [ "dues" ], "roles" => [ "payment" ] }))
   end
 
   test "a receipt on a mixed item isn't listed as an invoice" do

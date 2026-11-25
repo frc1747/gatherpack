@@ -127,7 +127,11 @@ class Accounting::ChangeScheduleTest < ActiveSupport::TestCase
     assert_equal "15m", schedule.word
     assert_not schedule.manual?
     assert_equal "Checks QuickBooks every 15 minutes.", schedule.sentence
-    assert schedule.due?(Time.utc(2026, 11, 25, 10))
+    assert_equal "15m", @gateway.field_input(:change_check)[:selected]
+
+    checked_at(Time.utc(2026, 11, 25, 10))
+    schedule = Accounting::ChangeSchedule.new(@gateway.reload)
+    assert schedule.due?(Time.utc(2026, 11, 25, 10, 5)), "after a check, the default (every 15 minutes) is always due, without raising"
   end
 
   test "the form's hint names the source and mentions notifications only when it has them" do

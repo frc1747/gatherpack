@@ -241,10 +241,12 @@ class AccountingRule < ApplicationRecord
     end
   end
 
-  # Whether the rule reads charges: a paid amount only when it's matched
+  # Whether the rule reads charges: a balance always (Kinds::Balance reads
+  # charges whatever roles it names); a paid amount only when it's matched
   # through them (items, categories or locations), whatever roles it names;
   # other kinds unless their roles leave charges out.
   def reads_charges?
+    return true if kind == "balance"
     return paid_through_charges? if kind == "amount" && measure == "paid"
 
     Accounting::RecordFilter.new(filters).roles(read_roles).include?("charge")

@@ -23,9 +23,10 @@ class Accounting::ChangeSchedule
   def self.choices = CHOICES.map { |word, (label, _)| [ label, word ] }
   def self.words = CHOICES.keys
 
-  # The source's stored word, or the default for one that has none.
+  # The source's stored word, or the default when it has none or an unknown one.
   def self.word_for(source)
-    source.try(:change_check).presence || DEFAULT
+    stored = source.try(:change_check).presence
+    CHOICES.key?(stored) ? stored : DEFAULT
   end
 
   attr_reader :source
@@ -34,10 +35,8 @@ class Accounting::ChangeSchedule
     @source = source
   end
 
-  # The stored word, or the default when it isn't one of CHOICES.
   def word
-    stored = self.class.word_for(source)
-    CHOICES.key?(stored) ? stored : DEFAULT
+    self.class.word_for(source)
   end
 
   def manual?
