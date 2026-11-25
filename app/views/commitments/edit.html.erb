@@ -1,0 +1,30 @@
+<% breadcrumb @commitment %>
+<%# Details links to the bare edit path when that's the page asked for, so its tab shows as the current one. %>
+<% tabs = [
+     [ "Details", edit_commitment_path(@commitment, tab: ("details" if params[:tab].present?)) ],
+     [ "What counts (#{@commitment.commitment_sources.size})", edit_commitment_path(@commitment, tab: "sources") ],
+     [ "Organizers (#{@commitment.commitment_organizers.size})", edit_commitment_path(@commitment, tab: "organizers") ]
+   ] %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Editing #{@commitment.identifier_name}", tabs: tabs %>
+</div>
+
+<% case @tab %>
+<% when "sources" %>
+  <%= render "manage_sources" %>
+<% when "organizers" %>
+  <%= render "manage_organizers" %>
+<% else %>
+  <%= simple_form_for(@commitment) do |f| %>
+  <div class="card">
+    <div class="card-body">
+      <%= render "form", f: f %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", @commitment, class: "btn btn-secondary" %>
+      <%= f.button :submit, "Save", class: "btn btn-primary" %>
+    </div>
+  </div>
+  <% end %>
+<% end %>
