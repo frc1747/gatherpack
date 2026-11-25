@@ -47,6 +47,33 @@ class Accounting::SyncJobsTest < ActiveJob::TestCase
     end
   end
 
+  test "the schedule queues a changes job only for sources that are due" do
+    quiet = create_quickbooks_gateway(change_check: "daily")
+    manual = create_quickbooks_gateway(change_check: "manual")
+    now = Time.utc(2026, 11, 25, 9, 0)
+    @gateway.update!(change_check: "hourly")
+    [ @gateway, quiet, manual ].each { |gateway| gateway.record_state!(last_change_check_at: Time.utc(2026, 11, 25, 6, 0)) }
+
+    with_accounting do
+      travel_to(now) do
+        assert_enqueued_with(job: Accounting::ChangesJob, args: [ @gateway ]) { Accounting::ScheduleChangesJob.perform_now }
+        assert_enqueued_jobs 1, only: Accounting::ChangesJob
+      end
+    end
+  end
+
+  test "a source checked only on request skips the weekly read, but the rules are still evaluated" do
+    @gateway.update!(change_check: "manual")
+    rule = AccountingRule.create!(name: "Dues", kind: "balance", gateway: @gateway, enabled: true)
+
+    with_accounting do
+      travel_to(Date.new(2026, 11, 29).noon) do
+        assert_no_enqueued_jobs(only: Accounting::FullSyncJob) { Accounting::NightlyJob.perform_now }
+        assert_enqueued_with(job: Accounting::EvaluateRuleJob, args: [ rule ])
+      end
+    end
+  end
+
   test "the nightly job reads everything again on Sundays only" do
     with_accounting do
       travel_to(Date.new(2026, 11, 28).noon) { assert_no_enqueued_jobs { Accounting::NightlyJob.perform_now } }

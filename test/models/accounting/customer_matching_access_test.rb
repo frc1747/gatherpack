@@ -37,12 +37,20 @@ class Accounting::CustomerMatchingAccessTest < ActiveSupport::TestCase
     end
   end
 
+  test "a holder may Sync now, and nobody else outside admins and architects" do
+    with_matching("Customer Matcher") do
+      assert @source_policy.(@holder).sync?
+      assert @source_policy.(@admin).sync?
+      assert_not @source_policy.(@other).sync?
+    end
+  end
+
   test "a holder gets nothing else on a source" do
     with_matching("Customer Matcher") do
       policy = @source_policy.(@holder)
       assert_not policy.connect?
       assert_not policy.disconnect?
-      assert_not policy.sync?
+      assert_not policy.full_sync?
       assert_not policy.records?
       assert_not policy.upload?
     end

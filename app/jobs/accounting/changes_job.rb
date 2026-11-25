@@ -1,5 +1,5 @@
-# Copies what changed at a source since the last check (Sync now, and every
-# 15 minutes for sources with a change feed).
+# Copies what changed at a source since the last check (Sync now, and on the
+# schedule set on a source with a change feed).
 class Accounting::ChangesJob < Accounting::SyncJob
   private
     def sync(sync)

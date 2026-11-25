@@ -1,4 +1,5 @@
 <% breadcrumb :accounting_customers, @source %>
+<% can_sync = @source.syncable? && Accounting::SourcePolicy.new(current_user, @source).sync? %>
 
 <div class="card mb-3">
   <%= render "shared/page_header", title: "Customers",
@@ -9,8 +10,10 @@
       <%= @unlinked.size %> <%= @unlinked.size == 1 ? "needs" : "need" %> a link, <%= @linked.size %> linked.
       <% if @source.customer_rollup? %>Sub-customers count with the customer above them.<% end %>
     </p>
+    <div class="mt-1"><%= render "accounting/records/sync_state", source: @source %></div>
   </div>
   <%= render "shared/action_row", actions: [
+        screen_action("Sync now", sync_accounting_connection_path(@source, from: "customers"), method: :post, visible: can_sync),
         screen_action("Link all exact name matches", confirm_all_accounting_customer_links_path(gateway_id: @source.to_param), style: :primary, method: :post,
           visible: @unlinked.any? && @source.match_strategy_list.include?("name"),
           confirm: "Link every customer that needs a link to the one person with exactly its name?"),

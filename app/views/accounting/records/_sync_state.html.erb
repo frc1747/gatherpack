@@ -9,6 +9,15 @@
       <% else %>
         No file applied yet.
       <% end %>
+    <% elsif source.capabilities.include?(:change_feed) %>
+      <% schedule = Accounting::ChangeSchedule.new(source) %>
+      <% checked = [ schedule.last_checked, source.last_full_sync_time ].compact.max %>
+      <%= schedule.sentence %>
+      <% if checked %>
+        Last checked <span class="<%= "text-danger" if checked < 1.day.ago && !schedule.manual? && schedule.word != "daily" %>"><%= l(checked, format: "%-d %b, %-l:%M %P") %></span>.
+      <% else %>
+        Not checked yet.
+      <% end %>
     <% elsif (synced = [ source.last_change_check_time, source.last_full_sync_time ].compact.max) %>
       Last synced <span class="<%= "text-danger" if synced < 1.day.ago %>"><%= time_ago_in_words(synced) %> ago</span>.
     <% else %>

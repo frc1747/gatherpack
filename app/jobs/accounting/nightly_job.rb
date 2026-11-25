@@ -2,7 +2,7 @@
 # backstop for anything the change feed, notifications or ledger
 # callbacks missed, then every enabled rule evaluated for everyone
 # (milestones pass without any record changing). Most sources are read on
-# Sundays; ledger sources every night, since writes that skip callbacks
+# Sundays, except a source set to be checked only on request; ledger sources every night, since writes that skip callbacks
 # (update_column, delete_all) are only caught this way. Uploaded files
 # aren't read again.
 class Accounting::NightlyJob < ApplicationJob
@@ -13,6 +13,7 @@ class Accounting::NightlyJob < ApplicationJob
 
     Accounting.sources.each do |source|
       next unless source.syncable?
+      next if source.capabilities.include?(:change_feed) && Accounting::ChangeSchedule.new(source).manual?
 
       due = case source.full_sync_cadence
       when :nightly then true
