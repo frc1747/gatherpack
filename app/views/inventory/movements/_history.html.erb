@@ -1,0 +1,28 @@
+<%# A list of changes, newest first; a move's two rows read as one line.
+    Locals: movements, partners ({ group => { id => row } }), undone_ids,
+    show_item. %>
+<ul class="list-group mb-3 inventory-history">
+  <% movements.each do |movement| %>
+    <% partner = movement.move_group_id && partners.fetch(movement.move_group_id, {}).values.find { |row| row.id != movement.id } %>
+    <% next if partner && movement.quantity.positive? && movements.include?(partner) %>
+    <% undone = undone_ids.include?(movement.id) %>
+    <li class="list-group-item <%= "inventory-big-count" if inventory_big_count?(movement) %>" id="<%= dom_id(movement) %>">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div class="inventory-note <%= "inventory-undone" if undone %>">
+          <% if show_item %><strong><%= link_to movement.item.name, inventory_item_path(movement.item) %></strong>: <% end %>
+          <%= inventory_change_text(movement, partner: partner) %>
+          <% if movement.reason.present? %><span class="text-body-secondary">· <%= movement.reason %></span><% end %>
+        </div>
+        <% if undone %>
+          <span class="badge text-bg-secondary">Undone</span>
+        <% elsif movement.undoable_by?(current_person) %>
+          <%= button_to "Undo", undo_inventory_movement_path(movement, return_to: request.fullpath), class: "btn btn-sm btn-outline-secondary" %>
+        <% end %>
+      </div>
+      <div class="small text-body-secondary">
+        <%= inventory_change_who(movement) %> · <%= nice_datetime(movement.created_at) %>
+        <% if movement.note.present? && movement.note != "Undo" %>· <span class="inventory-note"><%= inventory_note(movement.note) %></span><% end %>
+      </div>
+    </li>
+  <% end %>
+</ul>

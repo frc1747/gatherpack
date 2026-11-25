@@ -1,0 +1,8 @@
+<% places = policy_scope(Location).active.storage %>
+<%= render layout: "action", locals: { unit: @unit, title: "Take off", submit: "Take off", url: take_off_inventory_unit_path(@unit) } do |form| %>
+  <div class="mb-3">
+    <%= label_tag :location_id, "Put it in", class: "form-label" %>
+    <%= select_tag :location_id, options_for_select(inventory_place_options(places), @unit.item.home_location_id),
+          include_blank: "Pick a place", class: "form-select form-select-lg", required: true %>
+  </div>
+<% end %>

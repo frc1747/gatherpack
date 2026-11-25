@@ -1,0 +1,208 @@
+/* Inventory: the phone-first screens (search, item, place, the Used, Count
+   and Move forms; spec §3.9), the label sheet (§3.10) and printouts.
+   Loaded by the inventory views. */
+
+/* Phone screens sit on the card colour, as the rest of the app's content
+   does, so links and outline buttons keep their contrast. */
+.inventory-phone {
+  background: var(--bs-card-bg);
+  color: var(--bs-card-color, var(--bs-body-color));
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.inventory-phone .list-group,
+.inventory-history {
+  --bs-list-group-bg: var(--bs-tertiary-bg);
+  --bs-list-group-color: var(--bs-body-color);
+}
+
+.inventory-phone .btn,
+.inventory-phone .form-control,
+.inventory-phone .form-select,
+.inventory-phone .list-group-item-action {
+  min-height: 44px;
+}
+
+.inventory-phone .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inventory-search {
+  font-size: 1.25rem;
+}
+
+.inventory-stepper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.inventory-stepper .btn {
+  min-width: 64px;
+  min-height: 56px;
+  font-size: 1.5rem;
+}
+
+.inventory-stepper input {
+  min-height: 56px;
+  font-size: 1.75rem;
+  text-align: center;
+}
+
+.inventory-more > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.inventory-more > summary::before {
+  content: "▸";
+}
+
+.inventory-more[open] > summary::before {
+  content: "▾";
+}
+
+.inventory-photo {
+  max-width: 100%;
+  max-height: 14rem;
+  object-fit: contain;
+  border-radius: 0.25rem;
+}
+
+.inventory-tree ul {
+  list-style: none;
+  padding-left: 1.25rem;
+  border-left: 1px solid var(--bs-border-color);
+}
+
+.inventory-tree > ul {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.inventory-tree li {
+  padding: 0.25rem 0;
+}
+
+/* A list row takes its colour from the list's variables, which the theme
+   sets, so a plain background rule loses to it: set the variables. */
+.list-group-item.inventory-big-count {
+  --bs-list-group-bg: var(--bs-warning-bg-subtle);
+  --bs-list-group-color: var(--bs-warning-text-emphasis);
+  border-left: 0.5rem solid var(--bs-warning);
+}
+
+/* The app's checkbox rule colours a ticked box like the page, which hides
+   the tick; use the primary colour on these forms. */
+.inventory-form .form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+/* A note may hold a long word or link: wrap it on a phone. */
+.inventory-note {
+  overflow-wrap: anywhere;
+}
+
+.inventory-undone {
+  text-decoration: line-through;
+  color: var(--bs-secondary-color);
+}
+
+/* The app hides overflow on any div holding a badge (_badges.scss), which
+   clips an action row's More menu on a card whose header shows one (a
+   place's code, an item's stock). Let the menu out while it's open. */
+div:has(.screen-action-row .dropdown-menu.show) {
+  overflow: visible;
+}
+
+/* The main action sits in a bar fixed to the bottom of the screen. */
+.inventory-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1030;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: var(--bs-card-bg);
+  border-top: 1px solid var(--bs-border-color);
+}
+
+.inventory-bar > .btn {
+  flex: 1 1 auto;
+  min-height: 48px;
+}
+
+.inventory-has-bar {
+  padding-bottom: 6rem;
+}
+
+.inventory-toast {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 1040;
+}
+
+/* Label sheet: a grid of stickers; sizes are a print stylesheet choice. */
+.inventory-labels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.625in, 1fr));
+  gap: 0.125in;
+}
+
+.inventory-label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.125in;
+  border: 1px dashed var(--bs-border-color);
+  break-inside: avoid;
+  min-height: 1in;
+}
+
+.inventory-label .inventory-qr {
+  width: 0.85in;
+  height: 0.85in;
+  flex: none;
+}
+
+.inventory-label-name {
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.inventory-label-code {
+  font-size: 1.25rem;
+  font-family: var(--bs-font-monospace);
+}
+
+.inventory-label-path {
+  font-size: 0.7rem;
+  color: var(--bs-secondary-color);
+}
+
+@media print {
+  .inventory-label {
+    border-color: #ccc;
+  }
+
+  .inventory-bar,
+  .inventory-toast,
+  .inventory-no-print {
+    display: none !important;
+  }
+
+  .inventory-has-bar {
+    padding-bottom: 0;
+  }
+}
