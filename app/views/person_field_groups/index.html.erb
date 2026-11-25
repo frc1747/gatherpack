@@ -1,0 +1,36 @@
+<% breadcrumb :person_field_groups %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "Person Field Sections", summary: "Sections group fields on profiles and edit forms. Fields without a section appear first." %>
+  <div class="card-body">
+    <% if @person_field_groups.empty? %>
+      <%= render "shared/empty_state", text: "No sections yet." %>
+    <% else %>
+      <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr><th>Name</th><th>Fields</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% @person_field_groups.each do |group| %>
+            <tr id="<%= dom_id group %>">
+              <td><%= link_to group.name, edit_person_field_group_path(group) %></td>
+              <td><%= group.person_fields.map(&:name).to_sentence %></td>
+              <td class="text-nowrap">
+                <%= button_to i("arrow-up"), move_person_field_group_path(group, direction: "up"), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline", title: "Move up" %>
+                <%= button_to i("arrow-down"), move_person_field_group_path(group, direction: "down"), method: :patch, class: "btn btn-sm btn-outline-secondary", form_class: "d-inline", title: "Move down" %>
+                <%= button_to "Delete", person_field_group_path(group), method: :delete, class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                      data: { turbo_confirm: "Delete this section? Its fields will move to the top of the profile." } %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+      </div>
+    <% end %>
+  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("New Section", new_person_field_group_path, style: :success),
+        screen_action("Person Fields", person_fields_path)
+      ] %>
+</div>
