@@ -3,7 +3,7 @@
 # full access, so writing it is for architects.
 class AccountingRulePolicy < ApplicationPolicy
   def index?
-    Accounting::Access.sees_any_rule?(user)
+    Accounting::Access.sees_any_rule?(user) || Accounting::Access.customer_matcher?(user)
   end
 
   def show?

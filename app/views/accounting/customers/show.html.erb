@@ -1,5 +1,7 @@
 <% breadcrumb :accounting_customer, @customer %>
-<% deep_links = @source.capabilities.include?(:deep_links) %>
+<%# Links into the books and the copied records' own pages are for admins and architects; a matching badge holder sees names, amounts and links. %>
+<% deep_links = @source.capabilities.include?(:deep_links) && current_user.admin %>
+<% records_page = Accounting::SourcePolicy.new(current_user, @source).records? %>
 
 <div class="card mb-3">
   <%= render "shared/page_header", title: @customer.identifier_name,
@@ -86,7 +88,7 @@
             <tr id="<%= dom_id record %>">
               <td><%= record.txn_date ? l(record.txn_date) : "" %></td>
               <td>
-                <%= link_to record.identifier_name, accounting_connection_record_path(@source, record) %>
+                <%= records_page ? link_to(record.identifier_name, accounting_connection_record_path(@source, record)) : record.identifier_name %>
                 <%= render "accounting/records/marks", record: record %>
               </td>
               <td class="text-end"><%= accounting_cents(record.total_cents) %></td>

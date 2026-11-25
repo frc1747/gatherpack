@@ -16,7 +16,8 @@ Rails.application.config.to_prepare do
   # nav items can say who they're for (feature/nav-item-visible); without
   # that it shows to everyone while the feature is on, and the list says
   # when there's nothing to see.
-  nav_visibility = GatherPack::Feature::NavItem.members.include?(:visible) ? { visible: ->(user) { Accounting::Access.sees_any_rule?(user) } } : {}
+  # Holders of the customer matching badge get the item too, to reach Customers.
+  nav_visibility = GatherPack::Feature::NavItem.members.include?(:visible) ? { visible: ->(user) { Accounting::Access.sees_any_rule?(user) || Accounting::Access.customer_matcher?(user) } } : {}
 
   GatherPack::Features.register(
     GatherPack::Feature.new(
@@ -31,6 +32,9 @@ Rails.application.config.to_prepare do
                                                           visible: ->(user, person) { Accounting::Access.sees_any_result?(user, person) }) ]
     )
   )
+
+  Settings.register(Accounting::Access::MATCHING_BADGE_SETTING, :string, "Customer Matching Badge", "", "Account Status",
+    "Name of a badge only admins assign. Holders can match customers to people on each source's Customers page (link, unlink, link all exact name matches), nothing more. Leave blank for admins only")
 
   # Badge grants let treasurers who aren't leaders see rules' results; a
   # badge with grants must stay one only admins assign.

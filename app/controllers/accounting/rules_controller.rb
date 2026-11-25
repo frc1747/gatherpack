@@ -14,7 +14,7 @@ class Accounting::RulesController < Accounting::BaseController
     @rules = policy_scope(AccountingRule).ordered.includes(:gateway, :team)
     @rules = @rules.enabled unless current_user.admin
     @summaries = @rules.to_h { |rule| [ rule.id, Accounting::RuleSummary.new(rule, current_user.person) ] }
-    @sources = current_user.admin ? Accounting.sources : []
+    @sources = Accounting::Access.customer_matcher?(current_user) ? Accounting.sources : []
   end
 
   # GET /accounting/rules/1

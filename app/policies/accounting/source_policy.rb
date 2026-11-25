@@ -3,7 +3,7 @@
 # the books, so it's for architects; syncing and reading the copied
 # records is for admins and architects (whose hook and report code already
 # sees every record). Linking customers to people decides who sees whose
-# money, so it's for admins. Uploading a file source's records is a sync,
+# money, so it's for admins and holders of the customer matching badge. Uploading a file source's records is a sync,
 # for admins and architects; such a source is never synced any other way.
 class Accounting::SourcePolicy < ApplicationPolicy
   def connect?
@@ -25,7 +25,7 @@ class Accounting::SourcePolicy < ApplicationPolicy
   end
 
   def customers?
-    user&.admin == true
+    Accounting::Access.customer_matcher?(user)
   end
 
   # Uploading a file source's records, like syncing a connected source.

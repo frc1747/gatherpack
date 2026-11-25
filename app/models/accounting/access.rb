@@ -2,6 +2,28 @@
 # viewer may see some rule's results, and a person's Account tab when the
 # viewer may see at least one of that person's results.
 module Accounting::Access
+  MATCHING_BADGE_SETTING = :accounting_customer_matching_badge
+
+  # The badge (setting accounting_customer_matching_badge, by name) whose
+  # holders may match customers to people, like admins. Only an
+  # admin-assigned badge counts, and only while Badges are on.
+  def self.matching_badge
+    name = Settings[MATCHING_BADGE_SETTING].to_s.strip
+    return nil if name.blank? || !GatherPack::Features.enabled?(:badges)
+
+    Badge.added_by_admin.find_by("LOWER(name) = ?", name.downcase)
+  end
+
+  # Whether the user may match customers to people: an admin, or a holder
+  # of the matching badge.
+  def self.customer_matcher?(user)
+    return true if user&.admin == true
+
+    person = user&.person
+    badge = matching_badge
+    badge.present? && person.present? && BadgeAssignment.exists?(badge: badge, person: person)
+  end
+
   # Rules whose results the viewer may see for anyone: every rule for
   # admins, enabled ones reaching someone for everyone else.
   def self.visible_rules(user)

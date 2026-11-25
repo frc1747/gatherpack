@@ -1,5 +1,6 @@
 <% breadcrumb :accounting_rules %>
 <% admin = current_user.admin %>
+<% matcher = Accounting::Access.customer_matcher?(current_user) %>
 
 <div class="card mb-3">
   <%= render "shared/page_header", title: "Account Status", summary: "What each person owes and whether they're on schedule." %>
@@ -44,7 +45,7 @@
   <% end %>
 </div>
 
-<% if admin %>
+<% if matcher %>
   <div class="card">
     <div class="card-header"><h2 class="h5 mb-0">Sources</h2></div>
     <% if @sources.any? %>
@@ -54,11 +55,13 @@
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
               <div>
                 <strong><%= source.name %></strong> <span class="text-muted">(<%= source.source_name %>)</span>
-                <%= render "accounting/records/sync_state", source: source %>
+                <% if admin %><%= render "accounting/records/sync_state", source: source %><% end %>
               </div>
               <div class="d-flex gap-2">
                 <%= link_to "Customers", accounting_connection_customers_path(source), class: "btn btn-sm btn-outline-secondary" %>
-                <%= link_to "Records", accounting_connection_records_path(source), class: "btn btn-sm btn-outline-secondary" %>
+                <% if Accounting::SourcePolicy.new(current_user, source).records? %>
+                  <%= link_to "Records", accounting_connection_records_path(source), class: "btn btn-sm btn-outline-secondary" %>
+                <% end %>
               </div>
             </div>
           </li>
