@@ -687,7 +687,7 @@ Action row: **Edit**, **Bill people** (admins and `bill` grant holders; §12), t
 
 ### 11.4 Account tab
 
-A profile tab, **Account**, shown when the viewer can see at least one rule's result for this person. Header card ("<name>: Account"), then **one card per rule** (`accounting/results/_card`, the one place this look is built), with generous space between its sections:
+A profile tab, **Account**, shown when the viewer can see at least one rule's result for this person, or, when a connected source matches customers by reference, to accounting admins and customer matchers (so they can copy the GatherPack id; they see no results or amounts they couldn't see before). Header card ("<name>: Account"), then **one card per rule** (`accounting/results/_card`, the one place this look is built), with generous space between its sections:
 
 - **Header:** the rule name as a heading (a link for admins), its status badge beside it ("Turned off" and, for admins, "On a plan" too), the rule's description under it in muted text.
 - **The answer** (viewers who meet `amount_permission`): "Balance remaining" over the balance as the large number, "of $300.00 charged" small beside it, a slim progress bar for the paid share (`role="progressbar"`, labelled "Paid $150.00 of $300.00", Bootstrap's `bg-success`, so it follows the theme in dark mode) and "$150.00 paid" under it. `amount` and `count` rules show their one large number. Without a milestone list, the milestone line (§8.3) sits under it.
@@ -916,7 +916,7 @@ No WebMock. `Accounting::Quickbooks::Client` takes a transport; tests pass a fak
 - **Family and Home:** a guardian sees each ward's visible rules, balances only when permitted, pay link only when allowed; a former guardian sees nothing; nothing renders without rows.
 - **Credit privacy:** a credit with a scholarship memo shows as "Credit" on the statement, Account tab, Home, Family, non-admin CSV and reminder; admins see the memo.
 - **Actions:** badge added and removed; hand-made assignment kept; team badge skips non-members; person field written and cleared.
-- **Permissions:** results and amounts at each level for subject, guardian, leader, teammate, stranger; badge grants (`amounts`, `bill`); `amount_permission` ⊆ `read_permission`; non-architects can't set `code`; Account tab hidden when no rule is visible; statement shows only permitted records.
+- **Permissions:** results and amounts at each level for subject, guardian, leader, teammate, stranger; badge grants (`amounts`, `bill`); `amount_permission` ⊆ `read_permission`; non-architects can't set `code`; Account tab hidden when no rule is visible, except for admins and matchers on a source that matches by reference (id card only, no amounts); statement shows only permitted records.
 - **Billing:** preview's Not invoiced population; already-billed rows start unticked; overrides and exclusions; one charge per line; a crash between create and save doesn't double-bill (same request id); created lines never re-sent; customer creation with guardian email; skipped without `:create_customers`; send only with `:send_charges`; grant holders limited to the rule's people and items; non-billers refused; failed lines retried with the same request id; hooks fire; a source without `:create_charges` exports CSV; Duplicate copies no runs.
 - **Hooks:** each catalog entry fires with the right model; no result-changed event when the value is unchanged.
 - **Feature off:** routes refuse; tab, nav, Home section and ward rows don't render; recurring jobs and ledger callbacks do nothing.
