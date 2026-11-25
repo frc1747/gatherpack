@@ -1,0 +1,41 @@
+<% breadcrumb @signup_sheet %>
+<% sheet_policy = policy(@signup_sheet) %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: @signup_sheet.title, summary: @signup_sheet.team.name,
+        state: state_line(signup_sheet_state(@signup_sheet),
+          link_text: ("Change" if sheet_policy.update? && !@signup_sheet.archived?),
+          link_path: edit_signup_sheet_path(@signup_sheet, tab: "details")) %>
+  <% if @signup_sheet.description.present? || @signup_sheet.contact.present? %>
+    <div class="card-body">
+      <%= md @signup_sheet.description if @signup_sheet.description.present? %>
+      <% if @signup_sheet.contact.present? %>
+        <p><strong>Contact:</strong> <%= @signup_sheet.contact %></p>
+      <% end %>
+    </div>
+  <% end %>
+  <%= render "shared/action_row", actions: [
+        screen_action("Edit", edit_signup_sheet_path(@signup_sheet, tab: "details"), style: :warning, visible: sheet_policy.update?),
+        screen_action("Roster", roster_signup_sheet_path(@signup_sheet), visible: sheet_policy.roster?),
+        screen_action("Duplicate", duplicate_signup_sheet_path(@signup_sheet), method: :post, more: true, visible: sheet_policy.duplicate?),
+        screen_action("Archive", archive_signup_sheet_path(@signup_sheet), method: :post, lifecycle: true, visible: sheet_policy.archive?,
+          confirm: "Archive this sheet? It's hidden from lists; sign-ups are kept."),
+        screen_action("Restore", restore_signup_sheet_path(@signup_sheet), method: :post, lifecycle: true, visible: sheet_policy.restore?,
+          confirm: "Restore this sheet? It comes back closed."),
+        screen_action("Delete", signup_sheet_path(@signup_sheet), method: :delete, destructive: true, visible: sheet_policy.destroy?,
+          confirm: "Delete this sheet?")
+      ] %>
+</div>
+
+<%= render "member_signups", signups: @my_signups if @my_signups.any? %>
+
+<%# Panels other features add (Signups.extensions). %>
+<% Signups.extensions.sheet_panels.each do |panel| %>
+  <%= render panel.partial, signup_sheet: @signup_sheet, viewer: @viewer %>
+<% end %>
+
+<% if @events.any? %>
+  <%= render partial: "sheet_date", collection: @events, as: :event %>
+<% else %>
+  <p>No dates yet.</p>
+<% end %>
