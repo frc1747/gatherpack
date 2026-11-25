@@ -301,10 +301,12 @@ Rails.application.config.to_prepare do
       toggleable: true,
       setup_section: "Communication",
       setup_items: [
+        # The routes are only drawn if the feature was on at boot, so turning it
+        # on at runtime must not render a link to a helper that doesn't exist yet.
         GatherPack::Feature::SetupItem.new(
           label: "OAuth Applications",
           path: :oauth_applications_path,
-          policy_check: ->(view) { view.admin? }
+          policy_check: ->(view) { view.respond_to?(:oauth_applications_path) && view.policy(OauthApplication).index? }
         )
       ]
     )
