@@ -1,0 +1,5 @@
+# Sent email log: deletes entries older than email_log_keep_days.
+delete_old_sent_emails:
+  class: DeleteOldSentEmailsJob
+  queue: default
+  schedule: at 3:15am every day

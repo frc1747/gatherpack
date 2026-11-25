@@ -1,0 +1,77 @@
+<% breadcrumb :sent_emails %>
+
+<%= search_form_for @q, data: { "controller": "turbo_search", "turbo_frame": "results" } do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Sent email</h1>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md">
+        <%= f.input :address_or_subject_i_cont, label: "Address or subject" %>
+      </div>
+      <div class="col-md">
+        <%= f.input :person_id_eq, label: "Person", as: :select, collection: @people.map { |p| [ p.display_name, p.id ] } %>
+      </div>
+      <div class="col-md">
+        <%= f.input :status_eq, label: "Status", as: :select, collection: EmailLog.status_options %>
+      </div>
+      <div class="col-md">
+        <%= f.input :about_type_eq, label: "About", as: :select, collection: @about_types.map { |type| [ sent_email_about_type_label(type), type ] } %>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer">
+    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+  </div>
+</div>
+<% end %>
+
+<%= turbo_frame_tag "results" do %>
+  <div class="table-responsive">
+    <table class="table table-striped" id="sent_emails">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>To</th>
+          <th>Subject</th>
+          <th>Status</th>
+          <th>Link clicked</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @sent_emails.each do |sent_email| %>
+          <tr id="<%= dom_id sent_email %>">
+            <td><%= nice_datetime(sent_email.sent_at || sent_email.created_at) %></td>
+            <td>
+              <% if sent_email.person %>
+                <%= link_to sent_email.person.display_name, sent_email.person, data: { turbo_frame: "_top" } %><br>
+              <% end %>
+              <span class="text-muted"><%= sent_email.address %></span>
+            </td>
+            <td>
+              <%= sent_email.subject %>
+              <% if (about_link = sent_email_about_link(sent_email)) %>
+                <br><span class="text-muted">About <%= about_link %></span>
+              <% end %>
+            </td>
+            <td>
+              <%= sent_email.status_label %>
+              <% if sent_email.problem? && sent_email.problem_detail.present? %>
+                <br><span class="text-muted"><%= sent_email.problem_detail %></span>
+              <% end %>
+            </td>
+            <td><%= sent_email.link_clicked_at ? nice_datetime(sent_email.link_clicked_at) : "—" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <% if @sent_emails.empty? %>
+    <p class="text-muted">No sent email matches.</p>
+  <% end %>
+
+  <%= paginate @sent_emails %>
+<% end %>
