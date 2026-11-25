@@ -118,6 +118,18 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_equal 35_000, dues.amount_cents
   end
 
+  test "393#6b: paid with categories or locations counts what was applied to the charges they match" do
+    add_charge("58", "I1", total: 40_000, balance: 10_000, items: [ "dues" ], class_ids: [ "robotics" ], location_ids: [ "east" ])
+    add_charge("58", "I2", total: 20_000, balance: 0, items: [ "dues" ], class_ids: [ "drama" ], location_ids: [ "west" ])
+    add_payment("58", "P1", total: 50_000, applied: { "I1" => 30_000, "I2" => 20_000 })
+
+    robotics = outcome_for(create_rule("Robotics paid", kind: "amount", measure: "paid", filters: { "classes" => [ "robotics" ] }), @nancy)
+    east_dues = outcome_for(create_rule("East dues paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ], "locations" => [ "east" ] }), @nancy)
+
+    assert_equal [ "some", 30_000 ], [ robotics.value, robotics.amount_cents ]
+    assert_equal 30_000, east_dues.amount_cents
+  end
+
   test "amount with nothing is None" do
     assert_equal [ "none", 0 ], outcome_for(create_rule("Given", kind: "amount", measure: "paid"), @nancy).to_h.values_at(:value, :amount_cents)
   end

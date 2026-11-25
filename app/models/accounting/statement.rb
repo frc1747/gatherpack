@@ -89,10 +89,11 @@ class Accounting::Statement
     end
 
     # The charges a rule reads: none when its kind doesn't read charges (a
-    # paid amount without items sums payments) or its roles leave them out.
+    # paid amount without items, categories or locations sums payments) or
+    # its roles leave them out.
     def rule_charges(rule, records)
       filter = Accounting::RecordFilter.new(rule.filters)
-      reads = rule.kind == "amount" && rule.measure == "paid" && filter.items.empty? ? [] : %w[ charge ]
+      reads = rule.kind == "amount" && rule.measure == "paid" && !filter.lines? ? [] : %w[ charge ]
       return [] if filter.roles(reads).empty?
 
       filter.apply(records.where(role: "charge")).to_a
