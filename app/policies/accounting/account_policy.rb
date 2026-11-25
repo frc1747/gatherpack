@@ -1,9 +1,10 @@
 # A person's Account tab and statement. record is the person whose account
 # it is. The tab shows when the viewer may see at least one of that
-# person's results; the statement when they may see amounts for one.
+# person's results, or may match customers by reference (to copy the
+# person's id); the statement when they may see amounts for one.
 class Accounting::AccountPolicy < ApplicationPolicy
   def show?
-    Accounting::Access.sees_any_result?(user, record)
+    Accounting::Access.sees_account_tab?(user, record)
   end
 
   def statement?

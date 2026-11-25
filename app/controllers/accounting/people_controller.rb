@@ -17,7 +17,7 @@ class Accounting::PeopleController < Accounting::BaseController
     @statement = Accounting::AccountPolicy.new(current_user, @person).statement?
     # Anyone who may match customers can copy the person's id into a
     # customer's reference field.
-    @reference_sources = Accounting.sources.select { |source| source.match_strategy_list.include?("reference") } if Accounting::Access.customer_matcher?(current_user)
+    @reference_sources = Accounting::Access.reference_sources(current_user)
     @customer_links = AccountingCustomerLink.where(person: @person).includes(:gateway).order(:created_at) if current_user.admin
   end
 end

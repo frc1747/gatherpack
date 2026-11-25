@@ -1,6 +1,7 @@
 # Who sees the accounting screens at all: the Account Status list when the
 # viewer may see some rule's results, and a person's Account tab when the
-# viewer may see at least one of that person's results.
+# viewer may see at least one of that person's results or may copy their id
+# into a customer's reference.
 module Accounting::Access
   MATCHING_BADGE_SETTING = :accounting_customer_matching_badge
 
@@ -58,5 +59,20 @@ module Accounting::Access
 
   def self.sees_any_result?(user, person)
     visible_results(user, person).any?
+  end
+
+  # The sources that match customers to people by a reference the customer
+  # carries, when the viewer may match customers: the Account tab shows
+  # them the person's GatherPack ID to copy there.
+  def self.reference_sources(user)
+    return [] unless customer_matcher?(user)
+
+    Accounting.sources.select { |source| source.match_strategy_list.include?("reference") }
+  end
+
+  # Whether the Account tab shows: the viewer may see one of the person's
+  # results, or may copy the person's id into a source's reference.
+  def self.sees_account_tab?(user, person)
+    sees_any_result?(user, person) || reference_sources(user).any?
   end
 end

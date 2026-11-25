@@ -117,6 +117,41 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a matcher who reads none of the person's results, and an admin looking at someone with no results, still get the GatherPack ID" do
+    accounting_source.update!(match_strategies: "reference name", match_field_path: "Notes")
+    badge = Badge.create!(name: "Customer Matcher", short: "Mat", color: "#336699", badge_type: badge_types(:one), permission: :added_by_admin)
+    BadgeAssignment.create!(badge: badge, person: @steven)
+
+    with_settings(feature_accounting: "true", feature_badges: "true", accounting_customer_matching_badge: "Customer Matcher") do
+      assert_empty Accounting::Access.visible_results(@steven.user, @nancy)
+      [ [ @steven, @nancy ], [ @laura, @janet ] ].each do |viewer, person|
+        sign_in viewer.user
+        get person_accounting_path(person)
+        assert_response :success
+        assert_select "tt", text: person.neat_id
+        assert_select "button[data-action=?]", "clipboard#copy"
+        assert_select "*", text: /Nothing to show yet/
+        assert_select "*", text: /\$/, count: 0
+        sign_out viewer.user
+      end
+
+      sign_in @laura.user
+      get person_path(@janet)
+      assert_select "a.nav-link[href=?]", person_accounting_path(@janet), text: "Account"
+    end
+  end
+
+  test "a matcher sees no Account tab when no source matches by reference" do
+    badge = Badge.create!(name: "Customer Matcher", short: "Mat", color: "#336699", badge_type: badge_types(:one), permission: :added_by_admin)
+    BadgeAssignment.create!(badge: badge, person: @steven)
+
+    with_settings(feature_accounting: "true", feature_badges: "true", accounting_customer_matching_badge: "Customer Matcher") do
+      sign_in @steven.user
+      get person_accounting_path(@nancy)
+      assert_response :redirect
+    end
+  end
+
   test "no GatherPack ID shows when no source matches by reference" do
     sign_in @laura.user
 
