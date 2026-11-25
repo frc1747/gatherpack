@@ -1,0 +1,24 @@
+<% breadcrumb :managed_list, @list %>
+
+<div class="card">
+  <%= render "shared/page_header", title: @list.plural_label, summary: @list.description %>
+  <div class="card-body pb-0">
+    <p class="text-muted">
+      Retired <%= @list.plural_label.downcase %> stay on the records that already use them, but can't be picked for new ones.
+      One that's in use can't be deleted: retire it, or merge it into another.
+    </p>
+    <%= render "shared/filter_bar", url: managed_list_path(@list.key), status: ("retired" if @retired),
+          statuses: [ { label: "Active", value: nil, count: @active_count }, { label: "Retired", value: "retired", count: @retired_count } ] %>
+  </div>
+  <ul class="list-group list-group-flush" id="<%= @retired ? "managed_list_retired" : "managed_list_active" %>">
+    <% @rows.each_with_index do |row, index| %>
+      <%= render "row", row: row, first: index.zero?, last: index == @rows.size - 1 %>
+    <% end %>
+    <% if @rows.empty? %>
+      <li class="list-group-item text-muted">
+        <%= @retired ? "No retired #{@list.plural_label.downcase}." : "No #{@list.plural_label.downcase} yet." %>
+      </li>
+    <% end %>
+  </ul>
+  <%= render "shared/action_row", actions: [ screen_action("New #{@list.label}", new_managed_list_row_path(@list.key), style: :success) ] %>
+</div>
