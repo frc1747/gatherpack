@@ -1,0 +1,14 @@
+{
+  "QueryResponse": {
+    "RefundReceipt": [
+      {
+        "Id": "170", "SyncToken": "0", "DocNumber": "RF-1", "TxnDate": "2026-10-08", "CustomerRef": { "value": "58" },
+        "TotalAmt": 10.00, "PrivateNote": "Returned the hat",
+        "Line": [
+          { "Id": "1", "Amount": 10.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "23", "name": "Hat" } } }
+        ],
+        "MetaData": { "LastUpdatedTime": "2026-10-08T10:00:00-07:00" }
+      }
+    ]
+  }
+}

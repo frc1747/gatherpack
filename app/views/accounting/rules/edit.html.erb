@@ -1,0 +1,45 @@
+<% breadcrumb :edit_accounting_rule, @rule %>
+<% tabs = { "question" => "Question", "records" => "Records", "people" => "People", "reminders" => "Reminders", "actions" => "Actions", "enabled" => "Enabled" } %>
+
+<div class="card navtab mb-3">
+  <div class="card-header">
+    <h1>Editing <%= @rule.name_was.presence || @rule.name %></h1>
+    <div class="text-muted">A rule answers one question from your money records for each person, like "Are their dues paid?". Pick which records count, who it's for, and who can see the answer.</div>
+  </div>
+  <ul class="nav nav-underline px-3">
+    <% tabs.each do |key, label| %>
+      <li class="nav-item">
+        <%= link_to label, edit_accounting_rule_path(@rule, tab: key), class: "nav-link #{"active" if @tab == key}", aria: { current: (@tab == key ? "page" : nil) } %>
+      </li>
+    <% end %>
+  </ul>
+</div>
+
+<%= form_with model: @rule, url: accounting_rule_path(@rule), method: :patch do |f| %>
+  <%= hidden_field_tag :tab, @tab %>
+  <div class="card mb-3">
+    <div class="card-body">
+      <%= render "accounting/rules/errors", rule: @rule %>
+      <%= render "accounting/rules/#{@tab}_fields", f: f, rule: @rule %>
+    </div>
+    <div class="card-footer d-flex flex-wrap gap-2">
+      <%= link_to "Cancel", accounting_rule_path(@rule), class: "btn btn-secondary" %>
+      <% if @tab.in?(%w[ question records ]) %>
+        <%= button_tag "Preview", type: "submit", name: "preview", value: "1", class: "btn btn-secondary" %>
+      <% end %>
+      <%= f.submit "Save", class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
+
+<% if @preview %>
+  <div class="card" id="accounting-rule-preview">
+    <div class="card-header"><h2 class="h5 mb-0">Preview (not saved)</h2></div>
+    <div class="card-body">
+      <%= render "accounting/rules/mixed_invoices", rule: @rule %>
+      <%= render "shared/people_table", rows: @preview, empty: "Nobody is linked yet.", choose_columns: "accounting-rule-preview", person: ->(row) { row.first },
+            status: ->(row) { accounting_value_badge(@rule, row.last.value) },
+            columns: [ [ "Amount", ->(row) { @rule.kind == "count" ? row.last.details[:count].to_s : accounting_cents(row.last.amount_cents) } ] ] %>
+    </div>
+  </div>
+<% end %>

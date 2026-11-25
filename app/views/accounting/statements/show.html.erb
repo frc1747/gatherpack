@@ -1,0 +1,50 @@
+<% breadcrumb :person_accounting_statement, @person %>
+<% admin = @statement.admin? %>
+<% rows = @statement.rows %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "#{@person.identifier_name}: Statement", summary: "Every charge and payment, newest first." %>
+  <div class="card-body border-bottom">
+    <div class="small text-body-secondary">Current balance</div>
+    <div class="display-5 fw-semibold lh-sm"><%= accounting_cents(@statement.balance_cents) %></div>
+  </div>
+  <div class="card-body">
+    <% if rows.empty? %>
+      <%= render "shared/empty_state", text: "Nothing to show yet." %>
+    <% else %>
+      <div <%= tag.attributes(class: "table-responsive", data: column_chooser_data("accounting-statement")) %>>
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th data-column-chooser-fixed>What</th>
+              <% if admin %><th>Description</th><% end %>
+              <th class="text-end">Charge</th>
+              <th class="text-end">Payment</th>
+              <th class="text-end" data-column-chooser-fixed>Balance</th>
+              <% if admin %><th></th><% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |row| %>
+              <tr id="<%= dom_id row.record %>">
+                <td data-sort-value="<%= row.date&.iso8601 %>"><%= accounting_date(row.date) %></td>
+                <td><%= row.label %></td>
+                <% if admin %><td><%= row.description %></td><% end %>
+                <td class="text-end" data-sort-value="<%= row.charge_cents %>"><%= accounting_cents(row.charge_cents) %></td>
+                <td class="text-end" data-sort-value="<%= row.payment_cents %>"><%= accounting_cents(row.payment_cents) %></td>
+                <td class="text-end" data-sort-value="<%= row.balance_cents %>"><%= accounting_cents(row.balance_cents) %></td>
+                <% if admin %>
+                  <td><%= link_to "Open in #{row.record.gateway.source_name}", row.external_url, target: "_blank", rel: "noopener" if row.external_url %></td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+  <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
+        screen_action("Print", nil, style: :dark, data: { controller: "print", action: "print#print" })
+      ] %>
+</div>

@@ -1,0 +1,189 @@
+<% breadcrumb :new_accounting_billing_run, @rule %>
+
+<% if @sources %>
+  <div class="card">
+    <%= render "shared/page_header", title: "Bill people", summary: "Choose the books to bill in." %>
+    <% if @sources.any? %>
+      <ul class="list-group list-group-flush">
+        <% @sources.each do |source| %>
+          <li class="list-group-item">
+            <%= link_to source.name, new_accounting_billing_run_path(gateway_id: source.to_param) %>
+            <span class="text-muted">(<%= source.source_name %>)</span>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <div class="card-body"><%= render "shared/empty_state", text: "No accounting source yet. An architect adds one under Setup → Gateways." %></div>
+    <% end %>
+  </div>
+<% else %>
+  <% source = @run.gateway %>
+  <% caps = @run.capabilities %>
+  <% url = @rule ? accounting_rule_billing_runs_path(@rule) : accounting_billing_runs_path(gateway_id: source.to_param) %>
+  <% cancel = @rule ? accounting_rule_path(@rule) : accounting_billing_runs_path %>
+  <% items = @access.items(source).to_a %>
+  <% values = params.fetch(:run, {}) %>
+  <% amount = values[:amount].presence || (accounting_cents(@run.amount_cents).delete("$,") if @run.amount_cents) %>
+
+  <div class="card">
+    <%= render "shared/page_header", title: "Bill people",
+          summary: (@rule ? "Bill #{@rule.name}'s people who aren't invoiced, or a team, or people you pick." : "Create charges for a team, or people you pick."),
+          state: state_line(caps.include?(:create_charges) ? "In #{source.name} (#{source.source_name})" : "#{source.name} can't take new charges from GatherPack: you'll get a CSV to import into your accounting program.") %>
+    <% word = accounting_charge_word(source) %>
+    <%= form_with url: url, method: :post, id: "billing-form",
+          data: { turbo: false, controller: "tick-count", tick_count_one_value: word, tick_count_many_value: word.pluralize } do |f| %>
+      <div class="card-body">
+        <% if @errors&.any? %>
+          <div class="alert alert-danger">
+            <ul class="mb-0"><% @errors.each do |message| %><li><%= message %></li><% end %></ul>
+          </div>
+        <% end %>
+        <div class="form-text mb-3">
+          Choose what to charge and who, then Preview. The preview shows everyone with a tick box; people already billed or without a customer start unticked.
+          <% if caps.include?(:create_charges) %>
+            The charges count once they're copied back from <%= source.source_name %>, as any other record does.
+          <% end %>
+        </div>
+
+        <fieldset class="mb-3">
+          <legend class="h5">What</legend>
+          <% if items.empty? %>
+            <p class="text-danger mb-2">
+              <%= @rule && !@access.admin? ? "#{@rule.name}'s records filter names no items, so only admins can bill from it." : "#{source.name} has no items yet. They come with the source's records." %>
+            </p>
+          <% end %>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <%= label_tag "run_item_external_id", "Item", class: "form-label" %>
+              <%= select_tag "run[item_external_id]", options_for_select(items.map { |item| [ item.name, item.external_id ] }, @run.item_external_id),
+                    include_blank: "Choose an item", id: "run_item_external_id", class: "form-select" %>
+            </div>
+            <div class="col-md-6">
+              <%= label_tag "run_amount", "Amount ($)", class: "form-label" %>
+              <%= text_field_tag "run[amount]", amount, id: "run_amount", inputmode: "decimal", class: "form-control", placeholder: "450.00",
+                    aria: { describedby: "run_amount_hint" } %>
+              <div id="run_amount_hint" class="form-text">For each person. You can change it for anyone in the preview.</div>
+            </div>
+            <div class="col-md-6">
+              <%= label_tag "run_txn_date", "Invoice date", class: "form-label" %>
+              <%= date_field_tag "run[txn_date]", @run.txn_date, id: "run_txn_date", class: "form-control" %>
+            </div>
+            <% if caps.include?(:due_dates) %>
+              <div class="col-md-6">
+                <%= label_tag "run_due_on", "Due date", class: "form-label" %>
+                <%= date_field_tag "run[due_on]", @run.due_on, id: "run_due_on", class: "form-control" %>
+              </div>
+            <% end %>
+            <div class="col-12">
+              <%= label_tag "run_memo", "Memo", class: "form-label" %>
+              <%= text_area_tag "run[memo]", @run.memo, id: "run_memo", rows: 2, class: "form-control", aria: { describedby: "run_memo_hint" } %>
+              <div id="run_memo_hint" class="form-text">Printed on each charge, where <%= source.source_name %> shows one.</div>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="mb-3">
+          <legend class="h5">Who</legend>
+          <% Accounting::BillingPreview.who_choices(@rule).each do |choice| %>
+            <div class="form-check">
+              <%= radio_button_tag :who, choice, @who == choice, class: "form-check-input" %>
+              <%= label_tag "who_#{choice}", accounting_who_label(choice, @rule), class: "form-check-label" %>
+              <% if choice == "team" %>
+                <%= select_tag :team_id, options_from_collection_for_select(Team.order(:name), :id, :name, params[:team_id]),
+                      include_blank: "Choose a team", class: "form-select form-select-sm mt-1", aria: { label: "Team" } %>
+              <% elsif choice == "people" %>
+                <%= search_field_tag :person_q, nil, class: "form-control form-control-sm mt-1", placeholder: "Search people…",
+                      aria: { label: "Search people", describedby: "person_q_hint" } %>
+                <div id="person_q_hint" class="form-text">Type a name and Preview to add the people it finds; search again to add more.</div>
+              <% end %>
+            </div>
+          <% end %>
+        </fieldset>
+
+        <% if caps.include?(:create_customers) || caps.include?(:send_charges) %>
+          <details class="mb-3" <%= "open" if @run.create_customers || @run.send_from_source %>>
+            <summary>More choices</summary>
+            <% if caps.include?(:create_customers) %>
+              <div class="form-check mt-2">
+                <%= check_box_tag "run[create_customers]", "1", @run.create_customers, id: "run_create_customers", class: "form-check-input" %>
+                <%= label_tag "run_create_customers", "Create a customer for people who don't have one", class: "form-check-label" %>
+                <div class="form-text">Billed to their first guardian's email when they have guardians, else their own.</div>
+              </div>
+            <% end %>
+            <% if caps.include?(:send_charges) %>
+              <div class="form-check mt-2">
+                <%= check_box_tag "run[send_from_source]", "1", @run.send_from_source, id: "run_send_from_source", class: "form-check-input" %>
+                <%= label_tag "run_send_from_source", "Email the #{accounting_charge_word(source).pluralize} from #{source.source_name}", class: "form-check-label" %>
+              </div>
+            <% end %>
+          </details>
+        <% end %>
+
+        <%= button_tag "Preview", type: "submit", name: "preview", value: "1", class: "btn btn-secondary" %>
+
+        <% if @preview %>
+          <h2 class="h5 mt-4">Preview</h2>
+          <% if @rows.empty? %>
+            <%= render "shared/empty_state", text: "Nobody to bill." %>
+          <% else %>
+            <%# Which Who this preview shows: a new Pick people preview starts
+                from these rows only when this one was Pick people too. %>
+            <%= hidden_field_tag :previous_who, @who, id: nil %>
+            <% if @who == "people" %>
+              <% @rows.each do |row| %><%= hidden_field_tag "person_ids[]", row.person.id, id: nil %><% end %>
+            <% end %>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr><th>Bill</th><th>Name</th><th>Customer</th><th>Amount ($)</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <% @rows.each do |row| %>
+                    <% key = "rows[#{row.person.id}]" %>
+                    <% id = "row_#{row.person.id}" %>
+                    <% typed = params.dig(:rows, row.person.id, :amount) %>
+                    <tr id="<%= dom_id(row.person, :billing) %>">
+                      <td>
+                        <%= hidden_field_tag "#{key}[include]", "0", id: nil %>
+                        <%# The warning the tick was given beside; a new warning unticks it. %>
+                        <%= hidden_field_tag "#{key}[warning]", row.warning.to_s, id: nil %>
+                        <%= check_box_tag "#{key}[include]", "1", row.included, id: "#{id}_include", class: "form-check-input",
+                              aria: { label: "Bill #{row.person.identifier_name}" },
+                              data: { tick_count_target: "box", action: "tick-count#update" } %>
+                      </td>
+                      <td><%= link_to row.person.identifier_name, row.person %></td>
+                      <td>
+                        <% if row.customers.size > 1 %>
+                          <%= select_tag "#{key}[customer]", options_for_select(row.customers.map { |customer| [ customer.name.presence || customer.customer_external_id, customer.customer_external_id ] }, row.customer_id),
+                                class: "form-select form-select-sm", aria: { label: "Customer for #{row.person.identifier_name}" } %>
+                        <% elsif row.customer_id %>
+                          <%= row.customer_name(row.customer_id) %>
+                          <%= hidden_field_tag "#{key}[customer]", row.customer_id, id: nil %>
+                        <% end %>
+                      </td>
+                      <td>
+                        <%= text_field_tag "#{key}[amount]", typed, inputmode: "decimal", class: "form-control form-control-sm", placeholder: amount,
+                              aria: { label: "Amount for #{row.person.identifier_name}" } %>
+                      </td>
+                      <td class="text-muted"><%= row.warning %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+            <% if caps.include?(:create_charges) %>
+              <%= render "shared/inline_confirm", question: accounting_billing_question(@run, @rows.count(&:included)), name: "confirm",
+                    choices: [ [ "Not yet", "no" ], [ "Yes, create them", "yes" ] ], selected: "no" %>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+      <div class="card-footer d-flex flex-wrap align-items-start gap-2 screen-action-row">
+        <%= link_to "Cancel", cancel, class: "btn btn-secondary" %>
+        <% if @preview && @rows.any? %>
+          <%= button_tag(caps.include?(:create_charges) ? accounting_billing_button(@run) : "Download CSV", type: "submit", class: "btn btn-primary") %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

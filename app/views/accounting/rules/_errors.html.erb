@@ -1,0 +1,9 @@
+<%# locals: (rule:) -%>
+<% if rule.errors.any? %>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      <%# An action's own base errors read as sentences, without "Actions". %>
+      <% rule.errors.map { |error| error.attribute.to_s.end_with?(".base") ? error.message : error.full_message }.uniq.each do |message| %><li><%= message %></li><% end %>
+    </ul>
+  </div>
+<% end %>

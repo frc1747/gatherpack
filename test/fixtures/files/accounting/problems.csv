@@ -1,0 +1,5 @@
+customer,role,number,date,due_date,item,total,balance,applied_to,description
+Nancy Ward,charge,,2026-09-01,,Dues,450.00,,,
+Nancy Ward,donation,,2026-09-01,,,10,,,
+Nancy Ward,payment,,2026-09-15,,,three hundred,,1099,
+,charge,1050,yesterday,,Dues,-5,,,

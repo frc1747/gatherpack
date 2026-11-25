@@ -1,0 +1,36 @@
+{
+  "QueryResponse": {
+    "Invoice": [
+      {
+        "Id": "130", "SyncToken": "2", "DocNumber": "1042", "TxnDate": "2026-09-01", "DueDate": "2026-10-01",
+        "CustomerRef": { "value": "58", "name": "Ward, Nancy" }, "TotalAmt": 450.00, "Balance": 150.00,
+        "ClassRef": { "value": "5000000000000000011", "name": "Programs" },
+        "DepartmentRef": { "value": "2", "name": "North" },
+        "PrivateNote": "Hardship discussed with treasurer", "CustomerMemo": { "value": "Thank you!" },
+        "InvoiceLink": "https://connect.intuit.com/portal/app/CommerceNetwork/view/scs-v1-abc",
+        "Line": [
+          { "Id": "1", "LineNum": 1, "Amount": 400.00, "DetailType": "SalesItemLineDetail",
+            "SalesItemLineDetail": { "ItemRef": { "value": "21", "name": "Dues" }, "ClassRef": { "value": "5000000000000000022", "name": "Season" } } },
+          { "Id": "2", "LineNum": 2, "Amount": 50.00, "DetailType": "GroupLineDetail",
+            "GroupLineDetail": { "GroupItemRef": { "value": "30", "name": "Travel kit" },
+              "Line": [
+                { "Id": "3", "Amount": 30.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "22", "name": "Shirt" } } },
+                { "Id": "4", "Amount": 20.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "23", "name": "Hat" } } }
+              ] } },
+          { "Amount": 450.00, "DetailType": "SubTotalLineDetail", "SubTotalLineDetail": {} }
+        ],
+        "MetaData": { "CreateTime": "2026-09-01T10:00:00-07:00", "LastUpdatedTime": "2026-10-15T10:00:00-07:00" }
+      },
+      {
+        "Id": "131", "SyncToken": "1", "DocNumber": "1043", "TxnDate": "2026-09-02", "DueDate": "2026-10-02",
+        "CustomerRef": { "value": "58" }, "TotalAmt": 0, "Balance": 0, "PrivateNote": "Voided",
+        "Line": [
+          { "Id": "1", "Amount": 0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "21", "name": "Dues" } } },
+          { "Amount": 0, "DetailType": "SubTotalLineDetail", "SubTotalLineDetail": {} }
+        ],
+        "MetaData": { "LastUpdatedTime": "2026-09-03T10:00:00-07:00" }
+      }
+    ],
+    "startPosition": 1, "maxResults": 2
+  }
+}

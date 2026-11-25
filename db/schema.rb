@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_25_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,245 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_account_relationships_on_account_id"
     t.index ["holder_type", "holder_id"], name: "index_account_relationships_on_holder"
+  end
+
+  create_table "accounting_billing_lines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "run_id", null: false
+    t.uuid "person_id", null: false
+    t.string "customer_external_id"
+    t.bigint "amount_cents", null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "request_id", null: false
+    t.string "external_id"
+    t.text "error"
+    t.datetime "sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_accounting_billing_lines_on_person_id"
+    t.index ["request_id"], name: "index_accounting_billing_lines_on_request_id", unique: true
+    t.index ["run_id", "person_id"], name: "index_accounting_billing_lines_on_run_id_and_person_id", unique: true
+    t.index ["run_id", "status"], name: "index_accounting_billing_lines_on_run_id_and_status"
+  end
+
+  create_table "accounting_billing_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.uuid "rule_id"
+    t.uuid "created_by_id"
+    t.string "item_external_id", null: false
+    t.bigint "amount_cents", null: false
+    t.date "txn_date"
+    t.date "due_on"
+    t.text "memo"
+    t.boolean "create_customers", default: false, null: false
+    t.boolean "send_from_source", default: false, null: false
+    t.string "status", default: "draft", null: false
+    t.datetime "finished_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_accounting_billing_runs_on_created_by_id"
+    t.index ["gateway_id"], name: "index_accounting_billing_runs_on_gateway_id"
+    t.index ["rule_id"], name: "index_accounting_billing_runs_on_rule_id"
+  end
+
+  create_table "accounting_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.text "access_token"
+    t.datetime "access_token_expires_at"
+    t.text "refresh_token"
+    t.datetime "refresh_token_expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["gateway_id"], name: "index_accounting_credentials_on_gateway_id", unique: true
+  end
+
+  create_table "accounting_customer_dismissals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.string "customer_external_id", null: false
+    t.uuid "person_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["gateway_id", "customer_external_id", "person_id"], name: "index_accounting_customer_dismissals_on_customer_and_person", unique: true
+    t.index ["person_id"], name: "index_accounting_customer_dismissals_on_person_id"
+  end
+
+  create_table "accounting_customer_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.string "customer_external_id", null: false
+    t.uuid "person_id", null: false
+    t.string "source", null: false
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_accounting_customer_links_on_created_by_id"
+    t.index ["gateway_id", "customer_external_id", "person_id"], name: "index_accounting_customer_links_on_customer_and_person", unique: true
+    t.index ["person_id"], name: "index_accounting_customer_links_on_person_id"
+  end
+
+  create_table "accounting_person_milestones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "person_id", null: false
+    t.string "name", null: false
+    t.date "due_on", null: false
+    t.bigint "balance_at_most_cents"
+    t.integer "balance_at_most_percent"
+    t.integer "position", default: 0, null: false
+    t.text "note"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_accounting_person_milestones_on_created_by_id"
+    t.index ["person_id"], name: "index_accounting_person_milestones_on_person_id"
+    t.index ["rule_id", "person_id"], name: "index_accounting_person_milestones_on_rule_id_and_person_id"
+  end
+
+  create_table "accounting_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.string "entity_type", null: false
+    t.string "external_id", null: false
+    t.string "revision"
+    t.jsonb "data", default: {}, null: false
+    t.string "role", null: false
+    t.string "customer_external_id"
+    t.string "parent_external_id"
+    t.string "name"
+    t.string "email"
+    t.string "reference"
+    t.boolean "active", default: true, null: false
+    t.string "number"
+    t.date "txn_date"
+    t.date "due_on"
+    t.bigint "total_cents"
+    t.bigint "balance_cents"
+    t.boolean "voided", default: false, null: false
+    t.jsonb "lines", default: [], null: false
+    t.string "item_ids", default: [], null: false, array: true
+    t.string "class_ids", default: [], null: false, array: true
+    t.string "location_ids", default: [], null: false, array: true
+    t.jsonb "applied_to", default: [], null: false
+    t.bigint "unapplied_cents"
+    t.string "pay_url"
+    t.string "external_url"
+    t.string "public_label"
+    t.text "description"
+    t.datetime "external_updated_at"
+    t.datetime "deleted_at"
+    t.datetime "fetched_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["class_ids"], name: "index_accounting_records_on_class_ids", using: :gin
+    t.index ["gateway_id", "customer_external_id"], name: "idx_on_gateway_id_customer_external_id_4fc69e5f26"
+    t.index ["gateway_id", "entity_type", "external_id"], name: "index_accounting_records_on_source_and_external_id", unique: true
+    t.index ["item_ids"], name: "index_accounting_records_on_item_ids", using: :gin
+    t.index ["location_ids"], name: "index_accounting_records_on_location_ids", using: :gin
+    t.index ["role"], name: "index_accounting_records_on_role"
+    t.index ["txn_date"], name: "index_accounting_records_on_txn_date"
+  end
+
+  create_table "accounting_reminders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "person_id", null: false
+    t.uuid "recipient_id", null: false
+    t.string "milestone_key", null: false
+    t.datetime "sent_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_accounting_reminders_on_person_id"
+    t.index ["recipient_id", "sent_at"], name: "index_accounting_reminders_on_recipient_id_and_sent_at"
+    t.index ["rule_id", "person_id", "recipient_id", "milestone_key"], name: "index_accounting_reminders_on_rule_person_recipient_milestone"
+  end
+
+  create_table "accounting_rule_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.string "action", null: false
+    t.jsonb "condition", default: {}, null: false
+    t.uuid "badge_id"
+    t.uuid "person_field_id"
+    t.string "write"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_accounting_rule_actions_on_badge_id"
+    t.index ["person_field_id"], name: "index_accounting_rule_actions_on_person_field_id"
+    t.index ["rule_id"], name: "index_accounting_rule_actions_on_rule_id"
+  end
+
+  create_table "accounting_rule_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "badge_id", null: false
+    t.boolean "amounts", default: false, null: false
+    t.boolean "bill", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_accounting_rule_badge_grants_on_badge_id"
+    t.index ["rule_id", "badge_id"], name: "index_accounting_rule_badge_grants_on_rule_id_and_badge_id", unique: true
+  end
+
+  create_table "accounting_rule_milestones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.string "name", null: false
+    t.date "due_on", null: false
+    t.bigint "balance_at_most_cents"
+    t.integer "balance_at_most_percent"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["rule_id"], name: "index_accounting_rule_milestones_on_rule_id"
+  end
+
+  create_table "accounting_rule_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "person_id", null: false
+    t.string "value", null: false
+    t.bigint "amount_cents"
+    t.jsonb "details", default: {}, null: false
+    t.datetime "evaluated_at", null: false
+    t.datetime "changed_at", null: false
+    t.uuid "badge_assignment_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_assignment_id"], name: "index_accounting_rule_results_on_badge_assignment_id"
+    t.index ["person_id"], name: "index_accounting_rule_results_on_person_id"
+    t.index ["rule_id", "person_id"], name: "index_accounting_rule_results_on_rule_id_and_person_id", unique: true
+    t.index ["rule_id", "value"], name: "index_accounting_rule_results_on_rule_id_and_value"
+  end
+
+  create_table "accounting_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.string "name", null: false
+    t.string "key", null: false
+    t.text "description"
+    t.string "kind", null: false
+    t.jsonb "filters", default: {}, null: false
+    t.jsonb "settings", default: {}, null: false
+    t.text "code"
+    t.uuid "team_id"
+    t.integer "read_permission", default: 0, null: false
+    t.integer "amount_permission", default: 0, null: false
+    t.boolean "enabled", default: true, null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["gateway_id"], name: "index_accounting_rules_on_gateway_id"
+    t.index ["key"], name: "index_accounting_rules_on_key", unique: true
+    t.index ["team_id"], name: "index_accounting_rules_on_team_id"
+  end
+
+  create_table "accounting_uploads", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.uuid "created_by_id"
+    t.string "filename"
+    t.text "content", null: false
+    t.jsonb "parsed_records", default: {}, null: false
+    t.jsonb "row_errors", default: [], null: false
+    t.integer "row_count", default: 0, null: false
+    t.string "status", default: "previewed", null: false
+    t.uuid "applied_by_id"
+    t.datetime "applied_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["applied_by_id"], name: "index_accounting_uploads_on_applied_by_id"
+    t.index ["created_by_id"], name: "index_accounting_uploads_on_created_by_id"
+    t.index ["gateway_id"], name: "index_accounting_uploads_on_gateway_id"
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2064,6 +2303,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   end
 
   add_foreign_key "account_relationships", "accounts"
+  add_foreign_key "accounting_billing_lines", "accounting_billing_runs", column: "run_id", on_delete: :cascade
+  add_foreign_key "accounting_billing_lines", "people", on_delete: :cascade
+  add_foreign_key "accounting_billing_runs", "accounting_rules", column: "rule_id", on_delete: :nullify
+  add_foreign_key "accounting_billing_runs", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_billing_runs", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "accounting_credentials", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_customer_dismissals", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_customer_dismissals", "people", on_delete: :cascade
+  add_foreign_key "accounting_customer_links", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_customer_links", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "accounting_customer_links", "people", on_delete: :cascade
+  add_foreign_key "accounting_person_milestones", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_person_milestones", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "accounting_person_milestones", "people", on_delete: :cascade
+  add_foreign_key "accounting_records", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_reminders", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_reminders", "people", column: "recipient_id", on_delete: :cascade
+  add_foreign_key "accounting_reminders", "people", on_delete: :cascade
+  add_foreign_key "accounting_rule_actions", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_actions", "badges", on_delete: :cascade
+  add_foreign_key "accounting_rule_actions", "person_fields", on_delete: :cascade
+  add_foreign_key "accounting_rule_badge_grants", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "accounting_rule_milestones", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_results", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_results", "badge_assignments", on_delete: :nullify
+  add_foreign_key "accounting_rule_results", "people", on_delete: :cascade
+  add_foreign_key "accounting_rules", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_rules", "teams", on_delete: :nullify
+  add_foreign_key "accounting_uploads", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_uploads", "people", column: "applied_by_id", on_delete: :nullify
+  add_foreign_key "accounting_uploads", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "approval_step_approvers", "approval_steps", on_delete: :cascade

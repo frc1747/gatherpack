@@ -1,0 +1,8 @@
+{
+  "Customer": {
+    "Id": "71", "SyncToken": "0", "DisplayName": "Andrew Fuller", "GivenName": "Andrew", "FamilyName": "Fuller",
+    "PrimaryEmailAddr": { "Address": "margaret.peacock@example.com" }, "Active": true, "Job": false, "Balance": 0,
+    "MetaData": { "CreateTime": "2026-11-24T09:00:00-08:00", "LastUpdatedTime": "2026-11-24T09:00:00-08:00" }
+  },
+  "time": "2026-11-24T09:00:00.000-08:00"
+}

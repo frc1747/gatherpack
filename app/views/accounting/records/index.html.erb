@@ -1,0 +1,89 @@
+<% breadcrumb :accounting_records, @source %>
+<% uploads = @source.capabilities.include?(:upload) %>
+<% can_sync = !uploads && @source.syncable? && Accounting::SourcePolicy.new(current_user, @source).sync? %>
+<% can_full_sync = !uploads && @source.syncable? && Accounting::SourcePolicy.new(current_user, @source).full_sync? %>
+<% can_upload = uploads && Accounting::SourcePolicy.new(current_user, @source).upload? %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Records",
+        summary: "What GatherPack copied from #{@source.source_name} (#{@source.name}). Read only: change records in #{@source.source_name}." %>
+  <div class="card-body">
+    <%= render "accounting/records/sync_state", source: @source %>
+  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("Upload", new_accounting_connection_upload_path(@source), style: :primary, visible: can_upload),
+        screen_action("Download template", template_accounting_connection_uploads_path(@source), visible: can_upload),
+        screen_action("Sync now", sync_accounting_connection_path(@source), style: :primary, method: :post, visible: can_sync),
+        screen_action("Copy everything again", full_sync_accounting_connection_path(@source), method: :post, more: true, visible: can_full_sync,
+          confirm: "Read every record from #{@source.source_name} again? This can take a few minutes.")
+      ] %>
+</div>
+
+<% filters = capture do %>
+  <div>
+    <%= label_tag :role, "What", class: "form-label" %>
+    <%= select_tag :role, options_for_select(AccountingRecord::ROLES.map { |role| [ accounting_role_name(role), role ] }, params[:role]),
+          include_blank: "Everything", class: "form-select" %>
+  </div>
+  <div>
+    <%= label_tag :customer, "Customer", class: "form-label" %>
+    <%= select_tag :customer, options_for_select(@customer_choices, params[:customer]), include_blank: "Any customer", class: "form-select" %>
+  </div>
+  <div>
+    <%= label_tag :from, "Dated from", class: "form-label" %>
+    <%= date_field_tag :from, params[:from], class: "form-control" %>
+  </div>
+  <div>
+    <%= label_tag :to, "to", class: "form-label" %>
+    <%= date_field_tag :to, params[:to], class: "form-control" %>
+  </div>
+<% end %>
+<% more = capture do %>
+  <div class="form-check">
+    <%= check_box_tag :deleted, "1", params[:deleted] == "1", class: "form-check-input" %>
+    <%= label_tag :deleted, "Include records deleted in #{@source.source_name}", class: "form-check-label" %>
+  </div>
+<% end %>
+<div <%= tag.attributes(data: column_chooser_data("accounting-records")) %>>
+<%= render "shared/filter_bar", url: accounting_connection_records_path(@source), fields: filters, more: more,
+      open: params[:deleted] == "1", hidden: {} %>
+
+<% if @records.any? %>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th data-column-chooser-fixed>What</th>
+          <th>Customer</th>
+          <th class="text-end" data-column-chooser-fixed>Total</th>
+          <th class="text-end">Balance</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @records.each do |record| %>
+          <tr id="<%= dom_id record %>">
+            <td data-sort-value="<%= record.txn_date&.iso8601 %>"><%= record.txn_date ? l(record.txn_date) : "" %></td>
+            <td>
+              <%= link_to record.identifier_name, accounting_connection_record_path(@source, record) %>
+              <%= render "accounting/records/marks", record: record %>
+            </td>
+            <td><%= record.role == "customer" ? "" : @customer_names[record.customer_external_id] || record.customer_external_id %></td>
+            <td class="text-end" data-sort-value="<%= record.total_cents %>"><%= accounting_cents(record.total_cents) %></td>
+            <td class="text-end" data-sort-value="<%= record.balance_cents %>"><%= accounting_cents(record.balance_cents) %></td>
+            <td>
+              <% if record.external_url.present? %>
+                <%= link_to "Open in #{@source.source_name}", record.external_url, target: "_blank", rel: "noopener" %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= paginate @records %>
+<% else %>
+  <%= render "shared/empty_state", text: "Nothing here yet." %>
+<% end %>
+</div>

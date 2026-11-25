@@ -8,6 +8,10 @@
   </div>
 
   <% @gateway.fields.each do |fd| %>
+    <% if (input = @gateway.try(:field_input, fd)) %>
+      <%= render "gateways/field_input", field: fd, input: input %>
+      <% next %>
+    <% end %>
     <div class="mb-3">
       <%= f.label "gateway[#{fd}]", fd, class: "form-label", name: "gateway[#{fd}]" %>
       <% if @gateway.secret_field?(fd) %>

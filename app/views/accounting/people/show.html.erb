@@ -1,0 +1,48 @@
+<%= render "people/show_shared" %>
+<% admin = current_user.admin %>
+<% if @reference_sources.present? %>
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="fw-bold">GatherPack ID</div>
+      <%= render "accounting/people/copyable_id", value: @person.neat_id, label: "GatherPack ID" %>
+      <% @reference_sources.each do |source| %>
+        <div class="text-muted small mt-1">
+          Put this in the customer's <%= source.reference_field_label %> in <%= source.source_name %> and they link on the next sync.
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h1><%= @person.identifier_name %>: Account</h1>
+  </div>
+  <% if @results.empty? %>
+    <div class="card-body"><%= render "shared/empty_state", text: "Nothing to show yet." %></div>
+  <% end %>
+</div>
+
+<% @results.each do |result| %>
+  <%= render "accounting/results/card", result: result, amounts: @amounts[result.id], status_only: @status_only[result.id], admin: admin, statement: @statement %>
+<% end %>
+
+<% if admin %>
+  <div class="card">
+    <div class="card-header"><h2 class="h5 mb-0">Linked customers</h2></div>
+    <% if @customer_links.any? %>
+      <ul class="list-group list-group-flush">
+        <% @customer_links.each do |link| %>
+          <% customer = link.customer %>
+          <li class="list-group-item d-flex flex-wrap justify-content-between gap-2">
+            <span><%= customer&.identifier_name || link.customer_external_id %> <span class="text-muted">in <%= link.gateway.name %></span></span>
+            <%= link_to "Manage links", customer ? accounting_connection_customer_path(link.gateway, customer) : accounting_connection_customers_path(link.gateway),
+                  class: "btn btn-sm btn-outline-secondary" %>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <div class="card-body"><%= render "shared/empty_state", text: "Not linked to any customer." %></div>
+    <% end %>
+  </div>
+<% end %>

@@ -1,0 +1,48 @@
+<%# locals: (f:, rule:) -%>
+<% badges = Badge.added_by_admin.order(:name) %>
+<div class="mb-3">
+  <%= f.label :team_id, "Applies to", class: "form-label" %>
+  <%= f.collection_select :team_id, Team.order(:name), :id, :name, { include_blank: "Only people linked to a customer" }, class: "form-select" %>
+  <div class="form-text">Members of this team and the teams below it get a result even with no records (Not invoiced). People linked to a customer always do.</div>
+</div>
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <%= f.label :read_permission, "Who sees each person's result", class: "form-label" %>
+    <%= f.select :read_permission, accounting_level_choices, {}, class: "form-select" %>
+  </div>
+  <div class="col-md-6">
+    <%= f.label :amount_permission, "Who also sees amounts and pay links", class: "form-label" %>
+    <%= f.select :amount_permission, accounting_level_choices, {}, class: "form-select" %>
+    <div class="form-text">Only people who can see the result. Charges and payments are named by their label ("Invoice 1042 · Dues", "Credit"), never by a memo or note.</div>
+  </div>
+</div>
+<% if GatherPack::Features.enabled?(:badges) %>
+  <fieldset class="mb-3">
+    <legend class="form-label fs-6">Badges that see results</legend>
+    <div class="form-text mb-2">For a treasurer or mentors who aren't team leaders: holders see the results of the people the badge covers. With May bill, they can also bill those people from this rule, for the items its records filter names. Only badges admins assign can be used.</div>
+    <% rows = rule.badge_grants.to_a %>
+    <% rows += [ rule.badge_grants.build ] if rows.none?(&:new_record?) %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Badge</th><th>Amounts too</th><th>May bill</th><th></th></tr></thead>
+        <tbody>
+          <%= f.fields_for :badge_grants, rows do |g| %>
+            <tr>
+              <td><%= g.collection_select :badge_id, badges, :id, :name, { include_blank: "Choose a badge" }, class: "form-select" %></td>
+              <td><div class="form-check"><%= g.check_box :amounts, class: "form-check-input" %></div></td>
+              <td><div class="form-check"><%= g.check_box :bill, class: "form-check-input", aria: { label: "May bill" } %></div></td>
+              <td>
+                <% if g.object.persisted? %>
+                  <div class="form-check">
+                    <%= g.check_box :_destroy, class: "form-check-input" %>
+                    <%= g.label :_destroy, "Remove", class: "form-check-label" %>
+                  </div>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </fieldset>
+<% end %>
