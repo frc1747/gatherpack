@@ -1,0 +1,15 @@
+<% badge_names = input.badges.map(&:name) %>
+<% teams = input.teams %>
+<fieldset data-controller="setting-rows">
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <div data-setting-rows-target="list">
+    <% input.rows.each_with_index do |row, index| %>
+      <%= render "settings/inputs/badge_grant_row", input: input, index: index, row: row, badge_names: badge_names, teams: teams %>
+    <% end %>
+    <%= render "settings/inputs/badge_grant_row", input: input, index: input.rows.size, row: nil, badge_names: badge_names, teams: teams %>
+  </div>
+  <template data-setting-rows-target="template">
+    <%= render "settings/inputs/badge_grant_row", input: input, index: "NEW_ROW", row: nil, badge_names: badge_names, teams: teams %>
+  </template>
+  <button type="button" class="btn btn-secondary" style="min-height: 44px" hidden data-setting-rows-target="add" data-action="setting-rows#add">Add a badge</button>
+</fieldset>

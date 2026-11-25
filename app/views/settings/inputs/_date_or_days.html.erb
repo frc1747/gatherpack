@@ -1,0 +1,18 @@
+<fieldset>
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <div class="form-check py-2 mb-0 d-flex align-items-center gap-2" style="min-height: 44px">
+    <%= radio_button_tag setting_input_name(input, "mode"), "never", input.mode == "never", id: setting_input_id(input, "never"), class: "form-check-input mt-0" %>
+    <label class="form-check-label" for="<%= setting_input_id(input, "never") %>">Never</label>
+  </div>
+  <div class="form-check py-2 mb-0 d-flex flex-wrap align-items-center gap-2" style="min-height: 44px">
+    <%= radio_button_tag setting_input_name(input, "mode"), "date", input.mode == "date", id: setting_input_id(input, "on_date"), class: "form-check-input mt-0" %>
+    <label class="form-check-label" for="<%= setting_input_id(input, "on_date") %>">Ended before</label>
+    <%= date_field_tag setting_input_name(input, "date"), input.date, id: setting_input_id(input, "date"), "aria-label": "Date", class: "form-control w-auto", style: "min-height: 44px" %>
+  </div>
+  <div class="form-check py-2 mb-0 d-flex flex-wrap align-items-center gap-2" style="min-height: 44px">
+    <%= radio_button_tag setting_input_name(input, "mode"), "days", input.mode == "days", id: setting_input_id(input, "after_days"), class: "form-check-input mt-0" %>
+    <label class="form-check-label" for="<%= setting_input_id(input, "after_days") %>">Ended more than</label>
+    <%= number_field_tag setting_input_name(input, "days"), input.days, min: 0, id: setting_input_id(input, "days"), "aria-label": "Days", class: "form-control", style: "min-height: 44px; width: 6rem" %>
+    <span>days ago</span>
+  </div>
+</fieldset>

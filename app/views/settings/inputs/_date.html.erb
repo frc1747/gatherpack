@@ -1,0 +1,2 @@
+<label class="form-label" for="<%= setting_input_id(input) %>"><%= setting.name %></label>
+<%= date_field_tag "settings[#{setting.setting_key}]", input.value, id: setting_input_id(input), class: "form-control", style: "min-height: 44px" %>

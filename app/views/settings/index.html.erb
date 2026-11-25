@@ -2,6 +2,10 @@
 
   <%= simple_form_for :settings, url: update_settings_path do |f| %>
     <% Settings.groups.each do |group| %>
+      <% if Settings.page_for(group) %>
+        <%= render "settings/inputs/page_link", group: group %>
+        <% next %>
+      <% end %>
       <div class="card">
         <div class="card-header">
           <h1><%= group %></h1>
@@ -9,7 +13,9 @@
         <div class="card-body">
           <% Settings.settings(group).each do |setting| %>
             <div class="row align-items-end">
-              <% case setting.setting_type %>
+              <% case SettingInput.for(setting) ? :input : setting.setting_type %>
+              <% when :input %>
+                <%= render "settings/inputs/input", f: f, setting: setting %>
               <% when :boolean %>
                 <%= f.input setting.setting_key, as: "select",
                                                 label: setting.name,
@@ -33,7 +39,7 @@
               <div class="col mb-3">
                 <%= setting.description %>
                 <br>
-                Default: <%= setting.default_value %>
+                Default: <%= setting_default_label(setting) %>
               </div>
             </div>
           <% end %>
