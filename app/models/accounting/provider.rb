@@ -26,6 +26,10 @@ module Accounting::Provider
   # e.g. { "Customer" => :customer, "Invoice" => :charge, "LedgerEntry" => %i[ charge payment ] }
   def entity_types = raise NotImplementedError
 
+  # The record types among the category roles that name locations (what
+  # location_ids hold) rather than categories (class_ids), e.g. %w[ Department ].
+  def location_entity_types = []
+
   # Yields raw attribute hashes for every record of the type. A full sync
   # marks anything not yielded as deleted.
   def each_record(entity_type) = raise NotImplementedError

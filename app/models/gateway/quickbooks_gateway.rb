@@ -188,6 +188,11 @@ class Gateway::QuickbooksGateway < Gateway
     ENTITY_ROLES.slice(*synced_entity_list)
   end
 
+  # Classes are categories (ClassRef); departments are locations (DepartmentRef).
+  def location_entity_types
+    %w[ Department ]
+  end
+
   def each_record(entity_type, &block)
     client.query(entity_type, where: ("Active IN (true, false)" if WITH_ACTIVE.include?(entity_type)), &block)
   end

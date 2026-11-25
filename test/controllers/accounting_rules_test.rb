@@ -246,6 +246,24 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_no_match "May bill", response.body
   end
 
+  test "393#8: QuickBooks classes are Categories and departments Locations, even with the same ids" do
+    accounting_source.accounting_records.create!(entity_type: "Class", external_id: "1", role: "category", name: "Robotics", data: {})
+    accounting_source.accounting_records.create!(entity_type: "Department", external_id: "1", role: "category", name: "East Campus", data: {})
+    add_charge("58", "I3", total: 1_000, class_ids: [ "1" ], location_ids: [ "1" ])
+    sign_in @laura.user
+
+    with_accounting { get edit_accounting_rule_path(@rule, tab: "records") }
+
+    assert_select "fieldset", text: /Categories/ do
+      assert_select "label", text: "Robotics"
+      assert_select "label", text: "East Campus", count: 0
+    end
+    assert_select "fieldset", text: /Locations/ do
+      assert_select "label", text: "East Campus"
+      assert_select "label", text: "Robotics", count: 0
+    end
+  end
+
   test "the milestones warn when nobody can ever be overdue" do
     original = Gateway::QuickbooksGateway.instance_method(:capabilities)
     Gateway::QuickbooksGateway.define_method(:capabilities) { Set.new }
