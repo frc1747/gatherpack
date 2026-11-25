@@ -1,0 +1,52 @@
+<% breadcrumb :orders_deliveries %>
+
+<%# Phone-first: one column, buttons phone sized on a phone (orders-phone-only). Each order lists what's still to arrive. %>
+<% content_for :head, stylesheet_link_tag("orders") %>
+<% mine = (1 if @mine) %>
+<div class="card orders-phone-only">
+  <div class="card-header">
+    <h1>To receive</h1>
+  </div>
+  <div class="card-body pb-0">
+    <%= render "shared/filter_bar", url: orders_deliveries_path, status: ("mine" if @mine),
+          statuses: [ { label: "All I can receive", value: nil }, { label: "Only mine", value: "mine" } ] %>
+  </div>
+
+  <% if @receiving.groups.empty? %>
+    <div class="card-body text-muted">Nothing is waiting to arrive.</div>
+  <% end %>
+
+  <% @receiving.groups.each do |group| %>
+    <div class="card-body border-top">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+        <div>
+          <h2 class="h5 mb-0"><%= group.purchase&.vendor_name || "Not on an order yet" %></h2>
+          <small class="text-muted">
+            <% if group.purchase&.ordered_on %>Ordered <%= l group.purchase.ordered_on, format: :short %><% end %>
+            <% if group.expected_on %> · Expected <%= l group.expected_on, format: :short %><% end %>
+          </small>
+        </div>
+        <% if group.purchase && group.lines.any? { |line| !line.problem? } %>
+          <%= button_to "Mark all received", mark_all_received_orders_purchase_path(group.purchase, from: "list", mine: mine),
+                method: :post, class: "btn btn-primary" %>
+        <% end %>
+      </div>
+      <div class="list-group">
+        <% group.lines.each do |line| %>
+          <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            <span>
+              <strong><%= line.display_name %></strong>
+              <small class="text-muted d-block">
+                <%= link_to line.order_request.display_title, orders_request_path(line.order_request) %> ·
+                <%= line.to_come_quantity %> of <%= line.quantity %> to come ·
+                <%= order_line_status_text(line) %>
+              </small>
+            </span>
+            <%= link_to "Receive", new_orders_request_line_delivery_path(line.order_request, line, from: "list", mine: mine),
+                  class: "btn btn-primary" %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

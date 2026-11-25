@@ -1,0 +1,7 @@
+<%# The request page's action row (spec §3.8): the viewer's one job, then
+    More. On a phone the requester's row on a draft, or one sent back, sits
+    in a bar fixed to the bottom. %>
+<% mine = order_request.requested_by_id == current_user.person&.id %>
+<% fixed = mine && (order_request.draft? || order_request.changes_requested?) %>
+<%= render "shared/action_row", actions: order_request_actions(order_request),
+      wrapper_class: [ "card-footer no-print", ("orders-bar-fixed" if fixed) ].compact.join(" ") %>

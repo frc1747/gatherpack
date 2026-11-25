@@ -1,6 +1,7 @@
 <% breadcrumb @ledger_entry %>
 
 <%= render partial: "ledger_entry_card", locals: {ledger_entry: @ledger_entry} %>
+<%= render "orders/ledger_entry_purchase", ledger_entry: @ledger_entry %>
 
 <% if @ledger_entry.linked_entries.any? %>
   <h2>Also Posted As</h2>

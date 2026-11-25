@@ -1,0 +1,26 @@
+<%= f.error_notification %>
+
+<div class="form-inputs">
+  <%= f.input :name %>
+  <% team_ids = Orders::Access.for(current_user.person).funding_manager_team_ids.to_a | [ f.object.team_id ].compact %>
+  <%= f.input :team_id, collection: Team.where(id: team_ids).order(:name), label: "Team", include_blank: f.object.team_id.nil?,
+    hint: "Requests from this team and the teams below it can use the source." %>
+  <%= f.input :kind, collection: FundingSource.kinds.keys.map { |kind| [ kind.humanize, kind ] }, include_blank: false %>
+  <%= f.input :amount, as: :currency, required: false, hint: "Leave blank for no limit." %>
+  <%= f.input :starts_on, as: :string, input_html: { type: "date" }, required: false, label: "Can be spent from" %>
+  <%= f.input :ends_on, as: :string, input_html: { type: "date" }, required: false, label: "Can be spent until" %>
+  <%= f.input :restriction, as: :text, required: false, hint: "For a restricted source: what the money may be spent on, in the giver's words." %>
+  <%= f.input :giver, required: false %>
+  <%= f.input :reference, required: false, hint: "Grant number, gift letter date." %>
+  <%= f.input :report_due_on, as: :string, input_html: { type: "date" }, required: false, label: "Report due" %>
+  <%= f.input :spent_outside, as: :currency, required: false, label: "Spent outside orders", hint: "Money from this source spent without an order, such as a registration fee." %>
+  <%= f.input :spent_outside_as_of, as: :string, input_html: { type: "date" }, required: false, label: "Spent outside orders, as of" %>
+  <%= f.input :documents, as: :file, required: false, input_html: { multiple: true }, hint: "Gift letters and agreements." %>
+  <% f.object.documents.each do |document| %>
+    <div class="form-check">
+      <%= check_box_tag "remove_document_ids[]", document.id, false, id: "remove_document_#{document.id}", class: "form-check-input" %>
+      <%= label_tag "remove_document_#{document.id}", "Remove #{document.filename}", class: "form-check-label" %>
+    </div>
+  <% end %>
+  <%= f.input :active, as: :boolean, label: "In use" %>
+</div>

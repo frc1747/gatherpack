@@ -1,0 +1,23 @@
+<% breadcrumb @order_request %>
+
+<div class="card">
+  <%= render "shared/page_header", title: @order_request.display_title,
+        summary: order_request_summary(@order_request),
+        state: state_line(order_request_state_text(@order_request)) %>
+  <div class="card-body">
+    <% if @order_request.purpose.present? %>
+      <p><%= @order_request.purpose %></p>
+    <% end %>
+
+    <%# Each slot renders only once the task that fills it adds its partial. %>
+    <%= order_request_slot :lines, order_request: @order_request %>
+    <%= order_request_slot :decision, order_request: @order_request %>
+    <%= order_request_slot :purchase, order_request: @order_request %>
+    <%= order_request_slot :receive, order_request: @order_request %>
+    <%= order_request_slot :timeline, order_request: @order_request %>
+  </div>
+  <%= render "orders/requests/actions", order_request: @order_request %>
+</div>
+<% if content_for?(:fixed_bottom_bar) %>
+  <div class="pb-5 mb-4"></div>
+<% end %>

@@ -1,0 +1,23 @@
+<%# A funding source's linked Budget in the funding picture (spec §6): its
+    amount and what the ledger shows spent against it, which includes money
+    spent outside orders. Nothing while Budgets is off. %>
+<% if Orders::LedgerRecording.budgets_on? %>
+  <% budget = funding_source.budget %>
+  <% if budget && policy(funding_source).numbers? %>
+    <dl class="row small mb-0 mt-1 border-top pt-1 orders-funding-budget">
+      <dt class="col-7">Budget</dt>
+      <dd class="col-5 text-end mb-0"><%= budget.identifier_name %></dd>
+      <% if budget.amount_cents %>
+        <dt class="col-7">Budget amount</dt>
+        <dd class="col-5 text-end mb-0"><%= Money.new(budget.amount_cents).format %></dd>
+      <% end %>
+      <dt class="col-7">Spent in the ledger</dt>
+      <dd class="col-5 text-end mb-0"><%= Money.new(-budget.actual_amount_cents).format %></dd>
+      <% if budget.amount_cents %>
+        <dt class="col-7">Left in the budget</dt>
+        <dd class="col-5 text-end mb-0 <%= 'text-danger fw-bold' if budget.remaining_amount_cents.negative? %>"><%= Money.new(budget.remaining_amount_cents).format %></dd>
+      <% end %>
+    </dl>
+  <% end %>
+  <%= render "orders/funding_sources/budget_link", funding_source: funding_source %>
+<% end %>

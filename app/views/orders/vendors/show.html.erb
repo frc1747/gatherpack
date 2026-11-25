@@ -1,0 +1,29 @@
+<% breadcrumb :orders_vendor, @vendor %>
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h1><%= @vendor.name %></h1>
+    <span>
+      <%= link_to "Edit", edit_orders_vendor_path(@vendor), class: "btn btn-warning" if policy(@vendor).update? %>
+      <%= button_to "Delete", orders_vendor_path(@vendor), method: :delete, class: "btn btn-danger d-inline", form: { class: "d-inline", data: { controller: "confirm-delete" } } if policy(@vendor).destroy? %>
+    </span>
+  </div>
+  <div class="card-body">
+    <dl>
+      <dt>Website</dt>
+      <dd><%= @vendor.website.presence || "None" %></dd>
+      <dt>Domains</dt>
+      <dd><%= @vendor.domains.to_sentence.presence || "None" %></dd>
+      <dt>Preferred</dt>
+      <dd><%= @vendor.preferred? ? "Yes" : "No" %></dd>
+      <dt>In use</dt>
+      <dd><%= @vendor.active? ? "Yes" : "No" %></dd>
+      <% if policy(@vendor).account_note? %>
+        <dt>Account note</dt>
+        <dd><%= simple_format(@vendor.account_note.presence || "None") %></dd>
+        <dt>Part number pattern</dt>
+        <dd><code><%= @vendor.part_number_pattern.presence || "None" %></code></dd>
+      <% end %>
+    </dl>
+  </div>
+</div>
