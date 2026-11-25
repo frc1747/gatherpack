@@ -47,37 +47,31 @@ class Accounting::CustomerLinks
   # order of the source's strategies. People already linked to the customer
   # or dismissed for it are left out.
   def suggestions_for(customer_records)
-    customer_records = customer_records.to_a
-    ids = customer_records.map(&:customer_external_id)
-    taken = pairs(links.where(customer_external_id: ids)) + pairs(dismissals.where(customer_external_id: ids))
-    matcher = Matcher.new(customer_records, strategies)
-
-    customer_records.to_h do |customer|
-      found = matcher.suggestions(customer).reject { |suggestion| taken.include?([ customer.customer_external_id, suggestion.person.id ]) }
-      [ customer.customer_external_id, found ]
-    end
+    suggest(customer_records, strategies)
   end
 
   # Links the customers whose reference matches exactly one person, unless
   # that pair was dismissed or is linked already. Returns the links made.
+  # Only the reference strategy runs, so the source's order of strategies
+  # doesn't matter and no other lookups are made.
   def link_exact_references(customer_records)
     return [] unless strategies.include?("reference")
 
-    suggestions_for(customer_records).flat_map do |customer_external_id, found|
-      exact = found.select { |suggestion| suggestion.strategy == "reference" && suggestion.exact }
-      exact.map { |suggestion| link!(customer_external_id, suggestion.person, source: "reference") }
+    suggest(customer_records, [ "reference" ]).flat_map do |customer_external_id, found|
+      found.select(&:exact).map { |suggestion| link!(customer_external_id, suggestion.person, source: "reference") }
     end
   end
 
   # Links every customer that has no link yet to the one person whose name
-  # matches it exactly. Returns the links made.
+  # matches it exactly. Returns the links made. Only the name strategy
+  # runs, so a person another strategy found first still counts.
   def link_exact_names(customer_records, created_by: nil)
     return [] unless strategies.include?("name")
 
     unlinked = customer_records.to_a.reject { |customer| covered?(customer.customer_external_id) }
-    suggestions_for(unlinked).filter_map do |customer_external_id, found|
-      names = found.select { |suggestion| suggestion.strategy == "name" }
-      link!(customer_external_id, names.first.person, source: "confirmed", created_by: created_by) if names.one?
+    suggest(unlinked, [ "name" ]).filter_map do |customer_external_id, found|
+      exact = found.select(&:exact)
+      link!(customer_external_id, exact.first.person, source: "confirmed", created_by: created_by) if exact.one?
     end
   end
 
@@ -163,6 +157,20 @@ class Accounting::CustomerLinks
   end
 
   private
+    # Suggestions from the given strategies for each customer record, by
+    # customer_external_id, without pairs already linked or dismissed.
+    def suggest(customer_records, chosen)
+      customer_records = customer_records.to_a
+      ids = customer_records.map(&:customer_external_id)
+      taken = pairs(links.where(customer_external_id: ids)) + pairs(dismissals.where(customer_external_id: ids))
+      matcher = Matcher.new(customer_records, chosen)
+
+      customer_records.to_h do |customer|
+        found = matcher.suggestions(customer).reject { |suggestion| taken.include?([ customer.customer_external_id, suggestion.person.id ]) }
+        [ customer.customer_external_id, found ]
+      end
+    end
+
     def pairs(relation)
       relation.pluck(:customer_external_id, :person_id).to_set
     end

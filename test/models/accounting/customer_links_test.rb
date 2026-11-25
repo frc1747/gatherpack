@@ -107,6 +107,15 @@ class Accounting::CustomerLinksTest < ActiveSupport::TestCase
     assert_not @links.covered?("2")
   end
 
+  test "an exact reference links automatically even when reference comes after name" do
+    @gateway.update!(match_strategies: "name reference")
+    customer = create_customer_record(@gateway, "1", name: "Nancy Davolio", reference: @nancy.neat_id)
+
+    made = Accounting::CustomerLinks.new(@gateway).link_exact_references([ customer ])
+
+    assert_equal [ [ "1", @nancy, "reference" ] ], made.map { |link| [ link.customer_external_id, link.person, link.source ] }
+  end
+
   test "references don't link when the reference strategy is off" do
     @gateway.update!(match_strategies: "name email")
     customer = create_customer_record(@gateway, "1", name: "Someone", reference: @nancy.neat_id)
@@ -182,6 +191,24 @@ class Accounting::CustomerLinksTest < ActiveSupport::TestCase
     made = @links.link_exact_names([ unique, twice ], created_by: @admin)
 
     assert_equal [ [ "1", @nancy, "confirmed", @admin ] ], made.map { |link| [ link.customer_external_id, link.person, link.source, link.created_by ] }
+  end
+
+  test "link all exact name matches still links when email comes before name and finds the same person" do
+    @gateway.update!(match_strategies: "email name")
+    customer = create_customer_record(@gateway, "1", name: "Nancy Davolio", email: "nancy.davolio@example.com")
+
+    made = Accounting::CustomerLinks.new(@gateway).link_exact_names([ customer ], created_by: @admin)
+
+    assert_equal [ [ "1", @nancy, "confirmed" ] ], made.map { |link| [ link.customer_external_id, link.person, link.source ] }
+  end
+
+  test "link all exact name matches skips a name two people share, even when one of them was dismissed" do
+    first = create_linkable_person("Robert", "King")
+    create_linkable_person("Robert", "King")
+    customer = create_customer_record(@gateway, "1", name: "Robert King")
+    @links.dismiss!("1", first)
+
+    assert_empty @links.link_exact_names([ customer ])
   end
 
   # -- Rollup --

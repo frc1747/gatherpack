@@ -129,17 +129,28 @@ class AccountingCustomersTest < ActionDispatch::IntegrationTest
     assert_empty @gateway.accounting_customer_dismissals
   end
 
-  test "the gateway page offers Customers to admins" do
+  test "the gateway page offers Customers to admins while accounting is on" do
     architect_admin = create_accounting_user("Architect", admin: true, architect: true)
 
     sign_in architect_admin
-    get gateway_path(@gateway)
+    with_accounting { get gateway_path(@gateway) }
     assert_select "a[href='#{accounting_connection_customers_path(@gateway)}']", text: "Customers"
+    with_accounting(false) { get gateway_path(@gateway) }
+    assert_select "a", text: "Customers", count: 0
     sign_out architect_admin
 
     sign_in @builder
-    get gateway_path(@gateway)
+    with_accounting { get gateway_path(@gateway) }
     assert_select "a", text: "Customers", count: 0
+  end
+
+  test "the customers page's breadcrumb leads to Setup, which admins can open" do
+    sign_in @admin
+
+    with_accounting { get accounting_connection_customers_path(@gateway) }
+
+    assert_select "a[href='#{setup_path}']", text: "Setup"
+    assert_select "a[href='#{gateway_path(@gateway)}']", count: 0
   end
 
   test "while the feature is off the customers pages and links refuse" do

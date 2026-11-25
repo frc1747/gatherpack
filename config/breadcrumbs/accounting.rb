@@ -13,9 +13,11 @@ crumb :accounting_record do |record|
   parent :accounting_records, record.gateway
 end
 
+# Under Setup, not the gateway page: the page is for admins, and the
+# gateway page is for architects.
 crumb :accounting_customers do |source|
-  link "Customers", accounting_connection_customers_path(source)
-  parent :"gateway/quickbooks_gateway", source
+  link "#{source.name} customers", accounting_connection_customers_path(source)
+  parent :setup
 end
 
 crumb :accounting_customer do |customer|
