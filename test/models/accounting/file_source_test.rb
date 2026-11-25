@@ -123,6 +123,13 @@ class Accounting::FileSourceTest < ActiveJob::TestCase
     assert_equal 0, records["charge"].sole["balance_cents"]
   end
 
+  test "395#7: a person id in any capitalisation links automatically" do
+    ward = create_linkable_person("Ben", "Ward")
+    apply("customer,role,number,total\n#{ward.neat_id.sub("per_", "Per_")},charge,1044,450\n")
+
+    assert_equal [ [ ward.neat_id, ward.id, "reference" ] ], @source.accounting_customer_links.pluck(:customer_external_id, :person_id, :source)
+  end
+
   test "applying a file copies its records, links person ids and account emails, and suggests names" do
     ward = create_linkable_person("Ben", "Ward")
     apply(file_fixture("accounting/dues.csv").read + "#{ward.neat_id},charge,1044,2026-09-01,,Dues,450,,,\n")
