@@ -38,6 +38,51 @@ class AccountingCustomersTest < ActionDispatch::IntegrationTest
     assert_match "Old customer", response.body
   end
 
+  test "a name and email match shows first and the other suggestions fold away, still working" do
+    laura = create_linkable_person("Laura", "Callahan")
+    anne = create_linkable_person("Anne", "Callahan")
+    parent = create_linkable_person("Robert", "Callahan", email: "robert.callahan@example.com")
+    add_guardian(parent, laura, by: @admin.person)
+    add_guardian(parent, anne, by: @admin.person)
+    customer = create_customer_record(@gateway, "80", name: "Laura Callahan", email: "robert.callahan@example.com")
+    row = "##{ActionView::RecordIdentifier.dom_id(customer)}"
+    sign_in @admin
+
+    with_accounting { get accounting_connection_customers_path(@gateway) }
+
+    assert_select row do
+      assert_select "ul > li", text: /Laura Callahan \(name and email match\)/
+      assert_select "details summary", text: "Other suggestions (2)"
+      assert_select "details li", text: /Robert Callahan \(email match\)/
+      assert_select "details li", text: /Anne Callahan \(ward of Robert Callahan \(email match\)\)/
+      assert_select "details form[action=?]", accounting_customer_links_path, count: 2
+      assert_select "details form[action=?]", accounting_customer_dismissals_path, count: 2
+    end
+
+    with_accounting do
+      get accounting_connection_customer_path(@gateway, customer)
+      assert_select "details summary", text: "Other suggestions (2)"
+
+      post accounting_customer_links_path, params: { gateway_id: @gateway.to_param, customer_id: customer.to_param, person_id: anne.to_param, suggested: "1" }
+      post accounting_customer_dismissals_path, params: { gateway_id: @gateway.to_param, customer_id: customer.to_param, person_id: parent.to_param }
+    end
+    assert_equal [ anne ], @gateway.accounting_customer_links.where(customer_external_id: "80").map(&:person)
+    assert @gateway.accounting_customer_dismissals.exists?(customer_external_id: "80", person: parent)
+  end
+
+  test "with no name and email match every suggestion shows as before" do
+    parent = create_linkable_person("Robert", "Callahan", email: "robert.callahan@example.com")
+    add_guardian(parent, create_linkable_person("Anne", "Callahan"), by: @admin.person)
+    create_customer_record(@gateway, "81", name: "Callahan family", email: "robert.callahan@example.com")
+    sign_in @admin
+
+    with_accounting { get accounting_connection_customers_path(@gateway) }
+
+    assert_select "details", count: 0
+    assert_match "Robert Callahan", response.body
+    assert_match "ward of Robert Callahan (email match)", response.body
+  end
+
   test "Link confirms a suggestion" do
     sign_in @admin
 

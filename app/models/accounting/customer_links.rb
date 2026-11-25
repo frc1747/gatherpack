@@ -8,7 +8,10 @@ class Accounting::CustomerLinks
   #              (anywhere in the text) or is an account email; linked
   #              automatically when exact and unique.
   #   name:      the customer's name is a person's name, ignoring case,
-  #              punctuation and accents, "Last, First" too.
+  #              punctuation and accents, "Last, First" too. Exact when it
+  #              is the name they go by (their display name) and nobody
+  #              else's; only their legal first and last name is a
+  #              "legal name match", suggested but never exact.
   #   email:     the customer's email is a person's account email; that
   #              person's wards are suggested too.
   STRATEGIES = %w[ reference name email ].freeze
@@ -18,8 +21,14 @@ class Accounting::CustomerLinks
   # the prefix and the neat-id characters (lowercase letters and digits).
   PERSON_ID_TOKEN = /(?<![a-z0-9_])per_[a-z0-9]+/
 
-  # A person a customer may be for, with the words saying why.
-  Suggestion = Data.define(:person, :strategy, :reason, :exact)
+  # A person a customer may be for, with the words saying why. Confirmed:
+  # an exact name match that the customer's email backs up too (the person
+  # owns the email or is a ward of whoever does).
+  Suggestion = Data.define(:person, :strategy, :reason, :exact, :confirmed) do
+    def initialize(person:, strategy:, reason:, exact:, confirmed: false)
+      super
+    end
+  end
 
   attr_reader :source
 
@@ -224,7 +233,8 @@ class Accounting::CustomerLinks
 
       def suggestions(customer)
         found = @strategies.flat_map { |strategy| send(strategy, customer) }
-        found.uniq { |suggestion| suggestion.person.id }
+        found = confirm_by_email(found)
+        found.sort_by.with_index { |suggestion, index| [ suggestion.confirmed ? 0 : 1, index ] }.uniq { |suggestion| suggestion.person.id }
       end
 
       private
@@ -246,7 +256,26 @@ class Accounting::CustomerLinks
         def name(customer)
           key = Accounting::CustomerLinks.comparable_name(customer.name)
           people = key.present? ? people_by_name.fetch(key, []) : []
-          people.map { |person| Suggestion.new(person: person, strategy: "name", reason: "name match", exact: people.one?) }
+          people.map do |person|
+            # Matching only the legal first and last name of someone who goes
+            # by another name could be anyone, such as a relative.
+            legal_only = legal_only_names.include?([ key, person.id ])
+            Suggestion.new(person: person, strategy: "name", reason: legal_only ? "legal name match" : "name match", exact: people.one? && !legal_only)
+          end
+        end
+
+        # Puts an exact name match first, as "name and email match", when
+        # the customer's email also points at that person or at their
+        # guardian. Only when both strategies ran.
+        def confirm_by_email(found)
+          emailed = found.select { |suggestion| suggestion.strategy == "email" }.map { |suggestion| suggestion.person.id }
+          return found if emailed.empty?
+
+          found.map do |suggestion|
+            next suggestion unless suggestion.strategy == "name" && suggestion.exact && emailed.include?(suggestion.person.id)
+
+            Suggestion.new(person: suggestion.person, strategy: "name", reason: "name and email match", exact: true, confirmed: true)
+          end
         end
 
         def email(customer)
@@ -275,15 +304,31 @@ class Accounting::CustomerLinks
         end
 
         # Every person by the forms of their name: first and last, and the
-        # name they go by.
+        # name they go by. A person with no preferred name has the same
+        # display name as their legal one (Person fills it in), so both keys
+        # are one and they stay exact.
         def people_by_name
-          @people_by_name ||= begin
-            index = Hash.new { |hash, key| hash[key] = [] }
-            Person.find_each do |person|
-              keys = [ "#{person.first_name} #{person.last_name}", person.display_name ].map { |text| Accounting::CustomerLinks.comparable_name(text) }
-              keys.compact_blank.uniq.each { |key| index[key] << person }
-            end
-            index
+          build_name_index
+          @people_by_name
+        end
+
+        # [key, person id] pairs where the key is the person's legal first
+        # and last name only, not the name they go by.
+        def legal_only_names
+          build_name_index
+          @legal_only_names
+        end
+
+        def build_name_index
+          return if @people_by_name
+
+          @people_by_name = Hash.new { |hash, key| hash[key] = [] }
+          @legal_only_names = Set.new
+          Person.find_each do |person|
+            legal = Accounting::CustomerLinks.comparable_name("#{person.first_name} #{person.last_name}")
+            goes_by = Accounting::CustomerLinks.comparable_name(person.display_name)
+            [ legal, goes_by ].compact_blank.uniq.each { |key| @people_by_name[key] << person }
+            @legal_only_names << [ legal, person.id ] if legal.present? && goes_by.present? && legal != goes_by
           end
         end
 
