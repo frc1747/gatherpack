@@ -111,6 +111,10 @@ module Accounting::Provider
   # e.g. { "Customer" => :customer, "Invoice" => :charge, "Payment" => :payment }
   def entity_types = raise NotImplementedError
 
+  # Which of those types are locations rather than categories (QuickBooks:
+  # Department), so screens list them apart.
+  def location_entity_types = []
+
   # Yields raw attribute hashes for every record of the type. Full sync (13.1)
   # marks anything not yielded as deleted.
   def each_record(entity_type) = raise NotImplementedError
@@ -286,7 +290,8 @@ Routes in `config/routes/accounting.rb` (§11.9):
 |---|---|
 | `GET /accounting/connections/:gateway_id/connect` | Architect only. Stores a random `state` with the gateway id in the session and redirects to Intuit. |
 | `GET /accounting/quickbooks/callback` | The one redirect URI. Checks `state`, exchanges the code, saves tokens and `realm_id`, fetches CompanyInfo for `company_name`, sets `connected`, queues a full sync. A different `realmId` on reconnect is refused: connect other books as a new gateway. |
-| `GET /accounting/connections/:gateway_id/disconnect` | Architect only. Revokes the token, deletes it, sets `disconnected`. Local records stay. Also Intuit's "Disconnect URL". |
+| `GET /accounting/connections/:gateway_id/disconnect` | Architect only. Also Intuit's "Disconnect URL". A one-step page, "Disconnect QuickBooks?" / "Records stay; reconnect any time.", with Cancel and **Disconnect**; the GET itself changes nothing, so a link from another site can't disconnect. |
+| `POST /accounting/connections/:gateway_id/disconnect` | Architect only. Revokes the token, deletes it, sets `disconnected`. Local records stay. |
 
 The person who clicks Connect is an architect and signs in to Intuit as a QuickBooks user who may authorize apps (normally its admin). When those are different people, the architect starts the flow at the QuickBooks admin's computer (§17).
 
@@ -351,7 +356,7 @@ For a group whose ledgers are its books. Settings (gateway edit page):
 | `ledger_team_ids` | "Which teams' ledgers" (tick boxes, any of) | blank = every team | Ledgers outside them are ignored. |
 | `charge_sign` | `negative`, `positive` | `negative` | `negative`: entries below zero are charges, above zero payments. `positive`: the reverse. |
 | `credit_tag_ids` | "Tags that mean a credit" | none | Payment-side entries with one of these tags are `credit` instead of `payment` (a scholarship, say). |
-| `new_ledger_team_id` | "Team for new ledgers" | blank | Billing's customer creation (§12.5) when the rule has no team. |
+| `new_ledger_team_id` | "Team for new ledgers" | blank | Where billing's customer creation (§12.5) puts a new ledger; when blank, the rule's team. |
 | `role_labels` | | Charge, Payment, Credit | Editable words for `public_label`. |
 
 `entity_types`: `{ "Ledger" => :customer, "LedgerTag" => :item, "LedgerEntry" => <by sign> }`.
@@ -362,7 +367,7 @@ Each ledger in the chosen teams is a customer (`name` = ledger name). Links come
 
 ### 5.3 Entries
 
-- Split parents are skipped; their children count. Entries with `failed: true` or `finalized: false` are skipped. That matches `Ledger#refresh_balance`, so a ledger's balance and the rules agree.
+- A split's children count; its parent counts only for the part its children don't cover yet (all of it right after Split adds two empty children), so the total always matches `Ledger#refresh_balance`. Entries with `failed: true` or `finalized: false` are skipped. That also matches `Ledger#refresh_balance`, so a ledger's balance and the rules agree.
 - Ledger tags are items: `item_ids` = the entry's tag ids, `lines` = one line with the entry's amount and its first tag. `name` on `item` rows is the tag name.
 - `txn_date` = the entry's `created_at` date. `due_on` is always blank: ledgers have no due dates, so rules on a ledger source rely on rule milestones (§8.3).
 - `description` = `remark` (admins only). `public_label` = "Charge · <first tag>", "Payment" or "Credit".
@@ -379,7 +384,7 @@ Why not the 15-minute job on `updated_at`: entries touch their ledger, but tag c
 
 `create_charge(line)`: a `LedgerEntry` on the person's linked ledger with `amount_cents` = −amount (`charge_sign: negative`) or +amount, `remark` = the run's memo, `created_by` = the person running the billing, the item tag, and `metadata: { "accounting_request_id" => line.request_id }`. Before creating, it looks for an entry with that request id and returns it if found.
 
-`create_customer(person, ...)`: a `Ledger` named after the person, in the rule's team when the run comes from a rule with a team, else in `new_ledger_team_id`; with neither, the line is skipped ("No team for a new ledger: set one on the ledger source"). Its `LedgerOwnership` owner is the person only. The link is made at once with `source: created`.
+`create_customer(person, ...)`: a `Ledger` named after the person, in `new_ledger_team_id` when it's set (it can be a team only admins and treasurers belong to, §5.6), else in the rule's team when the run comes from a rule with a team; with neither, the line is skipped ("No team for a new ledger: set one on the ledger source"). Its `LedgerOwnership` owner is the person only. The link is made at once with `source: created`.
 
 ### 5.6 Setup page copy
 
@@ -425,7 +430,7 @@ Upload shows a **preview**: rows to add, change and remove, and row errors (unkn
 
 Unique on `(gateway_id, customer_external_id, person_id)`. `include CanBeHooked`, `has_paper_trail`.
 
-Links are many-to-many: one customer for a family linked to each child; one person with several customers (re-created, or both customer and sub-customer). A person's records for a rule are all records whose customer is linked to them. With `customer_rollup: parent`, sub-customers of a linked customer count too.
+Links are many-to-many: one customer for a family linked to each child; one person with several customers (re-created, or both customer and sub-customer). A person's records for a rule are all records whose customer is linked to them. With `customer_rollup: parent`, sub-customers of a linked customer count too; the Customers page lists them under **Linked** as "Counted with <parent>", and they don't fire `accounting - customer unlinked`.
 
 ### 7.2 Suggestions
 
@@ -439,7 +444,7 @@ Computed when the page loads. Dismissed suggestions are kept in `accounting_cust
 
 ### 7.3 Customers page
 
-Gateway page → **Customers**, admins only. "Link each customer to the people it's for. Rules only see customers that are linked." Sections **Needs a link** (each unlinked active customer with suggestions, **Link** / **Not this person**, a person picker, and **Link all exact name matches**) and **Linked** (**Unlink**). Inactive customers behind "Show inactive". Each customer opens its page: linked people and its records, with "Open in <source>" links when the source has `:deep_links`.
+Gateway page → **Customers**, admins only. "Link each customer to the people it's for. Rules only see customers that are linked." Sections **Needs a link** (each unlinked active customer with suggestions, **Link** / **Not this person**, a person picker, and **Link all exact name matches**) and **Linked** (**Unlink**). Unlinking is remembered as a dismissal, whatever made the link, so an automatic link or suggestion doesn't come straight back; linking the same person by hand clears it. Inactive customers behind "Show inactive". Each customer opens its page: linked people and its records, with "Open in <source>" links when the source has `:deep_links`.
 
 ## 8. Rules
 
@@ -523,7 +528,7 @@ An admin can give one person their own milestones for a rule. `accounting_person
 
 `include CanBeHooked`, `has_paper_trail`. Any plan rows for a person replace all of the rule's milestones for that person; removing the last row returns them to the rule's.
 
-- **Visibility.** The plan's milestones (names, dates, amounts) show to the person, their guardians and admins, subject to the rule's `amount_permission` for amounts. Leaders and badge-grant holders see only the status, and the next-milestone line without dates or amounts ("On schedule"), because a plan can reveal hardship. Nobody but admins sees that a person is on a plan or the note.
+- **Visibility.** The plan's milestones (names, dates, amounts) show to the person, their guardians and admins, subject to the rule's `amount_permission` for amounts. On a rule with any payment plan, everyone but admins sees only the status for everyone on the rule ("On schedule" or "Overdue", no milestone names, dates or amounts), whether or not that person is on a plan, because a plan can reveal hardship and a plain line beside others' named milestones would give it away. The one exception: the person and their guardians still see the person's own milestone line and plan. Rules without plans show milestone names as usual. Nobody but admins sees that a person is on a plan or the note.
 - **Where.** Admins: the person's Account tab, on the rule's row, **Payment plan** (an edit page with milestone rows, Cancel, Save, and **Remove plan** under More).
 - **Rule page.** An admin-only **On a plan** filter and mark.
 - **Duplicate** (§11.3) never copies plans.
@@ -556,9 +561,13 @@ The form shows items, categories and locations as tick boxes by `name` from `ite
 
 `accounting_rule_actions`, prefix `ara`: `rule_id`, `action` (`badge`, `person_field`), `condition` (`{ "values": [...] }` or `{ "op":, "amount_cents": }` / `{ "op":, "count": }`; blank = always), `badge_id`, `person_field_id`, `write` (`label`, `value`, `amount`).
 
+One badge action per rule. Two turned-on rules can't fill in the same person field (saving names the other rule); the same badge on two rules is allowed, with a warning, and each rule takes back only what it gave.
+
+**Taking back.** Turning a rule off takes back what its actions gave, in a job that waits for any evaluation of that rule already running; results are kept, and turning it back on gives them again on the next evaluation. Deleting a rule (or its source) always takes them back. Either way, only the badge assignment a result records is removed, and a field is cleared only while it still holds the value the rule last wrote (recorded on the result) and no other turned-on rule fills that field for that person. While badges or person fields are off, those actions are skipped, not undone. Removing a badge action takes its badges back on the next run; removing a field action leaves the values it wrote.
+
 ### 9.1 Badge
 
-The person has the badge while the condition holds. The rule creates the assignment, records it in `badge_assignment_id`, and removes only that one. Hand-made assignments are never removed; a team badge skips non-members (noted in `details`).
+Only badges admins assign are offered. The person has the badge while the condition holds. The rule creates the assignment, records it in `badge_assignment_id`, and removes only that one. Hand-made assignments are never removed; a team badge skips non-members (noted in `details`).
 
 ### 9.2 Person field
 
@@ -618,7 +627,7 @@ Admins also see disabled rules, each source's connection state and last sync, th
 
 Header card: name, description, source, the same counts and totals as the list (plus unapplied credit total for admins), and the reminders line. Filter bar: value, team, and for admins **Unapplied credit** and **On a plan**. Table (people the viewer can see): name, team, value (colored), amount (if permitted), "changed on", "Open in <source>" for admins with `:deep_links`; Columns chooser, Print, Download CSV at the bar's right. The CSV for non-admins carries `public_label` text only.
 
-Action row: **Edit**, **Evaluate now**, **Bill people** (admins and `bill` grant holders; §12), then **More**: **Duplicate**, **Delete**.
+Action row: **Edit**, **Bill people** (admins and `bill` grant holders; §12), then **More**: **Evaluate now**, **Duplicate**, **Delete**.
 
 **Duplicate** sets up next season: the copy moves the years in its name on ("2026-27 Dues" → "2027-28 Dues"), moves date filters and milestone dates on a year, keeps filters, milestones, visibility, actions and reminder settings, starts disabled and opens on Edit. Results, payment plans, reminder history and billing runs are never copied.
 
@@ -663,6 +672,7 @@ namespace :accounting do
   get "quickbooks/callback", to: "quickbooks_connections#callback"
   resources :connections, only: [] do
     get :connect, :disconnect, on: :member, controller: "quickbooks_connections"
+    post :disconnect, on: :member, controller: "quickbooks_connections", action: :revoke
     post :sync, :full_sync, on: :member, controller: "syncs"
     resources :uploads, only: %i[ new create show ] do
       post :apply, on: :member
@@ -674,6 +684,7 @@ namespace :accounting do
   resources :customer_links, only: %i[ create destroy ] do
     post :confirm_all, on: :collection
   end
+  resources :customer_dismissals, only: :create   # Not this person
   resources :rules do
     post :evaluate, :duplicate, on: :member
     get :export, on: :member
@@ -681,7 +692,7 @@ namespace :accounting do
     resources :billing_runs, only: %i[ new create ]
   end
   resources :billing_runs, only: %i[ index new create show ] do
-    post :start, on: :member
+    post :retry_failed, on: :member   # saving a run starts it
     get :export, on: :member
   end
 end
@@ -728,7 +739,7 @@ Admins, from a rule or from Account Status. Holders of a rule badge grant with `
 
 `accounting_billing_lines`, prefix `abl`: `run_id`, `person_id`, `customer_external_id`, `amount_cents`, `status` (`pending`, `created`, `failed`, `skipped`, `exported`), `request_id` (uuid, set when the line is made), `external_id`, `error`, `sent_at`. Unique on `(run_id, person_id)`.
 
-Both `include CanBeHooked` and `has_paper_trail`.
+Runs `include CanBeHooked`; lines only fire the failed event (§14). Both have `has_paper_trail`.
 
 ### 12.4 Screen: Bill people
 
@@ -865,6 +876,7 @@ Manual, against the Intuit sandbox before production keys: connect, disconnect, 
 | File | Change |
 |---|---|
 | `db/schema.rb` | New tables and the version line (regenerated). |
+| `app/views/gateways/_form.html.erb` | 4 lines: for each field, render the fork partial `gateways/_field_input` when `@gateway.try(:field_input, field)` returns tick boxes or a choice; otherwise the unchanged input. Gives the ledger source's team and tag tick boxes and the QuickBooks "Let GatherPack create invoices" choice. `Gateway#field_input` comes from a concern included from the initializer. |
 
 Everything else is new files or seams: the initializer (feature registration, `HookCatalog`, `LedgerEntry.include(Accounting::LedgerChanges)` and the same for `LedgerTagging`, `LedgerOwnership`, `Ledger`), `config/routes/accounting.rb`, `config/recurring.d/accounting.yml`, models, jobs, controllers, policies, views, mailer, tests and fixtures. The connector branch edits one fork file, `app/views/family/_ward_card.html.erb` (one `render` line), as `feature/my-gatherpack-activity` does.
 
@@ -941,7 +953,7 @@ Each step ships with the feature off. A group turns it on after a comparison aga
 11. **Payment plans replace the rule's milestones entirely** for that person, and leaders see only the status (§8.4).
 12. **Family view on Home and the Family page** through a connector branch, using the existing section registry and one line in a fork view (§11.6).
 13. **Billing writes only creates**, idempotent by request id; QuickBooks writing is off until a setting is on; the client enforces the exact allowlist (§4.6, §12).
-14. **Ledger customer creation** goes in the rule's team, else the source's "Team for new ledgers", else skipped (§5.5).
+14. **Ledger customer creation** goes in the source's "Team for new ledgers" when set, else the rule's team, else skipped (§5.5).
 15. **Billing email** for a new customer is the first guardian's when the person has guardians (§12.5).
 16. **Already-billed people start unticked** in a billing preview (§12.4).
 17. **The `amount`, `count` and `custom` kinds stay.**

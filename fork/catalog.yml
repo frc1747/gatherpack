@@ -1159,14 +1159,41 @@ feature/email-log-orders:
       default: "off"
 
 feature/accounting:
-  title: Accounting
+  title: Account status from your books
   emoji: "💰"
   description: >-
     Shows each person's account status (what is owed, paid and left to pay)
-    from QuickBooks, ledgers or a spreadsheet. Payment plans, reminders and
-    billing come in later steps. It is being built step by step.
-  audience: Admins and treasurers
+    from QuickBooks, your ledgers or an uploaded spreadsheet, on an Account
+    Status page and an Account tab on each profile. Admins set rules that
+    give badges or fill in fields, set up payment plans and reminders, and
+    bill people from a rule.
+  audience: Admins, treasurers, members and guardians
   settings:
     - name: Accounting
       key: feature_accounting
+      default: "off"
+    - name: Account Reminders in the Daily Digest
+      key: accounting_reminders_in_digest
+      default: "off"
+    - name: Let GatherPack create invoices (on each QuickBooks source)
+      key: allow_create_charges
+      default: "off"
+    - name: QuickBooks source settings (company connection, what to copy, how to match customers, count sub-customers with their parent)
+      key: environment, synced_entities, match_strategies, match_field_path, customer_rollup
+      default: sandbox; customers, invoices, payments, credit memos and items; by name, then email; off
+    - name: Ledger source settings (which teams' ledgers, tags that mean a credit, team for new ledgers, which entries are charges)
+      key: ledger_team_ids, credit_tag_ids, new_ledger_team_id, charge_sign
+      default: every team; none; none; entries below zero
+
+feature/my-gatherpack-accounting:
+  title: Account status on your home page
+  emoji: "💰"
+  description: >-
+    Your account status, balance and Pay online button show on your home
+    page, and guardians see each child's on the Family page. An overdue
+    account counts as something that needs you.
+  audience: Members and guardians
+  settings:
+    - name: Accounting and My GatherPack both on
+      key: feature_accounting, feature_my_gatherpack
       default: "off"
