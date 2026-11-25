@@ -3,6 +3,7 @@ require_relative "../../support/accounting_rules_world"
 
 class Accounting::RuleActionsTest < ActiveSupport::TestCase
   include AccountingRulesWorld
+  include ActiveJob::TestHelper
 
   setup do
     @restore_settings = SettingsTestHelper.apply(feature_badges: "true", feature_person_fields: "true")
@@ -284,7 +285,7 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     evaluate(@rule)
     assert_equal [ @janet ], @paid_up.badge_assignments.map(&:person)
 
-    @rule.update!(enabled: false)
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) { @rule.update!(enabled: false) }
 
     assert_empty @paid_up.badge_assignments.reload
     assert_nil result_for(@rule, @janet).badge_assignment_id
@@ -297,11 +298,65 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     assert_equal [ "Paid", "Partly paid" ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
   end
 
+  test "turning a rule off queues the undo, which waits for an evaluation of the same rule" do
+    @rule.actions.create!(action: "badge", badge: @paid_up)
+    evaluate(@rule)
+
+    assert_enqueued_with(job: Accounting::UndoRuleActionsJob, args: [ @rule ]) { @rule.update!(enabled: false) }
+    assert_equal 2, @paid_up.badge_assignments.count, "nothing taken back until the job runs"
+    assert_equal Accounting::EvaluateRuleJob.new(@rule).concurrency_key, Accounting::UndoRuleActionsJob.new(@rule).concurrency_key
+
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob)
+    assert_empty @paid_up.badge_assignments.reload
+  end
+
+  test "an evaluation that finishes before the turn-off undo runs leaves no badges" do
+    @rule.actions.create!(action: "badge", badge: @paid_up)
+
+    evaluate(@rule)
+    assert_equal 2, @paid_up.badge_assignments.count
+    @rule.update!(enabled: false)
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob)
+
+    assert_empty @paid_up.badge_assignments.reload
+    assert_empty @rule.results.where.not(badge_assignment_id: nil)
+  end
+
+  test "a run turned off partway stops giving and fires no hooks, and the undo takes back what it gave" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label", position: 0)
+    @rule.actions.create!(action: "badge", badge: @paid_up, position: 1)
+    # The first person's field write turns the rule off, as an admin would mid-run.
+    Hook.create!(name: "Turn off", event: "person_fields - value changed",
+      code: "rule = AccountingRule.find('#{@rule.id}'); rule.update!(enabled: false) if rule.enabled?")
+    Hook.create!(name: "No changes", event: Accounting::Evaluation::EVENT, code: "raise 'a stopped run fires no result changed hooks'")
+
+    assert_empty evaluate(@rule)
+    assert_equal 1, @paid_up.badge_assignments.count, "the first person's actions ran; the run stopped before the second's"
+    assert_equal 1, [ @janet, @nancy ].count { |person| person.reload.field_value(field) }
+
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob)
+
+    assert_empty @paid_up.badge_assignments.reload
+    assert_equal [ nil, nil ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+  end
+
+  test "the undo does nothing when the rule was turned on again before it ran" do
+    @rule.actions.create!(action: "badge", badge: @paid_up)
+    evaluate(@rule)
+    @rule.update!(enabled: false)
+    @rule.update!(enabled: true)
+
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob)
+
+    assert_equal 2, @paid_up.badge_assignments.count
+  end
+
   test "deleting a turned-off rule has nothing left to take back" do
     field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
     @rule.actions.create!(action: "person_field", person_field: field, write: "label")
     evaluate(@rule)
-    @rule.update!(enabled: false)
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) { @rule.update!(enabled: false) }
     @nancy.set_field_value(field, "Waived")
 
     seen = capture("person_fields - value changed") { @rule.destroy! }
@@ -324,7 +379,7 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     add_charge("58", "I3", total: 40_000, balance: 0, txn_date: Date.new(2027, 9, 1))
     add_charge("60", "I4", total: 40_000, balance: 40_000, txn_date: Date.new(2027, 9, 1))
 
-    old.update!(enabled: false)
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) { old.update!(enabled: false) }
     assert_empty @paid_up.badge_assignments.reload, "last season's badges are taken back"
     assert copy.update(enabled: true), copy.errors.full_messages.to_sentence
     evaluate(copy)

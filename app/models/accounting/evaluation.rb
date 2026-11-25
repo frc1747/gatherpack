@@ -2,7 +2,9 @@
 # changed. A turned-off rule isn't worked out (a draft, such as a
 # Duplicate, mustn't fire hooks); its results are when it's turned on.
 # Turning a rule off takes back what its actions gave (AccountingRule), and
-# the next run after it's turned on gives it again.
+# the next run after it's turned on gives it again. A run checks the rule is
+# still on before each person's actions, and stops, firing no hooks, once
+# it's been turned off.
 # Each person's actions (Accounting::RuleActions) are applied after their
 # result is saved. A change of value or amount fires "accounting_rules -
 # result changed" with an AccountingRuleChange, after the results are saved
@@ -37,20 +39,21 @@ class Accounting::Evaluation
     now = Time.current
     unchanged = []
 
-    changes = people.find_each.filter_map do |person|
+    changes = []
+    people.find_each do |person|
       outcome = outcome_for(person)
       result = existing[person.id]
       if result && same?(result, outcome)
         unchanged << result.id
         result.person = person
-        @actions.apply(result)
-        next
+      else
+        result ||= rule.results.build(person: person)
+        change = save(result, outcome, now)
+        changes << change if change
       end
+      return [] unless still_enabled?
 
-      result ||= rule.results.build(person: person)
-      change = save(result, outcome, now)
       @actions.apply(result)
-      change
     end
     AccountingRuleResult.where(id: unchanged).update_all(evaluated_at: now) if unchanged.any?
     changes += remove_unqualified(person_ids)
@@ -61,6 +64,12 @@ class Accounting::Evaluation
   end
 
   private
+    # Turned off since the run started: Accounting::UndoRuleActionsJob takes
+    # back what the actions gave, so they mustn't give more.
+    def still_enabled?
+      AccountingRule.where(id: rule.id, enabled: true).exists?
+    end
+
     def same?(result, outcome)
       result.value == outcome.value && result.amount_cents == outcome.amount_cents &&
         (result.details || {}).except(Accounting::RuleActions::NOTES) == outcome.stored_details

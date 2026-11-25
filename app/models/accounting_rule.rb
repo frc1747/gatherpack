@@ -62,9 +62,10 @@ class AccountingRule < ApplicationRecord
   # Turning a rule off takes back the badges and field values its actions
   # gave (turning it on gives them again on the next evaluation), so a
   # turned-off rule, such as last season's after a Duplicate takes over,
-  # leaves nothing behind. Deleting a turned-on rule does the same before
-  # its results go; a turned-off one has nothing left to take back.
-  after_update :undo_actions, if: -> { saved_change_to_enabled?(from: true, to: false) }
+  # leaves nothing behind. That runs in Accounting::UndoRuleActionsJob, after
+  # any evaluation already running. Deleting a turned-on rule does the same
+  # before its results go; a turned-off one has nothing left to take back.
+  after_update_commit -> { Accounting::UndoRuleActionsJob.perform_later(self) }, if: -> { saved_change_to_enabled?(from: true, to: false) }
   before_destroy :undo_actions, prepend: true, if: :enabled_in_database
 
   validates :name, presence: true
@@ -246,11 +247,13 @@ class AccountingRule < ApplicationRecord
     end
   end
 
+  # Takes back the badges and field values the rule's actions gave.
+  def undo_actions
+    undo = Accounting::RuleActions.new(self)
+    results.includes(:person, :badge_assignment).find_each { |result| undo.undo(result) }
+  end
+
   private
-    def undo_actions
-      undo = Accounting::RuleActions.new(self)
-      results.includes(:person, :badge_assignment).find_each { |result| undo.undo(result) }
-    end
 
     # The people covered by grants whose badges the viewer holds.
     def granted_people(viewer, amounts: false)

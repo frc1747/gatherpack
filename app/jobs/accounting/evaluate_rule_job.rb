@@ -4,7 +4,10 @@
 class Accounting::EvaluateRuleJob < ApplicationJob
   queue_as :default
 
-  limits_concurrency to: 1, key: ->(rule, *) { rule.id }
+  # Shared with Accounting::UndoRuleActionsJob: one job per rule at a time.
+  CONCURRENCY_GROUP = "accounting_rule".freeze
+
+  limits_concurrency to: 1, key: ->(rule, *) { rule.id }, group: CONCURRENCY_GROUP
 
   discard_on ActiveJob::DeserializationError
 
