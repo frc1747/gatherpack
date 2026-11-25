@@ -125,6 +125,23 @@ class Gateway::LedgerSource < Gateway
     end
   end
 
+  # Queues an OwnerLinksJob for each ledger source, for the ledgers the
+  # people own. Called by Accounting::GuardianshipChanges.
+  def self.queue_relink(person_ids)
+    return unless Accounting.enabled?
+    return if person_ids.empty?
+
+    all.each { |source| Accounting::OwnerLinksJob.perform_later(source, person_ids) }
+  end
+
+  # Brings the owner links of the ledgers the people own up to date, and
+  # queues the rules for those ledgers' owners.
+  def relink_owners(person_ids)
+    owners = Accounting::Ledgers::OwnerLinks.new(self).reconcile_owned_by(person_ids)
+    Accounting::EvaluateRuleJob.for_source(self, owners)
+    owners
+  end
+
   def routes
     [ { name: "Records", path: Rails.application.routes.url_helpers.accounting_connection_records_path(self) } ]
   end
