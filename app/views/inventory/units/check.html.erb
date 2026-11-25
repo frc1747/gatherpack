@@ -1,0 +1,18 @@
+<% conditions = UnitCondition.for_check.to_a %>
+<% conditions << @unit.unit_condition if @unit.unit_condition && !conditions.include?(@unit.unit_condition) %>
+<%= render layout: "action", locals: { unit: @unit, title: "Check", submit: "Save check", url: check_inventory_unit_path(@unit),
+      multipart: true } do |form| %>
+  <%= render "inventory/units/condition_choices", conditions: conditions, selected: @unit.unit_condition,
+        style: "btn-outline-secondary", legend: "Condition" %>
+  <% @unit.item.reading_types.each do |type| %>
+    <div class="mb-3">
+      <%= label_tag "reading_#{type.id}", reading_heading(type), class: "form-label" %>
+      <%= number_field_tag "readings[#{type.id}]", nil, id: "reading_#{type.id}", step: "any", inputmode: "decimal",
+            class: "form-control form-control-lg" %>
+    </div>
+  <% end %>
+  <div class="mb-3">
+    <%= label_tag :photo, "Photo (optional)", class: "form-label" %>
+    <%= file_field_tag :photo, accept: "image/*", capture: "environment", class: "form-control" %>
+  </div>
+<% end %>
