@@ -1,0 +1,24 @@
+<%# One person's account status: each rule the viewer may see, and Pay online as the row's one button when they may pay. A ward is named "for <name>" on each rule's line, as other Home rows do, unless named: false (the Family page's card already names them). Pay online opens the outside payment page, so it isn't a tap-row action: phones keep its label and the rule links stay tappable. %>
+<% content_for :head, stylesheet_link_tag("my_gatherpack_accounting") unless @my_gatherpack_accounting_styles %>
+<% @my_gatherpack_accounting_styles = true %>
+<% ward = row.ward unless local_assigns[:named] == false %>
+<div class="mg-row" data-account-row="<%= row.person.id %>">
+  <span class="mg-row-icon"><%= i "file-invoice-dollar" %></span>
+  <div class="mg-row-body">
+    <% row.lines.each do |line| %>
+      <div class="mg-account-line" data-account-rule="<%= line.rule.id %>">
+        <div class="mg-row-title">
+          <%= link_to line.rule.name, person_accounting_path(row.person) %>
+          <% if ward %><span class="mg-row-ward">for <%= ward %></span><% end %>
+          <%= accounting_value_badge(line.rule, line.result.value) %>
+        </div>
+        <% if (detail = my_gatherpack_account_detail(line)).present? %>
+          <div class="mg-row-detail"><%= detail %></div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+  <% if row.pay_url %>
+    <%= link_to "Pay online", row.pay_url, class: "btn btn-primary mg-account-pay", target: "_blank", rel: "noopener" %>
+  <% end %>
+</div>
