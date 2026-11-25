@@ -1,0 +1,7 @@
+<%# A row's Adjust button, or why the viewer can't adjust it. %>
+<% adjustment_policy = policy(CommitmentAdjustment.new(commitment: @commitment, person: row.person)) %>
+<% if adjustment_policy.create? %>
+  <%= link_to "Adjust", new_commitment_commitment_adjustment_path(@commitment, person_id: row.person.id), class: "btn btn-sm btn-outline-secondary" %>
+<% else %>
+  <div class="small text-body-secondary text-wrap"><%= adjustment_policy.self_approval_reason %></div>
+<% end %>
