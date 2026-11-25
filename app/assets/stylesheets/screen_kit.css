@@ -1,0 +1,43 @@
+/*
+ * Screen standard: Cancel on built-in forms takes btn-secondary's colours, so
+ * it no longer shares Edit's yellow. Only linked while the feature is on
+ * (layouts/_screen_kit).
+ *
+ * Covered: a yellow link directly before a form's submit in its card footer,
+ * which is where built-in forms put Cancel. Other yellow links in a footer
+ * (Edit beside a search submit) keep their colour.
+ */
+
+main form .card-footer > a.btn-warning:has(+ [type=submit]) {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--bs-secondary);
+  --bs-btn-border-color: var(--bs-secondary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: color-mix(in srgb, var(--bs-secondary), black 15%);
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--bs-secondary), black 15%);
+  --bs-btn-focus-shadow-rgb: 130, 138, 145;
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: color-mix(in srgb, var(--bs-secondary), black 20%);
+  --bs-btn-active-border-color: color-mix(in srgb, var(--bs-secondary), black 20%);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--bs-secondary);
+  --bs-btn-disabled-border-color: var(--bs-secondary);
+}
+
+/*
+ * Menus on touch screens: every dropdown item is at least 44px tall (the
+ * minimum touch target), with a little more room around dividers. Keyed to
+ * the pointer, not the width, so a narrow desktop window keeps compact menus.
+ */
+@media (pointer: coarse) {
+  .dropdown-menu .dropdown-item {
+    padding-block: .75rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .dropdown-menu .dropdown-divider {
+    margin-block: .75rem;
+  }
+}
