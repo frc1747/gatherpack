@@ -176,6 +176,23 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_empty rule.results
   end
 
+  test "393#7: roles a rule's filter names, and charges a paid amount with items reads, must be copied too" do
+    accounting_source.update!(synced_entities: "Customer Invoice Payment CreditMemo Item")
+    receipts = create_rule("Receipts", kind: "count", filters: { "roles" => [ "receipt" ] })
+    receipt_total = create_rule("Receipt total", kind: "amount", measure: "invoiced", filters: { "roles" => [ "receipt" ] })
+    add_record("58", "receipt", "R1", total_cents: 5_000)
+
+    assert_equal [ "receipt" ], receipts.missing_roles
+    assert_equal [ "receipt" ], receipt_total.missing_roles
+    assert_empty evaluate(receipts)
+    assert_empty receipts.results
+    assert_empty create_rule("Everything", kind: "count").missing_roles
+
+    accounting_source.update!(synced_entities: "Customer Payment")
+    dues_paid = create_rule("Dues paid", kind: "amount", measure: "paid", filters: { "items" => [ "dues" ] })
+    assert_equal [ "charge" ], dues_paid.missing_roles
+  end
+
   private
     # A payment or credit applied to a charge, which lowers the charge's
     # balance as the source would.

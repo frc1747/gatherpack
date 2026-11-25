@@ -159,13 +159,27 @@ class AccountingRule < ApplicationRecord
     missing_roles.empty?
   end
 
-  # The roles the kind needs at least one of, as its source must copy them.
+  # The roles the source must copy for the rule to be worked out: the ones
+  # its filter names that the kind reads, else the ones the kind can't do
+  # without (a paid amount matched by items, categories or locations reads
+  # charges too).
   def needed_roles
+    return filter_roles & read_roles if filter_roles.any?
+
     case kind
     when "balance" then [ "charge" ]
-    when "amount" then measure == "paid" ? [ "payment" ] : [ "charge" ]
+    when "amount" then measure == "paid" ? [ "payment", *("charge" if Accounting::RecordFilter.new(filters).lines?) ] : [ "charge" ]
     else []
-    end.reject { |role| filter_roles.any? && filter_roles.exclude?(role) }
+    end
+  end
+
+  # Every role the kind reads.
+  def read_roles
+    case kind
+    when "balance" then %w[ charge ]
+    when "amount" then measure == "paid" ? %w[ payment receipt refund charge ] : %w[ charge receipt ]
+    else Accounting::Kinds::Count::ROLES
+    end
   end
 
   def filter_roles
