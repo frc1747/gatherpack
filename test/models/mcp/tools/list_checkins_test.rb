@@ -36,8 +36,8 @@ class Mcp::Tools::ListCheckinsTest < ActiveSupport::TestCase
     assert_nil list(:alpha_member, :ward).value["items"].first["checkin_id"]
   end
 
-  test "a team manager sees check-ins at events they can see, not team-less ones" do
-    assert_equal [ "Alpha Meeting" ], event_names(list(:alpha_manager, :alpha_member))
+  test "a team manager sees check-ins at events they can see, team-less ones included" do
+    assert_equal [ "Alpha Meeting", "Open Day" ], event_names(list(:alpha_manager, :alpha_member)).sort
   end
 
   test "someone on another team doesn't find the person" do

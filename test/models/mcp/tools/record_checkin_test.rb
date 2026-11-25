@@ -50,8 +50,8 @@ class Mcp::Tools::RecordCheckinTest < ActionDispatch::IntegrationTest
     assert_refused("Not found", Checkin) { check_in(:beta_member, :alpha_member, @beta_event) }
   end
 
-  test "non-admins can't reach a team-less event" do
-    assert_refused("Not found", Checkin) { check_in(:alpha_manager, :alpha_manager, @open_event) }
+  test "a team-less event is for everyone, so a member checks themselves in to it" do
+    assert_nil check_in(:alpha_member, :alpha_member, @open_event).error
   end
 
   test "a guardian can't reach the event or their ward" do

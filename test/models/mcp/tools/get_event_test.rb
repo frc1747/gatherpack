@@ -34,9 +34,10 @@ class Mcp::Tools::GetEventTest < ActiveSupport::TestCase
     assert_equal "Alpha Meeting", get(:alpha_manager, @alpha_event).value["name"]
   end
 
-  test "a team-less event is for admins only" do
+  test "a team-less event is for everyone" do
     assert_equal "Open Day", get(:admin, @open_event).value["name"]
-    assert_equal "Not found", get(:alpha_manager, @open_event).error
+    assert_equal "Open Day", get(:alpha_manager, @open_event).value["name"]
+    assert_equal "Open Day", get(:guardian, @open_event).value["name"]
   end
 
   test "a member of another team doesn't find the event" do
