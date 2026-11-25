@@ -444,7 +444,17 @@ Computed when the page loads. Dismissed suggestions are kept in `accounting_cust
 
 ### 7.3 Customers page
 
-Gateway page → **Customers**, admins only. "Link each customer to the people it's for. Rules only see customers that are linked." Sections **Needs a link** (each unlinked active customer with suggestions, **Link** / **Not this person**, a person picker, and **Link all exact name matches**) and **Linked** (**Unlink**). Unlinking is remembered as a dismissal, whatever made the link, so an automatic link or suggestion doesn't come straight back; linking the same person by hand clears it. Inactive customers behind "Show inactive". Each customer opens its page: linked people and its records, with "Open in <source>" links when the source has `:deep_links`.
+Gateway page → **Customers**, admins and holders of the customer matching badge (§7.4). "Link each customer to the people it's for. Rules only see customers that are linked." Sections **Needs a link** (each unlinked active customer with suggestions, **Link** / **Not this person**, a person picker, and **Link all exact name matches**) and **Linked** (**Unlink**). Unlinking is remembered as a dismissal, whatever made the link, so an automatic link or suggestion doesn't come straight back; linking the same person by hand clears it. Inactive customers behind "Show inactive". Each customer opens its page: linked people and its records, with "Open in <source>" links when the source has `:deep_links` (admins only).
+
+### 7.4 Customer matching badge
+
+Setting `accounting_customer_matching_badge` (section Account Status, registered by the accounting initializer): the name of a badge only admins assign. Blank means admins only, so there is no flag beyond `feature_accounting`. It follows the forms creator badge: the name is looked up among admin-assigned badges (`Badge.added_by_admin`), and only while Badges are on, so a badge members can assign themselves, an unknown name, or Badges being off gives holders nothing.
+
+Holders may open each source's Customers page, a customer's page and candidates, and **Link**, **Unlink**, **Not this person** and **Link all exact name matches**: `Accounting::Access.customer_matcher?(user)` backs `Accounting::SourcePolicy#customers?` and `AccountingCustomerLinkPolicy` (create, destroy, confirm_all, scope). They get nothing else: not connect, disconnect, sync, upload, Records, the gateway pages, rules, payment plans or billing. Admins are unchanged.
+
+What a holder sees on a customer's page: the customer's name, email, reference, parent and sub-customers, linked people and suggestions, and the customer's records with their public label, date, total and balance (matching needs a person's name, email and the bills they're for). Admin-only fields stay admin-only (§3.4, §11.8): no "Open in <source>" links (`external_url`), no memos (`description`), and record names are plain text rather than links to the Records pages. A link made by a holder records them as `created_by`.
+
+Navigation: the Account Status sidebar item shows to holders, and its page lists **Sources** with a **Customers** button per source (no Records button, no sync state, no rules unless a badge grant shows them some). Holders reach Customers there without the gateway page, which stays for architects.
 
 ## 8. Rules
 
@@ -943,7 +953,7 @@ Each step ships with the feature off. A group turns it on after a comparison aga
 1. **Layers.** Sources and rules are separate; rules read only neutral columns. A test enforces it (§3.1, §15).
 2. **Neutral columns on `accounting_records`**, not a sibling table: one-to-one, written together, read by every query (§3.4).
 3. **Names in the UI.** "Account Status" for the nav link, "rules" for the questions, "Account" for the profile tab. ("Checks" reads as paper checks on a finance screen.)
-4. **Who manages sources, links and rules:** admins (connecting QuickBooks: architects). Treasurers who aren't admins get a badge grant with `amounts`, and `bill` to bill.
+4. **Who manages sources, links and rules:** admins (connecting QuickBooks: architects). Treasurers who aren't admins get a badge grant with `amounts`, and `bill` to bill. A treasurer who isn't an admin can also match customers through the customer matching badge (§7.4).
 5. **Partial payments** are configuration: milestones, plus whatever tests the result.
 6. **Who clicks Connect:** an architect, at the QuickBooks admin's browser when they're different people.
 7. **Ledger source keeps current by `after_commit` from an included concern**, with a nightly re-read; no upstream file edited (§5.4).
