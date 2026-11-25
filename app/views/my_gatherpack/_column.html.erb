@@ -1,0 +1,25 @@
+<%# One column of the home page: its rows as a single list, then its other sections. A link keeps the section on the page with no rows. %>
+<% rows = my_gatherpack_rows(column) %>
+<% link = local_assigns[:link] %>
+<% if rows.any? || link %>
+  <section class="mg-section" data-home-column="<%= column %>">
+    <% if title %>
+      <div class="mg-heading-row">
+        <h2 class="mg-heading"><%= title %><% if local_assigns[:count] %><span class="d-md-none"> · <%= rows.size %></span><% end %></h2>
+        <%= link %>
+      </div>
+    <% end %>
+    <% if rows.any? %>
+      <div class="card mg-list">
+        <% rows.each_with_index do |(section, item), index| %>
+          <%= render section.partial, item: item, first: index.zero? %>
+        <% end %>
+      </div>
+    <% else %>
+      <p class="text-muted mb-0">Nothing coming up.</p>
+    <% end %>
+  </section>
+<% end %>
+<% my_gatherpack_blocks(column).each do |block| %>
+  <%= block %>
+<% end %>

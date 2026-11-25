@@ -1,0 +1,82 @@
+<%# The checklist's parts, each its own record with its own controls, below the basics on the Edit page. %>
+<div class="card mt-3" id="items">
+  <div class="card-header"><h2 class="h4 mb-0">Items</h2></div>
+  <div class="card-body">
+    <p class="small text-body-secondary">Everyone must finish every item that counts. A group needs any one of its items.</p>
+    <%= render "checklists/item_list", checklist: checklist, items: checklist.top_level_items.includes(children: :children) %>
+    <%= render "checklists/add_item_menu", checklist: checklist, parent: nil %>
+  </div>
+</div>
+
+<div class="card mt-3" id="covers">
+  <div class="card-header"><h2 class="h4 mb-0">Who it covers</h2></div>
+  <div class="card-body">
+    <% rules = checklist.population_rules.includes(:team, :badge, :person) %>
+    <% if rules.empty? %>
+      <p class="small">Everyone in <%= checklist.team.name %> and the teams below it.</p>
+    <% end %>
+    <ul class="list-unstyled">
+      <% rules.each do |rule| %>
+        <li class="d-flex justify-content-between">
+          <span><%= rule.description %></span>
+          <%= button_to "Remove", checklist_checklist_rule_path(checklist, rule), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
+        </li>
+      <% end %>
+    </ul>
+    <div class="col-lg-7">
+      <%= render "checklists/rule_form", checklist: checklist, item: nil, preview_url: preview_checklist_path(checklist) %>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3" id="access">
+  <div class="card-header"><h2 class="h4 mb-0">Who else can see everyone's results</h2></div>
+  <div class="card-body">
+    <p class="small text-body-secondary">Holders of a badge only admins give, or members of a team, see the overall and the items you pick for everyone it covers.</p>
+    <ul class="list-unstyled">
+      <% checklist.checklist_grants.includes(:badge, :team).each do |grant| %>
+        <li class="d-flex justify-content-between">
+          <span>
+            <%= grant.holder_name %>: overall<%= ", #{grant.items.pluck(:label).to_sentence}" if grant.item_ids.any? %>
+            (<%= grant.access_full? ? "full" : "status only" %>)
+          </span>
+          <%= button_to "Remove", checklist_checklist_grant_path(checklist, grant), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
+        </li>
+      <% end %>
+    </ul>
+    <%= form_with model: [ checklist, ChecklistGrant.new ], url: checklist_checklist_grants_path(checklist), class: "col-lg-7" do |f| %>
+      <div class="row g-2">
+        <div class="col-md-6"><%= f.select :badge_id, Badge.added_by_admin.order(:name).pluck(:name, :id), { include_blank: "Badge…" }, class: "form-select form-select-sm" %></div>
+        <div class="col-md-6"><%= f.select :team_id, Team.where(id: Checklists.team_subtree_ids(checklist.team_id)).order(:name).pluck(:name, :id), { include_blank: "or team…" }, class: "form-select form-select-sm" %></div>
+        <div class="col-md-8"><%= f.select :item_ids, checklist.checklist_items.order(:position).pluck(:label, :id), {}, multiple: true, class: "form-select form-select-sm", "aria-label": "Items" %></div>
+        <div class="col-md-4"><%= f.select :access, [ [ "Status only", "status" ], [ "Full", "full" ] ], {}, class: "form-select form-select-sm" %></div>
+      </div>
+      <%= f.submit "Give access", class: "btn btn-sm btn-primary mt-2" %>
+    <% end %>
+  </div>
+</div>
+
+<div class="card mt-3" id="organizers">
+  <div class="card-header"><h2 class="h4 mb-0">Organizers</h2></div>
+  <div class="card-body">
+    <ul class="list-unstyled">
+      <% checklist.checklist_organizers.includes(:person).each do |organizer| %>
+        <li class="d-flex justify-content-between">
+          <span><%= organizer.person.display_name %></span>
+          <%= button_to "Remove", checklist_checklist_organizer_path(checklist, organizer), method: :delete, class: "btn btn-link btn-sm p-0", form_class: "d-inline" %>
+        </li>
+      <% end %>
+    </ul>
+    <%= form_with model: [ checklist, ChecklistOrganizer.new ], url: checklist_checklist_organizers_path(checklist), class: "d-flex gap-2 col-lg-7" do |f| %>
+      <%= f.select :person_id, Person.where(id: Membership.where(team_id: Checklists.team_subtree_ids(checklist.team_id)).select(:person_id)).order(:last_name, :first_name).pluck(:display_name, :id),
+        { include_blank: "Person…" }, class: "form-select form-select-sm" %>
+      <%= f.submit "Add", class: "btn btn-sm btn-primary" %>
+    <% end %>
+  </div>
+</div>
+
+<% if policy(checklist).destroy? %>
+  <div class="mt-3">
+    <%= button_to "Delete checklist", checklist_path(checklist), method: :delete, class: "btn btn-sm btn-outline-danger", data: { turbo_confirm: "Delete #{checklist.title} and all its results?" } %>
+  </div>
+<% end %>
