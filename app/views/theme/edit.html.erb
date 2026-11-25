@@ -1,5 +1,11 @@
 <% breadcrumb :edit_theme %>
 
+<% unless ModernSkin.active?(controller) %>
+  <div class="mb-3">
+    <%= button_to "Preview the new look", skin_preview_path, data: { turbo: false }, class: "btn btn-outline-primary" %>
+  </div>
+<% end %>
+
 <%= simple_form_for @theme, url: theme_path, method: :patch, html: { multipart: true } do |f| %>
   <%= f.error_notification %>
 

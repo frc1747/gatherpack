@@ -1,3 +1,16 @@
+<% if ModernSkin.active?(controller) %>
+  <%= stylesheet_link_tag "skin", "data-turbo-track": "reload" %>
+  <%= tag.meta name: "gp-color-mode", content: color_mode_for_page || "auto" %>
+  <%# Prevents a flash on a full load only. On Turbo visits color_mode_controller.js applies the meta. %>
+  <%= javascript_tag nonce: true do %>
+    (function () {
+      if (document.documentElement.hasAttribute("data-bs-theme")) return;
+      var saved = <%= raw json_escape(color_mode_for_page.to_json) %>;
+      var mode = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-bs-theme", mode);
+    })();
+  <% end %>
+<% end %>
 <% theme = Theme.instance %>
 <% if theme.persisted? %>
   <% if theme.css_variables.present? %>

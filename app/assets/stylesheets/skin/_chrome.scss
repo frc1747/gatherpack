@@ -1,0 +1,99 @@
+// .bg-dark reads --pair-b-bg in the application stylesheet (with !important),
+// and .text-white reads --bs-white-rgb, so the navbar redefines both.
+header.navbar {
+  --pair-b-bg: var(--gp-surface);
+  --pair-b-fg: var(--gp-text);
+  --bs-white-rgb: var(--gp-text-rgb);
+  border-bottom: 1px solid var(--gp-border);
+
+  .navbar-brand {
+    color: var(--gp-text);
+    font-weight: 600;
+  }
+
+  .form-control {
+    background-color: var(--gp-raised);
+    border-color: transparent;
+    color: var(--gp-text);
+  }
+
+  // !important: beats Bootstrap's .text-white-50, a literal color.
+  .text-white-50 {
+    color: var(--gp-muted) !important;
+  }
+}
+
+// The My GatherPack sidebar brand has no class of its own, only the data hook.
+.navbar-brand img,
+[data-site-brand] img {
+  background-color: var(--gp-logo-tile);
+  border-radius: var(--gp-radius-sm);
+  padding: 2px;
+}
+
+.navbar-toggler > .dropdown-menu.show {
+  background-color: var(--gp-surface);
+  border-color: var(--gp-border);
+}
+
+.sidebar {
+  --bs-offcanvas-bg: var(--gp-surface);
+  --bs-offcanvas-color: var(--gp-text);
+}
+
+.sidebar, .sidebar .offcanvas-md, .sidebar .offcanvas-body {
+  background-color: var(--gp-surface);
+}
+
+.sidebar .nav div.nav-item a {
+  color: var(--gp-text-soft);
+  font-weight: 450;
+  border-radius: 7px;
+
+  &:hover {
+    background-color: var(--gp-raised);
+  }
+}
+
+.sidebar .nav h6 {
+  color: var(--gp-muted);
+  font-family: var(--gp-font);
+}
+
+.sidebar hr {
+  border-color: var(--gp-border);
+  opacity: 1;
+}
+
+.color-mode .btn.active {
+  --bs-btn-active-bg: var(--gp-brand-soft);
+  --bs-btn-active-border-color: var(--gp-brand);
+  --bs-btn-active-color: var(--gp-text);
+}
+
+.skin-preview-note {
+  color: var(--gp-muted);
+}
+
+.breadcrumb-container {
+  background-color: var(--gp-surface);
+}
+
+.breadcrumb {
+  color: var(--gp-muted);
+}
+
+@media (max-width: 767.98px) {
+  .breadcrumb-container {
+    display: none;
+  }
+}
+
+.footer-ad {
+  background-color: transparent;
+  color: var(--gp-muted);
+
+  a {
+    color: var(--gp-muted);
+  }
+}
