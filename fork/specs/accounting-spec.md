@@ -253,10 +253,10 @@ class Gateway::QuickbooksGateway < Gateway
   Gateway.register(self, :accounting)
   include Accounting::Provider
 
-  store_accessor :secrets, :client_secret, :webhook_verifier_token
+  store_accessor :secrets, :client_secret, :webhook_verifier_token, :realm_id, :company_name
   store_accessor :configuration, :client_id, :environment, :synced_entities, :customer_rollup,
                  :match_strategies, :match_field_path, :allow_create_charges, :role_labels
-  store_accessor :configuration, :realm_id, :company_name, :connection_status, :last_change_check_at,
+  store_accessor :configuration, :connection_status, :last_change_check_at,
                  :last_full_sync_at, :last_error, :calls_this_month
 
   def fields
@@ -279,7 +279,8 @@ end
 | `match_field_path` | path in a Customer record, e.g. `Notes` | blank | Filled into `reference` by `normalize`, whole. The id is found in the text by the strategy (§7.5), not here. |
 | `allow_create_charges` | "Let GatherPack create invoices" | off | §4.6. |
 | `change_check` | "Check for changes": `15m` (Every 15 minutes), `hourly` (Every hour), `twice_daily` (Twice a day, 6 am and 6 pm), `daily` (Once a day, 6 am), `manual` (Only when someone clicks Sync now) | `15m` | How often the changes job runs for this connection (§13.2). Generic in `Accounting::Provider` for any source with `:change_feed`; the form select comes from `field_input`. Validated against the five words (blank means the default). Times are in the site's time zone. |
-| `realm_id`, `company_name`, `connection_status`, `last_*`, `calls_this_month` | set by the system | | `connection_status`: `not_connected`, `connected`, `needs_reconnect`, `disconnected`. |
+| `realm_id`, `company_name` | set by the system, kept in `secrets` | | Encrypted and out of the audit log (§4.7). |
+| `connection_status`, `last_*`, `calls_this_month` | set by the system | | `connection_status`: `not_connected`, `connected`, `needs_reconnect`, `disconnected`. |
 
 `routes`: **Connect to QuickBooks** (or **Reconnect**), **Sync now**, **Copy everything again**, **Customers**, **Records**, **Disconnect**. `finish_setup` does nothing (connecting needs a person at Intuit's sign-in page).
 
@@ -345,6 +346,29 @@ The scope lets an app write anything, so the limits are ours, enforced in code:
 - The three create/send calls also raise unless `allow_create_charges` is on.
 - No code path records a payment or touches an existing record.
 - The gateway page and Connect button say: "GatherPack reads your QuickBooks records. It never changes, voids or deletes anything and never records payments. With 'Let GatherPack create invoices' on, it can also create new invoices and customers, and email the invoices it created." With the setting off, the second sentence reads "Turn on 'Let GatherPack create invoices' to bill people from GatherPack."
+
+### 4.7 Security and logging
+
+Intuit's security requirements say: do not log any user's credentials or QuickBooks data; encrypt and store the refresh token and realm id in persistent memory; do not expose Intuit tokens or customer-identifying information within the app or to other parties. How each is met:
+
+| Intuit's requirement | What GatherPack does |
+|---|---|
+| Tokens encrypted | `accounting_credentials` encrypts both tokens (§4.4). The client secret and webhook verifier token are in the gateway's encrypted `secrets`. The keys come from Rails' encryption configuration (environment or credentials), never from the database. |
+| Realm id (and company name) encrypted | `realm_id` and `company_name` are `secrets` of the gateway (`store_accessor :secrets`), so they are encrypted at rest and skipped by the audit log (`has_paper_trail skip: [:secrets]`). `record_state!` writes them straight to the row. Webhook checks and the API paths read the same accessor. |
+| No credentials or QuickBooks data in logs | See below. |
+| Nothing exposed to other parties | The company name appears only on the gateway and disconnect pages, which are architects only. Tokens are never rendered. |
+
+**Not logged or stored where logs go**
+
+- **Request log.** `config/initializers/accounting.rb` adds `realmId`, `intuitaccountid`, `intuitentityid` and the exact names `state` and `code` to `filter_parameters`, so the sign-in redirect's company id, state and code and every field of a change notification's JSON array show as `[FILTERED]`. The callback answers with a redirect, so no page carries them.
+- **Job log.** Every accounting job that takes a gateway, record id, entity name or rule sets `self.log_arguments = false`, and so does `ProcessGatewayWebhookJob` (its argument is the raw notification body). Solid Queue still holds a job's arguments in its own table while it is queued or failed; that is the database, not a log.
+- **Errors.** What is kept from a QuickBooks refusal (the gateway's `last_error`, billing lines' `error`, exceptions that reach Solid Queue's failed executions and the logs) is the fault's code and short Message, plus Intuit's `intuit_tid`: "QuickBooks refused creating the customer (6240 Duplicate Name Exists Error, intuit_tid 1234-abcd)". The fault's Detail is dropped, because it can repeat what was sent, such as a customer's name. The `intuit_tid` stays: Intuit asks for it for support, and it says nothing about the data. Token endpoint refusals keep only Intuit's error word (`invalid_grant`).
+- **Transport.** It never logs a request or response body.
+- **Audit log.** Gateways are audited, with `secrets` skipped (so no realm id, company name or token). `AccountingRecord`, `AccountingCredential` and the sent-email log keep no QuickBooks data in the audit log or bodies. System state is written with `update_all`, which writes no audit row.
+
+**Existing audit rows.** Before the realm id and company name moved into `secrets`, editing a QuickBooks gateway wrote them into its audit log rows (`object`, `object_changes`). The versions migration `ScrubQuickbooksRealmFromAuditLogs` removes those two keys, and only those two, from gateway rows, leaving the rest of the history. It can't be undone (the values are gone from the log; the gateways keep theirs), so its `down` does nothing. The primary migration `MoveQuickbooksRealmIntoSecrets` moves each source's two values into `secrets` (and back on `down`), so a connected source keeps working without reconnecting. A source whose secrets can't be decrypted is skipped with a message and must be connected again.
+
+**Still shown on screen** (not logged): the company name on the gateway and disconnect pages, and customer names and amounts on Account Status, as before.
 
 ## 5. Ledger source
 
@@ -877,6 +901,7 @@ No WebMock. `Accounting::Quickbooks::Client` takes a transport; tests pass a fak
 - **Provider contract.** `Accounting::ProviderContract`, included in each source's test: fixtures normalize to the expected columns; `public_label` never contains a description; undeclared capabilities raise; `create_charge` twice with one request id makes one charge.
 - **Layering.** No QuickBooks field name appears outside `app/models/accounting/quickbooks/` and `app/models/gateway/quickbooks_gateway.rb`; rule code never reads `data` except in `custom`.
 - **QuickBooks client:** GET to the API host allowed; POST create invoice and customer allowed only with no `Id`/`SyncToken`/`operation` and with a `requestid`; send allowed only for an invoice a billing line created; token and revoke allowed; every other method, path or body raises; create/send raise with `allow_create_charges` off; refresh near expiry; rotated refresh token saved; concurrent refreshes make one call; a refused refresh sets `needs_reconnect`.
+- **Security and logging:** the callback's `code`, `state` and `realmId` and a notification's account and entity ids are filtered from the request log; the realm id and company name are encrypted at rest and absent from audit rows after an edit; both migrations move or scrub the two keys and nothing else; accounting jobs log no arguments; an error keeps the code, short message and `intuit_tid` and never the Detail.
 - **QuickBooks normalize:** invoices with group lines; classes on line vs invoice; voided; payment `applied_to` and `UnappliedAmt`; credit memo balance; sales receipt; refund; pay link; deep link.
 - **Webhook:** valid signature accepted and fetches queued; bad signature refused by `verify_webhook`; other realms and unsynced types ignored; deletes mark deleted.
 - **Ledger source:** each ledger is a customer; person owners linked as `ledger_owner`, a guardian co-owner not linked; removing an ownership removes its link; an admin-removed link stays removed; `charge_sign` both ways; credit tags; split parents skipped and children counted; failed and unfinalized skipped; balance equals `Ledger#refresh_balance` sign-adjusted; oldest-first application gives each charge's balance, `applied_to` and leftover `unapplied_cents`; an entry, tagging or ownership change queues `LedgerSyncJob`; ledgers outside the chosen teams ignored; `create_charge` sign and request-id reuse; `create_customer` team choice and skip.
@@ -994,3 +1019,4 @@ Each step ships with the feature off. A group turns it on after a comparison aga
 16. **Already-billed people start unticked** in a billing preview (§12.4).
 17. **The `amount`, `count` and `custom` kinds stay.**
 18. **Upstream:** not planned; only the owner raises it.
+19. **Realm id and company name are secrets**, not configuration, and their old audit rows are scrubbed for those two keys only (§4.7). Intuit's logging and storage requirements decide what is kept in errors: code, short message and `intuit_tid`, never the Detail.
