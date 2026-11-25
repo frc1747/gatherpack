@@ -1,0 +1,12 @@
+/* Account rows on Home and the Family page. Pay online keeps its label on a
+   phone: it opens another site, so the row isn't one tap target. */
+.mg-account-pay {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: 44px;
+}
+
+.mg-account-line + .mg-account-line {
+  margin-top: 0.5rem;
+}

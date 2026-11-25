@@ -44,6 +44,8 @@
       </div>
     <% end %>
 
+    <%= render "accounting/family_rows", ward: card.ward %>
+
     <% if card.events.any? %>
       <div data-family-row="events">
         <% card.events.each do |row| %>

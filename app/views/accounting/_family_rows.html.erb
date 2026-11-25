@@ -1,0 +1,6 @@
+<%# A ward's account status on the Family page, as the home page shows it. Renders nothing while either feature is off or there's nothing to show. %>
+<% if MyGatherpack.enabled? && (row = my_gatherpack_account_row(ward)) %>
+  <div data-family-row="accounting">
+    <%= render "my_gatherpack/account_row", row: row, named: false %>
+  </div>
+<% end %>
