@@ -1,0 +1,16 @@
+<fieldset>
+  <legend class="form-label fs-6"><%= setting.name %></legend>
+  <%= hidden_field_tag setting_input_name(input, "values", ""), "", id: nil %>
+  <div class="border rounded px-2" style="max-height: 18rem; overflow-y: auto">
+    <% input.entries.each_with_index do |entry, index| %>
+      <div class="form-check py-2 mb-0 d-flex align-items-center gap-2" style="min-height: 44px">
+        <%= check_box_tag setting_input_name(input, "values", ""), entry.value, entry.checked,
+                          id: setting_input_id(input, index), class: "form-check-input mt-0" %>
+        <label class="form-check-label<%= " text-danger" if entry.missing %>" for="<%= setting_input_id(input, index) %>"><%= entry.label %></label>
+      </div>
+    <% end %>
+    <% if input.entries.empty? %>
+      <p class="text-body-secondary my-2">Nothing to choose from yet.</p>
+    <% end %>
+  </div>
+</fieldset>
