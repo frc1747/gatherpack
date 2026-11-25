@@ -1,0 +1,10 @@
+<%# Account: the viewer's and their wards' account status. Renders nothing when there are no rows. %>
+<% rows = my_gatherpack_account_rows %>
+<% if rows.any? %>
+  <section class="mg-section" data-home-section="accounting">
+    <h2 class="mg-heading">Account</h2>
+    <div class="card mg-list">
+      <%= render partial: "my_gatherpack/account_row", collection: rows, as: :row %>
+    </div>
+  </section>
+<% end %>

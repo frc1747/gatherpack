@@ -1,0 +1,25 @@
+<%# One person's account status: each rule the viewer may see, and Pay online as the row's one button when they may pay. Names wards only, unless named: false (the Family page's card already names them). %>
+<% ward = row.ward unless local_assigns[:named] == false %>
+<div class="mg-row" data-account-row="<%= row.person.id %>">
+  <span class="mg-row-icon"><%= i "file-invoice-dollar" %></span>
+  <div class="mg-row-body">
+    <% if ward %><div class="mg-row-title"><%= ward %></div><% end %>
+    <% row.lines.each do |line| %>
+      <div data-account-rule="<%= line.rule.id %>">
+        <div class="<%= ward ? "mg-row-detail" : "mg-row-title" %>">
+          <%= link_to line.rule.name, person_accounting_path(row.person) %>
+          <%= accounting_value_badge(line.rule, line.result.value) %>
+        </div>
+        <% if (detail = my_gatherpack_account_detail(line)).present? %>
+          <div class="mg-row-detail"><%= detail %></div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+  <% if row.pay_url %>
+    <%= link_to row.pay_url, class: "btn btn-primary mg-row-action", target: "_blank", rel: "noopener" do %>
+      <span class="mg-row-action-label">Pay online</span>
+      <span class="mg-row-chevron" aria-hidden="true"><%= i "chevron-right" %></span>
+    <% end %>
+  <% end %>
+</div>
