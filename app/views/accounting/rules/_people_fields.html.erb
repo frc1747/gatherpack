@@ -24,13 +24,12 @@
     <% rows += [ rule.badge_grants.build ] if rows.none?(&:new_record?) %>
     <div class="table-responsive">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Badge</th><th>Amounts too</th><th>May bill</th><th></th></tr></thead>
+        <thead><tr><th>Badge</th><th>Amounts too</th><th></th></tr></thead>
         <tbody>
           <%= f.fields_for :badge_grants, rows do |g| %>
             <tr>
               <td><%= g.collection_select :badge_id, badges, :id, :name, { include_blank: "Choose a badge" }, class: "form-select" %></td>
               <td><div class="form-check"><%= g.check_box :amounts, class: "form-check-input" %></div></td>
-              <td><div class="form-check"><%= g.check_box :bill, class: "form-check-input" %></div></td>
               <td>
                 <% if g.object.persisted? %>
                   <div class="form-check">

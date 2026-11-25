@@ -137,8 +137,13 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
 
     with_accounting { get person_accounting_path(@nancy) }
 
-    assert_select "##{dom_id(result_for(broken, @nancy))}", text: /Not available/
+    assert_select "##{dom_id(result_for(broken, @nancy))}", count: 0
+    assert_no_match "Broken", response.body
     assert_no_match "secret detail", response.body
+
+    sign_in @laura.user
+    with_accounting { get person_accounting_path(@nancy) }
+    assert_select "##{dom_id(result_for(broken, @nancy))}", text: /Error.*secret detail/m
   end
 
   private

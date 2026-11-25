@@ -10,7 +10,7 @@ module Accounting::Access
     return AccountingRule.ordered if person.admin?
 
     AccountingRule.enabled.ordered.includes(:team, :badge_grants).select do |rule|
-      rule.readable_people_for(person).where(id: rule.results.select(:person_id)).exists?
+      rule.readable_people_for(person).where(id: rule.results.where.not(value: AccountingRule::ERROR).select(:person_id)).exists?
     end
   end
 
@@ -30,6 +30,7 @@ module Accounting::Access
     results = AccountingRuleResult.where(person: person).joins(:rule).includes(rule: :gateway)
       .merge(AccountingRule.ordered)
     results = results.merge(AccountingRule.enabled) unless viewer.admin?
+    results = results.where.not(value: AccountingRule::ERROR) unless viewer.admin?
     results.select { |result| Accounting::RuleAccess.new(viewer, person, result.rule).can_read? }
   end
 

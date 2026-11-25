@@ -1,5 +1,6 @@
 # Recomputes a rule's results (Accounting::Kinds) and saves only what
-# changed. A change of value or amount fires "accounting_rules - result
+# changed. A turned-off rule isn't worked out (a draft, such as a
+# Duplicate, mustn't fire hooks); its results are when it's turned on. A change of value or amount fires "accounting_rules - result
 # changed" with an AccountingRuleChange, after the result is saved. People
 # who no longer qualify (AccountingRule#people) lose their result, which
 # fires the event too, with no new value.
@@ -22,7 +23,7 @@ class Accounting::Evaluation
   # Evaluates everyone the rule applies to, or only the given people.
   # Returns the AccountingRuleChange of each result that changed.
   def run(person_ids = nil)
-    return [] unless rule.evaluable?
+    return [] unless rule.enabled? && rule.evaluable?
 
     people = rule.people
     people = people.where(id: person_ids) if person_ids

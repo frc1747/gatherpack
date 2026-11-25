@@ -16,11 +16,7 @@
           <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
             <div>
               <strong><%= admin ? link_to(rule.name, accounting_rule_path(rule)) : rule.name %></strong>
-              <% if result.error? && !admin %>
-                <span class="badge text-bg-secondary">Not available</span>
-              <% else %>
-                <%= accounting_value_badge(rule, result.value) %>
-              <% end %>
+              <%= accounting_value_badge(rule, result.value) %>
               <% unless rule.enabled? %><span class="badge text-bg-secondary">Turned off</span><% end %>
               <% if rule.description.present? %><div class="text-muted small"><%= rule.description %></div><% end %>
               <% if rule.balance? && (line = accounting_milestone_line(result, amounts: amounts)) %>

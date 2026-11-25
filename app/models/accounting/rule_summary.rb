@@ -9,9 +9,13 @@ class Accounting::RuleSummary
     @viewer = viewer
   end
 
-  # The results the viewer may see.
+  # The results the viewer may see. A custom rule's errors are for admins
+  # only.
   def results
-    @results ||= rule.results.where(person_id: rule.readable_people_for(viewer).select(:id))
+    @results ||= begin
+      found = rule.results.where(person_id: rule.readable_people_for(viewer).select(:id))
+      viewer&.admin? ? found : found.where.not(value: AccountingRule::ERROR)
+    end
   end
 
   # The results whose amounts the viewer may see.
@@ -32,7 +36,7 @@ class Accounting::RuleSummary
     @counts ||= begin
       found = results.group(:value).count
       ordered = rule.values.select { |value| found.key?(value) } + (found.keys - rule.values).sort
-      ordered.reject { |value| value == AccountingRule::ERROR && !viewer&.admin? }.map { |value| [ value, rule.label_for(value), found[value] ] }
+      ordered.map { |value| [ value, rule.label_for(value), found[value] ] }
     end
   end
 

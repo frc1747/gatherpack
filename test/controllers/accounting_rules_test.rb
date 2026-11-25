@@ -187,6 +187,65 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_equal({}, @rule.reload.filters)
   end
 
+  test "Preview shows people linked to a customer before the team's other members" do
+    %w[ Anne Bea Cleo Dora Edna Fay ].each { |first| create_rule_person(first, "Aaronson", team: @team) }
+    sign_in @laura.user
+
+    with_accounting { patch accounting_rule_path(@rule), params: { tab: "records", preview: "1", accounting_rule: { filters: { items: [ "" ] } } } }
+
+    assert_select "#accounting-rule-preview tbody tr", count: 5
+    assert_select "#accounting-rule-preview ##{dom_id(@nancy)}", text: /Partly paid/
+    assert_select "#accounting-rule-preview ##{dom_id(@janet)}", text: /Paid/
+  end
+
+  test "a non-admin never sees a custom rule's errors on its page or in its CSV" do
+    broken = create_rule("Broken", kind: "custom", read_permission: "team", amount_permission: "team",
+      code: 'person.first_name == "Nancy" ? raise("secret detail") : "fine"')
+    evaluate(broken)
+    sign_in @janet.user
+
+    with_accounting { get accounting_rule_path(broken) }
+    assert_select "##{dom_id(@janet)}"
+    assert_select "##{dom_id(@nancy)}", count: 0
+    assert_no_match "Error", response.body
+
+    with_accounting { get export_accounting_rule_path(broken, format: :csv) }
+    assert_equal [ "Leverling" ], CSV.parse(response.body).drop(1).map(&:first)
+
+    all_broken = create_rule("All broken", kind: "custom", read_permission: "team", code: 'raise "no"')
+    evaluate(all_broken)
+    assert_not_includes Accounting::Access.visible_rules(@janet.user), all_broken
+    assert_includes Accounting::Access.visible_rules(@laura.user), all_broken
+  end
+
+  test "a turned-off rule isn't worked out on save or Evaluate now" do
+    @rule.update!(enabled: false)
+    sign_in @laura.user
+
+    with_accounting do
+      assert_no_enqueued_jobs(only: Accounting::EvaluateRuleJob) do
+        patch accounting_rule_path(@rule), params: { tab: "question", accounting_rule: { grace_days: "5" } }
+        post evaluate_accounting_rule_path(@rule)
+      end
+      get accounting_rule_path(@rule)
+    end
+    assert_select "form[action=?]", evaluate_accounting_rule_path(@rule), count: 0
+
+    with_accounting do
+      assert_enqueued_with(job: Accounting::EvaluateRuleJob, args: [ @rule ]) do
+        patch accounting_rule_path(@rule), params: { tab: "enabled", accounting_rule: { enabled: "true" } }
+      end
+    end
+  end
+
+  test "the badge grants don't offer billing until it exists" do
+    sign_in @laura.user
+    with_settings(feature_accounting: "true", feature_badges: "true") { get edit_accounting_rule_path(@rule, tab: "people") }
+
+    assert_select "th", text: "Amounts too"
+    assert_no_match "May bill", response.body
+  end
+
   test "the milestones warn when nobody can ever be overdue" do
     original = Gateway::QuickbooksGateway.instance_method(:capabilities)
     Gateway::QuickbooksGateway.define_method(:capabilities) { Set.new }

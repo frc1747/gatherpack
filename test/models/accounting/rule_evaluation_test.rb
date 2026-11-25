@@ -55,6 +55,14 @@ class Accounting::RuleEvaluationTest < ActiveSupport::TestCase
     assert_nil result_for(rule, @janet)
   end
 
+  test "a turned-off rule isn't worked out and fires no hooks" do
+    rule = create_rule(enabled: false)
+
+    assert_empty capture_changes { evaluate(rule) }
+    assert_empty rule.results
+    assert_equal "partial", outcome_for(rule, @nancy).value, "Preview still works it out"
+  end
+
   test "only the given people are evaluated" do
     rule = create_rule
     Accounting::Evaluation.new(rule).run([ @janet.id ])

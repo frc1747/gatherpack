@@ -19,7 +19,7 @@
   </div>
   <%= render "shared/action_row", actions: [
         screen_action("Edit", edit_accounting_rule_path(@rule), style: :warning, visible: policy(@rule).edit?),
-        screen_action("Evaluate now", evaluate_accounting_rule_path(@rule), style: :primary, method: :post, visible: policy(@rule).evaluate?),
+        screen_action("Evaluate now", evaluate_accounting_rule_path(@rule), style: :primary, method: :post, visible: policy(@rule).evaluate? && @rule.enabled?),
         screen_action("Duplicate", duplicate_accounting_rule_path(@rule), method: :post, more: true, visible: policy(@rule).duplicate?),
         screen_action("Delete", accounting_rule_path(@rule), method: :delete, destructive: true, visible: policy(@rule).destroy?,
           confirm: "Delete #{@rule.name} and everyone's results for it?")

@@ -42,7 +42,7 @@ class Accounting::RulesController < Accounting::BaseController
     assign(@rule)
     return render(:new, status: :unprocessable_content) unless @rule.errors.empty? && @rule.save
 
-    Accounting::EvaluateRuleJob.perform_later(@rule)
+    Accounting::EvaluateRuleJob.perform_later(@rule) if @rule.enabled?
     redirect_to edit_accounting_rule_path(@rule, tab: "records"), notice: "Rule was created. Choose which records count.", status: :see_other
   end
 
@@ -59,8 +59,13 @@ class Accounting::RulesController < Accounting::BaseController
     end
     return render(:edit, status: :unprocessable_content) unless @rule.errors.empty? && @rule.save
 
-    Accounting::EvaluateRuleJob.perform_later(@rule)
-    redirect_to edit_accounting_rule_path(@rule, tab: @tab), notice: "Rule was saved. Results are being worked out again.", status: :see_other
+    notice = if @rule.enabled?
+      Accounting::EvaluateRuleJob.perform_later(@rule)
+      "Rule was saved. Results are being worked out again."
+    else
+      "Rule was saved. It's turned off, so results are worked out when it's turned on."
+    end
+    redirect_to edit_accounting_rule_path(@rule, tab: @tab), notice: notice, status: :see_other
   end
 
   # DELETE /accounting/rules/1
@@ -71,6 +76,10 @@ class Accounting::RulesController < Accounting::BaseController
 
   # POST /accounting/rules/1/evaluate
   def evaluate
+    unless @rule.enabled?
+      return redirect_to accounting_rule_path(@rule), notice: "This rule is turned off. Turn it on to work out results.", status: :see_other
+    end
+
     Accounting::EvaluateRuleJob.perform_later(@rule)
     redirect_to accounting_rule_path(@rule), notice: "Working out everyone's result again. Reload in a minute to see it.", status: :see_other
   end
@@ -91,7 +100,7 @@ class Accounting::RulesController < Accounting::BaseController
     # The rule page's table: the people the viewer may see, filtered.
     def load_rows
       viewer = current_user.person
-      results = @rule.results.where(person_id: @rule.readable_people_for(viewer).select(:id)).includes(person: :teams)
+      results = Accounting::RuleSummary.new(@rule, viewer).results.includes(person: :teams)
       @value = params[:status].presence
       @teams = Team.where(id: Membership.where(person_id: results.select(:person_id)).select(:team_id)).order(:name)
       @team = @teams.find_by(id: params[:team_id]) if params[:team_id].present?
@@ -138,13 +147,16 @@ class Accounting::RulesController < Accounting::BaseController
         labels: {},
         filters: [ :txn_date_from, :txn_date_to, :due_date_from, :due_date_to, :min_total, { roles: [], items: [], classes: [], locations: [] } ],
         milestones_attributes: %i[ id name due_on balance_at_most balance_at_most_percent position _destroy ],
-        badge_grants_attributes: %i[ id badge_id amounts bill _destroy ]
+        badge_grants_attributes: %i[ id badge_id amounts _destroy ]
       )
     end
 
-    # The unsaved rule's results for a few of its people.
+    # The unsaved rule's results for a few of its people: those linked to a
+    # customer of its source first, then the team's other members.
     def preview(rule)
       evaluation = Accounting::Evaluation.new(rule)
-      rule.people.order(:last_name, :first_name).limit(PREVIEW_PEOPLE).map { |person| [ person, evaluation.outcome_for(person) ] }
+      linked = Person.where(id: AccountingCustomerLink.where(gateway_id: rule.gateway_id).select(:person_id)).order(:last_name, :first_name).limit(PREVIEW_PEOPLE).to_a
+      others = rule.people.where.not(id: linked.map(&:id)).order(:last_name, :first_name).limit(PREVIEW_PEOPLE - linked.size).to_a
+      (linked + others).map { |person| [ person, evaluation.outcome_for(person) ] }
     end
 end
