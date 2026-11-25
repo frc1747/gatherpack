@@ -101,6 +101,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140000) do
     t.index ["txn_date"], name: "index_accounting_records_on_txn_date"
   end
 
+  create_table "accounting_rule_actions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.string "action", null: false
+    t.jsonb "condition", default: {}, null: false
+    t.uuid "badge_id"
+    t.uuid "person_field_id"
+    t.string "write"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_accounting_rule_actions_on_badge_id"
+    t.index ["person_field_id"], name: "index_accounting_rule_actions_on_person_field_id"
+    t.index ["rule_id"], name: "index_accounting_rule_actions_on_rule_id"
+  end
+
   create_table "accounting_rule_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "rule_id", null: false
     t.uuid "badge_id", null: false
@@ -1358,6 +1373,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140000) do
   add_foreign_key "accounting_customer_links", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "accounting_customer_links", "people", on_delete: :cascade
   add_foreign_key "accounting_records", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_rule_actions", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_actions", "badges", on_delete: :cascade
+  add_foreign_key "accounting_rule_actions", "person_fields", on_delete: :cascade
   add_foreign_key "accounting_rule_badge_grants", "accounting_rules", column: "rule_id", on_delete: :cascade
   add_foreign_key "accounting_rule_badge_grants", "badges", on_delete: :cascade
   add_foreign_key "accounting_rule_milestones", "accounting_rules", column: "rule_id", on_delete: :cascade

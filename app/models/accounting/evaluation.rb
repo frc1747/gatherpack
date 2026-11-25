@@ -1,9 +1,16 @@
 # Recomputes a rule's results (Accounting::Kinds) and saves only what
 # changed. A turned-off rule isn't worked out (a draft, such as a
-# Duplicate, mustn't fire hooks); its results are when it's turned on. A change of value or amount fires "accounting_rules - result
-# changed" with an AccountingRuleChange, after the result is saved. People
-# who no longer qualify (AccountingRule#people) lose their result, which
-# fires the event too, with no new value.
+# Duplicate, mustn't fire hooks); its results are when it's turned on.
+# Turning a rule off takes back what its actions gave (AccountingRule), and
+# the next run after it's turned on gives it again. A run checks the rule is
+# still on before each person's actions, and stops, firing no hooks, once
+# it's been turned off.
+# Each person's actions (Accounting::RuleActions) are applied after their
+# result is saved. A change of value or amount fires "accounting_rules -
+# result changed" with an AccountingRuleChange, after the results are saved
+# and the actions ran. People who no longer qualify (AccountingRule#people)
+# lose their result and the rule's actions undo, which fires the event too,
+# with no new value.
 class Accounting::Evaluation
   EVENT = "accounting_rules - result changed".freeze
 
@@ -13,6 +20,7 @@ class Accounting::Evaluation
     @rule = rule
     @today = today
     @records = Accounting::RuleRecords.new(rule)
+    @actions = Accounting::RuleActions.new(rule)
   end
 
   # The outcome for one person, without saving it (Preview uses this).
@@ -27,19 +35,25 @@ class Accounting::Evaluation
 
     people = rule.people
     people = people.where(id: person_ids) if person_ids
-    existing = rule.results.where(person_id: people.select(:id)).index_by(&:person_id)
+    existing = rule.results.where(person_id: people.select(:id)).includes(:badge_assignment).index_by(&:person_id)
     now = Time.current
     unchanged = []
 
-    changes = people.find_each.filter_map do |person|
+    changes = []
+    people.find_each do |person|
       outcome = outcome_for(person)
       result = existing[person.id]
       if result && same?(result, outcome)
         unchanged << result.id
-        next
+        result.person = person
+      else
+        result ||= rule.results.build(person: person)
+        change = save(result, outcome, now)
+        changes << change if change
       end
+      return [] unless still_enabled?
 
-      save(result || rule.results.build(person: person), outcome, now)
+      @actions.apply(result)
     end
     AccountingRuleResult.where(id: unchanged).update_all(evaluated_at: now) if unchanged.any?
     changes += remove_unqualified(person_ids)
@@ -50,8 +64,15 @@ class Accounting::Evaluation
   end
 
   private
+    # Turned off since the run started: Accounting::UndoRuleActionsJob takes
+    # back what the actions gave, so they mustn't give more.
+    def still_enabled?
+      AccountingRule.where(id: rule.id, enabled: true).exists?
+    end
+
     def same?(result, outcome)
-      result.value == outcome.value && result.amount_cents == outcome.amount_cents && result.details == outcome.stored_details
+      result.value == outcome.value && result.amount_cents == outcome.amount_cents &&
+        (result.details || {}).except(*Accounting::RuleActions::KEYS) == outcome.stored_details.except(*Accounting::RuleActions::KEYS)
     end
 
     # Saves the outcome; returns the change when the value or amount moved.
@@ -59,7 +80,9 @@ class Accounting::Evaluation
       old_value = result.new_record? ? nil : result.value
       old_amount = result.new_record? ? nil : result.amount_cents
       moved = result.new_record? || old_value != outcome.value || old_amount != outcome.amount_cents
-      result.assign_attributes(value: outcome.value, amount_cents: outcome.amount_cents, details: outcome.stored_details, evaluated_at: now)
+      # What the actions wrote stays recorded (Accounting::RuleActions).
+      kept = (result.details || {}).slice(Accounting::RuleActions::WRITTEN)
+      result.assign_attributes(value: outcome.value, amount_cents: outcome.amount_cents, details: outcome.stored_details.merge(kept), evaluated_at: now)
       result.changed_at = now if moved
       result.save!
       return nil unless moved
@@ -70,7 +93,9 @@ class Accounting::Evaluation
     def remove_unqualified(person_ids)
       stale = rule.results.where.not(person_id: rule.people.select(:id)).includes(:person)
       stale = stale.where(person_id: person_ids) if person_ids
+      stale = stale.includes(:badge_assignment)
       stale.map do |result|
+        @actions.undo(result)
         result.destroy!
         change_for(result.person, result.value, nil, result.amount_cents, nil, result)
       end

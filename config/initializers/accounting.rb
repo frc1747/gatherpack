@@ -34,6 +34,9 @@ Rails.application.config.to_prepare do
   Badge.has_many :accounting_rule_badge_grants, dependent: :destroy
   Badge.register_access_grants(:accounting_rule_badge_grants)
   Team.has_many :accounting_rules, inverse_of: :team, dependent: :nullify
+  # Deleting a source deletes its rules one by one, so each takes back the
+  # badges and field values its actions gave.
+  Gateway.has_many :accounting_rules, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
   Person.include(Accounting::PersonResults)
 
   # Record hooks fire only when the source's revision of a record changed.

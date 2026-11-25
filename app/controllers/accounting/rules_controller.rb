@@ -3,7 +3,7 @@
 # pages, seeing only the people and amounts the rule lets them; admins set
 # rules up; architects write custom rules' code.
 class Accounting::RulesController < Accounting::BaseController
-  EDIT_TABS = %w[ question records people enabled ].freeze
+  EDIT_TABS = %w[ question records people actions enabled ].freeze
   PREVIEW_PEOPLE = 5
 
   before_action :set_rule, except: %i[ index new create ]
@@ -147,7 +147,9 @@ class Accounting::RulesController < Accounting::BaseController
         labels: {},
         filters: [ :txn_date_from, :txn_date_to, :due_date_from, :due_date_to, :min_total, { roles: [], items: [], classes: [], locations: [] } ],
         milestones_attributes: %i[ id name due_on balance_at_most balance_at_most_percent position _destroy ],
-        badge_grants_attributes: %i[ id badge_id amounts _destroy ]
+        badge_grants_attributes: %i[ id badge_id amounts _destroy ],
+        actions_attributes: [ :id, :action, :badge_id, :person_field_id, :write, :position, :_destroy,
+                              :condition_type, :condition_op, :condition_amount, :condition_count, :condition_values_text, { condition_values: [] } ]
       )
     end
 

@@ -238,6 +238,90 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the Actions tab saves a badge and a person field action, and warns when others can change the field" do
+    badge = create_rule_badge("Dues Paid")
+    field = PersonField.create!(name: "Dues", data_type: :string, read_permission: "family", write_permission: "family")
+    sign_in @laura.user
+
+    with_settings(feature_accounting: "true", feature_badges: "true", feature_person_fields: "true") do
+      get edit_accounting_rule_path(@rule, tab: "actions")
+      assert_response :success
+      assert_select "input[type=radio][name=?]", "accounting_rule[actions_attributes][0][action]", count: 2
+      assert_select "[data-choice-settings-target=settings][data-choice=badge][hidden] select[disabled]"
+      assert_select "input[type=radio][value=count]", count: 0
+
+      patch accounting_rule_path(@rule), params: { tab: "actions", accounting_rule: { actions_attributes: {
+        "0" => { action: "badge", badge_id: badge.id, condition_type: "values", condition_values: [ "", "paid" ] },
+        "1" => { action: "person_field", person_field_id: field.id, write: "label", condition_type: "always", condition_values: [ "" ] },
+        "2" => { action: "", condition_type: "always", condition_values: [ "" ] }
+      } } }
+      assert_redirected_to edit_accounting_rule_path(@rule, tab: "actions")
+
+      get edit_accounting_rule_path(@rule, tab: "actions")
+      assert_match "People other than admins can change Dues", response.body
+      assert_select "[data-choice=badge]:not([hidden]) select:not([disabled])"
+    end
+
+    assert_equal [ [ "badge", badge.id, nil, { "values" => [ "paid" ] } ], [ "person_field", nil, field.id, {} ] ],
+      @rule.actions.reload.map { |action| [ action.action, action.badge_id, action.person_field_id, action.condition ] }.sort_by(&:first)
+    assert_enqueued_with(job: Accounting::EvaluateRuleJob, args: [ @rule ])
+  end
+
+  test "the Actions tab offers only badges admins assign, and refuses a field another rule fills in" do
+    create_rule_badge("Volunteer", permission: :added_by_admin_or_self)
+    create_rule_badge("Dues Paid")
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    create_rule("Fees").actions.create!(action: "person_field", person_field: field, write: "label")
+    sign_in @laura.user
+
+    with_settings(feature_accounting: "true", feature_badges: "true", feature_person_fields: "true") do
+      get edit_accounting_rule_path(@rule, tab: "actions")
+      assert_select "option", text: "Dues Paid"
+      assert_select "option", text: "Volunteer", count: 0
+
+      patch accounting_rule_path(@rule), params: { tab: "actions", accounting_rule: { actions_attributes: {
+        "0" => { action: "person_field", person_field_id: field.id, write: "label", condition_type: "always" } } } }
+    end
+
+    assert_response :unprocessable_content
+    assert_match "Dues is already filled in by the rule Fees.", response.body
+    assert_no_match "Actions Dues", response.body
+    assert_empty @rule.actions
+  end
+
+  test "the Actions tab warns when another rule gives the same badge" do
+    badge = create_rule_badge("Dues Paid")
+    @rule.actions.create!(action: "badge", badge: badge)
+    create_rule("Fees").actions.create!(action: "badge", badge: badge)
+    sign_in @laura.user
+
+    with_settings(feature_accounting: "true", feature_badges: "true") { get edit_accounting_rule_path(@rule, tab: "actions") }
+
+    assert_match "Fees also gives Dues Paid.", response.body
+  end
+
+  test "the Enabled tab says turning the rule off takes back what its actions gave" do
+    sign_in @laura.user
+
+    with_accounting { get edit_accounting_rule_path(@rule, tab: "enabled") }
+
+    assert_match "Turning this rule off takes back the badges it gave and clears the field it fills in.", response.body
+  end
+
+  test "the Actions tab refuses a second badge" do
+    @rule.actions.create!(action: "badge", badge: create_rule_badge("Dues Paid"))
+    sign_in @laura.user
+
+    with_settings(feature_accounting: "true", feature_badges: "true") do
+      patch accounting_rule_path(@rule), params: { tab: "actions", accounting_rule: { actions_attributes: {
+        "0" => { action: "badge", badge_id: create_rule_badge("Second").id, condition_type: "always" } } } }
+    end
+
+    assert_response :unprocessable_content
+    assert_match "A rule can give only one badge", response.body
+    assert_equal 1, @rule.actions.count
+  end
+
   test "the badge grants don't offer billing until it exists" do
     sign_in @laura.user
     with_settings(feature_accounting: "true", feature_badges: "true") { get edit_accounting_rule_path(@rule, tab: "people") }

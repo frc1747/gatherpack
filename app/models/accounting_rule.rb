@@ -42,11 +42,14 @@ class AccountingRule < ApplicationRecord
   has_many :milestones, -> { order(:due_on, :position) }, class_name: "AccountingRuleMilestone", foreign_key: :rule_id,
     inverse_of: :rule, dependent: :destroy
   has_many :badge_grants, class_name: "AccountingRuleBadgeGrant", foreign_key: :rule_id, inverse_of: :rule, dependent: :destroy
+  has_many :actions, -> { order(:position, :created_at) }, class_name: "AccountingRuleAction", foreign_key: :rule_id,
+    inverse_of: :rule, dependent: :destroy
   has_many :results, class_name: "AccountingRuleResult", foreign_key: :rule_id, inverse_of: :rule, dependent: :delete_all
 
   accepts_nested_attributes_for :milestones, allow_destroy: true,
     reject_if: ->(attributes) { attributes.values_at("name", "due_on", "balance_at_most", "balance_at_most_percent").all?(&:blank?) }
   accepts_nested_attributes_for :badge_grants, allow_destroy: true, reject_if: ->(attributes) { attributes["badge_id"].blank? }
+  accepts_nested_attributes_for :actions, allow_destroy: true, reject_if: ->(attributes) { attributes["action"].blank? }
 
   enum :read_permission, AudienceLevels::LEVEL_VALUES, prefix: :read, validate: true
   enum :amount_permission, AudienceLevels::LEVEL_VALUES, prefix: :amounts, validate: true
@@ -56,6 +59,15 @@ class AccountingRule < ApplicationRecord
   before_validation :generate_key, on: :create
   before_validation :normalize_settings
   before_validation :normalize_filters
+  # Turning a rule off takes back the badges and field values its actions
+  # gave (turning it on gives them again on the next evaluation), so a
+  # turned-off rule, such as last season's after a Duplicate takes over,
+  # leaves nothing behind. That runs in Accounting::UndoRuleActionsJob, after
+  # any evaluation already running. Deleting a rule does the same before its
+  # results go, even when it's off (its undo may not have run yet); undoing
+  # twice is safe (Accounting::RuleActions#undo).
+  after_update_commit -> { Accounting::UndoRuleActionsJob.perform_later(self) }, if: -> { saved_change_to_enabled?(from: true, to: false) }
+  before_destroy :undo_actions, prepend: true
 
   validates :name, presence: true
   validates :kind, inclusion: { in: KINDS }
@@ -68,6 +80,7 @@ class AccountingRule < ApplicationRecord
   validate :source_is_accounting
   validate :amounts_within_read
   validate :filter_dates_valid
+  validate :fields_written_once
 
   scope :enabled, -> { where(enabled: true) }
   scope :ordered, -> { order(:position, :name) }
@@ -199,8 +212,8 @@ class AccountingRule < ApplicationRecord
   end
 
   # A copy for the next season: years in the name and every date moved on a
-  # year, filters, milestones, visibility and grants kept, disabled. Never
-  # results.
+  # year, filters, milestones, visibility, grants and actions kept,
+  # disabled. Never results.
   def duplicate!
     transaction do
       copy = dup
@@ -212,6 +225,7 @@ class AccountingRule < ApplicationRecord
           .merge("due_on" => milestone.due_on.next_year))
       end
       badge_grants.each { |grant| copy.badge_grants.create!(badge_id: grant.badge_id, amounts: grant.amounts, bill: grant.bill) }
+      actions.each { |action| copy.actions.create!(action.attributes.slice("action", "condition", "badge_id", "person_field_id", "write", "position")) }
       copy
     end
   end
@@ -234,7 +248,14 @@ class AccountingRule < ApplicationRecord
     end
   end
 
+  # Takes back the badges and field values the rule's actions gave.
+  def undo_actions
+    undo = Accounting::RuleActions.new(self)
+    results.includes(:person, :badge_assignment).find_each { |result| undo.undo(result) }
+  end
+
   private
+
     # The people covered by grants whose badges the viewer holds.
     def granted_people(viewer, amounts: false)
       return [] unless GatherPack::Features.enabled?(:badges)
@@ -277,6 +298,22 @@ class AccountingRule < ApplicationRecord
         end
         [ key, value ] unless value.nil?
       end.to_h
+    end
+
+    # One rule fills in a field once, and only one turned-on rule fills in
+    # each field (actions check rules already on; this checks a rule being
+    # turned on).
+    def fields_written_once
+      field_actions = actions.reject(&:marked_for_destruction?).select { |action| action.person_field? && action.person_field_id }
+      field_actions.group_by(&:person_field_id).each_value do |same|
+        errors.add(:base, "#{same.first.person_field&.name} is filled in by more than one action") if same.size > 1
+      end
+      return unless enabled? && will_save_change_to_enabled?
+
+      field_actions.each do |action|
+        other = action.rule_writing_same_field
+        errors.add(:base, AccountingRuleAction.field_taken_message(action.person_field, other)) if other
+      end
     end
 
     def filter_dates_valid
