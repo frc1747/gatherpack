@@ -137,7 +137,7 @@ module McpWorld
   # travel_to NOW.
   #
   #   Alpha event "Alpha Meeting" (alpha_member, ward checked in), Beta event
-  #   "Beta Meeting" (beta_member), and "Open Day" with no team (admin only).
+  #   "Beta Meeting" (beta_member), and "Open Day" with no team (everyone).
   #   Periods: "Alpha March" (Alpha), "Beta March" (Beta), "Everyone March" (no team).
   #   Punches: alpha_member 2h, ward 1h, alpha_manager 3h and an open one since
   #   3/11 08:00, beta_member 4h and an open one since 3/11 09:00 (hours 0.05-rounded).

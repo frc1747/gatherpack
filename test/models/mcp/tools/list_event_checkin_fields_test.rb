@@ -36,9 +36,9 @@ class Mcp::Tools::ListEventCheckinFieldsTest < ActiveSupport::TestCase
     assert_equal "Not found", fields(:guardian).error
   end
 
-  test "a team-less event is out of a non-admin's scope, as on the events index" do
+  test "a team-less event is in everyone's scope, as on the events index" do
     assert_nil fields(:admin, @open_event).error
-    assert_equal "Not found", fields(:alpha_member, @open_event).error
+    assert_nil fields(:alpha_member, @open_event).error
   end
 
   test "nobody's answers come back" do

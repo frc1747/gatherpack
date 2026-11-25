@@ -74,6 +74,15 @@ class EventsControllerTest < ActionDispatch::IntegrationTest
     assert_equal period.id, @event.reload.time_clock_period_id
   end
 
+  test "an admin sees what a blank team means on the new event form" do
+    sign_in @admin_user
+
+    get new_event_path
+
+    assert_response :success
+    assert_select ".form-text", text: "Leave blank to show this event to everyone."
+  end
+
   # --- show ---------------------------------------------------------------
 
   test "a member can't open another team's event or read its check-in notes" do
@@ -86,6 +95,18 @@ class EventsControllerTest < ActionDispatch::IntegrationTest
     get event_path(event)
 
     assert_response :not_found
+  end
+
+  test "a member sees an event with no team in the list and can open it" do
+    event = Event.create!(name: "Everyone kickoff", start_time: 1.day.from_now, event_type: event_types(:one))
+    sign_in create_user("student", team: @team_a)
+
+    get events_path
+    assert_response :success
+    assert_match "Everyone kickoff", response.body
+
+    get event_path(event)
+    assert_response :success
   end
 
   test "a member can't open another organization's event or see who checked in" do

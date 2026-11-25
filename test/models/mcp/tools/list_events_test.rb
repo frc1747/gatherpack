@@ -35,13 +35,13 @@ class Mcp::Tools::ListEventsTest < ActiveSupport::TestCase
     assert list(:admin).value["items"].find { |i| i["id"] == @alpha_event.neat_id }["locked"]
   end
 
-  test "a team without a manager role sees only their team's events, not team-less ones" do
-    assert_equal [ "Alpha Meeting" ], names(list(:alpha_manager))
-    assert_equal [ "Beta Meeting" ], names(list(:beta_member))
+  test "a team without a manager role sees their team's events and team-less ones" do
+    assert_equal [ "Alpha Meeting", "Open Day" ], names(list(:alpha_manager)).sort
+    assert_equal [ "Beta Meeting", "Open Day" ], names(list(:beta_member)).sort
   end
 
-  test "a guardian in no team sees no events" do
-    assert_empty list(:guardian).value["items"]
+  test "a guardian in no team sees only team-less events" do
+    assert_equal [ "Open Day" ], names(list(:guardian))
   end
 
   test "only events starting in the window are listed" do

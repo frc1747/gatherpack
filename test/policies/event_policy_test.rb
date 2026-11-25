@@ -48,11 +48,12 @@ class EventPolicyTest < ActiveSupport::TestCase
     end
 
     student_sees = EventPolicy::Scope.new(viewers[:student], Event).resolve.where(id: events.map(&:id))
-    assert_equal [ "Org event", "Team A event" ], student_sees.map(&:name).sort
+    assert_equal [ "No team event", "Org event", "Team A event" ], student_sees.map(&:name).sort
     assert_not EventPolicy.new(viewers[:student], events[3]).show?, "a student opened a sibling team's event"
     assert_not EventPolicy.new(viewers[:student], events[4]).show?, "a student opened another organization's event"
     assert EventPolicy.new(viewers[:lead_a], events[2]).show?, "a manager couldn't open their sub-team's event"
     assert EventPolicy.new(viewers[:admin], events[5]).show?, "an admin couldn't open an event with no team"
+    assert EventPolicy.new(viewers[:outsider], events[5]).show?, "a member couldn't open an event with no team"
   end
 
   private
