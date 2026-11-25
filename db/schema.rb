@@ -930,6 +930,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.index ["team_id", "active"], name: "index_items_on_team_id_and_active"
   end
 
+  create_table "kiosk_devices", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "secret_digest"
+    t.string "pairing_code_digest"
+    t.datetime "pairing_expires_at"
+    t.datetime "last_seen_at"
+    t.datetime "revoked_at"
+    t.uuid "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_kiosk_devices_on_created_by_id"
+    t.index ["pairing_code_digest"], name: "index_kiosk_devices_on_pairing_code_digest", unique: true
+  end
+
   create_table "ledger_entries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.integer "amount_cents", default: 0
     t.boolean "approved"
@@ -2152,6 +2166,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   add_foreign_key "items", "locations", column: "home_location_id"
   add_foreign_key "items", "stock_units"
   add_foreign_key "items", "teams"
+  add_foreign_key "kiosk_devices", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "ledger_entries", "ledgers"
   add_foreign_key "ledger_entry_linkings", "ledger_entries"
   add_foreign_key "ledger_entry_linkings", "ledger_entry_links"

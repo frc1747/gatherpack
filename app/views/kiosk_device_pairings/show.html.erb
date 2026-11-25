@@ -1,0 +1,17 @@
+<% content_for :title, "Pair this computer" %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card my-4">
+      <div class="card-header">
+        <h1>Pair this computer</h1>
+      </div>
+      <div class="card-body">
+        <p>This browser will run the time kiosk as <strong><%= @kiosk_device.name %></strong>, with no one signed in, until an admin revokes it.</p>
+      </div>
+      <div class="card-footer">
+        <%= button_to "Pair", kiosk_device_pairing_path(params[:code]), method: :post, class: "btn btn-primary", form: { data: { turbo: false } } %>
+      </div>
+    </div>
+  </div>
+</div>

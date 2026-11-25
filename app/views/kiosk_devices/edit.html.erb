@@ -1,0 +1,16 @@
+<% breadcrumb :kiosk_device, @kiosk_device %>
+
+<%= simple_form_for(@kiosk_device) do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>Edit kiosk device</h1>
+  </div>
+  <div class="card-body">
+    <%= render "form", f: f %>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Cancel", kiosk_devices_path, class: "btn btn-secondary" %>
+    <%= f.button :submit, "Save", class: "btn btn-primary" %>
+  </div>
+</div>
+<% end %>
