@@ -278,6 +278,8 @@ class AccountingBillingTest < ActionDispatch::IntegrationTest
     sign_in @laura.user
 
     with_badges { get accounting_billing_run_path(run) }
+    assert_column_chooser "accounting-billing-run"
+    assert_select "td[data-sort-value='45000']", minimum: 1
     assert_select "##{dom_id(failed)}", text: /QuickBooks refused creating the invoice/
     # 397#8: customers by name, the id where the source hasn't copied one.
     assert_select "##{dom_id(failed)} td", text: "Davolio, Nancy"
@@ -299,6 +301,7 @@ class AccountingBillingTest < ActionDispatch::IntegrationTest
     with_badges { get accounting_rules_path }
     assert_select "a[href=?]", accounting_billing_runs_path, text: "Billing runs"
     with_badges { get accounting_billing_runs_path }
+    assert_column_chooser "accounting-billing-runs"
     assert_select "##{dom_id(run)}", text: /Dues billing/
     with_badges { get new_accounting_billing_run_path }
     assert_select "a[href=?]", new_accounting_billing_run_path(gateway_id: accounting_source.to_param)

@@ -47,6 +47,7 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select ".sidebar a[href=?]", accounting_rules_path, text: /Account Status/
+    assert_column_chooser "accounting-rules"
     assert_select "##{dom_id(@rule)}", text: /Paid 1 · Partly paid 1/
     assert_select "##{dom_id(@rule)}", text: /Balance remaining \$100\.00/
     assert_select "##{dom_id(accounting_source)} a[href=?]", accounting_connection_customers_path(accounting_source), text: "Customers"
@@ -199,6 +200,7 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "#accounting-rule-preview ##{dom_id(@nancy)}", text: /Not invoiced/
+    assert_column_chooser "accounting-rule-preview"
     assert_equal({}, @rule.reload.filters)
   end
 

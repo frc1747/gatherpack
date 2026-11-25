@@ -7,12 +7,12 @@
       ] %>
 </div>
 
-<div class="card">
+<div <%= tag.attributes(class: "card", data: column_chooser_data("accounting-billing-runs")) %>>
   <% if @runs.any? %>
     <div class="table-responsive">
       <table class="table mb-0 align-middle">
         <thead>
-          <tr><th>Run</th><th>Source</th><th>Rule</th><th>By</th><th>Lines</th></tr>
+          <tr><th data-column-chooser-fixed>Run</th><th>Source</th><th>Rule</th><th>By</th><th>Lines</th></tr>
         </thead>
         <tbody>
           <% @runs.each do |run| %>

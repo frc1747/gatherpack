@@ -131,6 +131,8 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     with_accounting { get person_accounting_statement_path(@nancy) }
 
     assert_response :success
+    assert_column_chooser "accounting-statement"
+    assert_select "td[data-sort-value='15000']", minimum: 1
     labels = css_select("tbody tr td:nth-child(2)").map { |cell| cell.text.strip }
     assert_equal [ "Credit", "Payment", "Invoice 1042 · Dues" ], labels
     assert_select "tbody tr:first-child td:last-child", text: "$0.00"

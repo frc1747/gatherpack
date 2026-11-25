@@ -10,16 +10,16 @@
       ] %>
 </div>
 
-<div class="card mb-3">
+<div <%= tag.attributes(class: "card mb-3", data: column_chooser_data("accounting-rules")) %>>
   <% if @rules.any? %>
     <div class="table-responsive">
       <table class="table mb-0 align-middle">
         <thead>
           <tr>
-            <th>Rule</th>
+            <th data-column-chooser-fixed>Rule</th>
             <% if admin %><th>Source</th><% end %>
-            <th>People</th>
-            <th>Amounts</th>
+            <th data-table-filter-skip>People</th>
+            <th data-table-filter-skip>Amounts</th>
           </tr>
         </thead>
         <tbody>

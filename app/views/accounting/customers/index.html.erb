@@ -19,16 +19,16 @@
       ] %>
 </div>
 
-<div class="card mb-3">
+<div <%= tag.attributes(class: "card mb-3", data: column_chooser_data("accounting-customers-unlinked")) %>>
   <div class="card-header"><h2 class="h5 mb-0">Needs a link (<%= @unlinked.size %>)</h2></div>
   <% if @unlinked.any? %>
     <div class="table-responsive">
       <table class="table mb-0">
         <thead>
           <tr>
-            <th>Customer</th>
+            <th data-column-chooser-fixed>Customer</th>
             <th>Email</th>
-            <th>Suggested</th>
+            <th data-table-filter-skip>Suggested</th>
             <th></th>
           </tr>
         </thead>
@@ -52,16 +52,16 @@
   <% end %>
 </div>
 
-<div class="card">
+<div <%= tag.attributes(class: "card", data: column_chooser_data("accounting-customers-linked")) %>>
   <div class="card-header"><h2 class="h5 mb-0">Linked (<%= @linked.size %>)</h2></div>
   <% if @linked.any? %>
     <div class="table-responsive">
       <table class="table mb-0">
         <thead>
           <tr>
-            <th>Customer</th>
+            <th data-column-chooser-fixed>Customer</th>
             <th>Email</th>
-            <th>People</th>
+            <th data-table-filter-skip>People</th>
           </tr>
         </thead>
         <tbody>

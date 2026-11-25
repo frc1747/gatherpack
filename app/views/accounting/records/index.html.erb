@@ -43,6 +43,7 @@
     <%= label_tag :deleted, "Include records deleted in #{@source.source_name}", class: "form-check-label" %>
   </div>
 <% end %>
+<div <%= tag.attributes(data: column_chooser_data("accounting-records")) %>>
 <%= render "shared/filter_bar", url: accounting_connection_records_path(@source), fields: filters, more: more,
       open: params[:deleted] == "1", hidden: {} %>
 
@@ -52,9 +53,9 @@
       <thead>
         <tr>
           <th>Date</th>
-          <th>What</th>
+          <th data-column-chooser-fixed>What</th>
           <th>Customer</th>
-          <th class="text-end">Total</th>
+          <th class="text-end" data-column-chooser-fixed>Total</th>
           <th class="text-end">Balance</th>
           <th></th>
         </tr>
@@ -62,14 +63,14 @@
       <tbody>
         <% @records.each do |record| %>
           <tr id="<%= dom_id record %>">
-            <td><%= record.txn_date ? l(record.txn_date) : "" %></td>
+            <td data-sort-value="<%= record.txn_date&.iso8601 %>"><%= record.txn_date ? l(record.txn_date) : "" %></td>
             <td>
               <%= link_to record.identifier_name, accounting_connection_record_path(@source, record) %>
               <%= render "accounting/records/marks", record: record %>
             </td>
             <td><%= record.role == "customer" ? "" : @customer_names[record.customer_external_id] || record.customer_external_id %></td>
-            <td class="text-end"><%= accounting_cents(record.total_cents) %></td>
-            <td class="text-end"><%= accounting_cents(record.balance_cents) %></td>
+            <td class="text-end" data-sort-value="<%= record.total_cents %>"><%= accounting_cents(record.total_cents) %></td>
+            <td class="text-end" data-sort-value="<%= record.balance_cents %>"><%= accounting_cents(record.balance_cents) %></td>
             <td>
               <% if record.external_url.present? %>
                 <%= link_to "Open in #{@source.source_name}", record.external_url, target: "_blank", rel: "noopener" %>
@@ -84,3 +85,4 @@
 <% else %>
   <%= render "shared/empty_state", text: "Nothing here yet." %>
 <% end %>
+</div>
