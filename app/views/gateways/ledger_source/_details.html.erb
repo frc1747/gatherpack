@@ -20,10 +20,6 @@
   <%= gateway.credit_tags.any? ? gateway.credit_tags.map(&:identifier_name).to_sentence : "none" %>.
 </p>
 <p class="mb-1">Team for new ledgers: <%= gateway.new_ledger_team&.identifier_name || "none" %>.</p>
-<p class="small text-muted">
-  On the edit page, list teams and tags by id (such as <code>tm_…</code>), separated by spaces.
-  Charge sign is negative or positive.
-</p>
 <%= render "accounting/records/sync_state", source: gateway %>
 
 <% if Accounting.enabled? && Accounting::SourcePolicy.new(current_user, gateway).customers? %>

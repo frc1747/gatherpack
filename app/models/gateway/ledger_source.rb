@@ -21,6 +21,37 @@ class Gateway::LedgerSource < Gateway
     [ :ledger_team_ids, :charge_sign, :credit_tag_ids, :new_ledger_team_id ]
   end
 
+  # The tick boxes post arrays.
+  def extra_params
+    [ { ledger_team_ids: [], credit_tag_ids: [] } ]
+  end
+
+  # The settings are stored as ids separated by spaces; the edit form's
+  # tick boxes send them as a list.
+  %i[ ledger_team_ids credit_tag_ids new_ledger_team_id ].each do |setting|
+    define_method(:"#{setting}=") { |value| super(value.is_a?(Array) ? value.compact_blank.join(" ") : value) }
+  end
+
+  # Tick boxes and choices on the edit form (GatewayFieldInput).
+  def field_input(field)
+    case field
+    when :ledger_team_ids
+      { label: "Which teams' ledgers", as: :check_boxes, choices: team_choices, selected: ledger_teams.map(&:neat_id),
+        hint: "Ledgers on the ticked teams are your books. Leave every box empty to use every team's ledgers." }
+    when :charge_sign
+      { label: "Which entries are charges", as: :select, selected: charge_sign,
+        choices: [ [ "Entries below zero are charges; above zero, payments", "negative" ],
+                   [ "Entries above zero are charges; below zero, payments", "positive" ] ] }
+    when :credit_tag_ids
+      { label: "Tags that mean a credit", as: :check_boxes, selected: credit_tags.map(&:neat_id),
+        choices: LedgerTag.order(:name).map { |tag| [ tag.name, tag.neat_id ] },
+        hint: "A payment carrying one of these tags counts as a credit, such as a scholarship." }
+    when :new_ledger_team_id
+      { label: "Team for new ledgers", as: :select, choices: team_choices, selected: new_ledger_team&.neat_id, include_blank: "None",
+        hint: "Where billing makes a ledger for someone who has none, when the rule has no team of its own." }
+    end
+  end
+
   def identifier_icon
     "receipt"
   end
@@ -151,6 +182,10 @@ class Gateway::LedgerSource < Gateway
   private
     def reader
       Accounting::Ledgers::Reader.new(self)
+    end
+
+    def team_choices
+      Team.order(:name).map { |team| [ team.name, team.neat_id ] }
     end
 
     def normalize_entry(data)

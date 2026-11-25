@@ -22,6 +22,10 @@ Rails.application.config.to_prepare do
   # model is a new customer record the sync couldn't link to anyone.
   GatherPack::HookCatalog.register_events("accounting - customer unlinked")
 
+  # Gateway types can choose their settings' inputs (the ledger source's
+  # teams and tags are tick boxes and choices).
+  Gateway.include(GatewayFieldInput) unless Gateway < GatewayFieldInput
+
   # Ledger sources read the ledgers again whenever one of these changes.
   [ Ledger, LedgerEntry, LedgerTagging, LedgerOwnership ].each do |model|
     model.include(Accounting::LedgerChanges) unless model < Accounting::LedgerChanges
