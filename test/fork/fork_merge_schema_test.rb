@@ -19,6 +19,14 @@ class ForkMergeSchemaTest < Minitest::Test
     FileUtils.remove_entry(@dir)
   end
 
+  def test_foreign_keys_on_one_table_sort_as_the_dumper_sorts_them
+    plain = %(  add_foreign_key "item_unit_events", "people", on_delete: :nullify\n)
+    column = %(  add_foreign_key "item_unit_events", "people", column: "recorded_by_id", on_delete: :nullify\n)
+    other = %(  add_foreign_key "kiosk_devices", "users", column: "created_by_id", on_delete: :nullify\n)
+
+    assert_equal column + plain + other, ForkMergeSchema.resolve_hunk(plain + column, "", other)
+  end
+
   def test_newer_version_line_wins
     base = schema("2026_10_01_000000", tables: %w[a], keys: [])
     ours = schema("2026_10_02_000000", tables: %w[a b], keys: [])
