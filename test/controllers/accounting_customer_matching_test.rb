@@ -85,13 +85,45 @@ class AccountingCustomerMatchingTest < ActionDispatch::IntegrationTest
     assert_select "a", text: "New rule", count: 0
   end
 
+  test "a holder's Sync now from Customers reads the source and comes back to Customers, with the schedule and last check shown" do
+    gateway = create_quickbooks_gateway(change_check: "twice_daily")
+    gateway.record_state!(last_change_check_at: Time.utc(2026, 11, 25, 5, 59))
+    sign_in @holder
+
+    with_matching do
+      get accounting_connection_customers_path(gateway)
+      assert_response :success
+      assert_select "form[action=?] button", sync_accounting_connection_path(gateway, from: "customers"), text: "Sync now"
+      assert_includes Nokogiri::HTML(response.body).css(".card-body p").map { |node| node.text.squish },
+        "Checks QuickBooks twice a day (6 am and 6 pm). Last checked 25 Nov, 6:00 am."
+
+      assert_enqueued_with(job: Accounting::ChangesJob, args: [ gateway ]) { post sync_accounting_connection_path(gateway, from: "customers") }
+      assert_redirected_to accounting_connection_customers_path(gateway)
+    end
+  end
+
+  test "Sync now from Customers shows nothing for a source that isn't connected, and sends admins back where they came from" do
+    sign_in @holder
+    with_matching do
+      get accounting_connection_customers_path(@gateway)
+      assert_select "button", text: "Sync now", count: 0
+    end
+
+    gateway = create_quickbooks_gateway
+    sign_in @admin
+    with_matching do
+      assert_enqueued_with(job: Accounting::ChangesJob) { post sync_accounting_connection_path(gateway, from: "customers") }
+      assert_redirected_to accounting_connection_customers_path(gateway)
+      post sync_accounting_connection_path(gateway, from: "elsewhere")
+      assert_redirected_to accounting_connection_records_path(gateway)
+    end
+  end
+
   test "a holder is refused everything else" do
     sign_in @holder
 
     with_matching do
       get accounting_connection_records_path(@gateway)
-      assert_redirected_to root_path
-      post sync_accounting_connection_path(@gateway)
       assert_redirected_to root_path
       post full_sync_accounting_connection_path(@gateway)
       assert_redirected_to root_path

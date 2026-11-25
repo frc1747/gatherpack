@@ -45,10 +45,11 @@ class Gateway::QuickbooksGateway < Gateway
 
   def fields
     [ :client_id, :client_secret, :environment, :webhook_verifier_token, :synced_entities, :customer_rollup, :match_strategies, :match_field_path,
-      :allow_create_charges ]
+      :allow_create_charges, :change_check ]
   end
 
   def field_input(field)
+    return change_check_input if field == :change_check
     return unless field == :allow_create_charges
 
     { label: "Let GatherPack create invoices", as: :select, selected: allow_create_charges?.to_s,
@@ -152,7 +153,7 @@ class Gateway::QuickbooksGateway < Gateway
   end
 
   def webhook_problem
-    "aren't accepted until the verifier token from the Intuit app is set; the changes job still checks every 15 minutes" if webhook_verifier_token.blank?
+    "aren't accepted until the verifier token from the Intuit app is set; changes are still copied on the Check for changes schedule" if webhook_verifier_token.blank?
   end
 
   # Intuit signs each notification with the verifier token: a base64

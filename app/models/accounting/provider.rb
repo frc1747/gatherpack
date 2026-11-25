@@ -14,6 +14,16 @@ module Accounting::Provider
     has_many :accounting_customer_dismissals, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
     has_many :accounting_rules, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
     has_many :accounting_billing_runs, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
+
+    # How often a source with a change feed is checked (Accounting::ChangeSchedule).
+    store_accessor :configuration, :change_check
+    validates :change_check, inclusion: { in: ->(_) { Accounting::ChangeSchedule.words }, message: "isn't one of the choices" }, allow_blank: true
+  end
+
+  # The "Check for changes" setting as a form select (Gateway field_input).
+  def change_check_input
+    { label: "Check for changes", as: :select, selected: Accounting::ChangeSchedule.word_for(self), choices: Accounting::ChangeSchedule.choices,
+      hint: "Times are in the site's time zone. Sync now always checks at once, and QuickBooks notifications, when set up, still arrive at once." }
   end
 
   # What this source can do, a Set of CAPABILITIES.

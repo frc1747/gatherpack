@@ -166,6 +166,37 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "Records says how often QuickBooks is checked and when it last was" do
+    gateway = create_quickbooks_gateway(change_check: "twice_daily")
+    gateway.record_state!(last_change_check_at: Time.utc(2026, 11, 25, 5, 59))
+    sign_in @admin
+
+    with_accounting do
+      get accounting_connection_records_path(gateway)
+      assert_equal "Checks QuickBooks twice a day (6 am and 6 pm). Last checked 25 Nov, 6:00 am.", Nokogiri::HTML(response.body).at_css(".card-body p").text.squish
+
+      gateway.update!(change_check: "manual")
+      get accounting_connection_records_path(gateway)
+      assert_match "Checks QuickBooks only when someone clicks Sync now.", response.body.squish
+    end
+  end
+
+  test "an architect saves Check for changes on the connection form, and a wrong word is refused" do
+    gateway = create_quickbooks_gateway
+    sign_in @builder
+
+    with_accounting do
+      get edit_gateway_path(gateway)
+      assert_select "select[name='gateway[change_check]'] option", count: 5
+      assert_select "select[name='gateway[change_check]'] option[selected][value='15m']"
+
+      patch gateway_path(gateway), params: { gateway: { change_check: "hourly" } }
+      assert_equal "hourly", gateway.reload.change_check
+      patch gateway_path(gateway), params: { gateway: { change_check: "weekly" } }
+      assert_equal "hourly", gateway.reload.change_check
+    end
+  end
+
   test "admins don't see the sync buttons for a source that isn't connected" do
     sign_in @admin
     with_accounting { get accounting_connection_records_path(@gateway) }
