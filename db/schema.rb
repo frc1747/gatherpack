@@ -1229,8 +1229,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_120000) do
   add_foreign_key "checkins", "events"
   add_foreign_key "checkins", "people"
   add_foreign_key "commitment_adjustments", "commitments", on_delete: :cascade
-  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
   add_foreign_key "commitment_adjustments", "people", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "commitment_adjustments", "people", on_delete: :cascade
   add_foreign_key "commitment_organizers", "commitments", on_delete: :cascade
   add_foreign_key "commitment_organizers", "people", on_delete: :cascade
   add_foreign_key "commitment_sources", "commitments", on_delete: :cascade
