@@ -30,12 +30,22 @@
     <%= @event.description %>
   </div>
   <% if policy(@event).update? || policy(@event).destroy? %>
-    <div class="card-footer">
-      <%= link_to "Print", print_event_path(@event), class: "btn btn-dark" if policy(@event).print? %>
-      <%= link_to "Arrange", arrange_event_path(@event), class: "btn btn-info" if policy(@event).arrange? %>
-      <%= link_to "Edit", edit_event_path(@event), class: "btn btn-warning" if policy(@event).update? %>
-      <%= link_to "Delete", @event, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: (@event.checkins.count > 0 ? "Delete this event and its #{pluralize(@event.checkins.count, "check-in")}?" : "Are you sure?") } if policy(@event).destroy? %>
-    </div>
+    <% if GatherPack::Features.enabled?(:screen_standard) %>
+      <%= render "shared/action_row", actions: [
+        screen_action("Edit", edit_event_path(@event), style: :warning, visible: policy(@event).update?),
+        screen_action("Print", print_event_path(@event), style: :dark, visible: policy(@event).print?),
+        screen_action("Arrange", arrange_event_path(@event), more: true, visible: policy(@event).arrange?),
+        screen_action("Delete", @event, method: :delete, destructive: true, visible: policy(@event).destroy?,
+          confirm: (@event.checkins.count > 0 ? "Delete this event and its #{pluralize(@event.checkins.count, "check-in")}?" : "Delete this event?"))
+      ] %>
+    <% else %>
+      <div class="card-footer">
+        <%= link_to "Print", print_event_path(@event), class: "btn btn-dark" if policy(@event).print? %>
+        <%= link_to "Arrange", arrange_event_path(@event), class: "btn btn-info" if policy(@event).arrange? %>
+        <%= link_to "Edit", edit_event_path(@event), class: "btn btn-warning" if policy(@event).update? %>
+        <%= link_to "Delete", @event, class: "btn btn-danger", data: { turbo_method: :delete, turbo_confirm: (@event.checkins.count > 0 ? "Delete this event and its #{pluralize(@event.checkins.count, "check-in")}?" : "Are you sure?") } if policy(@event).destroy? %>
+      </div>
+    <% end %>
   <% end %>
 </div>
 
