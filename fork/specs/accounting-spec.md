@@ -437,14 +437,16 @@ Links are many-to-many: one customer for a family linked to each child; one pers
 | Strategy | Matches (neutral columns) | Confirmation |
 |---|---|---|
 | `reference` | The customer's `reference` holds a person's GatherPack id (`per_…`) anywhere in the text, or, with no id in it, equals an account email (§7.5). | Exact and unique: linked automatically. Otherwise suggested. |
-| `name` | `name` against the person's name, ignoring case, punctuation and accents; also "Last, First". | Confirmed by an admin. |
+| `name` | `name` against the person's name, ignoring case, punctuation and accents; also "Last, First". Both the name they go by (display name) and their legal first and last name are compared. | A match on the display name, with nobody else of that name, is exact ("name match"). A match only on the legal first and last name of someone who goes by another name is a "legal name match": suggested, never exact, so Link all skips it (it may be a relative who shares the name). A person with no preferred name has a display name equal to their legal name (the person record fills it in), so they stay exact. Confirmed by an admin. |
 | `email` | `email` against account emails. When that person has wards, the wards are suggested too ("ward of <guardian> (email match)"), because a parent often receives each child's bill. | Confirmed by an admin. |
+
+When an exact name match is also the email owner or a ward of the email owner, it shows first as "name and email match" and the other suggestions fold behind a small "Other suggestions (n)" disclosure, on the Customers page and the customer page. They keep **Link** and **Not this person**. With no such match, every suggestion shows as before. Only the screens fold: Link all still looks at name matches alone.
 
 Computed when the page loads. Dismissed suggestions are kept in `accounting_customer_dismissals` (`gateway_id`, `customer_external_id`, `person_id`).
 
 ### 7.3 Customers page
 
-Gateway page → **Customers**, admins and holders of the customer matching badge (§7.4). "Link each customer to the people it's for. Rules only see customers that are linked." Sections **Needs a link** (each unlinked active customer with suggestions, **Link** / **Not this person**, a person picker, and **Link all exact name matches**) and **Linked** (**Unlink**). Unlinking is remembered as a dismissal, whatever made the link, so an automatic link or suggestion doesn't come straight back; linking the same person by hand clears it. Inactive customers behind "Show inactive". Each customer opens its page: linked people and its records, with "Open in <source>" links when the source has `:deep_links` (admins only).
+Gateway page → **Customers**, admins and holders of the customer matching badge (§7.4). "Link each customer to the people it's for. Rules only see customers that are linked." Sections **Needs a link** (each unlinked active customer with suggestions, **Link** / **Not this person**, other suggestions folded when a name and email match leads (§7.2), a person picker, and **Link all exact name matches**) and **Linked** (**Unlink**). Unlinking is remembered as a dismissal, whatever made the link, so an automatic link or suggestion doesn't come straight back; linking the same person by hand clears it. Inactive customers behind "Show inactive". Each customer opens its page: linked people and its records, with "Open in <source>" links when the source has `:deep_links` (admins only).
 
 ### 7.4 Customer matching badge
 
