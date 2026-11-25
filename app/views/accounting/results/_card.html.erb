@@ -1,0 +1,127 @@
+<%# locals: (result:, amounts:, status_only:, admin:, statement:) -%>
+<%# One person's answer to one rule, as a card: the rule and its status, the
+    balance and how much is paid, the milestones, the invoices, and what the
+    viewer can do. Without amounts (the viewer sees only the status) the
+    money is left out. With milestones, invoice due dates don't show: the
+    status comes only from the milestones. %>
+<% rule = result.rule %>
+<% person = result.person %>
+<% balance = rule.balance? && result.value != "not_invoiced" %>
+<% steps = (accounting_milestone_steps(result) if rule.balance? && !status_only && result.milestones?) %>
+<% line = (accounting_milestone_line(result, amounts: amounts, status_only: status_only) if rule.balance? && steps.nil?) %>
+<% charges = amounts ? result.charges : [] %>
+<% payable = rule.pay_links? && result.amount_cents.to_i.positive? ? charges.select { |charge| charge["pay_url"].present? && charge["balance_cents"].to_i.positive? } : [] %>
+<% show_due = !result.milestones? && charges.any? { |charge| charge["due_on"] } %>
+<div class="card mb-3 accounting-result" id="<%= dom_id result %>">
+  <div class="card-header">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <h2 class="h4 mb-0"><%= admin ? link_to(rule.name, accounting_rule_path(rule)) : rule.name %></h2>
+      <%= accounting_value_badge(rule, result.value) %>
+      <% unless rule.enabled? %><span class="badge text-bg-secondary">Turned off</span><% end %>
+      <% if admin && result.on_plan? %><span class="badge text-bg-secondary">On a plan</span><% end %>
+    </div>
+    <% if rule.description.present? %><div class="text-body-secondary mt-1"><%= rule.description %></div><% end %>
+  </div>
+  <div class="card-body d-flex flex-column gap-4">
+    <% if amounts && (balance || rule.kind == "amount" || rule.kind == "count" || (rule.custom? && result.amount_cents)) %>
+      <div class="accounting-answer">
+        <% if balance %>
+          <div class="small text-body-secondary">Balance remaining</div>
+          <div class="d-flex flex-wrap align-items-baseline column-gap-2">
+            <span class="display-5 fw-semibold lh-sm"><%= accounting_cents(result.amount_cents) %></span>
+            <span class="small text-body-secondary">of <%= accounting_cents(result.detail(:charged_cents)) %> charged</span>
+          </div>
+          <% percent = accounting_paid_percent(result) %>
+          <div class="progress mt-2" style="height: .5rem" role="progressbar" aria-label="Paid <%= accounting_cents(result.detail(:paid_cents)) %> of <%= accounting_cents(result.detail(:charged_cents)) %>"
+               aria-valuenow="<%= percent %>" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar bg-success" style="width: <%= percent %>%"></div>
+          </div>
+          <div class="small text-body-secondary mt-1"><%= accounting_cents(result.detail(:paid_cents)) %> paid</div>
+        <% elsif rule.kind == "count" %>
+          <span class="display-5 fw-semibold lh-sm"><%= result.detail(:count).to_i %></span>
+        <% else %>
+          <span class="display-5 fw-semibold lh-sm"><%= accounting_cents(result.amount_cents) %></span>
+        <% end %>
+        <% if line.present? %><div class="mt-2"><%= line %></div><% end %>
+      </div>
+    <% elsif line.present? %>
+      <div><%= line %></div>
+    <% end %>
+
+    <% if steps&.any? %>
+      <div class="accounting-milestones">
+        <h3 class="h6 mb-2">Milestones</h3>
+        <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+          <% steps.each do |step| %>
+            <% state = AccountingHelper::MILESTONE_STATES.fetch(step["state"]) %>
+            <li class="d-flex flex-wrap align-items-baseline column-gap-2 row-gap-1">
+              <span class="badge text-bg-<%= state[:color] %>"><%= i state[:icon] %> <%= state[:label] %></span>
+              <span class="fw-semibold"><%= step["name"] %></span>
+              <% catch_up = amounts && %i[ missed next ].include?(step["state"]) %>
+              <span class="text-body-secondary"><%= step["state"] == :missed ? "was due" : "by" %> <%= accounting_date(step["date"]) %><%= ":" if catch_up %></span>
+              <% if catch_up %><span><%= accounting_cents(step["catch_up_cents"]) %> to go</span><% end %>
+              <% if amounts && result.on_plan? %>
+                <span class="small text-body-secondary w-100">Owing at most <%= accounting_cents(step["limit_cents"]) %> by then</span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if charges.any? %>
+      <div class="accounting-invoices">
+        <h3 class="h6 mb-2">Invoices</h3>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle text-nowrap mb-0">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>What</th>
+                <th>Date</th>
+                <% if show_due %><th>Due</th><% end %>
+                <th class="text-end">Total</th>
+                <th class="text-end">Left</th>
+                <% if payable.size > 1 %><th></th><% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <% charges.each do |charge| %>
+                <% number, what = accounting_invoice_parts(charge["label"]) %>
+                <tr>
+                  <td><%= number %></td>
+                  <td><%= what %></td>
+                  <td><%= accounting_date(charge["txn_date"]) %></td>
+                  <% if show_due %><td><%= accounting_date(charge["due_on"]) %></td><% end %>
+                  <td class="text-end"><%= accounting_cents(charge["total_cents"]) %></td>
+                  <td class="text-end"><%= accounting_cents(charge["balance_cents"]) %></td>
+                  <% if payable.size > 1 %>
+                    <td class="text-end">
+                      <% if payable.include?(charge) %>
+                        <%= link_to "Pay online", charge["pay_url"], class: "btn btn-sm btn-outline-secondary", target: "_blank", rel: "noopener", title: charge["label"] %>
+                      <% end %>
+                    </td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+
+    <% if amounts && rule.balance? && !rule.count_unapplied_credit? && result.unapplied_credit_cents.positive? %>
+      <div class="alert alert-info mb-0 py-2">
+        <%= i "circle-info" %> A payment of <%= accounting_cents(result.unapplied_credit_cents) %> is waiting to be applied.
+      </div>
+    <% end %>
+    <% if admin && result.error? %><div class="text-danger"><%= result.detail(:error) %></div><% end %>
+
+    <div class="small text-body-secondary"><%= accounting_updated_at(result.evaluated_at) %></div>
+  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("Pay online", payable.first&.fetch("pay_url"), style: :primary, data: { turbo: false }, visible: payable.one?),
+        screen_action("Statement", person_accounting_statement_path(person), visible: statement && amounts),
+        screen_action("Payment plan", edit_accounting_rule_payment_plan_path(rule, person), visible: admin && rule.balance?)
+      ] %>
+</div>

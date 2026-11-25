@@ -3,12 +3,10 @@
 <% rows = @statement.rows %>
 
 <div class="card">
-  <div class="card-header">
-    <h1><%= @person.identifier_name %>: Statement</h1>
-    <div class="text-muted">Current balance <strong><%= accounting_cents(@statement.balance_cents) %></strong></div>
-    <div class="no-print mt-2">
-      <button type="button" class="btn btn-dark" data-controller="print" data-action="print#print">Print</button>
-    </div>
+  <%= render "shared/page_header", title: "#{@person.identifier_name}: Statement", summary: "Every charge and payment, newest first." %>
+  <div class="card-body border-bottom">
+    <div class="small text-body-secondary">Current balance</div>
+    <div class="display-5 fw-semibold lh-sm"><%= accounting_cents(@statement.balance_cents) %></div>
   </div>
   <div class="card-body">
     <% if rows.empty? %>
@@ -46,4 +44,7 @@
       </div>
     <% end %>
   </div>
+  <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
+        screen_action("Print", nil, style: :dark, data: { controller: "print", action: "print#print" })
+      ] %>
 </div>

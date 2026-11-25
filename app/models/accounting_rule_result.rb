@@ -29,6 +29,17 @@ class AccountingRuleResult < ApplicationRecord
     Array(detail(:charges))
   end
 
+  # The rule's (or the person's plan's) own milestones, each met or not. A
+  # rule without any works from each invoice's due date instead, and those
+  # per-invoice checks aren't listed here.
+  def milestones
+    Array(detail(:milestones)).reject { |milestone| milestone["key"].to_s.start_with?(Accounting::Kinds::Balance::CHARGE_KEY_PREFIX) }
+  end
+
+  def milestones?
+    milestones.any?
+  end
+
   def unapplied_credit_cents
     detail(:unapplied_credit_cents).to_i
   end

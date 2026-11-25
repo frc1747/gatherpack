@@ -33,9 +33,8 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
       with_accounting { get person_accounting_path(@nancy) }
 
       assert_response :success
-      assert_select ".accounting-plan-milestones li", text: /First payment, by .*, owing at most \$250\.00, \$50\.00 to go/
-      assert_select ".accounting-plan-milestones li", text: /Last payment/
-      assert_select "*", text: /Next: \$50\.00 by/
+      assert_select ".accounting-milestones li", text: /Next\s+First payment\s+by .*: \$50\.00 to go\s+Owing at most \$250\.00 by then/
+      assert_select ".accounting-milestones li", text: /Coming up\s+Last payment/
       assert_no_match "On a plan", response.body
       assert_no_match "Agreed with the family", response.body
       assert_select "a", text: "Payment plan", count: 0
@@ -50,7 +49,7 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
     assert_select "##{dom_id(result_for(@rule, @nancy))}", text: /On schedule/
     assert_no_match "First payment", response.body
     assert_no_match "$250.00", response.body
-    assert_select ".accounting-plan-milestones", count: 0
+    assert_select ".accounting-milestones", count: 0
 
     with_accounting { get accounting_rule_path(@rule) }
     assert_response :success
@@ -87,7 +86,7 @@ class AccountingPaymentPlansTest < ActionDispatch::IntegrationTest
     assert_no_match "On schedule", response.body
 
     with_accounting { get person_accounting_path(@nancy) }
-    assert_select "##{dom_id(result_for(@rule, @nancy))}", text: /Next: \$100\.00 by/
+    assert_select "##{dom_id(result_for(@rule, @nancy))} .accounting-milestones li", text: /Next\s+Deposit\s+by .*: \$100\.00 to go/
   end
 
   test "the plan page says who sees the plan by the rule's levels" do
