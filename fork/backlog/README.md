@@ -20,7 +20,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-008](BL-008-member-info-access.md) | Restrict Member Info: its own on/off switch, and managers only by default | upstream feature (security) | high | dropped | 2026-10-05 |
 | [BL-009](BL-009-person-team-ids-return-records.md) | `Person#all_team_ids` and `#all_ancestor_team_ids` return Team records mixed with ids | upstream bug (latent) | low | shipped hbr.32 | 2026-10-06 |
 | [BL-010](BL-010-long-tick-box-lists.md) | Keep long tick-box lists short on the printable list | fork-only | medium | shipped hbr.32 | 2026-10-07 |
-| [BL-011](BL-011-accounting-integration.md) | Accounting integration (QuickBooks Online first) | fork-only | medium | waiting | 2026-10-07 |
+| [BL-011](BL-011-accounting-integration.md) | Accounting: account status from QuickBooks, ledgers or a file, and billing | fork-only | medium | waiting | 2026-10-07 |
 | [BL-012](BL-012-kiosk-period-less-punch.md) | Time kiosk crashes for anyone with a punch that has no period | upstream bug | medium | shipped hbr.32 | 2026-10-08 |
 | [BL-013](BL-013-settings-cached-per-process.md) | Saved settings reach only one server process until a restart | upstream bug | medium | done (upstream merged PR #544, 2026-11-09) | 2026-10-09 |
 | [BL-014](BL-014-hook-catalog-drift.md) | Hook catalog misses models that fire hooks | upstream bug | low | shipped hbr.32 | 2026-10-09 |

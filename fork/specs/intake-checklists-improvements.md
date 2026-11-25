@@ -165,7 +165,7 @@ Students ask for a letter of hours and years of service. Provide a page for a pe
 
 ### E7. Dues, fees and waivers
 
-Start with what exists: dues are a count item in dollars or an attested item recorded by the treasurer; a waiver is an excuse, whose reason only managers and admins read (checklists §7). A Stripe gateway exists (`app/models/gateway/stripe_gateway.rb:2`) for in-app payment later. [BL-011](../backlog/BL-011-accounting-integration.md) decides the books; do not pick a side. Size S now, L later.
+Start with what exists: dues are a count item in dollars or an attested item recorded by the treasurer; a waiver is an excuse, whose reason only managers and admins read (checklists §7). A Stripe gateway exists (`app/models/gateway/stripe_gateway.rb:2`) for in-app payment later. [`accounting-spec.md`](accounting-spec.md) (BL-011) decides the books; do not pick a side. Size S now, L later.
 
 ### E8. Event safety sheet
 
