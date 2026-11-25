@@ -1,0 +1,15 @@
+<%# locals: (badge_assignment:, can_remove:) %>
+<div class="list-group-item d-flex align-items-center gap-2" id="<%= dom_id badge_assignment %>">
+  <%= image_tag get_avatar_url_64(badge_assignment.person.avatar), class: "person-img rounded-circle flex-shrink-0", style: "height: 2em; width: 2em;", alt: "" %>
+  <div class="flex-grow-1">
+    <%= link_to badge_assignment.person.identifier_name, [ badge_assignment.badge, badge_assignment ], data: { turbo_frame: "_top" } %>
+  </div>
+  <% if can_remove %>
+    <%= button_to badge_badge_assignment_path(badge_assignment.badge, badge_assignment, format: :turbo_stream), method: :delete,
+          class: "btn btn-sm btn-outline-danger",
+          title: "Remove #{badge_assignment.person.identifier_name}",
+          form: { data: { turbo_frame: "_top" } } do %>
+      <i class="fa-solid fa-xmark"></i>
+    <% end %>
+  <% end %>
+</div>
