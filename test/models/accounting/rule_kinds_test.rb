@@ -159,6 +159,18 @@ class Accounting::RuleKindsTest < ActiveSupport::TestCase
     assert_equal [ "error", "RuntimeError: no books" ], [ error.value, error.details[:error] ]
   end
 
+  test "393#9: custom code sees only the kinds of record the rule names" do
+    add_record("58", "receipt", "R1", total_cents: 5_000)
+    add_charge("58", "I1", total: 40_000)
+    add_payment("58", "P1", total: 10_000)
+
+    receipts = create_rule("Custom receipts", kind: "custom", code: "records.pluck(:role).sort.join(\",\")", filters: { "roles" => [ "receipt" ] })
+    everything = create_rule("Custom everything", kind: "custom", code: "records.pluck(:role).sort.join(\",\")")
+
+    assert_equal "receipt", outcome_for(receipts, @nancy).value
+    assert_equal "charge,payment,receipt", outcome_for(everything, @nancy).value
+  end
+
   test "labels are renamable per rule" do
     rule = create_rule(labels: { "partial" => "Deposit paid", "paid" => "" })
 
