@@ -16,4 +16,6 @@ Rails.application.config.to_prepare do
   # recomputes it from the merged links.
   merge.register :accounting_rule_results, :person_id, unique_by: :rule_id, model: AccountingRuleResult,
     label: "Accounting rule results"
+  merge.register :accounting_uploads, :created_by_id, label: "Accounting files uploaded"
+  merge.register :accounting_uploads, :applied_by_id, label: "Accounting files applied"
 end
