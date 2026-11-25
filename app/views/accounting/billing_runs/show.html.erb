@@ -37,7 +37,7 @@
           <% @lines.sort_by { |line| [ %w[ failed skipped pending created exported ].index(line.status), line.person.identifier_name.to_s ] }.each do |line| %>
             <tr id="<%= dom_id line %>">
               <td><%= link_to line.person.identifier_name, line.person %></td>
-              <td><%= line.customer_external_id %></td>
+              <td><%= @customer_names.fetch(line.customer_external_id, line.customer_external_id) if line.customer_external_id %></td>
               <td class="text-end"><%= accounting_cents(line.amount_cents) %></td>
               <td><%= accounting_line_status_badge(line) %></td>
               <td><%= line.external_id %><% if line.sent_at %> <span class="text-muted">emailed</span><% end %></td>

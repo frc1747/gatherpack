@@ -80,9 +80,17 @@ class AccountingBillingRun < ApplicationRecord
 
   # Sets failed lines back to pending, with the same request ids, so a
   # retry returns any charge a failed call did create instead of a second.
-  def retry_failed!
+  # access (Accounting::BillingAccess): who's retrying; a line for someone
+  # they may no longer bill is skipped instead.
+  def retry_failed!(access = nil)
     transaction do
-      lines.failed.update_all(status: "pending", error: nil, updated_at: Time.current)
+      lines.failed.includes(:person).find_each do |line|
+        if access.nil? || access.admin? || access.may_bill?(line.person)
+          line.update!(status: "pending", error: nil)
+        else
+          line.skip!("Not retried: no longer someone the person retrying may bill")
+        end
+      end
       update!(status: "running", finished_at: nil)
     end
     Accounting::BillingRunJob.perform_later(self)

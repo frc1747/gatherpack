@@ -66,6 +66,10 @@ module Accounting::Provider
   # has this team (nil: none), or nil when it can.
   def customer_creation_problem(team) = nil
 
+  # Why billing can't write charges into this source now, for lines that
+  # can't go ahead.
+  def billing_problem = "#{source_name} can't take new charges from GatherPack"
+
   # :send_charges -- emails a charge this source created.
   def send_charge(external_id, email:) = raise NotImplementedError
 

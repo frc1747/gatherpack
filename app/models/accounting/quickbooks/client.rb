@@ -28,6 +28,9 @@ class Accounting::Quickbooks::Client
     end
   end
 
+  # Why the creates and the send are refused while writing is off.
+  WRITING_OFF = "Turn on \"Let GatherPack create invoices\" to bill people from GatherPack".freeze
+
   PAGE_SIZE = 1000
   # Refresh the access token when less than this is left of it.
   REFRESH_MARGIN = 5.minutes
@@ -208,7 +211,7 @@ class Accounting::Quickbooks::Client
     end
 
     def writing_allowed!
-      raise NotAllowed, "Turn on \"Let GatherPack create invoices\" to bill people from GatherPack" unless gateway.allow_create_charges?
+      raise NotAllowed, WRITING_OFF unless gateway.allow_create_charges?
     end
 
     # POSTs to an API path under this company, refreshing the sign-in once

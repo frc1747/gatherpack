@@ -29,7 +29,9 @@
     <%= render "shared/page_header", title: "Bill people",
           summary: (@rule ? "Bill #{@rule.name}'s people who aren't invoiced, or a team, or people you pick." : "Create charges for a team, or people you pick."),
           state: state_line(caps.include?(:create_charges) ? "In #{source.name} (#{source.source_name})" : "#{source.name} can't take new charges from GatherPack: you'll get a CSV to import into your accounting program.") %>
-    <%= form_with url: url, method: :post, id: "billing-form", data: { turbo: false } do |f| %>
+    <% word = accounting_charge_word(source) %>
+    <%= form_with url: url, method: :post, id: "billing-form",
+          data: { turbo: false, controller: "tick-count", tick_count_one_value: word, tick_count_many_value: word.pluralize } do |f| %>
       <div class="card-body">
         <% if @errors&.any? %>
           <div class="alert alert-danger">
@@ -124,6 +126,9 @@
           <% if @rows.empty? %>
             <%= render "shared/empty_state", text: "Nobody to bill." %>
           <% else %>
+            <%# Which Who this preview shows: a new Pick people preview starts
+                from these rows only when this one was Pick people too. %>
+            <%= hidden_field_tag :previous_who, @who, id: nil %>
             <% if @who == "people" %>
               <% @rows.each do |row| %><%= hidden_field_tag "person_ids[]", row.person.id, id: nil %><% end %>
             <% end %>
@@ -140,8 +145,11 @@
                     <tr id="<%= dom_id(row.person, :billing) %>">
                       <td>
                         <%= hidden_field_tag "#{key}[include]", "0", id: nil %>
+                        <%# The warning the tick was given beside; a new warning unticks it. %>
+                        <%= hidden_field_tag "#{key}[warning]", row.warning.to_s, id: nil %>
                         <%= check_box_tag "#{key}[include]", "1", row.included, id: "#{id}_include", class: "form-check-input",
-                              aria: { label: "Bill #{row.person.identifier_name}" } %>
+                              aria: { label: "Bill #{row.person.identifier_name}" },
+                              data: { tick_count_target: "box", action: "tick-count#update" } %>
                       </td>
                       <td><%= link_to row.person.identifier_name, row.person %></td>
                       <td>

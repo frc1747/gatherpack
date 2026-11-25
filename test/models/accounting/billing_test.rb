@@ -107,6 +107,35 @@ class Accounting::BillingTest < ActiveJob::TestCase
     end
   end
 
+  test "397#5: a bill grant stops counting on a turned-off rule, or when its badge no longer counts" do
+    with_badges do
+      treasurer = treasurer_access
+      @rule.update!(enabled: false)
+      assert_not Accounting::BillingAccess.new(treasurer.viewer, @rule.reload).allowed?
+      assert_empty Accounting::BillingAccess.new(treasurer.viewer, @rule).people
+
+      @rule.update!(enabled: true)
+      assert Accounting::BillingAccess.new(treasurer.viewer, @rule.reload).allowed?
+      @rule.badge_grants.first.badge.update_column(:permission, Badge.permissions[:added_by_manager])
+      assert_not Accounting::BillingAccess.new(treasurer.viewer, AccountingRule.find(@rule.id)).allowed?
+    end
+  end
+
+  test "397#5: a grant holder's Retry failed skips lines for people they may no longer bill" do
+    with_badges do
+      access = treasurer_access
+      stranger = create_rule_person("Steven", "Buchanan")
+      run = billing_run(created_by: access.viewer)
+      nancy = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000, status: "failed", error: "Refused")
+      steven = run.lines.create!(person: stranger, customer_external_id: "70", amount_cents: 45_000, status: "failed", error: "Refused")
+
+      run.retry_failed!(access)
+
+      assert nancy.reload.pending?
+      assert_equal [ "skipped", "Not retried: no longer someone the person retrying may bill" ], [ steven.reload.status, steven.error ]
+    end
+  end
+
   test "a grant without bill, or no grant, can't bill" do
     reader = create_rule_person("Robert", "King")
     badge = create_rule_badge("Mentor")
@@ -155,10 +184,13 @@ class Accounting::BillingTest < ActiveJob::TestCase
   end
 
   test "a crash between creating the invoice and saving the line doesn't bill twice: the retry sends the same request id" do
-    answer_invoices
     crashed = false
-    fake_quickbooks.on(:post, "/send") { crashed ? qbo_fixture("invoice_sent") : (crashed = true) && raise(Crash) }
-    run = billing_run(send_from_source: true)
+    # QuickBooks creates the invoice; the process dies before the answer is saved.
+    fake_quickbooks.on(:post, "/invoice?") do |request|
+      answer = invoice_for(request)
+      crashed ? answer : (crashed = true) && raise(Crash)
+    end
+    run = billing_run
     line = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000)
 
     assert_raises(Crash) { perform_job(run) }
@@ -316,15 +348,93 @@ class Accounting::BillingTest < ActiveJob::TestCase
     assert_equal({ "pending" => 0, "created" => 1, "failed" => 0, "skipped" => 1, "exported" => 0 }, configuration["finished_counts"])
   end
 
-  test "nothing is written while the feature is off" do
+  test "397#1: nothing is written while the feature is off, and the pending lines fail so the run doesn't wait for ever" do
     answer_invoices
     run = billing_run
     line = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000)
 
     with_accounting(false) { Accounting::BillingRunJob.perform_now(run) }
 
-    assert line.reload.pending?
+    assert_equal [ "failed", "Accounting is turned off" ], [ line.reload.status, line.error ]
+    assert run.reload.finished?
     assert_empty fake_quickbooks.requests
+  end
+
+  test "397#1: writing turned off while a run waits fails its pending lines with the setting's words, and the run finishes" do
+    answer_invoices
+    run = billing_run
+    line = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000)
+    done = run.lines.create!(person: @janet, customer_external_id: "60", amount_cents: 45_000, status: "created", external_id: "199")
+    accounting_source.update!(allow_create_charges: "false")
+
+    perform_job(AccountingBillingRun.find(run.id))
+
+    assert_equal [ "failed", Accounting::Quickbooks::Client::WRITING_OFF ], [ line.reload.status, line.error ]
+    assert done.reload.created?
+    assert run.reload.finished?
+    assert_empty fake_quickbooks.requests
+  end
+
+  test "397#1: a source that raises NotImplementedError fails the line instead of leaving it pending" do
+    run = billing_run
+    line = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000)
+    run.gateway.define_singleton_method(:create_charge) { |_line| raise NotImplementedError }
+
+    perform_job(run)
+
+    assert line.reload.failed?
+    assert run.reload.finished?
+  end
+
+  test "397#2: a customer made before the charge failed stays linked, and the retry bills it without making another" do
+    refuse = true
+    fake_quickbooks.on(:post, "/customer?", body: qbo_fixture("customer_created"))
+    fake_quickbooks.on(:post, "/invoice?") { |request| refuse ? [ 400, qbo_fixture("customer_duplicate_name") ] : invoice_for(request) }
+    run = billing_run(create_customers: true)
+    line = run.lines.create!(person: @andrew, amount_cents: 45_000)
+
+    perform_job(run)
+
+    assert_equal [ "failed", "71" ], [ line.reload.status, line.customer_external_id ]
+    assert_equal "created", accounting_source.accounting_customer_links.find_by!(person: @andrew, customer_external_id: "71").source
+
+    refuse = false
+    run.retry_failed!
+    perform_job(run)
+
+    customer_posts = fake_quickbooks.api_requests.select { |request| request.uri.path.end_with?("/customer") }
+    assert_equal 1, customer_posts.size
+    assert_equal [ "created", "71" ], [ line.reload.status, JSON.parse(invoice_posts.last.body).dig("CustomerRef", "value") ]
+    assert_enqueued_with(job: Accounting::FetchRecordJob, args: [ accounting_source, "Customer", "71" ])
+  end
+
+  test "397#2: a crash while emailing leaves the invoice created, never created or emailed again" do
+    answer_invoices
+    crashed = false
+    fake_quickbooks.on(:post, "/send") { crashed ? qbo_fixture("invoice_sent") : (crashed = true) && raise(Crash) }
+    run = billing_run(send_from_source: true)
+    line = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000)
+
+    assert_raises(Crash) { perform_job(run) }
+    assert line.reload.created?
+    assert line.external_id.present?
+
+    perform_job(run)
+
+    assert_equal 1, invoice_posts.size
+    assert_equal 1, fake_quickbooks.api_requests.count { |request| request.uri.path.end_with?("/send") }
+  end
+
+  test "397#10: creating customers on a source that can't skips people without one" do
+    run = billing_run(create_customers: true)
+    line = run.lines.create!(person: @andrew, amount_cents: 45_000)
+    capabilities = run.gateway.capabilities - [ :create_customers ]
+    run.gateway.define_singleton_method(:capabilities) { capabilities }
+
+    perform_job(run)
+
+    assert_equal [ "skipped", "No customer" ], [ line.reload.status, line.error ]
+    assert_empty fake_quickbooks.api_requests
   end
 
   test "a run on ledgers adds an entry, and a ledger in the rule's team for someone without one" do

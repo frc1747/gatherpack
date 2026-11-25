@@ -77,6 +77,7 @@ module Accounting
         end
 
         test "provider contract: undeclared capabilities raise NotImplementedError" do
+          pass # a source may declare every capability
           WRITES.each do |capability, call|
             next if provider_source.capabilities.include?(capability)
 

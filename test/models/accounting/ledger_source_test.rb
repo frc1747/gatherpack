@@ -429,19 +429,35 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     assert_equal 0, other.ledger_entries.count
   end
 
-  test "a new ledger goes in the rule's team, else the team for new ledgers, owned by the person only, once per request id" do
+  test "397#12: a new ledger goes in the team for new ledgers when one is set, before the rule's team; owned by the person only, once per request id" do
     second = create_ledger_team("New members")
     @source.update!(ledger_team_ids: [ @team.neat_id, second.neat_id ], new_ledger_team_id: second.neat_id)
     request_id = SecureRandom.uuid
 
     ledger = Ledger.find(@source.create_customer(@nancy, email: "nancy.ward@example.com", request_id: request_id, team: @team))
-    assert_equal @team, ledger.team
+    assert_equal second, ledger.team
     assert_equal "Nancy Ward", ledger.name
     assert_equal [ @nancy ], ledger.owners
     assert_equal ledger.id, @source.create_customer(@nancy, email: "nancy.ward@example.com", request_id: request_id, team: @team)
 
     andrew = create_linkable_person("Andrew", "Fuller")
     assert_equal second, Ledger.find(@source.create_customer(andrew, email: nil, request_id: SecureRandom.uuid)).team
+  end
+
+  test "397#12: with no team for new ledgers set, a new ledger goes in the rule's team" do
+    ledger = Ledger.find(@source.create_customer(@nancy, email: nil, request_id: SecureRandom.uuid, team: @team))
+
+    assert_equal @team, ledger.team
+  end
+
+  test "397#7: a charge whose tag was deleted is refused rather than posted untagged" do
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    line = ledger_billing_line(ledger)
+    @dues.destroy!
+
+    error = assert_raises(ArgumentError) { @source.create_charge(AccountingBillingLine.find(line.id)) }
+    assert_equal "That tag no longer exists", error.message
+    assert_equal 0, ledger.ledger_entries.count
   end
 
   test "with no team for a new ledger, or one the source doesn't read, the customer is skipped with the reason" do

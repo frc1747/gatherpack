@@ -1,7 +1,8 @@
 # Who may bill whom, and with what. Admins bill anyone with any active item,
 # from a rule or from Account Status. Holders of a rule's badge grant with
-# bill on bill from that rule only: the rule's people the badge covers,
-# with the items the rule's filter names (none when it names no items).
+# bill on bill from that rule only, while it's turned on and the grant
+# counts (BadgeAccessGrants): the rule's people the badge covers, with the
+# items the rule's filter names (none when it names no items).
 class Accounting::BillingAccess
   attr_reader :viewer, :rule
 
@@ -46,6 +47,6 @@ class Accounting::BillingAccess
 
   private
     def bill_grants
-      @bill_grants ||= rule ? rule.grants_held_by(viewer).select(&:bill?) : []
+      @bill_grants ||= rule&.enabled? ? rule.grants_held_by(viewer).select { |grant| grant.bill? && grant.effective? } : []
     end
 end

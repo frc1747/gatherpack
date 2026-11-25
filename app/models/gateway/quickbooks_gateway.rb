@@ -281,6 +281,10 @@ class Gateway::QuickbooksGateway < Gateway
     client.send_invoice(external_id, email: email)
   end
 
+  def billing_problem
+    allow_create_charges? ? super : Accounting::Quickbooks::Client::WRITING_OFF
+  end
+
   # Copies the new invoice (and customer) back at once, so they show
   # without waiting for the changes job.
   def after_billing(line, customer_created:)

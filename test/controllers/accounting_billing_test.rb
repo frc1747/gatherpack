@@ -157,6 +157,59 @@ class AccountingBillingTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
+  test "397#4: rows from a team preview don't carry into Pick people, and Pick people keeps its own rows" do
+    sign_in @laura.user
+    team_rows = { @nancy.id => { include: "1", warning: "" }, @andrew.id => { include: "1", warning: "" } }
+
+    preview_rule(who: "people", previous_who: "team", person_q: "Buch", rows: team_rows)
+    assert_select "##{dom_id(@steven, :billing)}"
+    assert_select "##{dom_id(@nancy, :billing)}", count: 0
+    assert_select "##{dom_id(@andrew, :billing)}", count: 0
+
+    preview_rule(who: "people", previous_who: "people", person_ids: [ @nancy.id ], rows: { @nancy.id => { include: "0", warning: "" } })
+    assert_select "##{dom_id(@nancy, :billing)} input[type=checkbox]:not([checked])"
+  end
+
+  test "397#4: a posted tick stands only beside the warning it was given; a new warning unticks the row" do
+    sign_in @laura.user
+
+    preview_rule(who: "team", previous_who: "team", rows: { @nancy.id => { include: "1", warning: "" } })
+    assert_select "##{dom_id(@nancy, :billing)} input[type=checkbox][checked]"
+
+    add_charge("58", "I9", total: 45_000, items: [ "21" ], label: "Invoice 1050 · Dues")
+    preview_rule(who: "team", previous_who: "team", rows: { @nancy.id => { include: "1", warning: "" } })
+    assert_select "##{dom_id(@nancy, :billing)} input[type=checkbox]:not([checked])"
+    assert_select "##{dom_id(@nancy, :billing)} input[type=hidden][name=?][value=?]", "rows[#{@nancy.id}][warning]",
+      "Already billed: Invoice 1050 · Dues"
+
+    assert_no_difference("AccountingBillingLine.count") do
+      create_rule_run(who: "team", previous_who: "team", confirm: "yes", rows: { @nancy.id => { include: "1", warning: "" } })
+    end
+    assert_match "Tick at least one person to bill.", response.body
+  end
+
+  test "397#6: the confirm question's count follows the ticks" do
+    sign_in @laura.user
+
+    preview_rule(who: "team")
+
+    assert_select "form#billing-form[data-controller=tick-count][data-tick-count-one-value=invoice][data-tick-count-many-value=invoices]"
+    assert_select ".screen-inline-confirm [data-tick-count-target=count]", text: "2"
+    assert_select ".screen-inline-confirm [data-tick-count-target=noun]", text: "invoices"
+    assert_select "input[type=checkbox][data-tick-count-target=box][data-action='tick-count#update']", count: 3
+  end
+
+  test "397#11: the rule page's row is Edit and Bill people, with Evaluate now in More" do
+    sign_in @laura.user
+
+    with_badges { get accounting_rule_path(@rule) }
+
+    assert_select ".screen-action-row > a.btn", text: "Edit"
+    assert_select ".screen-action-row > a.btn-primary", text: "Bill people"
+    assert_select ".screen-action-row .dropdown-menu button", text: "Evaluate now"
+    assert_select ".screen-action-row > form button", text: "Evaluate now", count: 0
+  end
+
   test "picked people are found by name and added to the preview" do
     sign_in @laura.user
 
@@ -181,7 +234,7 @@ class AccountingBillingTest < ActionDispatch::IntegrationTest
     assert_select "label", text: "Email the invoices from QuickBooks", count: 0
   end
 
-  test "a source that can't create charges gives a CSV, with the lines exported and the run finished" do
+  test "397#3: a source that can't create charges saves the run finished with its lines exported, and the CSV comes from the run's page" do
     file = create_file_source
     file.accounting_records.create!(entity_type: "item", external_id: "dues", role: "item", name: "Dues", active: true, data: {})
     file.accounting_records.create!(entity_type: "customer", external_id: "nancy davolio", role: "customer", customer_external_id: "nancy davolio",
@@ -196,35 +249,39 @@ class AccountingBillingTest < ActionDispatch::IntegrationTest
     with_badges do
       post accounting_billing_runs_path(gateway_id: file.to_param), params: {
         run: { item_external_id: "dues", amount: "450", txn_date: "2027-08-01", due_on: "2027-09-01" }, who: "team", team_id: @team.id,
-        rows: { @nancy.id => { include: "1", customer: "nancy davolio" }, @janet.id => { include: "1" } }
+        rows: { @nancy.id => { include: "1", customer: "nancy davolio" }, @janet.id => { include: "1", warning: "No customer: will be skipped" } }
       }
     end
 
-    assert_response :success
-    assert_equal "text/csv", response.media_type
-    rows = CSV.parse(response.body)
-    assert_equal Accounting::Files::Template::COLUMNS, rows.first
-    assert_equal [ [ "Nancy Davolio", "charge", nil, "2027-08-01", "2027-09-01", "Dues", "450.00", nil, nil, nil ] ], rows.drop(1)
     run = AccountingBillingRun.last
+    assert_redirected_to accounting_billing_run_path(run)
+    assert_equal "Saved 1 charge for the CSV. Download it and import it into your accounting program.", flash[:notice]
+    assert_equal 1, AccountingBillingRun.count
     assert run.finished?
     assert_equal({ @nancy => "exported", @janet => "skipped" }, run.lines.to_h { |line| [ line.person, line.status ] })
     assert_equal 1, file.reload.configuration.dig("finished_counts", "exported")
     assert_no_enqueued_jobs only: Accounting::BillingRunJob
 
     with_badges { get accounting_billing_run_path(run) }
-    assert_select "a", text: "Download CSV"
+    assert_select "a[href=?]", export_accounting_billing_run_path(run, format: :csv), text: "Download CSV"
     with_badges { get export_accounting_billing_run_path(run, format: :csv) }
-    assert_equal rows, CSV.parse(response.body)
+    assert_equal "text/csv", response.media_type
+    rows = CSV.parse(response.body)
+    assert_equal Accounting::Files::Template::COLUMNS, rows.first
+    assert_equal [ [ "Nancy Davolio", "charge", nil, "2027-08-01", "2027-09-01", "Dues", "450.00", nil, nil, nil ] ], rows.drop(1)
   end
 
   test "the run page lists lines by status with errors, and Retry failed sets them going again" do
     run = AccountingBillingRun.create!(gateway: accounting_source, rule: @rule, created_by: @laura, item_external_id: "21", amount_cents: 45_000, status: "finished")
     failed = run.lines.create!(person: @nancy, customer_external_id: "58", amount_cents: 45_000, status: "failed", error: "QuickBooks refused creating the invoice")
-    run.lines.create!(person: @janet, customer_external_id: "60", amount_cents: 45_000, status: "created", external_id: "201")
+    run.lines.create!(person: @janet, customer_external_id: "99", amount_cents: 45_000, status: "created", external_id: "201")
     sign_in @laura.user
 
     with_badges { get accounting_billing_run_path(run) }
     assert_select "##{dom_id(failed)}", text: /QuickBooks refused creating the invoice/
+    # 397#8: customers by name, the id where the source hasn't copied one.
+    assert_select "##{dom_id(failed)} td", text: "Davolio, Nancy"
+    assert_select "##{dom_id(run.lines.find_by!(person: @janet))} td", text: "99"
     assert_select "h1", text: /Dues billing/
 
     request_id = failed.request_id

@@ -6,18 +6,23 @@
 # 2. With no customer: makes one when the run says so and the source can
 #    (emailing the first guardian with an account when the person has
 #    guardians, else the person), and links it (source: created); else the
-#    line is skipped with the reason.
-# 3. Creates the charge with the line's request id: a retry after a crash
-#    returns the first charge instead of a second.
-# 4. Emails it from the source when the run says so and the source can.
+#    line is skipped with the reason. Saved at once, so a charge that then
+#    fails doesn't lose the customer: a retry bills that customer.
+# 3. Creates the charge with the line's request id, and saves the line as
+#    created at once: a retry after a crash returns the first charge
+#    instead of a second.
+# 4. Then emails it from the source when the run says so and the source
+#    can. A crash after the charge is saved never emails it twice.
 # 5. Any other error fails the line and fires its failed event. Rate limits
 #    and outages are retried with backoff first; past the last try, the
 #    lines still pending fail.
 # 6. Asks the source to copy the new charge back (QuickBooks fetches it;
 #    ledgers sync from their own callbacks).
 #
-# The run finishes once no line is pending. Does nothing while the feature
-# is off.
+# The run finishes once no line is pending. While the feature is off, or
+# once the source can't take charges (QuickBooks' "Let GatherPack create
+# invoices" turned off meanwhile), the pending lines fail with the reason,
+# so no run waits for ever with nothing to retry.
 class Accounting::BillingRunJob < ApplicationJob
   queue_as :default
 
@@ -40,9 +45,17 @@ class Accounting::BillingRunJob < ApplicationJob
   end
 
   def perform(run)
-    return unless Accounting.enabled?
+    problem = if !Accounting.enabled?
+      "Accounting is turned off"
+    elsif !run.creates_charges?
+      run.gateway.billing_problem
+    end
 
-    run.lines.pending.pluck(:id).each { |line_id| bill(run, line_id) }
+    if problem
+      run.lines.pending.find_each { |line| line.fail!(problem) }
+    else
+      run.lines.pending.pluck(:id).each { |line_id| bill(run, line_id) }
+    end
     run.finish_if_done!
   end
 
@@ -50,26 +63,31 @@ class Accounting::BillingRunJob < ApplicationJob
     def bill(run, line_id)
       source = run.gateway
       line = AccountingBillingLine.find(line_id)
+
       line.with_lock do
-        next unless line.pending?
+        next unless line.pending? && line.customer_external_id.blank?
 
-        customer_created = line.customer_external_id.blank?
-        if customer_created
-          reason = customer_skip_reason(run)
-          next line.skip!(reason) if reason
+        reason = customer_skip_reason(run)
+        next line.skip!(reason) if reason
 
-          line.update!(customer_external_id: create_customer(run, line))
-        end
+        line.update!(customer_external_id: create_customer(run, line))
+      end
+
+      created = line.with_lock do
+        next false unless line.pending?
 
         line.update!(external_id: source.create_charge(line), status: "created", error: nil)
-        send_charge(run, line)
-        source.after_billing(line, customer_created: customer_created)
+        true
       end
+      return unless created
+
+      send_charge(run, line)
+      source.after_billing(line, customer_created: created_customer?(run, line))
     rescue Accounting::TemporaryFailure
       raise
     rescue Accounting::BillingSkipped => e
       AccountingBillingLine.find(line_id).skip!(e.message)
-    rescue StandardError => e
+    rescue StandardError, NotImplementedError => e
       Rails.error.report(e, handled: true, context: { billing_line_id: line_id })
       AccountingBillingLine.find(line_id).fail!(e.message)
     end
@@ -79,6 +97,11 @@ class Accounting::BillingRunJob < ApplicationJob
 
       problem = run.gateway.customer_creation_problem(run.rule&.team)
       "No customer: #{problem}" if problem
+    end
+
+    # Whether billing made the line's customer (this run, or an earlier try).
+    def created_customer?(run, line)
+      run.gateway.accounting_customer_links.exists?(person: line.person, customer_external_id: line.customer_external_id, source: "created")
     end
 
     def create_customer(run, line)

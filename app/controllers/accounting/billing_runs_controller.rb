@@ -57,6 +57,8 @@ class Accounting::BillingRunsController < Accounting::BaseController
   def show
     @lines = @run.lines.includes(:person).to_a
     @details = @run.details
+    @customer_names = @run.gateway.accounting_records.where(role: "customer", customer_external_id: @lines.map(&:customer_external_id).compact)
+      .pluck(:customer_external_id, :name).to_h.compact_blank
   end
 
   # GET /accounting/billing_runs/1/export.csv
@@ -71,7 +73,7 @@ class Accounting::BillingRunsController < Accounting::BaseController
       return redirect_to accounting_billing_run_path(@run), notice: "Nothing to try again.", status: :see_other
     end
 
-    @run.retry_failed!
+    @run.retry_failed!(Accounting::BillingAccess.new(current_user.person, @run.rule))
     redirect_to accounting_billing_run_path(@run), notice: "Trying the failed lines again. Reload in a minute to see how it went.", status: :see_other
   end
 
@@ -110,7 +112,10 @@ class Accounting::BillingRunsController < Accounting::BaseController
     def build_preview
       team = Team.find_by(id: params[:team_id]) if params[:team_id].present?
       @errors << "Choose a team." if @who == "team" && team.nil?
-      person_ids = Array(params[:person_ids]) + posted_rows.keys
+      # Rows from an earlier Pick people preview stay picked; rows from a
+      # preview of a team or the Not invoiced people don't carry over.
+      person_ids = Array(params[:person_ids])
+      person_ids += posted_rows.keys if params[:previous_who] == "people"
       person_ids += searched_people.map(&:id) if @who == "people"
       Accounting::BillingPreview.new(@run, access: @access, who: @who, team: team, person_ids: person_ids.uniq)
     end
@@ -124,13 +129,15 @@ class Accounting::BillingRunsController < Accounting::BaseController
     end
 
     # The preview's rows, with what the form already said about each:
-    # ticked, their customer and an amount of their own.
+    # ticked, their customer and an amount of their own. A tick given
+    # beside a different warning (or none) doesn't stand: the row starts
+    # as its new warning says.
     def preview_rows
       @preview.rows.map do |row|
         posted = posted_rows[row.person.id]
         next row unless posted
 
-        included = boolean(posted[:include])
+        included = posted[:warning].to_s == row.warning.to_s ? boolean(posted[:include]) : row.included
         customer_id = posted[:customer].presence_in(row.customers.map(&:customer_external_id)) || row.customer_id
         row.with(included: included, customer_id: customer_id)
       end
@@ -140,7 +147,7 @@ class Accounting::BillingRunsController < Accounting::BaseController
     def posted_rows
       @posted_rows ||= begin
         rows = params.fetch(:rows, {})
-        rows.permit(rows.keys.index_with { %i[ include customer amount ] }).to_h.transform_values(&:symbolize_keys)
+        rows.permit(rows.keys.index_with { %i[ include customer amount warning ] }).to_h.transform_values(&:symbolize_keys)
       end
     end
 
@@ -165,7 +172,8 @@ class Accounting::BillingRunsController < Accounting::BaseController
     end
 
     # No live create: the lines with a customer go in the CSV, the rest are
-    # skipped, and the run is finished.
+    # skipped, and the run is finished. The CSV is downloaded from the run's
+    # page, so clicking twice can't make a second run.
     def export_run
       @run.lines.each do |line|
         line.status = line.customer_external_id.present? ? "exported" : "skipped"
@@ -173,8 +181,8 @@ class Accounting::BillingRunsController < Accounting::BaseController
       end
       AccountingBillingRun.transaction { @run.save! }
       @run.finish_if_done!
-      export = Accounting::Files::BillingExport.new(@run)
-      send_data export.csv, filename: export.filename, type: "text/csv"
+      redirect_to accounting_billing_run_path(@run), status: :see_other,
+        notice: "Saved #{helpers.pluralize(@run.lines.count(&:exported?), charge_word)} for the CSV. Download it and import it into your accounting program."
     end
 
     def charge_word

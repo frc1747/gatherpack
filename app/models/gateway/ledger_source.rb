@@ -49,7 +49,7 @@ class Gateway::LedgerSource < Gateway
         hint: "A payment carrying one of these tags counts as a credit, such as a scholarship." }
     when :new_ledger_team_id
       { label: "Team for new ledgers", as: :select, choices: team_choices, selected: new_ledger_team&.neat_id, include_blank: "None",
-        hint: "Where billing makes a ledger for someone who has none, when the rule has no team of its own." }
+        hint: "Where billing makes a ledger for someone who has none, such as a team only admins and treasurers belong to. Left as None, it goes in the rule's team." }
     end
   end
 
@@ -203,7 +203,7 @@ class Gateway::LedgerSource < Gateway
   def create_charge(line)
     ledger = ledgers.find_by(id: line.customer_external_id) or raise ArgumentError, "That ledger isn't one of #{name}'s"
     run = line.run
-    tag = LedgerTag.find_by(id: run.item_external_id)
+    tag = LedgerTag.find_by(id: run.item_external_id) or raise ArgumentError, "That tag no longer exists"
 
     ledger.with_lock do
       existing = ledger.ledger_entries.find_by("ledger_entries.metadata->>'accounting_request_id' = ?", line.request_id.to_s)
@@ -212,13 +212,14 @@ class Gateway::LedgerSource < Gateway
       amount = charge_sign == "negative" ? -line.amount_cents : line.amount_cents
       entry = ledger.ledger_entries.create!(amount_cents: amount, remark: run.memo.presence, created_by: run.created_by,
         metadata: { "accounting_request_id" => line.request_id.to_s })
-      entry.ledger_taggings.create!(ledger_tag: tag) if tag
+      entry.ledger_taggings.create!(ledger_tag: tag)
       entry.id
     end
   end
 
-  # A ledger named after the person, in the rule's team, else the team for
-  # new ledgers, owned by the person only. A ledger already carrying the
+  # A ledger named after the person, in the team for new ledgers, else the
+  # rule's team (the setting comes first, so members' ledgers stay on the
+  # team only admins and treasurers belong to), owned by the person only. A ledger already carrying the
   # request id is returned instead of a second.
   def create_customer(person, email:, request_id:, team: nil)
     problem = customer_creation_problem(team)
@@ -255,10 +256,10 @@ class Gateway::LedgerSource < Gateway
       Accounting::Ledgers::Reader.new(self)
     end
 
-    # Where billing makes a new ledger: the rule's team, else the team for
-    # new ledgers.
+    # Where billing makes a new ledger: the team for new ledgers, else the
+    # rule's team.
     def ledger_team_for(team)
-      team || new_ledger_team
+      new_ledger_team || team
     end
 
     def team_choices

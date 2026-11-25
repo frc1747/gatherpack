@@ -240,6 +240,25 @@ class AccountingQuickbooksTest < ActionDispatch::IntegrationTest
     assert_select "button", text: "Copy everything again", count: 0
   end
 
+  test "397#10: the gateway page says what writing allows, on and off, and the edit page offers the setting" do
+    gateway = create_quickbooks_gateway
+    sign_in @architect
+
+    with_accounting { get gateway_path(gateway) }
+    assert_match "Turn on \"Let GatherPack create invoices\" to bill people from GatherPack.", response.body
+    assert_no_match "it can also create new invoices and customers", response.body
+
+    gateway.update!(allow_create_charges: "true")
+    with_accounting { get gateway_path(gateway) }
+    assert_match "With \"Let GatherPack create invoices\" on, it can also create new invoices and customers, " \
+      "and email the invoices it created.", response.body
+    assert_no_match "Turn on \"Let GatherPack create invoices\"", response.body
+
+    with_accounting { get edit_gateway_path(gateway) }
+    assert_select "label[for=gateway_allow_create_charges]", text: "Let GatherPack create invoices"
+    assert_select "select[name='gateway[allow_create_charges]'] option[selected][value=true]"
+  end
+
   test "the button says Reconnect for books connected before" do
     sign_in @architect
     with_accounting do

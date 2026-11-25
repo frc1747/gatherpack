@@ -10,12 +10,48 @@ class Accounting::QuickbooksGatewayTest < ActiveSupport::TestCase
 
   setup do
     @gateway = create_quickbooks_gateway(synced_entities: ALL_TYPES)
+    @invoices = {}
   end
 
   teardown { reset_fake_quickbooks }
 
+  # With writing on, so the contract's create_charge check runs here too;
+  # the writes raising while it's off are checked below.
   def provider_source
-    @gateway
+    @writing_gateway ||= create_quickbooks_gateway(synced_entities: ALL_TYPES, allow_create_charges: "true")
+  end
+
+  # QuickBooks answers a repeated requestid with the first invoice.
+  def provider_billing_line
+    fake_quickbooks.on(:post, "/invoice?") do |request|
+      { "Invoice" => qbo_json("invoice_created")["Invoice"].merge("Id" => @invoices[request.query["requestid"]] ||= (201 + @invoices.size).to_s) }
+    end
+    person = create_linkable_person("Nancy", "Ward")
+    run = AccountingBillingRun.create!(gateway: provider_source, created_by: person, item_external_id: "21", amount_cents: 45_000, status: "running")
+    run.lines.create!(person: person, customer_external_id: "58", amount_cents: 45_000)
+  end
+
+  def provider_charge_count
+    @invoices.size
+  end
+
+  test "397#10: writing is a setting, off by default, offered as a choice; off, the writes raise NotImplementedError" do
+    input = provider_source.field_input(:allow_create_charges)
+    assert_equal "Let GatherPack create invoices", input[:label]
+    assert_equal [ "false", "true" ], input[:choices].map(&:last)
+    assert_equal "true", input[:selected]
+    assert_equal "false", @gateway.field_input(:allow_create_charges)[:selected]
+    assert_nil @gateway.field_input(:client_id)
+    assert_includes @gateway.fields, :allow_create_charges
+
+    gateway = @gateway
+    assert_not gateway.allow_create_charges?
+    assert_empty gateway.capabilities & %i[ create_charges create_customers send_charges ]
+    assert_raises(NotImplementedError) { gateway.create_charge(Struct.new(:request_id).new("a")) }
+    assert_raises(NotImplementedError) { gateway.create_customer(Person.new, email: nil, request_id: "a") }
+    assert_raises(NotImplementedError) { gateway.send_charge("201", email: "a@example.com") }
+    assert_equal Accounting::Quickbooks::Client::WRITING_OFF, gateway.billing_problem
+    assert_includes provider_source.capabilities, :send_charges
   end
 
   def provider_cases

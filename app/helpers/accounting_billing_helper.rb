@@ -6,9 +6,12 @@ module AccountingBillingHelper
     (source.respond_to?(:role_label) ? source.role_label("charge") : "charge").to_s.downcase
   end
 
-  # "Create 38 invoices in QuickBooks?"
+  # "Create 38 invoices in QuickBooks?", its count and noun kept in step
+  # with the ticks by the tick-count controller.
   def accounting_billing_question(run, count)
-    "Create #{pluralize(count, accounting_charge_word(run.gateway))} in #{run.gateway.source_name}?"
+    word = accounting_charge_word(run.gateway)
+    safe_join([ "Create ", tag.span(count, data: { tick_count_target: "count" }), " ",
+                tag.span(word.pluralize(count), data: { tick_count_target: "noun" }), " in #{run.gateway.source_name}?" ])
   end
 
   def accounting_billing_button(run)

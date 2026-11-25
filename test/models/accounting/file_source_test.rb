@@ -224,6 +224,18 @@ class Accounting::FileSourceTest < ActiveJob::TestCase
     assert_equal [ "nancy ward", "dues", 45_000 ], charge.values_at("customer", "item", "total_cents")
   end
 
+  test "397#9: a memo a spreadsheet would run as a formula is defused; customer and item cells aren't" do
+    apply(file_fixture("accounting/dues.csv").read)
+    [ "=HYPERLINK(\"http://example.com\")", "+1", "-1", "@SUM(A1)", "\tTab", "\rReturn" ].each do |memo|
+      run = AccountingBillingRun.create!(gateway: @source, created_by: @treasurer, item_external_id: "dues", amount_cents: 45_000, memo: memo, status: "finished")
+      run.lines.create!(person: @nancy, customer_external_id: "nancy ward", amount_cents: 45_000, status: "exported")
+
+      row = CSV.parse(Accounting::Files::BillingExport.new(run).csv)[1]
+      assert_equal "'#{memo}", row.last, memo.inspect
+      assert_equal [ "Nancy Ward", "Dues" ], row.values_at(0, 5)
+    end
+  end
+
   private
     def read(content)
       Accounting::Files::Reader.new(content).read

@@ -35,9 +35,16 @@ class Accounting::Files::BillingExport
         "total" => format("%.2f", line.amount_cents / 100.0),
         "balance" => nil,
         "applied_to" => nil,
-        "description" => run.memo.presence
+        "description" => defuse(run.memo.presence)
       }
       cells.values_at(*Accounting::Files::Template::COLUMNS)
+    end
+
+    # A memo a spreadsheet would run as a formula starts with a quote
+    # instead. Only the memo: customer and item cells must read back as
+    # the same customers and item.
+    def defuse(text)
+      text&.match?(/\A[=+\-@\t\r]/) ? "'#{text}" : text
     end
 
     # The customers' names as the source copied them, so the file reads
