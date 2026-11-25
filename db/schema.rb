@@ -460,6 +460,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.string "name"
     t.string "type"
     t.datetime "updated_at", null: false
+    t.text "secrets"
   end
 
   create_table "hooks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -649,6 +650,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "revoked_at"
     t.string "scopes", default: "", null: false
     t.string "token", null: false
+    t.string "code_challenge"
+    t.string "code_challenge_method"
     t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
     t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
     t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
@@ -1167,6 +1170,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "updated_at", null: false
     t.string "value"
     t.index ["tokenable_type", "tokenable_id"], name: "index_tokens_on_tokenable"
+    t.index ["value"], name: "index_tokens_on_value", unique: true
   end
 
   create_table "transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1193,6 +1197,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.string "reset_password_token"
     t.string "uid"
     t.datetime "updated_at", null: false
+    t.integer "failed_attempts", default: 0, null: false
+    t.datetime "locked_at"
+    t.string "session_token", default: -> { "(gen_random_uuid())::text" }, null: false
+    t.boolean "kiosk", default: false, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
