@@ -1,0 +1,9 @@
+<%# locals: (summary:) -%>
+<%# "Paid 41 · Partly paid 3 · Overdue 6" among the people the viewer sees. %>
+<% if summary.counts.any? %>
+  <span class="accounting-counts">
+    <%= safe_join(summary.counts.map { |value, label, count| tag.span("#{label} #{count}", class: "text-nowrap", data: { value: value }) }, " · ") %>
+  </span>
+<% else %>
+  <span class="text-muted">No results yet</span>
+<% end %>

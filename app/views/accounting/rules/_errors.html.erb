@@ -1,0 +1,8 @@
+<%# locals: (rule:) -%>
+<% if rule.errors.any? %>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      <% rule.errors.full_messages.uniq.each do |message| %><li><%= message %></li><% end %>
+    </ul>
+  </div>
+<% end %>

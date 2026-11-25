@@ -96,22 +96,27 @@ class Accounting::CustomerLinks
   end
 
   # Links a customer to a person (again, if it was dismissed). Returns the
-  # link, or the one already there.
+  # link, or the one already there. A new link queues the source's rules
+  # for that person.
   def link!(customer_external_id, person, source:, created_by: nil)
-    AccountingCustomerLink.transaction do
+    link = AccountingCustomerLink.transaction do
       dismissals.where(customer_external_id: customer_external_id, person: person).delete_all
       links.find_by(customer_external_id: customer_external_id, person: person) ||
         links.create!(customer_external_id: customer_external_id, person: person, source: source, created_by: created_by)
     end
+    Accounting::EvaluateRuleJob.for_source(self.source, [ person.id ]) if link.previously_new_record?
+    link
   end
 
   # Removes a link and remembers the pair as dismissed, so neither a
-  # suggestion nor an automatic link brings it back.
+  # suggestion nor an automatic link brings it back. Queues the source's
+  # rules for that person.
   def unlink!(link)
     AccountingCustomerLink.transaction do
       dismiss!(link.customer_external_id, link.person)
       link.destroy!
     end
+    Accounting::EvaluateRuleJob.for_source(source, [ link.person_id ])
   end
 
   def dismiss!(customer_external_id, person)

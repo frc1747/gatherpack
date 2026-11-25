@@ -29,7 +29,7 @@ class Accounting::Sync
       mark_missing_deleted(entity_type, seen)
     end
 
-    finish(saved)
+    finish(saved, everyone: true)
     source.record_state!(last_full_sync_at: started, last_change_check_at: started - OVERLAP, last_error: nil)
     saved
   end
@@ -97,15 +97,31 @@ class Accounting::Sync
   # Marks records deleted. Not a new revision, so no record hooks fire.
   def mark_deleted(entity_type, external_ids)
     now = Time.current
-    source.accounting_records.current.where(entity_type: entity_type, external_id: external_ids).update_all(deleted_at: now, updated_at: now)
+    deleted = source.accounting_records.current.where(entity_type: entity_type, external_id: external_ids)
+    touched_customers.merge(deleted.where.not(customer_external_id: nil).pluck(:customer_external_id))
+    deleted.update_all(deleted_at: now, updated_at: now)
   end
 
   private
-    # Lets the source fill columns from other records, then makes the
-    # automatic customer links.
-    def finish(saved)
+    # Lets the source fill columns from other records, makes the automatic
+    # customer links, then queues the source's rules for the people whose
+    # records changed (everyone, after a full read).
+    def finish(saved, everyone: false)
       source.after_sync(saved)
-      Accounting::CustomerLinks.new(source).after_sync(saved)
+      links = Accounting::CustomerLinks.new(source)
+      links.after_sync(saved)
+
+      if everyone
+        Accounting::EvaluateRuleJob.for_source(source)
+      else
+        customer_ids = touched_customers + saved.filter_map(&:customer_external_id)
+        Accounting::EvaluateRuleJob.for_source(source, customer_ids.flat_map { |id| links.people_for(id).ids }.uniq)
+      end
+    end
+
+    # Customers of records marked deleted, whose people need evaluating.
+    def touched_customers
+      @touched_customers ||= Set.new
     end
 
     def mark_missing_deleted(entity_type, seen)

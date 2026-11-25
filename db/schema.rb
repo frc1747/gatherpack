@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_130400) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_130800) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -99,6 +99,67 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_130400) do
     t.index ["location_ids"], name: "index_accounting_records_on_location_ids", using: :gin
     t.index ["role"], name: "index_accounting_records_on_role"
     t.index ["txn_date"], name: "index_accounting_records_on_txn_date"
+  end
+
+  create_table "accounting_rule_badge_grants", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "badge_id", null: false
+    t.boolean "amounts", default: false, null: false
+    t.boolean "bill", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_id"], name: "index_accounting_rule_badge_grants_on_badge_id"
+    t.index ["rule_id", "badge_id"], name: "index_accounting_rule_badge_grants_on_rule_id_and_badge_id", unique: true
+  end
+
+  create_table "accounting_rule_milestones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.string "name", null: false
+    t.date "due_on", null: false
+    t.bigint "balance_at_most_cents"
+    t.integer "balance_at_most_percent"
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["rule_id"], name: "index_accounting_rule_milestones_on_rule_id"
+  end
+
+  create_table "accounting_rule_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "rule_id", null: false
+    t.uuid "person_id", null: false
+    t.string "value", null: false
+    t.bigint "amount_cents"
+    t.jsonb "details", default: {}, null: false
+    t.datetime "evaluated_at", null: false
+    t.datetime "changed_at", null: false
+    t.uuid "badge_assignment_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["badge_assignment_id"], name: "index_accounting_rule_results_on_badge_assignment_id"
+    t.index ["person_id"], name: "index_accounting_rule_results_on_person_id"
+    t.index ["rule_id", "person_id"], name: "index_accounting_rule_results_on_rule_id_and_person_id", unique: true
+    t.index ["rule_id", "value"], name: "index_accounting_rule_results_on_rule_id_and_value"
+  end
+
+  create_table "accounting_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.string "name", null: false
+    t.string "key", null: false
+    t.text "description"
+    t.string "kind", null: false
+    t.jsonb "filters", default: {}, null: false
+    t.jsonb "settings", default: {}, null: false
+    t.text "code"
+    t.uuid "team_id"
+    t.integer "read_permission", default: 0, null: false
+    t.integer "amount_permission", default: 0, null: false
+    t.boolean "enabled", default: true, null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["gateway_id"], name: "index_accounting_rules_on_gateway_id"
+    t.index ["key"], name: "index_accounting_rules_on_key", unique: true
+    t.index ["team_id"], name: "index_accounting_rules_on_team_id"
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1279,6 +1340,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_130400) do
   add_foreign_key "accounting_customer_links", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "accounting_customer_links", "people", on_delete: :cascade
   add_foreign_key "accounting_records", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_rule_badge_grants", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_badge_grants", "badges", on_delete: :cascade
+  add_foreign_key "accounting_rule_milestones", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_results", "accounting_rules", column: "rule_id", on_delete: :cascade
+  add_foreign_key "accounting_rule_results", "badge_assignments", on_delete: :nullify
+  add_foreign_key "accounting_rule_results", "people", on_delete: :cascade
+  add_foreign_key "accounting_rules", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_rules", "teams", on_delete: :nullify
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "badge_assignments", "badges"

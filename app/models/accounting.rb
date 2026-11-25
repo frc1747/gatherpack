@@ -13,6 +13,15 @@ module Accounting
     GatherPack::Features.enabled?(:accounting)
   end
 
+  # Cents from an amount typed in dollars ("150", "$1,250.50"); nil when
+  # blank or not a number.
+  def self.parse_cents(text)
+    cleaned = text.to_s.delete("$,").strip
+    return nil if cleaned.blank? || !cleaned.match?(/\A-?\d+(\.\d{1,2})?\z/)
+
+    (BigDecimal(cleaned) * 100).to_i
+  end
+
   # The gateways that are accounting sources.
   def self.sources
     Gateway.where.not(type: nil).select { |gateway| gateway.is_a?(Accounting::Provider) }

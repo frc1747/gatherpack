@@ -12,6 +12,7 @@ module Accounting::Provider
     has_many :accounting_records, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
     has_many :accounting_customer_links, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
     has_many :accounting_customer_dismissals, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
+    has_many :accounting_rules, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
   end
 
   # What this source can do, a Set of CAPABILITIES.

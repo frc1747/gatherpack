@@ -20,3 +20,14 @@ namespace :accounting do
   # "Not this person" on a suggestion.
   resources :customer_dismissals, only: %i[ create ]
 end
+namespace :accounting do
+  resources :rules do
+    post :evaluate, on: :member
+    post :duplicate, on: :member
+    get :export, on: :member
+  end
+end
+scope "people/:person_id", as: :person do
+  get "accounting", to: "accounting/people#show", as: :accounting
+  get "accounting/statement", to: "accounting/statements#show", as: :accounting_statement
+end

@@ -1,0 +1,49 @@
+<% breadcrumb :person_accounting_statement, @person %>
+<% admin = @statement.admin? %>
+<% rows = @statement.rows %>
+
+<div class="card">
+  <div class="card-header">
+    <h1><%= @person.identifier_name %>: Statement</h1>
+    <div class="text-muted">Current balance <strong><%= accounting_cents(@statement.balance_cents) %></strong></div>
+    <div class="no-print mt-2">
+      <button type="button" class="btn btn-dark" data-controller="print" data-action="print#print">Print</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <% if rows.empty? %>
+      <%= render "shared/empty_state", text: "Nothing to show yet." %>
+    <% else %>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>What</th>
+              <% if admin %><th>Description</th><% end %>
+              <th class="text-end">Charge</th>
+              <th class="text-end">Payment</th>
+              <th class="text-end">Balance</th>
+              <% if admin %><th></th><% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.each do |row| %>
+              <tr id="<%= dom_id row.record %>">
+                <td><%= accounting_date(row.date) %></td>
+                <td><%= row.label %></td>
+                <% if admin %><td><%= row.description %></td><% end %>
+                <td class="text-end"><%= accounting_cents(row.charge_cents) %></td>
+                <td class="text-end"><%= accounting_cents(row.payment_cents) %></td>
+                <td class="text-end"><%= accounting_cents(row.balance_cents) %></td>
+                <% if admin %>
+                  <td><%= link_to "Open in #{row.record.gateway.source_name}", row.external_url, target: "_blank", rel: "noopener" if row.external_url %></td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+</div>
