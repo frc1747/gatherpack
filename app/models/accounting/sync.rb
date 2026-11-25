@@ -29,7 +29,7 @@ class Accounting::Sync
       mark_missing_deleted(entity_type, seen)
     end
 
-    source.after_sync(saved)
+    finish(saved)
     source.record_state!(last_full_sync_at: started, last_change_check_at: started - OVERLAP, last_error: nil)
     saved
   end
@@ -57,7 +57,7 @@ class Accounting::Sync
       end
     end
 
-    source.after_sync(saved)
+    finish(saved)
     source.record_state!(last_change_check_at: started - OVERLAP, last_error: nil)
     saved
   end
@@ -74,7 +74,7 @@ class Accounting::Sync
     end
 
     saved = [ upsert(entity_type, data) ].compact
-    source.after_sync(saved)
+    finish(saved)
     saved
   end
 
@@ -101,6 +101,13 @@ class Accounting::Sync
   end
 
   private
+    # Lets the source fill columns from other records, then makes the
+    # automatic customer links.
+    def finish(saved)
+      source.after_sync(saved)
+      Accounting::CustomerLinks.new(source).after_sync(saved)
+    end
+
     def mark_missing_deleted(entity_type, seen)
       now = Time.current
       source.accounting_records.current.where(entity_type: entity_type).where.not(external_id: seen).update_all(deleted_at: now, updated_at: now)

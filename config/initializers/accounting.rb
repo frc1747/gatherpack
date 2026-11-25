@@ -1,6 +1,7 @@
 # Accounting: account status from a group's books. Sources are gateways
 # registered under :accounting (Gateway::QuickbooksGateway); their records
-# are copied into accounting_records. Routes are in config/routes/accounting.rb
+# are copied into accounting_records, and accounting_customer_links say
+# which people each customer is for. Routes are in config/routes/accounting.rb
 # and recurring jobs in config/recurring.d/accounting.yml; both do nothing
 # while the feature is off.
 Rails.application.config.to_prepare do
@@ -15,6 +16,8 @@ Rails.application.config.to_prepare do
   )
 
   # Record hooks fire only when the source's revision of a record changed.
-  GatherPack::HookCatalog.register_targets("accounting_records")
+  GatherPack::HookCatalog.register_targets("accounting_records", "accounting_customer_links")
   GatherPack::HookCatalog.register_events("accounting - sync failed")
+  # model is a new customer record the sync couldn't link to anyone.
+  GatherPack::HookCatalog.register_events("accounting - customer unlinked")
 end

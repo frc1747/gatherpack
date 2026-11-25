@@ -2,7 +2,8 @@
 # (architects only). Connecting and disconnecting signs GatherPack in to
 # the books, so it's for architects; syncing and reading the copied
 # records is for admins and architects (whose hook and report code already
-# sees every record).
+# sees every record). Linking customers to people decides who sees whose
+# money, so it's for admins.
 class Accounting::SourcePolicy < ApplicationPolicy
   def connect?
     user&.architect == true
@@ -18,6 +19,10 @@ class Accounting::SourcePolicy < ApplicationPolicy
 
   def records?
     reader?
+  end
+
+  def customers?
+    user&.admin == true
   end
 
   private

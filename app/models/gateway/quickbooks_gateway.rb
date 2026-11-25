@@ -22,13 +22,15 @@ class Gateway::QuickbooksGateway < Gateway
   # Types that can be made inactive; their queries ask for inactive ones too.
   WITH_ACTIVE = %w[ Customer Item Class Department ].freeze
   ENVIRONMENTS = %w[ sandbox production ].freeze
+  ROLLUPS = %w[ none parent ].freeze
   STATUSES = %w[ not_connected connected needs_reconnect disconnected ].freeze
   DEFAULT_ROLE_LABELS = { "charge" => "Invoice", "receipt" => "Receipt", "payment" => "Payment", "credit" => "Credit", "refund" => "Refund" }.freeze
   # How long before the sign-in runs out the page asks for a reconnect.
   RECONNECT_WARNING = 30.days
 
   store_accessor :secrets, :client_secret, :webhook_verifier_token
-  store_accessor :configuration, :client_id, :environment, :synced_entities, :match_field_path, :role_labels
+  store_accessor :configuration, :client_id, :environment, :synced_entities, :customer_rollup,
+                 :match_strategies, :match_field_path, :role_labels
   store_accessor :configuration, :realm_id, :company_name, :connection_status, :last_change_check_at,
                  :last_full_sync_at, :last_error, :calls_this_month, :calls_month
 
@@ -36,9 +38,11 @@ class Gateway::QuickbooksGateway < Gateway
 
   validates :environment, inclusion: { in: ENVIRONMENTS }
   validate :synced_entities_known
+  validates :customer_rollup, inclusion: { in: ROLLUPS, message: "is none or parent" }, allow_blank: true
+  validate :match_strategies_known
 
   def fields
-    [ :client_id, :client_secret, :environment, :webhook_verifier_token, :synced_entities, :match_field_path ]
+    [ :client_id, :client_secret, :environment, :webhook_verifier_token, :synced_entities, :customer_rollup, :match_strategies, :match_field_path ]
   end
 
   def self.webhook_headers
@@ -108,8 +112,8 @@ class Gateway::QuickbooksGateway < Gateway
   end
 
   # Buttons on the gateway page (architects only, who may also open
-  # Records). Disconnect is in the details partial; Sync now and Copy
-  # everything again are on the Records page.
+  # Records). Customers (admins only) and Disconnect are in the details
+  # partial; Sync now and Copy everything again are on the Records page.
   def routes
     helpers = Rails.application.routes.url_helpers
     links = []
@@ -212,6 +216,16 @@ class Gateway::QuickbooksGateway < Gateway
     client.get(entity_type, external_id)
   end
 
+  # match_strategies: some of reference, name and email, in the order tried.
+  def match_strategy_list
+    chosen = match_strategies.to_s.split(/[\s,]+/).compact_blank.uniq & Accounting::CustomerLinks::STRATEGIES
+    chosen.presence || Accounting::CustomerLinks::DEFAULT_STRATEGIES
+  end
+
+  def customer_rollup?
+    customer_rollup.to_s == "parent"
+  end
+
   def prepare_record(record)
     record.applied_to = Accounting::Quickbooks::CreditApplications.new(self).applied_to_for(record) if record.entity_type == "CreditMemo"
   end
@@ -234,5 +248,10 @@ class Gateway::QuickbooksGateway < Gateway
 
       unknown = synced_entities.to_s.split(/[\s,]+/).compact_blank - ENTITY_ROLES.keys
       errors.add(:synced_entities, "has types QuickBooks sources don't copy: #{unknown.join(', ')}") if unknown.any?
+    end
+
+    def match_strategies_known
+      unknown = match_strategies.to_s.split(/[\s,]+/).compact_blank - Accounting::CustomerLinks::STRATEGIES
+      errors.add(:match_strategies, "can only be reference, name and email: #{unknown.join(', ')} isn't one") if unknown.any?
     end
 end

@@ -112,6 +112,27 @@ module AccountingWorld
     user
   end
 
+  # A person with a login under the given email (or none).
+  def create_linkable_person(first_name, last_name, email: nil, admin: false)
+    user = User.create!(email: email, password: "Password1!", admin: admin) if email
+    Person.create!(user: user, first_name: first_name, last_name: last_name)
+  end
+
+  # Makes guardian a guardian of ward ("Parent of", minor guardianship).
+  def add_guardian(guardian, ward, by:)
+    type = RelationshipType.find_or_create_by!(parent_label: "Parent of", child_label: "Child of") do |new_type|
+      new_type.permission = :added_by_admin
+      new_type.guardianship = :minor
+    end
+    Relationship.create!(parent: guardian, child: ward, relationship_type: type, created_by: by)
+  end
+
+  # A customer record as any source's normalize leaves it.
+  def create_customer_record(source, id, name:, email: nil, reference: nil, parent: nil, active: true)
+    source.accounting_records.create!(entity_type: "Customer", external_id: id, role: "customer", customer_external_id: id,
+      name: name, email: email, reference: reference, parent_external_id: parent, active: active, data: {})
+  end
+
   def sign_webhook(body, token = VERIFIER)
     Base64.strict_encode64(OpenSSL::HMAC.digest("SHA256", token, body))
   end

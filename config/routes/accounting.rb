@@ -10,5 +10,13 @@ namespace :accounting do
     post :sync, on: :member, controller: "syncs"
     post :full_sync, on: :member, controller: "syncs"
     resources :records, only: %i[ index show ]
+    resources :customers, only: %i[ index show ] do
+      get :candidates, on: :member
+    end
   end
+  resources :customer_links, only: %i[ create destroy ] do
+    post :confirm_all, on: :collection
+  end
+  # "Not this person" on a suggestion.
+  resources :customer_dismissals, only: %i[ create ]
 end

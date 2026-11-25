@@ -34,6 +34,9 @@
   Disconnect URL: <code><%= disconnect_accounting_connection_url(gateway) %></code>.
 </p>
 
+<% if Accounting::SourcePolicy.new(current_user, gateway).customers? %>
+  <%= link_to "Customers", accounting_connection_customers_path(gateway), class: "btn btn-secondary" %>
+<% end %>
 <% if gateway.connection_status.in?(%w[ connected needs_reconnect ]) && Accounting::SourcePolicy.new(current_user, gateway).disconnect? %>
   <%= link_to "Disconnect", disconnect_accounting_connection_path(gateway), class: "btn btn-danger" %>
 <% end %>

@@ -10,6 +10,8 @@ module Accounting::Provider
 
   included do
     has_many :accounting_records, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
+    has_many :accounting_customer_links, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
+    has_many :accounting_customer_dismissals, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
   end
 
   # What this source can do, a Set of CAPABILITIES.
@@ -53,6 +55,14 @@ module Accounting::Provider
 
   # :send_charges -- emails a charge this source created.
   def send_charge(external_id, email:) = raise NotImplementedError
+
+  # How customers are matched to people (Accounting::CustomerLinks::STRATEGIES),
+  # in the order tried.
+  def match_strategy_list = Accounting::CustomerLinks::DEFAULT_STRATEGIES
+
+  # Whether a sub-customer's records count for the people linked to the
+  # customer above it.
+  def customer_rollup? = false
 
   # Called by the sync just before it saves a record (and its hooks fire),
   # for a source that fills a column from records already copied.

@@ -1,0 +1,12 @@
+<%# locals: (links:, back: nil) -%>
+<%# A customer's linked people, each with how it was linked and Unlink. %>
+<ul class="list-unstyled mb-0">
+  <% links.each do |link| %>
+    <li class="d-flex flex-wrap align-items-center gap-2 mb-1" id="<%= dom_id link %>">
+      <span><%= link_to link.person.identifier_name, person_path(link.person) %> <span class="text-muted small">(<%= accounting_link_source_name(link.source) %>)</span></span>
+      <%= button_to "Unlink", accounting_customer_link_path(link), method: :delete, class: "btn btn-sm btn-outline-danger",
+            params: { back: back }.compact,
+            form: { data: { turbo_confirm: "Unlink #{link.person.identifier_name}? Their records from this customer stop counting for them." } } %>
+    </li>
+  <% end %>
+</ul>

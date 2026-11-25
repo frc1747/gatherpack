@@ -1,0 +1,90 @@
+<% breadcrumb :accounting_customers, @source %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: "Customers",
+        summary: "Link each customer to the people it's for. Rules only see customers that are linked." %>
+  <div class="card-body">
+    <p class="mb-0">
+      Customers in <%= @source.source_name %> (<%= @source.name %>):
+      <%= @unlinked.size %> <%= @unlinked.size == 1 ? "needs" : "need" %> a link, <%= @linked.size %> linked.
+      <% if @source.customer_rollup? %>Sub-customers count with the customer above them.<% end %>
+    </p>
+  </div>
+  <%= render "shared/action_row", actions: [
+        screen_action("Link all exact name matches", confirm_all_accounting_customer_links_path(gateway_id: @source.to_param), style: :primary, method: :post,
+          visible: @unlinked.any? && @source.match_strategy_list.include?("name"),
+          confirm: "Link every customer that needs a link to the one person with exactly its name?"),
+        screen_action(@show_inactive ? "Hide inactive" : "Show inactive",
+          accounting_connection_customers_path(@source, inactive: (@show_inactive ? nil : "1")))
+      ] %>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><h2 class="h5 mb-0">Needs a link (<%= @unlinked.size %>)</h2></div>
+  <% if @unlinked.any? %>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Email</th>
+            <th>Suggested</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @unlinked.each do |customer| %>
+            <tr id="<%= dom_id customer %>">
+              <td>
+                <%= link_to customer.identifier_name, accounting_connection_customer_path(@source, customer) %>
+                <%= render "accounting/records/marks", record: customer %>
+              </td>
+              <td><%= customer.email %></td>
+              <td><%= render "accounting/customers/suggestions", source: @source, customer: customer, suggestions: @suggestions.fetch(customer.customer_external_id, []) %></td>
+              <td><%= link_to "Pick someone", accounting_connection_customer_path(@source, customer), class: "btn btn-sm btn-outline-secondary" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body"><%= render "shared/empty_state", text: "Every customer is linked." %></div>
+  <% end %>
+</div>
+
+<div class="card">
+  <div class="card-header"><h2 class="h5 mb-0">Linked (<%= @linked.size %>)</h2></div>
+  <% if @linked.any? %>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Email</th>
+            <th>People</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @linked.each do |customer| %>
+            <% id = customer.customer_external_id %>
+            <tr id="<%= dom_id customer %>">
+              <td>
+                <%= link_to customer.identifier_name, accounting_connection_customer_path(@source, customer) %>
+                <%= render "accounting/records/marks", record: customer %>
+              </td>
+              <td><%= customer.email %></td>
+              <td>
+                <%= render "accounting/customers/linked_people", links: @links_by_customer.fetch(id, []) %>
+                <% if (parent = @rolled_up[id]) %>
+                  <span class="text-muted">Counted with <%= @parent_names[parent].presence || parent %></span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body"><%= render "shared/empty_state", text: "No customer is linked yet." %></div>
+  <% end %>
+</div>
