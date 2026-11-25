@@ -22,8 +22,9 @@ module Accounting::Provider
 
   # The "Check for changes" setting as a form select (Gateway field_input).
   def change_check_input
-    { label: "Check for changes", as: :select, selected: Accounting::ChangeSchedule.word_for(self), choices: Accounting::ChangeSchedule.choices,
-      hint: "Times are in the site's time zone. Sync now always checks at once, and QuickBooks notifications, when set up, still arrive at once." }
+    hint = "Times are in the site's time zone. Sync now always checks at once"
+    hint += capabilities.include?(:notifications) ? ", and #{source_name} notifications, when set up, still arrive at once." : "."
+    { label: "Check for changes", as: :select, selected: Accounting::ChangeSchedule.word_for(self), choices: Accounting::ChangeSchedule.choices, hint: hint }
   end
 
   # What this source can do, a Set of CAPABILITIES.
@@ -156,9 +157,16 @@ module Accounting::Provider
   def last_error_time = state_time("last_error_at")
 
   private
-    # Straight to the row, like the rest of record_state!.
+    # Straight to the row, like the rest of record_state!. The row is locked
+    # and its secrets read again first, so a secret saved meanwhile (the
+    # webhook verifier token, while the sign-in's callback waits on
+    # QuickBooks) isn't written over.
     def record_secrets!(values)
-      update_columns(secrets: (secrets || {}).merge(values))
+      self.class.transaction do
+        current = self.class.lock.find(id)
+        merged = (current.secrets || {}).merge(values)
+        update_columns(secrets: merged)
+      end
     end
 
     def canonical(value)
