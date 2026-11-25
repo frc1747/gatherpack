@@ -156,7 +156,7 @@ end
 
 | Capability | Means | Without it |
 |---|---|---|
-| `:change_feed` | `each_change` works; the 15-minute changes job (§13.1) runs. | Only full syncs (or the source's own push, as ledgers do). |
+| `:change_feed` | `each_change` works; the changes job (§13.1) runs on the source's "Check for changes" schedule (§13.2). | Only full syncs (or the source's own push, as ledgers do). |
 | `:notifications` | The source pushes webhooks and `fetch_record` works. | No webhook handling. |
 | `:due_dates` | Charges carry `due_on`. | The rule form warns when a rule has no milestones: "Nobody will ever be Overdue" (§8.3). Billing hides the due date field. |
 | `:pay_links` | Charges may carry `pay_url`. | No **Pay online** anywhere, and the rule form hides "Show pay links". |
@@ -272,12 +272,13 @@ end
 |---|---|---|---|
 | `client_id`, `client_secret` | from the Intuit app | | The secret is in the encrypted `secrets` column. |
 | `environment` | `sandbox`, `production` | `sandbox` | API and deep-link host. |
-| `webhook_verifier_token` | from the Intuit app | | Blank: notifications refused, the changes job still runs. |
+| `webhook_verifier_token` | from the Intuit app | | Blank: notifications refused, the changes job still runs on its schedule. |
 | `synced_entities` | any of `Customer`, `Invoice`, `Payment`, `CreditMemo`, `SalesReceipt`, `RefundReceipt`, `Item`, `Class`, `Department` | `Customer Invoice Payment CreditMemo Item` | Which types to copy. A rule whose roles aren't covered warns (§8.4). |
 | `customer_rollup` | `none`, `parent` | `none` | §7.1. |
 | `match_strategies` | ordered `reference`, `name`, `email` | `name email` | §7.2. |
 | `match_field_path` | path in a Customer record, e.g. `Notes` | blank | Filled into `reference` by `normalize`, whole. The id is found in the text by the strategy (§7.5), not here. |
 | `allow_create_charges` | "Let GatherPack create invoices" | off | §4.6. |
+| `change_check` | "Check for changes": `15m` (Every 15 minutes), `hourly` (Every hour), `twice_daily` (Twice a day, 6 am and 6 pm), `daily` (Once a day, 6 am), `manual` (Only when someone clicks Sync now) | `15m` | How often the changes job runs for this connection (§13.2). Generic in `Accounting::Provider` for any source with `:change_feed`; the form select comes from `field_input`. Validated against the five words (blank means the default). Times are in the site's time zone. |
 | `realm_id`, `company_name`, `connection_status`, `last_*`, `calls_this_month` | set by the system | | `connection_status`: `not_connected`, `connected`, `needs_reconnect`, `disconnected`. |
 
 `routes`: **Connect to QuickBooks** (or **Reconnect**), **Sync now**, **Copy everything again**, **Customers**, **Records**, **Disconnect**. `finish_setup` does nothing (connecting needs a person at Intuit's sign-in page).
@@ -452,7 +453,7 @@ Gateway page → **Customers**, admins and holders of the customer matching badg
 
 Setting `accounting_customer_matching_badge` (section Account Status, registered by the accounting initializer): the name of a badge only admins assign. Blank means admins only, so there is no flag beyond `feature_accounting`. It follows the forms creator badge: the name is looked up among admin-assigned badges (`Badge.added_by_admin`), and only while Badges are on, so a badge members can assign themselves, an unknown name, or Badges being off gives holders nothing.
 
-Holders may open each source's Customers page, a customer's page and candidates, and **Link**, **Unlink**, **Not this person** and **Link all exact name matches**: `Accounting::Access.customer_matcher?(user)` backs `Accounting::SourcePolicy#customers?` and `AccountingCustomerLinkPolicy` (create, destroy, confirm_all, scope). They get nothing else: not connect, disconnect, sync, upload, Records, the gateway pages, rules, payment plans or billing. Admins are unchanged.
+Holders may open each source's Customers page, a customer's page and candidates, and **Link**, **Unlink**, **Not this person** and **Link all exact name matches**: `Accounting::Access.customer_matcher?(user)` backs `Accounting::SourcePolicy#customers?` and `AccountingCustomerLinkPolicy` (create, destroy, confirm_all, scope). They may also run **Sync now** (a read from the source, `Accounting::SourcePolicy#sync?`) from the Customers page, which shows the schedule and last check line (§13.2) so they needn't wait for the next scheduled check. Admins and architects keep Sync now on Records, and the Customers page offers it to anyone who can open it; Sync now there returns to Customers. They get nothing else: not connect, disconnect, Copy everything again (`full_sync?`), upload, Records, the gateway pages, rules, payment plans or billing. Admins are unchanged.
 
 What a holder sees on a customer's page: the customer's name, email, reference, parent and sub-customers, linked people and suggestions, and the customer's records with their public label, date, total and balance (matching needs a person's name, email and the bills they're for). Admin-only fields stay admin-only (§3.4, §11.8): no "Open in <source>" links (`external_url`), no memos (`description`), and record names are plain text rather than links to the Records pages. A link made by a holder records them as `created_by`.
 
@@ -804,7 +805,7 @@ All sync jobs for one gateway run one at a time (`limits_concurrency to: 1, key:
 | Job | Sources | What it does |
 |---|---|---|
 | `Accounting::FullSyncJob(gateway)` | all but file | For each entity type: `each_record`, `normalize`, upsert (skip unchanged `revision`), mark records not seen deleted. QuickBooks customers include inactive ones. Then evaluation. |
-| `Accounting::ChangesJob(gateway)` | `:change_feed` | `each_change` since `last_change_check_at`; past `change_window`, a full sync instead. |
+| `Accounting::ChangesJob(gateway)` | `:change_feed` | `each_change` since `last_change_check_at`; past `change_window`, a full sync instead. Queued by the schedule (§13.2) or **Sync now**. |
 | `Accounting::FetchRecordJob(gateway, type, id)` | `:notifications` | One record. |
 | `Accounting::LedgerSyncJob(ledger_id)` | ledgers | §5.4. |
 | `Accounting::ApplyUploadJob(upload)` | file | §6.2. |
@@ -816,11 +817,11 @@ All sync jobs for one gateway run one at a time (`limits_concurrency to: 1, key:
 
 ```yaml
 accounting_changes:
-  class: Accounting::ScheduleChangesJob   # ChangesJob for each source with :change_feed
+  class: Accounting::ScheduleChangesJob   # ChangesJob for each due source with :change_feed
   queue: default
   schedule: every 15 minutes
 accounting_nightly:
-  class: Accounting::NightlyJob          # weekly full sync (Sundays), nightly ledger re-read, nightly evaluation
+  class: Accounting::NightlyJob          # weekly full sync (Sundays; not for "only on Sync now" sources), nightly ledger re-read, nightly evaluation
   queue: default
   schedule: at 3am every day
 accounting_reminders:
@@ -830,6 +831,10 @@ accounting_reminders:
 ```
 
 All do nothing while the feature is off.
+
+**Check for changes (per connection).** The 15-minute tick stays; `ScheduleChangesJob` queues a `ChangesJob` only for sources that are due (`Accounting::ChangeSchedule#due?`, the one place the logic lives). Due means the latest scheduled time that has passed (the start of this hour; 6:00 and 18:00; 6:00) is later than when the last check began (`last_change_check_at` plus the one-minute overlap), so a run missed while the server was down is made up at the next tick and a window is checked once. `15m` is due at every tick; `manual` never is, and a source that has never been checked is due unless manual. Times use the site's time zone (setting `time_zone`). A manual source also skips the weekly full read in the nightly job; the nightly rule evaluation still runs (it makes no API calls and milestones pass without records changing). Webhook notifications are unaffected. Sync now is always available.
+
+The Records page's sync state line (and the Customers page, the gateway page and Account Status for admins) says it in words: "Checks QuickBooks twice a day (6 am and 6 pm). Last checked 25 Nov, 6:00 am." ("Only when someone clicks Sync now" reads "Checks QuickBooks only when someone clicks Sync now."; "Not checked yet." before the first check). `webhook_problem` no longer states a fixed interval.
 
 ### 13.3 Failures and call budget
 
