@@ -224,19 +224,9 @@ module FormsHelper
   end
 
   FORM_TICK_LIST_LONG_PAST = 8
-  FORM_TICK_LIST_OPENS_ON = 6
 
   def form_tick_list_long?(items)
     items.size > FORM_TICK_LIST_LONG_PAST
-  end
-
-  # The tick boxes a long list can hide until "Show all": never a ticked one,
-  # and the first few stay so that it opens on FORM_TICK_LIST_OPENS_ON boxes.
-  def form_tick_list_extras(items)
-    return [] unless form_tick_list_long?(items)
-
-    ticked, unticked = items.partition { |item| item[:checked] }
-    unticked.drop([ FORM_TICK_LIST_OPENS_ON - ticked.size, 0 ].max)
   end
 
   # How the viewer relates to the subject, for the fill page header.
@@ -381,16 +371,85 @@ module FormsHelper
     end.join("; ")
   end
 
-  # questions: and rows: narrow it to the columns and people on screen.
-  def form_results_csv(report, fields, questions: report.questions, rows: report.rows)
+  # The results table's cells (forms/show). Each column's heading carries a
+  # data-column-key, so the heading filters carried to the CSV
+  # (TableFilterParams) keep working when a question or field is renamed.
+  def form_results_status_cell(row)
+    pending = row.response_status == "waiting" && row.response.open_submission
+    safe_join([
+      form_status_badge(row.status),
+      (tag.span("Update in progress", class: "badge text-bg-light") if row.response&.update_in_progress?),
+      (tag.span(STATUS_LABELS.fetch(row.response_status), class: "badge text-bg-light") if row.status == "no_longer_asked"),
+      (safe_join([ tag.br, tag.small("Waiting for #{pending.waiting_for.to_sentence}", class: "text-muted") ]) if pending),
+      (safe_join([ tag.br, tag.small("Reminded #{nice_date(row.response.last_reminded_at)}", class: "text-muted") ]) if row.response&.last_reminded_at)
+    ].compact, " ")
+  end
+
+  def form_results_submitted_cell(form, row)
+    submission = row.submission
+    return "—" unless submission
+
+    signed = form_signed_summary(submission) if form.signature_questions.any?
+    safe_join([
+      [ "##{submission.number}", (" · #{nice_date(submission.submitted_at)}#{" by #{submission.submitted_by.identifier_name}" if submission.submitted_by}" if submission.submitted_at) ].join,
+      (tag.span(SUBMISSION_STATUS_LABELS.fetch(submission.status), class: "badge text-bg-light") unless submission.active?),
+      (tag.span("Form version #{submission.form_version}", class: "badge text-bg-light", title: "The form has changed since") if submission.submitted_at && submission.form_version < form.content_version),
+      (safe_join([ tag.br, tag.small("Signed: #{signed}", class: "text-muted") ]) if signed.present?)
+    ].compact, " ")
+  end
+
+  # "·" for an answer the viewer can't see.
+  def form_results_answer_cell(report, row, question)
+    return tag.span("·", class: "text-muted", title: "You can't see this answer") unless report.readable?(row, question)
+
+    safe_join([
+      (form_answer_display(question, report.answer(row, question)) if row.submission),
+      (safe_join([ tag.br, tag.small("Profile now: #{form_csv_value(row.person.field_value(question.person_field)).presence || "blank"}", class: "text-warning-emphasis", title: "The profile was changed after this was submitted") ]) if report.changed_since_signed?(row, question))
+    ].compact, " ")
+  end
+
+  def form_results_profile_cell(row, field)
+    row.access.field_access.readable?(field) ? person_field_display(field, row.person.field_value(field)) : "·"
+  end
+
+  # The rows of the results table after the heading filters and sort the
+  # viewer carried along (tf, tf_sort, tf_dir); all of them, in the report's
+  # order, when nothing was carried. Each column gives its cell's text as the
+  # table shows it, so the CSV matches the screen.
+  def form_results_filtered_rows(form, report, rows, carried, questions:, fields:, status:, submitted:)
+    return rows unless carried.active?
+
+    text = ->(html) { Nokogiri::HTML5.fragment(html.to_s).text }
+    columns = { "Person" => ->(row) { row.person.identifier_name } }
+    columns["status"] = ->(row) { text.call(form_results_status_cell(row)) } if status
+    columns["submitted"] = ->(row) { text.call(form_results_submitted_cell(form, row)) } if submitted
+    questions.each { |question| columns[question.id] = ->(row) { text.call(form_results_answer_cell(report, row, question)) } }
+    fields.each { |field| columns[field.id] = ->(row) { text.call(form_results_profile_cell(row, field)) } }
+    carried.apply(rows, columns)
+  end
+
+  # Which people each total counts ({ value => [ "person_<id>", ... ] }),
+  # so the totals on the form page can count only the rows left on screen.
+  def form_tally_people(report, question, rows)
+    rows.each_with_object(Hash.new { |hash, key| hash[key] = [] }) do |row, people|
+      report.tally(question, rows: [ row ]).each { |value, count| people[value] << dom_id(row.person) if count.positive? }
+    end
+  end
+
+  # questions: and rows: narrow it to the columns and people on screen;
+  # status: and submitted: leave out the Status column and the submission
+  # columns (Version to Signed at).
+  def form_results_csv(report, fields, questions: report.questions, rows: report.rows, status: true, submitted: true)
     require "csv"
     CSV.generate do |csv|
-      csv << form_csv_row([ "Last name", "First name", "Status", "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] + questions.map(&:label) + fields.map(&:name))
+      csv << form_csv_row([ "Last name", "First name" ] + (status ? [ "Status" ] : []) +
+        (submitted ? [ "Version", "Form version", "Submitted by", "Submitted at", "Signed by", "Signed at" ] : []) + questions.map(&:label) + fields.map(&:name))
       rows.each do |row|
         submission = row.submission
         signatures = submission ? submission.standing_signatures.sort_by(&:signed_at) : []
-        csv << form_csv_row([ row.person.last_name, row.person.first_name, STATUS_LABELS.fetch(row.status), submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
-          signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] +
+        csv << form_csv_row([ row.person.last_name, row.person.first_name ] + (status ? [ STATUS_LABELS.fetch(row.status) ] : []) +
+          (submitted ? [ submission&.number, submission&.form_version, submission&.submitted_by&.identifier_name, submission&.submitted_at&.iso8601,
+            signatures.map { |signature| signature.signer.identifier_name }.join("; ").presence, signatures.map { |signature| signature.signed_at.iso8601 }.join("; ").presence ] : []) +
           questions.map { |question| form_csv_value(report.answer(row, question)) } +
           fields.map { |field| form_csv_value(report.profile(row, field)) })
       end

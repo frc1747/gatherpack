@@ -33,6 +33,23 @@ class FormProfileAnswersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the results page says what the profile says now when it changed after an answer was submitted" do
+    with_settings(feature_forms: "true", feature_person_fields: "true") do
+      allergies = create_world_field("Food Allergies", read: "family", write: "family")
+      form = create_world_form
+      add_profile_question(form, allergies, :update_profile)
+      respond(form, :a1, as: :parent_a1, answers: { "food_allergies" => "peanut" })
+      person(:a1).set_field_value(allergies, "peanut, dairy")
+
+      as(:den_a_leader) do
+        get form_path(form)
+        assert_response :success
+        assert_select "small", text: "Profile now: peanut, dairy"
+        assert_select ".badge", text: "Profile changed", count: 0
+      end
+    end
+  end
+
   test "an answered question stays linked to its profile field" do
     with_admin_only_question do
       as(:den_a_leader) do

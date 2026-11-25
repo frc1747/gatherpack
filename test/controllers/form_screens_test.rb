@@ -81,6 +81,29 @@ class FormScreensTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a response's breadcrumb goes through its form for people who can open it" do
+    submission = respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 4" })
+    with_feature do
+      as(:pack_leader) do
+        get form_response_path(@form, person(:a1))
+        assert_equal [ "Home", "Forms", @form.identifier_name ], crumb_links.map(&:text)
+        assert_select ".breadcrumb a.breadcrumb-link[href=?]", form_path(@form)
+
+        get edit_form_response_path(@form, person(:a1))
+        assert_includes crumb_links.map { |link| link["href"] }, form_path(@form)
+
+        get form_response_submission_path(@form, person(:a1), submission)
+        assert_equal [ form_path(@form), form_response_path(@form, person(:a1).id) ], crumb_links.map { |link| link["href"] }.last(2)
+      end
+
+      as(:a1) do
+        get form_response_path(@form, person(:a1))
+        assert_equal forms_path, crumb_links.last["href"], "a respondent who can't open the form goes back to Forms"
+        assert_select ".breadcrumb a[href=?]", form_path(@form), count: 0
+      end
+    end
+  end
+
   test "a shared-totals viewer gets See totals after the job, and no answers" do
     @form.update!(totals_visibility: :audience)
     respond(@form, :a1, as: :a1, answers: { "sandwich" => "Slim 4" })
@@ -204,6 +227,7 @@ class FormScreensTest < ActionDispatch::IntegrationTest
         assert_select "#managed_forms", text: /No forms match/
         get forms_path(q: { title_i_cont: "meal" })
         assert_select "##{dom_id @form}"
+        assert_select "#managed_forms .table-responsive[data-controller~=column-chooser][data-controller~=table-filter][data-column-chooser-key-value=forms-list]"
       end
 
       @form.form_badge_grants.create!(badge: @health_officer_badge, access: :read)
@@ -227,12 +251,16 @@ class FormScreensTest < ActionDispatch::IntegrationTest
         assert_select "#form-options input[type=checkbox][name='question_ids[]'][value=?]:not([checked])", sandwich.id
         assert_select "#form-options input[type=hidden][name=totals][value=hidden]"
         assert_select "#form-options input[type=submit][value=Show]", 2, "Show by the team, and again at the end of More choices"
+        get form_path(@form, frame: "who_to_include")
+        assert_select "[data-filter-bar-wait][data-controller=form-population]", 1, "the two-step Who to include waits for Show"
+        get form_path(@form, columns_for: @form.id, question_ids: [ note.id ], totals: "hidden")
         all = css_select(".screen-filter-pills a").first
         assert_equal [ note.id ], Rack::Utils.parse_nested_query(all["href"].split("?").last)["question_ids"]
         assert_select ".screen-table-actions input[type=radio][name=layout][form=form-options]", 2
         assert_select ".screen-table-actions button.btn-dark[type=button][data-action='form-results#print']", text: "Print"
         assert_select ".screen-table-actions a.btn-secondary", text: "Download CSV"
-        assert_select "#responses.table-responsive[data-form-results-target=table] table.table-sm"
+        assert_select ".card[data-controller~=form-results][data-controller~=table-filter] #responses.table-responsive[data-form-results-target=table] table.table-sm"
+        assert_select ".screen-table-actions a.btn-secondary[data-table-filter-carry]", text: "Download CSV"
       end
     end
   end
@@ -262,6 +290,10 @@ class FormScreensTest < ActionDispatch::IntegrationTest
 
   def button_labels(selector)
     css_select(selector).map { |button| button.text.strip.presence || button["value"] }
+  end
+
+  def crumb_links
+    css_select(".breadcrumb a.breadcrumb-link")
   end
 
   def action_labels

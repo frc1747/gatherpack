@@ -1,7 +1,7 @@
 <%# Who the form page lists and counts (FormPopulation), under "Who to include". The page's team filter narrows either choice. %>
 <% by_form = forms.map { |form| [ form, FormPopulation.questions_for(form) ] }.reject { |_, questions| questions.empty? } %>
 <% chosen_form = population.question&.form %>
-<div data-controller="form-population">
+<div data-controller="form-population" data-filter-bar-wait>
   <div class="form-check mb-2">
     <%= radio_button_tag :who, "asked", population.source == "asked", class: "form-check-input" %>
     <%= label_tag :who_asked, "Everyone the form asks", class: "form-check-label" %>

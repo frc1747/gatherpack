@@ -27,7 +27,8 @@ class FormsController < InternalController
       .order(Arel.sql("status = 1 DESC"), :title).select { |form| policy(form).show? }
   end
 
-  # GET /forms/1?team_id=&status=&version=&who=&question_id=&answers[question_id][]=&columns_for=&question_ids[]=&field_ids[]=&layout=&totals=
+  # GET /forms/1?team_id=&status=&version=&who=&question_id=&answers[question_id][]=&columns_for=&question_ids[]=&show_status=&show_submitted=&field_ids[]=&layout=&totals=
+  # GET /forms/1.csv?...&tf[key]=&tf_sort=&tf_dir=
   # Everyone the form asks (or the people chosen under "Who to include",
   # FormPopulation), with their status, answers and the totals, as a table,
   # labels or CSV.
@@ -65,6 +66,9 @@ class FormsController < InternalController
     # for this form are sent. Profile columns from an old results link count.
     @questions = @report.questions
     @questions = @questions.select { |question| Array(params[:question_ids]).include?(question.id) } if params[:columns_for] == @form.id
+    # Status and Submitted are ticks of the same list, on until it is sent.
+    @show_status = params[:columns_for] != @form.id || params[:show_status] == "1"
+    @show_submitted = params[:columns_for] != @form.id || params[:show_submitted] == "1"
     @profile_fields = helpers.form_profile_field_choices(viewer)
     @selected_fields = @profile_fields.select { |field| Array(params[:field_ids]).include?(field.id) }
     @options = show_options
@@ -72,7 +76,10 @@ class FormsController < InternalController
     respond_to do |format|
       format.html
       format.csv do
-        send_data helpers.form_results_csv(@report, @selected_fields, questions: @questions, rows: @rows), filename: "#{@form.key}-#{Date.current.iso8601}.csv", type: "text/csv"
+        # The heading filters and sort carried from the table (tf, tf_sort, tf_dir).
+        carried = TableFilterParams.new(params[:tf], sort: params[:tf_sort], dir: params[:tf_dir])
+        rows = helpers.form_results_filtered_rows(@form, @report, @rows, carried, questions: @questions, fields: @selected_fields, status: @show_status, submitted: @show_submitted)
+        send_data helpers.form_results_csv(@report, @selected_fields, questions: @questions, rows: rows, status: @show_status, submitted: @show_submitted), filename: "#{@form.key}-#{Date.current.iso8601}.csv", type: "text/csv"
       end
     end
   end
@@ -235,7 +242,7 @@ class FormsController < InternalController
   private
     # The page's current choices, for links that change one of them.
     def show_options
-      columns = { columns_for: @form.id, question_ids: @questions.map(&:id) } if @questions != @report.questions
+      columns = { columns_for: @form.id, question_ids: @questions.map(&:id), show_status: (@show_status ? "1" : nil), show_submitted: (@show_submitted ? "1" : nil) } if @questions != @report.questions || !@show_status || !@show_submitted
       population = { who: "answered", question_form_id: @population.question&.form_id, question_id: @population.question&.id,
         answers: @population.question && { @population.question.id => @population.answers } } if @population.source == "answered"
       { team_id: @team&.id, status: @status, version: (@version == :latest ? "latest" : nil), field_ids: @selected_fields.map(&:id),
