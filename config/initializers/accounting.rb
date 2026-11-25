@@ -29,7 +29,7 @@ Rails.application.config.to_prepare do
       nav_items: [ GatherPack::Feature::NavItem.new(label: "Account Status", path: :accounting_rules_path, icon: "file-invoice-dollar",
                                                     **nav_visibility) ],
       profile_tabs: [ GatherPack::Feature::ProfileTab.new(label: "Account", path: ->(person) { person_accounting_path(person) },
-                                                          visible: ->(user, person) { Accounting::Access.sees_any_result?(user, person) }) ]
+                                                          visible: ->(user, person) { Accounting::Access.sees_account_tab?(user, person) }) ]
     )
   )
 
