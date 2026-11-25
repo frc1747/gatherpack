@@ -1,0 +1,75 @@
+<%= search_form_for @q, url: mcp_calls_path, data: { "controller": "turbo_search", "turbo_frame": "results" } do |f| %>
+<div class="card">
+  <div class="card-header">
+    <h1>MCP Calls</h1>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md">
+        <%= f.input :user_id_eq, label: "User", as: :select, collection: @users.map { |user| [ user.person&.display_name || user.email, user.id ] } %>
+      </div>
+      <div class="col-md">
+        <%= f.input :tool_eq, label: "Tool", as: :select, collection: @tools %>
+      </div>
+      <div class="col-md">
+        <%= f.input :outcome_eq, label: "Outcome", as: :select, collection: McpToolCall::OUTCOMES %>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer">
+    <%= f.submit "Search", class: "btn btn-primary", data: { action: "turbo_search#search" } %>
+    <%= link_to "Clear Search", request.path, class: "btn btn-dark", data: { action: "turbo_search#clear" } %>
+  </div>
+</div>
+<% end %>
+
+<%= turbo_frame_tag "results" do %>
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>User</th>
+          <th>Tool</th>
+          <th>Outcome</th>
+          <th>Arguments</th>
+          <th>Changed</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @calls.each do |call| %>
+          <tr id="<%= dom_id call %>">
+            <td><%= l call.created_at, format: :short %></td>
+            <td><%= call.user.person&.display_name || call.user.email %></td>
+            <td><tt><%= call.tool %></tt></td>
+            <td>
+              <%= call.outcome %>
+              <% if call.error_message.present? %>
+                <br><small class="text-muted"><%= call.error_message %></small>
+              <% end %>
+            </td>
+            <td><tt><%= truncate call.arguments.to_json, length: 120 %></tt></td>
+            <td>
+              <% changed = call.changed_list %>
+              <% if changed.size > 1 %>
+                <details>
+                  <summary><%= pluralize changed.size, "record" %></summary>
+                  <% changed.each do |record| %>
+                    <div><%= changed_record_link record %></div>
+                  <% end %>
+                </details>
+              <% elsif changed.any? %>
+                <div>1 record</div>
+                <%= changed_record_link changed.first %>
+              <% end %>
+            </td>
+            <td><%= "#{call.duration_ms} ms" if call.duration_ms %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <%= paginate @calls %>
+<% end %>

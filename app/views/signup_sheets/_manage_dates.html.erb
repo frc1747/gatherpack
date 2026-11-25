@@ -1,0 +1,30 @@
+<% sheet_events = @signup_sheet.signup_sheet_events.includes(:event).sort_by { |sheet_event| sheet_event.event.start_time } %>
+<div class="card mb-3" id="dates">
+  <div class="card-header">
+    <h3 class="h5 mb-0">Dates</h3>
+  </div>
+  <div class="card-body">
+    <p>The events people sign up for. Add dates makes new events for the sheet, or picks existing ones. You can change the name, place and time of the events the sheet made.</p>
+    <% if sheet_events.any? %>
+      <ul class="list-group mb-3">
+        <% sheet_events.each do |sheet_event| %>
+          <li class="list-group-item d-flex justify-content-between align-items-center" id="<%= dom_id sheet_event %>">
+            <span>
+              <%= signup_event_when(sheet_event.event) %>
+              <strong><%= sheet_event.event.name %></strong><%= ", #{sheet_event.event.location}" if sheet_event.event.location.present? %>
+            </span>
+            <span>
+              <%= link_to "Change", edit_signup_sheet_signup_sheet_event_path(@signup_sheet, sheet_event), class: "btn btn-sm btn-warning" if policy(sheet_event).update? %>
+              <%= button_to "Remove", signup_sheet_signup_sheet_event_path(@signup_sheet, sheet_event), method: :delete,
+                    class: "btn btn-sm btn-outline-danger", form_class: "d-inline",
+                    data: { turbo_confirm: "Remove #{sheet_event.event.name} from the sheet? The event itself stays." } %>
+            </span>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-warning-emphasis">No dates yet.</p>
+    <% end %>
+    <%= link_to "Add dates", new_signup_sheet_signup_sheet_event_path(@signup_sheet), class: "btn btn-success" %>
+  </div>
+</div>

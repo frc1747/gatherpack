@@ -1,0 +1,9 @@
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="alert alert-warning my-4" role="alert">
+      <i class="bi flex-shrink-0 me-2 fa-solid fa-triangle-exclamation"></i>
+      This account can't run the time kiosk; an admin can make it a kiosk account.
+    </div>
+    <%= button_to "Sign out", destroy_user_session_path, method: :delete, class: "btn btn-secondary" %>
+  </div>
+</div>

@@ -18,6 +18,14 @@
 #                         path:  -> { MyPlugin::Engine.routes.url_helpers.things_path },
 #                         icon:  "star"
 #                       )],
+#         # Tabs on a person's profile, after the built-in ones. The path proc
+#         # gets the person; the optional visible: proc gets the current user
+#         # and the person (the tab shows by default).
+#         profile_tabs: [GatherPack::Feature::ProfileTab.new(
+#                          label:   "Things",
+#                          path:    ->(person) { MyPlugin::Engine.routes.url_helpers.person_things_path(person) },
+#                          visible: ->(user, person) { user.admin? || user.person == person }
+#                        )],
 #         routes_proc: proc { mount MyPlugin::Engine, at: "/my_plugin" }
 #       )
 #     )
@@ -109,6 +117,20 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :forms,
+      label: "Forms",
+      description: "Collect information, consent, and event plans from members and their families",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 27,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Forms", path: :forms_path, icon: "file-signature")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :tokens,
       label: "Tokens",
       description: "Manage RFID and access tokens for members",
@@ -142,6 +164,20 @@ Rails.application.config.to_prepare do
 
   GatherPack::Features.register_built_in(
     GatherPack::Feature.new(
+      key: :signups,
+      label: "Sign-up Sheets",
+      description: "Let members sign up to work or bring things at events",
+      default_enabled: false,
+      nav_section: "Time",
+      nav_position: 15,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Sign-ups", path: :signup_sheets_path, icon: "clipboard-list")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
       key: :time_tracking,
       label: "Time Tracking",
       description: "Time clock punch-in/out and shift period management",
@@ -150,6 +186,20 @@ Rails.application.config.to_prepare do
       nav_position: 20,
       nav_items: [
         GatherPack::Feature::NavItem.new(label: "Time Clock", path: :time_clock_punches_path, icon: "business-time")
+      ]
+    )
+  )
+
+  GatherPack::Features.register_built_in(
+    GatherPack::Feature.new(
+      key: :commitments,
+      label: "Commitments",
+      description: "Track what people owe (shifts, events, hours) and credit it from their activity",
+      default_enabled: false,
+      nav_section: "People",
+      nav_position: 25,
+      nav_items: [
+        GatherPack::Feature::NavItem.new(label: "Commitments", path: :commitments_path, icon: "list-check")
       ]
     )
   )
@@ -234,7 +284,17 @@ Rails.application.config.to_prepare do
       label: "OAuth Provider",
       description: "Allow third-party apps to authenticate users via OAuth2",
       default_enabled: true,
-      toggleable: true
+      toggleable: true,
+      setup_section: "Communication",
+      setup_items: [
+        # The routes are only drawn if the feature was on at boot, so turning it
+        # on at runtime must not render a link to a helper that doesn't exist yet.
+        GatherPack::Feature::SetupItem.new(
+          label: "OAuth Applications",
+          path: :oauth_applications_path,
+          policy_check: ->(view) { view.respond_to?(:oauth_applications_path) && view.policy(OauthApplication).index? }
+        )
+      ]
     )
   )
 end

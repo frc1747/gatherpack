@@ -19,24 +19,53 @@ class Person < ApplicationRecord
   before_save :check_display_name
   validate :person_field_errors
   after_save :run_person_field_hooks
+  after_destroy :destroy_unshared_login
   accepts_nested_attributes_for :user
   has_one_attached :avatar
+  validates :avatar, attachment: { content_types: AttachmentValidator::IMAGE_TYPES, max_size: 5.megabytes }
   attr_accessor :email
 
-  BASE_RANSACKABLE_ATTRIBUTES = [ "created_at", "display_name", "first_name", "id", "last_name", "updated_at", "user_id" ].freeze
+  ADMIN_RANSACKABLE_ATTRIBUTES = [ "created_at", "user_id" ].freeze
+  BASE_RANSACKABLE_ATTRIBUTES = [ "display_name", "first_name", "id", "last_name", "updated_at" ].freeze
   FIELD_RANSACKABLE_ATTRIBUTES = [ "address", "birthday", "dietary_restrictions", "gender", "phone_number", "shirt_size" ].freeze
 
-  # Built-in details are searchable and sortable only while everyone can see
-  # them, or by admins. Without an auth_object (ransack through an
-  # association), assume a non-admin.
+  # Only admins search people by their login or cards, or by built-in details
+  # not everyone can see; a match on them would tell anyone else what they
+  # hold. Without an auth_object (ransack through an association), assume a
+  # non-admin.
   def self.ransackable_attributes(auth_object = nil)
-    return BASE_RANSACKABLE_ATTRIBUTES + FIELD_RANSACKABLE_ATTRIBUTES if auth_object.respond_to?(:admin?) && auth_object.admin?
+    return (BASE_RANSACKABLE_ATTRIBUTES + ADMIN_RANSACKABLE_ATTRIBUTES + FIELD_RANSACKABLE_ATTRIBUTES).sort if auth_object.respond_to?(:admin?) && auth_object.admin?
 
     BASE_RANSACKABLE_ATTRIBUTES + PersonField.system.active.read_everyone.where(system_source: FIELD_RANSACKABLE_ATTRIBUTES).pluck(:system_source)
   end
 
   def self.ransackable_associations(auth_object = nil)
-    [ "user", "tokens" ]
+    if auth_object.respond_to?(:admin?) && auth_object.admin?
+      [ "user", "tokens" ]
+    else
+      []
+    end
+  end
+
+  # People with a membership on any of the given teams. Pass Team.subtree_ids(ids)
+  # to include their descendants. managers: true limits to managers, false to
+  # non-managers, nil (default) to any membership.
+  def self.on_teams(ids, managers: nil)
+    memberships = Membership.where(team_id: ids)
+    memberships = memberships.where(manager: managers) unless managers.nil?
+    where(id: memberships.select(:person_id))
+  end
+
+  # People the viewer may see in the people list, as PersonPolicy::Scope does:
+  # everyone for an admin, otherwise the viewer plus the members of their teams,
+  # of those teams' ancestors and of everything below those. Looks the teams up
+  # in two recursive queries (one for ancestors, one for descendants) and
+  # returns a relation, so the cost does not grow with the number of teams.
+  def self.visible_to(viewer)
+    return all if viewer.admin?
+
+    team_ids = Team.subtree_ids(Team.ancestor_ids(viewer.memberships.pluck(:team_id)))
+    on_teams(team_ids).or(where(id: viewer.id))
   end
 
   def admin?
@@ -78,11 +107,11 @@ class Person < ApplicationRecord
   end
 
   def all_team_ids
-    direct_team_ids = teams.select(:id)
+    direct_team_ids = teams.ids
     managed_team_ids = memberships.where(manager: true).select(:team_id)
     descendant_ids = Team.where(id: managed_team_ids).flat_map(&:all_descendants).map(&:id)
     ancestor_ids = Team.where(id: direct_team_ids).flat_map(&:all_ancestors).map(&:id)
-    direct_team_ids + descendant_ids + ancestor_ids
+    (direct_team_ids + descendant_ids + ancestor_ids).uniq
   end
 
   def all_ancestor_teams
@@ -90,9 +119,9 @@ class Person < ApplicationRecord
   end
 
   def all_ancestor_team_ids
-    direct_team_ids = teams.select(:id)
+    direct_team_ids = teams.ids
     ancestor_ids = Team.where(id: direct_team_ids).flat_map(&:all_ancestors).map(&:id)
-    direct_team_ids + ancestor_ids
+    (direct_team_ids + ancestor_ids).uniq
   end
 
   def all_managed_teams
@@ -208,8 +237,10 @@ class Person < ApplicationRecord
 
   # Applies person field input from a form on behalf of `acting`. Keys the
   # actor can't write are ignored. Values are saved, and the "person_fields -
-  # value changed" hooks run, when the person is saved.
-  def assign_field_values(values, acting:)
+  # value changed" hooks run, when the person is saved. With `only_given`,
+  # required fields are checked only among the keys given, so a form that
+  # updates one field isn't blocked by another field left blank.
+  def assign_field_values(values, acting:, only_given: false)
     access = PersonFieldAccess.new(acting, self)
     fields = person_fields_for_access.index_by(&:key)
     @person_field_input_errors = []
@@ -232,8 +263,10 @@ class Person < ApplicationRecord
       @person_field_changes << PersonFieldChange.new(person: self, field: field, old_value: current, new_value: new_value, changed_by: acting)
     end
 
+    given = values.to_h.keys.map(&:to_s)
     fields.each_value do |field|
       next unless field.required? && access.writable?(field)
+      next if only_given && !given.include?(field.key)
       value = field_value_after_staging(field)
       @person_field_input_errors << [ field.key, "can't be blank" ] if value.blank? && value != false
     end
@@ -317,11 +350,19 @@ class Person < ApplicationRecord
     @person_field_input_errors = []
     return if changes.empty?
 
+    # For code that follows profile changes, such as forms re-checking what
+    # was signed.
+    changes.each { |change| ActiveSupport::Notifications.instrument("person_field_changed.gatherpack", change: change) }
     hooks = Hook.where(event: "person_fields - value changed").to_a
     changes.each { |change| hooks.each { |hook| hook.run(change) } }
   end
 
   def check_display_name
     self.display_name = first_name + " " + last_name if display_name.blank? && !first_name.blank? && !last_name.blank?
+  end
+
+  # A person's login goes with them, unless another person still uses it.
+  def destroy_unshared_login
+    user.destroy! if user && !Person.where(user_id: user_id).exists?
   end
 end
