@@ -90,3 +90,7 @@
 </div>
 
 <% end %>
+
+<% if tab == "reminders" && ChecklistReminderPolicy.new(current_user, checklist).update? %>
+<%= render "checklist_reminders/setup", checklist: checklist %>
+<% end %>

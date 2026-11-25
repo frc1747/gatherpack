@@ -1,0 +1,7 @@
+<%# The current state in words, muted, with an optional link to the setting. Shaped for the screen kit's shared/_state_line (text:, link_text:, link_path:). %>
+<% link_text = local_assigns[:link_text] %>
+<% link_path = local_assigns[:link_path] %>
+<p class="text-body-secondary mb-1">
+  <%= text %>
+  <% if link_text && link_path %><%= link_to link_text, link_path %><% end %>
+</p>
