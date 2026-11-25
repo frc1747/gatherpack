@@ -158,7 +158,9 @@ class OrderNotices
   end
 
   # Sends one email per person with an address and returns how many. The
-  # block gives the body. The person named by by: isn't included.
+  # block gives the body. The person named by by: isn't included. Each email
+  # names its person and the request it's about for the sent email log
+  # (@email_about, set by EmailLog::OrderNoticesAbout; nil without it).
   def deliver(people, subject, by: nil)
     return 0 unless Orders.enabled?
 
@@ -168,7 +170,8 @@ class OrderNotices
     body = yield
     gateway = Gateway[:email_sending]
     people.each do |person|
-      SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{body}")
+      SendEmailJob.perform_later(gateway, person.user.email, "#{Settings[:title]} - #{subject}", "<p>Hi #{h(person.first_name)},</p>#{body}",
+        person: person, about: @email_about)
     end
     people.size
   end
