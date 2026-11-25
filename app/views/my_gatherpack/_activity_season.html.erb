@@ -1,0 +1,18 @@
+<%# Also this season: event types the viewer checked in at that no checklist of theirs counts, and the way to the activity page. Always under a heading of its own, so the button never reads as part of the section above it. %>
+<% if (person = current_user.person) %>
+  <% rows = MyGatherpack::Activity.uncounted(person, MyGatherpack::Season.current) %>
+  <section class="mg-section" data-home-section="activity">
+    <% if rows.any? %>
+      <h2 class="mg-heading">Also this season</h2>
+      <div class="card mg-list mb-2">
+        <% rows.each do |row| %>
+          <%= link_to activity_uncounted_line(row), activity_path(anchor: activity_section_anchor(row.key)), class: "mg-row link-body-emphasis text-decoration-none", data: { activity_uncounted: row.key } %>
+        <% end %>
+      </div>
+    <% else %>
+      <h2 class="mg-heading">Your activity</h2>
+      <p class="text-body-secondary mb-2">Your check-ins, hours, sign-ups and forms this season.</p>
+    <% end %>
+    <%= link_to "See all your activity", activity_path, class: "btn btn-outline-secondary w-100 mg-activity-link", data: { activity_link: true } %>
+  </section>
+<% end %>
