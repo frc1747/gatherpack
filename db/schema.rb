@@ -912,6 +912,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.index ["team_id"], name: "index_memberships_on_team_id"
   end
 
+  create_table "menu_pins", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.string "path_key", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "path_key"], name: "index_menu_pins_on_user_id_and_path_key", unique: true
+  end
+
   create_table "notice_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "person_id", null: false
     t.string "key", null: false
@@ -987,6 +996,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
     t.string "title"
     t.datetime "updated_at", null: false
     t.string "viewer", default: "user"
+    t.boolean "show_in_menu", default: false, null: false
     t.index ["team_id"], name: "index_pages_on_team_id"
   end
 
@@ -1637,6 +1647,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_151000) do
   add_foreign_key "memberships", "people"
   add_foreign_key "memberships", "teams"
   add_foreign_key "memberships", "teams", column: "inherited_id"
+  add_foreign_key "menu_pins", "users", on_delete: :cascade
   add_foreign_key "notice_preferences", "people", on_delete: :cascade
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
