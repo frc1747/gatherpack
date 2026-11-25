@@ -1,0 +1,8 @@
+<%# locals: (member:, registration:) -%>
+<%# Link and Keep separate as items in a row's More menu. %>
+<% if member && member.possible_match %>
+  <% link = Intake::MatchLink.new(member) %>
+  <li><%= button_to "Link", link_intake_registration_match_path(registration, member), class: "dropdown-item",
+    form: { class: "button_to", data: { turbo_confirm: "#{link.description} Link?" } } %></li>
+  <li><%= button_to "Keep separate", keep_separate_intake_registration_match_path(registration, member), class: "dropdown-item", form: { class: "button_to" } %></li>
+<% end %>

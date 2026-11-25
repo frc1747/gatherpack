@@ -1,0 +1,5 @@
+<% content_for :title, "Thanks" %>
+<div data-controller="intake-kiosk-reset" data-intake-kiosk-reset-after-value="8" data-intake-kiosk-reset-url-value="<%= intake_kiosk_path(@registration.slug) %>">
+  <h1 class="h2">Thanks, <%= @first_name %>. Check your email to finish.</h1>
+  <p class="mt-4"><%= link_to "Next person", intake_kiosk_path(@registration.slug), class: "btn btn-primary btn-lg" %></p>
+</div>

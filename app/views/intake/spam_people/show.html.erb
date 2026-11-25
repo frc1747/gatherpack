@@ -1,0 +1,18 @@
+<% breadcrumb :intake_spam_person, @person %>
+
+<div class="card">
+  <div class="card-header"><h1 class="mb-0">Delete <%= @person.display_name %>?</h1></div>
+  <div class="card-body">
+    <p>This permanently deletes:</p>
+    <ul>
+      <% @spam.summary.each do |line| %>
+        <li><%= line %></li>
+      <% end %>
+    </ul>
+    <p>They have nothing else on file. The deletion is kept in the audit log.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Cancel", :back, class: "btn btn-secondary" %>
+      <%= button_to "Delete", intake_spam_person_path(@person), method: :delete, class: "btn btn-danger" %>
+    </div>
+  </div>
+</div>

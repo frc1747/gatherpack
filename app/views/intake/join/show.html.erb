@@ -1,0 +1,49 @@
+<% content_for :title, @registration.title %>
+<h1 class="h3"><%= @registration.title %></h1>
+<% if @registration.description.present? %>
+  <p><%= simple_format(@registration.description) %></p>
+<% end %>
+
+<% @entry.errors.full_messages.each do |message| %>
+  <div class="alert alert-danger"><%= message %></div>
+<% end %>
+<% if current_user %>
+  <%= form_with url: intake_join_path(@registration.slug), scope: :entry, data: { turbo: false } do |f| %>
+    <p>You're signed in as <strong><%= current_user.person.display_name %></strong>.</p>
+    <%= render "teams", f: f, selected: @entry.team_ids %>
+    <%= f.submit "Join", class: "btn btn-primary" %>
+    <%= link_to "See what's next", intake_me_path(@registration.slug), class: "btn btn-link" %>
+  <% end %>
+<% else %>
+  <%= form_with url: intake_join_path(@registration.slug), scope: :entry, data: { turbo: false } do |f| %>
+    <%= render "teams", f: f, selected: @entry.team_ids %>
+    <div class="row">
+      <div class="col-sm-6 mb-3">
+        <%= f.label :first_name, "First name", class: "form-label" %>
+        <%= f.text_field :first_name, value: @entry.first_name, required: true, autocomplete: "given-name", class: "form-control" %>
+      </div>
+      <div class="col-sm-6 mb-3">
+        <%= f.label :last_name, "Last name", class: "form-label" %>
+        <%= f.text_field :last_name, value: @entry.last_name, required: true, autocomplete: "family-name", class: "form-control" %>
+      </div>
+    </div>
+    <div class="mb-3" data-controller="intake-email-hint" data-intake-email-hint-domains-value="<%= intake_domain_hints.to_json %>">
+      <%= f.label :email, "Email", class: "form-label" %>
+      <%= f.email_field :email, value: @entry.email, required: true, autocomplete: "email", class: "form-control",
+        data: { intake_email_hint_target: "input", action: "blur->intake-email-hint#check" } %>
+      <div class="form-text text-warning" data-intake-email-hint-target="hint" hidden></div>
+      <div class="form-text">We'll send a link there to finish joining.</div>
+    </div>
+    <%# People never see or fill this in; bots do. %>
+    <div aria-hidden="true" style="position: absolute; left: -10000px;">
+      <label for="website">Leave this empty</label>
+      <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
+    </div>
+    <%= hidden_field_tag :started, @stamp %>
+    <% if (partial = Intake::BotCheck.adapter.partial) %>
+      <%= render partial %>
+    <% end %>
+    <%= f.submit "Continue", class: "btn btn-primary" %>
+  <% end %>
+  <p class="mt-3 text-muted small">Already have an account? <%= link_to "Sign in", new_user_session_path %> first and come back to this link.</p>
+<% end %>
