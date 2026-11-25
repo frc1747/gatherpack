@@ -44,14 +44,19 @@ class Accounting::RuleSummary
     amount_people_count.positive?
   end
 
-  # Balance rules: charged, paid and balance remaining, summed. Other
-  # kinds: the amount.
+  # Balance rules: charged, paid and balance remaining, summed. Amount
+  # rules: the amount. Count rules: the count. Custom rules: the amount,
+  # when their code gives any; else nothing.
   def totals
-    @totals ||= if rule.balance?
+    @totals ||= case rule.kind
+    when "balance"
       sums = amount_results.pick(*%w[ charged_cents paid_cents balance_cents ].map { |key| Arel.sql("COALESCE(SUM((details->>'#{key}')::bigint), 0)") })
       { charged: sums[0], paid: sums[1], balance: sums[2] }
+    when "count"
+      { count: amount_results.pick(Arel.sql("COALESCE(SUM((details->>'count')::bigint), 0)")).to_i }
     else
-      { amount: amount_results.sum(:amount_cents) }
+      amounts = amount_results.where.not(amount_cents: nil)
+      rule.custom? && !amounts.exists? ? {} : { amount: amounts.sum(:amount_cents) }
     end
   end
 

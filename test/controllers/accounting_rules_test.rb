@@ -264,6 +264,24 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "393#11: count and custom rules' totals give a figure before the people they cover, or say nothing" do
+    count = create_rule("Records", kind: "count", read_permission: "team", amount_permission: "self", team: @team)
+    given = create_rule("Given", kind: "custom", code: '{ value: "given", amount_cents: 5_000 }', read_permission: "team", amount_permission: "self", team: @team)
+    plain = create_rule("Plain", kind: "custom", code: '"yes"', read_permission: "team", amount_permission: "self", team: @team)
+    [ count, given, plain ].each { |rule| evaluate(rule) }
+    sign_in @nancy.user
+
+    with_accounting do
+      get accounting_rule_path(count)
+      assert_select ".accounting-totals", text: /\A\s*Total 2\s*\(of 1 person\)\s*\z/
+      get accounting_rule_path(given)
+      assert_select ".accounting-totals", text: /\A\s*Total \$50\.00\s*\(of 1 person\)\s*\z/
+      get accounting_rule_path(plain)
+      assert_select ".accounting-totals", count: 0
+      assert_no_match "(of 1 person)", response.body
+    end
+  end
+
   test "the milestones warn when nobody can ever be overdue" do
     original = Gateway::QuickbooksGateway.instance_method(:capabilities)
     Gateway::QuickbooksGateway.define_method(:capabilities) { Set.new }

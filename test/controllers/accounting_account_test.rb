@@ -148,6 +148,16 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
+  test "393#11: the Account tab shows a custom rule's amount" do
+    given = create_rule("Given", kind: "custom", code: '{ value: "given", amount_cents: 5_000 }', read_permission: "self", amount_permission: "self")
+    evaluate(given)
+    sign_in @nancy.user
+
+    with_accounting { get person_accounting_path(@nancy) }
+
+    assert_select "##{dom_id(result_for(given, @nancy))}", text: /\$50\.00/
+  end
+
   test "a non-admin never sees a custom rule's error" do
     broken = create_rule("Broken", kind: "custom", code: 'raise "secret detail"', read_permission: "self")
     evaluate(broken)
