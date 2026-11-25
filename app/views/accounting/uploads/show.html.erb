@@ -47,7 +47,8 @@
   </div>
 <% end %>
 
-<% if @upload.status == "previewed" %>
+<%# A file with errors has nothing to compare: every record would read as Remove. %>
+<% if @upload.status == "previewed" && !@upload.problems? %>
   <% if @preview.rows.any? %>
     <div class="table-responsive">
       <table class="table">
@@ -74,7 +75,7 @@
     <% if @preview.rows.size > 500 %>
       <p class="text-muted">And <%= @preview.rows.size - 500 %> more.</p>
     <% end %>
-  <% elsif !@upload.problems? %>
+  <% else %>
     <%= render "shared/empty_state", text: "Nothing changes: the records already match this file." %>
   <% end %>
 <% end %>
