@@ -124,6 +124,21 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     assert_equal both, linked.call
   end
 
+  test "395#8: a ledger's own sync moves the last sync time on and clears an earlier error" do
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    @source.sync_failed!("Timed out")
+    assert_nil @source.reload.last_change_check_time
+
+    with_accounting do
+      add_entry(ledger, -45_000, by: @treasurer, tags: [ @dues ])
+      perform_enqueued_jobs only: Accounting::LedgerSyncJob
+    end
+
+    @source.reload
+    assert @source.last_change_check_time
+    assert_nil @source.configuration["last_error"]
+  end
+
   test "removing an ownership removes its link, and a link an admin removed stays removed" do
     ben = create_linkable_person("Ben", "Ward")
     ledger = create_ledger("Ward family", team: @team, owners: [ @nancy, ben ])

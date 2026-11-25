@@ -96,17 +96,21 @@ class Gateway::LedgerSource < Gateway
 
   # Reads one ledger again after it changed: its customer record and
   # entries, or, when it's gone or no longer covered, marks them deleted.
+  # The source's page then shows it synced, without an earlier error.
   def sync_ledger(ledger_id)
+    started = Time.current
     ledger = Ledger.find_by(id: ledger_id)
     held = accounting_records.where(entity_type: %w[ Ledger LedgerEntry ], customer_external_id: ledger_id)
 
-    if ledger && covers_team?(ledger.team_id)
+    saved = if ledger && covers_team?(ledger.team_id)
       Accounting::Sync.new(self).part(reader.rows_for(ledger), held)
     elsif held.current.exists?
       Accounting::Sync.new(self).part([], held)
     else
       []
     end
+    record_state!(last_change_check_at: started, last_error: nil)
+    saved
   end
 
   # Queues a LedgerSyncJob for each ledger and each ledger source covering
