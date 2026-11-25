@@ -34,8 +34,10 @@ class Accounting::ChangeSchedule
     @source = source
   end
 
+  # The stored word, or the default when it isn't one of CHOICES.
   def word
-    self.class.word_for(source)
+    stored = self.class.word_for(source)
+    CHOICES.key?(stored) ? stored : DEFAULT
   end
 
   def manual?

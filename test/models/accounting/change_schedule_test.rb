@@ -120,6 +120,25 @@ class Accounting::ChangeScheduleTest < ActiveSupport::TestCase
     assert_equal "daily", @gateway.field_input(:change_check)[:selected]
   end
 
+  test "an unknown stored word falls back to the default" do
+    @gateway.update_columns(configuration: @gateway.configuration.merge("change_check" => "weekly"))
+    schedule = Accounting::ChangeSchedule.new(@gateway.reload)
+
+    assert_equal "15m", schedule.word
+    assert_not schedule.manual?
+    assert_equal "Checks QuickBooks every 15 minutes.", schedule.sentence
+    assert schedule.due?(Time.utc(2026, 11, 25, 10))
+  end
+
+  test "the form's hint names the source and mentions notifications only when it has them" do
+    assert_match "QuickBooks notifications, when set up, still arrive at once", @gateway.field_input(:change_check)[:hint]
+
+    ledgers = Gateway::LedgerSource.create!(name: "Member ledgers")
+    hint = ledgers.change_check_input[:hint]
+    assert_no_match(/notifications|QuickBooks/, hint)
+    assert_match "Sync now always checks at once.", hint
+  end
+
   test "the webhook problem no longer promises 15 minutes" do
     @gateway.update!(webhook_verifier_token: nil)
     assert_no_match "15 minutes", @gateway.webhook_problem
