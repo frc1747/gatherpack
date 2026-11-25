@@ -1,0 +1,22 @@
+<%# locals: (source:) -%>
+<%# Where a source's copy stands, for admins. %>
+<% case source.connection_state %>
+<% when :ok %>
+  <p class="mb-1">
+    <% if (synced = [ source.last_change_check_time, source.last_full_sync_time ].compact.max) %>
+      Last synced <span class="<%= "text-danger" if synced < 1.day.ago %>"><%= time_ago_in_words(synced) %> ago</span>.
+    <% else %>
+      Not synced yet.
+    <% end %>
+  </p>
+<% when :needs_attention %>
+  <p class="mb-1 text-danger"><%= source.source_name %> needs to be connected again: syncing has stopped.</p>
+<% else %>
+  <p class="mb-1">Not connected to <%= source.source_name %>.</p>
+<% end %>
+<% if source.respond_to?(:reconnect_by) && (by = source.reconnect_by) %>
+  <p class="mb-1 text-danger">Reconnect <%= source.source_name %> by <%= l(by.to_date, format: :long) %>.</p>
+<% end %>
+<% if (error = source.configuration&.dig("last_error")).present? %>
+  <p class="mb-1 text-danger">The last sync didn't finish<%= " #{time_ago_in_words(source.last_error_time)} ago" if source.last_error_time %>: <%= error %></p>
+<% end %>

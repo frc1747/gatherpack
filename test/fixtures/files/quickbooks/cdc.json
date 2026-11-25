@@ -1,0 +1,31 @@
+{
+  "CDCResponse": [
+    {
+      "QueryResponse": [
+        {
+          "Invoice": [
+            {
+              "Id": "130", "SyncToken": "3", "DocNumber": "1042", "TxnDate": "2026-09-01", "DueDate": "2026-10-01",
+              "CustomerRef": { "value": "58" }, "TotalAmt": 450.00, "Balance": 0,
+              "Line": [ { "Id": "1", "Amount": 450.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "21", "name": "Dues" } } } ],
+              "MetaData": { "LastUpdatedTime": "2026-11-20T10:00:00-08:00" }
+            },
+            { "Id": "131", "status": "Deleted", "MetaData": { "LastUpdatedTime": "2026-11-20T11:00:00-08:00" } }
+          ],
+          "startPosition": 1, "maxResults": 2
+        },
+        {
+          "Payment": [
+            {
+              "Id": "142", "SyncToken": "0", "TxnDate": "2026-11-20", "CustomerRef": { "value": "58" }, "TotalAmt": 150.00, "UnappliedAmt": 0,
+              "Line": [ { "Amount": 150.00, "LinkedTxn": [ { "TxnId": "130", "TxnType": "Invoice" } ] } ],
+              "MetaData": { "LastUpdatedTime": "2026-11-20T10:00:00-08:00" }
+            }
+          ],
+          "startPosition": 1, "maxResults": 1
+        }
+      ]
+    }
+  ],
+  "time": "2026-11-24T08:00:00.000-08:00"
+}

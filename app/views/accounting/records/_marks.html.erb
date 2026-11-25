@@ -1,0 +1,4 @@
+<%# locals: (record:) -%>
+<% if record.deleted? %><span class="badge text-bg-secondary">Deleted</span><% end %>
+<% if record.voided? %><span class="badge text-bg-secondary">Voided</span><% end %>
+<% unless record.active? %><span class="badge text-bg-secondary">Inactive</span><% end %>

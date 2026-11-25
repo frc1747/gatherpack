@@ -1,0 +1,17 @@
+{
+  "QueryResponse": {
+    "Customer": [
+      {
+        "Id": "58", "SyncToken": "0", "DisplayName": "Ward, Nancy", "GivenName": "Nancy", "FamilyName": "Ward",
+        "PrimaryEmailAddr": { "Address": "nancy.ward@example.com" }, "Notes": "per_nancy", "Active": true, "Job": false,
+        "Balance": 150.00, "MetaData": { "CreateTime": "2026-08-01T09:00:00-07:00", "LastUpdatedTime": "2026-08-02T09:00:00-07:00" }
+      },
+      {
+        "Id": "59", "SyncToken": "3", "DisplayName": "Ward, Janet", "ParentRef": { "value": "58" }, "Job": true,
+        "Active": false, "Balance": 0, "MetaData": { "CreateTime": "2026-08-01T09:00:00-07:00", "LastUpdatedTime": "2026-09-02T09:00:00-07:00" }
+      }
+    ],
+    "startPosition": 1, "maxResults": 2
+  },
+  "time": "2026-11-24T08:00:00.000-08:00"
+}

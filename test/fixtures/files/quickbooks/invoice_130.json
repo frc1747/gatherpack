@@ -1,0 +1,10 @@
+{
+  "Invoice": {
+    "Id": "130", "SyncToken": "4", "DocNumber": "1042", "TxnDate": "2026-09-01", "DueDate": "2026-10-01",
+    "CustomerRef": { "value": "58" }, "TotalAmt": 450.00, "Balance": 100.00,
+    "InvoiceLink": "https://connect.intuit.com/portal/app/CommerceNetwork/view/scs-v1-abc",
+    "Line": [ { "Id": "1", "Amount": 450.00, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "value": "21", "name": "Dues" } } } ],
+    "MetaData": { "LastUpdatedTime": "2026-11-21T10:00:00-08:00" }
+  },
+  "time": "2026-11-24T08:00:00.000-08:00"
+}

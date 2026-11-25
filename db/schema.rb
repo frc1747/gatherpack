@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_130200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_account_relationships_on_account_id"
     t.index ["holder_type", "holder_id"], name: "index_account_relationships_on_holder"
+  end
+
+  create_table "accounting_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.text "access_token"
+    t.datetime "access_token_expires_at"
+    t.text "refresh_token"
+    t.datetime "refresh_token_expires_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["gateway_id"], name: "index_accounting_credentials_on_gateway_id", unique: true
+  end
+
+  create_table "accounting_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.string "entity_type", null: false
+    t.string "external_id", null: false
+    t.string "revision"
+    t.jsonb "data", default: {}, null: false
+    t.string "role", null: false
+    t.string "customer_external_id"
+    t.string "parent_external_id"
+    t.string "name"
+    t.string "email"
+    t.string "reference"
+    t.boolean "active", default: true, null: false
+    t.string "number"
+    t.date "txn_date"
+    t.date "due_on"
+    t.bigint "total_cents"
+    t.bigint "balance_cents"
+    t.boolean "voided", default: false, null: false
+    t.jsonb "lines", default: [], null: false
+    t.string "item_ids", default: [], null: false, array: true
+    t.string "class_ids", default: [], null: false, array: true
+    t.string "location_ids", default: [], null: false, array: true
+    t.jsonb "applied_to", default: [], null: false
+    t.bigint "unapplied_cents"
+    t.string "pay_url"
+    t.string "external_url"
+    t.string "public_label"
+    t.text "description"
+    t.datetime "external_updated_at"
+    t.datetime "deleted_at"
+    t.datetime "fetched_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["class_ids"], name: "index_accounting_records_on_class_ids", using: :gin
+    t.index ["gateway_id", "customer_external_id"], name: "idx_on_gateway_id_customer_external_id_4fc69e5f26"
+    t.index ["gateway_id", "entity_type", "external_id"], name: "index_accounting_records_on_source_and_external_id", unique: true
+    t.index ["item_ids"], name: "index_accounting_records_on_item_ids", using: :gin
+    t.index ["location_ids"], name: "index_accounting_records_on_location_ids", using: :gin
+    t.index ["role"], name: "index_accounting_records_on_role"
+    t.index ["txn_date"], name: "index_accounting_records_on_txn_date"
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1195,6 +1249,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
   end
 
   add_foreign_key "account_relationships", "accounts"
+  add_foreign_key "accounting_credentials", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_records", "gateways", on_delete: :cascade
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "badge_assignments", "badges"
