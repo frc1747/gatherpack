@@ -163,7 +163,7 @@ class Accounting::RulesController < Accounting::BaseController
         labels: {},
         filters: [ :txn_date_from, :txn_date_to, :due_date_from, :due_date_to, :min_total, { roles: [], items: [], classes: [], locations: [] } ],
         milestones_attributes: %i[ id name due_on balance_at_most balance_at_most_percent position _destroy ],
-        badge_grants_attributes: %i[ id badge_id amounts _destroy ],
+        badge_grants_attributes: %i[ id badge_id amounts bill _destroy ],
         actions_attributes: [ :id, :action, :badge_id, :person_field_id, :write, :position, :_destroy,
                               :condition_type, :condition_op, :condition_amount, :condition_count, :condition_values_text, { condition_values: [] } ]
       )

@@ -32,6 +32,13 @@ namespace :accounting do
     get :export, on: :member
     # A person's own milestones for the rule (admins).
     resources :payment_plans, only: %i[ edit update destroy ], param: :person_id
+    # Bill people, from the rule.
+    resources :billing_runs, only: %i[ new create ]
+  end
+  # Bill people from Account Status, and every run.
+  resources :billing_runs, only: %i[ index new create show ] do
+    post :retry_failed, on: :member
+    get :export, on: :member
   end
 end
 scope "people/:person_id", as: :person do

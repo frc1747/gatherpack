@@ -9,6 +9,10 @@ module Accounting
   # Raised for a refusal worth trying again later (rate limits, outages).
   class TemporaryFailure < StandardError; end
 
+  # Raised by a source when billing can't make a person's customer, with
+  # the reason; the line is skipped.
+  class BillingSkipped < StandardError; end
+
   def self.enabled?
     GatherPack::Features.enabled?(:accounting)
   end

@@ -20,6 +20,14 @@ class Accounting::FeatureTest < ActiveSupport::TestCase
     assert_not_includes Hook.catalog, "accounting_credentials - update"
   end
 
+  test "the hook catalog offers billing runs and their finished and failed events, but no line record events" do
+    assert_includes Hook.catalog, "accounting_billing_runs - create"
+    assert_includes Hook.catalog, "accounting_billing_runs - finished"
+    assert_includes Hook.catalog, "accounting_billing_lines - failed"
+    assert_not_includes Hook.catalog, "accounting_billing_lines - create"
+    assert_not AccountingBillingLine.include?(CanBeHooked)
+  end
+
   test "QuickBooks is an accounting gateway" do
     source = Gateway::QuickbooksGateway # registers itself once loaded
 

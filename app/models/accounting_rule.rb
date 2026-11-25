@@ -57,6 +57,8 @@ class AccountingRule < ApplicationRecord
   has_many :person_milestones, -> { ordered }, class_name: "AccountingPersonMilestone", foreign_key: :rule_id,
     inverse_of: :rule, dependent: :destroy
   has_many :reminders, class_name: "AccountingReminder", foreign_key: :rule_id, inverse_of: :rule, dependent: :delete_all
+  # Runs started from the rule stay when it's deleted: they're what was billed.
+  has_many :billing_runs, class_name: "AccountingBillingRun", foreign_key: :rule_id, inverse_of: :rule, dependent: :nullify
 
   accepts_nested_attributes_for :milestones, allow_destroy: true,
     reject_if: ->(attributes) { attributes.values_at("name", "due_on", "balance_at_most", "balance_at_most_percent").all?(&:blank?) }

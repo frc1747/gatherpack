@@ -3,6 +3,7 @@
 # own it; its entries are charges and payments by sign, applied oldest
 # charge first (Accounting::Ledgers::Reader). Nothing is copied into the
 # ledgers. Kept current by Accounting::LedgerChanges, with a nightly re-read.
+# Billing adds charges as entries, and ledgers for people who have none.
 class Gateway::LedgerSource < Gateway
   Gateway.register(self, :accounting)
   include Accounting::Provider
@@ -153,7 +154,7 @@ class Gateway::LedgerSource < Gateway
   # -- Accounting::Provider --
 
   def capabilities
-    found = Set.new(%i[ deep_links ])
+    found = Set.new(%i[ deep_links create_charges create_customers ])
     found << :pay_links if Gateway.any_registered?(:payment)
     found
   end
@@ -195,6 +196,55 @@ class Gateway::LedgerSource < Gateway
     :nightly
   end
 
+  # An entry on the line's ledger for the run's item: below zero with the
+  # negative charge sign, above with the positive one, the run's memo as its
+  # remark. An entry already carrying the line's request id is returned
+  # instead of a second.
+  def create_charge(line)
+    ledger = ledgers.find_by(id: line.customer_external_id) or raise ArgumentError, "That ledger isn't one of #{name}'s"
+    run = line.run
+    tag = LedgerTag.find_by(id: run.item_external_id)
+
+    ledger.with_lock do
+      existing = ledger.ledger_entries.find_by("ledger_entries.metadata->>'accounting_request_id' = ?", line.request_id.to_s)
+      next existing.id if existing
+
+      amount = charge_sign == "negative" ? -line.amount_cents : line.amount_cents
+      entry = ledger.ledger_entries.create!(amount_cents: amount, remark: run.memo.presence, created_by: run.created_by,
+        metadata: { "accounting_request_id" => line.request_id.to_s })
+      entry.ledger_taggings.create!(ledger_tag: tag) if tag
+      entry.id
+    end
+  end
+
+  # A ledger named after the person, in the rule's team, else the team for
+  # new ledgers, owned by the person only. A ledger already carrying the
+  # request id is returned instead of a second.
+  def create_customer(person, email:, request_id:, team: nil)
+    problem = customer_creation_problem(team)
+    raise Accounting::BillingSkipped, problem if problem
+
+    team = ledger_team_for(team)
+
+    existing = Ledger.find_by("ledgers.metadata->>'accounting_request_id' = ?", request_id.to_s)
+    return existing.id if existing
+
+    Ledger.transaction do
+      ledger = Ledger.create!(name: person.identifier_name, team: team, metadata: { "accounting_request_id" => request_id.to_s })
+      ledger.ledger_ownerships.create!(owner: person)
+      ledger.id
+    end
+  end
+
+  def customer_creation_problem(team)
+    chosen = ledger_team_for(team)
+    if chosen.nil?
+      "No team for a new ledger: set one on the ledger source"
+    elsif !covers_team?(chosen.id)
+      "#{chosen.name} isn't one of the ledger source's teams"
+    end
+  end
+
   # Ledger owners are linked to their ledger's customer (Accounting::Ledgers::OwnerLinks).
   def after_sync(records)
     Accounting::Ledgers::OwnerLinks.new(self).after_sync(records)
@@ -203,6 +253,12 @@ class Gateway::LedgerSource < Gateway
   private
     def reader
       Accounting::Ledgers::Reader.new(self)
+    end
+
+    # Where billing makes a new ledger: the rule's team, else the team for
+    # new ledgers.
+    def ledger_team_for(team)
+      team || new_ledger_team
     end
 
     def team_choices

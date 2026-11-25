@@ -5,7 +5,9 @@
 # each customer is for. Rules (accounting_rules) answer a question about
 # each person from those records; the answers are shown on Account Status
 # and each person's Account tab; payment plans give one person their own
-# milestones, and rules send reminders (Accounting::Reminders). Routes are
+# milestones, and rules send reminders (Accounting::Reminders). Billing runs
+# (accounting_billing_runs) write charges into a source that can take them,
+# or give a CSV in the file source's layout. Routes are
 # in config/routes/accounting.rb and recurring jobs in
 # config/recurring.d/accounting.yml; both do nothing while the feature is
 # off.
@@ -50,6 +52,12 @@ Rails.application.config.to_prepare do
   GatherPack::HookCatalog.register_events("accounting - customer unlinked")
   # model is an AccountingRuleChange, after the result is saved.
   GatherPack::HookCatalog.register_events(Accounting::Evaluation::EVENT)
+  # A billing run was started; its lines have no record events of their own.
+  GatherPack::HookCatalog.register_targets("accounting_billing_runs")
+  # model is the run, with counts by status in details.
+  GatherPack::HookCatalog.register_events(AccountingBillingRun::FINISHED_EVENT)
+  # model is the line, with error.
+  GatherPack::HookCatalog.register_events(AccountingBillingLine::FAILED_EVENT)
 
   # Reminders go in the daily summary for people who choose it, where the
   # summaries seam is merged; without it every reminder is an email.

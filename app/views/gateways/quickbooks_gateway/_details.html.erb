@@ -2,6 +2,11 @@
 <h2>QuickBooks</h2>
 <p>
   GatherPack reads your QuickBooks records. It never changes, voids or deletes anything and never records payments.
+  <% if gateway.allow_create_charges? %>
+    With "Let GatherPack create invoices" on, it can also create new invoices and customers, and email the invoices it created.
+  <% else %>
+    Turn on "Let GatherPack create invoices" to bill people from GatherPack.
+  <% end %>
 </p>
 
 <% unless Accounting.enabled? %>

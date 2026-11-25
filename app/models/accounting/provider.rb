@@ -13,6 +13,7 @@ module Accounting::Provider
     has_many :accounting_customer_links, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
     has_many :accounting_customer_dismissals, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :delete_all
     has_many :accounting_rules, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
+    has_many :accounting_billing_runs, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
   end
 
   # What this source can do, a Set of CAPABILITIES.
@@ -56,11 +57,22 @@ module Accounting::Provider
   # external id. Safe to call twice with the same line.request_id.
   def create_charge(line) = raise NotImplementedError
 
-  # :create_customers -- creates a customer for a person, returns its external id.
-  def create_customer(person, email:, request_id:) = raise NotImplementedError
+  # :create_customers -- creates a customer for a person, returns its
+  # external id. Safe to call twice with the same request_id. team: the
+  # billing rule's team, for a source that puts new customers in one.
+  def create_customer(person, email:, request_id:, team: nil) = raise NotImplementedError
+
+  # :create_customers -- why a customer can't be made for a run whose rule
+  # has this team (nil: none), or nil when it can.
+  def customer_creation_problem(team) = nil
 
   # :send_charges -- emails a charge this source created.
   def send_charge(external_id, email:) = raise NotImplementedError
+
+  # Called by Accounting::BillingRunJob after it wrote a line's charge (and
+  # its customer, when created), for a source that copies them back without
+  # waiting for its next sync.
+  def after_billing(line, customer_created:) = nil
 
   # How customers are matched to people (Accounting::CustomerLinks::STRATEGIES),
   # in the order tried.

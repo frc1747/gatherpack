@@ -87,3 +87,29 @@ crumb :accounting_upload do |upload|
   link upload.identifier_name, accounting_connection_upload_path(upload.gateway, upload)
   parent :accounting_records, upload.gateway
 end
+
+crumb :accounting_billing_runs do
+  link "Billing runs", accounting_billing_runs_path
+  parent :accounting_rules
+end
+
+# A run started from a rule sits under the rule, where grant holders reach
+# it; the others under Billing runs.
+crumb :accounting_billing_run do |run|
+  link run.identifier_name, accounting_billing_run_path(run)
+  if run.rule
+    parent :accounting_rule, run.rule
+  else
+    parent :accounting_billing_runs
+  end
+end
+
+crumb :new_accounting_billing_run do |rule|
+  if rule
+    link "Bill people", new_accounting_rule_billing_run_path(rule)
+    parent :accounting_rule, rule
+  else
+    link "Bill people", new_accounting_billing_run_path
+    parent :accounting_billing_runs
+  end
+end

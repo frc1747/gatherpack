@@ -352,12 +352,19 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_equal 1, @rule.actions.count
   end
 
-  test "the badge grants don't offer billing until it exists" do
+  test "the badge grants offer May bill, and saving keeps it" do
+    badge = create_rule_badge("Treasurer")
     sign_in @laura.user
     with_settings(feature_accounting: "true", feature_badges: "true") { get edit_accounting_rule_path(@rule, tab: "people") }
 
     assert_select "th", text: "Amounts too"
-    assert_no_match "May bill", response.body
+    assert_select "th", text: "May bill"
+
+    with_settings(feature_accounting: "true", feature_badges: "true") do
+      patch accounting_rule_path(@rule), params: { tab: "people", accounting_rule: { badge_grants_attributes: {
+        "0" => { badge_id: badge.id, amounts: "1", bill: "1" } } } }
+    end
+    assert @rule.badge_grants.find_by!(badge: badge).bill?
   end
 
   test "393#8: QuickBooks classes are Categories and departments Locations, even with the same ids" do

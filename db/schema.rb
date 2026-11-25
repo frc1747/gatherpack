@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_24_140200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_24_140500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140200) do
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_account_relationships_on_account_id"
     t.index ["holder_type", "holder_id"], name: "index_account_relationships_on_holder"
+  end
+
+  create_table "accounting_billing_lines", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "run_id", null: false
+    t.uuid "person_id", null: false
+    t.string "customer_external_id"
+    t.bigint "amount_cents", null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "request_id", null: false
+    t.string "external_id"
+    t.text "error"
+    t.datetime "sent_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["person_id"], name: "index_accounting_billing_lines_on_person_id"
+    t.index ["request_id"], name: "index_accounting_billing_lines_on_request_id", unique: true
+    t.index ["run_id", "person_id"], name: "index_accounting_billing_lines_on_run_id_and_person_id", unique: true
+    t.index ["run_id", "status"], name: "index_accounting_billing_lines_on_run_id_and_status"
+  end
+
+  create_table "accounting_billing_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "gateway_id", null: false
+    t.uuid "rule_id"
+    t.uuid "created_by_id"
+    t.string "item_external_id", null: false
+    t.bigint "amount_cents", null: false
+    t.date "txn_date"
+    t.date "due_on"
+    t.text "memo"
+    t.boolean "create_customers", default: false, null: false
+    t.boolean "send_from_source", default: false, null: false
+    t.string "status", default: "draft", null: false
+    t.datetime "finished_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_accounting_billing_runs_on_created_by_id"
+    t.index ["gateway_id"], name: "index_accounting_billing_runs_on_gateway_id"
+    t.index ["rule_id"], name: "index_accounting_billing_runs_on_rule_id"
   end
 
   create_table "accounting_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1396,6 +1434,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_24_140200) do
   end
 
   add_foreign_key "account_relationships", "accounts"
+  add_foreign_key "accounting_billing_lines", "accounting_billing_runs", column: "run_id", on_delete: :cascade
+  add_foreign_key "accounting_billing_lines", "people", on_delete: :cascade
+  add_foreign_key "accounting_billing_runs", "accounting_rules", column: "rule_id", on_delete: :nullify
+  add_foreign_key "accounting_billing_runs", "gateways", on_delete: :cascade
+  add_foreign_key "accounting_billing_runs", "people", column: "created_by_id", on_delete: :nullify
   add_foreign_key "accounting_credentials", "gateways", on_delete: :cascade
   add_foreign_key "accounting_customer_dismissals", "gateways", on_delete: :cascade
   add_foreign_key "accounting_customer_dismissals", "people", on_delete: :cascade

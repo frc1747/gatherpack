@@ -34,7 +34,7 @@ class AccountingRuleBadgeGrant < ApplicationRecord
   end
 
   def identifier_name
-    "#{badge&.name}: can see #{amounts? ? "results and amounts" : "results"} of #{rule&.name}"
+    "#{badge&.name}: can see #{amounts? ? "results and amounts" : "results"}#{" and bill" if bill?} of #{rule&.name}"
   end
 
   private

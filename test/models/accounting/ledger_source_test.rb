@@ -372,9 +372,100 @@ class Accounting::LedgerSourceTest < ActiveJob::TestCase
     end
   end
 
+  # -- Billing --
+
+  def provider_billing_line
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    ledger_billing_line(ledger)
+  end
+
+  def provider_charge_count
+    LedgerEntry.count
+  end
+
+  test "can create charges and ledgers, but not email them" do
+    assert_includes @source.capabilities, :create_charges
+    assert_includes @source.capabilities, :create_customers
+    assert_not_includes @source.capabilities, :send_charges
+  end
+
+  test "a charge is an entry below zero on the line's ledger, with the item's tag, the memo and the request id" do
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    line = ledger_billing_line(ledger, memo: "2027 season dues")
+
+    entry = LedgerEntry.find(@source.create_charge(line))
+
+    assert_equal ledger, entry.ledger
+    assert_equal(-45_000, entry.amount_cents)
+    assert_equal [ @dues ], entry.ledger_tags.to_a
+    assert_equal "2027 season dues", entry.remark
+    assert_equal @treasurer, entry.created_by
+    assert_equal line.request_id, entry.metadata["accounting_request_id"]
+    assert_equal(-45_000, ledger.reload.balance_cents)
+  end
+
+  test "with a positive charge sign, a charge is an entry above zero" do
+    @source.update!(charge_sign: "positive")
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+
+    assert_equal 45_000, LedgerEntry.find(@source.create_charge(ledger_billing_line(ledger))).amount_cents
+  end
+
+  test "a billed charge syncs back as a charge for the ledger's owner" do
+    ledger = create_ledger("Nancy Ward dues", team: @team, owners: [ @nancy ])
+    entry_id = @source.create_charge(ledger_billing_line(ledger))
+    sync
+
+    record = @source.accounting_records.current.find_by!(external_id: entry_id)
+    assert_equal "charge", record.role
+    assert_equal 45_000, record.balance_cents
+    assert_equal [ @dues.id ], record.item_ids
+  end
+
+  test "a charge for a ledger the source doesn't read is refused" do
+    other = create_ledger("Elsewhere", team: create_ledger_team("Other team"), owners: [ @nancy ])
+
+    assert_raises(ArgumentError) { @source.create_charge(ledger_billing_line(other)) }
+    assert_equal 0, other.ledger_entries.count
+  end
+
+  test "a new ledger goes in the rule's team, else the team for new ledgers, owned by the person only, once per request id" do
+    second = create_ledger_team("New members")
+    @source.update!(ledger_team_ids: [ @team.neat_id, second.neat_id ], new_ledger_team_id: second.neat_id)
+    request_id = SecureRandom.uuid
+
+    ledger = Ledger.find(@source.create_customer(@nancy, email: "nancy.ward@example.com", request_id: request_id, team: @team))
+    assert_equal @team, ledger.team
+    assert_equal "Nancy Ward", ledger.name
+    assert_equal [ @nancy ], ledger.owners
+    assert_equal ledger.id, @source.create_customer(@nancy, email: "nancy.ward@example.com", request_id: request_id, team: @team)
+
+    andrew = create_linkable_person("Andrew", "Fuller")
+    assert_equal second, Ledger.find(@source.create_customer(andrew, email: nil, request_id: SecureRandom.uuid)).team
+  end
+
+  test "with no team for a new ledger, or one the source doesn't read, the customer is skipped with the reason" do
+    assert_equal "No team for a new ledger: set one on the ledger source", @source.customer_creation_problem(nil)
+    error = assert_raises(Accounting::BillingSkipped) { @source.create_customer(@nancy, email: nil, request_id: SecureRandom.uuid) }
+    assert_equal "No team for a new ledger: set one on the ledger source", error.message
+
+    other = create_ledger_team("Other team")
+    assert_equal "Other team isn't one of the ledger source's teams", @source.customer_creation_problem(other)
+    assert_nil @source.customer_creation_problem(@team)
+    assert_no_difference("Ledger.count") do
+      assert_raises(Accounting::BillingSkipped) { @source.create_customer(@nancy, email: nil, request_id: SecureRandom.uuid, team: other) }
+    end
+  end
+
   private
     def sync
       with_accounting { Accounting::Sync.new(@source).full }
+    end
+
+    def ledger_billing_line(ledger, memo: nil)
+      run = AccountingBillingRun.create!(gateway: @source, created_by: @treasurer, item_external_id: @dues.id, amount_cents: 45_000,
+        memo: memo, status: "running")
+      run.lines.create!(person: @nancy, customer_external_id: ledger.id, amount_cents: 45_000)
     end
 
     def totals_by_role

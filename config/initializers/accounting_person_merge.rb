@@ -23,4 +23,8 @@ Rails.application.config.to_prepare do
   merge.register :accounting_person_milestones, :created_by_id, label: "Accounting payment plans made"
   merge.register :accounting_reminders, :person_id, label: "Accounting reminders about them"
   merge.register :accounting_reminders, :recipient_id, label: "Accounting reminders sent to them"
+  # One line per person in a run: the kept person's stands.
+  merge.register :accounting_billing_lines, :person_id, unique_by: :run_id, model: AccountingBillingLine,
+    label: "Accounting billing lines"
+  merge.register :accounting_billing_runs, :created_by_id, label: "Accounting billing runs started"
 end

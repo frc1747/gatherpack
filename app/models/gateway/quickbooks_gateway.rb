@@ -1,7 +1,9 @@
 # QuickBooks Online as an accounting source: copies customers, invoices,
 # payments and credits and keeps the copy current through change data
-# capture and webhooks. Read only: see Accounting::Quickbooks::Client for
-# what GatherPack may do in QuickBooks.
+# capture and webhooks. With "Let GatherPack create invoices" on, billing
+# creates invoices and customers and emails the invoices it created; see
+# Accounting::Quickbooks::Client for exactly what GatherPack may do in
+# QuickBooks.
 class Gateway::QuickbooksGateway < Gateway
   Gateway.register(self, :accounting)
   include Accounting::Provider
@@ -30,7 +32,7 @@ class Gateway::QuickbooksGateway < Gateway
 
   store_accessor :secrets, :client_secret, :webhook_verifier_token
   store_accessor :configuration, :client_id, :environment, :synced_entities, :customer_rollup,
-                 :match_strategies, :match_field_path, :role_labels
+                 :match_strategies, :match_field_path, :allow_create_charges, :role_labels
   store_accessor :configuration, :realm_id, :company_name, :connection_status, :last_change_check_at,
                  :last_full_sync_at, :last_error, :calls_this_month, :calls_month
 
@@ -42,7 +44,22 @@ class Gateway::QuickbooksGateway < Gateway
   validate :match_strategies_known
 
   def fields
-    [ :client_id, :client_secret, :environment, :webhook_verifier_token, :synced_entities, :customer_rollup, :match_strategies, :match_field_path ]
+    [ :client_id, :client_secret, :environment, :webhook_verifier_token, :synced_entities, :customer_rollup, :match_strategies, :match_field_path,
+      :allow_create_charges ]
+  end
+
+  def field_input(field)
+    return unless field == :allow_create_charges
+
+    { label: "Let GatherPack create invoices", as: :select, selected: allow_create_charges?.to_s,
+      choices: [ [ "Off: GatherPack only reads QuickBooks", "false" ], [ "On: billing can create invoices and customers, and email the invoices it created", "true" ] ],
+      hint: "GatherPack never changes, voids or deletes anything in QuickBooks and never records payments, either way." }
+  end
+
+  # Whether billing may write to QuickBooks: create invoices and customers,
+  # and email the invoices it created.
+  def allow_create_charges?
+    ActiveModel::Type::Boolean.new.cast(allow_create_charges) == true
   end
 
   def self.webhook_headers
@@ -173,6 +190,7 @@ class Gateway::QuickbooksGateway < Gateway
   def capabilities
     found = Set.new(%i[ change_feed due_dates pay_links deep_links ])
     found << :notifications if webhook_verifier_token.present?
+    found.merge(%i[ create_charges create_customers send_charges ]) if allow_create_charges?
     found
   end
 
@@ -229,6 +247,45 @@ class Gateway::QuickbooksGateway < Gateway
 
   def customer_rollup?
     customer_rollup.to_s == "parent"
+  end
+
+  # An invoice for the line's customer: one line for the run's item and
+  # the line's amount, the run's dates and its memo as the message on the
+  # invoice. The line's request id makes it safe to send again.
+  def create_charge(line)
+    raise NotImplementedError unless capabilities.include?(:create_charges)
+
+    run = line.run
+    body = {
+      "CustomerRef" => { "value" => line.customer_external_id },
+      "Line" => [ { "DetailType" => "SalesItemLineDetail", "Amount" => line.amount_cents / 100.0,
+                    "SalesItemLineDetail" => { "ItemRef" => { "value" => run.item_external_id } } } ],
+      "TxnDate" => run.txn_date&.iso8601,
+      "DueDate" => run.due_on&.iso8601,
+      "CustomerMemo" => ({ "value" => run.memo } if run.memo.present?)
+    }.compact
+    client.create_invoice(body, request_id: line.request_id)["Id"].to_s
+  end
+
+  def create_customer(person, email:, request_id:, team: nil)
+    raise NotImplementedError unless capabilities.include?(:create_customers)
+
+    body = { "DisplayName" => person.identifier_name.to_s, "GivenName" => person.first_name, "FamilyName" => person.last_name,
+             "PrimaryEmailAddr" => ({ "Address" => email } if email.present?) }.compact
+    client.create_customer(body, request_id: request_id)["Id"].to_s
+  end
+
+  def send_charge(external_id, email:)
+    raise NotImplementedError unless capabilities.include?(:send_charges)
+
+    client.send_invoice(external_id, email: email)
+  end
+
+  # Copies the new invoice (and customer) back at once, so they show
+  # without waiting for the changes job.
+  def after_billing(line, customer_created:)
+    Accounting::FetchRecordJob.perform_later(self, "Customer", line.customer_external_id) if customer_created
+    Accounting::FetchRecordJob.perform_later(self, "Invoice", line.external_id)
   end
 
   def prepare_record(record)

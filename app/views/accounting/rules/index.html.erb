@@ -4,7 +4,8 @@
 <div class="card mb-3">
   <%= render "shared/page_header", title: "Account Status", summary: "What each person owes and whether they're on schedule." %>
   <%= render "shared/action_row", actions: [
-        screen_action("New rule", new_accounting_rule_path, style: :success, visible: policy(AccountingRule).create? && @sources.any?)
+        screen_action("New rule", new_accounting_rule_path, style: :success, visible: policy(AccountingRule).create? && @sources.any?),
+        screen_action("Billing runs", accounting_billing_runs_path, visible: policy(AccountingBillingRun).index?)
       ] %>
 </div>
 

@@ -1,12 +1,18 @@
-# Talks to QuickBooks Online for one gateway: sign-in tokens, reads and
-# change data capture.
+# Talks to QuickBooks Online for one gateway: sign-in tokens, reads, change
+# data capture, and billing's three writes.
 #
 # QuickBooks' only scope lets an app write anything, so the limits are
 # enforced here: every request goes through #request, which allows exactly
-# GET to this company's API path and POST to Intuit's token and revoke
-# endpoints, and raises NotAllowed before anything is sent otherwise.
-# Nothing in GatherPack creates, changes, voids or deletes QuickBooks
-# records, or records payments.
+#   - GET to this company's API path;
+#   - POST to this company's invoice and customer endpoints whose body has
+#     no Id or SyncToken and whose query has no operation, so it's a create,
+#     never an update, void or delete, always with a requestid;
+#   - POST to send an invoice that a billing line of this gateway created;
+#   - POST to Intuit's token and revoke endpoints;
+# and raises NotAllowed before anything is sent otherwise. The creates and
+# the send are refused too unless the gateway's "Let GatherPack create
+# invoices" is on. Nothing changes, voids or deletes a QuickBooks record,
+# or records a payment.
 class Accounting::Quickbooks::Client
   # A request outside what GatherPack may do in QuickBooks.
   class NotAllowed < StandardError; end
@@ -163,23 +169,27 @@ class Accounting::Quickbooks::Client
     get_json("companyinfo/#{gateway.realm_id}")["CompanyInfo"]
   end
 
-  # Writing comes with billing; until then nothing may be created or sent.
-  def create_invoice(*)
-    raise NotAllowed, "GatherPack doesn't create invoices in QuickBooks"
+  # Creates an invoice. QuickBooks returns the first invoice again when
+  # the same request_id is sent twice. Returns the invoice.
+  def create_invoice(body, request_id:)
+    create("invoice", body, request_id)["Invoice"]
   end
 
-  def create_customer(*)
-    raise NotAllowed, "GatherPack doesn't create customers in QuickBooks"
+  # Creates a customer, as create_invoice does. Returns the customer.
+  def create_customer(body, request_id:)
+    create("customer", body, request_id)["Customer"]
   end
 
-  def send_invoice(*)
-    raise NotAllowed, "GatherPack doesn't send invoices from QuickBooks"
+  # Emails an invoice a billing line created from QuickBooks.
+  def send_invoice(id, email:)
+    writing_allowed!
+    post_json("invoice/#{id}/send", { sendTo: email }, nil, content_type: "application/octet-stream", doing: "emailing the invoice")["Invoice"]
   end
 
   # The one way a request leaves this class. Raises NotAllowed, before
   # anything is sent, for a request GatherPack may not make.
   def request(method, url, headers: {}, body: nil)
-    check_allowed!(method, url)
+    check_allowed!(method, url, body)
     @transport.call(method, url, headers: headers, body: body)
   end
 
@@ -190,22 +200,91 @@ class Accounting::Quickbooks::Client
       response
     end
 
-    def check_allowed!(method, url)
+    def create(entity, body, request_id)
+      writing_allowed!
+      raise NotAllowed, "GatherPack only creates QuickBooks records with a request id" if request_id.blank?
+
+      post_json(entity, { requestid: request_id }, body.to_json, doing: "creating the #{entity}")
+    end
+
+    def writing_allowed!
+      raise NotAllowed, "Turn on \"Let GatherPack create invoices\" to bill people from GatherPack" unless gateway.allow_create_charges?
+    end
+
+    # POSTs to an API path under this company, refreshing the sign-in once
+    # on a 401 as reads do. Returns the parsed body.
+    def post_json(path, params, body, doing:, content_type: "application/json")
+      token = access_token
+      response = api_post(path, params, body, token, content_type)
+      if response.status == 401
+        response = api_post(path, params, body, refresh!(token), content_type)
+        if response.status == 401
+          gateway.needs_reconnect!("QuickBooks refused GatherPack's sign-in. Reconnect QuickBooks.")
+          raise Accounting::ReconnectNeeded, "QuickBooks refused the access token"
+        end
+      end
+      return JSON.parse(response.body) if response.status == 200
+
+      temporary_or_error!(response, doing)
+    end
+
+    def api_post(path, params, body, token, content_type)
+      response = request(:post, api_url(path, params), body: body,
+        headers: { "Authorization" => "Bearer #{token}", "Accept" => "application/json", "Content-Type" => content_type })
+      gateway.record_call!
+      response
+    end
+
+    def check_allowed!(method, url, body = nil)
       uri = URI(url)
       allowed =
         case method
         when :get
-          api = URI(api_host)
-          gateway.realm_id.present? && uri.scheme == "https" && uri.host == api.host && uri.port == api.port &&
-            uri.path.start_with?("/v3/company/#{gateway.realm_id}/")
+          api_uri?(uri)
         when :post
-          uri.query.blank? && [ Accounting::Quickbooks::TOKEN_URL, Accounting::Quickbooks::REVOKE_URL ].include?("#{uri.scheme}://#{uri.host}#{uri.path}")
+          sign_in_post?(uri) || create_post?(uri, body) || send_post?(uri, body)
         else
           false
         end
       raise NotAllowed, "GatherPack may not #{method.to_s.upcase} #{uri.host}#{uri.path}" unless allowed
     rescue URI::InvalidURIError
       raise NotAllowed, "GatherPack may not request #{url}"
+    end
+
+    def api_uri?(uri)
+      api = URI(api_host)
+      gateway.realm_id.present? && uri.scheme == "https" && uri.host == api.host && uri.port == api.port &&
+        uri.path.start_with?("/v3/company/#{gateway.realm_id}/")
+    end
+
+    def sign_in_post?(uri)
+      uri.query.blank? && [ Accounting::Quickbooks::TOKEN_URL, Accounting::Quickbooks::REVOKE_URL ].include?("#{uri.scheme}://#{uri.host}#{uri.path}")
+    end
+
+    # A create: the invoice or customer endpoint, a requestid and nothing
+    # else in the query (no operation), and a body with no Id or SyncToken.
+    def create_post?(uri, body)
+      return false unless gateway.allow_create_charges? && api_uri?(uri)
+      return false unless [ "invoice", "customer" ].any? { |entity| uri.path == "/v3/company/#{gateway.realm_id}/#{entity}" }
+
+      query = Rack::Utils.parse_query(uri.query)
+      return false unless query["requestid"].present? && (query.keys - %w[ requestid minorversion ]).empty?
+
+      json = JSON.parse(body.to_s)
+      json.is_a?(Hash) && json.keys.none? { |key| key.to_s.downcase.in?(%w[ id synctoken sparse ]) }
+    rescue JSON::ParserError
+      false
+    end
+
+    # Sending an invoice that a billing line of this gateway created.
+    def send_post?(uri, body)
+      return false unless gateway.allow_create_charges? && api_uri?(uri) && body.blank?
+
+      id = uri.path[%r{\A/v3/company/#{Regexp.escape(gateway.realm_id.to_s)}/invoice/([^/]+)/send\z}, 1]
+      query = Rack::Utils.parse_query(uri.query)
+      return false unless id && query["sendTo"].present? && (query.keys - %w[ sendTo minorversion ]).empty?
+
+      AccountingBillingLine.created.joins(:run).where(accounting_billing_runs: { gateway_id: gateway.id }).exists?(external_id: id)
     end
 
     def api_host

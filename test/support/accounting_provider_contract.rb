@@ -5,13 +5,15 @@
 #   provider_cases   -> [[entity_type, raw data, { column => expected }], ...]
 #                       covering every type in entity_types
 #
-# The read side is checked here; create_charge's request-id reuse is added
-# with billing.
+# and, for a source with :create_charges,
+#
+#   provider_billing_line -> a saved AccountingBillingLine the source can bill
+#   provider_charge_count -> how many charges the source holds now
 module Accounting
   module ProviderContract
     WRITES = {
       create_charges: ->(source) { source.create_charge(Struct.new(:request_id).new("req-1")) },
-      create_customers: ->(source) { source.create_customer(Person.new, email: "a@example.com", request_id: "req-1") },
+      create_customers: ->(source) { source.create_customer(Person.new, email: "a@example.com", request_id: SecureRandom.uuid) },
       send_charges: ->(source) { source.send_charge("1", email: "a@example.com") }
     }.freeze
 
@@ -58,6 +60,20 @@ module Accounting
               assert_not_includes columns[:public_label], line, "#{entity_type} public_label shows its description"
             end
           end
+        end
+
+        test "provider contract: create_charge twice with one request id makes one charge" do
+          # Sources that don't create charges are checked below: create_charge raises.
+          return pass unless provider_source.capabilities.include?(:create_charges)
+
+          line = provider_billing_line
+          before = provider_charge_count
+          first = provider_source.create_charge(line)
+          second = provider_source.create_charge(AccountingBillingLine.find(line.id))
+
+          assert first.present?
+          assert_equal first, second
+          assert_equal before + 1, provider_charge_count
         end
 
         test "provider contract: undeclared capabilities raise NotImplementedError" do

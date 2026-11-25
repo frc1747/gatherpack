@@ -191,6 +191,39 @@ class Accounting::FileSourceTest < ActiveJob::TestCase
     assert_empty @source.accounting_records
   end
 
+  test "billing exports one charge row per exported line in the template layout, numbers left blank" do
+    apply(file_fixture("accounting/dues.csv").read)
+    andrew = create_linkable_person("Andrew", "Fuller")
+    run = AccountingBillingRun.create!(gateway: @source, created_by: @treasurer, item_external_id: "dues", amount_cents: 45_000,
+      txn_date: Date.new(2027, 8, 1), due_on: Date.new(2027, 9, 1), memo: "2027 season dues", status: "finished")
+    run.lines.create!(person: @nancy, customer_external_id: "nancy ward", amount_cents: 45_000, status: "exported")
+    run.lines.create!(person: andrew, customer_external_id: "nancy.ward@example.com", amount_cents: 22_550, status: "exported")
+    run.lines.create!(person: create_linkable_person("Janet", "Leverling"), amount_cents: 45_000, status: "skipped", error: "No customer")
+
+    rows = CSV.parse(Accounting::Files::BillingExport.new(run).csv)
+
+    assert_equal Accounting::Files::Template::COLUMNS, rows.first
+    assert_equal [
+      [ "Nancy Ward", "charge", nil, "2027-08-01", "2027-09-01", "Dues", "450.00", nil, nil, "2027 season dues" ],
+      [ "nancy.ward@example.com", "charge", nil, "2027-08-01", "2027-09-01", "Dues", "225.50", nil, nil, "2027 season dues" ]
+    ], rows.drop(1)
+    assert_match(/\Abilling-dues-\d{4}-\d{2}-\d{2}\.csv\z/, Accounting::Files::BillingExport.new(run).filename)
+  end
+
+  test "a numbered export reads back through the template into the same customers and item" do
+    apply(file_fixture("accounting/dues.csv").read)
+    run = AccountingBillingRun.create!(gateway: @source, created_by: @treasurer, item_external_id: "dues", amount_cents: 45_000,
+      txn_date: Date.new(2027, 8, 1), status: "finished")
+    run.lines.create!(person: @nancy, customer_external_id: "nancy ward", amount_cents: 45_000, status: "exported")
+
+    rows = CSV.parse(Accounting::Files::BillingExport.new(run).csv)
+    rows[1][2] = "2001"
+    records = read(CSV.generate { |csv| rows.each { |row| csv << row } }).records
+
+    charge = records.fetch("charge").first
+    assert_equal [ "nancy ward", "dues", 45_000 ], charge.values_at("customer", "item", "total_cents")
+  end
+
   private
     def read(content)
       Accounting::Files::Reader.new(content).read

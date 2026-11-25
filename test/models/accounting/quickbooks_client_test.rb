@@ -66,11 +66,100 @@ class Accounting::QuickbooksClientTest < ActiveSupport::TestCase
     assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.request(:get, "#{API}/invoice/130") }
   end
 
-  test "creating and sending raise" do
+  test "creating and sending raise while writing is off" do
     assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.create_invoice({}, request_id: "a") }
     assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.create_customer({}, request_id: "a") }
     assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.send_invoice("130", email: "a@example.com") }
     assert_empty @fake.requests
+  end
+
+  # -- Billing's writes --
+
+  test "creating an invoice and a customer is allowed with a requestid while writing is on" do
+    @gateway.update!(allow_create_charges: "true")
+    @fake.on(:post, "/invoice?", body: qbo_fixture("invoice_created"))
+    @fake.on(:post, "/customer?", body: qbo_fixture("customer_created"))
+
+    invoice = @client.create_invoice({ "CustomerRef" => { "value" => "58" }, "Line" => [] }, request_id: "req-1")
+    customer = @client.create_customer({ "DisplayName" => "Andrew Fuller" }, request_id: "req-2")
+
+    assert_equal "201", invoice["Id"]
+    assert_equal "71", customer["Id"]
+    invoice_request, customer_request = @fake.api_requests
+    assert_equal "/v3/company/#{AccountingWorld::REALM}/invoice", invoice_request.uri.path
+    assert_equal({ "requestid" => "req-1", "minorversion" => Accounting::Quickbooks::MINOR_VERSION }, invoice_request.query)
+    assert_equal({ "CustomerRef" => { "value" => "58" }, "Line" => [] }, JSON.parse(invoice_request.body))
+    assert_equal "Bearer access-token", invoice_request.headers["Authorization"]
+    assert_equal "req-2", customer_request.query["requestid"]
+  end
+
+  test "with writing on, a create is still refused without a requestid, with an Id, SyncToken or sparse body, or with an operation" do
+    @gateway.update!(allow_create_charges: "true")
+    refused = [
+      [ "#{API}/invoice?minorversion=75", { "Line" => [] } ],
+      [ "#{API}/invoice?requestid=a", { "Id" => "130", "Line" => [] } ],
+      [ "#{API}/invoice?requestid=a", { "SyncToken" => "2", "Line" => [] } ],
+      [ "#{API}/invoice?requestid=a", { "id" => "130" } ],
+      [ "#{API}/invoice?requestid=a", { "sparse" => true } ],
+      [ "#{API}/invoice?requestid=a&operation=void", { "Line" => [] } ],
+      [ "#{API}/invoice?requestid=a&operation=delete", { "Line" => [] } ],
+      [ "#{API}/customer?requestid=a&operation=update", { "DisplayName" => "New" } ],
+      [ "#{API}/invoice/130?requestid=a", { "Line" => [] } ],
+      [ "#{API}/payment?requestid=a", { "TotalAmt" => 10 } ],
+      [ "#{API}/creditmemo?requestid=a", { "TotalAmt" => 10 } ],
+      [ "https://sandbox-quickbooks.api.intuit.com/v3/company/4620816365000000/invoice?requestid=a", { "Line" => [] } ]
+    ]
+
+    refused.each do |url, body|
+      assert_raises(Accounting::Quickbooks::Client::NotAllowed, url) { @client.request(:post, url, body: body.to_json) }
+    end
+    assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.request(:post, "#{API}/invoice?requestid=a", body: "not json") }
+    assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.create_invoice({ "Line" => [] }, request_id: nil) }
+    assert_empty @fake.requests
+  end
+
+  test "sending is allowed only for an invoice a billing line of this gateway created" do
+    @gateway.update!(allow_create_charges: "true")
+    @fake.on(:post, "/send", body: qbo_fixture("invoice_sent"))
+    person = create_linkable_person("Andrew", "Fuller")
+    run = AccountingBillingRun.create!(gateway: @gateway, created_by: person, item_external_id: "21", amount_cents: 45_000, status: "running")
+    run.lines.create!(person: person, customer_external_id: "58", amount_cents: 45_000, status: "created", external_id: "201")
+    other = create_quickbooks_gateway
+    other_run = AccountingBillingRun.create!(gateway: other, created_by: person, item_external_id: "21", amount_cents: 45_000)
+    other_run.lines.create!(person: person, customer_external_id: "58", amount_cents: 45_000, status: "created", external_id: "202")
+    run.lines.create!(person: create_linkable_person("Janet", "Leverling"), customer_external_id: "60", amount_cents: 45_000, status: "failed", external_id: "203")
+
+    assert_equal "EmailSent", @client.send_invoice("201", email: "nancy.ward@example.com")["EmailStatus"]
+    request = @fake.api_requests.last
+    assert_equal "/v3/company/#{AccountingWorld::REALM}/invoice/201/send", request.uri.path
+    assert_equal "nancy.ward@example.com", request.query["sendTo"]
+
+    [ "130", "202", "203" ].each do |id|
+      assert_raises(Accounting::Quickbooks::Client::NotAllowed, id) { @client.send_invoice(id, email: "nancy.ward@example.com") }
+    end
+    assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.request(:post, "#{API}/invoice/201/send?sendTo=a@example.com&operation=void") }
+    assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.request(:post, "#{API}/invoice/201/send?sendTo=a@example.com", body: "{}") }
+    assert_equal 1, @fake.requests.size
+  end
+
+  test "creating and sending raise while writing is off, even for an allowed request" do
+    person = create_linkable_person("Andrew", "Fuller")
+    run = AccountingBillingRun.create!(gateway: @gateway, created_by: person, item_external_id: "21", amount_cents: 45_000)
+    run.lines.create!(person: person, customer_external_id: "58", amount_cents: 45_000, status: "created", external_id: "201")
+
+    assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.request(:post, "#{API}/invoice?requestid=a", body: { "Line" => [] }.to_json) }
+    assert_raises(Accounting::Quickbooks::Client::NotAllowed) { @client.request(:post, "#{API}/invoice/201/send?sendTo=a@example.com") }
+    assert_empty @fake.requests
+  end
+
+  test "a refused create raises with QuickBooks' message; rate limits are temporary" do
+    @gateway.update!(allow_create_charges: "true")
+    @fake.on(:post, "/customer?", status: 400, body: qbo_fixture("customer_duplicate_name"))
+    @fake.on(:post, "/invoice?", status: 429, body: "")
+
+    error = assert_raises(Accounting::Quickbooks::Client::Error) { @client.create_customer({ "DisplayName" => "Ward, Nancy" }, request_id: "a") }
+    assert_match "Duplicate Name Exists Error", error.message
+    assert_raises(Accounting::TemporaryFailure) { @client.create_invoice({ "Line" => [] }, request_id: "b") }
   end
 
   # -- Reads --
