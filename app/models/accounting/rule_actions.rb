@@ -16,15 +16,22 @@
 # what earlier runs did; so does each kind of action while its feature
 # (badges, person fields) is off. A result that goes away undoes them
 # (#undo) even then, since the result is the only record of what the rule
-# gave. Undoing takes back only the badge assignment the result records,
-# and clears a field only while it still holds what the rule last wrote
-# from that result and no other turned-on rule fills it in, so a value set
-# by hand or by a successor rule (a Duplicate taking over) is left alone.
-# That makes undoing safe to repeat: turning a rule off and then deleting
-# it undoes once, whichever runs first.
+# gave. Undoing takes back only the badge assignment the result records
+# (badge_assignment_id), and clears a field only while it still holds the
+# value the result records the rule wrote (details "written_fields", by
+# field id) and no other turned-on rule filling that field has a result for
+# the person. So a value set by hand, or by a successor rule (a Duplicate
+# taking over) for its own people, is left alone, and undoing is safe to
+# repeat: turning a rule off and then deleting it undoes once, whichever
+# runs first.
 class Accounting::RuleActions
   # The result's details key for what an action couldn't do.
   NOTES = "action_notes".freeze
+  # The result's details key for the value each field action wrote, as
+  # stored, by person field id.
+  WRITTEN = "written_fields".freeze
+  # Kept from one evaluation to the next, and not part of the outcome.
+  KEYS = [ NOTES, WRITTEN ].freeze
 
   attr_reader :rule
 
@@ -36,23 +43,33 @@ class Accounting::RuleActions
     return if result.error?
 
     notes = []
+    written = recorded(result)
     apply_badge(result, notes) if GatherPack::Features.enabled?(:badges)
     if GatherPack::Features.enabled?(:person_fields)
-      field_actions.each { |action| write_field(result.person, action.person_field, action.holds?(result) ? action.value_for(result) : nil, notes) }
+      field_actions.each do |action|
+        field = action.person_field
+        value = action.holds?(result) ? action.value_for(result) : nil
+        next unless write_field(result.person, field, value, notes)
+
+        value.nil? ? written.delete(field.id) : written[field.id] = field.serialize(value)
+      end
     end
-    record_notes(result, notes)
+    record(result, NOTES => notes.presence, WRITTEN => written.presence)
   end
 
   # Takes back what the rule did for a result about to be removed, or for
   # a rule turned off or deleted.
   def undo(result)
     remove_badge(result)
+    written = recorded(result)
     field_actions.each do |action|
       field = action.person_field
-      next unless field && still_written?(result, action) && !filled_by_another_rule?(field)
+      next unless field && written.key?(field.id)
+      next unless still_written?(result.person, field, written[field.id]) && !filled_for_person_by_another_rule?(field, result.person_id)
 
       write_field(result.person, field, nil, [])
     end
+    record(result, WRITTEN => nil) if result.persisted? && !result.destroyed?
   end
 
   private
@@ -95,46 +112,49 @@ class Accounting::RuleActions
       assignment.destroy!
     end
 
+    # Sets the field to value (nil clears it). Returns whether the field now
+    # holds it: false when the field isn't used for the person.
     def write_field(person, field, value, notes)
-      return unless field
+      return false unless field
       if field.archived? || !field.applies_to?(person)
-        return notes << "#{field.name} not filled in: it isn't used for this person"
+        notes << "#{field.name} not filled in: it isn't used for this person"
+        return false
       end
 
       current = person.field_value(field)
       new_value = field.cast(field.serialize(value))
-      return if new_value == current
+      return true if new_value == current
 
       person.set_field_value(field, value)
       change = PersonFieldChange.new(person: person, field: field, old_value: current, new_value: new_value, changed_by: nil)
       ActiveSupport::Notifications.instrument("person_field_changed.gatherpack", change: change)
       Hook.where(event: "person_fields - value changed").each { |hook| hook.run(change) }
+      true
     end
 
-    # Whether the person's field still holds what this action wrote from the
-    # result (what #apply would write for it).
-    def still_written?(result, action)
-      return false if result.error? || !action.holds?(result)
-
-      written = action.value_for(result)
-      return false if written.nil?
-
-      field = action.person_field
-      field.cast(field.serialize(written)) == result.person.field_value(field)
+    def recorded(result)
+      (result.detail(WRITTEN) || {}).to_h.dup
     end
 
-    def filled_by_another_rule?(field)
-      @filled_elsewhere ||= {}
-      return @filled_elsewhere[field.id] if @filled_elsewhere.key?(field.id)
-
-      @filled_elsewhere[field.id] = AccountingRule.enabled.where.not(id: rule.id)
-        .where(id: AccountingRuleAction.where(action: "person_field", person_field_id: field.id).select(:rule_id)).exists?
+    # Whether the person's field still holds the value the rule wrote (as
+    # stored), not one changed since by hand or by another rule.
+    def still_written?(person, field, stored)
+      field.cast(stored) == person.field_value(field)
     end
 
-    def record_notes(result, notes)
-      return if Array(result.detail(NOTES)) == notes
+    # Another turned-on rule that fills in the field and gives this person a
+    # result writes its own value for them, so it isn't cleared.
+    def filled_for_person_by_another_rule?(field, person_id)
+      @other_rules ||= {}
+      @other_rules[field.id] ||= AccountingRule.enabled.where.not(id: rule.id)
+        .where(id: AccountingRuleAction.where(action: "person_field", person_field_id: field.id).select(:rule_id)).ids
+      @other_rules[field.id].any? && AccountingRuleResult.where(rule_id: @other_rules[field.id], person_id: person_id).exists?
+    end
 
-      details = (result.details || {}).except(NOTES)
-      result.update_columns(details: notes.any? ? details.merge(NOTES => notes) : details)
+    # Saves the given details keys (nil removes one), only when they changed.
+    def record(result, values)
+      details = (result.details || {}).dup
+      values.each { |key, value| value.nil? ? details.delete(key) : details[key] = value }
+      result.update_columns(details: details) unless details == (result.details || {})
     end
 end

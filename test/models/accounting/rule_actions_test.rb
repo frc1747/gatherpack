@@ -387,6 +387,70 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     assert_equal "Paid", @janet.reload.field_value(field)
   end
 
+  test "what a field action wrote is recorded on the result, and isn't a change" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+
+    evaluate(@rule)
+
+    assert_equal({ field.id => "Paid".to_json }, result_for(@rule, @janet).detail(:written_fields))
+    assert_empty evaluate(@rule)
+    pay_off("I1")
+    evaluate(@rule)
+    assert_equal({ field.id => "Paid".to_json }, result_for(@rule, @nancy).reload.detail(:written_fields), "kept when the result is saved again")
+  end
+
+  test "undo clears what was written before a custom rule's result became an error" do
+    field = PersonField.create!(name: "Eligible", data_type: :string, write_permission: "admin")
+    rule = create_rule("Eligibility", kind: "custom", code: "Thread.current[:accounting_fail] ? raise('boom') : 'eligible'")
+    rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(rule)
+    assert_equal "Eligible", @nancy.reload.field_value(field)
+
+    Thread.current[:accounting_fail] = true
+    evaluate(rule)
+    assert_equal [ "error", "Eligible" ], [ result_for(rule, @nancy).value, @nancy.reload.field_value(field) ]
+
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) { rule.update!(enabled: false) }
+
+    assert_equal [ nil, nil ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+  ensure
+    Thread.current[:accounting_fail] = nil
+  end
+
+  test "undo clears what was written even after the label was renamed" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    assert_equal "Paid", @janet.reload.field_value(field)
+
+    @rule.update!(labels: { "paid" => "Paid in full" })
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) { @rule.update!(enabled: false) }
+
+    assert_nil @janet.reload.field_value(field)
+  end
+
+  test "a successor rule keeps the field only for its own people; the old rule's other people are cleared" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    assert_equal [ "Paid", "Partly paid" ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+
+    @rule.update!(enabled: false)
+    # Janet leaves: no longer linked, so only the old rule ever covered her.
+    Accounting::CustomerLinks.new(accounting_source).unlink!(accounting_source.accounting_customer_links.find_by!(person: @janet))
+    successor = create_rule("Next season")
+    successor.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(successor)
+    assert_equal [ @nancy ], successor.results.map(&:person)
+    assert_equal "Partly paid", @nancy.reload.field_value(field), "the same value the old rule wrote, now the successor's too"
+
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob)
+
+    assert_nil @janet.reload.field_value(field), "the old rule's value is cleared for the person the successor doesn't cover"
+    assert_equal "Partly paid", @nancy.reload.field_value(field), "kept for the successor's person"
+  end
+
   test "deleting a turned-off rule leaves a hand-set value alone" do
     field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
     @rule.actions.create!(action: "person_field", person_field: field, write: "label")

@@ -72,7 +72,7 @@ class Accounting::Evaluation
 
     def same?(result, outcome)
       result.value == outcome.value && result.amount_cents == outcome.amount_cents &&
-        (result.details || {}).except(Accounting::RuleActions::NOTES) == outcome.stored_details
+        (result.details || {}).except(*Accounting::RuleActions::KEYS) == outcome.stored_details.except(*Accounting::RuleActions::KEYS)
     end
 
     # Saves the outcome; returns the change when the value or amount moved.
@@ -80,7 +80,9 @@ class Accounting::Evaluation
       old_value = result.new_record? ? nil : result.value
       old_amount = result.new_record? ? nil : result.amount_cents
       moved = result.new_record? || old_value != outcome.value || old_amount != outcome.amount_cents
-      result.assign_attributes(value: outcome.value, amount_cents: outcome.amount_cents, details: outcome.stored_details, evaluated_at: now)
+      # What the actions wrote stays recorded (Accounting::RuleActions).
+      kept = (result.details || {}).slice(Accounting::RuleActions::WRITTEN)
+      result.assign_attributes(value: outcome.value, amount_cents: outcome.amount_cents, details: outcome.stored_details.merge(kept), evaluated_at: now)
       result.changed_at = now if moved
       result.save!
       return nil unless moved
