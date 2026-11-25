@@ -87,6 +87,13 @@ RUN groupadd --system --gid 1000 rails && \
     chown -R rails:rails db log storage tmp
 USER 1000:1000
 
+# The release and commit, shown in the sidebar. Set late so a new version
+# doesn't invalidate the cached layers above.
+ARG GATHERPACK_VERSION=""
+ARG GATHERPACK_REVISION=""
+ENV GATHERPACK_VERSION=$GATHERPACK_VERSION \
+    GATHERPACK_REVISION=$GATHERPACK_REVISION
+
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
