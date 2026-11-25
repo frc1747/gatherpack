@@ -1,0 +1,8 @@
+checklist_clock_job:
+  class: ChecklistClockJob
+  queue: default
+  schedule: every 5 minutes
+checklist_nightly_job:
+  class: ChecklistNightlyJob
+  queue: default
+  schedule: at 3am every day
