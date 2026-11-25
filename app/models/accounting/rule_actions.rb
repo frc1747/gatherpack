@@ -16,7 +16,12 @@
 # what earlier runs did; so does each kind of action while its feature
 # (badges, person fields) is off. A result that goes away undoes them
 # (#undo) even then, since the result is the only record of what the rule
-# gave.
+# gave. Undoing takes back only the badge assignment the result records,
+# and clears a field only while it still holds what the rule last wrote
+# from that result and no other turned-on rule fills it in, so a value set
+# by hand or by a successor rule (a Duplicate taking over) is left alone.
+# That makes undoing safe to repeat: turning a rule off and then deleting
+# it undoes once, whichever runs first.
 class Accounting::RuleActions
   # The result's details key for what an action couldn't do.
   NOTES = "action_notes".freeze
@@ -38,10 +43,16 @@ class Accounting::RuleActions
     record_notes(result, notes)
   end
 
-  # Takes back what the rule did for a result about to be removed.
+  # Takes back what the rule did for a result about to be removed, or for
+  # a rule turned off or deleted.
   def undo(result)
     remove_badge(result)
-    field_actions.each { |action| write_field(result.person, action.person_field, nil, []) }
+    field_actions.each do |action|
+      field = action.person_field
+      next unless field && still_written?(result, action) && !filled_by_another_rule?(field)
+
+      write_field(result.person, field, nil, [])
+    end
   end
 
   private
@@ -98,6 +109,26 @@ class Accounting::RuleActions
       change = PersonFieldChange.new(person: person, field: field, old_value: current, new_value: new_value, changed_by: nil)
       ActiveSupport::Notifications.instrument("person_field_changed.gatherpack", change: change)
       Hook.where(event: "person_fields - value changed").each { |hook| hook.run(change) }
+    end
+
+    # Whether the person's field still holds what this action wrote from the
+    # result (what #apply would write for it).
+    def still_written?(result, action)
+      return false if result.error? || !action.holds?(result)
+
+      written = action.value_for(result)
+      return false if written.nil?
+
+      field = action.person_field
+      field.cast(field.serialize(written)) == result.person.field_value(field)
+    end
+
+    def filled_by_another_rule?(field)
+      @filled_elsewhere ||= {}
+      return @filled_elsewhere[field.id] if @filled_elsewhere.key?(field.id)
+
+      @filled_elsewhere[field.id] = AccountingRule.enabled.where.not(id: rule.id)
+        .where(id: AccountingRuleAction.where(action: "person_field", person_field_id: field.id).select(:rule_id)).exists?
     end
 
     def record_notes(result, notes)

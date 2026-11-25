@@ -352,7 +352,42 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     assert_equal 2, @paid_up.badge_assignments.count
   end
 
-  test "deleting a turned-off rule has nothing left to take back" do
+  test "turning a rule off and deleting it before the undo job runs still takes everything back" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "badge", badge: @paid_up)
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    assert_equal 2, @paid_up.badge_assignments.count
+
+    @rule.update!(enabled: false)
+    assert_enqueued_jobs 1, only: Accounting::UndoRuleActionsJob
+    @rule.destroy!
+
+    assert_empty @paid_up.badge_assignments.reload
+    assert_equal [ nil, nil ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+    assert_nothing_raised { perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) }
+  end
+
+  test "undoing leaves a value set by hand, or filled in by another turned-on rule" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    @nancy.set_field_value(field, "Waived")
+    perform_enqueued_jobs(only: Accounting::UndoRuleActionsJob) { @rule.update!(enabled: false) }
+    assert_equal [ nil, "Waived" ], [ @janet, @nancy ].map { |person| person.reload.field_value(field) }
+
+    successor = create_rule("Next season")
+    successor.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(successor)
+    assert_equal "Paid", @janet.reload.field_value(field), "the same value the old rule wrote, now the successor's"
+
+    seen = capture("person_fields - value changed") { @rule.destroy! }
+
+    assert_empty seen
+    assert_equal "Paid", @janet.reload.field_value(field)
+  end
+
+  test "deleting a turned-off rule leaves a hand-set value alone" do
     field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
     @rule.actions.create!(action: "person_field", person_field: field, write: "label")
     evaluate(@rule)

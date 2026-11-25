@@ -63,10 +63,11 @@ class AccountingRule < ApplicationRecord
   # gave (turning it on gives them again on the next evaluation), so a
   # turned-off rule, such as last season's after a Duplicate takes over,
   # leaves nothing behind. That runs in Accounting::UndoRuleActionsJob, after
-  # any evaluation already running. Deleting a turned-on rule does the same
-  # before its results go; a turned-off one has nothing left to take back.
+  # any evaluation already running. Deleting a rule does the same before its
+  # results go, even when it's off (its undo may not have run yet); undoing
+  # twice is safe (Accounting::RuleActions#undo).
   after_update_commit -> { Accounting::UndoRuleActionsJob.perform_later(self) }, if: -> { saved_change_to_enabled?(from: true, to: false) }
-  before_destroy :undo_actions, prepend: true, if: :enabled_in_database
+  before_destroy :undo_actions, prepend: true
 
   validates :name, presence: true
   validates :kind, inclusion: { in: KINDS }
