@@ -217,16 +217,19 @@ class Accounting::RemindersTest < ActiveSupport::TestCase
       enqueued_jobs.select { |job| job[:job] == SendEmailJob }.to_h { |job| [ job[:args][1], job[:args][2..3] ] }
     end
 
-    # A stand-in for the summaries seam (feature/digests), which this
-    # branch doesn't carry: each person's delivery choice.
+    # A stand-in for the summaries seam (feature/digests): each person's
+    # delivery choice. Where the real seam is merged, it's put back after.
     def with_fake_digests(choices)
+      real = GatherPack.const_defined?(:Digests, false) ? GatherPack::Digests : nil
       digests = Module.new do
         define_singleton_method(:handles?) { |key| key == :accounting }
         define_singleton_method(:delivery_for) { |_key, person| choices.fetch(person.id, :each) }
       end
+      GatherPack.send(:remove_const, :Digests) if real
       GatherPack.const_set(:Digests, digests)
       yield
     ensure
       GatherPack.send(:remove_const, :Digests) if GatherPack.const_defined?(:Digests, false)
+      GatherPack.const_set(:Digests, real) if real
     end
 end
