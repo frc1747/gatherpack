@@ -28,7 +28,7 @@ module EmailLog
       return [] if emails.empty?
 
       reached_steps.map do |step, from, to|
-        sent = emails.select { |email| within?(sent_time(email), from, to) }
+        sent = emails.select { |email| waiting_at?(sent_time(email)) && within?(sent_time(email), from, to) }
         Step.new(step: step, approvers: approvers_for(step, sent))
       end
     end
@@ -42,9 +42,12 @@ module EmailLog
 
       # Each needed step the request got to, with the times it began and
       # ended waiting: from the approval of the step before (the first step
-      # from the start) to its own approval (still waiting: no end).
+      # from the start) to its own first approval (still waiting: no end). A
+      # re-approval adds a later approval on the final step, which mustn't
+      # stretch it over the emails sent once the request was approved.
       def reached_steps
-        approved_at = order_request.active_approvals.select(&:approved?).to_h { |approval| [ approval.step_key, approval.created_at ] }
+        approved_at = order_request.active_approvals.select(&:approved?).group_by(&:step_key)
+          .transform_values { |approvals| approvals.map(&:created_at).min }
         from = nil
         order_request.needed_steps.each_with_object([]) do |step, reached|
           to = approved_at[step.key]
@@ -66,6 +69,26 @@ module EmailLog
           Approver.new(person: person, emailed_at: sent.map { |email| sent_time(email) }.min,
             link_clicked_at: sent.filter_map(&:link_clicked_at).min, problem: (latest.status_label if latest.problem?))
         end.sort_by { |approver| approver.person.identifier_name.to_s }
+      end
+
+      # Whether the request was waiting for a decision at the time: not
+      # between a decline or a request for changes and the next submission,
+      # when the emails about it (Declined, Needs changes) aren't asking
+      # anyone to approve.
+      def waiting_at?(at)
+        stopped_periods.none? { |from, to| at >= from && (to.nil? || at < to) }
+      end
+
+      def stopped_periods
+        @stopped_periods ||= begin
+          events = order_request.events.where(action: %w[submitted declined changes_requested]).to_a
+          events.each_with_index.filter_map do |event, index|
+            next if event.action == "submitted"
+
+            resubmitted = events.drop(index + 1).find { |later| later.action == "submitted" }
+            [ event.created_at, resubmitted&.created_at ]
+          end
+        end
       end
 
       def within?(at, from, to)
