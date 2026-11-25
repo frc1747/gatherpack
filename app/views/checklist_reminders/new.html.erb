@@ -1,0 +1,83 @@
+<% breadcrumb @checklist %>
+
+<% complete = @checklist.word_for("met") %>
+<%= form_with scope: :reminder, url: checklist_checklist_reminders_path(@checklist), method: :post do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>Send Reminder</h1>
+      <div class="text-body-secondary"><%= @checklist.title %> · <%= pluralize(@people.size, "person") %> not <%= complete.downcase %></div>
+    </div>
+    <div class="card-body">
+      <p>Each person gets an email listing what they still have to finish, saying only what this checklist's reminder settings allow.</p>
+
+      <fieldset class="mb-3">
+        <legend class="form-label fs-6 fw-semibold">Who to remind</legend>
+        <div class="form-check">
+          <%= f.radio_button :who, "everyone", checked: @choices[:who] == "everyone", class: "form-check-input" %>
+          <%= f.label :who_everyone, "Everyone not #{complete.downcase} (#{@people.size})", class: "form-check-label" %>
+        </div>
+        <div class="form-check">
+          <%= f.radio_button :who, "ticked", checked: @choices[:who] == "ticked", class: "form-check-input" %>
+          <%= f.label :who_ticked, "Only the people ticked below", class: "form-check-label" %>
+        </div>
+        <% if @people.any? %>
+          <details class="ms-4 mt-1" <%= "open" if @choices[:who] == "ticked" %>>
+            <summary class="small">People not <%= complete.downcase %></summary>
+            <div class="mt-1">
+              <% @people.each do |person| %>
+                <div class="form-check">
+                  <%= check_box_tag "reminder[person_ids][]", person.id, @choices[:person_ids].include?(person.id), id: "reminder_person_#{person.id}", class: "form-check-input" %>
+                  <%= label_tag "reminder_person_#{person.id}", person.display_name, class: "form-check-label" %>
+                </div>
+              <% end %>
+            </div>
+          </details>
+        <% else %>
+          <p class="small text-body-secondary mt-1">Nobody here.</p>
+        <% end %>
+      </fieldset>
+
+      <div class="form-check mb-3">
+        <%= f.check_box :guardians, { checked: @choices[:guardians], class: "form-check-input" }, "1", "0" %>
+        <%= f.label :guardians, "Also send to guardians", class: "form-check-label" %>
+        <div class="form-text">Guardians get the same email about their ward, with only the items they can see on the site. A guardian with several wards here gets one email.</div>
+      </div>
+
+      <div class="mb-3">
+        <%= f.label :note, "A note to add above the list (optional)", class: "form-label" %>
+        <%= f.text_area :note, value: @choices[:note], rows: 3, class: "form-control" %>
+      </div>
+
+      <% if @people.any? %>
+        <div class="mb-3 d-flex gap-2 align-items-center flex-wrap">
+          <%= label_tag :preview_person_id, "Preview the email for", class: "form-label mb-0" %>
+          <%= select_tag :preview_person_id, options_for_select(@people.map { |person| [ person.display_name, person.id ] }, @preview_person&.id),
+            class: "form-select form-select-sm w-auto" %>
+        </div>
+      <% end %>
+
+      <% if @preview %>
+        <div id="preview">
+          <% if @preview.empty? %>
+            <p class="text-body-secondary">Nothing would go to <%= @preview_person.display_name %> or their guardians: they have no email address, or can't see anything left to do.</p>
+          <% end %>
+          <% @preview.each do |message| %>
+            <% subject, body = ChecklistReminderMailer.render(message.payload) %>
+            <div class="card mb-2">
+              <div class="card-header small">
+                To <%= message.recipient.display_name %><%= " (guardian)" if message.guardian? && message.entries.none? { |entry| !entry.guardian? } %> · <%= subject %>
+              </div>
+              <%# The email's own HTML: built from escaped text by checklist_reminder_mailer/reminder. %>
+              <div class="card-body"><%= body.html_safe %></div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    <%= render "checklist_reminders/actions", actions: [
+      { label: "Cancel", path: checklist_path(@checklist) },
+      { label: "Preview", name: "preview", value: "1" },
+      { label: "Send", style: "primary", name: "send", value: "1" }
+    ] %>
+  </div>
+<% end %>

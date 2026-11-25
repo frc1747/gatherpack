@@ -35,6 +35,8 @@
   </div>
   <%= render "shared/action_row", wrapper_class: "card-footer no-print", actions: [
         screen_action("Edit", edit_checklist_path(@checklist), style: :warning, visible: @organizer),
+        screen_action("Send Reminder", new_checklist_checklist_reminder_path(@checklist), style: :primary,
+          visible: ChecklistReminderPolicy.new(current_user, @checklist).create?),
         screen_action("Take Snapshot", checklist_checklist_lists_path(@checklist), method: :post, visible: @organizer),
         screen_action("Recompute", refresh_checklist_path(@checklist), method: :post, more: true, visible: @organizer),
         screen_action("Duplicate", copy_checklist_path(@checklist), more: true, visible: checklist_policy.copy?),
