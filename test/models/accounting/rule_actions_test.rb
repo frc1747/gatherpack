@@ -5,6 +5,7 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
   include AccountingRulesWorld
 
   setup do
+    @restore_settings = SettingsTestHelper.apply(feature_badges: "true", feature_person_fields: "true")
     @team = create_rule_team("Robotics")
     @nancy = create_rule_person("Nancy", "Davolio", team: @team, customer: "58")
     @janet = create_rule_person("Janet", "Leverling", customer: "60")
@@ -12,6 +13,10 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     add_charge("60", "I2", total: 40_000, balance: 0)
     @rule = create_rule
     @paid_up = create_rule_badge("Dues Paid")
+  end
+
+  teardown do
+    @restore_settings&.call
   end
 
   test "a badge is added while the condition holds and removed when it stops" do
@@ -177,6 +182,99 @@ class Accounting::RuleActionsTest < ActiveSupport::TestCase
     with_accounting(false) { Accounting::EvaluateRuleJob.perform_now(@rule) }
 
     assert_empty @paid_up.badge_assignments
+  end
+
+  test "deleting a source takes back what its rules' actions gave" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "badge", badge: @paid_up)
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+    assert_equal 2, @paid_up.badge_assignments.count
+
+    accounting_source.destroy!
+
+    assert_not AccountingRule.exists?(@rule.id)
+    assert_empty @paid_up.badge_assignments.reload
+    assert_nil @nancy.reload.field_value(field)
+  end
+
+  test "only badges admins assign can be given" do
+    self_service = create_rule_badge("Volunteer", permission: :added_by_admin_or_self)
+
+    action = @rule.actions.build(action: "badge", badge: self_service)
+
+    assert_not action.valid?
+    assert_includes action.errors[:badge], "must be one only admins can assign"
+  end
+
+  test "two turned-on rules can't fill in one field; a turned-off copy is checked when turned on" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    other = create_rule("Fees")
+
+    taken = other.actions.build(action: "person_field", person_field: field, write: "value")
+    assert_not taken.valid?
+    assert_includes taken.errors[:base], "Dues is already filled in by the rule 2027 Membership Dues. Two rules filling in one field " \
+      "would keep overwriting each other: turn that rule off or remove its action first."
+
+    copy = @rule.duplicate!
+    assert_equal 1, copy.actions.count, "a turned-off Duplicate keeps the action"
+    assert_not copy.update(enabled: true)
+    assert_match "Dues is already filled in by the rule 2027 Membership Dues", copy.errors.full_messages.to_sentence
+
+    @rule.update!(enabled: false)
+    assert copy.update(enabled: true)
+  end
+
+  test "one rule fills in a field once" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.assign_attributes(actions_attributes: [ { action: "person_field", person_field_id: field.id, write: "label" },
+      { action: "person_field", person_field_id: field.id, write: "value" } ])
+
+    assert_not @rule.save
+    assert_includes @rule.errors[:base], "Dues is filled in by more than one action"
+  end
+
+  test "the same badge on two rules is allowed and each takes back only its own" do
+    @rule.actions.create!(action: "badge", badge: @paid_up, condition: { "values" => [ "paid" ] })
+    other = create_rule("Anyone")
+    other_action = other.actions.create!(action: "badge", badge: @paid_up)
+
+    assert_equal [ other ], @rule.actions.first.other_rules_giving_badge.to_a
+    assert_equal [ @rule ], other_action.other_rules_giving_badge.to_a
+    evaluate(@rule)
+    evaluate(other)
+    assert_equal 2, @paid_up.badge_assignments.count
+
+    other.destroy!
+    assert_equal [ @janet ], @paid_up.badge_assignments.reload.map(&:person)
+  end
+
+  test "each kind of action is skipped, not undone, while its feature is off" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+    @rule.actions.create!(action: "badge", badge: @paid_up, condition: { "values" => [ "paid" ] })
+    @rule.actions.create!(action: "person_field", person_field: field, write: "label")
+    evaluate(@rule)
+
+    with_settings(feature_badges: "false", feature_person_fields: "false") do
+      pay_off("I1")
+      seen = capture("person_fields - value changed") { evaluate(@rule) }
+      assert_empty seen
+      assert_equal [ @janet ], @paid_up.badge_assignments.reload.map(&:person), "no badge added, none taken away"
+      assert_equal "Partly paid", @nancy.reload.field_value(field)
+    end
+
+    evaluate(@rule)
+    assert_equal "Paid", @nancy.reload.field_value(field)
+    assert_equal 2, @paid_up.badge_assignments.reload.count
+  end
+
+  test "a badge action keeps no field settings" do
+    field = PersonField.create!(name: "Dues", data_type: :string, write_permission: "admin")
+
+    action = @rule.actions.create!(action: "badge", badge: @paid_up, person_field: field, write: "label")
+
+    assert_equal [ nil, nil ], [ action.person_field_id, action.write ]
   end
 
   test "Duplicate keeps the actions" do

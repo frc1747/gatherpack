@@ -27,6 +27,7 @@ class AccountingRuleAction < ApplicationRecord
   belongs_to :person_field, optional: true
 
   before_validation :build_condition
+  before_validation :drop_unused_targets
 
   validates :action, inclusion: { in: ACTIONS }
   validates :badge, presence: true, if: :badge?
@@ -35,8 +36,15 @@ class AccountingRuleAction < ApplicationRecord
   validate :condition_complete
   validate :field_can_take_value
   validate :one_badge_action
+  validate :badge_is_admin_assigned
+  validate :field_not_written_by_another_rule
 
   scope :ordered, -> { order(:position, :created_at) }
+
+  def self.field_taken_message(field, rule)
+    "#{field.name} is already filled in by the rule #{rule.name}. Two rules filling in one field would keep overwriting each other: " \
+      "turn that rule off or remove its action first."
+  end
 
   def badge?
     action == "badge"
@@ -130,6 +138,24 @@ class AccountingRuleAction < ApplicationRecord
     @condition_count = text.to_s.strip
   end
 
+  # Other turned-on rules whose actions give the same badge. Allowed (each
+  # rule takes back only what it gave, so the person keeps the badge while
+  # either condition holds), but the Actions tab says so.
+  def other_rules_giving_badge
+    return AccountingRule.none unless badge? && badge_id
+
+    AccountingRule.enabled.where.not(id: rule_id).where(id: AccountingRuleAction.where(action: "badge", badge_id: badge_id).select(:rule_id))
+  end
+
+  # The turned-on rule, other than this one's, that already fills in the
+  # same person field.
+  def rule_writing_same_field
+    return unless person_field? && person_field_id
+
+    AccountingRule.enabled.where.not(id: rule_id).ordered
+      .find_by(id: AccountingRuleAction.where(action: "person_field", person_field_id: person_field_id).select(:rule_id))
+  end
+
   def identifier_name
     "#{rule&.name}: #{description}"
   end
@@ -175,6 +201,32 @@ class AccountingRuleAction < ApplicationRecord
       when "count" then { "op" => condition_op, "count" => Integer((@condition_count || condition_count).to_s, 10, exception: false) }
       else {}
       end
+    end
+
+    # A badge action keeps no field settings, and a field action no badge.
+    def drop_unused_targets
+      if badge?
+        self.person_field_id = nil
+        self.write = nil
+      elsif person_field?
+        self.badge_id = nil
+      end
+    end
+
+    # A badge people can give themselves (or managers can give) would be
+    # kept for good once given by hand, since a rule never removes a hand-made
+    # assignment; so, as with access grants, only badges admins assign.
+    def badge_is_admin_assigned
+      errors.add(:badge, "must be one only admins can assign") if badge? && badge && !badge.added_by_admin?
+    end
+
+    # Two turned-on rules filling in one field would overwrite each other on
+    # every run. A turned-off rule (such as a fresh Duplicate) is checked
+    # when it's turned on (AccountingRule#fields_written_once).
+    def field_not_written_by_another_rule
+      return unless rule&.enabled? && (other = rule_writing_same_field)
+
+      errors.add(:base, AccountingRuleAction.field_taken_message(person_field, other))
     end
 
     def condition_complete

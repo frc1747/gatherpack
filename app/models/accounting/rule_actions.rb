@@ -13,7 +13,10 @@
 # "person_fields - value changed" fires for each change.
 #
 # An error result (a custom rule's code raised) runs no actions and leaves
-# what earlier runs did. A result that goes away undoes them (#undo).
+# what earlier runs did; so does each kind of action while its feature
+# (badges, person fields) is off. A result that goes away undoes them
+# (#undo) even then, since the result is the only record of what the rule
+# gave.
 class Accounting::RuleActions
   # The result's details key for what an action couldn't do.
   NOTES = "action_notes".freeze
@@ -28,8 +31,10 @@ class Accounting::RuleActions
     return if result.error?
 
     notes = []
-    apply_badge(result, notes)
-    field_actions.each { |action| write_field(result.person, action.person_field, action.holds?(result) ? action.value_for(result) : nil, notes) }
+    apply_badge(result, notes) if GatherPack::Features.enabled?(:badges)
+    if GatherPack::Features.enabled?(:person_fields)
+      field_actions.each { |action| write_field(result.person, action.person_field, action.holds?(result) ? action.value_for(result) : nil, notes) }
+    end
     record_notes(result, notes)
   end
 

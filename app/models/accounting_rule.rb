@@ -74,6 +74,7 @@ class AccountingRule < ApplicationRecord
   validate :source_is_accounting
   validate :amounts_within_read
   validate :filter_dates_valid
+  validate :fields_written_once
 
   scope :enabled, -> { where(enabled: true) }
   scope :ordered, -> { order(:position, :name) }
@@ -289,6 +290,22 @@ class AccountingRule < ApplicationRecord
         end
         [ key, value ] unless value.nil?
       end.to_h
+    end
+
+    # One rule fills in a field once, and only one turned-on rule fills in
+    # each field (actions check rules already on; this checks a rule being
+    # turned on).
+    def fields_written_once
+      field_actions = actions.reject(&:marked_for_destruction?).select { |action| action.person_field? && action.person_field_id }
+      field_actions.group_by(&:person_field_id).each_value do |same|
+        errors.add(:base, "#{same.first.person_field&.name} is filled in by more than one action") if same.size > 1
+      end
+      return unless enabled? && will_save_change_to_enabled?
+
+      field_actions.each do |action|
+        other = action.rule_writing_same_field
+        errors.add(:base, AccountingRuleAction.field_taken_message(action.person_field, other)) if other
+      end
     end
 
     def filter_dates_valid
