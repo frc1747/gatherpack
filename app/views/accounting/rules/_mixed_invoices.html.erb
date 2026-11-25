@@ -1,0 +1,45 @@
+<%# The warning for an admin: invoices the rule counts that also hold other items (Accounting::MixedInvoices). %>
+<% mixed = Accounting::MixedInvoices.new(rule) %>
+<% findings = mixed.findings %>
+<% if findings.any? %>
+  <% source = rule.gateway %>
+  <% records_page = Accounting::SourcePolicy.new(current_user, source).records? %>
+  <% deep_links = source.capabilities.include?(:deep_links) %>
+  <% collapse = findings.size > 5 %>
+  <div class="alert alert-warning mb-3" id="accounting-mixed-invoices" role="alert">
+    <p class="mb-2">
+      <%= pluralize(findings.size, "invoice") %> counted here also <%= findings.size == 1 ? "has" : "have" %> other items (<%= mixed.other_item_names.to_sentence %>).
+      The whole invoice counts toward this rule, because payments apply to whole invoices.
+      Put each purpose on its own invoice in <%= source.source_name %>.
+    </p>
+    <% list = capture do %>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Other items</th><th></th></tr>
+          </thead>
+          <tbody>
+            <% findings.each do |finding| %>
+              <% record = finding.record %>
+              <tr>
+                <td><%= records_page ? link_to(record.number.presence || record.identifier_name, accounting_connection_record_path(source, record)) : (record.number.presence || record.identifier_name) %></td>
+                <td><%= finding.customer_name %></td>
+                <td><%= record.txn_date && l(record.txn_date, format: :short) %></td>
+                <td><%= finding.other_item_names.to_sentence %></td>
+                <td><%= link_to "Open in #{source.source_name}", record.external_url, target: "_blank", rel: "noopener" if deep_links && record.external_url.present? %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+    <% if collapse %>
+      <details>
+        <summary>Show the <%= findings.size %> invoices</summary>
+        <%= list %>
+      </details>
+    <% else %>
+      <%= list %>
+    <% end %>
+  </div>
+<% end %>
