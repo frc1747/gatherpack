@@ -73,7 +73,7 @@ class Accounting::Statement
     def member_rows
       rules.group_by(&:gateway).flat_map do |source, source_rules|
         records = records_for(source)
-        charges = source_rules.flat_map { |rule| Accounting::RecordFilter.new(rule.filters).apply(records.where(role: "charge")).to_a }.uniq(&:id)
+        charges = source_rules.flat_map { |rule| rule_charges(rule, records) }.uniq(&:id)
         charge_ids = charges.map(&:external_id).to_set
 
         charge_rows = charges.map { |charge| member_row(charge, charge_cents: charge.total_cents.to_i) }
@@ -86,6 +86,16 @@ class Accounting::Statement
         end
         charge_rows + applied_rows
       end
+    end
+
+    # The charges a rule reads: none when its kind doesn't read charges (a
+    # paid amount without items sums payments) or its roles leave them out.
+    def rule_charges(rule, records)
+      filter = Accounting::RecordFilter.new(rule.filters)
+      reads = rule.kind == "amount" && rule.measure == "paid" && filter.items.empty? ? [] : %w[ charge ]
+      return [] if filter.roles(reads).empty?
+
+      filter.apply(records.where(role: "charge")).to_a
     end
 
     # Only the public label: never a memo, note or credit reason.

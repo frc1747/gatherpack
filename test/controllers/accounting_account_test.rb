@@ -108,6 +108,24 @@ class AccountingAccountTest < ActionDispatch::IntegrationTest
     assert_no_match "Description", response.body
   end
 
+  test "393#1: a statement shows only charges a visible rule reads, not every charge its filters allow" do
+    @rule.update!(read_permission: "admin", amount_permission: "admin")
+    receipts = create_rule("Receipts", kind: "count", read_permission: "family", amount_permission: "family", filters: { "roles" => [ "receipt" ] })
+    paid = create_rule("Paid", kind: "amount", measure: "paid", read_permission: "family", amount_permission: "family")
+    evaluate(receipts)
+    evaluate(paid)
+    sign_in @margaret.user
+
+    with_accounting { get person_accounting_statement_path(@nancy) }
+
+    assert_response :success
+    assert_no_match "Invoice 1042", response.body
+    assert_no_match "Invoice 1050", response.body
+    labels = css_select("tbody tr td:nth-child(2)").map { |cell| cell.text.strip }
+    assert_equal [ "Payment" ], labels, "only the unapplied money"
+    assert_select "##{dom_id(record("P1"))} td", text: "$50.00"
+  end
+
   test "admins see every record of the person's customers with descriptions" do
     sign_in @laura.user
 

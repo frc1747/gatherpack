@@ -1,4 +1,5 @@
 require "test_helper"
+require "csv"
 require_relative "../../support/accounting_world"
 require_relative "../../support/accounting_provider_contract"
 require_relative "../../support/accounting_balance_cases"
