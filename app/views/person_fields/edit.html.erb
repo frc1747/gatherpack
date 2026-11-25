@@ -1,0 +1,14 @@
+<% breadcrumb :person_field, @person_field %>
+
+<%= simple_form_for(@person_field) do |f| %>
+  <div class="card">
+    <%= render "shared/page_header", title: "Editing #{@person_field.name}" %>
+    <div class="card-body">
+      <%= render "form", f: f %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", person_fields_path, class: "btn btn-secondary" %>
+      <%= f.button :submit, class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
