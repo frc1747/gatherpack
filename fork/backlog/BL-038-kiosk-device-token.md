@@ -7,7 +7,7 @@
 | Status | started (task 382, branch feature/kiosk-devices, waits on BL-039) |
 | Added | 2026-11-09 |
 | Upstream commit checked | `eeaa691a` (`upstream/main`) |
-| Planned branch | `feature/kiosk-devices` (none yet) |
+| Planned branch | `feature/kiosk-devices` (built; pushed to origin, not released) |
 | Upstream issue / PR | none |
 
 ## Summary
@@ -79,3 +79,7 @@ Pairing doesn't need a signed-in user, because the code is the credential.
 > **Kiosk devices: keep a dedicated time clock computer running without a user login**
 >
 > Today the time kiosk needs a signed-in user, so a kiosk computer uses someone's account, drops to the login page when the session is lost, and exposes the full app through the header link. This adds kiosk devices: an admin pairs a computer once with a one-time link, and that browser can then use the time clock (and only the time clock) until the device is revoked. Off by default behind the `kiosk_devices` setting.
+
+## Built
+
+Task 382 on `feature/kiosk-devices`: commit `c2a62ddf6`, then `45faab961` (re-pairing asks for confirmation, and the list is hidden from Setup without time tracking). Flag `feature_kiosk_devices`. Migration `create_kiosk_devices`. Sample data in `fork/sample_data/features/kiosk-devices.rb`. The row stays `started` until a release ships it.

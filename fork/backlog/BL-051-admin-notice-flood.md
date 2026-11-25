@@ -48,3 +48,10 @@ HBR sets it **off** on Ditto, then prod.
 ## Fork notes
 
 Fork code only (orders, intake); no upstream files. Setting registered with `Settings.register` in the owning feature's initializer, catalogued in `FORK.md`.
+
+## Built
+
+- Orders: task 383 on `feature/orders`, commit `3ba541fb6`, then `1fb901fbf` (the orders summary follows the same rule).
+- Intake: task 384 on `feature/intake`, commit `d8b91fb5e` (`Person#notice_teams`, the registration alert and the join digest).
+- Both register the same setting, `notices_admins_everywhere`, default on. It must stay on until hbr ships with the orders summary fix (`1fb901fbf`); that fix is now on `feature/orders`, so the setting can be turned off once the release carrying it is running. The row stays `started` until a release ships it.
+- Left for a later merge: `OwnRoles#all_managed_teams` could share `Person#notice_teams` once both branches are in one build.

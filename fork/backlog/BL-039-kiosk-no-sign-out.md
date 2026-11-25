@@ -44,3 +44,7 @@ A kiosk account's time kiosk shows a "Sign out" button in its header. Anyone at 
 
 - The fix goes on `feature/security-series`, where the button lives. The fit branches that merge the security series (`feature/turbo-frame-links-fit`, `feature/local-assets-fit`) pick it up at the next rebuild. `feature/local-assets` also edits `layouts/kiosk.html.erb` (head lines only), so check that merge at sync.
 - BL-038 (kiosk devices) is the lasting fix. Once dedicated kiosks are paired devices, kiosk accounts only matter for kiosks not yet paired.
+
+## Built
+
+Task 381 on `feature/security-series`: commit `93c51d929` (the kiosk account's kiosk header has no Sign out button; Stop Impersonating stays). The row stays `started` until a release ships it.

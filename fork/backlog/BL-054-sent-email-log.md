@@ -61,3 +61,16 @@ This adds a log of every email GatherPack sends, updates each entry from the ser
 - Upstream files touched: `app/jobs/send_email_job.rb`, the three sending gateways, `app/views/gateways/show.html.erb` (the button). Record them in `FORK.md`. `send_email_job.rb` is also changed by `feature/email-rate-limit-retry` (BL-052): base this branch on it or resolve at sync.
 - New migration (reversible), no edits to upstream migrations.
 - Turning on clicks in production also needs click tracking on the sending domain (already on for HBR's Resend domain).
+
+## Built
+
+- Core log: task 385 on `feature/email-log`, commits `7fe6dd923` and `5c58296fb` (query strings stripped from stored links, retention job `DeleteOldSentEmailsJob` with `email_log_keep_days`, settings and routes through the seams).
+- Order request part: task 386 on `feature/email-log-orders`, commits `33fc6732b` and `0445ca531`. Depends on `feature/email-log` and `feature/orders`.
+- The row stays `started` until a release ships them.
+
+## Deferred
+
+- The person page's "Sent email" link (`people/show`). The filtered list already works at `/sent_emails?q[person_id_eq]=<id>`.
+- Passing `person:` and `about:` from sign-up notices and the summaries (digests); only order notices pass them so far.
+- The order request panel infers which step an email counts for from timing, with two edge cases: re-approval ("Approve again") emails are sent after the final approval, so they don't appear; and a job that runs very late could be counted under the next step. Storing the step (or a notice kind) on the log row needs a column in the core log.
+- Postmark sends still have open and link tracking off, so Postmark click and open events are mapped but won't arrive until sending turns tracking on.

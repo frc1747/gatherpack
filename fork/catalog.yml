@@ -584,6 +584,9 @@ feature/intake:
     - name: Sign-ups per Hour from One Address
       key: intake_rate_ip_per_hour
       default: "5"
+    - name: Admins get notices for every team
+      key: notices_admins_everywhere
+      default: "on"
 
 feature/intake-turnstile:
   title: Bot check on the sign-up form
@@ -978,6 +981,9 @@ feature/orders:
     - name: Orders
       key: feature_orders
       default: "off"
+    - name: Admins get notices for every team
+      key: notices_admins_everywhere
+      default: "on"
 
 feature/inventory:
   title: Inventory
@@ -1083,3 +1089,71 @@ feature/blank-team-scopes:
     just admins. The event form tells admins that leaving Team blank shows the
     event to everyone.
   audience: Admins and team managers
+
+feature/kiosk-devices:
+  title: Kiosk devices
+  emoji: "🖥️"
+  description: >-
+    An admin pairs a dedicated computer with the time kiosk once, using a
+    one-time link, and from then on that browser keeps the time clock open
+    with no user signed in and no daily sign-in. It reaches the time clock
+    and nothing else, and an admin can revoke it or pair it again from Setup.
+  audience: Admins set up; people use the kiosk as before
+  settings:
+    - name: Kiosk devices
+      key: feature_kiosk_devices
+      default: "off"
+
+feature/email-log:
+  title: Sent email log
+  emoji: "📬"
+  description: >-
+    Keeps a log of every email GatherPack sends, updated from the sending
+    service: sent, delivered, bounced, marked as spam or failed, and whether
+    a link was clicked. Admins see it under Setup, filter it by person,
+    status or subject, and old entries are cleared out each day. Link clicks
+    are shown as clicks, not as reads, and a click a mail scanner makes right
+    after delivery is not counted.
+  audience: Admins
+  settings:
+    - name: Sent email log
+      key: feature_email_log
+      default: "off"
+    - name: Keep sent email entries for (days)
+      key: email_log_keep_days
+      default: "180"
+    - name: Seconds after delivery to ignore link clicks
+      key: email_log_scanner_seconds
+      default: "10"
+    - name: Status label, Sending
+      key: email_log_status_sending_label
+      default: the built-in label
+    - name: Status label, Sent
+      key: email_log_status_sent_label
+      default: the built-in label
+    - name: Status label, Delivered
+      key: email_log_status_delivered_label
+      default: the built-in label
+    - name: Status label, Bounced
+      key: email_log_status_bounced_label
+      default: the built-in label
+    - name: Status label, Marked as spam
+      key: email_log_status_complained_label
+      default: the built-in label
+    - name: Status label, Failed
+      key: email_log_status_failed_label
+      default: the built-in label
+
+feature/email-log-orders:
+  title: Who was emailed about a request
+  emoji: "✉️"
+  description: >-
+    Order notices are logged against their request, and the request page
+    shows, under each approval step, who was emailed and whether they
+    clicked the link. Only people who can approve or manage the request see
+    it.
+  audience: Approvers and managers of order requests
+  settings:
+    - name: Orders and Sent email log both on
+      key: feature_orders, feature_email_log
+      default: "off"
