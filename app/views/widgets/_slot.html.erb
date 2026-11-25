@@ -1,0 +1,6 @@
+<%# The dashboard's widgets for one placement: top, left or right. %>
+<% if GatherPack::Features.enabled?(:widgets) %>
+  <% policy_scope(Widget).enabled.where(placement: placement.to_s).in_order.each do |widget| %>
+    <%= render "widgets/card", widget: widget %>
+  <% end %>
+<% end %>

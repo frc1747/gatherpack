@@ -1,0 +1,42 @@
+<% breadcrumb :widgets %>
+
+<div class="card">
+  <%= render "shared/page_header", title: "Widgets" %>
+  <div class="card-body">
+    <p>Widgets are sections on the dashboard. They show in order within each place, lowest number first.</p>
+
+    <% Widget::PLACEMENTS.each do |placement| %>
+      <h2 class="h5 mt-4"><%= widget_placement_label(placement) %></h2>
+      <% widgets = @widgets.fetch(placement, []) %>
+      <% if widgets.any? %>
+        <div class="table-responsive">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Title</th>
+              <th>Who can see it</th>
+              <th>Team</th>
+              <th>Shown</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% widgets.each do |widget| %>
+              <tr id="<%= dom_id widget %>">
+                <td><%= widget.position %></td>
+                <td><%= link_to widget.title, widget %></td>
+                <td><%= widget_viewer_label(widget.viewer) %></td>
+                <td><%= widget.team&.name %></td>
+                <td><%= widget.enabled ? "Yes" : "No" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        </div>
+      <% else %>
+        <%= render "shared/empty_state", text: "None." %>
+      <% end %>
+    <% end %>
+  </div>
+  <%= render "shared/action_row", actions: [ screen_action("New Widget", new_widget_path, style: :success, visible: policy(Widget).new?) ] %>
+</div>
