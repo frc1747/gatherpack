@@ -1,0 +1,188 @@
+require "support/settings_test_helper"
+
+# Builds people, teams and grants for orders tests without fixtures:
+#
+#   club (parent)
+#   └── robotics          requester, mentor (approver badge), teammate
+#       └── build         builder
+#   art                   outsider
+#
+# Plus an admin, a manager of robotics, a buyer and a funding manager
+# (badge grants), a parent (relative of the requester), two vendors and the
+# orders lists' starting rows (payment methods, delivery problem kinds).
+module OrdersWorld
+  include SettingsTestHelper
+
+  World = Struct.new(:club, :robotics, :build, :art, :admin, :manager, :requester, :mentor, :teammate,
+    :builder, :outsider, :buyer, :funding_manager, :parent, :approver_badge, :buyer_badge,
+    :funder_badge, :preferred_vendor, :other_vendor, keyword_init: true)
+
+  def build_orders_world
+    team_type = TeamType.first || TeamType.create!(name: "Group")
+    club = Team.create!(name: "Club #{SecureRandom.hex(3)}", team_type: team_type)
+    robotics = Team.create!(name: "Robotics #{SecureRandom.hex(3)}", team_type: team_type, parent: club)
+    build = Team.create!(name: "Build #{SecureRandom.hex(3)}", team_type: team_type, parent: robotics)
+    art = Team.create!(name: "Art #{SecureRandom.hex(3)}", team_type: team_type)
+    badge_type = BadgeType.first || BadgeType.create!(name: "Role")
+
+    approver_badge = Badge.create!(name: "Approver #{SecureRandom.hex(3)}", short: "AP", color: "#000000", badge_type: badge_type, permission: :added_by_admin)
+    buyer_badge = Badge.create!(name: "Buyer #{SecureRandom.hex(3)}", short: "BY", color: "#000000", badge_type: badge_type, permission: :added_by_admin)
+    funder_badge = Badge.create!(name: "Funder #{SecureRandom.hex(3)}", short: "FM", color: "#000000", badge_type: badge_type, permission: :added_by_admin)
+
+    world = World.new(
+      club: club, robotics: robotics, build: build, art: art,
+      admin: orders_person("Admin", admin: true),
+      manager: orders_person("Manager", teams: { robotics => true }),
+      requester: orders_person("Requester", teams: [ robotics ]),
+      mentor: orders_person("Mentor", teams: [ robotics ], badges: [ approver_badge ]),
+      teammate: orders_person("Teammate", teams: [ robotics ]),
+      builder: orders_person("Builder", teams: [ build ]),
+      outsider: orders_person("Outsider", teams: [ art ]),
+      buyer: orders_person("Buyer", teams: [ robotics ], badges: [ buyer_badge ]),
+      funding_manager: orders_person("Funder", teams: [ robotics ], badges: [ funder_badge ]),
+      parent: orders_person("Parent", teams: [ robotics ], badges: [ approver_badge ]),
+      approver_badge: approver_badge, buyer_badge: buyer_badge, funder_badge: funder_badge,
+      preferred_vendor: Vendor.create!(name: "Parts Depot", domains: [ "partsdepot.example" ], preferred: true,
+        part_number_pattern: "/p/([A-Z0-9-]+)"),
+      other_vendor: Vendor.create!(name: "Hardware Barn", domains: [ "hardwarebarn.example" ])
+    )
+    relate(world.parent, world.requester)
+    PaymentMethod.seed_defaults!(Orders::Lists::PAYMENT_METHODS)
+    Orders::Lists.seed_delivery_problem_kinds!
+    world
+  end
+
+  # Settings that turn orders on and give the world's badges their grants.
+  # Each role also has a "Managers of each team" row, as a site upgraded
+  # from when team managers always could has (MANAGERS_ROW).
+  # approval_steps isn't a setting: #with_settings makes ApprovalStep rows
+  # from it for the block (#apply_orders_settings).
+  def orders_settings(world, **overrides)
+    {
+      feature_orders: "true",
+      approval_steps: [ { key: "approval", name: "Approval", minimum: 0, approvers: [ [ world.approver_badge, world.club ], MANAGERS_ROW ] } ],
+      orders_buyers: "#{world.buyer_badge.name} > #{world.club.name}\n#{Orders::Reach::OWN_TEAM_LINE}",
+      orders_funding_managers: "#{world.funder_badge.name} > #{world.club.name}\n#{Orders::Reach::OWN_TEAM_LINE}"
+    }.merge(overrides)
+  end
+
+  # An approver row for the managers of the request's own team, in an
+  # approval_steps spec's approvers.
+  MANAGERS_ROW = :managers_of_each_team
+
+  def two_step_settings(world, minimum: 500)
+    orders_settings(world, approval_steps: [
+      { key: "mentor", name: "Mentor", minimum: 0, approvers: [ [ world.approver_badge, world.club ], MANAGERS_ROW ] },
+      { key: "treasurer", name: "Treasurer", minimum: minimum, approvers: [ MANAGERS_ROW ] }
+    ])
+  end
+
+  # Settings as SettingsTestHelper takes them, with approval_steps: given as
+  # [{ key:, name:, minimum: (dollars), approvers: [[badge, team or nil],
+  # MANAGERS_ROW, { kind:, manager_team:, team: }] }]
+  # replacing the ApprovalStep rows. Returns a proc that puts back the
+  # settings and the steps there were before.
+  def apply_orders_settings(values)
+    values = values.to_h.symbolize_keys
+    steps = values.delete(:approval_steps)
+    before = approval_step_specs if steps
+    replace_approval_steps(steps) if steps
+    restore_settings = SettingsTestHelper.apply(values)
+    lambda do
+      restore_settings.call
+      replace_approval_steps(before) if steps
+    end
+  end
+
+  def with_settings(values)
+    restore = apply_orders_settings(values)
+    yield
+  ensure
+    restore&.call
+  end
+
+  def replace_approval_steps(specs)
+    ApprovalStepApprover.delete_all
+    ApprovalStep.delete_all
+    specs.each_with_index do |spec, index|
+      step = ApprovalStep.create!(key: spec[:key], name: spec[:name], position: index,
+        minimum_cents: (spec[:minimum].to_d * 100).round, active: spec.fetch(:active, true))
+      spec[:approvers].to_a.each { |approver| step.approvers.create!(approver_attributes(approver)) }
+    end
+  end
+
+  def approval_step_specs
+    ApprovalStep.ordered.includes(:approvers).map do |step|
+      { key: step.key, name: step.name, minimum: step.minimum_cents / 100r, active: step.active,
+        approvers: step.approvers.map { |approver| approver.slice(:kind, :badge, :manager_team, :team).symbolize_keys } }
+    end
+  end
+
+  def approver_attributes(approver)
+    case approver
+    when MANAGERS_ROW then { kind: :own_team_managers }
+    when Hash then approver
+    else { badge: approver[0], team: approver[1] }
+    end
+  end
+
+  def with_orders(world, **overrides, &block)
+    with_settings(orders_settings(world, **overrides)) do
+      Orders::Current.reset
+      block.call
+    ensure
+      Orders::Current.reset
+    end
+  end
+
+  def orders_person(name, admin: false, teams: [], badges: [])
+    user = User.create!(email: "#{name.downcase}-#{SecureRandom.hex(4)}@example.com", password: "password123", admin: admin)
+    person = Person.create!(first_name: name, last_name: "Example", display_name: "#{name} Example", user: user)
+    Array(teams).each do |team, manager|
+      Membership.create!(person: person, team: team, manager: manager || false)
+    end
+    badges.each { |badge| BadgeAssignment.create!(badge: badge, person: person) }
+    person
+  end
+
+  def relate(parent, child)
+    type = RelationshipType.first || RelationshipType.create!(parent_label: "Parent", child_label: "Child", permission: :added_by_admin)
+    Relationship.new(relationship_type: type, parent: parent, child: child).save!(validate: false)
+  end
+
+  # A submitted request from the world's requester with the given lines
+  # (OrderLine attributes; a price in dollars as :price).
+  def submitted_request(world, lines: [ { description: "Gear", price: 10 } ], by: world.requester, team: world.robotics, **attributes)
+    order_request = draft_request(world, lines: lines, by: by, team: team, **attributes)
+    order_request.submit!(by: by)
+    order_request.reload
+  end
+
+  def draft_request(world, lines: [ { description: "Gear", price: 10 } ], by: world.requester, team: world.robotics, **attributes)
+    OrderRequest.draft_for(person: by, team: team, lines: lines.map { |line| line_attributes(line) }, **attributes)
+  end
+
+  def approved_request(world, lines: [ { description: "Gear", price: 10 } ], approver: nil, **attributes)
+    order_request = submitted_request(world, lines: lines, **attributes)
+    approver ||= order_request.team_id == world.art.id ? world.admin : world.mentor
+    order_request.decide!(:approved, by: approver)
+    order_request.reload
+  end
+
+  def line_attributes(line)
+    line = line.dup
+    price = line.delete(:price)
+    line[:estimated_unit_price_cents] = (price * 100).round if price
+    line
+  end
+
+  # A payment method by name: "Team card", or "Paid personally" (reimburse).
+  def payment_method(name)
+    PaymentMethod.find_by!(name: name)
+  end
+
+  def buy(world, lines, vendor: nil, prices: {}, **attributes)
+    Orders::RecordPurchase.new(buyer: world.buyer, lines: lines, vendor: vendor, other_vendor_name: vendor ? nil : "Corner Store",
+      prices: prices, attributes: { ordered_on: Date.current }.merge(attributes)).call
+  end
+end

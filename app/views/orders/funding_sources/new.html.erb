@@ -1,0 +1,16 @@
+<% breadcrumb :orders_funding_sources %>
+
+<%= simple_form_for(@funding_source, url: @funding_source.persisted? ? orders_funding_source_path(@funding_source) : orders_funding_sources_path) do |f| %>
+  <div class="card">
+    <div class="card-header">
+      <h1>New funding source</h1>
+    </div>
+    <div class="card-body">
+      <%= render "form", f: f %>
+    </div>
+    <div class="card-footer">
+      <%= link_to "Cancel", orders_funding_sources_path, class: "btn btn-secondary" %>
+      <%= f.button :submit, class: "btn btn-primary" %>
+    </div>
+  </div>
+<% end %>
