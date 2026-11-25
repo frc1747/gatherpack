@@ -184,6 +184,14 @@ Rails.application.routes.draw do
     get "time_kiosk", to: "time_kiosk#index"
     post "time_kiosk", to: "time_kiosk#index"
     patch "time_kiosk", to: "time_kiosk#index"
+    get "time_kiosk/pair/:code", to: "kiosk_device_pairings#show", as: :kiosk_device_pairing
+    post "time_kiosk/pair/:code", to: "kiosk_device_pairings#create"
+    resources :kiosk_devices, except: %i[ show destroy ] do
+      member do
+        patch "revoke"
+        post "pair"
+      end
+    end
 
     resources :time_clock_periods do
       member do

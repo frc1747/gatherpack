@@ -1,0 +1,20 @@
+<% breadcrumb :kiosk_device, @kiosk_device %>
+
+<div class="card">
+  <div class="card-header">
+    <h1>Pair <%= @kiosk_device.name %></h1>
+  </div>
+  <div class="card-body">
+    <p>Open this link on the kiosk computer, in the browser it will run the kiosk in:</p>
+    <p><code class="fs-5 text-break" id="pairing-link"><%= kiosk_device_pairing_url(@pairing_code) %></code></p>
+    <p class="text-muted">
+      It works once, until <%= l(@kiosk_device.pairing_expires_at, format: :short) %>, and won't be shown again.
+      <% if @kiosk_device.saved_change_to_secret_digest? %>
+        The computer this device was paired with before has left the kiosk.
+      <% end %>
+    </p>
+  </div>
+  <div class="card-footer">
+    <%= link_to "Done", kiosk_devices_path, class: "btn btn-primary" %>
+  </div>
+</div>
