@@ -28,7 +28,7 @@
     </div>
     <div class="row">
       <div class="col">
-        <%= f.input :team_id, as: :searching_combobox, label: "Team", scope: "managed_teams", include_blank: admin? %>
+        <%= f.input :team_id, as: :searching_combobox, label: "Team", scope: "managed_teams", include_blank: admin?, hint: (admin? ? "Leave blank to show this event to everyone." : nil) %>
       </div>
     </div>
     <div class="row">

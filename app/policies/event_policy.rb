@@ -4,15 +4,15 @@ class EventPolicy < ApplicationPolicy
       if user.admin
         scope.all
       else
-        scope.where(team_id: person.all_teams.map(&:id)).or(scope.where(team_id: ""))
+        scope.where(team_id: person.all_teams.map(&:id)).or(scope.where(team_id: nil))
       end
     end
   end
 
   # The same events Scope lists: an admin sees every event, anyone else the
-  # events of their teams.
+  # events of their teams and events with no team, which are for everyone.
   def show?
-    user.admin? || (record.team.present? && person.all_teams.include?(record.team))
+    user.admin? || record.team.nil? || person.all_teams.include?(record.team)
   end
 
   def new?
