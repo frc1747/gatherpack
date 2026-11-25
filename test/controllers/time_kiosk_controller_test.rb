@@ -19,7 +19,9 @@ class TimeKioskControllerTest < ActionDispatch::IntegrationTest
     @manager = create_person("manager@example.com")
     Membership.create!(person: @manager, team: @team, manager: true)
 
-    sign_in create_person("kiosk@example.com").user
+    kiosk_user = create_person("kiosk@example.com").user
+    kiosk_user.update!(kiosk: true)
+    sign_in kiosk_user
   end
 
   test "a scan shows the profile with buttons that carry a person reference" do
@@ -153,6 +155,80 @@ class TimeKioskControllerTest < ActionDispatch::IntegrationTest
     kiosk tool: "punch_out_period", person_ref: ref_for(@manager), time_clock_period_id: @period.id
 
     assert_not_nil punch.reload.end_time
+  end
+
+  test "punch_out_period clocks out an added by admin period for its team's manager, and punch_out_all agrees" do
+    @period.update_column(:permission, TimeClockPeriod.permissions[:added_by_admin])
+    punch = open_punch(@member)
+
+    kiosk tool: "punch_out_period", person_ref: ref_for(@manager), time_clock_period_id: @period.id
+
+    assert_not_nil punch.reload.end_time
+    assert_not_includes response.body, "You can&#39;t clock out this period."
+
+    again = open_punch(@member)
+    kiosk tool: "punch_out_all", person_ref: ref_for(@manager)
+
+    assert_not_nil again.reload.end_time
+  end
+
+  test "punch_out_period clocks out a sub-team's period for a parent team's manager" do
+    kid = Team.create!(name: "Pit Crew", team_type: team_types(:one), parent: @team)
+    period = create_period("Pit Season", kid)
+    Membership.create!(person: @member, team: kid)
+    punch = TimeClockPunch.create!(person: @member, time_clock_period: period, start_time: Time.current, created_by: "kiosk")
+
+    kiosk tool: "punch_out_period", person_ref: ref_for(@manager), time_clock_period_id: period.id
+
+    assert_not_nil punch.reload.end_time
+  end
+
+  test "punch_out_period tells another team's manager and a non-manager it refused" do
+    punch = open_punch(@member)
+    other_manager = create_person("other-manager@example.com")
+    Membership.create!(person: other_manager, team: @other_team, manager: true)
+
+    [ other_manager, create_person("plain@example.com") ].each do |person|
+      kiosk tool: "punch_out_period", person_ref: ref_for(person), time_clock_period_id: @period.id
+
+      assert_nil punch.reload.end_time
+      assert_includes response.body, "You can&#39;t clock out this period."
+    end
+  end
+
+  test "the refusal shows on the turbo stream a kiosk tap gets" do
+    post time_kiosk_path, params: { time_kiosk: { tool: "punch_out_period", person_ref: ref_for(@member), time_clock_period_id: @period.id } },
+      headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    assert_equal "text/vnd.turbo-stream.html", response.media_type
+    assert_includes response.body, "You can&#39;t clock out this period."
+  end
+
+  test "punch_out_all closes only the periods the manager's teams hold, and tells someone with none" do
+    mine = open_punch(@member)
+    Membership.create!(person: @member, team: @other_team)
+    other = TimeClockPunch.create!(person: @member, time_clock_period: @other_period, start_time: Time.current, created_by: "kiosk")
+
+    kiosk tool: "punch_out_all", person_ref: ref_for(@manager)
+    assert_not_nil mine.reload.end_time
+    assert_nil other.reload.end_time
+    assert_not_includes response.body, "You can&#39;t clock out these periods."
+
+    [ @member, create_manager_without_login ].each do |person|
+      kiosk tool: "punch_out_all", person_ref: ref_for(person)
+      assert_nil other.reload.end_time
+      assert_includes response.body, "You can&#39;t clock out these periods."
+    end
+  end
+
+  test "a manager with no login isn't offered buttons that can't work" do
+    no_login = create_manager_without_login
+    Token.create!(value: "100000002", tokenable: no_login)
+
+    kiosk tool: "find_token", token_value: "100000002"
+
+    assert_response :success
+    assert_not_includes response.body, "managerModal"
   end
 
   test "punch_out_period refuses a non-manager, a bare person_id and a manager with no login" do

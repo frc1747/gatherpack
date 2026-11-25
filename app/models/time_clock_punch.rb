@@ -33,6 +33,24 @@ class TimeClockPunch < ApplicationRecord
     )
   end
 
+  # The shorter punch of each overlapping pair of the same person (of equal
+  # lengths, the later-created one, then by id). A punch still clocked in
+  # counts as zero hours, as in #hours. Cleaning these up keeps the longest
+  # punch of each overlap, so a punch recorded over someone's shift can only
+  # add hours, never replace the shift.
+  def self.shorter_duplicates
+    where(
+      "id IN (
+        SELECT DISTINCT p1.id FROM time_clock_punches p1
+        JOIN time_clock_punches p2 ON p1.person_id = p2.person_id AND p1.id != p2.id
+        WHERE p1.start_time < COALESCE(p2.end_time, 'infinity'::timestamptz)
+          AND p2.start_time < COALESCE(p1.end_time, 'infinity'::timestamptz)
+          AND (COALESCE(p2.end_time - p2.start_time, interval '0'), p1.created_at, p1.id)
+            > (COALESCE(p1.end_time - p1.start_time, interval '0'), p2.created_at, p2.id)
+      )"
+    )
+  end
+
   def self.ransackable_attributes(auth_object = nil)
     %w[ person.display_name start_time end_time time_clock_period_id updated_at ]
   end
@@ -68,9 +86,13 @@ class TimeClockPunch < ApplicationRecord
   private
 
   def permission_check
-    if time_clock_period.nil? || created_by == "kiosk"
-      true
-    else
+    return if created_by == "kiosk"
+
+    if time_clock_period.nil? || time_clock_period.permission == "added_by_user"
+      errors.add(:person_id, "can only be yourself or someone you manage") unless recorded_by_self_or_manager?
+    end
+
+    if time_clock_period.present?
       if time_clock_period.team.present?
         errors.add(:person_id, "is not a member of the team that the selected period is part of") unless person.all_teams.include? time_clock_period.team
       end
@@ -86,6 +108,13 @@ class TimeClockPunch < ApplicationRecord
       end
       errors.add(:time_clock_period, "does not meet permission requirements") unless valid
     end
+  end
+
+  # Without a period, or in an 'added_by_user' one, people record their own
+  # punches and their managers record for them. Writes that don't say who made
+  # them (console, scripts) are left alone, as before.
+  def recorded_by_self_or_manager?
+    created_by.nil? || person.nil? || created_by == person || created_by.can_manage(person)
   end
 
   def valid_times

@@ -65,9 +65,9 @@ class Mcp::Tools::UpdateCheckinTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "the team's manager can answer any field, as the Arrange page lets them" do
-    assert_nil update(:alpha_manager, field_responses: { @admin_field.neat_id => "A" }).error
-    assert_equal "A", answer(@admin_field)
+  test "the team's manager can't answer an admin field" do
+    assert_equal "Not allowed: Admin only", update(:alpha_manager, field_responses: { @admin_field.neat_id => "A" }).error
+    assert_nil answer(@admin_field)
   end
 
   test "a teammate can't change it, and neither can someone outside the team or a guardian" do
@@ -234,18 +234,18 @@ class Mcp::Tools::UpdateCheckinTest < ActionDispatch::IntegrationTest
     assert_equal "B", answer(@open_field)
   end
 
-  test "answers: a manager gets through Arrange's request what the edit form would drop, and the same with the tool" do
+  test "answers: an admin field refuses a manager on Arrange's request, and the same with the tool" do
     @checkin.refresh_fields
     row = @checkin.checkin_field_responses.reload.find_by!(checkin_field: @admin_field)
 
     sign_in user(:alpha_manager)
     patch "/events/#{@event.id}/field_update", params: { field_id: row.id, response: "From the page" }, as: :json
-    assert_response :no_content
-    assert_equal "From the page", answer(@admin_field)
+    assert_response :forbidden
+    assert_nil answer(@admin_field)
     sign_out user(:alpha_manager)
 
-    assert_nil update(:alpha_manager, field_responses: { @admin_field.neat_id => "From the tool" }).error
-    assert_equal "From the tool", answer(@admin_field)
+    assert_equal "Not allowed: Admin only", update(:alpha_manager, field_responses: { @admin_field.neat_id => "From the tool" }).error
+    assert_nil answer(@admin_field)
   end
 
   test "answers: Arrange's request is refused to those who may not change the check-in, and so is the tool" do

@@ -4,9 +4,11 @@
   </div>
   <div class="card-body">
     <%= image_tag get_avatar_url_512(checkin.person.avatar), class: "person-img" %>
-    <div class="mt-2">
-      <%= render "checkins/notes", notes: checkin.notes %>
-    </div>
+    <% if policy(checkin).show_notes? %>
+      <div class="mt-2">
+        <%= render "checkins/notes", notes: checkin.notes %>
+      </div>
+    <% end %>
   </div>
   <% if policy(checkin).update? || policy(checkin).destroy? %>
     <div class="card-footer">
