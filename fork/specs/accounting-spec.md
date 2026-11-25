@@ -276,7 +276,7 @@ end
 | `synced_entities` | any of `Customer`, `Invoice`, `Payment`, `CreditMemo`, `SalesReceipt`, `RefundReceipt`, `Item`, `Class`, `Department` | `Customer Invoice Payment CreditMemo Item` | Which types to copy. A rule whose roles aren't covered warns (§8.4). |
 | `customer_rollup` | `none`, `parent` | `none` | §7.1. |
 | `match_strategies` | ordered `reference`, `name`, `email` | `name email` | §7.2. |
-| `match_field_path` | path in a Customer record, e.g. `Notes` | blank | Filled into `reference` by `normalize`. |
+| `match_field_path` | path in a Customer record, e.g. `Notes` | blank | Filled into `reference` by `normalize`, whole. The id is found in the text by the strategy (§7.5), not here. |
 | `allow_create_charges` | "Let GatherPack create invoices" | off | §4.6. |
 | `realm_id`, `company_name`, `connection_status`, `last_*`, `calls_this_month` | set by the system | | `connection_status`: `not_connected`, `connected`, `needs_reconnect`, `disconnected`. |
 
@@ -436,7 +436,7 @@ Links are many-to-many: one customer for a family linked to each child; one pers
 
 | Strategy | Matches (neutral columns) | Confirmation |
 |---|---|---|
-| `reference` | The customer's `reference` equals a person's GatherPack id (`per_…`) or account email. | Exact and unique: linked automatically. Otherwise suggested. |
+| `reference` | The customer's `reference` holds a person's GatherPack id (`per_…`) anywhere in the text, or, with no id in it, equals an account email (§7.5). | Exact and unique: linked automatically. Otherwise suggested. |
 | `name` | `name` against the person's name, ignoring case, punctuation and accents; also "Last, First". | Confirmed by an admin. |
 | `email` | `email` against account emails. When that person has wards, the wards are suggested too ("ward of <guardian> (email match)"), because a parent often receives each child's bill. | Confirmed by an admin. |
 
@@ -455,6 +455,17 @@ Holders may open each source's Customers page, a customer's page and candidates,
 What a holder sees on a customer's page: the customer's name, email, reference, parent and sub-customers, linked people and suggestions, and the customer's records with their public label, date, total and balance (matching needs a person's name, email and the bills they're for). Admin-only fields stay admin-only (§3.4, §11.8): no "Open in <source>" links (`external_url`), no memos (`description`), and record names are plain text rather than links to the Records pages. A link made by a holder records them as `created_by`.
 
 Navigation: the Account Status sidebar item shows to holders, and its page lists **Sources** with a **Customers** button per source (no Records button, no sync state, no rules unless a badge grant shows them some). Holders reach Customers there without the gateway page, which stays for architects.
+
+### 7.5 Reference: the id in the customer's notes
+
+The `reference` strategy finds a GatherPack id inside the whole reference text, so a customer's QuickBooks **Notes** can hold other words too. The parsing lives in the strategy (`Accounting::CustomerLinks::PERSON_ID_TOKEN`), not the QuickBooks normalizer, so the ledger and file sources get it as well; the normalizer still copies the field whole.
+
+- A token is `per_` followed by lowercase letters and digits, not part of a longer word; matching ignores case. The same token twice counts once.
+- One distinct token: that person (an unknown token matches nobody). Several different tokens: nobody, so a customer for siblings is linked by hand, through suggestions, or by rollup.
+- No token: the whole value is tried as an account email, as before.
+- Recommended setup for QuickBooks: `match_field_path` `Notes`, `match_strategies` `reference name email`. Tested against a QuickBooks sandbox: Notes saves and returns through the API; `AcctNum` on a Customer is ignored, and `ResaleNum` works but is a tax field.
+
+**Copy GatherPack ID.** On the person's Account tab (§11.4), anyone who may match customers (§7.4) sees their GatherPack id with a **Copy** button and one line per source that uses the reference strategy: "Put this in the customer's Notes in QuickBooks and they link on the next sync." The field name comes from the source (`reference_field_label`; `match_field_path`'s last part for QuickBooks). Nobody else sees it, and it doesn't show when no source uses the reference strategy.
 
 ## 8. Rules
 
@@ -927,7 +938,7 @@ Each step ships with the feature off. A group turns it on after a comparison aga
 
 | Setting | Value |
 |---|---|
-| `match_strategies` | `name email` (email finds the parent and suggests the wards). |
+| `match_strategies` | `name email` (email finds the parent and suggests the wards). With the reference setup of §7.5: `reference name email`, `match_field_path` `Notes`. |
 | `customer_rollup` | `none` |
 | Rule | `balance`, items = the dues product, transaction dates within the season, applies to the members' team, `unapplied_credit: show`. |
 | Milestones | "Deposit": balance at most 50% by the first date. "Paid in full": 0 by the second. |
