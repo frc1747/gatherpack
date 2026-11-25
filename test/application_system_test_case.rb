@@ -20,6 +20,24 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     proxy.raw_session.clear if Warden._on_next_request.any? && !proxy.asset_request?
   end
 
+  # Capybara 3.40 ends a session reset by clearing site data for every origin
+  # with Storage.clearDataForOrigin(origin: "*"), which Chrome 158 rejects with
+  # "* is not a valid URL". Clear the origin the app is served from instead, and
+  # all cookies as before. Remove when Capybara fixes this:
+  # https://github.com/teamcapybara/capybara/blob/3.40.0/lib/capybara/selenium/driver_specializations/chrome_driver.rb
+  module ClearStorageWithoutWildcardOrigin
+    private
+
+    def execute_cdp(command, params = {})
+      return super unless command == "Storage.clearDataForOrigin" && params[:origin] == "*"
+
+      super("Network.clearBrowserCookies")
+      uri = URI(Capybara.app_host || Capybara.current_session.server_url)
+      super(command, **params, origin: "#{uri.scheme}://#{uri.host}:#{uri.port}")
+    end
+  end
+  Capybara::Selenium::Driver::ChromeDriver.prepend(ClearStorageWithoutWildcardOrigin)
+
   # The browser is shared between tests, and some of them resize it.
   setup { page.current_window.resize_to(1400, 1400) }
 
