@@ -233,6 +233,21 @@ class AccountingRulesTest < ActionDispatch::IntegrationTest
     assert_includes Accounting::Access.visible_rules(@laura.user), all_broken
   end
 
+  test "393#13: asking a rule page for errors shows a non-admin nothing" do
+    broken = create_rule("Broken", kind: "custom", read_permission: "team", code: 'raise "secret detail"')
+    evaluate(broken)
+    sign_in @janet.user
+
+    with_accounting { get accounting_rule_path(broken, status: "error") }
+    assert_select "##{dom_id(@janet)}", count: 0
+    assert_select "##{dom_id(@nancy)}", count: 0
+    assert_no_match "secret detail", response.body
+
+    sign_in @laura.user
+    with_accounting { get accounting_rule_path(broken, status: "error") }
+    assert_select "##{dom_id(@nancy)}"
+  end
+
   test "a turned-off rule isn't worked out on save or Evaluate now" do
     @rule.update!(enabled: false)
     sign_in @laura.user

@@ -56,6 +56,19 @@ class Accounting::RulePermissionsTest < ActiveSupport::TestCase
     end
   end
 
+  test "393#13: amounts at every level, under a result everyone sees, reach the people the level names" do
+    READERS.each do |level, expected|
+      rule = create_rule("Dues amounts #{level}", read_permission: "everyone", amount_permission: level)
+
+      seers = @viewers.select { |_, viewer| access(viewer, rule).can_see_amounts? }.keys
+      assert_equal expected, seers, "amount_permission #{level}"
+      @viewers.each do |role, viewer|
+        assert_equal seers.include?(role), rule.amount_people_for(viewer).include?(@nancy), "#{level}: relation and check agree for #{role}"
+      end
+      assert access(@laura, rule).can_see_amounts?
+    end
+  end
+
   test "amount_permission must sit within read_permission" do
     rule = AccountingRule.new(name: "Dues", kind: "balance", gateway: accounting_source, read_permission: "self", amount_permission: "family")
 
