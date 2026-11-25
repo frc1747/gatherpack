@@ -1,4 +1,5 @@
 ENV["RAILS_ENV"] ||= "test"
+require_relative "support/isolated_settings"
 require_relative "../config/environment"
 require "rails/test_help"
 
