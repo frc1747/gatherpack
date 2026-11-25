@@ -9,7 +9,12 @@ class Accounting::LayeringTest < ActiveSupport::TestCase
 
   # The code that copies records stores and hands on the raw data; nothing
   # else outside the sources' own folders reads it.
-  DATA_READERS = [ "app/models/accounting/quickbooks/", "app/models/accounting/sync.rb", "app/models/gateway/quickbooks_gateway.rb" ].freeze
+  DATA_READERS = [
+    "app/models/accounting/quickbooks/", "app/models/gateway/quickbooks_gateway.rb",
+    "app/models/accounting/ledgers/", "app/models/gateway/ledger_source.rb",
+    "app/models/accounting/files/", "app/models/gateway/file_source.rb",
+    "app/models/accounting/sync.rb"
+  ].freeze
 
   test "QuickBooks field names appear only in the QuickBooks source" do
     offending = ruby_and_view_files.reject { |file| QUICKBOOKS_FILES.any? { |allowed| file.start_with?(allowed) } }.select do |file|

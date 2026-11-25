@@ -21,8 +21,9 @@ module Accounting::Provider
   # The name people know the source by ("QuickBooks").
   def source_name = gateway_name
 
-  # The source's own record types, each with the role it normalizes to.
-  # e.g. { "Customer" => :customer, "Invoice" => :charge, "Payment" => :payment }
+  # The source's own record types, each with the role it normalizes to, or
+  # the roles it can normalize to when that depends on the record.
+  # e.g. { "Customer" => :customer, "Invoice" => :charge, "LedgerEntry" => %i[ charge payment ] }
   def entity_types = raise NotImplementedError
 
   # Yields raw attribute hashes for every record of the type. A full sync
@@ -80,6 +81,11 @@ module Accounting::Provider
   # Whether the sync jobs should run for this source now.
   def syncable? = connection_state == :ok
 
+  # How often the nightly job reads every record again: :weekly (Sundays),
+  # :nightly, or :never for a source whose records only change when someone
+  # uploads them.
+  def full_sync_cadence = :weekly
+
   # Writes state the system keeps (last sync, last error) into
   # configuration straight to the row: no gateway hooks or audit log entry
   # every few minutes, and an architect saving the settings meanwhile
@@ -98,11 +104,26 @@ module Accounting::Provider
     Hook.where(event: "accounting - sync failed").each { |hook| hook.run(self) }
   end
 
+  # A revision for a source whose records carry no version of their own: a
+  # digest of the raw data, the same whatever order its keys come in (jsonb
+  # doesn't keep the order).
+  def content_revision(data)
+    Digest::SHA256.hexdigest(canonical(data).to_json)
+  end
+
   def last_full_sync_time = state_time("last_full_sync_at")
   def last_change_check_time = state_time("last_change_check_at")
   def last_error_time = state_time("last_error_at")
 
   private
+    def canonical(value)
+      case value
+      when Hash then value.to_h { |key, item| [ key.to_s, canonical(item) ] }.sort.to_h
+      when Array then value.map { |item| canonical(item) }
+      else value
+      end
+    end
+
     def state_time(key)
       value = (configuration || {})[key]
       value.present? ? Time.zone.parse(value.to_s) : nil

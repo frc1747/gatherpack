@@ -3,8 +3,9 @@ crumb :"gateway/quickbooks_gateway" do |gateway|
   parent :gateways
 end
 
-# Records and Customers sit under Account Status, where admins reach them;
-# architects reach Records from the gateway page too.
+# Records, Customers and Uploads sit under Account Status, where admins
+# reach them; architects reach Records from the gateway page too. The
+# gateway pages themselves stay under Gateways.
 crumb :accounting_records do |source|
   link "#{source.name} records", accounting_connection_records_path(source)
   parent :accounting_rules
@@ -52,4 +53,32 @@ end
 crumb :person_accounting_statement do |person|
   link "Statement", person_accounting_statement_path(person)
   parent :person_accounting, person
+end
+
+crumb :"gateway/ledger_source" do |gateway|
+  if gateway.new_record?
+    link "New gateway"
+  else
+    link gateway.identifier_name, gateway_path(gateway)
+  end
+  parent :gateways
+end
+
+crumb :"gateway/file_source" do |gateway|
+  if gateway.new_record?
+    link "New gateway"
+  else
+    link gateway.identifier_name, gateway_path(gateway)
+  end
+  parent :gateways
+end
+
+crumb :new_accounting_upload do |source|
+  link "Upload", new_accounting_connection_upload_path(source)
+  parent :accounting_records, source
+end
+
+crumb :accounting_upload do |upload|
+  link upload.identifier_name, accounting_connection_upload_path(upload.gateway, upload)
+  parent :accounting_records, upload.gateway
 end

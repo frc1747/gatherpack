@@ -1,9 +1,10 @@
 # Accounting: account status from a group's books. Sources are gateways
-# registered under :accounting (Gateway::QuickbooksGateway); their records
-# are copied into accounting_records, and accounting_customer_links say
-# which people each customer is for. Rules (accounting_rules) answer a
-# question about each person from those records; the answers are shown on
-# Account Status and each person's Account tab. Routes are in config/routes/accounting.rb
+# registered under :accounting (Gateway::QuickbooksGateway,
+# Gateway::LedgerSource, Gateway::FileSource); their records are copied
+# into accounting_records, and accounting_customer_links say which people
+# each customer is for. Rules (accounting_rules) answer a question about
+# each person from those records; the answers are shown on Account Status
+# and each person's Account tab. Routes are in config/routes/accounting.rb
 # and recurring jobs in config/recurring.d/accounting.yml; both do nothing
 # while the feature is off.
 Rails.application.config.to_prepare do
@@ -42,4 +43,13 @@ Rails.application.config.to_prepare do
   GatherPack::HookCatalog.register_events("accounting - customer unlinked")
   # model is an AccountingRuleChange, after the result is saved.
   GatherPack::HookCatalog.register_events(Accounting::Evaluation::EVENT)
+
+  # Gateway types can choose their settings' inputs (the ledger source's
+  # teams and tags are tick boxes and choices).
+  Gateway.include(GatewayFieldInput) unless Gateway < GatewayFieldInput
+
+  # Ledger sources read the ledgers again whenever one of these changes.
+  [ Ledger, LedgerEntry, LedgerTagging, LedgerOwnership ].each do |model|
+    model.include(Accounting::LedgerChanges) unless model < Accounting::LedgerChanges
+  end
 end

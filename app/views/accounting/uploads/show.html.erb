@@ -1,0 +1,80 @@
+<% breadcrumb :accounting_upload, @upload %>
+
+<div class="card mb-3">
+  <%= render "shared/page_header", title: @upload.identifier_name,
+        summary: "Uploaded #{l(@upload.created_at, format: :short)}#{" by #{@upload.created_by.identifier_name}" if @upload.created_by}. #{pluralize(@upload.row_count, 'row')}." %>
+  <div class="card-body">
+    <% case @upload.status %>
+    <% when "applied" %>
+      <p class="mb-0">Applied <%= l(@upload.applied_at, format: :short) %><%= " by #{@upload.applied_by.identifier_name}" if @upload.applied_by %>.</p>
+    <% when "applying" %>
+      <p class="mb-0">Applying. The records show in a minute.</p>
+    <% else %>
+      <% if @upload.problems? %>
+        <p class="mb-0 text-danger">Fix the rows below in the file and upload it again. Nothing is saved until every row reads.</p>
+      <% else %>
+        <p class="mb-0">
+          Applying adds <%= @preview.count("add") %>, changes <%= @preview.count("change") %> and removes <%= @preview.count("remove") %>.
+          The records then match this file: anything not in it is marked deleted.
+        </p>
+      <% end %>
+    <% end %>
+  </div>
+  <div class="card-footer d-flex flex-wrap gap-2">
+    <% if @upload.status == "previewed" %>
+      <%= link_to "Cancel", accounting_connection_records_path(@source), class: "btn btn-secondary" %>
+      <%= button_to "Apply", apply_accounting_connection_upload_path(@source, @upload), method: :post, class: "btn btn-primary",
+            disabled: !@upload.appliable? %>
+    <% else %>
+      <%= link_to "Records", accounting_connection_records_path(@source), class: "btn btn-secondary" %>
+    <% end %>
+  </div>
+</div>
+
+<% if @upload.problems? %>
+  <div class="card mb-3">
+    <div class="card-header"><h2 class="h5 mb-0">Rows to fix</h2></div>
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead><tr><th>Row</th><th>Problem</th></tr></thead>
+        <tbody>
+          <% @upload.row_errors.each do |problem| %>
+            <tr><td><%= problem["row"] || "File" %></td><td><%= problem["message"] %></td></tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% end %>
+
+<% if @upload.status == "previewed" %>
+  <% if @preview.rows.any? %>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Change</th>
+            <th>What</th>
+            <th>Customer</th>
+            <th class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @preview.rows.first(500).each do |row| %>
+            <tr>
+              <td><%= { "add" => "Add", "change" => "Change", "remove" => "Remove" }.fetch(row.change) %></td>
+              <td><%= row.role.in?(%w[ customer item ]) ? "#{accounting_role_name(row.role)}: #{row.label}" : row.label.presence || accounting_role_name(row.role) %></td>
+              <td><%= row.customer %></td>
+              <td class="text-end"><%= accounting_cents(row.total_cents) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% if @preview.rows.size > 500 %>
+      <p class="text-muted">And <%= @preview.rows.size - 500 %> more.</p>
+    <% end %>
+  <% elsif !@upload.problems? %>
+    <%= render "shared/empty_state", text: "Nothing changes: the records already match this file." %>
+  <% end %>
+<% end %>

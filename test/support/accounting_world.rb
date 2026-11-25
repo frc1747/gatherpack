@@ -2,7 +2,8 @@ require_relative "settings_test_helper"
 
 # Helpers for accounting tests: a QuickBooks gateway, a fake transport that
 # answers with the recorded sandbox responses in
-# test/fixtures/files/quickbooks/ and records every request, and people.
+# test/fixtures/files/quickbooks/ and records every request, ledger and
+# file sources, ledgers, and people.
 module AccountingWorld
   include SettingsTestHelper
 
@@ -131,6 +132,32 @@ module AccountingWorld
   def create_customer_record(source, id, name:, email: nil, reference: nil, parent: nil, active: true)
     source.accounting_records.create!(entity_type: "Customer", external_id: id, role: "customer", customer_external_id: id,
       name: name, email: email, reference: reference, parent_external_id: parent, active: active, data: {})
+  end
+
+  def create_ledger_source(**configuration)
+    Gateway::LedgerSource.create!(name: "Member ledgers", **configuration)
+  end
+
+  def create_file_source
+    Gateway::FileSource.create!(name: "Dues sheet")
+  end
+
+  def create_ledger_team(name)
+    Team.create!(name: name, team_type: team_types(:one))
+  end
+
+  # A ledger on the team owned by each of owners.
+  def create_ledger(name, team:, owners: [])
+    ledger = Ledger.create!(name: name, team: team)
+    owners.each { |owner| ledger.ledger_ownerships.create!(owner: owner) }
+    ledger
+  end
+
+  # An entry dated at, carrying tags; at keeps entries in a known order.
+  def add_entry(ledger, amount_cents, by:, at: Time.current, tags: [], **attributes)
+    entry = ledger.ledger_entries.create!(amount_cents: amount_cents, created_by: by, created_at: at, **attributes)
+    tags.each { |tag| entry.ledger_taggings.create!(ledger_tag: tag) }
+    entry
   end
 
   def sign_webhook(body, token = VERIFIER)
