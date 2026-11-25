@@ -13,7 +13,7 @@
         <p class="text-muted">
           Upload a single square image at least 128x128px.
         </p>
-        <% if @theme.logo.attached? %>
+        <% if @theme.logo.attached? && @theme.logo.blob.persisted? %>
           <div class="mb-2">
             <%= image_tag @theme.logo, style: "max-height: 80px; max-width: 80px;", class: "d-block mb-2" %>
             <div class="form-check">
@@ -22,7 +22,7 @@
             </div>
           </div>
         <% end %>
-        <%= f.input :logo, as: :file, label: "Upload logo (SVG or PNG)", input_html: { accept: "image/svg+xml,image/png,image/jpeg" } %>
+        <%= f.input :logo, as: :file, label: "Upload logo (PNG, JPEG or WebP)", input_html: { accept: "image/png,image/jpeg,image/webp" } %>
       </div>
     </div>
   </div>
@@ -35,7 +35,7 @@
         <p class="text-muted">
           Upload a single square image at least 512x512px.
         </p>
-        <% if @theme.pwa_icon.attached? %>
+        <% if @theme.pwa_icon.attached? && @theme.pwa_icon.blob.persisted? %>
           <div class="mb-2">
             <%= image_tag @theme.pwa_icon, style: "max-height: 80px; max-width: 80px;", class: "d-block mb-2" %>
             <div class="form-check">
@@ -44,7 +44,7 @@
             </div>
           </div>
         <% end %>
-        <%= f.input :pwa_icon, as: :file, label: "Upload PWA icon (PNG, ≥512×512)", input_html: { accept: "image/png,image/jpeg" } %>
+        <%= f.input :pwa_icon, as: :file, label: "Upload PWA icon (PNG, JPEG or WebP, ≥512×512)", input_html: { accept: "image/png,image/jpeg,image/webp" } %>
       </div>
     </div>
   </div>

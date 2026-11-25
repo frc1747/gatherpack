@@ -1,5 +1,5 @@
 <div class="card" id="<%= dom_id team %>">
-  <div class="card-header fs-4" style="background-color: <%= team.color %>;">
+  <div class="card-header fs-4" style="background-color: <%= safe_color(team.color) %>;">
     <%= link_to team, style: "color: #{contrasting_color(team.color)}", "data-turbo": "false" do %>
       <%= i team.team_type.icon %> <%= team.name %>
     <% end %>

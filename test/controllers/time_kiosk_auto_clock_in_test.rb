@@ -15,7 +15,9 @@ class TimeKioskAutoClockInTest < ActionDispatch::IntegrationTest
     Membership.create!(person: @member, team: @team)
     @member_token = Token.create!(value: "100000001", tokenable: @member)
 
-    sign_in create_person("kiosk@example.com").user
+    kiosk_user = create_person("kiosk@example.com").user
+    kiosk_user.update!(kiosk: true)
+    sign_in kiosk_user
   end
 
   test "with unassigned off and one period, a scan clocks the person in once" do

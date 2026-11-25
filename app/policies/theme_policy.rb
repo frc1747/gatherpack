@@ -1,2 +1,2 @@
-class ThemePolicy < ApplicationPolicy
+class ThemePolicy < AdminPolicy
 end

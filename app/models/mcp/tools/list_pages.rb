@@ -1,9 +1,7 @@
 # The pages the viewer can open. Mirrors the index's policy_scope(Page)
 # (PagesController#index, line 6), narrowed by PagePolicy#show?, the check on the show
-# action (set_page, line 53), since the index also lists pages that won't open for this
-# viewer. PagePolicy::Scope's team_id: "" matches nothing, so a team-less page reaches a
-# non-admin only if its viewer level is public or user. No content or preview, which the
-# index shows even for a page it won't open.
+# action (set_page, line 53). PagePolicy::Scope's team_id: "" matches nothing, so a team-less page reaches a
+# non-admin only if its viewer level is public or user. No content or preview.
 class Mcp::Tools::ListPages < Mcp::Tool
   tool_name "list_pages"
   description "The pages you can open, by title, with team and whether they're dynamic. A page you can't open isn't listed."

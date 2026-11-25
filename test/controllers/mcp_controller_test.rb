@@ -124,11 +124,34 @@ class McpControllerTest < ActionDispatch::IntegrationTest
     mcp_post(token, "tools/list")
     assert_response :success
 
+    # The form requires a scope now, but an application saved before that can have none.
     mcp_application.update_columns(scopes: "")
     mcp_post(token, "tools/list")
 
     assert_response :forbidden
     assert_includes response.headers["WWW-Authenticate"], %(error="insufficient_scope")
+  end
+
+  test "a kiosk account is refused, even with a token made by hand" do
+    user(:alpha_member).update!(kiosk: true)
+    token = mcp_token(user(:alpha_member))
+
+    assert_no_difference "McpToolCall.count" do
+      body = mcp_post(token, "tools/call", { name: "whoami" })
+      assert_equal "MCP isn't enabled for your account", body.dig("error", "message")
+    end
+    assert_response :forbidden
+
+    mcp_post(token, "tools/list")
+    assert_response :forbidden
+  end
+
+  test "an admin flagged as a kiosk isn't kept to it, as on the pages" do
+    user(:admin).update!(kiosk: true)
+
+    mcp_post(mcp_token(user(:admin)), "tools/list")
+
+    assert_response :success
   end
 
   test "an application narrowed to mcp_read narrows its tokens at once" do

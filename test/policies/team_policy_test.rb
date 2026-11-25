@@ -8,6 +8,22 @@ class TeamPolicyTest < ActiveSupport::TestCase
   end
 
   def test_create
+    pack = Team.create!(name: "Pack", team_type: team_types(:one))
+    den = Team.create!(name: "Den", team_type: team_types(:one), parent: pack)
+    other_den = Team.create!(name: "Other Den", team_type: team_types(:one), parent: pack)
+    den_leader = create_person("den-leader@example.com")
+    Membership.create!(person: den_leader, team: den, manager: true)
+    # Manages another den and is a plain member of the pack.
+    other_leader = create_person("other-leader@example.com")
+    Membership.create!(person: other_leader, team: other_den, manager: true)
+    Membership.create!(person: other_leader, team: pack)
+    admin = create_person("admin@example.com", admin: true)
+
+    assert TeamPolicy.new(den_leader.user, Team.new(parent: den)).create?
+    assert_not TeamPolicy.new(den_leader.user, Team.new(parent: pack)).create?
+    assert_not TeamPolicy.new(den_leader.user, Team.new).create?
+    assert_not TeamPolicy.new(other_leader.user, Team.new(parent: pack)).create?
+    assert TeamPolicy.new(admin.user, Team.new).create?
   end
 
   def test_update
@@ -38,8 +54,8 @@ class TeamPolicyTest < ActiveSupport::TestCase
 
   private
 
-  def create_person(email)
-    user = User.create!(email: email, password: "Password1!")
+  def create_person(email, admin: false)
+    user = User.create!(email: email, password: "Password1!", admin: admin)
     Person.create!(user: user, first_name: "Test", last_name: "Person")
   end
 end
