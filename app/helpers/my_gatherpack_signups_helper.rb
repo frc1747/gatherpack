@@ -30,6 +30,9 @@ module MyGatherpackSignupsHelper
   private
 
   def my_gatherpack_signup_time(event)
+    # An all-day or TBA event (feature/event-time-display) isn't a sign-up date waiting for its time.
+    return "All day" if event.respond_to?(:time_kind) && event.time_kind == "all_day"
+    return "Time TBA" if event.respond_to?(:time_kind) && event.time_kind == "tba"
     return "Time not set yet" if SignupNotices.time_unset?(event.start_time, event.end_time)
 
     event.start_time.strftime("%-I:%M %p")
