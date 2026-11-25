@@ -5,6 +5,8 @@
 # before it ran, or deleted.
 class Accounting::UndoRuleActionsJob < ApplicationJob
   queue_as :default
+  # Arguments are records and ids from the books; the log keeps none of them.
+  self.log_arguments = false
 
   limits_concurrency to: 1, key: ->(rule, *) { rule.id }, group: Accounting::EvaluateRuleJob::CONCURRENCY_GROUP
 

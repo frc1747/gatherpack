@@ -30,8 +30,8 @@ module AccountingWorld
     # Answers requests whose method matches and whose URL contains the text
     # (or matches the regexp). A block gets the request and returns the
     # body, or [status, body].
-    def on(method, match = nil, status: 200, body: nil, &block)
-      @handlers << [ method, match, status, body, block ]
+    def on(method, match = nil, status: 200, body: nil, tid: nil, &block)
+      @handlers << [ method, match, status, body, block, tid ]
       self
     end
 
@@ -43,11 +43,11 @@ module AccountingWorld
       end
       raise "No fake QuickBooks answer for #{method.upcase} #{url}" unless handler
 
-      _, _, status, answer, block = handler
+      _, _, status, answer, block, tid = handler
       answer = block.call(request) if block
       status, answer = answer if answer.is_a?(Array) && answer.first.is_a?(Integer)
       answer = answer.to_json unless answer.is_a?(String) || answer.nil?
-      Accounting::Quickbooks::Transport::Response.new(status: status, body: answer.to_s)
+      Accounting::Quickbooks::Transport::Response.new(status: status, body: answer.to_s, intuit_tid: tid)
     end
 
     def api_requests

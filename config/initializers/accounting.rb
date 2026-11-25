@@ -42,6 +42,10 @@ Rails.application.config.to_prepare do
   Badge.has_many :accounting_rule_badge_grants, dependent: :destroy
   Badge.register_access_grants(:accounting_rule_badge_grants)
   Team.has_many :accounting_rules, inverse_of: :team, dependent: :nullify
+  # A notification's body is JSON from QuickBooks naming its company; no gateway's
+  # webhook job logs its arguments.
+  ProcessGatewayWebhookJob.log_arguments = false
+
   # Deleting a source deletes its rules one by one, so each takes back the
   # badges and field values its actions gave.
   Gateway.has_many :accounting_rules, foreign_key: :gateway_id, inverse_of: :gateway, dependent: :destroy
@@ -86,3 +90,8 @@ Rails.application.config.to_prepare do
     model.include(Accounting::GuardianshipChanges) unless model < Accounting::GuardianshipChanges
   end
 end
+
+# QuickBooks' company id, the sign-in's one-time code and state, and the ids in
+# its change notifications stay out of the request log. "code" is matched on
+# its own so every route's code is filtered, not only Doorkeeper's.
+Rails.application.config.filter_parameters += [ :realmId, :intuitaccountid, :intuitentityid, /\Astate\z/, /\Acode\z/ ]

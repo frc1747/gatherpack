@@ -303,7 +303,7 @@ class Accounting::BillingTest < ActiveJob::TestCase
     perform_job(run)
 
     assert line.reload.failed?
-    assert_match(/\Aseen: QuickBooks refused creating the invoice \(Duplicate Name Exists Error/, line.error)
+    assert_match(/\Aseen: QuickBooks refused creating the invoice \(6240 Duplicate Name Exists Error/, line.error)
     assert run.reload.finished?
 
     refuse = false

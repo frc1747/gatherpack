@@ -123,9 +123,15 @@ module Accounting::Provider
   # Writes state the system keeps (last sync, last error) into
   # configuration straight to the row: no gateway hooks or audit log entry
   # every few minutes, and an architect saving the settings meanwhile
-  # doesn't lose theirs.
+  # doesn't lose theirs. Values the source keeps as secrets (QuickBooks'
+  # realm id and company name) go into its encrypted secrets instead, which
+  # the audit log never holds.
   def record_state!(values)
-    values = values.stringify_keys.transform_values { |value| value.respond_to?(:iso8601) ? value.iso8601 : value }
+    kept, values = values.stringify_keys.partition { |name, _| secret_field?(name) }.map(&:to_h)
+    record_secrets!(kept) if kept.any?
+    return if values.empty?
+
+    values = values.transform_values { |value| value.respond_to?(:iso8601) ? value.iso8601 : value }
     Gateway.where(id: id).update_all([ "configuration = COALESCE(configuration, '{}'::jsonb) || ?::jsonb", values.to_json ])
     self.configuration = (configuration || {}).merge(values)
     clear_attribute_changes([ :configuration ])
@@ -150,6 +156,11 @@ module Accounting::Provider
   def last_error_time = state_time("last_error_at")
 
   private
+    # Straight to the row, like the rest of record_state!.
+    def record_secrets!(values)
+      update_columns(secrets: (secrets || {}).merge(values))
+    end
+
     def canonical(value)
       case value
       when Hash then value.to_h { |key, item| [ key.to_s, canonical(item) ] }.sort.to_h

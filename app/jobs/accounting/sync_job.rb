@@ -6,6 +6,8 @@
 # is off or the source isn't connected.
 class Accounting::SyncJob < ApplicationJob
   queue_as :default
+  # Arguments are records and ids from the books; the log keeps none of them.
+  self.log_arguments = false
 
   # One group for every kind of sync job (SolidQueue's default group is the
   # job's class), so a source's full read, changes, fetches, ledger re-reads
