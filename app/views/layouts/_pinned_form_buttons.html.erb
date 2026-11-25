@@ -1,0 +1,6 @@
+<%# Not Turbo-tracked: the sign-in and other Devise pages don't carry this
+    sheet, so tracking it would make Turbo reload the page after signing out
+    and lose the "Signed out successfully." message. %>
+<% if GatherPack::Features.enabled?(:pinned_form_buttons) %>
+  <%= stylesheet_link_tag "pinned_form_buttons" %>
+<% end %>
