@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Kind | upstream bug (hardening) |
-| Priority | low |
-| Status | not started |
+| Priority | low (covered for HBR) |
+| Status | not started (HBR covered by a Cloudflare rule since 2026-11-25) |
 | Added | 2026-11-25 |
 | Upstream base checked | `3d5ce8f96` |
 | Planned branch | `feature/static-nosniff` (from `upstream/main`), or a Cloudflare rule instead |
@@ -23,7 +23,7 @@ Rails pages send `X-Content-Type-Options: nosniff` (Rails' default headers), but
 
 `config/environments/production.rb`: `config.public_file_server.headers = { "Cache-Control" => "public, max-age=#{1.year.to_i}, immutable", "X-Content-Type-Options" => "nosniff" }` (keep the cache header the image sends today: `public, max-age=31556952, immutable`).
 
-Alternative with no code: a Cloudflare response-header Transform Rule on hbrlive.com adding `X-Content-Type-Options: nosniff` for `/assets/*`. Cheaper, but only covers HBR, not other GatherPack installs. Default: the code fix, since it's an upstream file edit of one line and helps every install.
+Alternative with no code: a Cloudflare response-header Transform Rule on hbrlive.com adding `X-Content-Type-Options: nosniff` for `/assets/*`. Cheaper, but only covers HBR, not other GatherPack installs. HBR turned on the Cloudflare rule (2026-11-25): team., ditto. and demo.hbrlive.com now send `nosniff` on every response, once. The code fix is still worth doing for other GatherPack installs; it can wait for a convenient upstream PR.
 
 ## Tests
 
