@@ -93,7 +93,7 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-086](BL-086-table-columns-everywhere.md) | Fork reading tables still without Columns and heading sort/filter: forms, person fields, widgets, kiosk devices, inventory unit, order purchase, authorized apps | fork-only (screens) | medium | not started | 2026-11-25 |
 | [BL-087](BL-087-bad-input-server-errors.md) | Malformed or racing requests give a server error instead of a refusal (calendar notes, profile photo, form answers) | upstream bug + fork bug (forms) | low | not started | 2026-11-25 |
 | [BL-088](BL-088-enforce-csp.md) | Turn the Content-Security-Policy from report-only to enforced | fork-only (security) | medium | not started | 2026-11-25 |
-| [BL-089](BL-089-static-files-nosniff.md) | Static files under /assets lack X-Content-Type-Options: nosniff | upstream bug (hardening) | low | not started (HBR covered by Cloudflare) | 2026-11-25 |
+| [BL-089](BL-089-static-files-nosniff.md) | Static files skip the security headers Rails pages send (nosniff, Permissions-Policy, framing, cross-origin) | upstream bug (hardening) | low | not started (nosniff covered by Cloudflare) | 2026-11-25 |
 | [BL-090](BL-090-trix-dompurify.md) | The rich-text editor bundles a DOMPurify with known advisories | upstream dependency (security) | medium | not started | 2026-11-25 |
 
 ## Fields
