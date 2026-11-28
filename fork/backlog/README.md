@@ -97,6 +97,20 @@ Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the 
 | [BL-090](BL-090-trix-dompurify.md) | The rich-text editor bundles a DOMPurify with known advisories | upstream dependency (security) | medium | not started | 2026-11-25 |
 | [BL-091](BL-091-refusal-redirect-loop.md) | A refused page can redirect to itself forever ("too many redirects") | upstream bug | low | not started | 2026-11-27 |
 | [BL-092](BL-092-shortcuts-sort-error.md) | Sorting or searching the Shortcuts list shows an error page | upstream bug | medium | not started | 2026-11-28 |
+| [BL-093](BL-093-item-links-javascript.md) | Inventory item and supplier links accept `javascript:` URLs | fork bug (security, `feature/inventory`) | medium | not started | 2026-11-28 |
+| [BL-094](BL-094-upload-type-trust.md) | Uploads trust the browser's file type, and most attachments have no type or size check | fork bug (security, `feature/security-series`) + upstream gap | medium | not started | 2026-11-28 |
+| [BL-095](BL-095-locked-checkin-edits.md) | A member can change or delete their own check-in after the event is locked | upstream bug | medium | not started | 2026-11-28 |
+| [BL-096](BL-096-own-punch-edits.md) | Members can lengthen or back-date their own time clock punches | upstream bug (by design?) | medium | not started | 2026-11-28 |
+| [BL-097](BL-097-mcp-person-scope.md) | Some MCP tools look up a person outside what the member can see | fork bug (security, `feature/mcp-*`) | high | not started | 2026-11-28 |
+| [BL-098](BL-098-mcp-locked-tokens.md) | Locked accounts and "sign out everywhere" keep working MCP tokens | fork bug (security, `feature/mcp`) | high | not started | 2026-11-28 |
+| [BL-099](BL-099-oauth-rate-limits.md) | OAuth endpoints have no rate limit | upstream gap + fork (MCP) | medium | not started | 2026-11-28 |
+| [BL-100](BL-100-registration-guardian-links.md) | A registration manager can choose any guardian type and link anyone as a minor's guardian | fork bug (security, `feature/intake`) | medium | not started | 2026-11-28 |
+| [BL-101](BL-101-guardianship-removal-scope.md) | A manager of only the guardian can remove a guardianship for a child on another team | upstream bug | medium | not started | 2026-11-28 |
+| [BL-102](BL-102-self-assign-power-badges.md) | Self-assignable badges can grant powers | upstream gap (configuration) | low | not started | 2026-11-28 |
+| [BL-103](BL-103-redecide-applications.md) | A membership application can be approved after it was denied, or approved twice | upstream bug | low | not started | 2026-11-28 |
+| [BL-104](BL-104-inventory-csv-formulas.md) | Two inventory CSV exports don't guard against spreadsheet formulas | fork bug (`feature/inventory`) | low | not started | 2026-11-28 |
+| [BL-105](BL-105-escaped-page-erb.md) | Dynamic Pages and Widgets don't escape `<%= %>` output | upstream gap (hardening) + fork (widgets) | medium | not started | 2026-11-28 |
+| [BL-106](BL-106-security-checks-to-confirm.md) | Security checks to confirm on Ditto (expected fine) | security (checks) | low | not started | 2026-11-28 |
 
 ## Fields
 

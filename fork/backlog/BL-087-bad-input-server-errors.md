@@ -33,6 +33,7 @@ The full campaign (2026-11-27/28: student, parent, mentor, student2 and architec
 | Time clock summary with junk `starts_at`/`ends_at` | `Time.zone.parse` returns nil or raises "argument out of range"; `.to_date` on nil (`app/controllers/time_clock_periods_controller.rb:36,41,45-46`); also `time_clock_punch.rb` compares with nil | 745 |
 | Team or funding source with an unknown enum value | `ArgumentError: '...' is not a valid join_permission / kind` | 20 |
 | A NUL byte in any search box or text field (search, time clock, check-ins, memberships, inventory, orders) | `ArgumentError: string contains null byte` | about 110 |
+| `PATCH /users/:id` with `user[person_id]` | permitted in `users_controller.rb` but `users` has no such column: unknown attribute | not seen in scans (code reading) |
 | Any record id with an unknown prefix | `NeatIds::Error` from `application_record.rb:43` (beyond calendar notes) | 318 |
 
 ## Where things are (upstream `3d5ce8f96`)
