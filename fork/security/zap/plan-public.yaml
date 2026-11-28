@@ -1,0 +1,127 @@
+# ZAP automation plan: signed-out scan of the site's public entry points.
+# Run with run-scan.sh public deep   (procedure: security-scan skill)
+# Run it alone, last: attacks on sign-in can trip the site's rate limits for this
+# machine's IP, which would also stop the signed-in scans.
+env:
+  contexts:
+    - name: scan-public
+      urls:
+        - ${SCAN_BASE_URL}/
+      includePaths:
+        - "${SCAN_URL_RE}/users/(sign_in|password|unlock).*"
+        - "${SCAN_URL_RE}/join/.*"
+        - "${SCAN_URL_RE}/time_kiosk.*"
+        - "${SCAN_URL_RE}/oauth/.*"
+        - "${SCAN_URL_RE}/mcp.*"
+        - "${SCAN_URL_RE}/\\.well-known/.*"
+        - "${SCAN_URL_RE}/share.*"
+        - "${SCAN_URL_RE}/registration-spam/.*"
+        - "${SCAN_URL_RE}/gateways/[^/]+/webhook.*"
+        - "${SCAN_URL_RE}/jobs.*"
+        - "${SCAN_URL_RE}/?$"
+      technology:
+        exclude: [CouchDB, Firebird, HypersonicSQL, IBM DB2, Microsoft Access, Microsoft SQL Server, MongoDB, MySQL, Oracle, SAP MaxDB, SQLite, Sybase, ASP, C, JSP/Servlet, Java, Spring, PHP, Python, MacOS, Windows, Apache, IIS, Tomcat]
+  parameters:
+    failOnError: false
+    progressToStdout: true
+jobs:
+  - type: script
+    parameters:
+      action: add
+      type: httpsender
+      engine: "ECMAScript : Graal.js"
+      name: gp-csrf-token
+      source: ${SCAN_KIT_DIR}/gp-csrf-token.js
+  # "add" alone leaves an HTTP sender script switched off in -cmd runs.
+  - type: script
+    parameters:
+      action: enable
+      name: gp-csrf-token
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+    rules:
+      - {id: 10096, threshold: "off"}
+      - {id: 10027, threshold: "off"}
+      - {id: 10109, threshold: "off"}
+      - {id: 10015, threshold: "off"}
+      - {id: 10050, threshold: "off"}
+  # Entry points nothing links to from the sign-in page.
+  - type: requestor
+    requests:
+      - url: ${SCAN_BASE_URL}/users/sign_in
+      - url: ${SCAN_BASE_URL}/users/password/new
+      - url: ${SCAN_BASE_URL}/users/unlock/new
+      - url: ${SCAN_BASE_URL}/join/verify
+      - url: ${SCAN_BASE_URL}/join/guardian
+      - url: ${SCAN_BASE_URL}/join/email
+      - url: ${SCAN_BASE_URL}/join/no-such-registration
+      - url: ${SCAN_BASE_URL}/time_kiosk
+      - url: ${SCAN_BASE_URL}/time_kiosk/pair/ABC123
+      - url: ${SCAN_BASE_URL}/oauth/authorize?client_id=x&redirect_uri=https://example.invalid/cb&response_type=code&code_challenge=abc&code_challenge_method=S256
+      - url: ${SCAN_BASE_URL}/oauth/token
+        method: POST
+        data: "grant_type=authorization_code&code=x&client_id=x&redirect_uri=https://example.invalid/cb&code_verifier=abc"
+      - url: ${SCAN_BASE_URL}/oauth/token/info
+      - url: ${SCAN_BASE_URL}/mcp
+        method: POST
+        data: '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+        headers:
+          - "Content-Type: application/json"
+      - url: ${SCAN_BASE_URL}/.well-known/oauth-protected-resource
+      - url: ${SCAN_BASE_URL}/.well-known/oauth-authorization-server
+      - url: ${SCAN_BASE_URL}/share
+      - url: ${SCAN_BASE_URL}/registration-spam/x
+      - url: ${SCAN_BASE_URL}/jobs
+  - type: spider
+    parameters:
+      context: scan-public
+      maxDuration: 10
+      threadCount: 2
+      handleParameters: ignore_value
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+  - type: activeScan-policy
+    parameters:
+      name: gatherpack-public
+    policyDefinition:
+      defaultStrength: Medium
+      defaultThreshold: Medium
+      rules:
+        - {id: 40012, strength: High}
+        - {id: 40018, strength: High}
+        - {id: 40022, strength: High}
+        - {id: 90035, strength: High}
+        - {id: 20019, strength: High}
+        - {id: 6, strength: Medium}
+        - {id: 40003, strength: Medium}
+        - {id: 0, threshold: "off"}
+        - {id: 7, threshold: "off"}
+        - {id: 10095, threshold: "off"}
+        - {id: 10104, threshold: "off"}
+        - {id: 30001, threshold: "off"}
+        - {id: 30002, threshold: "off"}
+        - {id: 40038, threshold: "off"}
+        - {id: 40043, threshold: "off"}
+        - {id: 40045, threshold: "off"}
+        - {id: 40046, threshold: "off"}
+        - {id: 40047, threshold: "off"}
+  - type: activeScan
+    parameters:
+      context: scan-public
+      policy: gatherpack-public
+      maxScanDurationInMins: ${ZAP_ASCAN_MIN}
+      maxRuleDurationInMins: 20
+      threadPerHost: 2
+  - type: report
+    parameters:
+      template: traditional-html-plus
+      reportDir: ${ZAP_OUT}
+      reportFile: scan-public
+      reportTitle: Staging public entry points (signed out)
+  - type: report
+    parameters:
+      template: traditional-json-plus
+      reportDir: ${ZAP_OUT}
+      reportFile: scan-public

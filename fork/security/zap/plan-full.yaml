@@ -1,0 +1,83 @@
+# ZAP automation plan: authenticated scan of the staging site as one non-admin role.
+# First-pass plan. Run with run-scan.sh <role> [quick|full].
+# Env (filled in by run-scan.sh with envsubst): SCAN_BASE_URL, SCAN_URL_RE (its
+# escaped regex), SCAN_KIT_DIR, ZAP_ROLE, ZAP_EMAIL, ZAP_PW, ZAP_OUT,
+# ZAP_SPIDER_MIN, ZAP_AJAX_MIN, ZAP_ASCAN_MIN
+env:
+  contexts:
+    - name: scan
+      urls:
+        - ${SCAN_BASE_URL}/
+      includePaths:
+        - "${SCAN_URL_RE}.*"
+      excludePaths:
+        # Sign-in/out, password and account pages: scanning them would lock
+        # or sign out the scan user (Devise lockable, session tokens) or
+        # delete the account. The unauthenticated scan covered sign-in.
+        - "${SCAN_URL_RE}/users.*"
+        - "${SCAN_URL_RE}/cable.*"
+        # Signed file downloads (avatars, attachments): hundreds of URLs, no
+        # parameters worth attacking. Direct uploads stay in scope.
+        - "${SCAN_URL_RE}/rails/active_storage/(blobs|representations|disk)/.*"
+      authentication:
+        method: browser
+        parameters:
+          loginPageUrl: ${SCAN_BASE_URL}/users/sign_in
+          loginPageWait: 5
+          browserId: firefox-headless
+          stepDelay: 0
+        verification:
+          method: autodetect
+      sessionManagement:
+        method: autodetect
+      users:
+        - name: ${ZAP_ROLE}
+          credentials:
+            username: ${ZAP_EMAIL}
+            password: ${ZAP_PW}
+  parameters:
+    failOnError: false
+    progressToStdout: true
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 20
+  - type: requestor
+    parameters:
+      user: ${ZAP_ROLE}
+    requests:
+      - url: ${SCAN_BASE_URL}/
+  - type: spider
+    parameters:
+      context: scan
+      user: ${ZAP_ROLE}
+      maxDuration: ${ZAP_SPIDER_MIN}
+      threadCount: 2
+  - type: spiderAjax
+    parameters:
+      context: scan
+      user: ${ZAP_ROLE}
+      maxDuration: ${ZAP_AJAX_MIN}
+      browserId: firefox-headless
+      numberOfBrowsers: 1
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 10
+  - type: activeScan
+    parameters:
+      context: scan
+      user: ${ZAP_ROLE}
+      maxScanDurationInMins: ${ZAP_ASCAN_MIN}
+      maxRuleDurationInMins: 5
+      threadPerHost: 2
+  - type: report
+    parameters:
+      template: traditional-html-plus
+      reportDir: ${ZAP_OUT}
+      reportFile: scan-${ZAP_ROLE}
+      reportTitle: Staging authenticated scan (${ZAP_ROLE})
+  - type: report
+    parameters:
+      template: traditional-json-plus
+      reportDir: ${ZAP_OUT}
+      reportFile: scan-${ZAP_ROLE}

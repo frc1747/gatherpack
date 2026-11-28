@@ -1,0 +1,16 @@
+# kind<TAB>regex (alert name + " " + url path, or error class + " " + app file:line)<TAB>verdict
+alert	^Vulnerable JS Library .*trix	BL-090
+alert	^SQL Injection .*/forms/.*/responses/	false alarm: form-answer save race / bound values
+alert	^SQL Injection .*/calendar/calendar\.json	false alarm: bound values
+alert	^Source Code Disclosure - File Inclusion 	false alarm: junk changes the page, no file read
+alert	^Path Traversal 	false alarm: junk echoed, no file read
+alert	^Proxy Disclosure 	Cloudflare
+alert	^Content Security Policy	BL-088
+alert	^Missing Anti-clickjacking Header .*offline\.html	BL-089
+alert	^Anti-CSRF Tokens Check 	false alarm: site search is a GET form
+alert	^Absence of Anti-CSRF Tokens 	false alarm: site search is a GET form
+alert	^Sub Resource Integrity Attribute Missing 	BL-089 (Google Fonts)
+alert	^PII Disclosure .*manifest\.json	false alarm: a number
+error	^(ActionController::RoutingError|Pundit::NotAuthorizedError|ActionController::InvalidAuthenticityToken) 	expected refusals
+error	shortcuts_controller\.rb	BL-092
+error	^(ArgumentError|NoMethodError|KeyError|Date::Error|NeatIds::Error|RuntimeError|ActionView::Template::Error|ActiveRecord::|PG::|Rack::QueryParser|ActiveSupport::MessageVerifier) 	BL-087 (bad input) unless the location is new

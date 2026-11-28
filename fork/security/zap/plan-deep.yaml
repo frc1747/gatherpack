@@ -1,0 +1,273 @@
+# ZAP automation plan: deep authenticated scan of the staging site as one role.
+# Run with run-scan.sh <role> deep   (procedure: security-scan skill)
+# Env (filled in by run-scan.sh with envsubst): SCAN_BASE_URL, SCAN_URL_RE (its
+# escaped regex), SCAN_KIT_DIR, ZAP_ROLE, ZAP_EMAIL, ZAP_PW, ZAP_OUT,
+# ZAP_SPIDER_MIN, ZAP_AJAX_MIN, ZAP_ASCAN_MIN
+#
+# Tuned for GatherPack: Rails 8 + Postgres + Hotwire on Linux behind
+# a CDN proxy; Devise sign-in; Pundit refusals redirect with "You are not
+# allowed to do that"; NeatIds (per_..., evt_...) in paths; ransack q[...]
+# filters on every list.
+env:
+  contexts:
+    - name: scan
+      urls:
+        - ${SCAN_BASE_URL}/
+      includePaths:
+        - "${SCAN_URL_RE}.*"
+      excludePaths:
+        # Account pages: scanning them would lock the scan user (Devise
+        # lockable), end its session or delete it. Covered by the public scan.
+        - "${SCAN_URL_RE}/users.*"
+        - "${SCAN_URL_RE}/cable.*"
+        # Signed file downloads: hundreds of URLs, nothing to attack.
+        - "${SCAN_URL_RE}/rails/active_storage/(blobs|representations|disk)/.*"
+        # Provider webhooks and the jobs dashboard (HTTP basic auth): not
+        # reachable by a member's session; the public scan covers them.
+        - "${SCAN_URL_RE}/gateways/[^/]+/webhook.*"
+        - "${SCAN_URL_RE}/jobs.*"
+      technology:
+        exclude:
+          - CouchDB
+          - Firebird
+          - HypersonicSQL
+          - IBM DB2
+          - Microsoft Access
+          - Microsoft SQL Server
+          - MongoDB
+          - MySQL
+          - Oracle
+          - SAP MaxDB
+          - SQLite
+          - Sybase
+          - ASP
+          - C
+          - JSP/Servlet
+          - Java
+          - Spring
+          - PHP
+          - Python
+          - MacOS
+          - Windows
+          - Apache
+          - IIS
+          - Tomcat
+      # Sign-in script (gp-auth.js): loads the sign-in page and posts the
+      # form with its authenticity_token in one session. ZAP's built-in form
+      # sign-in sent a stale token; browser sign-in (authhelper 0.44) reported
+      # most sign-ins as failed and stalled the crawl while it retried.
+      authentication:
+        method: script
+        parameters:
+          script: ${SCAN_KIT_DIR}/gp-auth.js
+          scriptEngine: "ECMAScript : Graal.js"
+          base: ${SCAN_BASE_URL}
+        # Every 30 requests, fetch the sign-in page as the scan user. Signed
+        # in, Devise redirects it away (302, no body); signed out, it shows the
+        # form. ZAP matches only the body, so a signed-in page that redirects
+        # when signed out (the old /notifications poll) never registered as
+        # signed out and ZAP never signed in again: runs fell to the sign-in
+        # wall within the hour. Only the signed-out pattern is set, so "no
+        # form" counts as signed in.
+        verification:
+          method: poll
+          pollUrl: ${SCAN_BASE_URL}/users/sign_in
+          pollFrequency: 30
+          pollUnits: requests
+          loggedOutRegex: "user\\[password\\]"
+      sessionManagement:
+        method: cookie
+      users:
+        - name: ${ZAP_ROLE}
+          credentials:
+            username: ${ZAP_EMAIL}
+            password: ${ZAP_PW}
+  parameters:
+    failOnError: false
+    progressToStdout: true
+jobs:
+  # Rails CSRF tokens on every write (see gp-csrf-token.js).
+  - type: script
+    parameters:
+      action: add
+      type: httpsender
+      engine: "ECMAScript : Graal.js"
+      name: gp-csrf-token
+      source: ${SCAN_KIT_DIR}/gp-csrf-token.js
+  # "add" alone leaves an HTTP sender script switched off in -cmd runs.
+  - type: script
+    parameters:
+      action: enable
+      name: gp-csrf-token
+  # Checked false alarms: mark them so reports show what's left to look at.
+  - type: alertFilter
+    alertFilters:
+      # The calendar feed passes its dates as bound values
+      # (calendar_controller.rb:20); Date.parse ignores trailing junk, which
+      # ZAP reads as a boolean injection.
+      - ruleId: 40018
+        newRisk: "False Positive"
+        urlRegex: true
+        url: "${SCAN_URL_RE}/calendar/calendar\\.json.*"
+      # The layout's shared delete modal: Turbo submits it with the
+      # X-CSRF-Token header, which Rails checks.
+      - ruleId: 10202
+        newRisk: "False Positive"
+        evidenceRegex: true
+        evidence: ".*confirm-delete-form.*"
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+    rules:
+      # Noise on every GatherPack page; nothing to act on.
+      - id: 10096   # Timestamp Disclosure
+        threshold: "off"
+      - id: 10027   # Suspicious Comments (vendored JS)
+        threshold: "off"
+      - id: 10109   # Modern Web Application
+        threshold: "off"
+      - id: 10015   # Re-examine Cache-control Directives
+        threshold: "off"
+      - id: 10050   # Retrieved from Cache
+        threshold: "off"
+      - id: 10111   # Authentication Request Identified
+        threshold: "off"
+      - id: 10112   # Session Management Response Identified
+        threshold: "off"
+      - id: 10113   # Verification Request Identified
+        threshold: "off"
+  - type: requestor
+    parameters:
+      user: ${ZAP_ROLE}
+    requests:
+      - url: ${SCAN_BASE_URL}/
+  - type: spider
+    parameters:
+      context: scan
+      user: ${ZAP_ROLE}
+      maxDuration: ${ZAP_SPIDER_MIN}
+      threadCount: 3
+      # Lists take dozens of ransack q[...] combinations; crawl each page once.
+      handleParameters: ignore_value
+      logoutAvoidance: true
+  # Browser crawl for pages only JavaScript reaches (Turbo frames, Stimulus).
+  # It runs through ZAP's proxy, which applies the scan user's session.
+  - type: spiderAjax
+    parameters:
+      context: scan
+      user: ${ZAP_ROLE}
+      maxDuration: ${ZAP_AJAX_MIN}
+      browserId: firefox-headless
+      numberOfBrowsers: 2
+      maxCrawlDepth: 6
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 15
+  # What this role reached by crawling: input to the cross-role check.
+  - type: export
+    parameters:
+      context: scan
+      type: har
+      source: all
+      fileName: ${ZAP_OUT}/crawl-${ZAP_ROLE}.har
+  # Attack every feature, not every record: keep 3 records per kind of page
+  # (gp-prune-tree.js). After the export, so the cross-role check gets all.
+  - type: script
+    parameters:
+      action: add
+      type: standalone
+      engine: "ECMAScript : Graal.js"
+      name: gp-prune-tree
+      source: ${SCAN_KIT_DIR}/gp-prune-tree.js
+  - type: script
+    parameters:
+      action: run
+      type: standalone
+      engine: "ECMAScript : Graal.js"
+      name: gp-prune-tree
+  - type: activeScan-policy
+    parameters:
+      name: gatherpack
+    policyDefinition:
+      defaultStrength: Medium
+      defaultThreshold: Medium
+      rules:
+        # Where a Rails app like this breaks: output escaping, redirects,
+        # templates, SQL built from params (ransack), file paths.
+        - {id: 40012, strength: High}     # XSS reflected
+        - {id: 40014, strength: High}     # XSS persistent
+        - {id: 40016, strength: High}     # XSS persistent (prime)
+        - {id: 40017, strength: High}     # XSS persistent (spider)
+        - {id: 40018, strength: High}     # SQL injection
+        - {id: 40022, strength: High}     # SQL injection, PostgreSQL time based
+        - {id: 90035, strength: High}     # Server side template injection
+        - {id: 90036, strength: Medium}   # Server side template injection, blind
+        - {id: 20019, strength: High}     # External redirect (redirect_to params)
+        - {id: 6, strength: Medium}       # Path traversal
+        - {id: 40003, strength: Medium}   # CRLF injection
+        - {id: 40008, strength: Medium}   # Parameter tampering
+        - {id: 90020, strength: Medium}   # OS command injection
+        - {id: 90037, strength: Low}      # OS command injection, time based
+        - {id: 90023, strength: Low}      # XXE
+        - {id: 40040, strength: Low}      # CORS
+        - {id: 10058, strength: Low}      # GET for POST
+        # Off: other platforms, out-of-band (needs an external callback
+        # server), or noise behind a CDN proxy.
+        - {id: 0, threshold: "off"}       # Directory browsing
+        - {id: 7, threshold: "off"}       # Remote file inclusion (PHP)
+        - {id: 10095, threshold: "off"}   # Backup file disclosure (slow, routes only)
+        - {id: 10104, threshold: "off"}   # User agent fuzzer
+        - {id: 30001, threshold: "off"}   # Buffer overflow
+        - {id: 30002, threshold: "off"}   # Format string
+        - {id: 40009, threshold: "off"}   # Server side include
+        - {id: 40028, threshold: "off"}   # ELMAH
+        - {id: 40029, threshold: "off"}   # Trace.axd
+        - {id: 40032, threshold: "off"}   # .htaccess
+        - {id: 40038, threshold: "off"}   # Bypassing 403 (CDN proxy noise)
+        - {id: 40043, threshold: "off"}   # Log4Shell (OAST)
+        - {id: 40045, threshold: "off"}   # Spring4Shell
+        - {id: 40046, threshold: "off"}   # SSRF (OAST)
+        - {id: 40047, threshold: "off"}   # Text4Shell (OAST)
+        - {id: 90017, threshold: "off"}   # XSLT injection
+        - {id: 90019, threshold: "off"}   # Server side code injection (PHP/ASP)
+        - {id: 90021, threshold: "off"}   # XPath injection
+        - {id: 90024, threshold: "off"}   # Padding oracle
+        - {id: 90025, threshold: "off"}   # Expression language injection (Java)
+        - {id: 90026, threshold: "off"}   # SOAP action spoofing
+        - {id: 90029, threshold: "off"}   # SOAP XML injection
+        - {id: 40048, threshold: "off"}   # React2Shell (React server components; sat at 0% for hours)
+  - type: activeScan
+    parameters:
+      context: scan
+      user: ${ZAP_ROLE}
+      policy: gatherpack
+      maxScanDurationInMins: ${ZAP_ASCAN_MIN}
+      maxRuleDurationInMins: 60
+      threadPerHost: 6
+      handleAntiCSRFTokens: true
+      injectPluginIdInHeader: true
+  # Mark the checked false alarms (alertFilter job above) before reporting.
+  - type: script
+    parameters:
+      action: add
+      type: standalone
+      engine: "ECMAScript : Graal.js"
+      name: gp-apply-filters
+      source: ${SCAN_KIT_DIR}/gp-apply-filters.js
+  - type: script
+    parameters:
+      action: run
+      type: standalone
+      engine: "ECMAScript : Graal.js"
+      name: gp-apply-filters
+  - type: report
+    parameters:
+      template: traditional-html-plus
+      reportDir: ${ZAP_OUT}
+      reportFile: scan-${ZAP_ROLE}
+      reportTitle: Staging deep scan (${ZAP_ROLE})
+  - type: report
+    parameters:
+      template: traditional-json-plus
+      reportDir: ${ZAP_OUT}
+      reportFile: scan-${ZAP_ROLE}
