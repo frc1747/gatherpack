@@ -5,7 +5,7 @@
 | Kind | upstream bug (three cases) + fork bug (`feature/forms`, two cases) |
 | Priority | low |
 | Status | not started |
-| Added | 2026-11-25 (calendar case 2026-11-26) |
+| Added | 2026-11-25 (calendar case 2026-11-26; campaign cases 2026-11-28) |
 | Upstream base checked | `3d5ce8f96` |
 | Planned branch | `feature/bad-input-422` (from `upstream/main`) for the upstream cases; the forms cases on `feature/forms` |
 | Upstream issue / PR | none yet |
@@ -21,6 +21,19 @@ An authenticated ZAP scan of Ditto (hbr.56, signed in as a plain student) sent g
 | `POST /calendar/calendar.json` with a malformed `start_time`/`end_time` | `Date.parse` raises `Date::Error` (birthdays on), or Postgres rejects the timestamp while the view renders (`PG::InvalidDatetimeFormat`) | 50 in 15 minutes (2026-11-26 run) |
 | `PATCH /people/:id` with a tampered avatar `signed_id` | `ActiveSupport::MessageVerifier::InvalidSignature` | 12 |
 | `PATCH /forms/:id/responses/:person` with a NUL byte in an answer | `PG::UntranslatableCharacter` | 3 |
+
+The full campaign (2026-11-27/28: student, parent, mentor, student2 and architect deep scans, then the signed-out scan) found more of the same kind. Counts are across all runs; the error lines are in each run's `ditto-errors.log`.
+
+| Request | Cause (upstream `3d5ce8f96`) | 500s |
+|---|---|---|
+| Relationship add form with the type or person missing | `Relationship#reify` raises a bare `ArgumentError` (`app/models/relationship.rb:15`) | 1,200 |
+| Any list with `q[top_level]=<value>` | the `top_level` ransack scope takes no argument (`app/models/team.rb:25`) | 616 |
+| Most lists with a non-uuid `q[..._id_eq]` (events, badges, announcements, pages, time clock periods, tokens, teams, sign-up sheets) | Postgres rejects the value while the view renders (`PG::InvalidTextRepresentation`) | 1,113 |
+| Lists with a huge number in an id filter (people) | `PG::NumericValueOutOfRange` | 20 |
+| Time clock summary with junk `starts_at`/`ends_at` | `Time.zone.parse` returns nil or raises "argument out of range"; `.to_date` on nil (`app/controllers/time_clock_periods_controller.rb:36,41,45-46`); also `time_clock_punch.rb` compares with nil | 745 |
+| Team or funding source with an unknown enum value | `ArgumentError: '...' is not a valid join_permission / kind` | 20 |
+| A NUL byte in any search box or text field (search, time clock, check-ins, memberships, inventory, orders) | `ArgumentError: string contains null byte` | about 110 |
+| Any record id with an unknown prefix | `NeatIds::Error` from `application_record.rb:43` (beyond calendar notes) | 318 |
 
 ## Where things are (upstream `3d5ce8f96`)
 
@@ -43,6 +56,12 @@ Upstream branch:
 - `start_submission!`: take `with_lock` on the response before reading `maximum(:number)`, and retry once on `RecordNotUnique` by returning the now-open submission.
 - Strip `\u0000` from answer strings before saving (Postgres text can't hold it).
 
+Campaign cases (same branch):
+- `rescue_from ArgumentError`-style input errors is too broad; instead fix each source: `Relationship#reify` adds a validation error instead of raising; `top_level` accepts and ignores an argument (`->(_ = nil) { ... }`); time clock summary falls back to the period's dates when a param doesn't parse; enum setters validate (`validate: true` on the enum, Rails 7.1+).
+- Id filters: one `ApplicationRecord.ransack` wrapper (or a `before_action` on lists) that drops `*_id_eq`/`*_id_in` values that aren't uuids or in-range integers.
+- NUL bytes: strip `\u0000` from params in one `before_action` in `ApplicationController`.
+- `NeatIds::Error`: the `assign_global_id` rescue above covers every model.
+
 ## Tests
 
 - Calendar note create with `team_nid: "bogus_x"` as a non-admin: refused (403/redirect), no 500.
@@ -50,6 +69,8 @@ Upstream branch:
 - Person update with `avatar: "garbage--signed-id"`: 422 with a message, person unchanged.
 - Two concurrent `start_submission!` calls on one response: one draft, no exception.
 - Form answer containing `"a\u0000b"` saves as `"ab"`.
+
+- Campaign cases: `GET /relationships/new` with no type: form shows, no 500; `GET /teams?q[top_level]=1`: 200; `GET /events?q[team_id_eq]=bogus`: 200, empty list; time clock summary with `starts_at=junk`: 200 with the period's dates; team update with `join_permission: "x"`: 422; a search with `%00`: 200.
 
 ## Fork strategy notes
 
