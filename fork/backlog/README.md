@@ -1,6 +1,6 @@
 # HBR Backlog
 
-Work we've found and decided to do later. These are usually upstream bugs or improvements we're holding back so Brad can work through what we've already sent him. Each item has its own file in this folder with enough detail to pick it up cold: what's wrong, how we know, the fix we have in mind, how to test it, and how it fits the fork strategy.
+Work we've found and decided to do later. Each item has its own file in this folder with enough detail to pick it up cold: what's wrong, how we know, the fix we have in mind, how to test it, and how it fits the fork strategy.
 
 Once an item has a branch, [`FORK.md`](../../FORK.md) tracks the branch and the item's file links to it. The status here says where the work stands: `started` while it's being built, `shipped` once it's in our production.
 
